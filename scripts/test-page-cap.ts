@@ -34,7 +34,7 @@ test('the known whole-list readers use the paged helper', () => {
   const mustPage: [string, RegExp][] = [
     ['lib/landing.ts', /readLandingCombinations[\s\S]*pageAll/],
     ['lib/jobFeed.ts', /nearbyCitiesWithTuitions[\s\S]{0,600}pageAll/],
-    ['app/sitemap.ts', /pageAll\(\(from, to\) => supabase\.rpc\('indexable_job_slugs'\)/],
+    ['lib/sitemaps.ts', /pageAll\(\(from, to\) => db\.rpc\('indexable_job_slugs'\)/],
     ['lib/tuitionPause.ts', /pageAll\(/],
     ['lib/phoneAccount.ts', /pageAll\(/],
     ['lib/videoCleanup.ts', /pageAll\(/],

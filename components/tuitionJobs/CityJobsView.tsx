@@ -9,7 +9,10 @@ import { absoluteUrl } from '@/lib/siteUrl'
 import { itemListJsonLd, jsonLdScript } from '@/lib/seo'
 import { tuitionPath } from '@/lib/slugs'
 import { ONLINE_JOB_TITLE } from '@/lib/jobTitlesCore'
-import { CITY_PAGE_THRESHOLD, cityPagePath, type CityPage, type CityVariant } from '@/lib/cityJobs'
+import { CITY_PAGE_THRESHOLD, cityPagePath, indexableCityPagesCached, type CityPage, type CityVariant } from '@/lib/cityJobs'
+import { distinctWords, hubFaq, hubHeading, hubIntro, type HubFacts, type HubKind } from '@/lib/hubCopy'
+import { placeLabel } from '@/lib/place'
+import HubFaq from '@/components/seo/HubFaq'
 import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
 import { uniqueById } from '@/lib/infiniteMerge'
@@ -39,11 +42,34 @@ export function variantFilters(citySlug: string, city: string, variant: CityVari
   }
 }
 
+/** The hub kind and the name it is about ("Bahria Town, Lahore" — city never repeated). */
+export function variantHub(city: string, variant: CityVariant | null): { kind: HubKind; name: string } {
+  if (!variant) return { kind: 'city', name: city }
+  if (variant.kind === 'area') return { kind: 'area', name: placeLabel(variant.area ?? variant.label, city) }
+  return { kind: variant.kind, name: city }
+}
+
 export function variantHeading(city: string, variant: CityVariant | null): string {
-  if (!variant) return `Tuition jobs in ${city}`
-  if (variant.kind === 'female') return `Tuition jobs for female tutors in ${city}`
-  if (variant.kind === 'online') return `Online tuition jobs in ${city}`
-  return `Tuition jobs in ${variant.area}, ${city}`
+  const hub = variantHub(city, variant)
+  return hubHeading(hub.kind, hub.name)
+}
+
+/** The facts the intro, the description and the FAQ are built from. */
+export function hubFactsFrom(
+  count: number,
+  jobs: { area?: string | null; class_level?: string | null; teaching_mode?: string | null; budget_pkr?: number | null; budget_min_pkr?: number | null; budget_max_pkr?: number | null }[],
+  areas?: string[],
+): HubFacts {
+  const mins = jobs.map((j) => j.budget_min_pkr ?? j.budget_pkr).filter((n): n is number => typeof n === 'number' && n > 0)
+  const maxs = jobs.map((j) => j.budget_max_pkr ?? j.budget_pkr).filter((n): n is number => typeof n === 'number' && n > 0)
+  return {
+    count,
+    areas: areas ?? distinctWords(jobs.map((j) => j.area), 4),
+    levels: distinctWords(jobs.map((j) => j.class_level), 4),
+    jobTypes: distinctWords(jobs.map((j) => j.teaching_mode), 4),
+    budgetMin: mins.length ? Math.min(...mins) : null,
+    budgetMax: maxs.length ? Math.max(...maxs) : null,
+  }
 }
 
 export default async function CityJobsView({
@@ -72,18 +98,26 @@ export default async function CityJobsView({
   }
   const showApply = !user || isTutor
 
-  const count = total
-  const intro =
-    count === 0
-      ? `There are no open tuitions here right now. New ones are posted most days — the list below updates as they arrive.`
-      : `${count} open tuition${count === 1 ? '' : 's'} ${variant ? `match${count === 1 ? 'es' : ''} this page` : `in ${page.city}`} right now, newest first. Browsing is free and needs no account; a verified tutor can apply from the card.`
+  // Intro and FAQ from the page's own data (owner, 12 Oct 2026): the count, the
+  // areas (busiest first), the levels and the pay present on the first window.
+  const hub = variantHub(page.city, variant)
+  const facts = hubFactsFrom(
+    total,
+    fullJobs,
+    variant?.kind === 'area' ? [] : page.variants.filter((v) => v.kind === 'area').slice(0, 4).map((v) => v.label),
+  )
+  const intro = hubIntro(hub.kind, hub.name, facts)
+  // Only a page that clears the threshold carries the FAQ (and its FAQPage data).
+  const indexable = (variant ? variant.count : page.count) >= CITY_PAGE_THRESHOLD
+  // The same hub in other cities — only the ones that exist (3+ open posts).
+  const otherCities = (await indexableCityPagesCached()).filter((p) => p.citySlug !== page.citySlug).slice(0, 8)
 
   // Variant links: the other pages in this city that exist (3+ open tuitions).
   const liveVariants = page.variants.filter((v) => v.count >= CITY_PAGE_THRESHOLD && v.slug !== variant?.slug)
 
   const crumbs = [
-    { label: 'Find tuitions', href: '/browse/tuitions' },
-    ...(variant ? [{ label: `Tuition jobs in ${page.city}`, href: cityPagePath(page.citySlug) }, { label: variant.kind === 'area' ? (variant.area ?? variant.label) : variant.label }] : [{ label: `Tuition jobs in ${page.city}` }]),
+    { label: 'Tuition jobs', href: '/browse/tuitions' },
+    ...(variant ? [{ label: page.city, href: cityPagePath(page.citySlug) }, { label: variant.kind === 'area' ? (variant.area ?? variant.label) : variant.label }] : [{ label: page.city }]),
   ]
 
   return (
@@ -162,6 +196,23 @@ export default async function CityJobsView({
               savedIds={[]}
             />
           </>
+        )}
+
+        {indexable && jobs.length > 0 && <HubFaq items={hubFaq(hub.kind, hub.name, facts)} path={path} />}
+
+        {otherCities.length > 0 && (
+          <nav aria-label="Teaching jobs in other cities" className="space-y-1.5 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+            <p className="text-xs font-black text-tm-navy">Teaching jobs in other cities</p>
+            <ul className="flex flex-wrap gap-2">
+              {otherCities.map((p) => (
+                <li key={p.citySlug}>
+                  <Link href={cityPagePath(p.citySlug)} className="inline-flex min-h-[36px] items-center rounded-lg border border-gray-200 bg-tm-bg px-3 text-[11px] font-semibold text-tm-navy hover:border-tm-navy">
+                    {p.city} ({p.count})
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
         )}
       </div>
     </main>

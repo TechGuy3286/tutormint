@@ -1061,6 +1061,25 @@ export async function similarOpenTuitions(
 }
 
 
+/**
+ * OPEN tuitions by id, newest first (bumped_at) — the school hub's list (owner,
+ * 12 Oct 2026). Same columns and decoration as every other card. Ids come from
+ * our own grouping of open posts, never from a request.
+ */
+export async function openJobsByIds(ids: string[], limit = 60): Promise<JobCardData[]> {
+  if (ids.length === 0) return []
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('jobs')
+    .select(JOB_COLUMNS)
+    .in('id', ids.slice(0, 200))
+    .eq('status', 'open')
+    .order('bumped_at', { ascending: false })
+    .order('id')
+    .limit(limit)
+  return decorate((data ?? []) as Record<string, unknown>[])
+}
+
 /** One job by its human id or uuid, for the detail view. */
 export async function jobByRef(ref: string): Promise<JobCardData | null> {
   const supabase = await createClient()

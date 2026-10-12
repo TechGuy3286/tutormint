@@ -58,7 +58,7 @@ async function writeScheduleSlots(
 import { tutorAtIncomingCap, refuseIncomingRequest, recordIncoming } from '@/lib/incomingRequests'
 import { sendMatchEmails } from '@/lib/matchEmail'
 import { revalidateLanding } from '@/lib/landingRevalidate'
-import { queueIndexingUpdate } from '@/lib/googleIndexing'
+import { queueIndexingUpdate, queueIndexingDelete } from '@/lib/googleIndexing'
 import { teamParentId } from '@/lib/teamAccount'
 import { buildJobContact } from '@/lib/jobContactCore'
 import { matchVisibility, isOnlineType } from '@/lib/matchChip'
@@ -875,7 +875,8 @@ export async function closeJob(parentId: string, jobId: string): Promise<{ ok: t
   // A closed tuition can close its landing pages (drop the count below the
   // threshold), so refresh the landing cache.
   revalidateLanding()
-  queueIndexingUpdate({ public_slug: (job.public_slug as string | null) ?? null, city: (job.city as string | null) ?? null })
+  // Closed: Google is told the page is gone (URL_DELETED).
+  queueIndexingDelete({ public_slug: (job.public_slug as string | null) ?? null, city: (job.city as string | null) ?? null })
 
   return { ok: true }
 }
@@ -1121,7 +1122,7 @@ export async function hireApplicant(
 
   // Hiring closes the tuition, so it may close a landing page.
   revalidateLanding()
-  queueIndexingUpdate({ public_slug: (job.public_slug as string | null) ?? null, city: (job.city as string | null) ?? null })
+  queueIndexingDelete({ public_slug: (job.public_slug as string | null) ?? null, city: (job.city as string | null) ?? null })
 
   // Counted only after the hire succeeded — same order as applications.
   await recordIncoming(application.tutor_id as string)

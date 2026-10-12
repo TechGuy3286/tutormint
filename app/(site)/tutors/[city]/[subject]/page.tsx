@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   if (!combo) return { title: pageTitle('Tutors'), robots: { index: false, follow: true } }
 
   const heading = `${combo.subjectName} tutors in ${combo.city}`
-  const lead = `${combo.count} verified ${combo.subjectName} tutor${combo.count === 1 ? '' : 's'} in ${combo.city}`
+  const lead = `${combo.count} ${combo.subjectName} tutor${combo.count === 1 ? '' : 's'} in ${combo.city}`
   // ≤ 60 characters (owner, 6 Oct 2026); description ≤ 155.
   const title = seoTitle(heading)
   const description = seoDescription(pageDescription(lead))

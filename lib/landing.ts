@@ -16,7 +16,7 @@
 // from its level+subject display names; a city is the display string, slugged
 // with citySegment().
 
-import { pageAll } from '@/lib/pageAll'
+import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { unstable_cache } from 'next/cache'
 import { createPublicClient } from '@/lib/supabase/public'
 import { fetchTaxonomyTables } from '@/lib/taxonomyBuild'
@@ -52,6 +52,9 @@ export type LandingCombo = {
   subjectSlug: string
   subjectName: string
   count: number
+  /** Tutor pages only: how many of the listed tutors are VERIFIED (fee paid).
+   *  A tutor page is indexable on this number, not on `count` (12 Oct 2026). */
+  verified?: number
 }
 
 // --- the subject index: master_id <-> slug, and display names ---------------
@@ -202,6 +205,41 @@ async function readLandingCombinations(): Promise<{ kind: string; city: string; 
 }
 
 /**
+ * Verified tutors per (city, subject) — the supply a parent-side page must have
+ * before it is shown to Google (owner, 12 Oct 2026: "indexable only when they
+ * have real supply"). Verified here = in the public directory with the
+ * Verification Fee paid; the directory already leaves out paused, banned,
+ * hidden, test and rejected-document accounts. Keyed `${citySlug}:${masterId}`.
+ */
+async function verifiedTutorCounts(): Promise<Map<string, number>> {
+  const db = createPublicClient()
+  const tutors = await pageAll((from, to) =>
+    db.from('tutor_directory').select('id, city').not('verified_fee_paid_at', 'is', null).order('id').range(from, to),
+  )
+  const cityOf = new Map<string, string>()
+  for (const t of tutors) {
+    const c = String(t.city ?? '').trim()
+    if (c) cityOf.set(t.id as string, citySegment(c))
+  }
+  const links = await pageAllIn([...cityOf.keys()], (ids, from, to) =>
+    db.from('tutor_subjects').select('tutor_id, master_id').in('tutor_id', ids).order('tutor_id').order('master_id').range(from, to),
+  )
+  const out = new Map<string, number>()
+  for (const l of links) {
+    const k = `${cityOf.get(l.tutor_id as string)}:${l.master_id as number}`
+    out.set(k, (out.get(k) ?? 0) + 1)
+  }
+  return out
+}
+
+async function withVerified(combos: LandingCombo[]): Promise<LandingCombo[]> {
+  // A read that fails counts nobody as verified: the page stays noindex rather
+  // than being indexed on a guess.
+  const counts = await verifiedTutorCounts().catch(() => new Map<string, number>())
+  return combos.map((c) => (c.kind === 'tutors' ? { ...c, verified: counts.get(`${c.citySlug}:${c.masterId}`) ?? 0 } : c))
+}
+
+/**
  * Every (kind, city, subject) with its count, from the landing_combinations
  * view. Cached for a few hours and tagged so a listing change can revalidate
  * it on demand. Includes counts BELOW the threshold too — the admin view wants
@@ -209,15 +247,16 @@ async function readLandingCombinations(): Promise<{ kind: string; city: string; 
  */
 export const liveCombinationsAll = unstable_cache(
   async (): Promise<LandingCombo[]> => {
-    return foldCombos(await readLandingCombinations(), (await subjectIndex()).byMaster)
+    return withVerified(foldCombos(await readLandingCombinations(), (await subjectIndex()).byMaster))
   },
-  ['landing-combinations'],
+  ['landing-combinations-v2'],
   { revalidate: LANDING_REVALIDATE, tags: [LANDING_TAG] },
 )
 
-/** Only the combinations that clear the threshold — the pages that exist. */
+/** Only the combinations that clear the threshold — the pages that are indexable,
+ *  listed in the sitemap and linked from any link block. */
 export async function liveLandingPages(): Promise<LandingCombo[]> {
-  return (await liveCombinationsAll()).filter((c) => c.count >= LANDING_THRESHOLD)
+  return (await liveCombinationsAll()).filter(landingIndexable)
 }
 
 /**
@@ -229,12 +268,12 @@ export async function liveLandingPages(): Promise<LandingCombo[]> {
  * below-threshold page renders (noindex) instead of 404ing.
  */
 export async function liveCombinationsAllUncached(): Promise<LandingCombo[]> {
-  return foldCombos(await readLandingCombinations(), (await subjectIndex()).byMaster)
+  return withVerified(foldCombos(await readLandingCombinations(), (await subjectIndex()).byMaster))
 }
 
 /** The sitemap's list: live, and only the pages at or above the threshold. */
 export async function liveLandingPagesUncached(): Promise<LandingCombo[]> {
-  return (await liveCombinationsAllUncached()).filter((c) => c.count >= LANDING_THRESHOLD)
+  return (await liveCombinationsAllUncached()).filter(landingIndexable)
 }
 
 /**
@@ -255,8 +294,15 @@ export async function resolveLandingAny(
   )
 }
 
-/** Is this combination indexable — at or above the threshold? */
-export function landingIndexable(combo: { count: number }): boolean {
+/**
+ * Is this combination indexable? A TUITION page: 3 or more open tuitions. A
+ * TUTOR page: 3 or more VERIFIED tutors — a page of unverified profiles is not
+ * real supply for a parent (owner, 12 Oct 2026). Below that the page still
+ * works for a visitor; it is noindex, follow, out of the sitemap and not linked
+ * from any link block.
+ */
+export function landingIndexable(combo: { kind?: LandingKind; count: number; verified?: number }): boolean {
+  if (combo.kind === 'tutors') return (combo.verified ?? 0) >= LANDING_THRESHOLD
   return combo.count >= LANDING_THRESHOLD
 }
 
@@ -400,9 +446,9 @@ export function buildIntro(kind: LandingKind, subject: string, city: string, f: 
           : ` Monthly fees run from ${rs(f.feeMin)} to ${rs(f.feeMax)}.`
         : ''
     return (
-      `${f.count} verified ${subject} tutor${f.count === 1 ? '' : 's'} in ${city}${modeClause}${areaClause}.` +
+      `${f.count} ${subject} tutor${f.count === 1 ? '' : 's'} in ${city}${modeClause}${areaClause}.` +
       fee +
-      ` Every profile is identity-checked, with a video introduction — free to browse, no account needed.`
+      ` Verified tutors are listed first. Free to browse, no account needed.`
     )
   }
 
@@ -415,7 +461,7 @@ export function buildIntro(kind: LandingKind, subject: string, city: string, f: 
   return (
     `${f.count} open ${subject} tuition${f.count === 1 ? '' : 's'} in ${city}${modeClause}${areaClause}.` +
     budget +
-    ` These are live requests from verified parents — apply free once your profile is complete.`
+    ` These are live requests, newest first — free to join, no commission.`
   )
 }
 

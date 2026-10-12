@@ -87,3 +87,66 @@ export function classifyTokenError(message: string): string {
   if (/access_denied|unauthorized_client|permission/.test(m)) return 'permission denied'
   return message.slice(0, 160)
 }
+
+// ---------------------------------------------------------------------------
+// The queue's rules (owner, 12 Oct 2026) — pure, unit-tested.
+//
+// WHICH NOTICE. Google is told a tuition page is GONE (URL_DELETED) when the
+// tuition stops taking applications — paused (the 7-day rule, no contact
+// number, staff, the member's own pause), closed, hired or merged — and that it
+// is NEW or BACK (URL_UPDATED) when it is posted, resumed or refreshed.
+//
+// THE DAILY ALLOWANCE. Google allows 200 notices a day. The queue never sends
+// more; what is left waits for the next day.
+//
+// WHO GOES FIRST. New posts and resumes (URL_UPDATED) before removals
+// (URL_DELETED): a new job is worth nothing until Google knows about it, while a
+// paused one already carries noindex and no JobPosting. Within a kind, oldest
+// first.
+//
+// ONE NOTICE PER ADDRESS. When an address has several notices waiting, only the
+// NEWEST says what is true now (paused, then resumed: it is live). The older
+// ones are superseded: marked, never sent, never counted against the day.
+
+export const INDEXING_DAILY_LIMIT = 200
+
+export type IndexingKind = 'URL_UPDATED' | 'URL_DELETED'
+
+/** The notice a tuition's status calls for. */
+export function indexingKindForStatus(status: string | null | undefined): IndexingKind {
+  return (status ?? '').trim() === 'open' ? 'URL_UPDATED' : 'URL_DELETED'
+}
+
+export type QueuedNotice = { id: number; url: string; kind: IndexingKind; created_at: string }
+
+/** sent_at written on a superseded notice: a fixed past instant, so it is
+ *  never "sent today" and never "waiting". last_error says 'superseded'. */
+export const SUPERSEDED_AT = '1970-01-01T00:00:00.000Z'
+export const SUPERSEDED_NOTE = 'superseded'
+
+export function planDrain(
+  pending: QueuedNotice[],
+  sentToday: number,
+  max = INDEXING_DAILY_LIMIT,
+): { send: QueuedNotice[]; superseded: number[]; room: number; waiting: number } {
+  const newer = (a: QueuedNotice, b: QueuedNotice) =>
+    a.created_at === b.created_at ? a.id > b.id : new Date(a.created_at).getTime() > new Date(b.created_at).getTime()
+  const latest = new Map<string, QueuedNotice>()
+  const superseded: number[] = []
+  for (const n of pending) {
+    const cur = latest.get(n.url)
+    if (!cur) latest.set(n.url, n)
+    else if (newer(n, cur)) {
+      superseded.push(cur.id)
+      latest.set(n.url, n)
+    } else superseded.push(n.id)
+  }
+  const ordered = [...latest.values()].sort(
+    (a, b) =>
+      (a.kind === 'URL_UPDATED' ? 0 : 1) - (b.kind === 'URL_UPDATED' ? 0 : 1) ||
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime() ||
+      a.id - b.id,
+  )
+  const room = Math.max(0, Math.min(max, INDEXING_DAILY_LIMIT - Math.max(0, sentToday)))
+  return { send: ordered.slice(0, room), superseded, room, waiting: ordered.length }
+}

@@ -883,7 +883,12 @@ export default async function TutorPublicProfile({ params }: { params: Params })
             back to the same page is one more than anyone needs, and only one
             of them was in the BreadcrumbList. */}
         <Breadcrumbs
-          items={[{ label: 'Find tutors', href: '/browse/tutors' }, { label: tutor.full_name }]}
+          // Home › Tutors › City › Name (owner, 12 Oct 2026).
+          items={[
+            { label: 'Tutors', href: '/browse/tutors' },
+            ...(tutor.city ? [{ label: tutor.city, href: `/browse/tutors?city=${encodeURIComponent(tutor.city)}` }] : []),
+            { label: tutor.full_name },
+          ]}
         />
 
         {/* Owner preview (§3.2): this page is not live to parents yet — the tutor

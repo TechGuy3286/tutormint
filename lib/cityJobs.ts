@@ -8,7 +8,9 @@
 
 import 'server-only'
 
+import { unstable_cache } from 'next/cache'
 import { createPublicClient } from '@/lib/supabase/public'
+import { LANDING_TAG } from '@/lib/landing'
 import { citySegment, cityFromSegment } from '@/lib/slugs'
 import { slugify } from '@/lib/slugs'
 import { ONLINE_JOB_TITLE } from '@/lib/jobTitlesCore'
@@ -83,6 +85,26 @@ export async function cityPages(): Promise<CityPage[]> {
 /** The city pages that clear the threshold — the sitemap and the link strips. */
 export async function indexableCityPages(): Promise<CityPage[]> {
   return (await cityPages()).filter((p) => p.count >= CITY_PAGE_THRESHOLD)
+}
+
+/**
+ * The same list for LINK BLOCKS (the footer, the "other cities" strip, a tuition
+ * page's link to its area hub): cached for ten minutes and cleared with the
+ * landing cache when a tuition opens or closes. A page's own index/noindex and
+ * the sitemap read the live list above, never this.
+ */
+export const indexableCityPagesCached = unstable_cache(
+  async (): Promise<CityPage[]> => indexableCityPages(),
+  ['city-job-hubs'],
+  { revalidate: 600, tags: [LANDING_TAG] },
+)
+
+/** The area hub for a tuition's own area, when that hub exists (3+ open posts). */
+export async function areaHubFor(city: string | null, area: string | null): Promise<{ href: string; label: string } | null> {
+  if (!city || !area) return null
+  const page = (await indexableCityPagesCached()).find((p) => p.citySlug === citySegment(city))
+  const v = page?.variants.find((x) => x.kind === 'area' && x.slug === slugify(area) && x.count >= CITY_PAGE_THRESHOLD)
+  return page && v ? { href: cityPagePath(page.citySlug, v.slug), label: v.label } : null
 }
 
 /** One city by its URL segment, or null when it has no open tuition at all. */

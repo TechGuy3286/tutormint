@@ -5,7 +5,19 @@ import { google } from 'googleapis'
 import { SITE_URL } from '@/lib/siteUrl'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { citySegment } from '@/lib/slugs'
-import { normalisePrivateKey, normaliseClientEmail } from '@/lib/googleIndexingCore'
+import { pageAll } from '@/lib/pageAll'
+import {
+  normalisePrivateKey,
+  normaliseClientEmail,
+  indexingKindForStatus,
+  planDrain,
+  INDEXING_DAILY_LIMIT,
+  SUPERSEDED_AT,
+  SUPERSEDED_NOTE,
+  type QueuedNotice,
+} from '@/lib/googleIndexingCore'
+
+export { INDEXING_DAILY_LIMIT }
 
 // Google Indexing API — URL_UPDATED for a tuition page whenever its status
 // changes (owner, 5 Oct 2026, item 3): published, reopened, closed, paused,
@@ -118,8 +130,8 @@ export function tuitionUrl(job: { public_slug?: string | null; city?: string | n
   return `${SITE_URL}/tuitions/${citySegment(job.city)}/${job.public_slug}`
 }
 
-/** Google's Indexing API quota we keep to (owner, 8 Oct 2026): 200 a day. */
-export const INDEXING_DAILY_LIMIT = 200
+// Google's Indexing API quota we keep to: 200 a day (INDEXING_DAILY_LIMIT, in
+// lib/googleIndexingCore with the rest of the queue's rules).
 
 function utcDayStart(now = new Date()): string {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString()
@@ -137,54 +149,59 @@ export async function indexingQueueStatus(): Promise<{ sentToday: number; pendin
 }
 
 /**
- * Send waiting notifications, oldest first, never past INDEXING_DAILY_LIMIT in a
- * UTC day — the rest wait for the next day's run. Each row is CLAIMED (sent_at
- * set where it was null) before the call, so two drains never send one twice.
+ * Send waiting notices, never past INDEXING_DAILY_LIMIT in a UTC day — the rest
+ * wait for the next day's run. New posts and resumes (URL_UPDATED) go before
+ * removals (URL_DELETED), oldest first within each; an address with several
+ * notices waiting sends only its newest (lib/googleIndexingCore.planDrain).
+ * Each row is CLAIMED (sent_at set where it was null) before the call, so two
+ * drains never send one twice.
  */
 export async function drainIndexingQueue(max = INDEXING_DAILY_LIMIT, budgetMs = 40_000): Promise<{ sent: number; failed: number; left: number }> {
   const started = Date.now()
   const admin = createAdminClient()
   if (!admin || !indexingConfigured()) return { sent: 0, failed: 0, left: 0 }
   const { sentToday } = await indexingQueueStatus()
-  const room = Math.max(0, Math.min(max, INDEXING_DAILY_LIMIT - sentToday))
+  const pending = (await pageAll((from, to) =>
+    admin.from('indexing_queue').select('id, url, kind, created_at').is('sent_at', null).order('id').range(from, to),
+  )) as QueuedNotice[]
+  const plan = planDrain(pending, sentToday, max)
+  // Older notices for an address that has a newer one: marked, never sent.
+  for (let i = 0; i < plan.superseded.length; i += 200) {
+    await admin
+      .from('indexing_queue')
+      .update({ sent_at: SUPERSEDED_AT, last_error: SUPERSEDED_NOTE })
+      .in('id', plan.superseded.slice(i, i + 200))
+      .is('sent_at', null)
+  }
   let sent = 0
   let failed = 0
-  if (room > 0) {
-    const { data: rows } = await admin
+  for (const r of plan.send) {
+    // Stop before the function's time limit; the next run picks up the rest.
+    if (Date.now() - started > budgetMs) break
+    const { data: claimed } = await admin
       .from('indexing_queue')
-      .select('id, url, kind')
+      .update({ sent_at: new Date().toISOString() })
+      .eq('id', r.id)
       .is('sent_at', null)
-      .order('created_at')
-      .order('id')
-      .limit(room)
-    for (const r of rows ?? []) {
-      // Stop before the function's time limit; the next run picks up the rest.
-      if (Date.now() - started > budgetMs) break
-      const { data: claimed } = await admin
-        .from('indexing_queue')
-        .update({ sent_at: new Date().toISOString() })
-        .eq('id', r.id as number)
-        .is('sent_at', null)
-        .select('id')
-      if (!claimed || claimed.length === 0) continue
-      const res = r.kind === 'URL_DELETED' ? await notifyUrlDeleted(r.url as string) : await notifyUrlUpdated(r.url as string)
-      if (res.ok) sent++
-      else {
-        const err = 'error' in res ? res.error : 'skipped'
-        // Google's own daily quota (counted in Pacific time, and including
-        // notices sent outside this queue): put the row back and stop — the
-        // next run tries again once the quota has reset.
-        if (/quota/i.test(err)) {
-          await admin.from('indexing_queue').update({ sent_at: null, last_error: err }).eq('id', r.id as number)
-          break
-        }
-        failed++
-        await admin.from('indexing_queue').update({ last_error: err }).eq('id', r.id as number)
+      .select('id')
+    if (!claimed || claimed.length === 0) continue
+    const res = r.kind === 'URL_DELETED' ? await notifyUrlDeleted(r.url) : await notifyUrlUpdated(r.url)
+    if (res.ok) sent++
+    else {
+      const err = 'error' in res ? res.error : 'skipped'
+      // Google's own daily quota (counted in Pacific time, and including
+      // notices sent outside this queue): put the row back and stop — the
+      // next run tries again once the quota has reset.
+      if (/quota/i.test(err)) {
+        await admin.from('indexing_queue').update({ sent_at: null, last_error: err }).eq('id', r.id)
+        break
       }
+      failed++
+      await admin.from('indexing_queue').update({ last_error: err }).eq('id', r.id)
     }
   }
-  const { pending } = await indexingQueueStatus()
-  return { sent, failed, left: pending }
+  const { pending: left } = await indexingQueueStatus()
+  return { sent, failed, left }
 }
 
 /** Put a URL on the queue, then send what today's allowance still covers. */
@@ -218,7 +235,18 @@ export function queueIndexingUpdate(job: { public_slug?: string | null; city?: s
   }
 }
 
-/** Queue a URL_DELETED for a merged repeat's old address (it now 301s). */
+/**
+ * Queue the notice a tuition's STATUS calls for (owner, 12 Oct 2026): open →
+ * URL_UPDATED (posted, resumed, refreshed); paused, closed or hired →
+ * URL_DELETED. Call it with the status the tuition has just been given.
+ */
+export function queueIndexingForStatus(job: { public_slug?: string | null; city?: string | null }, status: string | null | undefined): void {
+  if (indexingKindForStatus(status) === 'URL_UPDATED') queueIndexingUpdate(job)
+  else queueIndexingDelete(job)
+}
+
+/** Queue a URL_DELETED: the tuition no longer takes applications (paused,
+ *  closed, hired), or it is a merged repeat whose address now redirects. */
 export function queueIndexingDelete(job: { public_slug?: string | null; city?: string | null }): void {
   const url = tuitionUrl(job)
   if (!url) return
@@ -235,4 +263,35 @@ export async function enqueueIndexing(urls: string[], kind: 'URL_UPDATED' | 'URL
   const admin = createAdminClient()
   if (!admin || urls.length === 0 || !indexingConfigured()) return
   await admin.from('indexing_queue').insert(urls.map((url) => ({ url, kind })))
+}
+
+export type IndexingLogRow = { id: number; url: string; kind: string; created_at: string; sent_at: string | null; last_error: string | null }
+
+/**
+ * The admin Indexing screen's data (owner, 12 Oct 2026): today's use of the 200
+ * allowance, what is waiting (by kind) and the newest notices with what Google
+ * answered. Read-only.
+ */
+export async function indexingQueueReport(limit = 150): Promise<{
+  configured: boolean
+  sentToday: number
+  limit: number
+  waitingUpdated: number
+  waitingDeleted: number
+  failedToday: number
+  rows: IndexingLogRow[]
+}> {
+  const admin = createAdminClient()
+  const empty = { configured: indexingConfigured(), sentToday: 0, limit: INDEXING_DAILY_LIMIT, waitingUpdated: 0, waitingDeleted: 0, failedToday: 0, rows: [] }
+  if (!admin) return empty
+  const day = utcDayStart()
+  const count = (q: PromiseLike<{ count: number | null }>) => Promise.resolve(q).then((r) => r.count ?? 0)
+  const [sentToday, waitingUpdated, waitingDeleted, failedToday, { data }] = await Promise.all([
+    count(admin.from('indexing_queue').select('id', { count: 'exact', head: true }).gte('sent_at', day)),
+    count(admin.from('indexing_queue').select('id', { count: 'exact', head: true }).is('sent_at', null).eq('kind', 'URL_UPDATED')),
+    count(admin.from('indexing_queue').select('id', { count: 'exact', head: true }).is('sent_at', null).eq('kind', 'URL_DELETED')),
+    count(admin.from('indexing_queue').select('id', { count: 'exact', head: true }).gte('sent_at', day).not('last_error', 'is', null)),
+    admin.from('indexing_queue').select('id, url, kind, created_at, sent_at, last_error').order('id', { ascending: false }).limit(limit),
+  ])
+  return { ...empty, sentToday, waitingUpdated, waitingDeleted, failedToday, rows: (data ?? []) as IndexingLogRow[] }
 }

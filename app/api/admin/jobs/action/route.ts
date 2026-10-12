@@ -5,7 +5,7 @@ import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
 import { notify } from '@/lib/notifications'
-import { queueIndexingUpdate } from '@/lib/googleIndexing'
+import { queueIndexingForStatus } from '@/lib/googleIndexing'
 import { mergeTuition, refreshTuition } from '@/lib/tuitionMerge'
 import { parseBody, z, uuid, text } from '@/lib/validate'
 import { contactFactsForJobs } from '@/lib/tuitionContact'
@@ -151,9 +151,10 @@ export async function POST(request: Request) {
   const { error } = await admin.from('jobs').update(patch).eq('id', jobId)
   if (error) return serverError(error, 'admin/jobs/action')
 
-  // Google Indexing API (item 3): a status change → URL_UPDATED, never blocking.
+  // Google Indexing API: resumed → URL_UPDATED; paused or closed → URL_DELETED
+  // (owner, 12 Oct 2026). Never blocking.
   if (action === 'close' || action === 'pause' || action === 'resume') {
-    queueIndexingUpdate({ public_slug: (job.public_slug as string | null) ?? null, city: (job.city as string | null) ?? null })
+    queueIndexingForStatus({ public_slug: (job.public_slug as string | null) ?? null, city: (job.city as string | null) ?? null }, action === 'resume' ? 'open' : action === 'pause' ? 'paused' : 'closed')
   }
 
   await logAdminAction({

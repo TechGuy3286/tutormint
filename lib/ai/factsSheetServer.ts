@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { liveCombinationsAll, LANDING_THRESHOLD } from '@/lib/landing'
+import { liveCombinationsAll, landingIndexable } from '@/lib/landing'
 import { cityPages, CITY_PAGE_THRESHOLD } from '@/lib/cityJobs'
 import { buildPlatformFacts, DEFAULT_PLANS, type FactsPlan, type PlatformFacts } from './factsSheet'
 
@@ -48,7 +48,7 @@ export async function loadLinkIndexing(): Promise<{ noindexLinks: Record<string,
   const cityJobPaths = [...cityOk].map((s) => `/tuition-jobs/${s}`)
   const noindexLinks: Record<string, string> = {}
   for (const c of combos) {
-    if (c.count >= LANDING_THRESHOLD) continue
+    if (landingIndexable(c)) continue
     noindexLinks[`/${c.kind}/${c.citySlug}/${c.subjectSlug}`] = cityOk.has(c.citySlug)
       ? `/tuition-jobs/${c.citySlug}`
       : '/browse/tuitions'

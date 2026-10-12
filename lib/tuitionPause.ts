@@ -106,7 +106,8 @@ export async function pauseStaleTuitions(now = new Date()): Promise<{
 
   // Google is told through the queue, which the 5-minute cron drains within
   // 200 a day (lib/googleIndexing.drainIndexingQueue).
-  await enqueueIndexing(urls)
+  // Paused: URL_DELETED (owner, 12 Oct 2026) — resuming sends URL_UPDATED.
+  await enqueueIndexing(urls, 'URL_DELETED')
 
   return { paused: ids.length, backlogPaused, backlogLeft: plan.backlogLeft, ids, queuedForGoogle: urls.length }
 }

@@ -142,6 +142,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/import', label: 'Bulk import', icon: 'upload', screen: 'import' },
       { href: '/admin/seo/landing', label: 'Landing pages', icon: 'search', screen: 'seo' },
       { href: '/admin/seo/locations', label: 'Locations', icon: 'mapPin', screen: 'seo' },
+      { href: '/admin/seo/indexing', label: 'Google indexing', icon: 'search', screen: 'seo' },
       { href: '/admin/blog', label: 'Blog', icon: 'newspaper', screen: 'blog' },
       { href: '/admin/blog/queue', label: 'Content queue', icon: 'listChecks', screen: 'blogQueue' },
     ],

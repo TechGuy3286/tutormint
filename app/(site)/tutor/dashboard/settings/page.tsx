@@ -221,7 +221,7 @@ export default function TutorSettingsPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        router.replace('/tutor/login');
+        router.replace('/login');
         return;
       }
       setUserId(user.id);

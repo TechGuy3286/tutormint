@@ -159,8 +159,10 @@ const nextConfig: NextConfig = {
       // /packages and the old per-audience URLs redirect permanently, keeping
       // ?for= and any ?plan= (Next forwards query strings).
       { source: '/packages', destination: '/membership-plans', permanent: true },
-      { source: '/tutor/packages', destination: '/membership-plans?for=tutors', permanent: true },
-      { source: '/parent/packages', destination: '/membership-plans?for=parents', permanent: true },
+      // /tutor/packages and /parent/packages are answered in proxy.ts (owner,
+      // 12 Oct 2026): a 301 to the CLEAN /membership-plans with any query
+      // dropped. A redirect here would carry ?plan=… across and mint the
+      // query-string addresses Search Console listed.
       // /signup is the sign-up page (owner PR15 §3); the form lives at /register.
       { source: '/signup', destination: '/register', permanent: true },
     ]

@@ -124,6 +124,16 @@ export function seoTitle(page: string): string {
   return clampWords(base, TITLE_MAX)
 }
 
+/**
+ * The first candidate that fits TITLE_MAX, else the last one cut at a word
+ * boundary. Callers list the full pattern first and shorter forms after it, so
+ * a long school or area name loses the brand before it loses its own words.
+ */
+export function fitTitle(candidates: string[]): string {
+  const clean = candidates.map((c) => c.replace(/\s+/g, ' ').trim()).filter(Boolean)
+  return clean.find((c) => c.length <= TITLE_MAX) ?? clampWords(clean[clean.length - 1] ?? BRAND, TITLE_MAX)
+}
+
 /** Cut at a word boundary to `max` characters, with no trailing punctuation. */
 export function clampWords(text: string, max: number): string {
   const t = text.replace(/\s+/g, ' ').trim()
@@ -393,9 +403,11 @@ export function tutorJsonLd(t: {
  * `hiringOrganization` is the platform, not the parent. A parent is a private
  * household; naming them as an employer would publish an individual as a
  * business, and their name is already on the page as a member, linked to their
- * own profile. `employmentType: CONTRACTOR` is what a private tuition
- * arrangement actually is — the tutor is not our employee and not the
- * parent's.
+ * own profile. A post that NAMES its school is the exception (12 Oct 2026):
+ * the school is an organisation and is named as the hiring organisation.
+ *
+ * `employmentType` is PART_TIME for a tuition and, for a school post, only what
+ * the post's own words say (lib/jobPostingCore) — left out when it does not say.
  */
 export function jobPostingJsonLd(job: {
   url: string
@@ -416,6 +428,12 @@ export function jobPostingJsonLd(job: {
   refId?: string | null
   /** An online tuition: jobLocationType TELECOMMUTE + applicantLocationRequirements Pakistan. */
   online?: boolean
+  /** PART_TIME for a tuition; for a school post only what its own words say,
+   *  else null and the field is left out (lib/jobPostingCore, 12 Oct 2026). */
+  employmentType?: 'PART_TIME' | 'FULL_TIME' | 'CONTRACTOR' | null
+  /** The school or academy the post names, when it names one — the hiring
+   *  organisation. Otherwise the posting is listed by TutorMint. */
+  schoolName?: string | null
 }) {
   const validThrough =
     job.validThrough ??
@@ -459,7 +477,7 @@ export function jobPostingJsonLd(job: {
     description: job.description,
     datePosted: job.datePosted,
     validThrough,
-    employmentType: 'CONTRACTOR',
+    ...(job.employmentType ? { employmentType: job.employmentType } : {}),
     url: job.url,
     // The TM number as the posting's identifier (owner, 6 Oct 2026).
     ...(job.refId ? { identifier: { '@type': 'PropertyValue', name: BRAND, value: job.refId } } : {}),
@@ -476,13 +494,18 @@ export function jobPostingJsonLd(job: {
     // emitted on the homepage, and a JobPosting is read on its own — Google
     // requires hiringOrganization to carry a name, and a bare @id pointing at
     // a node that is not in this document does not.
-    hiringOrganization: {
-      '@type': 'Organization',
-      '@id': `${SITE_URL}/#organization`,
-      name: BRAND,
-      sameAs: SITE_URL,
-      logo: absoluteUrl('/tutormint-logo1200x630.png'),
-    },
+    // A post that names its school is that school's vacancy (owner, 12 Oct
+    // 2026): the school is the hiring organisation — name only, we hold no site
+    // or logo for it. Every other posting is listed by TutorMint.
+    hiringOrganization: job.schoolName
+      ? { '@type': 'Organization', name: job.schoolName }
+      : {
+          '@type': 'Organization',
+          '@id': `${SITE_URL}/#organization`,
+          name: BRAND,
+          sameAs: SITE_URL,
+          logo: absoluteUrl('/tutormint-logo1200x630.png'),
+        },
     // Applications are made on this page, not on somebody else's site.
     directApply: true,
     jobLocation: {
@@ -501,11 +524,11 @@ export function jobPostingJsonLd(job: {
 }
 
 /** FAQPage, from the same array the page renders. */
-export function faqJsonLd(items: { q: string; a: string }[]) {
+export function faqJsonLd(items: { q: string; a: string }[], path = '/faq') {
   return {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
-    '@id': `${absoluteUrl('/faq')}#faq`,
+    '@id': `${absoluteUrl(path)}#faq`,
     mainEntity: items.map((item) => ({
       '@type': 'Question',
       name: item.q,

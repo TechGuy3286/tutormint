@@ -1,4 +1,5 @@
 import { List, ShieldCheck } from 'lucide-react'
+import { browseTutorsMeta, browseTuitionsMeta } from '@/lib/browseMeta'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import TrackSearch from '@/components/TrackSearch'
 import { parseMode } from '@/lib/locations'
@@ -129,12 +130,8 @@ export async function generateMetadata({
   const city = one(sp.city)
   const label = await subjectLabel(intOrNull(one(sp.subject)))
 
-  const what = label ? `${label} tuition jobs` : 'Home tuition jobs'
-  const where = city ? ` in ${city}` : ' in Pakistan'
-  const title = `${what}${where} | TutorMint`
-  const description = label
-    ? `Open ${label} tuition jobs${where} posted by verified parents. Free to browse and apply on TutorMint.`
-    : `Open home and online tuition jobs${where} posted by verified parents. Free to browse and apply on TutorMint.`
+  // Owner, 12 Oct 2026: "Tuition & Teaching Jobs in Pakistan – Updated Daily".
+  const { title, description } = browseTuitionsMeta(label, city)
 
   const page = Math.max(1, intOrNull(one(sp.page)) ?? 1)
   // Identical arguments to the page body's own call is not possible here --

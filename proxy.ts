@@ -167,6 +167,17 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(target, 307)
   }
 
+  // The old per-audience plan addresses (owner, 12 Oct 2026): a 301 to the
+  // CLEAN /membership-plans, with any query string dropped — so
+  // /tutor/packages?plan=featured does not mint a second address for one page.
+  // Here rather than in next.config, whose redirects carry the query across.
+  if (request.nextUrl.pathname === '/tutor/packages' || request.nextUrl.pathname === '/parent/packages') {
+    const target = request.nextUrl.clone()
+    target.pathname = '/membership-plans'
+    target.search = ''
+    return NextResponse.redirect(target, 301)
+  }
+
   // Rebuilt after a token refresh (setAll below) so the page sees the NEW
   // session cookies, not the copy taken here.
   let forwarded = forwardHeaders(request)

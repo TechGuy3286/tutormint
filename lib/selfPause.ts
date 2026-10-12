@@ -22,7 +22,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logActivity } from '@/lib/activityLog'
 import { logAdminAction } from '@/lib/auditLog'
 import { revalidateLanding } from '@/lib/landingRevalidate'
-import { queueIndexingUpdate } from '@/lib/googleIndexing'
+import { queueIndexingDelete } from '@/lib/googleIndexing'
 import type { AdminRole } from '@/lib/adminAuth'
 import { pauseRefusal, shouldRestoreOnSignIn, type PauseFacts } from '@/lib/selfPauseCore'
 
@@ -72,7 +72,7 @@ export async function pauseMyAccount(
       .eq('status', 'open')
       .select('id, public_slug, city')
     paused = (data ?? []) as typeof paused
-    for (const j of paused) queueIndexingUpdate(j)
+    for (const j of paused) queueIndexingDelete(j)
   }
   revalidateLanding()
 

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
-import { liveCombinationsAll, LANDING_THRESHOLD } from '@/lib/landing'
+import { liveCombinationsAll, landingIndexable, LANDING_THRESHOLD } from '@/lib/landing'
 import { SITE_URL } from '@/lib/siteUrl'
 
 // /admin/seo/landing — the landing-page monitor. owner / manager, read-only.
@@ -18,7 +18,8 @@ export default async function AdminLandingSeoPage() {
 
   const all = await liveCombinationsAll()
   const live = all
-    .filter((c) => c.count >= LANDING_THRESHOLD)
+    // Indexable: 3+ open tuitions, or 3+ VERIFIED tutors (owner, 12 Oct 2026).
+    .filter(landingIndexable)
     .sort((a, b) => b.count - a.count || a.kind.localeCompare(b.kind))
   const near = all
     .filter((c) => c.count === LANDING_THRESHOLD - 1)

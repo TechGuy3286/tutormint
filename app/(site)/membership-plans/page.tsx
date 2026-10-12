@@ -17,9 +17,10 @@ import { formatName } from '@/lib/formatName'
 // typed into the components. Reached logged-in or out; /tutor/packages and
 // /parent/packages 308 here (next.config), and every link points here.
 //
-// A price/conversion page reached by a member's own click, not organic content:
-// crawlable (so footer/about/faq links do not 404 to a crawler) but never
-// indexed.
+// The one public page that shows plan prices. Its CLEAN address is indexable
+// (owner, 12 Oct 2026); every ?for=…&plan=… variant is the same page with a tab
+// or a card pre-selected, so each points its canonical at /membership-plans and
+// only the clean address is indexed and listed in the sitemap.
 
 export const dynamic = 'force-dynamic'
 
@@ -27,7 +28,7 @@ export const metadata: Metadata = {
   title: 'Membership Plans | TutorMint',
   description:
     'Membership plans for tutors and parents on TutorMint — application and posting quotas, search ranking, badges and contact access.',
-  robots: { index: false, follow: true },
+  alternates: { canonical: '/membership-plans' },
 }
 
 const PLAN_COLS =

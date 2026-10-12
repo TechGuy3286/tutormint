@@ -14,7 +14,9 @@ import { browseJobs } from '@/lib/jobFeed'
 import { tutorPath, tuitionPath } from '@/lib/slugs'
 import { absoluteUrl } from '@/lib/siteUrl'
 import { itemListJsonLd, jsonLdScript } from '@/lib/seo'
-import { buildIntro, liveLandingPages, type LandingCombo, type IntroFacts } from '@/lib/landing'
+import { buildIntro, liveLandingPages, landingIndexable, type LandingCombo, type IntroFacts } from '@/lib/landing'
+import { landingFaq } from '@/lib/hubCopy'
+import HubFaq from '@/components/seo/HubFaq'
 import { article } from '@/lib/article'
 import { formatName } from '@/lib/formatName'
 import { uniqueById } from '@/lib/infiniteMerge'
@@ -92,6 +94,7 @@ export default async function LandingView({ combo }: { combo: LandingCombo }) {
   let initialCursor: string | null
   let total: number
   let serverIds: string[] = []
+  let facts: IntroFacts
 
   if (isTutors) {
     const { tutors: rankedRows, total: t, nextCursor } = await rankedTutors({
@@ -103,7 +106,7 @@ export default async function LandingView({ combo }: { combo: LandingCombo }) {
     const tutors = uniqueById(rankedRows)
     serverIds = tutors.map((x) => x.id)
     const fees = tutors.map((x) => x.hourly_rate_pkr).filter((n): n is number => typeof n === 'number' && n > 0)
-    const facts: IntroFacts = {
+    facts = {
       count: total,
       feeMin: fees.length ? Math.min(...fees) : null,
       feeMax: fees.length ? Math.max(...fees) : null,
@@ -136,7 +139,7 @@ export default async function LandingView({ combo }: { combo: LandingCombo }) {
     const maxs = jobs
       .map((j) => j.budget_max_pkr ?? j.budget_pkr)
       .filter((n): n is number => typeof n === 'number' && n > 0)
-    const facts: IntroFacts = {
+    facts = {
       count: total,
       feeMin: mins.length ? Math.min(...mins) : null,
       feeMax: maxs.length ? Math.max(...maxs) : null,
@@ -165,7 +168,7 @@ export default async function LandingView({ combo }: { combo: LandingCombo }) {
       <div className="mx-auto max-w-5xl space-y-4">
         <Breadcrumbs
           items={[
-            { label: isTutors ? 'Find tutors' : 'Find tuitions', href: isTutors ? '/browse/tutors' : '/browse/tuitions' },
+            { label: isTutors ? 'Tutors' : 'Tuition jobs', href: isTutors ? '/browse/tutors' : '/browse/tuitions' },
             { label: heading },
           ]}
         />
@@ -219,6 +222,12 @@ export default async function LandingView({ combo }: { combo: LandingCombo }) {
             </Link>
           </div>
         </section>
+
+        {/* Three questions answered from this page's own numbers, with FAQPage
+            data — only on a page that clears its threshold (12 Oct 2026). */}
+        {landingIndexable(combo) && total > 0 && (
+          <HubFaq items={landingFaq(kind, subjectName, city, facts)} path={canonical} />
+        )}
 
         {(inCity.length > 0 || inOtherCities.length > 0) && (
           <nav aria-label="Related pages" className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">

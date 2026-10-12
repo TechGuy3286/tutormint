@@ -166,11 +166,12 @@ export default async function FAQPage() {
             <GraduationCap aria-hidden size={14} />
             Browse tutors
           </Link>
-          {/* /tutor/register is a redirect stub to /register, kept alive
-              because referral links already circulating on WhatsApp point at
-              it. This page is the reason it is still routed at all. */}
+          {/* Straight to /register (owner, 12 Oct 2026): /tutor/register is a
+              redirect stub kept for links already circulating on WhatsApp, and
+              a link to a redirect is what Search Console reports as "Page with
+              redirect". */}
           <Link
-            href="/tutor/register"
+            href="/register"
             className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-5 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
           >
             <UserPlus aria-hidden size={14} />

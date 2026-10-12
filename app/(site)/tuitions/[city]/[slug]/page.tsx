@@ -31,7 +31,11 @@ import { tuitionPageTitle } from '@/lib/tuitionTitle'
 import { jobPostingJsonLd, jsonLdScript, pageDescription, pageTitle, seoTitle, seoDescription, tuitionDescription, socialMeta } from '@/lib/seo'
 import { liveOverlapNoindex, overlapKey } from '@/lib/landingOverlap'
 import { repeatOfOlderOpen, tuitionHref } from '@/lib/duplicates'
-import { cityPagePath } from '@/lib/cityJobs'
+import { cityPagePath, areaHubFor } from '@/lib/cityJobs'
+import { schoolOfJob, indexableSchoolHubsCached, schoolHubPath } from '@/lib/schoolJobs'
+import { employmentTypeFor, jobPostingDescription } from '@/lib/jobPostingCore'
+import { genderPrefWord } from '@/lib/genderPref'
+import { placeLabel } from '@/lib/place'
 import { ONLINE_JOB_TITLE } from '@/lib/jobTitlesCore'
 import RefreshInline from './RefreshInline'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -347,6 +351,17 @@ export default async function TuitionPage({ params }: { params: Params }) {
     relatedOpen = []
   }
 
+  // The school this post names, and the hubs it belongs to (owner, 12 Oct 2026):
+  // its area's "Teaching jobs in <Area>, <City>" page and its school's
+  // "<School> teacher jobs" page — each linked ONLY when that hub exists (3+
+  // open posts), so nothing here points at a noindex page.
+  const school = await schoolOfJob({ title: job.headline ?? job.title, description: job.description, city: job.city, jobTitle: job.teaching_mode })
+  const [areaHub, schoolHubs] = await Promise.all([
+    areaHubFor(job.city, job.area).catch(() => null),
+    school ? indexableSchoolHubsCached().catch(() => []) : Promise.resolve([]),
+  ])
+  const schoolHub = school && schoolHubs.some((s) => s.slug === school.slug) ? school : null
+
   // The gender-preference sentence, shown plainly to everyone. And, for a
   // signed-in tutor whose gender does not match, the Apply-blocking reason —
   // the SAME server rule (genderApplyBlocked), so the button and the API agree.
@@ -397,13 +412,25 @@ export default async function TuitionPage({ params }: { params: Params }) {
               // applicantLocationRequirements Pakistan (owner, 6 Oct 2026, item 11).
               refId: job.ref_id ?? null,
               online: job.teaching_mode === ONLINE_JOB_TITLE,
-              description:
-                job.description?.trim() ||
-                `${pageHeadline}. ${
-                  job.posted_by_team
-                    ? 'Posted by the TutorMint team.'
-                    : 'Posted by a verified parent on TutorMint.'
-                }`,
+              // Built from the tuition's own fields — Job Type, level, subjects,
+              // area, timing, gender preference, mode, budget — then what the
+              // poster wrote (owner, 12 Oct 2026). Never an invented fact.
+              description: jobPostingDescription({
+                jobTitle: job.teaching_mode,
+                level: job.class_level,
+                subjects: job.subjects ?? [],
+                area: job.area,
+                city: job.city,
+                timing: job.schedule ?? null,
+                genderWord: genderPrefWord(job.gender_preference),
+                budgetLabel: budget,
+                schoolName: school?.name ?? null,
+                freeText: job.description,
+              }),
+              // PART_TIME for a tuition; a school post only says what its own
+              // words say. The school it names is the hiring organisation.
+              employmentType: employmentTypeFor({ jobTitle: job.teaching_mode, title: pageHeadline, description: job.description }),
+              schoolName: school?.name ?? null,
               datePosted: job.created_at,
               // validThrough = the auto-pause instant (PR89 Part C): the same
               // clock base the sweep uses, coalesce(resumed_at, created_at) + 7
@@ -424,11 +451,12 @@ export default async function TuitionPage({ params }: { params: Params }) {
 
       <Breadcrumbs
         items={[
-          { label: 'Find tuitions', href: '/browse/tuitions' },
+          // Home › Tuition jobs › City › Title (owner, 12 Oct 2026).
+          { label: 'Tuition jobs', href: '/browse/tuitions' },
           ...(job.city
             ? [
                 {
-                  label: `Tuition jobs in ${job.city}`,
+                  label: job.city,
                   // The city page (item 6), not the filtered board.
                   href: cityPagePath(citySegment(job.city)),
                 },
@@ -734,8 +762,32 @@ export default async function TuitionPage({ params }: { params: Params }) {
 
       {/* §3 — an OPEN tuition points at more of the same: the matching landing
           page and a few live related tuitions, so it is not a dead-end single row. */}
-      {state.isOpen && (landingHref || relatedOpen.length > 0) && (
+      {state.isOpen && (landingHref || areaHub || schoolHub || relatedOpen.length > 0) && (
         <section className="space-y-3">
+          {schoolHub && (
+            <Link
+              href={schoolHubPath(schoolHub.slug)}
+              className="flex items-center justify-between gap-2 rounded-2xl border border-gray-200 bg-white p-4 text-sm font-bold text-tm-navy hover:border-tm-navy sm:p-5"
+            >
+              <span className="inline-flex items-center gap-2">
+                <GraduationCap aria-hidden size={16} className="text-gray-500" />
+                See all {schoolHub.name} teacher jobs
+              </span>
+              <span aria-hidden className="text-tm-red">→</span>
+            </Link>
+          )}
+          {areaHub && (
+            <Link
+              href={areaHub.href}
+              className="flex items-center justify-between gap-2 rounded-2xl border border-gray-200 bg-white p-4 text-sm font-bold text-tm-navy hover:border-tm-navy sm:p-5"
+            >
+              <span className="inline-flex items-center gap-2">
+                <MapPin aria-hidden size={16} className="text-gray-500" />
+                See all teaching jobs in {placeLabel(areaHub.label, job.city)}
+              </span>
+              <span aria-hidden className="text-tm-red">→</span>
+            </Link>
+          )}
           {landingHref && landingLabel && (
             <Link
               href={landingHref}

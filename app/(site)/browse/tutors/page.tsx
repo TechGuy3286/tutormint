@@ -1,4 +1,5 @@
 import { Globe, Plus } from 'lucide-react'
+import { browseTutorsMeta, browseTuitionsMeta } from '@/lib/browseMeta'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import TrackSearch from '@/components/TrackSearch'
 import { parseMode } from '@/lib/locations'
@@ -122,12 +123,10 @@ export async function generateMetadata({
   // "Find tutors" (owner, 5 Oct 2026). Verified tutors are listed first, but
   // not every listed tutor is verified yet, so neither the title nor the
   // description claims they all are.
-  const what = label ? `Find ${label} tutors` : 'Find tutors'
-  const where = city ? ` in ${city}` : ' in Pakistan'
-  const title = `${what}${where} | TutorMint`
-  const description = label
-    ? `Find ${label} tutors${where}. Verified tutors listed first — real profiles with identity checks. Free to browse on TutorMint.`
-    : `Find home and online tutors${where}. Verified tutors listed first — real profiles with identity checks. Free to browse on TutorMint.`
+  // Owner, 12 Oct 2026 (Search Console: 109 impressions at position 2.5, no
+  // clicks): the title says what the page offers and the description names the
+  // cities and "free to join, no commission". Both built in lib/browseMeta.
+  const { title, description } = browseTutorsMeta(label, city)
 
   const page = Math.max(1, intOrNull(one(sp.page)) ?? 1)
   // Identical arguments to the page body's own call, so React's cache() serves
