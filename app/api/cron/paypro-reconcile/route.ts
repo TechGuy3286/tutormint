@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { pproConfigured, markPayproOrderBlocked } from '@/lib/payments/paypro'
 import { confirmPayproOrder } from '@/lib/payments/payproReconcile'
 import { publishDuePosts } from '@/lib/blogPublish'
+import { sweepTutorAlerts } from '@/lib/tutorAlerts'
 
 // Backup reconcile (PR65 §5). PayPro's "Mark as Paid" callback can be missed, so
 // this re-checks pending PayPro orders via the ONE confirm path (PR104:
@@ -47,7 +48,9 @@ export async function GET(request: Request) {
   // Google Indexing API notices (owner, 8 Oct 2026): drained here, a few at a
   // time, never past 200 in a UTC day; anything over waits for the next day.
   const indexing = await drainIndexingQueue(INDEXING_DAILY_LIMIT, 20_000).catch(() => ({ sent: 0, failed: 0, left: -1 }))
-  if (!pproConfigured()) return NextResponse.json({ ok: true, skipped: 'paypro_not_configured', blog, indexing })
+  // "Notify me when a matching tutor joins": one message per request, then closed.
+  const alerts = await sweepTutorAlerts().catch(() => ({ open: 0, sent: 0, expired: 0, failed: 0 }))
+  if (!pproConfigured()) return NextResponse.json({ ok: true, skipped: 'paypro_not_configured', blog, indexing, alerts })
 
   const admin = createAdminClient()
   if (!admin) return NextResponse.json({ ok: true, skipped: 'no_admin_client' })

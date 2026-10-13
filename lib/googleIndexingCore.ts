@@ -92,7 +92,7 @@ export function classifyTokenError(message: string): string {
 // The queue's rules (owner, 12 Oct 2026) — pure, unit-tested.
 //
 // WHICH NOTICE. Google is told a tuition page is GONE (URL_DELETED) when the
-// tuition stops taking applications — paused (the 7-day rule, no contact
+// tuition stops taking applications — paused (the 15-day rule, no contact
 // number, staff, the member's own pause), closed, hired or merged — and that it
 // is NEW or BACK (URL_UPDATED) when it is posted, resumed or refreshed.
 //

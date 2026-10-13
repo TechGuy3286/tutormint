@@ -2,15 +2,16 @@ import 'server-only'
 
 // Marketplace → Paused tuitions (owner, 8 Oct 2026).
 //
-// The auto-paused tuitions (pause_source 'auto' or 'backlog' — the 7-day rule),
+// The auto-paused tuitions (pause_source 'auto' or 'backlog' — the 15-day rule),
 // newest first, with city, area, grade, poster, paused date and application
 // count; filters by city, "paused this week / older" and "with / without
-// applications". Resume — one row or many — gives a fresh 7 days, moves the
+// applications". Resume — one row or many — gives a fresh 15 days, moves the
 // tuition back to the top of Browse (and so Google Jobs), keeps its URL, tells
 // the Indexing API, notifies the poster and writes a `job.resume` audit row,
 // which is what Staff activity counts.
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TUITION_LIVE_LABEL } from '@/lib/tuitionStatus'
 import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { formatName } from '@/lib/formatName'
 import { citySegment } from '@/lib/slugs'
@@ -24,12 +25,12 @@ import { NO_CONTACT_REASON, NO_CONTACT_SOURCE } from '@/lib/tuitionContactCore'
 
 export type PausedFilters = { city?: string; age?: 'week' | 'older' | ''; apps?: 'with' | 'without' | ''; reason?: 'no_contact' | '' }
 
-/** The pause sources this screen lists: the 7-day rule, and "No contact number". */
+/** The pause sources this screen lists: the 15-day rule, and "No contact number". */
 export const PAUSED_SOURCES = ['auto', 'backlog', NO_CONTACT_SOURCE] as const
 
 /** The reason staff see for a paused tuition. */
 export function pauseReasonLabel(source: string | null | undefined): string {
-  return source === NO_CONTACT_SOURCE ? NO_CONTACT_REASON : 'Paused after 7 days'
+  return source === NO_CONTACT_SOURCE ? NO_CONTACT_REASON : `Paused after ${TUITION_LIVE_LABEL}`
 }
 
 export type PausedRow = {
@@ -44,7 +45,7 @@ export type PausedRow = {
   source: string
   applications: number
   href: string | null
-  /** "Paused after 7 days" or "No contact number". */
+  /** "Paused after 15 days" or "No contact number". */
   reason: string
   /** Posted by the TutorMint team — a number can be added by staff. */
   teamPosted: boolean
@@ -158,7 +159,7 @@ export async function resumeTuitionsAsStaff(actor: AdminActor, ids: string[]): P
         userId: job.parent_id as string,
         kind: 'tuition_resumed',
         title: 'Your tuition is live again',
-        body: `Your tuition “${job.title as string}” is live again for 7 days. Tutors can apply.`,
+        body: `Your tuition “${job.title as string}” is live again for ${TUITION_LIVE_LABEL}. Tutors can apply.`,
         href: `/parent/dashboard/job/${(job.job_tx_id as string | null) ?? id}`,
       })
     }

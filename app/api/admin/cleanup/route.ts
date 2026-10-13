@@ -27,6 +27,11 @@ const CleanupBody = z.object({
 export async function POST(request: Request) {
   const gate = await checkAdminRole(...SCREEN_ACCESS.cleanup)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
+  // Deleting accounts cannot be undone: the Owner alone, whatever else a
+  // Partner may do (owner, 13 Oct 2026).
+  if (gate.actor.adminRole !== 'owner') {
+    return NextResponse.json({ error: 'Only the Owner can delete accounts.' }, { status: 403 })
+  }
 
   const admin = createAdminClient()
   if (!admin) return NextResponse.json({ error: 'Server is not configured.' }, { status: 503 })

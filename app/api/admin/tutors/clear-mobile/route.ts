@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/errorResponse'
 
 import { checkAdminRole } from '@/lib/adminAuth'
+import { refuseOwnerTarget } from '@/lib/ownerGuard'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
 import { recomputeCompletion } from '@/lib/completion'
@@ -26,6 +27,9 @@ export async function POST(request: Request) {
 
   const parsed = await parseBody(request, Body)
   if (!parsed.ok) return parsed.response
+
+  const ownerRefusal = await refuseOwnerTarget(gate.actor, parsed.data.tutorId)
+  if (ownerRefusal) return ownerRefusal
 
   const admin = createAdminClient()
   if (!admin) return NextResponse.json({ error: 'Temporarily unavailable.' }, { status: 503 })

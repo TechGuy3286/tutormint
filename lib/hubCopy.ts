@@ -10,6 +10,7 @@
 // array, so the structured data can never say what the page does not.
 
 import { fitTitle, seoDescription, BRAND } from '@/lib/seo'
+import { TUITION_LIVE_LABEL } from '@/lib/tuitionStatus'
 
 export type HubFacts = {
   count: number
@@ -115,7 +116,7 @@ export function hubFaq(kind: HubKind, name: string, f: HubFacts): Faq[] {
   const out: Faq[] = [
     {
       q: `How many ${noun} are open right now?`,
-      a: `${f.count} ${plural(f.count, 'post is', 'posts are')} open today. The list is updated daily: new posts are added as they come in, and a post that is not renewed is paused after 7 days.`,
+      a: `${f.count} ${plural(f.count, 'post is', 'posts are')} open today. The list is updated daily: new posts are added as they come in, and a post that is not renewed is paused after ${TUITION_LIVE_LABEL}.`,
     },
   ]
   if (f.levels.length || f.areas.length || f.jobTypes.length) {
@@ -172,7 +173,7 @@ export function landingFaq(
   return [
     {
       q: `How many ${subject} tuitions are open in ${city}?`,
-      a: `${f.count} ${subject} ${plural(f.count, 'tuition is', 'tuitions are')} open in ${city} today${f.areas.length ? `, in areas including ${words(f.areas)}` : ''}. A tuition that is not renewed is paused after 7 days.`,
+      a: `${f.count} ${subject} ${plural(f.count, 'tuition is', 'tuitions are')} open in ${city} today${f.areas.length ? `, in areas including ${words(f.areas)}` : ''}. A tuition that is not renewed is paused after ${TUITION_LIVE_LABEL}.`,
     },
     {
       q: `What do ${subject} tuitions in ${city} pay?`,

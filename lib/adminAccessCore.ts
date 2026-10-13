@@ -13,16 +13,16 @@
 //                   activity filtered to ONLY their own actions, plus their own
 //                   Two-factor page and sign out. Everything else is refused on
 //                   the server, not just hidden.
-//   partner         VIEW-ONLY (owner, 8 Oct 2026): opens every page the owner
-//                   opens — Finance, revenue, Team, Audit, Plans included — and
-//                   changes nothing. checkAdminRole() answers 403 to a Partner
-//                   on every request that is not a GET/HEAD, the database write
-//                   policies exclude the role (migration 150), and two-factor
-//                   is always required. Downloads (GET) stay allowed.
+//   partner         FULL MANAGEMENT (owner, 13 Oct 2026; view-only from 8 Oct):
+//                   everything the owner can do — approvals, tuitions, payments,
+//                   Finance, Plans, Payment gateways, Team, Settings, Blog,
+//                   Audit — EXCEPT anything that touches the Owner account or
+//                   ownership (ownerProtection / staffChangeProblem below, and
+//                   lib/ownerGuard on the server). Two-factor is always
+//                   required of a Partner.
 //
 // 'owner' satisfies every check, so callers list the OTHER roles that qualify
-// and never have to remember to add owner. 'partner' satisfies every check too —
-// for VIEWING; writes are refused separately (see lib/adminAuth checkAdminRole).
+// and never have to remember to add owner. 'partner' satisfies every check too.
 
 export type AdminRole = 'owner' | 'admin' | 'operations' | 'tuitions_staff' | 'partner'
 
@@ -30,9 +30,60 @@ export function roleSatisfies(actorRole: AdminRole, allowed: AdminRole[]): boole
   return actorRole === 'owner' || actorRole === 'partner' || allowed.includes(actorRole)
 }
 
-/** A role that may change nothing (owner, 8 Oct 2026). */
+/**
+ * A role that may change nothing. No role is view-only today (owner, 13 Oct
+ * 2026 — the Partner became full management); the check and the screens that
+ * read it stay, so a future view-only role is one line here.
+ */
 export function isReadOnlyRole(role: AdminRole | null | undefined): boolean {
+  void role
+  return false
+}
+
+/** Roles that must ALWAYS have two-factor on — no grace window, and no admin
+ *  request is served to a session that has not passed it. */
+export function alwaysNeedsTwoFactor(role: AdminRole | null | undefined): boolean {
   return role === 'partner'
+}
+
+// ---------------------------------------------------------------------------
+// OWNER PROTECTION (owner, 13 Oct 2026). Pure rules; the server applies them in
+// lib/ownerGuard and lib/staff. Hiding a button is never the control.
+// ---------------------------------------------------------------------------
+
+export const OWNER_PROTECTED = 'Only the Owner can change the Owner account.'
+export const OWNER_ONLY_OWNERSHIP = 'Only the Owner can make someone Owner or transfer ownership.'
+export const PARTNER_PROTECTED = 'Only the Owner can change or remove a Partner.'
+
+/**
+ * May this actor change the TARGET account at all — edit it, pause, suspend,
+ * warn, ban, change its password, email, mobile number or two-factor, or remove
+ * it? Returns the refusal in words, or null when allowed. Nobody except the
+ * Owner may touch the Owner account.
+ */
+export function ownerProtection(
+  actorRole: AdminRole | null | undefined,
+  targetRole: string | null | undefined,
+): string | null {
+  if (targetRole === 'owner' && actorRole !== 'owner') return OWNER_PROTECTED
+  return null
+}
+
+/**
+ * A change to a staff member's role, or their removal (`newRole` null). On top
+ * of ownerProtection: nobody but the Owner hands out the Owner role, and a
+ * Partner cannot demote, remove or reset another Partner.
+ */
+export function staffChangeProblem(
+  actorRole: AdminRole | null | undefined,
+  targetRole: string | null | undefined,
+  newRole?: string | null,
+): string | null {
+  const owner = ownerProtection(actorRole, targetRole)
+  if (owner) return owner
+  if (newRole === 'owner' && actorRole !== 'owner') return OWNER_ONLY_OWNERSHIP
+  if (targetRole === 'partner' && actorRole !== 'owner') return PARTNER_PROTECTED
+  return null
 }
 
 /** The owner and the Partner see the real staff roles; everyone else sees the
@@ -93,9 +144,9 @@ export const SCREEN_ACCESS = {
   // Verifying tutors and parents — operations' core work.
   tutors: ['admin', 'operations'] as AdminRole[],
   parents: ['admin', 'operations'] as AdminRole[],
-  // OWNER-ONLY AREAS (owner, 8 Oct 2026, item 3): `[]` = the owner changes,
-  // the Partner views (roleSatisfies admits both), everyone else gets 403 and
-  // no menu item. Finance, the Overview revenue figure, payment amounts and
+  // OWNER AND PARTNER AREAS (owner, 8 Oct 2026, item 3; Partner full rights
+  // from 13 Oct): `[]` = the owner and the Partner (roleSatisfies admits both),
+  // everyone else gets 403 and no menu item. Finance, the Overview revenue figure, payment amounts and
   // totals, Plans and prices, Payment gateways + the settlement check, Team and
   // the Audit log.
   finance: [] as AdminRole[],

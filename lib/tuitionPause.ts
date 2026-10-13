@@ -1,7 +1,7 @@
 // lib/tuitionPause.ts
 //
-// Tuitions auto-pause 7 days after they were posted or last resumed (owner,
-// 8 Oct 2026; was 15 days, PR27 §3).
+// Tuitions auto-pause TUITION_LIVE_DAYS (15) after they were posted or last
+// resumed (owner, 13 Oct 2026; 7 days from 8 Oct, 15 before that — PR27 §3).
 //
 // A paused tuition has status 'paused' — auto-excluded from browse, search,
 // matching, the sitemap, landing pages and Apply (all of which filter
@@ -9,7 +9,7 @@
 // applications and its threads. The clock runs from coalesce(resumed_at,
 // created_at); resuming sets a fresh clock.
 //
-// THE BACKLOG. Open tuitions already past 7 days when the rule changed are
+// THE BACKLOG. Open tuitions already past their days when the rule changed are
 // paused 150 a night, oldest first (lib/tuitionPauseCore) — never all at once —
 // with pause_source 'backlog'; a recently-due tuition is an ordinary 'auto'
 // pause the same night. Indexing API notifications go through the queue, which
@@ -20,12 +20,12 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notify } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
-import { PAUSE_AFTER_DAYS } from '@/lib/tuitionStatus'
+import { TUITION_LIVE_DAYS, TUITION_LIVE_LABEL } from '@/lib/tuitionStatus'
 import { enqueueIndexing, tuitionUrl } from '@/lib/googleIndexing'
 import { pageAll } from '@/lib/pageAll'
 import { planPauseBatch, nextBatchAt } from '@/lib/tuitionPauseCore'
 
-export { PAUSE_AFTER_DAYS }
+export { TUITION_LIVE_DAYS }
 
 type OpenRow = { id: string; parent_id: string; title: string | null; created_at: string; resumed_at: string | null; public_slug: string | null; city: string | null }
 
@@ -86,7 +86,7 @@ export async function pauseStaleTuitions(now = new Date()): Promise<{
       userId: j.parent_id,
       kind: 'tuition_paused',
       title: 'Your tuition is paused',
-      body: 'Paused after 7 days — resume to show it to tutors again.',
+      body: `Paused after ${TUITION_LIVE_LABEL} — resume to show it to tutors again.`,
       href: '/parent/dashboard/jobs',
     })
     // Email is best-effort: a paused tuition must not be reported as failed

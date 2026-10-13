@@ -69,5 +69,5 @@ export default async function AdminTeamPage() {
     isMe: (s.id as string) === actor.id,
   }))
 
-  return <TeamClient staff={rows} />
+  return <TeamClient staff={rows} viewerRole={actor.adminRole} />
 }

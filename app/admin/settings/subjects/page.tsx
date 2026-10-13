@@ -1,5 +1,5 @@
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
-import { levelSubjects, listLevels } from '@/lib/subjectsCore'
+import { levelSubjects, levelTitleName, listLevels } from '@/lib/subjectsCore'
 import SubjectsCoreClient from './SubjectsCoreClient'
 
 // Admin → Settings → Subjects (owner, 7 Oct 2026). Owner and admin only,
@@ -19,6 +19,7 @@ export default async function SubjectsSettingsPage({
   const sp = await searchParams
   const level = levels.find((l) => l.slug === sp.level) ?? levels[0] ?? null
   const subjects = level ? await levelSubjects(level.slug) : []
+  const levelTitle = level ? await levelTitleName(level.slug) : null
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
@@ -28,8 +29,9 @@ export default async function SubjectsSettingsPage({
           Choose which subjects are a level&rsquo;s &ldquo;Main subjects&rdquo;. On Post a tuition, the &ldquo;Main
           subjects&rdquo; chip adds these to that grade. A level with none hides the chip. Subjects cannot be added,
           renamed or deleted here. The box under each subject is its short Urdu name, shown under the English name on
-          the tutor onboarding chips — one name per subject, shared by every level it is offered at. Every change is
-          recorded in the audit log.
+          the tutor onboarding chips — one name per subject, shared by every level it is offered at. The
+          &ldquo;Blog title name&rdquo; boxes are optional: the short name a suggested blog title uses for this level or
+          subject. Every change is recorded in the audit log.
         </p>
       </header>
 
@@ -54,7 +56,7 @@ export default async function SubjectsSettingsPage({
       </form>
 
       {level ? (
-        <SubjectsCoreClient key={level.slug} levelSlug={level.slug} levelName={`${level.category} › ${level.name}`} subjects={subjects} />
+        <SubjectsCoreClient key={level.slug} levelSlug={level.slug} levelName={`${level.category} › ${level.name}`} levelTitle={levelTitle} subjects={subjects} />
       ) : (
         <p className="rounded-2xl border border-gray-200 bg-white p-4 text-xs text-gray-500">No levels found.</p>
       )}

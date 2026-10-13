@@ -175,7 +175,7 @@ test('a rotation saves as a setting on the document row; the stored file is unch
 
 // --------------------------------------------------------------- partner ----
 
-test('the Partner (view-only) can neither rotate nor read', () => {
+test('rotate and read: owner, Partner, admin and operations', () => {
   for (const key of ['documentRotate', 'cnicRead'] as const) {
     assert.deepEqual([...SCREEN_ACCESS[key]].sort(), ['admin', 'operations'])
   }
@@ -188,7 +188,7 @@ test('the Partner (view-only) can neither rotate nor read', () => {
   assert.match(readRoute, /checkAdminRole\(\.\.\.SCREEN_ACCESS\.cnicRead\)/)
   assert.doesNotMatch(rotate + readRoute, /export async function GET/)
   const gate = code('lib/adminAuth.ts')
-  assert.match(gate, /Partner accounts are view-only|PARTNER_VIEW_ONLY/)
+  assert.match(gate, /alwaysNeedsTwoFactor/)
   // And the UI does not offer either control.
   const noTools = frame({ canRotate: false })
   assert.doesNotMatch(noTools, /Rotate left|Rotate right|Save rotation/)

@@ -228,8 +228,8 @@ test('B. Resume requires a number — every resume path, and the screens ask for
   assert.ok(read('components', 'admin', 'AddParentNumber.tsx').includes('Resume now'))
 })
 
-test('B. the Partner cannot post, edit or resume; signed out is refused', () => {
-  assert.equal(isReadOnlyRole('partner'), true)
+test('B. posting, editing and resuming go through the role check; signed out is refused', () => {
+  assert.equal(isReadOnlyRole('partner'), false) // full management since 13 Oct 2026 (was view-only)
   for (const r of ['owner', 'admin', 'operations', 'tuitions_staff'] as const) assert.equal(roleSatisfies(r, SCREEN_ACCESS.jobsPost), true, r)
   const routes: [string[], string][] = [
     [['create', 'route.ts'], 'checkAdminRole('],

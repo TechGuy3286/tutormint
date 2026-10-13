@@ -10,11 +10,11 @@
 // lib/areaHubCore.hubSlugRedirect. Any failure answers null: the page renders
 // (or redirects) as it would have, never an error.
 
-import { hubSlugRedirect } from '@/lib/areaHubCore'
+import { areaKey, hubSlugRedirect, type CityAliases } from '@/lib/areaHubCore'
 import { cityFromSegment } from '@/lib/slugs'
 
 const TTL_MS = 10 * 60_000
-let cache: { at: number; byCity: Map<string, string[]> } | null = null
+let cache: { at: number; byCity: Map<string, string[]>; aliases: Map<string, CityAliases> } | null = null
 
 async function curated(): Promise<Map<string, string[]> | null> {
   if (cache && Date.now() - cache.at < TTL_MS) return cache.byCity
@@ -34,7 +34,31 @@ async function curated(): Promise<Map<string, string[]> | null> {
       const city = c?.name?.toLowerCase()
       if (city) (byCity.get(city) ?? byCity.set(city, []).get(city)!).push(r.name)
     }
-    cache = { at: Date.now(), byCity }
+    // Approved aliases (Locations → "Same as existing area"): a hub address made
+    // from a typed spelling moves to the curated area's hub too.
+    const aliases = new Map<string, CityAliases>()
+    try {
+      const ar = await fetch(
+        `${base}/rest/v1/location_area_aliases?select=raw,location_cities(name),location_areas(name)&removed_at=is.null&limit=5000`,
+        { headers: { apikey: key, Authorization: `Bearer ${key}` }, cache: 'no-store' },
+      )
+      if (ar.ok) {
+        type One = { name: string } | { name: string }[] | null
+        const first = (v: One) => (Array.isArray(v) ? v[0] : v)?.name ?? ''
+        for (const r of (await ar.json()) as { raw: string; location_cities: One; location_areas: One }[]) {
+          const city = first(r.location_cities)
+          const area = first(r.location_areas)
+          const k = areaKey(r.raw, city)
+          if (!city || !area || !k) continue
+          const m = aliases.get(city.toLowerCase()) ?? {}
+          m[k] = area
+          aliases.set(city.toLowerCase(), m)
+        }
+      }
+    } catch {
+      /* the curated list alone still redirects the merged spellings */
+    }
+    cache = { at: Date.now(), byCity, aliases }
     return byCity
   } catch {
     return cache?.byCity ?? null
@@ -53,6 +77,6 @@ export async function areaHubRedirectPath(pathname: string): Promise<string | nu
   const byCity = await curated()
   const list = byCity?.get(city.toLowerCase())
   if (!list || list.length === 0) return null
-  const to = hubSlugRedirect(city, decodeURIComponent(segment).toLowerCase(), list)
+  const to = hubSlugRedirect(city, decodeURIComponent(segment).toLowerCase(), list, cache?.aliases.get(city.toLowerCase()))
   return to ? `/tuition-jobs/${citySlug}/${to}` : null
 }

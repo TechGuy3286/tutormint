@@ -8,7 +8,7 @@ import { approvalNeeded } from '@/lib/approvalQueue'
 import AdminSignOut from '@/components/admin/AdminSignOut'
 import BridgeBanner from '@/components/admin/BridgeBanner'
 import NotificationBell from '@/components/notifications/NotificationBell'
-import { getAdminActor, isReadOnlyRole, roleBadge, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { getAdminActor, isReadOnlyRole, alwaysNeedsTwoFactor, roleBadge, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { AdminReadOnlyProvider } from '@/components/admin/ReadOnly'
 import { NAV_GROUPS, type NavGroup } from '@/lib/adminNav'
 import { unreadCount } from '@/lib/notificationFeed'
@@ -83,10 +83,10 @@ export default async function AdminLayout({
   const supabase = await createClient()
   const mfa = await mfaState(supabase)
   if (mfa === 'unverified') return <MfaGate mode="verify" email={actor.email} />
-  // A Partner (view-only, owner 8 Oct 2026) ALWAYS needs two-factor — never a
-  // grace window: until it is set up, every admin page shows the setup screen.
+  // A Partner ALWAYS needs two-factor — never a grace window: until it is set
+  // up, every admin page shows the setup screen.
   const readOnly = isReadOnlyRole(actor.adminRole)
-  if (mfa === 'none' && (readOnly || !inMfaGrace())) return <MfaGate mode="setup" email={actor.email} />
+  if (mfa === 'none' && (alwaysNeedsTwoFactor(actor.adminRole) || !inMfaGrace())) return <MfaGate mode="setup" email={actor.email} />
 
   const groups: NavGroup[] = NAV_GROUPS.map((g) => ({
     ...g,
@@ -128,7 +128,7 @@ export default async function AdminLayout({
           <BridgeBanner />
           {readOnly && (
             <p className="border-b border-tm-navy/10 bg-tm-tint-navy px-4 py-2 text-center text-[11px] font-bold text-tm-navy">
-              View-only Partner account — you can open every page and download reports; nothing can be changed.
+              View-only account — you can open every page and download reports; nothing can be changed.
             </p>
           )}
         </>

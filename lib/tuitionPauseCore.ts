@@ -2,20 +2,21 @@
 //
 // The pure batching rule behind the nightly tuition pause (owner, 8 Oct 2026).
 //
-// A tuition pauses 7 days after it was posted or last resumed. When the rule
-// moved from 15 days to 7, hundreds of open tuitions were already past 7 days at
-// once. Those are the BACKLOG — every tuition already due when the 7-day rule
-// went live (BACKLOG_CUTOFF) — paused 150 a night, oldest first, never all at
-// once. A tuition that crosses day 7 AFTER the cutoff is an ordinary pause and
-// goes the same night, so the backlog never delays the ordinary rule. When no
-// tuition due before the cutoff is left open, the backlog is cleared.
+// A tuition pauses TUITION_LIVE_DAYS (15) after it was posted or last resumed.
+// When the rule moved from 7 days back to 15 (owner, 13 Oct 2026), every tuition
+// live that day whose 15 days had already run out was given until LIVE_FLOOR_MS
+// (3 days later). Those are the BACKLOG — every tuition due at the floor —
+// paused 150 a night, oldest first, never all at once. A tuition that reaches
+// day 15 AFTER the floor is an ordinary pause and goes the same night, so the
+// backlog never delays the ordinary rule. When no tuition due at the floor is
+// left open, the backlog is cleared.
 
-import { pauseDueAtMs } from '@/lib/tuitionStatus'
+import { pauseDueAtMs, LIVE_FLOOR_MS } from '@/lib/tuitionStatus'
 
 export const BACKLOG_BATCH = 150
-/** The moment the 7-day rule went live (deploy of 8 Oct 2026, 20:40 UTC). A
- *  tuition already due by then is backlog; one due later is an ordinary pause. */
-export const BACKLOG_CUTOFF_MS = Date.parse('2026-10-08T20:40:00Z')
+/** A tuition due at (or before) the floor is backlog; one due later is an
+ *  ordinary pause. */
+export const BACKLOG_CUTOFF_MS = LIVE_FLOOR_MS
 
 export type PauseCandidate = { id: string; clockBase: string }
 
@@ -29,7 +30,9 @@ export function planPauseBatch<T extends PauseCandidate>(
   const regular = due.filter((j) => pauseDueAtMs(j.clockBase) > cutoffMs)
   const old = due
     .filter((j) => pauseDueAtMs(j.clockBase) <= cutoffMs)
-    .sort((a, b) => pauseDueAtMs(a.clockBase) - pauseDueAtMs(b.clockBase) || a.id.localeCompare(b.id))
+    // Every backlog tuition is due at the same instant (the floor), so "oldest
+    // first" is by the clock itself.
+    .sort((a, b) => new Date(a.clockBase).getTime() - new Date(b.clockBase).getTime() || a.id.localeCompare(b.id))
   const backlog = old.slice(0, batch)
   return { regular, backlog, backlogLeft: old.length - backlog.length }
 }

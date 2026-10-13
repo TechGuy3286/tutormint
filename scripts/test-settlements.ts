@@ -269,11 +269,11 @@ test('in the export but not in TutorMint, and in TutorMint but not in the export
   assert.ok(kinds.includes('not_in_tutormint') && kinds.includes('not_in_export'))
 })
 
-test('owner only: the Partner can view and change nothing; other staff cannot open the page or its APIs', () => {
+test('owner and Partner only: other staff cannot open the page or its APIs', () => {
   assert.deepEqual(SCREEN_ACCESS.finance, [])
   assert.equal(roleSatisfies('owner', SCREEN_ACCESS.finance), true)
   assert.equal(roleSatisfies('partner', SCREEN_ACCESS.finance), true)
-  assert.equal(isReadOnlyRole('partner'), true)
+  assert.equal(isReadOnlyRole('partner'), false) // full management since 13 Oct 2026 (was view-only)
   for (const r of ['admin', 'operations', 'tuitions_staff'] as const) assert.equal(roleSatisfies(r, SCREEN_ACCESS.finance), false, r)
 
   assert.ok(read('app', 'admin', 'finance', 'settlement', 'page.tsx').includes('await requireAdminRole(...SCREEN_ACCESS.finance)'))

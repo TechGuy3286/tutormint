@@ -24,7 +24,7 @@ import { loadUnpaidSignups, loadFeaturedWhatsapp } from '@/lib/staffOutreach'
 import { isTestName, PAYMENT_STEP_LABEL, stuckBreakdown, firstNameOf } from '@/lib/staffOutreachCore'
 import { continueLink, loadFollowUpStates, loadStuckTemplate } from '@/lib/followUps'
 import { followUpLine, followUpText, followUpWaLink, splitFollowUpTabs, STUCK_TEMPLATE_KEY, type FollowUpSource } from '@/lib/followUpCore'
-import { PAUSE_AFTER_DAYS } from '@/lib/tuitionStatus'
+import { pauseDueAtMs } from '@/lib/tuitionStatus'
 import { settleByDate } from '@/lib/settlementCore'
 import type { PayproRow } from '@/lib/reconciliationCore'
 import { loadFinancePayments } from '@/lib/finance'
@@ -524,32 +524,29 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
     }
 
     case 'todo-pausing': {
-      // A tuition pauses 7 days after coalesce(resumed_at, created_at); "in the
-      // next 2 days" = that base falls in (now − 7d, now − 5d]. Instants, never
-      // ISO strings ("+00:00" and "Z" do not sort alike).
-      const fromMs = now.getTime() - PAUSE_AFTER_DAYS * 86_400_000
-      const toMs = now.getTime() - (PAUSE_AFTER_DAYS - 2) * 86_400_000
+      // A tuition pauses at pauseDueAtMs(coalesce(resumed_at, created_at)) — the
+      // one clock. "In the next 2 days" = that instant falls in (now, now + 2d].
+      const soonMs = now.getTime() + 2 * 86_400_000
       const jobs = await pageAll((a, b) =>
         admin
           .from('jobs')
           .select('id, ref_id, title, city, created_at, resumed_at')
           .eq('status', 'open')
-          .lte('created_at', new Date(toMs).toISOString())
           .order('created_at', { ascending: true })
           .range(a, b),
       )
       const rows = jobs.filter((j) => {
-        const base = Date.parse((j.resumed_at as string | null) ?? (j.created_at as string))
-        return base > fromMs && base <= toMs
+        const due = pauseDueAtMs((j.resumed_at as string | null) ?? (j.created_at as string))
+        return due > now.getTime() && due <= soonMs
       })
       return {
         key,
         rows: rows.map((j) => {
-          const base = Date.parse((j.resumed_at as string | null) ?? (j.created_at as string))
+          const due = pauseDueAtMs((j.resumed_at as string | null) ?? (j.created_at as string))
           return {
             id: j.id as string,
             title: `${(j.ref_id as string | null) ?? ''} ${(j.title as string | null) ?? ''}`.trim() || 'Tuition',
-            detail: `${(j.city as string | null) ?? '—'} · pauses ${formatDate(new Date(base + PAUSE_AFTER_DAYS * 86_400_000).toISOString())}`,
+            detail: `${(j.city as string | null) ?? '—'} · pauses ${formatDate(new Date(due).toISOString())}`,
             href: `/admin/jobs/${j.id}`,
           }
         }),

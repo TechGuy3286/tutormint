@@ -15,10 +15,13 @@ import type { LevelSubject } from '@/lib/subjectsCore'
 export default function SubjectsCoreClient({
   levelSlug,
   levelName,
+  levelTitle,
   subjects,
 }: {
   levelSlug: string
   levelName: string
+  /** The level's blog title name, or null. */
+  levelTitle?: string | null
   subjects: LevelSubject[]
 }) {
   const router = useRouter()
@@ -37,8 +40,19 @@ export default function SubjectsCoreClient({
   const [words, setWords] = useState<Record<string, string>>(savedWords)
   const norm = (v: string) => v.split(',').map((w) => w.trim().toLowerCase()).filter(Boolean).sort().join(',')
   const wordsChanged = Object.keys(words).filter((k) => norm(words[k] ?? '') !== norm(savedWords[k] ?? ''))
+  // Blog title names (owner, 13 Oct 2026): the level's, and one per SUBJECT slug.
+  const [lvlTitle, setLvlTitle] = useState(levelTitle ?? '')
+  const savedTitles = Object.fromEntries(subjects.map((s) => [s.slug, s.titleName ?? '']))
+  const [titles, setTitles] = useState<Record<string, string>>(savedTitles)
+  const titlesChanged = Object.keys(titles).filter((k) => (titles[k] ?? '').trim() !== (savedTitles[k] ?? '').trim())
+  const lvlTitleChanged = lvlTitle.trim() !== (levelTitle ?? '').trim()
   const dirty =
-    ticked.size !== saved.size || [...ticked].some((id) => !saved.has(id)) || urChanged.length > 0 || wordsChanged.length > 0
+    ticked.size !== saved.size ||
+    [...ticked].some((id) => !saved.has(id)) ||
+    urChanged.length > 0 ||
+    wordsChanged.length > 0 ||
+    titlesChanged.length > 0 ||
+    lvlTitleChanged
 
   const toggle = (id: number) =>
     setTicked((prev) => {
@@ -60,6 +74,8 @@ export default function SubjectsCoreClient({
         searchWords: Object.fromEntries(
           wordsChanged.map((k) => [k, (words[k] ?? '').split(',').map((w) => w.trim()).filter(Boolean)]),
         ),
+        ...(lvlTitleChanged ? { levelTitle: lvlTitle.trim() || null } : {}),
+        subjectTitles: Object.fromEntries(titlesChanged.map((k) => [k, titles[k].trim() || null])),
       }),
     })
     setBusy(false)
@@ -79,6 +95,18 @@ export default function SubjectsCoreClient({
           {ticked.size} main subject{ticked.size === 1 ? '' : 's'} of {subjects.length}
         </p>
       </div>
+      <label className="block space-y-1">
+        <span className="block text-[11px] font-bold text-gray-600">Blog title name for this level (optional)</span>
+        <input
+          type="text"
+          value={lvlTitle}
+          onChange={(e) => setLvlTitle(e.target.value)}
+          placeholder="e.g. FA, Matric, BS"
+          maxLength={40}
+          readOnly={readOnly}
+          className="min-h-[40px] w-full rounded-lg border border-gray-200 px-2 text-xs outline-none focus:border-tm-navy"
+        />
+      </label>
       {subjects.length === 0 ? (
         <p className="text-xs text-gray-500">This level has no subjects.</p>
       ) : (
@@ -116,6 +144,16 @@ export default function SubjectsCoreClient({
                 maxLength={400}
                 readOnly={readOnly}
                 aria-label={`Search words for ${s.name}`}
+                className="mx-2 mb-1 min-h-[36px] w-[calc(100%-1rem)] rounded-lg border border-gray-200 px-2 text-xs outline-none focus:border-tm-navy"
+              />
+              <input
+                type="text"
+                value={titles[s.slug] ?? ''}
+                onChange={(e) => setTitles((m) => ({ ...m, [s.slug]: e.target.value }))}
+                placeholder="Blog title name, e.g. Maths"
+                maxLength={40}
+                readOnly={readOnly}
+                aria-label={`Blog title name for ${s.name}`}
                 className="mx-2 mb-2 min-h-[36px] w-[calc(100%-1rem)] rounded-lg border border-gray-200 px-2 text-xs outline-none focus:border-tm-navy"
               />
             </li>

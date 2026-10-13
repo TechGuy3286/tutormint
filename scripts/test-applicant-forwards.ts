@@ -172,7 +172,7 @@ test('the "Check with parent" tag appears 3 days after a forward with no outcome
   assert.equal(states([...events, ev(JOB_A, 't-paid-2', 'applied', day(0))], [fwd(8)])[0].checkWithParent, false)
 })
 
-test('who can act: owner, admin, operations and tuitions staff; the Partner cannot', () => {
+test('who can act: owner, Partner, admin, operations and tuitions staff', () => {
   assert.deepEqual([...SCREEN_ACCESS.applicantForwards].sort(), ['admin', 'operations', 'tuitions_staff'])
   for (const role of ['owner', 'admin', 'operations', 'tuitions_staff'] as const) {
     assert.ok(roleSatisfies(role, SCREEN_ACCESS.applicantForwards), `${role} may act`)
@@ -184,7 +184,7 @@ test('who can act: owner, admin, operations and tuitions staff; the Partner cann
     assert.doesNotMatch(s, /export async function GET/)
     assert.match(s, /checkAdminRole\(\.\.\.SCREEN_ACCESS\.applicantForwards\)/)
   }
-  assert.match(code('lib/adminAuth.ts'), /Partner accounts are view-only|PARTNER_VIEW_ONLY/)
+  assert.match(code('lib/adminAuth.ts'), /alwaysNeedsTwoFactor/)
   // The UI offers a Partner no action: buttons, tick boxes and the outcome form sit behind !readOnly.
   const ui = code('app/admin/jobs/applicants/ApplicantsClient.tsx')
   // WhatsApp / Call need a number on the tuition (owner, 12 Oct 2026); without one the card offers "Add parent number".

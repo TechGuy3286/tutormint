@@ -16,18 +16,17 @@ import { funnelSets, isWaitingPayment } from '../lib/overviewItemsCore'
 import { stoppedAtLabel, EMAIL_NOT_CONFIRMED, MOBILE_NOT_VERIFIED } from '../lib/onboardingStopCore'
 import type { FlowFacts } from '../lib/tutorFlow'
 
-test('a Partner may view every screen; writes are refused by method', () => {
+test('a Partner may open every screen and is no longer view-only (owner, 13 Oct 2026)', () => {
   for (const [key, roles] of Object.entries(SCREEN_ACCESS)) {
     assert.equal(roleSatisfies('partner', roles as AdminRole[]), true, key)
   }
-  assert.equal(isReadOnlyRole('partner'), true)
-  for (const r of ['owner', 'admin', 'operations', 'tuitions_staff'] as AdminRole[]) assert.equal(isReadOnlyRole(r), false)
+  for (const r of ['owner', 'partner', 'admin', 'operations', 'tuitions_staff'] as AdminRole[]) assert.equal(isReadOnlyRole(r), false)
   assert.equal(isReadMethod('GET'), true)
   assert.equal(isReadMethod('head'), true)
   for (const m of ['POST', 'PUT', 'PATCH', 'DELETE', '', null, undefined]) assert.equal(isReadMethod(m), false, String(m))
 })
 
-test('owner-only areas admit the owner and the Partner, nobody else', () => {
+test('owner areas admit the owner and the Partner, nobody else', () => {
   for (const key of ['finance', 'revenue', 'paymentAmounts', 'plans', 'plansMutate', 'paymentGateways', 'reconciliation', 'team', 'audit', 'paymentsRefund'] as const) {
     assert.deepEqual(SCREEN_ACCESS[key], [], key)
     assert.equal(roleSatisfies('owner', SCREEN_ACCESS[key]), true)
@@ -55,7 +54,7 @@ function walk(dir: string): string[] {
   })
 }
 
-test('every /api/admin write route goes through checkAdminRole (so a Partner gets 403)', () => {
+test('every /api/admin write route goes through checkAdminRole', () => {
   const ALLOW = new Set([
     // getAdminActor + strict owner literal / self-only, reviewed by hand:
     path.join('app', 'api', 'admin', 'reauth', 'route.ts'),
@@ -73,14 +72,15 @@ test('every /api/admin write route goes through checkAdminRole (so a Partner get
   assert.ok(test.includes("actor.adminRole !== 'owner'"))
 })
 
-test('the proxy stamps the real method; checkAdminRole refuses a Partner write', () => {
+test('the proxy stamps the real method; a Partner always needs two-factor', () => {
   const proxy = readFileSync('proxy.ts', 'utf8')
   assert.ok(proxy.includes('headers.set(METHOD_HEADER, request.method)'))
   const auth = readFileSync(path.join('lib', 'adminAuth.ts'), 'utf8')
   assert.ok(auth.includes('isReadOnlyRole(actor.adminRole) && !opts.self'))
   assert.ok(auth.includes("!== 'verified'"))
   const layout = readFileSync(path.join('app', 'admin', 'layout.tsx'), 'utf8')
-  assert.ok(layout.includes("mfa === 'none' && (readOnly || !inMfaGrace())"))
+  assert.ok(auth.includes('alwaysNeedsTwoFactor(actor.adminRole) && !opts.self'))
+  assert.ok(layout.includes("mfa === 'none' && (alwaysNeedsTwoFactor(actor.adminRole) || !inMfaGrace())"))
 })
 
 const pay = (o: Partial<FinancePayment>): FinancePayment => ({

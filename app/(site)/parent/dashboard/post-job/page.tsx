@@ -20,7 +20,14 @@ import JobForm from './JobForm'
 
 export const dynamic = 'force-dynamic'
 
-export default async function PostJobPage() {
+export default async function PostJobPage({ searchParams }: { searchParams?: Promise<{ city?: string; area?: string }> }) {
+  // A tutor search that found nobody sends the parent here with what they
+  // searched already filled in (owner, 13 Oct 2026).
+  const sp = (await searchParams) ?? {}
+  const prefill = {
+    ...(typeof sp.city === 'string' && sp.city.trim() ? { city: sp.city.trim().slice(0, 80) } : {}),
+    ...(typeof sp.area === 'string' && sp.area.trim() ? { area: sp.area.trim().slice(0, 120) } : {}),
+  }
   const session = await getSessionUser()
   const userId = session!.user.id
   const supabase = await createClient()
@@ -86,7 +93,7 @@ export default async function PostJobPage() {
             </Link>
           </section>
         ) : (
-          <JobForm children={children ?? []} draftKey={`post-tuition:parent:${userId}`} />
+          <JobForm children={children ?? []} draftKey={`post-tuition:parent:${userId}`} initial={prefill} />
         )}
       </div>
     </main>

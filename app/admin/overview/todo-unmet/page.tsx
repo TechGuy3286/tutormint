@@ -1,7 +1,7 @@
 import Link from 'next/link'
 
-import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
-import { loadHiringTemplate, loadUnmetBoard, loadWordTargets } from '@/lib/unmetSearches'
+import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { loadHiringTemplate, loadSubjectLevels, loadUnmetBoard, loadWordTargets } from '@/lib/unmetSearches'
 
 import UnmetSearchesClient from './UnmetSearchesClient'
 
@@ -14,9 +14,11 @@ import UnmetSearchesClient from './UnmetSearchesClient'
 export const dynamic = 'force-dynamic'
 
 export default async function UnmetSearchesPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
-  await requireAdminRole(...SCREEN_ACCESS.unmetSearches)
+  const actor = await requireAdminRole(...SCREEN_ACCESS.unmetSearches)
+  // Adding a subject changes the subject list: the roles that manage Subjects.
+  const canAddSubject = roleSatisfies(actor.adminRole, SCREEN_ACCESS.subjectsCore)
   const tab = (await searchParams).tab === 'done' ? 'done' : 'review'
-  const [board, targets, template] = await Promise.all([loadUnmetBoard(), loadWordTargets(), loadHiringTemplate()])
+  const [board, targets, template, levels] = await Promise.all([loadUnmetBoard(), loadWordTargets(), loadHiringTemplate(), canAddSubject ? loadSubjectLevels() : Promise.resolve([])])
 
   return (
     <div className="space-y-4">
@@ -58,7 +60,7 @@ export default async function UnmetSearchesPage({ searchParams }: { searchParams
         })}
       </nav>
 
-      <UnmetSearchesClient tab={tab} cards={board.toReview} done={board.done} targets={targets} template={template} />
+      <UnmetSearchesClient tab={tab} cards={board.toReview} done={board.done} targets={targets} template={template} levels={levels} canAddSubject={canAddSubject} />
     </div>
   )
 }

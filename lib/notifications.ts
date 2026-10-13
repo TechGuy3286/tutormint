@@ -123,10 +123,13 @@ export type NotificationKind =
   // listed on Basic. Distinct from plan_activated (a subscription). No migration:
   // notifications.kind is text with no CHECK constraint.
   | 'verification_fee_paid'
-  // PR27 §3 — a tuition auto-paused after 7 days, or resumed. notifications.kind
+  // PR27 §3 — a tuition auto-paused after 15 days, or resumed. notifications.kind
   // is text with no CHECK constraint.
   | 'tuition_paused'
   | 'tuition_resumed'
+  // The Owner is told when someone else changes bank details, gateway
+  // settings, plan prices or team roles (owner, 13 Oct 2026).
+  | 'owner_alert'
   // PR54 §B — a parent tried to send a hiring/demo request to a tutor who has
   // reached this month's free limit. No parent name or details.
   | 'incoming_request_capped'

@@ -4,6 +4,8 @@ import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { logAdminAction } from '@/lib/auditLog'
 import { requireFreshAuth } from '@/lib/reauth'
 import { SETTING_KEYS } from '@/lib/payments/manual'
+import { alertOwner } from '@/lib/ownerAlerts'
+import { changedFields } from '@/lib/ownerAlertCore'
 
 // Save the bank-transfer details members are told to pay into (PR98 §4).
 //
@@ -18,12 +20,12 @@ import { SETTING_KEYS } from '@/lib/payments/manual'
 export const runtime = 'nodejs'
 
 const MAX_QR_BYTES = 4 * 1024 * 1024
-const TEXT_FIELDS: { field: string; key: string }[] = [
-  { field: 'accountTitle', key: SETTING_KEYS.accountTitle },
-  { field: 'bankName', key: SETTING_KEYS.bankName },
-  { field: 'bankBranch', key: SETTING_KEYS.bankBranch },
-  { field: 'accountNumber', key: SETTING_KEYS.accountNumber },
-  { field: 'iban', key: SETTING_KEYS.iban },
+const TEXT_FIELDS: { field: string; key: string; label: string }[] = [
+  { field: 'accountTitle', key: SETTING_KEYS.accountTitle, label: 'Account title' },
+  { field: 'bankName', key: SETTING_KEYS.bankName, label: 'Bank name' },
+  { field: 'bankBranch', key: SETTING_KEYS.bankBranch, label: 'Branch' },
+  { field: 'accountNumber', key: SETTING_KEYS.accountNumber, label: 'Account number' },
+  { field: 'iban', key: SETTING_KEYS.iban, label: 'IBAN' },
 ]
 
 export async function POST(request: Request) {
@@ -43,13 +45,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid submission.' }, { status: 400 })
   }
 
+  // What is saved now, so the audit log and the Owner alert can say before →
+  // after. An account number or IBAN is only ever written as its last 4 digits.
+  const { data: existing } = await admin.from('app_settings').select('key, value').in('key', TEXT_FIELDS.map((f) => f.key))
+  const beforeValues: Record<string, string> = {}
+  const afterValues: Record<string, string> = {}
+  for (const f of TEXT_FIELDS) {
+    beforeValues[f.field] = String((existing ?? []).find((r) => r.key === f.key)?.value ?? '')
+  }
+
   const changed: string[] = []
   const rows: { key: string; value: string }[] = []
   for (const { field, key } of TEXT_FIELDS) {
     const value = String(form.get(field) ?? '').trim()
     rows.push({ key, value })
     changed.push(field)
+    afterValues[field] = value
   }
+  const changes = changedFields(TEXT_FIELDS, beforeValues, afterValues)
 
   // Optional QR: upload a new one, or clear it. Stored privately; path only.
   const removeQr = String(form.get('removeQr') ?? '') === '1'
@@ -84,8 +97,17 @@ export async function POST(request: Request) {
     action: 'payments.bank_details',
     targetType: 'app_settings',
     targetId: 'pay',
-    // Field NAMES only — never the account number or IBAN values.
-    detail: { fields: changed },
+    // Before → after per changed field; an account number or IBAN is masked to
+    // its last 4 digits (lib/ownerAlertCore), never written in full.
+    detail: { fields: changed, changes },
+  })
+
+  const qrChange = changed.includes('qr') ? [{ label: 'QR image', before: '—', after: 'New image uploaded' }] : changed.includes('qr:cleared') ? [{ label: 'QR image', before: 'Set', after: 'Removed' }] : []
+  await alertOwner({
+    actor: gate.actor,
+    area: 'Bank transfer details',
+    changes: [...changes, ...qrChange],
+    href: '/admin/payments/settings/gateways#bank-details',
   })
 
   return NextResponse.json({ ok: true })

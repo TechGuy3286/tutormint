@@ -85,7 +85,7 @@ export type JobCardData = {
   contactTeaser?: string | null
   created_at: string
   /** The auto-pause clock base, when resumed at least once (PR89 Part C). The
-   *  tuition auto-pauses at coalesce(resumed_at, created_at) + 7 days, which is
+   *  tuition auto-pauses at coalesce(resumed_at, created_at) + 15 days, which is
    *  the JobPosting validThrough. Absent for a never-resumed tuition. */
   resumed_at?: string | null
   /** Browse order key: posted time, moved forward by a Refresh (migration 141). */

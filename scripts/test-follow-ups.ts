@@ -125,8 +125,8 @@ test('counts equal the cards', () => {
   assert.equal(unpaidRowMatches({ ...row, followUpSent: false }, 'followed'), false)
 })
 
-test('a Partner cannot record a follow-up — UI and API', () => {
-  assert.equal(isReadOnlyRole('partner'), true)
+test('recording a follow-up goes through the role check — UI and API', () => {
+  assert.equal(isReadOnlyRole('partner'), false) // full management since 13 Oct 2026 (was view-only)
   assert.equal(isReadMethod('POST'), false)
   const route = read('app/api/admin/follow-ups/route.ts')
   assert.match(route, /export async function POST/)

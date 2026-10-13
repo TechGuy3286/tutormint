@@ -39,10 +39,10 @@ export type StaffRow = {
 }
 
 const ROLES = [
-  { code: 'admin', label: 'Admin', blurb: 'Full access everywhere except this screen' },
+  { code: 'admin', label: 'Admin', blurb: 'Day-to-day management; no Team, Finance, Plans or payment settings' },
   { code: 'operations', label: 'Operations', blurb: 'Posting tuitions, verifying, assisting, marketing, SEO' },
   { code: 'tuitions_staff', label: 'Tuitions staff', blurb: 'Tuitions only — the board, posting, and their own activity' },
-  { code: 'partner', label: 'Partner', blurb: 'Views every page, including Finance; changes nothing; two-factor required' },
+  { code: 'partner', label: 'Partner', blurb: 'Full access, including Finance, Plans, payment settings and Team; cannot change the Owner; two-factor required' },
 ] as const
 
 // The badge pill is uppercased by CSS, so a raw 'tuitions_staff' would read
@@ -72,7 +72,7 @@ function inviteState(s: StaffRow): 'accepted' | 'invited' | 'expired' {
   return Number.isFinite(age) && age > INVITE_TTL_MS ? 'expired' : 'invited'
 }
 
-export default function TeamClient({ staff }: { staff: StaffRow[] }) {
+export default function TeamClient({ staff, viewerRole }: { staff: StaffRow[]; viewerRole: StaffRow['adminRole'] }) {
   // A Partner sees the roster and every real role, and changes nothing
   // (owner, 8 Oct 2026); the server refuses their writes regardless.
   const readOnly = useAdminReadOnly()
@@ -648,7 +648,12 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
                 The owner cannot be demoted or removed, including by themselves. Transferring
                 ownership is a database operation, on purpose.
               </p>
-            ) : (
+            ) : s.adminRole === 'partner' && viewerRole !== 'owner' && !s.isMe ? (
+              <p className="flex items-start gap-2 rounded-xl bg-tm-bg p-3 text-[11px] leading-relaxed text-gray-500">
+                <ShieldAlert size={14} className="mt-px shrink-0" />
+                Only the Owner can change or remove a Partner.
+              </p>
+            ) : s.isMe ? null : (
               <>
                 <label className="block space-y-1">
                   <span className="text-[11px] font-bold text-gray-500">Role</span>

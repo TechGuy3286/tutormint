@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
-import { saveLevelCore, saveSearchWords, saveUrduNames } from '@/lib/subjectsCore'
+import { saveLevelCore, saveSearchWords, saveTitleNames, saveUrduNames } from '@/lib/subjectsCore'
 import { revalidateTag } from 'next/cache'
 import { SMART_SEARCH_TAG } from '@/lib/smartSearch'
 import { parseBody, z } from '@/lib/validate'
@@ -20,6 +20,9 @@ const Body = z.object({
   urduNames: z.record(z.string().max(200), z.string().max(120).nullable()).optional(),
   /** "Search words" by subject slug (owner, 8 Oct 2026): the full list for each. */
   searchWords: z.record(z.string().max(200), z.array(z.string().max(60)).max(30)).optional(),
+  /** Blog title names (owner, 13 Oct 2026): the level's, and by subject slug; '' clears one. */
+  levelTitle: z.string().max(60).nullable().optional(),
+  subjectTitles: z.record(z.string().max(200), z.string().max(60).nullable()).optional(),
 })
 
 export async function POST(request: Request) {
@@ -47,6 +50,11 @@ export async function POST(request: Request) {
     email: gate.actor.email,
   })
   if (!words.ok) return NextResponse.json({ error: words.error }, { status: 400 })
+  const titles = await saveTitleNames(
+    { levelSlug: parsed.data.levelSlug, levelTitle: parsed.data.levelTitle, subjectTitles: parsed.data.subjectTitles ?? {} },
+    { id: gate.actor.id, adminRole: gate.actor.adminRole, email: gate.actor.email },
+  )
+  if (!titles.ok) return NextResponse.json({ error: titles.error }, { status: 400 })
   // The smart search reads the new words on its next request.
   if (words.changed.length) revalidateTag(SMART_SEARCH_TAG, 'max')
   return NextResponse.json({ ok: true, added: result.added, removed: result.removed, urduChanged: urdu.changed.length, wordsChanged: words.changed.length })

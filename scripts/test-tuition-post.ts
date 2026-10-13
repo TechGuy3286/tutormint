@@ -212,7 +212,7 @@ test('Settings → Subjects is owner and admin only; it changes only the core fl
   // English name) or deleted.
   // Owner, 8 Oct 2026: the per-subject "Search words" (taxonomy_aliases) are
   // edited here too. Subjects themselves are never added, renamed or deleted.
-  assert.deepEqual([...new Set(writes)].sort(), ['taxonomy_aliases.delete', 'taxonomy_aliases.insert', 'taxonomy_master.update', 'taxonomy_subjects.update'], 'core flag + Urdu name + search words only')
+  assert.deepEqual([...new Set(writes)].sort(), ['taxonomy_aliases.delete', 'taxonomy_aliases.insert', 'taxonomy_levels.update', 'taxonomy_master.update', 'taxonomy_subjects.update'], 'core flag + Urdu name + search words + blog title names only')
   assert.ok(lib.includes(".update({ is_core: true })") && lib.includes(".update({ is_core: false })"))
   assert.ok(lib.includes(".from('taxonomy_subjects').update({ name_ur: after })"), 'subjects: only name_ur changes')
   assert.ok(lib.includes("action: 'taxonomy.core'") && lib.includes("action: 'taxonomy.urdu_name'"), 'both audited')

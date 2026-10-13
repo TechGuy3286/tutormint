@@ -34,6 +34,7 @@ import { currentSlugForRetired } from '@/lib/tutorSlug'
 import { formatName } from '@/lib/formatName'
 import { distinctAreaLabels } from '@/lib/place'
 import { withAreaCities } from '@/lib/tutorAreaCities'
+import { withCanonAreas } from '@/lib/areaAliases'
 
 // The public tutor profile. Server component, results in the HTML.
 //
@@ -92,7 +93,7 @@ async function loadTutor(slug: string): Promise<PublicTutor | null> {
   const row = (data as PublicTutor[] | null)?.[0]
   if (!row) return null
   // Only reads anything when the area list repeats a name (lib/tutorAreaCities).
-  return (await withAreaCities([row]))[0]
+  return (await withAreaCities(await withCanonAreas([row])))[0]
 }
 
 /**

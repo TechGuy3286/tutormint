@@ -27,7 +27,8 @@ import {
   pauseCountdownLabel,
   isPauseDue,
   pauseDueAtMs,
-  PAUSE_AFTER_DAYS,
+  TUITION_LIVE_DAYS,
+  LIVE_FLOOR_MS,
 } from '../lib/tuitionStatus'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -71,31 +72,63 @@ test('an unknown / missing status defaults to open (a real row still renders 200
 })
 
 test('PART B — pauseCountdownLabel never shows 0 or a negative, and counts down', () => {
-  const now = Date.parse('2026-01-20T00:00:00Z')
+  const now = Date.parse('2027-01-20T00:00:00Z')
   const at = (iso: string) => pauseCountdownLabel(iso, now)
-  // 7-day life (owner, 8 Oct 2026; was 15).
-  assert.equal(at('2026-01-18T00:00:00Z'), 'pauses in 5 days') // base 2d ago → 5 days left
-  assert.equal(at('2026-01-14T12:00:00Z'), 'pauses in 1 day')   // 1.5 days left → floor 1, singular
+  // 15-day life (owner, 13 Oct 2026; was 7 from 8 Oct).
+  assert.equal(at('2027-01-18T00:00:00Z'), 'pauses in 13 days') // base 2d ago → 13 days left
+  assert.equal(at('2027-01-06T12:00:00Z'), 'pauses in 1 day')    // 1.5 days left → floor 1, singular
   // Under a day left, exactly due, and past due (unswept) all read "pauses today"
-  assert.equal(at('2026-01-13T12:00:00Z'), 'pauses today')      // 0.5 day left
-  assert.equal(at('2026-01-13T00:00:00Z'), 'pauses today')      // exactly due
-  assert.equal(at('2025-12-31T00:00:00Z'), 'pauses today')      // past due
+  assert.equal(at('2027-01-05T12:00:00Z'), 'pauses today')       // 0.5 day left
+  assert.equal(at('2027-01-05T00:00:00Z'), 'pauses today')       // exactly due
+  assert.equal(at('2026-12-20T00:00:00Z'), 'pauses today')       // past due
   // The strict guard: it never emits a "0" or a minus sign.
-  for (const iso of ['2026-01-15T00:00:00Z', '2026-01-05T12:00:00Z', '2026-01-05T00:00:00Z', '2025-12-31T00:00:00Z']) {
+  for (const iso of ['2027-01-15T00:00:00Z', '2027-01-05T12:00:00Z', '2027-01-05T00:00:00Z', '2026-12-20T00:00:00Z']) {
     const label = at(iso)
     assert.doesNotMatch(label, /\b0\b/, `no zero in "${label}"`)
     assert.doesNotMatch(label, /-/, `no negative in "${label}"`)
   }
-  assert.equal(PAUSE_AFTER_DAYS, 7)
+  assert.equal(TUITION_LIVE_DAYS, 15)
 })
 
 test('PART B — a past-due-but-unswept OPEN tuition reads "pauses today" and still accepts applications', () => {
-  const now = Date.parse('2026-01-20T00:00:00Z')
-  const base = '2026-01-01T00:00:00Z' // 19 days in — past the 15-day line
+  const now = Date.parse('2027-01-20T00:00:00Z')
+  const base = '2027-01-01T00:00:00Z' // 19 days in — past the 15-day line
   assert.equal(isPauseDue(base, now), true, 'the sweep would pause it on its next run')
   assert.equal(pauseCountdownLabel(base, now), 'pauses today', 'never "paused", never a negative')
   // It is still status="open" until the sweep runs, so it still takes applications.
   assert.equal(tuitionPublicState('open').acceptsApplications, true)
+})
+
+test('15 days: resume gives a fresh 15 days, and validThrough is the same instant', () => {
+  const DAY = 86_400_000
+  const posted = '2027-02-01T10:00:00Z'
+  assert.equal(pauseDueAtMs(posted), Date.parse(posted) + 15 * DAY)
+  // Resume = a new clock base; the pause moves to resume + 15 days.
+  const resumed = '2027-02-20T08:30:00Z'
+  assert.equal(pauseDueAtMs(resumed), Date.parse(resumed) + 15 * DAY)
+  assert.equal(isPauseDue(resumed, Date.parse(resumed) + 14.9 * DAY), false)
+  assert.equal(isPauseDue(resumed, Date.parse(resumed) + 15 * DAY), true)
+  // The tuition page hands JobPosting validThrough = pauseDueAtMs(clock base).
+  const page = readFileSync(join(root, 'app/(site)/tuitions/[city]/[slug]/page.tsx'), 'utf8')
+  assert.ok(page.replace(/\s+/g, '').includes('validThrough:newDate(pauseDueAtMs(job.resumed_at??job.created_at),).toISOString()'), 'validThrough = the pause instant')
+})
+
+test('the one-time floor: a tuition live on the day of the change is never due before it', () => {
+  const DAY = 86_400_000
+  // 15 days already run out on 13 Oct 2026 → live until the floor, not paused that day.
+  assert.equal(pauseDueAtMs('2026-09-20T00:00:00Z'), LIVE_FLOOR_MS)
+  assert.equal(isPauseDue('2026-09-20T00:00:00Z', Date.parse('2026-10-13T12:00:00Z')), false)
+  assert.equal(isPauseDue('2026-09-20T00:00:00Z', LIVE_FLOOR_MS), true)
+  // Still inside its 15 days → its own date.
+  assert.equal(pauseDueAtMs('2026-10-10T00:00:00Z'), Date.parse('2026-10-10T00:00:00Z') + 15 * DAY)
+})
+
+test('no screen carries its own copy of the number', () => {
+  for (const f of ['lib/hubCopy.ts', 'lib/notify/templates.ts', 'lib/pausedTuitions.ts', 'lib/tuitionPause.ts']) {
+    const src = readFileSync(join(root, f), 'utf8')
+    assert.ok(src.includes('TUITION_LIVE_LABEL'), `${f} reads the label`)
+    assert.doesNotMatch(src, /7 days — resume|after 7 days|for 7 days|another 7 days/, `${f} has no 7-day text`)
+  }
 })
 
 test('PART B — the sweep and the display share ONE expression (pauseDueAtMs)', () => {

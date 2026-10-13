@@ -31,6 +31,9 @@ export type Parsed = {
   levels: string[]
   levelLabel: string | null
   subject: { slug: string; name: string } | null
+  /** The other subjects the same word means (owner, 13 Oct 2026): "computer" is
+   *  Computer Science and also ICT, Programming, Coding… The search matches all. */
+  alsoSubjects?: { slug: string; name: string }[]
   school: { slug: string; name: string } | null
   /** The words of the query each part came from, for the removable chips. */
   spans: { kind: 'city' | 'level' | 'subject' | 'school'; text: string; label: string }[]
@@ -243,6 +246,20 @@ export function parseQuery(q: string, dict: Dict): Parsed {
     return true
   }
   const free = (from: number, to: number) => used.slice(from, to).every((u) => !u)
+  // One word, several subjects: the first is the subject shown; the rest are
+  // searched with it.
+  const others = (taken: Entry) => {
+    if (taken.kind !== 'subject' || out.subject?.slug !== taken.value) return
+    const same = (byKey.get(taken.key) ?? []).filter((e) => e.kind === 'subject' && e.value !== taken.value)
+    const seen = new Set<string>([taken.value])
+    const list: { slug: string; name: string }[] = []
+    for (const e of same) {
+      if (seen.has(e.value)) continue
+      seen.add(e.value)
+      list.push({ slug: e.value, name: e.label })
+    }
+    if (list.length) out.alsoSubjects = list
+  }
   const pick = (cands: Entry[]) =>
     [...cands].sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind])
 
@@ -253,7 +270,12 @@ export function parseQuery(q: string, dict: Dict): Parsed {
       const phrase = words.slice(i, i + len).join(' ')
       if (len === 1 && STOP.has(phrase)) continue
       const hits = byKey.get(phrase) ?? squashed.get(phrase.replace(/ /g, '')) ?? []
-      for (const e of pick(hits)) if (take(e, i, i + len)) break
+      for (const e of pick(hits)) {
+        if (take(e, i, i + len)) {
+          others(e)
+          break
+        }
+      }
     }
   }
   // Pass 2: fuzzy phrases, longest first — "beacchon house", "mathmatics".
@@ -269,7 +291,7 @@ export function parseQuery(q: string, dict: Dict): Parsed {
         if (d == null) continue
         if (!best || d < best.d || (d === best.d && KIND_ORDER[e.kind] < KIND_ORDER[best.e.kind])) best = { e, d }
       }
-      if (best) take(best.e, i, i + len)
+      if (best && take(best.e, i, i + len)) others(best.e)
     }
   }
   out.leftover = words.filter((w, i) => !used[i] && !STOP.has(w)).join(' ')

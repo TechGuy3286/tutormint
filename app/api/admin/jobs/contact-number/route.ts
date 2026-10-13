@@ -6,7 +6,7 @@ import { parseBody, z } from '@/lib/validate'
 
 // POST /api/admin/jobs/contact-number (owner, 12 Oct 2026) — add or change the
 // parent contact number on a staff-posted tuition, and (with resume) put a
-// tuition paused for "No contact number" back live for a fresh 7 days on the
+// tuition paused for "No contact number" back live for a fresh 15 days on the
 // same address. Every role that posts tuitions (SCREEN_ACCESS.jobsPost); the
 // view-only Partner is refused by checkAdminRole; signed out 401. Audited.
 

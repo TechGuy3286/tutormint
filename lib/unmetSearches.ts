@@ -135,7 +135,7 @@ export async function addSearchWord(input: { query: string; word: string; kind: 
 }
 
 /** "Mark done": the card moves to Done. A later identical search makes a new card. */
-export async function markSearchDone(input: { query: string; note: string | null }, actor: Actor): Promise<{ ok: true } | { ok: false; status: 400 | 503; error: string }> {
+export async function markSearchDone(input: { query: string; note: string | null; kind?: 'done' | 'ignored' | 'subject' }, actor: Actor): Promise<{ ok: true } | { ok: false; status: 400 | 503; error: string }> {
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: NOT_NOW }
   const key = searchKey(input.query)
@@ -154,16 +154,98 @@ export async function markSearchDone(input: { query: string; note: string | null
     done_by: actor.id,
     done_by_email: actor.email ?? null,
     done_by_name: (who?.full_name as string | null) ?? null,
+    ...(input.kind && input.kind !== 'done' ? { kind: input.kind } : {}),
   })
   if (error) return { ok: false, status: 400, error: 'That did not save. Please try again.' }
   await logAdminAction({
     actorId: actor.id,
     actorRole: actor.adminRole,
     actorEmail: actor.email ?? null,
-    action: 'search_unmet.done',
+    action: input.kind === 'ignored' ? 'search.ignore' : 'search_unmet.done',
     targetType: 'search',
     targetId: key.slice(0, 200),
-    detail: { searches: card.count, note },
+    detail: { searches: card.count, note, before: 'To review', after: input.kind === 'ignored' ? 'Ignored' : 'Done' },
   })
   return { ok: true }
+}
+
+/** The live levels a new subject can be added under (Unmet searches → "Add as new subject"). */
+export async function loadSubjectLevels(): Promise<{ slug: string; name: string }[]> {
+  const admin = createAdminClient()
+  if (!admin) return []
+  const [{ data: levels }, { data: cats }] = await Promise.all([
+    admin.from('taxonomy_levels').select('slug, name, category_slug, sort_order, legacy').eq('legacy', false),
+    admin.from('taxonomy_categories').select('slug, name, sort_order'),
+  ])
+  const cat = new Map((cats ?? []).map((c) => [c.slug as string, { name: c.name as string, order: (c.sort_order as number | null) ?? 0 }]))
+  return (levels ?? [])
+    .map((l) => ({
+      slug: l.slug as string,
+      name: `${cat.get(l.category_slug as string)?.name ?? ''} › ${l.name as string}`,
+      _c: cat.get(l.category_slug as string)?.order ?? 0,
+      _l: (l.sort_order as number | null) ?? 0,
+    }))
+    .sort((a, b) => a._c - b._c || a._l - b._l)
+    .map(({ slug, name }) => ({ slug, name }))
+}
+
+/**
+ * Unmet searches → "Add as new subject" (owner, 13 Oct 2026). A subject is only
+ * ever added by a staff member pressing this — never automatically from a
+ * search. It adds the subject (or reuses one of the same name) under ONE level
+ * the staff member chose, then marks the search done. Nothing is renamed or
+ * removed. Audited.
+ */
+export async function addSubjectFromSearch(
+  input: { query: string; name: string; levelSlug: string },
+  actor: Actor,
+): Promise<{ ok: true; subject: string; level: string } | { ok: false; status: 400 | 503; error: string }> {
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, status: 503, error: NOT_NOW }
+  const name = input.name.split(' ').filter(Boolean).join(' ').trim().slice(0, 80)
+  if (name.length < 2) return { ok: false, status: 400, error: 'Enter the subject name.' }
+  const { data: level } = await admin.from('taxonomy_levels').select('slug, name, category_slug, legacy').eq('slug', input.levelSlug).maybeSingle()
+  if (!level || level.legacy) return { ok: false, status: 400, error: 'Choose a level for the new subject.' }
+
+  // The same name (whatever its case) is the same subject.
+  const { data: sameName } = await admin.from('taxonomy_subjects').select('slug, name').ilike('name', name).limit(1)
+  let slug = (sameName?.[0]?.slug as string | undefined) ?? null
+  const existed = !!slug
+  if (!slug) {
+    const base = name.toLowerCase().split(' ').join('-').split('').filter((ch) => (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch === '-').join('') || 'subject'
+    const { data: taken } = await admin.from('taxonomy_subjects').select('slug').eq('slug', base).maybeSingle()
+    slug = taken ? `${base}-${Date.now().toString(36)}` : base
+    const { error } = await admin.from('taxonomy_subjects').insert({ slug, name })
+    if (error) return { ok: false, status: 400, error: 'That did not save. Please try again.' }
+  }
+  const { data: link } = await admin
+    .from('taxonomy_master')
+    .select('id')
+    .eq('category_slug', level.category_slug as string)
+    .eq('level_slug', level.slug as string)
+    .eq('subject_slug', slug)
+    .maybeSingle()
+  if (!link) {
+    const { error } = await admin
+      .from('taxonomy_master')
+      .insert({ category_slug: level.category_slug as string, level_slug: level.slug as string, subject_slug: slug, leaf_type: 'subject' })
+    if (error) return { ok: false, status: 400, error: 'That did not save. Please try again.' }
+  }
+  await logAdminAction({
+    actorId: actor.id,
+    actorRole: actor.adminRole,
+    actorEmail: actor.email ?? null,
+    action: 'search.subject_add',
+    targetType: 'taxonomy_subject',
+    targetId: slug,
+    detail: { search: input.query.slice(0, 200), before: existed ? `${name} (not at ${level.name as string})` : null, after: `${name} at ${level.name as string}` },
+  })
+  try {
+    revalidateTag(SMART_SEARCH_TAG, 'max')
+  } catch {
+    /* not in a request scope */
+  }
+  // The search leaves "To review"; a failure here does not undo the subject.
+  await markSearchDone({ query: input.query, note: `Added subject ${name} at ${level.name as string}`, kind: 'subject' }, actor).catch(() => undefined)
+  return { ok: true, subject: name, level: level.name as string }
 }

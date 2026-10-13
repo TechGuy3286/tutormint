@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { logAdminAction } from '@/lib/auditLog'
+import { alertOwner } from '@/lib/ownerAlerts'
 import { requireFreshAuth } from '@/lib/reauth'
 import { parseBody, z } from '@/lib/validate'
 import {
@@ -80,6 +81,15 @@ export async function POST(request: Request) {
     targetType: 'app_settings',
     targetId: key,
     detail,
+  })
+
+  // Anyone but the Owner changing a gateway setting: the Owner is told.
+  const word = (v: unknown) => (v === true ? 'On' : v === false ? 'Off' : String(v ?? '(empty)'))
+  await alertOwner({
+    actor: gate.actor,
+    area: 'Payment gateway settings',
+    changes: [{ label: [detail.change, detail.method].filter(Boolean).join(' — '), before: word(detail.from), after: word(detail.to) }],
+    href: '/admin/payments/settings/gateways',
   })
 
   return NextResponse.json({ ok: true })

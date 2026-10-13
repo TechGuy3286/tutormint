@@ -22,6 +22,8 @@
 //    thread. Phone, WhatsApp and email stay behind canViewContact as before.
 
 import { pageAll, pageAllIn } from '@/lib/pageAll'
+import { loadAreaAliases, spellingsForArea } from '@/lib/areaAliases'
+import { canonArea } from '@/lib/areaAliasCore'
 import { testAccountIds } from '@/lib/testAccounts'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -161,6 +163,9 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
   const supabase = await createClient()
   const jobIds = rawJobs.map((j) => j.id as string)
   const jobContacts = await jobContactRaw(jobIds)
+  // An area staff said is the same as a curated one is SHOWN as the curated
+  // name (owner, 13 Oct 2026). The saved text is never rewritten.
+  const areaAliases = await loadAreaAliases()
 
   // Subject labels for the chips, resolved from the join table.
   // PAGED (owner, 8 Oct 2026): a window of tuitions with "Select all"
@@ -271,7 +276,7 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       jobType: jobType(j.teaching_mode as string | null),
       gender: genderPrefWord(j.gender_preference as string | null),
       level: levelPhrase,
-      area: (j.area as string) ?? null,
+      area: canonArea(areaAliases, city, j.area as string | null) || null,
       city,
     })
     // PR91 Part A: mask any phone/email a parent typed into the free text. This
@@ -334,7 +339,7 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       // the composed title. Same source (class_levels) so the two never differ.
       class_level: levelDisplay,
       city: (j.city as string) ?? null,
-      area: (j.area as string) ?? null,
+      area: canonArea(areaAliases, j.city as string | null, j.area as string | null) || null,
       teaching_mode: (j.teaching_mode as string) ?? null,
       budget_pkr: (j.budget_pkr as number) ?? null,
       budget_min_pkr: (j.budget_min_pkr as number) ?? null,
@@ -342,7 +347,7 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       description: maskedDescription.masked ? maskedDescription.text : ((j.description as string) ?? null),
       created_at: (j.created_at as string) ?? new Date().toISOString(),
       // The auto-pause clock base for JobPosting validThrough (PR89 Part C):
-      // coalesce(resumed_at, created_at) + 7 days is when the tuition auto-pauses.
+      // coalesce(resumed_at, created_at) + 15 days is when the tuition auto-pauses.
       resumed_at: (j.resumed_at as string | null) ?? null,
       bumped_at: (j.bumped_at as string | null) ?? null,
       refreshed_at: (j.refreshed_at as string | null) ?? null,
@@ -744,6 +749,9 @@ export async function browseJobs(
   // hundreds of ids in the URL.
   const matchingIds: number[] | null = masterIds && masterIds.length > 0 ? masterIds : null
   const testIds = await testAccountIds()
+  // The curated area plus every typed spelling staff approved as the same area
+  // (owner, 13 Oct 2026) — "Liaqatabad" also finds "Liaqatbad".
+  const areaSpellingList = filters.area && !(filters.areas && filters.areas.length > 0) ? await spellingsForArea(filters.city ?? null, filters.area) : []
 
   const build = () => {
     let q = matchingIds
@@ -780,7 +788,12 @@ export async function browseJobs(
     }
     if (filters.city) q = q.ilike('city', filters.city)
     if (filters.areas && filters.areas.length > 0) q = q.in('area', filters.areas)
-    else if (filters.area) q = q.ilike('area', filters.area)
+    else if (filters.area) {
+      const spellings = areaSpellingList
+      const quoted = (v: string) => `"${v.replace(/"/g, '\\"')}"`
+      if (spellings.length > 1) q = q.or(spellings.map((a) => `area.ilike.${quoted(a)}`).join(','))
+      else q = q.ilike('area', filters.area)
+    }
     if (filters.genderPreference) q = q.eq('gender_preference', filters.genderPreference)
     if (filters.mode) {
       // A job carries exactly one Job Type title (migration 77), stored

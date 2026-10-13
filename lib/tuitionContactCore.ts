@@ -9,7 +9,7 @@
 //   • A PARENT-posted tuition uses the parent's own verified mobile, always.
 //   • A live tuition with no valid number is PAUSED with the reason "No contact
 //     number" (pause_source 'no_contact'). Nothing is deleted. Resuming it asks
-//     for the number first, then gives a fresh 7 days on the same address.
+//     for the number first, then gives a fresh 15 days on the same address.
 //
 // One number format is stored everywhere: the MSISDN of lib/phone.ts
 // (923001234567). No I/O here (scripts/test-tuition-contact.ts).

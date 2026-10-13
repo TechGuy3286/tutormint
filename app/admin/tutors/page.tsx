@@ -40,7 +40,7 @@ export default async function AdminTutorsPage({
       // Owner + Admin may reveal a full CNIC (logged); only the Owner may clear a
       // number's verification (owner PR8 §1.5, §3.3).
       canRevealCnic={roleSatisfies(actor.adminRole, ['admin'])}
-      canClearMobile={actor.adminRole === 'owner'}
+      canClearMobile={actor.adminRole === 'owner' || actor.adminRole === 'partner'}
       initialCursor={nextCursor}
       total={total}
     />

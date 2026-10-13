@@ -20,6 +20,9 @@ import PopularLandingLinks from '@/components/landing/PopularLandingLinks'
 import { rankedTutors, tutorFiltersFrom, tutorFiltersToParams } from '@/lib/browseTutors'
 import SearchChips from '@/components/search/SearchChips'
 import { tutorFallback } from '@/lib/searchFallback'
+import { tutorFacets } from '@/lib/tutorFacets'
+import { resolveSmartQuery } from '@/lib/smartSearch'
+import NotifyMe from '@/components/search/NotifyMe'
 import { logUnmetSearch } from '@/lib/smartSearch'
 import { uniqueById } from '@/lib/infiniteMerge'
 
@@ -276,10 +279,17 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
   // Nothing found (owner, 8 Oct 2026): log it, then show the nearest match with
   // a clear line — never an unrelated subject, never a blank page.
   let fallback: Awaited<ReturnType<typeof tutorFallback>> = null
-  if (tutors.length === 0 && !error && (q || city)) {
+  if (tutors.length === 0 && !error && (q || city || subjectId)) {
     if (q) await logUnmetSearch({ query: q, surface: 'tutors', parsed, role: viewer.role ?? null, userId: viewer.id ?? null })
     fallback = await tutorFallback(listFilters, parsed, PAGE_SIZE)
   }
+
+  // The dropdowns show only options that have a tutor, with counts (owner,
+  // 13 Oct 2026). The subject is the dropdown's id, or what the typed search means.
+  const facetSubject = subjectId ? [subjectId] : q ? ((await resolveSmartQuery(q).catch(() => null))?.masterIds ?? null) : null
+  const facets = await tutorFacets({ city: city || parsed?.city || null, area: area || null, masterIds: facetSubject })
+  // A zero result never ends the page: a way to post, and a way to be told.
+  const postHref = `/parent/dashboard/post-job${city || area ? `?${new URLSearchParams({ ...(city ? { city } : {}), ...(area ? { area } : {}) })}` : ''}`
 
   const label = await subjectLabel(subjectId)
   // "Find tutors" (owner, 5 Oct 2026) — the list holds verified tutors first and
@@ -327,7 +337,7 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
           <SearchChips parsed={parsed} q={q} basePath="/browse/tutors" params={{ subject: filters.subject, city, area, mode, gender, feeMin, feeMax, q }} />
         </header>
 
-        <TutorFilterBar values={filters} />
+        <TutorFilterBar values={filters} facets={facets} />
 
         {error && (
           <p className="rounded-2xl border border-tm-red/30 bg-tm-tint-red p-4 text-xs font-bold text-tm-red">
@@ -337,9 +347,10 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
 
         {tutors.length === 0 && !error && fallback ? (
           <div className="space-y-4">
-            <p className="rounded-2xl border border-tm-navy/20 bg-tm-tint-navy p-3 text-xs font-bold text-tm-navy">
-              {fallback.line.en}
-            </p>
+            <div className="space-y-1 rounded-2xl border border-tm-navy/20 bg-tm-tint-navy p-3 text-tm-navy">
+              <h2 className="text-sm font-black">Closest tutors</h2>
+              <p className="text-xs font-bold">{fallback.line.en}</p>
+            </div>
             {fallback.tutors.map((t, i) => (
               <TutorCard
                 key={t.id}
@@ -351,6 +362,16 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
                 priority={i === 0}
               />
             ))}
+            <div className="mx-auto max-w-md space-y-3">
+              <Link
+                href={postHref}
+                className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-red px-4 text-xs font-bold text-white shadow-md transition-colors hover:bg-tm-red-hover"
+              >
+                <Plus aria-hidden size={14} />
+                Post a free tuition request
+              </Link>
+              <NotifyMe q={q} city={city} area={area} subjectId={subjectId} />
+            </div>
           </div>
         ) : tutors.length === 0 && !error ? (
           /*
@@ -394,12 +415,13 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
                 </Link>
               )}
               <Link
-                href="/parent/dashboard/post-job"
+                href={postHref}
                 className="gap-1.5 flex min-h-[44px] items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white shadow-md transition-colors hover:bg-tm-red-hover"
               >
                 <Plus aria-hidden size={14} />
-                Post your tuition instead
+                Post a free tuition request
               </Link>
+              <NotifyMe q={q} city={city} area={area} subjectId={subjectId} />
               <Link
                 href="/browse/tutors"
                 className="flex min-h-[44px] items-center justify-center text-xs font-bold text-gray-500 hover:text-tm-navy"

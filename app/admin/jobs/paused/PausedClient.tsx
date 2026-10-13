@@ -44,7 +44,7 @@ export default function PausedClient({
     if (ids.length === 0) return
     const ok = await confirm({
       title: ids.length === 1 ? 'Resume this tuition?' : `Resume ${ids.length} tuitions?`,
-      body: 'Each one goes back on Browse and Google Jobs for a fresh 7 days, on the same address. The poster is told.',
+      body: 'Each one goes back on Browse and Google Jobs for a fresh 15 days, on the same address. The poster is told.',
       confirmLabel: ids.length === 1 ? 'Resume' : 'Resume selected',
     })
     if (!ok) return
@@ -57,7 +57,7 @@ export default function PausedClient({
     setBusy(false)
     if (r.ok) {
       const n = r.data?.resumed ?? 0
-      toast.success(`${n} tuition${n === 1 ? '' : 's'} resumed for 7 days.${r.data?.skipped ? ` ${r.data.skipped} were already open.` : ''}`)
+      toast.success(`${n} tuition${n === 1 ? '' : 's'} resumed for 15 days.${r.data?.skipped ? ` ${r.data.skipped} were already open.` : ''}`)
       setPicked(new Set())
       router.refresh()
     } else {

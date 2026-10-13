@@ -99,7 +99,12 @@ export async function listEditorSuggestions(): Promise<EditorSuggestion[]> {
     let city: string | null = null
     let subject: string | null = null
     const fp = (r.fingerprint as string) ?? ''
-    if (fp.startsWith('search:')) {
+    if (fp.startsWith('topic:') || fp.startsWith('cityguide:')) {
+      // The grouped topic (owner, 13 Oct 2026) carries its own clean names.
+      const key = (r.evidence_key ?? {}) as Record<string, unknown>
+      subject = typeof key.subjectName === 'string' ? key.subjectName : null
+      city = typeof key.city === 'string' ? key.city : null
+    } else if (fp.startsWith('search:')) {
       // search:tutors:<masterId>:<citySlug>
       const parts = fp.split(':')
       const masterId = Number(parts[2])

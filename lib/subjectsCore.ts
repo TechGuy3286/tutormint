@@ -13,7 +13,7 @@ import { logAdminAction } from '@/lib/auditLog'
 import type { AdminRole } from '@/lib/adminAuth'
 
 export type LevelOption = { slug: string; name: string; category: string; coreCount: number }
-export type LevelSubject = { masterId: number; slug: string; name: string; isCore: boolean; nameUr: string | null; searchWords: string[] }
+export type LevelSubject = { masterId: number; slug: string; name: string; isCore: boolean; nameUr: string | null; titleName: string | null; searchWords: string[] }
 
 export async function listLevels(): Promise<LevelOption[]> {
   const admin = createAdminClient()
@@ -52,10 +52,11 @@ export async function levelSubjects(levelSlug: string): Promise<LevelSubject[]> 
     .limit(1000)
   const slugs = [...new Set((rows ?? []).map((r) => r.subject_slug as string))]
   const { data: subs } = slugs.length
-    ? await admin.from('taxonomy_subjects').select('slug, name, name_ur').in('slug', slugs)
-    : { data: [] as { slug: string; name: string; name_ur: string | null }[] }
+    ? await admin.from('taxonomy_subjects').select('slug, name, name_ur, title_name').in('slug', slugs)
+    : { data: [] as { slug: string; name: string; name_ur: string | null; title_name: string | null }[] }
   const name = new Map((subs ?? []).map((s) => [s.slug as string, s.name as string]))
   const ur = new Map((subs ?? []).map((s) => [s.slug as string, ((s.name_ur as string | null) ?? '').trim() || null]))
+  const titles = new Map((subs ?? []).map((s) => [s.slug as string, ((s.title_name as string | null) ?? '').trim() || null]))
   const { data: aliasRows } = slugs.length
     ? await admin.from('taxonomy_aliases').select('slug, alias').eq('kind', 'subject').in('slug', slugs).order('alias')
     : { data: [] as { slug: string; alias: string }[] }
@@ -68,6 +69,7 @@ export async function levelSubjects(levelSlug: string): Promise<LevelSubject[]> 
       name: name.get(r.subject_slug as string) ?? '',
       isCore: !!r.is_core,
       nameUr: ur.get(r.subject_slug as string) ?? null,
+      titleName: titles.get(r.subject_slug as string) ?? null,
       searchWords: words.get(r.subject_slug as string) ?? [],
     }))
     .filter((r) => r.name)
@@ -210,6 +212,71 @@ export async function saveSearchWords(
       action: 'taxonomy.search_words',
       targetType: 'taxonomy_subject',
       targetId: slugs.length === 1 ? slugs[0] : 'multiple',
+      detail: { changed },
+    })
+  }
+  return { ok: true, changed }
+}
+
+/** The blog "title name" of one level (owner, 13 Oct 2026); null = the built-in group name. */
+export async function levelTitleName(levelSlug: string): Promise<string | null> {
+  const admin = createAdminClient()
+  if (!admin) return null
+  const { data } = await admin.from('taxonomy_levels').select('title_name').eq('slug', levelSlug).maybeSingle()
+  return ((data?.title_name as string | null) ?? '').trim() || null
+}
+
+const cleanTitleName = (v: string | null | undefined): string | null => {
+  const t = (v ?? '').split(' ').filter(Boolean).join(' ').trim()
+  return t ? t.slice(0, 40) : null
+}
+
+/**
+ * Set the short names blog TITLES use for a level and its subjects (owner,
+ * 13 Oct 2026) — "FA" for "FA ( Part I & Part II)", "Maths" for "Mathematics".
+ * They only change how a suggested blog title reads; the taxonomy name, the
+ * pickers and every saved tuition and profile are untouched. Only names that
+ * actually change are written, each audited with its before and after.
+ */
+export async function saveTitleNames(
+  input: { levelSlug: string; levelTitle?: string | null; subjectTitles?: Record<string, string | null> },
+  actor: { id: string; adminRole: AdminRole; email?: string | null },
+): Promise<{ ok: true; changed: { name: string; from: string | null; to: string | null }[] } | { ok: false; error: string }> {
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, error: 'This is not working right now. Please try again in a few minutes.' }
+  const changed: { name: string; from: string | null; to: string | null }[] = []
+  if (input.levelTitle !== undefined) {
+    const { data: level } = await admin.from('taxonomy_levels').select('slug, name, title_name').eq('slug', input.levelSlug).maybeSingle()
+    if (level) {
+      const before = ((level.title_name as string | null) ?? '').trim() || null
+      const after = cleanTitleName(input.levelTitle)
+      if (before !== after) {
+        const { error } = await admin.from('taxonomy_levels').update({ title_name: after }).eq('slug', input.levelSlug)
+        if (error) return { ok: false, error: 'That did not save. Please try again.' }
+        changed.push({ name: level.name as string, from: before, to: after })
+      }
+    }
+  }
+  const slugs = Object.keys(input.subjectTitles ?? {})
+  if (slugs.length > 0) {
+    const { data: subs } = await admin.from('taxonomy_subjects').select('slug, name, title_name').in('slug', slugs)
+    for (const sub of subs ?? []) {
+      const before = ((sub.title_name as string | null) ?? '').trim() || null
+      const after = cleanTitleName(input.subjectTitles![sub.slug as string])
+      if (before === after) continue
+      const { error } = await admin.from('taxonomy_subjects').update({ title_name: after }).eq('slug', sub.slug as string)
+      if (error) return { ok: false, error: 'That did not save. Please try again.' }
+      changed.push({ name: sub.name as string, from: before, to: after })
+    }
+  }
+  if (changed.length) {
+    await logAdminAction({
+      actorId: actor.id,
+      actorRole: actor.adminRole,
+      actorEmail: actor.email ?? null,
+      action: 'taxonomy.title_name',
+      targetType: 'taxonomy',
+      targetId: input.levelSlug,
       detail: { changed },
     })
   }

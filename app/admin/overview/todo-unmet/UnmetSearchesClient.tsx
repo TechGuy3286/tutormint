@@ -3,10 +3,11 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Check, Copy, Megaphone, Plus } from 'lucide-react'
+import { Check, Copy, Megaphone } from 'lucide-react'
 
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
+import ThreeWayReview from '@/components/admin/ThreeWayReview'
 import { useToast } from '@/components/ui/Toast'
 import { formatDateTime } from '@/lib/datetime'
 import { filterTargets, hiringPost, whatsappShareLink, type DoneRow, type UnmetCard, type WordTarget } from '@/lib/unmetSearchCore'
@@ -34,12 +35,17 @@ export default function UnmetSearchesClient({
   done,
   targets,
   template,
+  levels = [],
+  canAddSubject = false,
 }: {
   tab: 'review' | 'done'
   cards: UnmetCard[]
   done: DoneRow[]
   targets: WordTarget[]
   template: string
+  /** Levels a new subject can be added under. */
+  levels?: { slug: string; name: string }[]
+  canAddSubject?: boolean
 }) {
   const router = useRouter()
   const toast = useToast()
@@ -83,6 +89,62 @@ export default function UnmetSearchesClient({
     setFound((f) => ({ ...f, [c.key]: { ...data.now!, word: data.word ?? word, target: data.target ?? pick.name } }))
     setOpen(null)
     toast.success(`Search word added. Now finds ${resultsWord(data.now.tutors + data.now.tuitions)}.`)
+  }
+
+  // The three review actions (owner, 13 Oct 2026), shared with Locations.
+  const [subjectLevel, setSubjectLevel] = useState('')
+  const reviewOptions = useMemo(() => targets.map((t) => ({ id: `${t.kind}|${t.slug}`, label: t.name, hint: KIND_LABEL[t.kind] })), [targets])
+
+  const addSynonym = async (c: UnmetCard, optionId: string) => {
+    const cut = optionId.indexOf('|')
+    const kind = optionId.slice(0, cut)
+    const slug = optionId.slice(cut + 1)
+    const target = targets.find((t) => t.kind === kind && t.slug === slug)
+    setBusy(true)
+    const { ok, data } = await adminFetch<{ error?: string; word?: string; target?: string; now?: Found }>('/api/admin/unmet-searches/search-word', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: c.query, word: c.key.slice(0, 40), kind, slug }),
+    })
+    setBusy(false)
+    if (!ok || !data?.now) {
+      toast.error(data?.error ?? 'That did not save. Please try again.')
+      return
+    }
+    setFound((f) => ({ ...f, [c.key]: { ...data.now!, word: data.word ?? c.key, target: data.target ?? target?.name ?? '' } }))
+    toast.success(`Synonym added. Now finds ${resultsWord(data.now.tutors + data.now.tuitions)}.`)
+  }
+
+  const addSubject = async (c: UnmetCard, name: string) => {
+    setBusy(true)
+    const { ok, data } = await adminFetch<{ error?: string; subject?: string; level?: string }>('/api/admin/unmet-searches/subject', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: c.query, name, levelSlug: subjectLevel }),
+    })
+    setBusy(false)
+    if (!ok) {
+      toast.error(data?.error ?? 'That did not save. Please try again.')
+      return
+    }
+    toast.success(`${data?.subject ?? name} added at ${data?.level ?? 'that level'}.`)
+    router.refresh()
+  }
+
+  const ignore = async (c: UnmetCard) => {
+    setBusy(true)
+    const { ok, data } = await adminFetch<{ error?: string }>('/api/admin/unmet-searches/done', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: c.query, note: null, kind: 'ignored' }),
+    })
+    setBusy(false)
+    if (!ok) {
+      toast.error(data?.error ?? 'That did not save. Please try again.')
+      return
+    }
+    toast.success('Ignored. It is hidden from this list, not deleted.')
+    router.refresh()
   }
 
   const markDone = async (c: UnmetCard) => {
@@ -166,10 +228,33 @@ export default function UnmetSearchesClient({
             )}
 
             {!readOnly && !isOpen && (
+              <ThreeWayReview
+                labels={{ add: 'Add as new subject', same: 'Add as synonym of…', ignore: 'Ignore', nameLabel: 'Subject name', findPlaceholder: 'Find a subject, school, level or city' }}
+                options={reviewOptions}
+                suggested={{ action: 'same', name: c.query.slice(0, 60) }}
+                busy={busy}
+                addReady={!!subjectLevel}
+                addExtra={
+                  <label className="block space-y-1">
+                    <span className={LABEL}>Level it is taught at</span>
+                    <select value={subjectLevel} onChange={(e) => setSubjectLevel(e.target.value)} className={INPUT}>
+                      <option value="">Choose a level</option>
+                      {levels.map((l) => (
+                        <option key={l.slug} value={l.slug}>
+                          {l.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                }
+                onAdd={canAddSubject ? (name) => void addSubject(c, name) : undefined}
+                onSame={(id) => void addSynonym(c, id)}
+                onIgnore={() => void ignore(c)}
+              />
+            )}
+
+            {!readOnly && !isOpen && (
               <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => show(c, 'word')} className={GHOST}>
-                  <Plus aria-hidden size={14} /> Add search word
-                </button>
                 {c.city && (
                   <button type="button" onClick={() => show(c, 'post')} className={GHOST}>
                     <Megaphone aria-hidden size={14} /> Hiring post for {c.city}

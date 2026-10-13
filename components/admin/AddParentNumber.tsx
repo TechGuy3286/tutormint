@@ -57,7 +57,7 @@ export default function AddParentNumber({
       return
     }
     if (data?.resumed) {
-      toast.success('Number saved. The tuition is live again for 7 days, on the same address.')
+      toast.success('Number saved. The tuition is live again for 15 days, on the same address.')
       router.refresh()
       return
     }

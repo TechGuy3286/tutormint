@@ -13,22 +13,41 @@
 // Vocabulary stays paused/closed/hired to match the DB and admin. The word
 // "expired" never appears in copy.
 
-/** A tuition auto-pauses this many days after it is posted or last resumed. */
-export const PAUSE_AFTER_DAYS = 7
+/**
+ * How long a tuition stays live: it auto-pauses this many days after it is
+ * posted or last resumed (owner, 13 Oct 2026 — 15 days; it was 7 from 8 Oct).
+ * THE one value. The nightly pause, Resume and Refresh, JobPosting
+ * validThrough, the countdown, the Overview "pausing soon" row and every label
+ * that names the number read it from here.
+ */
+export const TUITION_LIVE_DAYS = 15
+
+/** "15 days" — for labels, so no screen carries its own copy of the number. */
+export const TUITION_LIVE_LABEL = `${TUITION_LIVE_DAYS} days`
+
+/**
+ * The one-time floor of the move from 15 days to 15 (owner, 13 Oct 2026). A
+ * tuition that was live on the day of the change and whose 15 days had already
+ * run out (or would within 3 days) stays live until this instant, 3 days after
+ * the change, so nothing disappeared on the day. A tuition posted or resumed
+ * later is always due after it, so the floor never applies again.
+ */
+export const LIVE_FLOOR_MS = Date.parse('2026-10-16T09:00:00Z')
 
 const DAY_MS = 86_400_000
 
 /**
  * The instant an OPEN tuition auto-pauses: its clock base
- * (coalesce(resumed_at, created_at)) + 7 days. This is the ONE expression the
- * sweep (isPauseDue) and the display (pauseCountdownLabel) both derive from, so
+ * (coalesce(resumed_at, created_at)) + TUITION_LIVE_DAYS, never before
+ * LIVE_FLOOR_MS. This is the ONE expression the sweep (isPauseDue), the display
+ * (pauseCountdownLabel) and JobPosting validThrough all derive from, so
  * "pauses in N days" and "what the sweep writes" can never drift (PR29 §B).
  */
 export function pauseDueAtMs(clockBaseIso: string): number {
-  return new Date(clockBaseIso).getTime() + PAUSE_AFTER_DAYS * DAY_MS
+  return Math.max(new Date(clockBaseIso).getTime() + TUITION_LIVE_DAYS * DAY_MS, LIVE_FLOOR_MS)
 }
 
-/** True once the 7-day clock has run out — exactly what the sweep pauses on. */
+/** True once the clock has run out — exactly what the sweep pauses on. */
 export function isPauseDue(clockBaseIso: string, now = Date.now()): boolean {
   return pauseDueAtMs(clockBaseIso) <= now
 }

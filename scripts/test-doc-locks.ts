@@ -120,13 +120,13 @@ test('an unlock allows exactly one upload', () => {
   assert.equal(spendSide(f.usedSides, 'back', cnicParts).spent, true)
 })
 
-test('the Partner (view-only) cannot unlock; owner, admin and operations can', () => {
+test('owner, Partner, admin and operations can unlock; Tuitions staff cannot', () => {
   assert.equal(roleSatisfies('admin', SCREEN_ACCESS.documentUnlock), true)
   assert.equal(roleSatisfies('operations', SCREEN_ACCESS.documentUnlock), true)
   assert.equal(roleSatisfies('owner', SCREEN_ACCESS.documentUnlock), true)
   assert.equal(roleSatisfies('tuitions_staff', SCREEN_ACCESS.documentUnlock), false)
   // A Partner passes screen checks but every POST is refused (checkAdminRole).
-  assert.equal(isReadOnlyRole('partner'), true)
+  assert.equal(isReadOnlyRole('partner'), false) // full management since 13 Oct 2026 (was view-only)
   assert.equal(isReadMethod('POST'), false)
   const route = read('app/api/admin/documents/unlock/route.ts')
   assert.match(route, /export async function POST/)

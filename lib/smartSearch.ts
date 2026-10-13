@@ -82,7 +82,9 @@ export function resolveWith(dict: Loaded, parsed: Parsed): SmartResolved {
   let levelNames: string[] | null = null
   let levelMasterIds: number[] | null = null
   if (parsed.subject) {
-    const all = dict.master.filter((m) => m.subject === parsed.subject!.slug)
+    // Every subject the word means ("computer" → Computer Science, ICT, …).
+    const slugs = new Set([parsed.subject.slug, ...(parsed.alsoSubjects ?? []).map((x) => x.slug)])
+    const all = dict.master.filter((m) => m.subject !== null && slugs.has(m.subject))
     const scoped = levelSet.size ? all.filter((m) => levelSet.has(m.level)) : all
     masterIds = (scoped.length ? scoped : all).map((m) => m.id)
   } else if (parsed.school && levelSet.size === 0) {

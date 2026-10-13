@@ -60,6 +60,7 @@ const PUBLIC_READ: Record<string, string> = {
   taxonomy_master: 'subject taxonomy: the allowed (category, level, subject) set',
   location_cities: 'curated city list, rendered in every city/area picker (migration 73)',
   location_areas: 'curated area list, dependent on its city (migration 73)',
+  location_area_aliases: 'which typed area spellings count as a curated area (migration 166) — reference data, no member detail',
   job_titles: 'curated Job Type titles, rendered in every Job Type picker (migration 77)',
 
   // The public browse and profile surface.

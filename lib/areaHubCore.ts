@@ -12,6 +12,8 @@
 //   1. the same area, however it was written — case, punctuation, a trailing
 //      city ("DHA" = "DHA Lahore" in Lahore), a joining "-e-" ("Gulshan Iqbal" =
 //      "Gulshan-e-Iqbal");
+//   1b. a value staff said is the same as a curated area (Locations → "Same
+//      as existing area", location_area_aliases): "Liaqatbad" = Liaqatabad;
 //   2. a longer, descriptive value that clearly NAMES one curated area ("DHA
 //      Phase 5", "Johar Town near Expo") → that area;
 //   3. anything else — a school's name, a street address, an area not in
@@ -49,18 +51,31 @@ export const RESERVED_HUB_SLUGS = new Set(['female', 'online'])
 export type AreaHubHit = {
   /** The curated area, as written in Locations. */
   area: string
-  /** exact = the same words; contains = a longer value that names this area. */
-  how: 'exact' | 'contains'
+  /** exact = the same words; alias = staff said it is this area; contains = a
+   *  longer value that names this area. */
+  how: 'exact' | 'alias' | 'contains'
 }
+
+/** One city's approved aliases: areaKey(typed value) → the curated area's name. */
+export type CityAliases = Record<string, string>
 
 /**
  * The curated area this saved value belongs to, or null when it has no area
  * hub. `curated` is the city's own list — an unknown city passes [] and so
  * never has an area hub.
  */
-export function resolveAreaHub(city: string | null | undefined, raw: string | null | undefined, curated: string[]): AreaHubHit | null {
+export function resolveAreaHub(
+  city: string | null | undefined,
+  raw: string | null | undefined,
+  curated: string[],
+  aliases?: CityAliases | null,
+): AreaHubHit | null {
   const key = areaKey(raw, city)
   if (!key) return null
+  // An approved alias decides before anything else — but only for an area that
+  // is still in the curated list.
+  const aliased = aliases?.[key]
+  if (aliased && curated.some((c) => c.toLowerCase() === aliased.toLowerCase())) return { area: aliased, how: 'alias' }
   const list = curated
     .map((area) => ({ area, key: areaKey(area, city) }))
     .filter((c) => c.key && !RESERVED_HUB_SLUGS.has(areaHubSlug(c.area, city)))
@@ -99,9 +114,14 @@ export type AreaStanding =
   | { kind: 'unlisted'; looksLikeSchool: boolean }
 
 /** What the posting form tells staff about the area they typed. */
-export function areaStanding(city: string | null | undefined, raw: string | null | undefined, curated: string[]): AreaStanding {
+export function areaStanding(
+  city: string | null | undefined,
+  raw: string | null | undefined,
+  curated: string[],
+  aliases?: CityAliases | null,
+): AreaStanding {
   if (!(raw ?? '').trim()) return { kind: 'empty' }
-  const hit = resolveAreaHub(city, raw, curated)
+  const hit = resolveAreaHub(city, raw, curated, aliases)
   if (hit) return { kind: 'listed', area: hit.area, how: hit.how }
   return { kind: 'unlisted', looksLikeSchool: schoolFromAreaValue(raw) !== null }
 }
@@ -113,12 +133,17 @@ export type AreaHub = { slug: string; label: string; count: number; areas: strin
  * is every saved spelling in the hub (the list filter reads it); the label is
  * the curated name without the city. Busiest first.
  */
-export function areaHubsFor(city: string, savedAreas: (string | null | undefined)[], curated: string[]): AreaHub[] {
+export function areaHubsFor(
+  city: string,
+  savedAreas: (string | null | undefined)[],
+  curated: string[],
+  aliases?: CityAliases | null,
+): AreaHub[] {
   const hubs = new Map<string, AreaHub>()
   const seen = new Map<string, AreaHubHit | null>()
   for (const saved of savedAreas) {
     if (!saved || !saved.trim()) continue
-    if (!seen.has(saved)) seen.set(saved, resolveAreaHub(city, saved, curated))
+    if (!seen.has(saved)) seen.set(saved, resolveAreaHub(city, saved, curated, aliases))
     const hit = seen.get(saved)
     if (!hit) continue
     const slug = areaHubSlug(hit.area, city)
@@ -136,9 +161,9 @@ export function areaHubsFor(city: string, savedAreas: (string | null | undefined
  * segment alone: "dha-lahore" → "dha". Null when it names no curated area (the
  * page then looks the old value up — a school's name, a street address).
  */
-export function hubSlugRedirect(city: string, segment: string, curated: string[]): string | null {
+export function hubSlugRedirect(city: string, segment: string, curated: string[], aliases?: CityAliases | null): string | null {
   if (RESERVED_HUB_SLUGS.has(segment)) return null
-  const hit = resolveAreaHub(city, segment.replace(/-/g, ' '), curated)
+  const hit = resolveAreaHub(city, segment.replace(/-/g, ' '), curated, aliases)
   if (!hit) return null
   const slug = areaHubSlug(hit.area, city)
   return slug && slug !== segment ? slug : null

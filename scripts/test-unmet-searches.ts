@@ -109,7 +109,7 @@ test('"Mark done" moves the card to Done; the same search made later is a new ca
   const lib = read('lib', 'unmetSearches.ts')
   assert.ok(lib.includes("from('search_unmet_done').insert("))
   assert.ok(lib.includes('done_by: actor.id') && lib.includes('done_by_email') && lib.includes('done_by_name'), 'who')
-  assert.ok(lib.includes("action: 'search_unmet.done'"), 'audited')
+  assert.ok(lib.includes("'search_unmet.done'") && lib.includes('logAdminAction('), 'audited')
   assert.ok(!lib.includes('.delete('), 'nothing is deleted')
   const ui = read('app', 'admin', 'overview', 'todo-unmet', 'UnmetSearchesClient.tsx')
   assert.ok(ui.includes('done by {d.done_by_name ?? d.done_by_email') && ui.includes('formatDateTime(d.done_at)'), 'the Done tab shows who and when')
@@ -202,14 +202,14 @@ test('the hiring post template fills {city}, with a copy button and a WhatsApp s
   assert.ok(ui.includes('whatsappShareLink(post)') && ui.includes('Copy'))
 })
 
-test('the Overview number is the To review tab; owner, admin and operations act, the Partner only views', () => {
+test('the Overview number is the To review tab; owner, Partner, admin and operations act', () => {
   assert.equal(OVERVIEW_ITEMS['todo-unmet'].screen, 'unmetSearches')
   assert.deepEqual(SCREEN_ACCESS.unmetSearches, ['admin', 'operations'])
   assert.deepEqual(SCREEN_ACCESS.unmetSearches, SCREEN_ACCESS.seo, 'the roles that could already open the list')
   for (const r of ['owner', 'admin', 'operations'] as const) assert.equal(roleSatisfies(r, SCREEN_ACCESS.unmetSearches), true, r)
   assert.equal(roleSatisfies('tuitions_staff', SCREEN_ACCESS.unmetSearches), false)
   assert.equal(roleSatisfies('partner', SCREEN_ACCESS.unmetSearches), true)
-  assert.equal(isReadOnlyRole('partner'), true)
+  assert.equal(isReadOnlyRole('partner'), false) // full management since 13 Oct 2026 (was view-only)
 
   // One loader: the Overview count, the list and the screen.
   const items = read('lib', 'overviewItems.ts')

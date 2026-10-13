@@ -206,15 +206,15 @@ test('approve activates exactly as a gateway payment; reject keeps the old file 
 })
 
 // ------------------------------------------------ who can approve ------------
-test('owner, admin and operations approve; the Partner and Tuitions staff cannot', () => {
+test('owner, Partner, admin and operations approve; Tuitions staff cannot', () => {
   for (const r of ['owner', 'admin', 'operations'] as const) {
     assert.equal(roleSatisfies(r, SCREEN_ACCESS.paymentsApprove), true, r)
   }
   assert.equal(roleSatisfies('tuitions_staff', SCREEN_ACCESS.paymentsApprove), false)
   // The Partner opens the screen, sees no buttons, and the server refuses the POST.
-  assert.equal(isReadOnlyRole('partner'), true)
+  assert.equal(isReadOnlyRole('partner'), false) // full management since 13 Oct 2026 (was view-only)
   assert.match(DECIDE, /checkAdminRole\(\.\.\.SCREEN_ACCESS\.paymentsApprove\)/, 'checkAdminRole answers 403 to a Partner on any write')
-  assert.match(read('lib/adminAuth.ts'), /Partner accounts are view-only/)
+  assert.match(read('lib/adminAuth.ts'), /alwaysNeedsTwoFactor/)
   assert.match(read('app/admin/payments/PaymentDecide.tsx'), /if \(readOnly\) return null/)
   // The receipt opens in the shared viewer, turn-only (nothing saved).
   const queue = read('app/admin/payments/PaymentQueue.tsx')

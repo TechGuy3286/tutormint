@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { optionLabel, type Option, type TutorFacets } from '@/lib/tutorFacetsCore'
 import { useRouter } from 'next/navigation'
 import { SlidersHorizontal, X } from 'lucide-react'
 import { GENDERS } from '@/lib/locations'
@@ -44,7 +45,16 @@ export type FilterValues = {
 const FIELD =
   'w-full min-h-[44px] rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-tm-navy outline-none focus:border-tm-red'
 
-export default function TutorFilterBar({ values }: { values: FilterValues }) {
+/** A dropdown's options: only those with a tutor, with counts, when the counts
+ *  are known; the full list otherwise. The chosen value is always kept. */
+function choices(all: string[], counted: Option[] | undefined, chosen?: string): { value: string; label: string }[] {
+  if (!counted) return all.map((n) => ({ value: n, label: n }))
+  const out = counted.map((o) => ({ value: o.name, label: optionLabel(o) }))
+  if (chosen && !out.some((o) => o.value.toLowerCase() === chosen.toLowerCase())) out.unshift({ value: chosen, label: `${chosen} (0)` })
+  return out
+}
+
+export default function TutorFilterBar({ values, facets }: { values: FilterValues; facets?: TutorFacets | null }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
 
@@ -168,9 +178,9 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
             }}
           >
             <option value="">Any category</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>
-                {c}
+            {choices(categories, facets?.categories, category).map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
               </option>
             ))}
           </select>
@@ -186,9 +196,9 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
             onChange={(e) => chooseLevel(e.target.value)}
           >
             <option value="">Any level</option>
-            {levels.map((l) => (
-              <option key={l} value={l}>
-                {l}
+            {choices(levels, facets ? (facets.levels[category] ?? []) : undefined, level).map((l) => (
+              <option key={l.value} value={l.value}>
+                {l.label}
               </option>
             ))}
           </select>
@@ -204,9 +214,9 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
             onChange={(e) => applySubject(e.target.value)}
           >
             <option value="">Any subject</option>
-            {subjects.map((s) => (
-              <option key={s} value={s}>
-                {s}
+            {choices(subjects, facets ? (facets.subjects[`${category}|${level}`] ?? []) : undefined).map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
               </option>
             ))}
           </select>
@@ -222,9 +232,9 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
             onChange={(e) => apply({ city: e.target.value, area: null })}
           >
             <option value="">Any city</option>
-            {map.cities.map((c) => (
-              <option key={c} value={c}>
-                {c}
+            {choices(map.cities, facets?.cities, values.city).map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
               </option>
             ))}
           </select>
@@ -235,13 +245,13 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
           <select
             className={FIELD}
             value={values.area}
-            disabled={areas.length === 0}
+            disabled={facets ? !values.city || facets.areas.length === 0 : areas.length === 0}
             onChange={(e) => apply({ area: e.target.value })}
           >
             <option value="">Any area</option>
-            {areas.map((a) => (
-              <option key={a} value={a}>
-                {a}
+            {choices(areas, facets && values.city ? facets.areas : undefined, values.area).map((a) => (
+              <option key={a.value} value={a.value}>
+                {a.label}
               </option>
             ))}
           </select>

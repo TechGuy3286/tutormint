@@ -28,6 +28,9 @@ import {
   roleSatisfies,
   adminHomeFor,
   isReadOnlyRole,
+  alwaysNeedsTwoFactor,
+  ownerProtection,
+  staffChangeProblem,
   roleBadge,
   seesRealRoles,
   ROLE_LABEL,
@@ -38,10 +41,10 @@ import { METHOD_HEADER, isReadMethod } from '@/lib/requestMethod'
 // The pure access matrix lives in lib/adminAccessCore (no server imports, so it
 // is unit-testable). Re-exported here so every existing `@/lib/adminAuth`
 // importer is unchanged.
-export { type AdminRole, roleSatisfies, adminHomeFor, isReadOnlyRole, roleBadge, seesRealRoles, ROLE_LABEL, SCREEN_ACCESS }
+export { type AdminRole, roleSatisfies, adminHomeFor, isReadOnlyRole, alwaysNeedsTwoFactor, ownerProtection, staffChangeProblem, roleBadge, seesRealRoles, ROLE_LABEL, SCREEN_ACCESS }
 
-/** The words a Partner sees when a write is refused. */
-export const PARTNER_READ_ONLY = 'Partner accounts are view-only. This change was not made.'
+/** The words a view-only account sees when a write is refused. */
+export const PARTNER_READ_ONLY = 'This account is view-only. This change was not made.'
 
 export type AdminActor = {
   id: string
@@ -140,10 +143,13 @@ async function checkAdmin(
     return { ok: false, status: 403, error: 'Your admin role cannot perform this action.' }
   }
   if (isReadOnlyRole(actor.adminRole) && !opts.self) {
-    // Partner (owner, 8 Oct 2026): view-only everywhere, and only with
-    // two-factor on. Reads (GET/HEAD — pages' data, downloads) pass; every
-    // other method is refused here, whatever the route.
+    // A view-only role (none today): reads pass, every other method is refused
+    // here, whatever the route.
     if (!(await isReadRequest())) return { ok: false, status: 403, error: PARTNER_READ_ONLY }
+  }
+  if (alwaysNeedsTwoFactor(actor.adminRole) && !opts.self) {
+    // Partner (owner, 13 Oct 2026): full management, and only with two-factor
+    // passed in THIS session — no admin request is served without it.
     const { mfaState } = await import('@/lib/adminMfa')
     const supabase = await createClient()
     if ((await mfaState(supabase)) !== 'verified') {

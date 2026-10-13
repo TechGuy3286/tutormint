@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { refuseOwnerTarget } from '@/lib/ownerGuard'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import { recomputeCompletion } from '@/lib/completion'
@@ -56,6 +57,8 @@ export async function POST(request: Request) {
   const reason = (body.reason ?? '').trim()
 
   if (!tutorId) return NextResponse.json({ error: 'Missing tutor.' }, { status: 400 })
+  const ownerRefusal = await refuseOwnerTarget(gate.actor, tutorId)
+  if (ownerRefusal) return ownerRefusal
   if (reason.length < 3) {
     return NextResponse.json({ error: 'A reason is required (at least 3 characters).' }, { status: 400 })
   }

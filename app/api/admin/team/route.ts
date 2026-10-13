@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/errorResponse'
-import { checkAdminRole, SCREEN_ACCESS, type AdminRole } from '@/lib/adminAuth'
+import { checkAdminRole, staffChangeProblem, ROLE_LABEL, SCREEN_ACCESS, type AdminRole } from '@/lib/adminAuth'
+import { alertOwner } from '@/lib/ownerAlerts'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createStaff, changeStaffRole, resendStaffInvite, grantStaffToExisting, searchGrantCandidates } from '@/lib/staff'
 import { logAdminAction } from '@/lib/auditLog'
@@ -8,7 +9,12 @@ import { logActivity } from '@/lib/activityLog'
 import { parseBody, z, uuid } from '@/lib/validate'
 import { requireFreshAuth } from '@/lib/reauth'
 
-// Staff management. Owner only.
+// Staff management. The Owner and the Partner (owner, 13 Oct 2026).
+//
+// OWNER PROTECTION, on the server: nobody but the Owner changes, removes or
+// resets the Owner or a Partner, and nobody but the Owner hands out the Owner
+// role (lib/adminAccessCore.staffChangeProblem). Every role change made by
+// someone other than the Owner is told to the Owner (lib/ownerAlerts).
 //
 // SCREEN_ACCESS.team is [], and roleSatisfies() always admits the owner, so
 // this gate is "owner and nobody else" without a special case. A manager --
@@ -62,6 +68,14 @@ export async function POST(request: Request) {
   if (!parsed.ok) return parsed.response
   const body = parsed.data
 
+  // Nobody but the Owner hands out the Owner role — whatever the action.
+  if (body.adminRole === 'owner' && gate.actor.adminRole !== 'owner') {
+    return NextResponse.json({ error: staffChangeProblem(gate.actor.adminRole, null, 'owner') }, { status: 403 })
+  }
+  const roleWord = (r: string | null | undefined) => (r ? (ROLE_LABEL[r as AdminRole] ?? r) : 'Not staff')
+  const tellOwner = (who: string, from: string | null | undefined, to: string | null | undefined) =>
+    alertOwner({ actor, area: 'Team roles', changes: [{ label: who, before: roleWord(from), after: roleWord(to) }], href: '/admin/team' })
+
   // ------------------------------------------------------------- create ---
   if (body.action === 'create') {
     const result = await createStaff({
@@ -77,6 +91,7 @@ export async function POST(request: Request) {
         { status: result.status },
       )
 
+    await tellOwner(body.email ?? 'New staff member', null, body.adminRole)
     return NextResponse.json({
       success: true,
       userId: result.userId,
@@ -122,17 +137,23 @@ export async function POST(request: Request) {
       }
       return NextResponse.json({ error: result.error }, { status: result.status })
     }
+    await tellOwner('Existing member given a staff role', null, body.adminRole)
     return NextResponse.json({ success: true, droppedTutor: result.droppedTutor })
   }
 
   // --------------------------------------------------------- change role ---
   if (body.action === 'role') {
+    const adminClient = createAdminClient()
+    const { data: was } = adminClient
+      ? await adminClient.from('profiles').select('admin_role, email, full_name').eq('id', body.userId ?? '').maybeSingle()
+      : { data: null }
     const result = await changeStaffRole({
       userId: body.userId ?? '',
       adminRole: body.adminRole as AdminRole,
       actor,
     })
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
+    await tellOwner(((was?.full_name as string | null) ?? '').trim() || (was?.email as string | null) || 'Staff member', was?.admin_role as string | null, body.adminRole)
     return NextResponse.json({ success: true })
   }
 
@@ -164,6 +185,9 @@ export async function POST(request: Request) {
     if (target.admin_role === 'owner') {
       return NextResponse.json({ error: 'The owner account cannot be removed.' }, { status: 403 })
     }
+    // A Partner cannot remove another Partner (owner, 13 Oct 2026).
+    const protectedTarget = staffChangeProblem(actor.adminRole, target.admin_role as string, null)
+    if (protectedTarget) return NextResponse.json({ error: protectedTarget }, { status: 403 })
 
     // Revoke the role; return to an ordinary member. Not suspended — an ex-staff
     // member keeps ordinary access. role must be a member role for admin_role to
@@ -212,6 +236,8 @@ export async function POST(request: Request) {
       targetId: userId,
       meta: { reason: reason || null },
     })
+
+    await tellOwner(((target.full_name as string | null) ?? '').trim() || (target.email as string | null) || 'Staff member', target.admin_role as string | null, null)
 
     return NextResponse.json({ success: true })
   }

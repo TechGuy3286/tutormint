@@ -41,6 +41,7 @@ export type BucketName =
   | 'contact_reveal'
   | 'client_error'
   | 'activity'
+  | 'tutor_alert'
 
 /**
  * The budgets.
@@ -126,6 +127,8 @@ const BUDGETS: Record<BucketName, { windowSeconds: number; max: number }> = {
   // above an honest tab and bounds a tampered client; meeting it silently drops
   // the batch (the member is never blocked or told).
   activity: { windowSeconds: 60, max: 60 },
+  // "Notify me when a matching tutor joins": each one can cost a message later.
+  tutor_alert: { windowSeconds: 3600, max: 5 },
 }
 
 export type RateLimitResult = { allowed: true } | { allowed: false; retryAfterSeconds: number }

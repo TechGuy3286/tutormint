@@ -16,6 +16,7 @@ import { slugify } from '@/lib/slugs'
 import { pageAll } from '@/lib/pageAll'
 import { ONLINE_JOB_TITLE } from '@/lib/jobTitlesCore'
 import { areaHubSlug, areaHubsFor, resolveAreaHub, schoolFromAreaValue } from '@/lib/areaHubCore'
+import { loadAreaAliases } from '@/lib/areaAliases'
 
 /** A city page or variant is indexable (and in the sitemap) from this many open tuitions. */
 export const CITY_PAGE_THRESHOLD = 3
@@ -80,7 +81,8 @@ async function curatedMap(): Promise<Map<string, string[]>> {
 
 /** Every city with at least one open tuition, with its variants. Sorted by count. */
 export async function cityPages(): Promise<CityPage[]> {
-  const [rows, curated] = await Promise.all([openRows(), curatedMap()])
+  // LIVE, never cached: approving an area or an alias re-evaluates its hub at once.
+  const [rows, curated, aliases] = await Promise.all([openRows(), curatedAreasByCity(), loadAreaAliases({ fresh: true })])
   const byCity = new Map<string, OpenRow[]>()
   for (const r of rows) {
     const c = r.city?.trim()
@@ -100,7 +102,7 @@ export async function cityPages(): Promise<CityPage[]> {
     const online = list.filter((r) => r.teaching_mode === ONLINE_JOB_TITLE).length
     if (online > 0) variants.push({ kind: 'online', slug: 'online', label: `Online tuitions`, count: online })
     // Area hubs: curated areas only, every saved spelling of one area in one hub.
-    for (const hub of areaHubsFor(city, list.map((r) => r.area), curated.get(city.toLowerCase()) ?? [])) {
+    for (const hub of areaHubsFor(city, list.map((r) => r.area), curated.get(city.toLowerCase()) ?? [], aliases[city.toLowerCase()])) {
       variants.push({ kind: 'area', slug: hub.slug, label: hub.label, count: hub.count, area: hub.label, areas: hub.areas })
     }
     pages.push({ city, citySlug: citySegment(city), count: list.length, variants })
@@ -128,7 +130,8 @@ export const indexableCityPagesCached = unstable_cache(
 /** The area hub for a tuition's own area, when that hub exists (3+ open posts). */
 export async function areaHubFor(city: string | null, area: string | null): Promise<{ href: string; label: string } | null> {
   if (!city || !area) return null
-  const hit = resolveAreaHub(city, area, (await curatedMap()).get(city.trim().toLowerCase()) ?? [])
+  const cityKey = city.trim().toLowerCase()
+  const hit = resolveAreaHub(city, area, (await curatedMap()).get(cityKey) ?? [], (await loadAreaAliases())[cityKey])
   if (!hit) return null
   const slug = areaHubSlug(hit.area, city)
   const page = (await indexableCityPagesCached()).find((p) => p.citySlug === citySegment(city))

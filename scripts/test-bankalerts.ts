@@ -205,10 +205,10 @@ test('"Ignore (not a sale)": unlinked, not counted as unmatched, never deleted, 
   assert.ok(ui.includes('Ignore (not a sale)') && ui.includes("openLink(c, 'ignore')"))
 })
 
-test('owner only: the Partner cannot save a credit or ignore one, other staff cannot reach either', () => {
+test('owner and Partner only: other staff cannot reach a credit or ignore one', () => {
   assert.deepEqual(SCREEN_ACCESS.finance, [])
   assert.equal(roleSatisfies('owner', SCREEN_ACCESS.finance), true)
-  assert.equal(isReadOnlyRole('partner'), true)
+  assert.equal(isReadOnlyRole('partner'), false) // full management since 13 Oct 2026 (was view-only)
   for (const r of ['admin', 'operations', 'tuitions_staff'] as const) assert.equal(roleSatisfies(r, SCREEN_ACCESS.finance), false, r)
 
   const route = read('app', 'api', 'admin', 'payments', 'settlement', 'credits', 'route.ts')

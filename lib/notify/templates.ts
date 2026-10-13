@@ -20,6 +20,7 @@
 
 export { SITE_URL } from '@/lib/siteUrl'
 import { SITE_URL } from '@/lib/siteUrl'
+import { TUITION_LIVE_LABEL } from '@/lib/tuitionStatus'
 import { teamMessagesHref } from '@/lib/memberNav'
 import { properName } from '@/lib/display'
 import { placeLabel } from '@/lib/place'
@@ -34,6 +35,8 @@ export type TemplateId =
   | 'plan_expiring'
   | 'plan_expired'
   | 'account_banned'
+  | 'owner_alert'
+  | 'tutor_alert'
   | 'verification_fee_paid'
   | 'content_digest'
   | 'admin_message'
@@ -248,6 +251,8 @@ export type TemplateInput =
   // A ban has no in-app channel (the account cannot sign in), so email is the
   // only way to tell the member. Neutral, and points at support.
   | { id: 'account_banned'; name: string }
+  | { id: 'owner_alert'; area: string; who: string; lines: string[]; when: string; href: string }
+  | { id: 'tutor_alert'; label: string; url: string }
   | {
       id: 'content_digest'
       suggestions: { title: string; why: string; href: string }[]
@@ -601,8 +606,8 @@ export function render(input: TemplateInput): RenderedEmail {
         'Your tuition is paused',
         'Your tuition is paused',
         [
-          `Your tuition “${input.title}” has been paused automatically because it has been open for 7 days. Tutors can no longer see it in search or apply to it.`,
-          'Nothing is lost — its applications, conversations and page all stay in your dashboard. Resume it to show it to tutors again for another 7 days.',
+          `Your tuition “${input.title}” has been paused automatically because it has been open for ${TUITION_LIVE_LABEL}. Tutors can no longer see it in search or apply to it.`,
+          `Nothing is lost — its applications, conversations and page all stay in your dashboard. Resume it to show it to tutors again for another ${TUITION_LIVE_LABEL}.`,
         ],
         true, // loss of visibility, like plan_expired — delivered regardless of opt-out
         { label: 'Resume your tuition', href: '/parent/dashboard/jobs' },
@@ -645,6 +650,32 @@ export function render(input: TemplateInput): RenderedEmail {
         ].filter(Boolean),
         true,
         { label: 'Open your dashboard', href: '/' },
+      )
+
+    // ---------------------------------------------------------------------
+    // "Notify me when a matching tutor joins" (owner, 13 Oct 2026): the ONE
+    // message a parent asked for. No marketing, no price, no promise.
+    case 'tutor_alert':
+      return build(
+        'A tutor matching your search has joined',
+        'A matching tutor has joined',
+        [
+          `You asked us to tell you when a tutor matching your search joined TutorMint: ${input.label}.`,
+          'One has joined. You can see the profile and send a message from there.',
+          'This is the only email for this request.',
+        ],
+        true,
+        { label: 'See the tutor', href: input.url },
+      )
+
+    // ---------------------------------------------------------------------
+    case 'owner_alert':
+      return build(
+        `${input.area} changed`,
+        `${input.area} changed`,
+        [`Changed by ${input.who}.`, ...input.lines, input.when, 'If you did not expect this, check the Audit log in the admin panel.'],
+        true,
+        { label: 'Open in admin', href: input.href },
       )
 
     // ---------------------------------------------------------------------
