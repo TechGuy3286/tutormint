@@ -13,6 +13,10 @@
 // Everything else — hero design, Urdu line, both buttons, tagline, colours —
 // is as it was.
 //
+// OWNER-APPROVED, 14 Oct 2026 — the pill's TEXT only: it no longer says
+// "Largest"; it shows the computed brand line (lib/brandClaims brandLine).
+// Same styling. Recorded in CLAUDE.md.
+//
 // It is a server component with no client JavaScript at all. This is the page
 // every organic visitor lands on, and it renders as HTML on the first byte.
 //
@@ -29,6 +33,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Check, Search, ClipboardList } from 'lucide-react'
 import { socialMeta } from '@/lib/seo'
+import { cachedBrandLine } from '@/lib/brandLineServer'
+import { BRAND_LINE_GROWING } from '@/lib/brandClaims'
 import { HOME_CARDS, HOME_H1_LINES, HOME_TITLE, SITE_DESCRIPTION } from '@/lib/siteIdentity'
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -49,7 +55,10 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-export default function HomePage() {
+export default async function HomePage() {
+  // The pill (owner-approved, 14 Oct 2026): the computed brand line, never a
+  // claim we cannot prove. Recomputed at most once an hour.
+  const pill = await cachedBrandLine().catch(() => BRAND_LINE_GROWING)
   // The Organization + WebSite structured data is emitted once for every public
   // page by the site chrome (components/SiteChrome), so this page carries none
   // of its own.
@@ -58,7 +67,7 @@ export default function HomePage() {
       <section className="mx-auto flex max-w-5xl flex-col items-center px-4 pt-5 pb-8 text-center sm:px-6 sm:pt-6 sm:pb-4">
         {/* Eyebrow pill */}
         <p className="rounded-full border border-tm-green-deep/20 bg-tm-tint-green px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-tm-navy sm:text-xs sm:tracking-[0.18em]">
-          Pakistan&rsquo;s Largest Verified Tutors &amp; Teachers Network
+          {pill}
         </p>
 
         {/* HIRE */}

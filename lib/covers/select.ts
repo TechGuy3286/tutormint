@@ -10,6 +10,7 @@
 // this returns.
 
 import { COVER_BY_SLUG } from './catalog'
+import { SCENE_MOTIF, sceneFor, type SceneKind } from './scene'
 
 export type CoverBackground = 'white' | 'mint' | 'navy'
 
@@ -48,6 +49,8 @@ export type CoverSelection = {
   personSlug: string
   /** One or two motifs (deduped): subject motif, then cluster motif. */
   motifs: string[]
+  /** What the picture is of (lib/covers/scene) — from subject, level, city and cluster. */
+  scene: SceneKind
 }
 
 function hash(s: string): number {
@@ -124,6 +127,8 @@ export function personFor(audience: CoverInput['audience'], seed: string, roll: 
   return pool[(hash(seed) + roll) % pool.length]
 }
 
+const OLDER_LEVELS = new Set(['matric', 'igcse', 'o-level', 'a-level', 'fsc', 'fa', 'ics', 'icom', 'bs', 'ms'])
+
 const BACKGROUNDS: CoverBackground[] = ['white', 'mint', 'navy']
 
 // The SECOND motif rotates through this pool on every Shuffle, so a shuffled
@@ -153,7 +158,11 @@ export function selectCover(input: CoverInput, seed: number): CoverSelection {
   // differ from each other AND the whole palette moves on every Shuffle.
   const background = BACKGROUNDS[(arrangement + roll) % 3]
 
-  const sub = subjectMotif(input.subject)
+  // The scene follows the post (owner, 14 Oct 2026): a post with a subject
+  // keeps its subject motif; an online post shows the online lesson; a post
+  // with no subject shows its scene's own motif.
+  const scene = sceneFor(input)
+  const sub = scene.kind === 'online' ? 'online' : input.subject ? subjectMotif(input.subject) : SCENE_MOTIF[scene.kind]
   const clu = clusterMotif(input.cluster)
   // The second motif changes every Shuffle. Pool = the cluster motif then the
   // generic pool, deduped and with the subject motif removed.
@@ -169,12 +178,25 @@ export function selectCover(input: CoverInput, seed: number): CoverSelection {
     variant,
     titleColor: background === 'navy' ? 'white' : 'navy',
     citySlug: citySilhouette(input.city),
-    personSlug: personFor(input.audience, input.slug || input.title || 'x', roll),
+    // A tutor-career cover shows a tutor preparing a lesson — a woman on one
+    // post, a man on the next, and the other one on every Shuffle.
+    personSlug:
+      scene.kind === 'tutor-prep'
+        ? (['teacher-female', 'teacher-male'] as const)[((scene.tutor === 'female' ? 0 : 1) + roll) % 2]
+        : // Age-appropriate (owner, 14 Oct 2026): a Matric, O / A Level, college
+          // or university post never shows a parent leading a small child — it
+          // draws from the student-and-teachers pool instead.
+          OLDER_LEVELS.has(scene.level) && input.audience !== 'tutors'
+          ? personFor('tutors', input.slug || input.title || 'x', roll)
+          : personFor(input.audience, input.slug || input.title || 'x', roll),
     motifs,
+    scene: scene.kind,
   }
 }
 
-/** Human alt text: "Illustration: Lahore skyline, a teacher and a search bar." */
+/** Human alt text, from the post title and what the picture shows: "Cover for
+ *  “Primary Islamiat tutors in Lahore”: the Lahore skyline, a student and a
+ *  Quran on a stand." Editable in the editor. */
 export function coverAltText(input: CoverInput, sel: CoverSelection): string {
   const CITY_WORD: Record<string, string> = { 'pakistan-map': 'a map of Pakistan' }
   const cityPhrase =
@@ -216,7 +238,8 @@ export function coverAltText(input: CoverInput, sel: CoverSelection): string {
   // "a, b and c"
   const joined =
     bits.length <= 1 ? bits[0] ?? '' : `${bits.slice(0, -1).join(', ')} and ${bits[bits.length - 1]}`
-  return `Illustration: ${joined}.`
+  const title = input.title.trim().replace(/\s+/g, ' ').slice(0, 120)
+  return title ? `Cover for “${title}”: ${joined}.` : `Illustration: ${joined}.`
 }
 
 function titleCity(name: string | null | undefined, slug: string): string {

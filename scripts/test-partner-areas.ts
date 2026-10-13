@@ -195,9 +195,19 @@ test('the mixed routes refuse their view-only half inside the route', () => {
   assert.ok(area.includes("action === 'merge' ? SCREEN_ACCESS.seo : SCREEN_ACCESS.jobsPost"))
   assert.equal(roleMayWrite('partner', SCREEN_ACCESS.seo), false)
   assert.equal(roleMayWrite('partner', SCREEN_ACCESS.jobsPost), true)
-  // Lifting a ban stays with the Owner; a Partner may ban, verify or change a mobile.
+  // A Partner may ban AND lift a ban (owner, 14 Oct 2026), verify or change a
+  // mobile. An admin may ban but not lift one; operations may do neither.
   const members = read('app', 'api', 'admin', 'members', 'route.ts')
-  assert.ok(members.includes("action === 'unban' && !roleMayWrite(actor.adminRole, [])"))
+  assert.ok(members.includes("action === 'unban' && !roleMayWrite(actor.adminRole, ['partner'])"))
+  assert.equal(roleMayWrite('partner', ['partner']), true)
+  assert.equal(roleMayWrite('partner', ['admin', 'partner']), true)
+  assert.equal(roleMayWrite('owner', ['partner']), true)
+  assert.equal(roleMayWrite('admin', ['partner']), false)
+  assert.equal(roleMayWrite('operations', ['partner']), false)
+  // The member page shows "Lift ban" by the same rule, and both are audited.
+  assert.ok(read('app', 'admin', 'users', '[id]', 'page.tsx').includes("canUnban={roleMayWrite(actor.adminRole, ['partner'])}"))
+  const moderation = read('lib', 'moderation.ts')
+  assert.ok(moderation.includes("action: 'member.unban'") && moderation.includes("action: 'member.ban'"))
   assert.ok(members.includes("action === 'ban' && !roleMayWrite(actor.adminRole, ['admin', 'partner'])"))
   assert.equal(roleMayWrite('partner', []), false)
   // Owner protection is still applied to every member change.

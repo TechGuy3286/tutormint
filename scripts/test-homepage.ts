@@ -6,6 +6,7 @@
  * Source checks — no network, no database.
  */
 
+import { brandLine } from '../lib/brandClaims'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -60,8 +61,15 @@ test('c) the link block: city links once, up to six tutor pages, and four links'
 })
 
 test('nothing else on the homepage changed', () => {
-  // Pill, HIRE, the red line, the Urdu line, both buttons.
-  assert.ok(home.includes('Pakistan&rsquo;s Largest Verified Tutors &amp; Teachers Network'))
+  // HIRE, the red line, the Urdu line, both buttons. The pill keeps its
+  // styling; its TEXT is the computed brand line (owner-approved, 14 Oct 2026).
+  assert.ok(home.includes('rounded-full border border-tm-green-deep/20 bg-tm-tint-green px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-tm-navy sm:text-xs sm:tracking-[0.18em]'))
+  assert.ok(home.includes('{pill}') && home.includes('const pill = await cachedBrandLine().catch(() => BRAND_LINE_GROWING)'))
+  assert.ok(!home.replace(/\/\/.*$/gm, '').includes('Largest'))
+  assert.equal(brandLine(0), "Pakistan's fast-growing tutor network")
+  assert.equal(brandLine(99), "Pakistan's fast-growing tutor network")
+  assert.equal(brandLine(100), '100+ verified tutors across Pakistan')
+  assert.equal(brandLine(260), '250+ verified tutors across Pakistan')
   assert.ok(home.includes('>\n          HIRE\n        </p>'))
   assert.ok(home.includes('Free to Join &bull; No Commission &bull; No Middleman &bull; Live Demo'))
   assert.ok(home.includes('کوئی فیس نہیں &bull; کوئی کمیشن نہیں &bull; کوئی مڈل مین نہیں &bull; لائیو ڈیمو'))
@@ -72,4 +80,5 @@ test('nothing else on the homepage changed', () => {
   // The lock note records the three changes and the date.
   const claude = read('CLAUDE.md')
   assert.ok(claude.includes('Homepage — fourth owner authorisation (13 Oct 2026)'))
+  assert.ok(claude.includes('Homepage — fifth owner authorisation (14 Oct 2026)'))
 })

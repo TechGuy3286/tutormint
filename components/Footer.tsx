@@ -31,6 +31,7 @@ import Image from 'next/image'
 import { indexableCityPages, cityPagePath } from '@/lib/cityJobs'
 import HideOnHome from '@/components/HideOnHome'
 import Link from 'next/link'
+import { SITE_LOGO_DARK_PATH } from '@/lib/siteIdentity'
 import { ChevronDown } from 'lucide-react'
 import FooterTagline from '@/components/FooterTagline'
 import { supportContactFromEnv, formatSupportWhatsApp, whatsappHref } from '@/lib/support'
@@ -148,7 +149,7 @@ export default async function Footer() {
         <div className="space-y-5 md:hidden">
           <div>
             <Image
-              src="/TutorMint-Footer-Logo-2448x752.png"
+              src={SITE_LOGO_DARK_PATH}
               alt="TutorMint"
               width={2048}
               height={752}
@@ -174,7 +175,7 @@ export default async function Footer() {
             {/* Brand */}
             <div className="lg:pr-4">
               <Image
-                src="/TutorMint-Footer-Logo-2448x752.png"
+                src={SITE_LOGO_DARK_PATH}
                 alt="TutorMint"
                 width={2048}
                 height={752}

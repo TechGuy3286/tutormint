@@ -16,8 +16,8 @@ import { requireFreshAuth } from '@/lib/reauth'
 //
 // warn/suspend/unsuspend are the same implementation the reports queue uses, so
 // the outcome does not depend on which screen the admin happened to be on. ban
-// and unban are Part 4: a ban is permanent and owner/manager only; an unban is
-// owner only.
+// and unban are Part 4: a ban is permanent and owner/admin/Partner only. Lifting
+// a ban is the Owner and the Partner (owner, 14 Oct 2026) — not an admin.
 
 const MemberActionBody = z.object({
   userId: uuid,
@@ -120,13 +120,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, action })
   }
 
-  // Ban is owner/manager; unban is owner only. (roleSatisfies always admits the
-  // owner; an empty list is owner-only.)
+  // Ban is owner/admin/Partner; lifting a ban is the Owner and the Partner
+  // (owner, 14 Oct 2026). roleMayWrite always admits the Owner.
   if (action === 'ban' && !roleMayWrite(actor.adminRole, ['admin', 'partner'])) {
     return NextResponse.json({ error: 'Only an owner or manager can ban an account.' }, { status: 403 })
   }
-  if (action === 'unban' && !roleMayWrite(actor.adminRole, [])) {
-    return NextResponse.json({ error: 'Only the owner can lift a ban.' }, { status: 403 })
+  if (action === 'unban' && !roleMayWrite(actor.adminRole, ['partner'])) {
+    return NextResponse.json({ error: 'Only a Project Manager can lift a ban.' }, { status: 403 })
   }
 
   // PR16 §3.5 — verify a member's mobile MANUALLY when the SMS could not reach

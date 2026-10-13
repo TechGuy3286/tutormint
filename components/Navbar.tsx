@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import { SITE_LOGO_PATH } from '@/lib/siteIdentity'
 import AuthCTA from '@/components/AuthCTA'
 
 import NotificationBell from '@/components/notifications/NotificationBell'
@@ -172,7 +173,7 @@ function Shell({ children, member = false }: { children: React.ReactNode; member
     >
       <Link href="/" className="flex shrink-0 items-center">
         {/* next/image, not a raw <img>, and the reason is one number:
-            /logo.png is a 2048x752 PNG weighing 997KB, rendered at 153px
+            the logo is a 2048x752 PNG (the old /logo.png weighed 997KB), rendered at 153px
             wide. The footer's five social icons are 2048x2048 PNGs totalling
             12MB, drawn at 20x20. Every page was pulling ~13.8MB of artwork,
             and on any real connection the wordmark queued behind it and
@@ -185,7 +186,7 @@ function Shell({ children, member = false }: { children: React.ReactNode; member
             every page; without it Next lazy-loads and we are back where we
             started. */}
         <Image
-          src="/logo.png"
+          src={SITE_LOGO_PATH}
           alt="TutorMint"
           width={2048}
           height={752}

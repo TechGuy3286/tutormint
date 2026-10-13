@@ -34,7 +34,13 @@ export const SITE_TWO_SIDED = {
     'Tutors get verified, build a public profile with their subjects, levels and areas, and apply to tuition and teaching jobs across Pakistan — TutorMint takes no commission.',
 }
 
-export const SITE_LOGO_PATH = '/tutormint-logo1200x630.png'
+/** The logo lockup (mark + wordmark, no tagline line) — the clean file made by
+ *  scripts/build-clean-logos.ts (owner, 14 Oct 2026). The header, the
+ *  Organization and publisher logo and composed covers all use it. */
+export const SITE_LOGO_PATH = '/brand/tutormint-logo.png'
+export const SITE_LOGO_SIZE = { width: 2048, height: 752 } as const
+/** The same lockup for dark surfaces (the footer). */
+export const SITE_LOGO_DARK_PATH = '/brand/tutormint-logo-dark.png'
 
 /** What the platform offers, as short plain phrases. */
 export const SITE_FEATURES: string[] = [
@@ -108,6 +114,10 @@ export const HOME_MORE_LINKS: { label: string; href: string }[] = [
   { label: 'Become a tutor', href: '/register' },
   { label: 'Blog', href: '/blog' },
 ]
+
+/** The default page title, for any page that sets none of its own. No claim
+ *  the site cannot prove (owner, 14 Oct 2026). */
+export const SITE_DEFAULT_TITLE = `${SITE_NAME} — Verified Tutors & Tuition Jobs in Pakistan`
 
 /** Titles that name both sides. */
 export const HOME_TITLE = `Verified Tutors & Tuition Jobs in Pakistan | ${SITE_NAME}`

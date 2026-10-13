@@ -33,16 +33,34 @@ const norm = (s: string | null | undefined) =>
 /** The level group a piece of free text names ("Primary Islamiat", "Grade 9 &
  *  10 - Science English", "O Level Physics"), or '' when it names none. */
 export function groupOfText(text: string | null | undefined): string {
+  return groupsOfText(text)[0] ?? ''
+}
+
+/**
+ * Every level group a text names. Almost always one; a text that names O Level
+ * and A Level together ("O and A Level exam prep", "O/A Level", "AS & A Levels
+ * and O Levels") names both. O Level, A Level and IGCSE are read first and win
+ * over any weaker match, and the word "prep" is a level only when it is written
+ * as one ("Prep class", "Prep / KG") — never in "exam prep" or "preparing"
+ * (owner, 14 Oct 2026).
+ */
+export function groupsOfText(text: string | null | undefined): string[] {
   const t = norm(text)
-  if (!t) return ''
-  if (/\bprimary\b/.test(t)) return 'primary'
-  if (/\bmiddle\b/.test(t)) return 'middle'
-  if (/\bmatric/.test(t)) return 'matric'
-  if (/\bf sc\b|\bfsc\b/.test(t)) return 'fsc'
-  if (/\bi com\b|\bicom\b/.test(t)) return 'icom'
-  if (/\bics\b/.test(t)) return 'ics'
-  const g = levelGroup(text).key
-  return GROUP_KEYS.has(g) ? g : ''
+  if (!t) return []
+  const strong: string[] = []
+  if (/\bigcse\b/.test(t)) strong.push('igcse')
+  const both = /\bo\s*(?:and|&|\/|or)\s*a\s*levels?\b|\ba\s*(?:and|&|\/|or)\s*o\s*levels?\b/.test(t)
+  if (both || /\bo\s*levels?\b/.test(t)) strong.push('o-level')
+  if (both || /\ba\s*levels?\b/.test(t)) strong.push('a-level')
+  if (strong.length > 0) return strong
+  if (/\bprimary\b/.test(t)) return ['primary']
+  if (/\bmiddle\b/.test(t)) return ['middle']
+  if (/\bmatric/.test(t)) return ['matric']
+  if (/\bf sc\b|\bfsc\b/.test(t)) return ['fsc']
+  if (/\bi com\b|\bicom\b/.test(t)) return ['icom']
+  if (/\bics\b/.test(t)) return ['ics']
+  const g = levelGroup(t).key
+  return GROUP_KEYS.has(g) ? [g] : []
 }
 
 // The words of a level, removed from a post's Subject field to leave the subject.
@@ -90,17 +108,22 @@ export function subjectVariants(subject: string | null | undefined): string[] {
 export type PostTopic = {
   /** Lower-case city, or ''. */
   city: string
-  /** Level-group key ("primary", "o-level"…), or ''. */
+  /** Level-group key ("primary", "o-level"…), or ''. The first of `groups`. */
   group: string
+  /** Every level group the post names — two for an "O and A Level" post. */
+  groups: string[]
   /** Every way the post's subject may be written, lower-case; empty when none. */
   subjects: string[]
 }
 
 export function postTopic(post: { city?: string | null; subject?: string | null; title?: string | null }): PostTopic {
   const rest = subjectOfText(post.subject)
+  const fromSubject = groupsOfText(post.subject)
+  const groups = fromSubject.length > 0 ? fromSubject : groupsOfText(post.title)
   return {
     city: norm(post.city),
-    group: groupOfText(post.subject) || groupOfText(post.title),
+    group: groups[0] ?? '',
+    groups,
     subjects: rest ? subjectVariants(rest) : [],
   }
 }
@@ -121,7 +144,9 @@ export function sameSubject(topic: PostTopic, subject: string | null | undefined
 }
 
 export function sameLevel(topic: PostTopic, level: string | null | undefined): boolean {
-  return !!topic.group && groupOfText(level) === topic.group
+  if (topic.groups.length === 0) return false
+  const theirs = groupsOfText(level)
+  return theirs.some((g) => topic.groups.includes(g))
 }
 
 /** 1 (closest) … 4, or 0 when the item is not related to the post at all. */
@@ -193,7 +218,7 @@ export function rankRelatedPosts<T extends RelatablePost>(current: RelatablePost
     .map((p) => {
       const t = postTopic(p)
       const subject = topic.subjects.length > 0 && t.subjects.some((s) => topic.subjects.includes(s))
-      const level = !!topic.group && t.group === topic.group
+      const level = t.groups.some((g) => topic.groups.includes(g))
       const city = !!topic.city && t.city === topic.city
       const cluster = !!current.cluster && p.cluster === current.cluster
       return { p, score: (subject ? 8 : 0) + (level ? 4 : 0) + (city ? 2 : 0) + (cluster ? 1 : 0) }

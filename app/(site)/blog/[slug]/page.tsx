@@ -15,7 +15,7 @@ import RelatedLanding from '@/components/blog/RelatedLanding'
 import { getPublishedPost, relatedPosts } from '@/lib/blogFeed'
 import { clusterLabel, postPath, publicBlogUrl } from '@/lib/blog'
 import { parseMarkdown, plainText } from '@/lib/markdown'
-import { articleJsonLd, jsonLdScript, pageTitle, pageDescription } from '@/lib/seo'
+import { articleJsonLd, jsonLdScript, pageTitle, pageDescription, OG_DEFAULT_IMAGE } from '@/lib/seo'
 import { absoluteUrl } from '@/lib/siteUrl'
 import { getCompany } from '@/lib/company'
 import { landingForPost } from '@/lib/blogRelevance'
@@ -44,7 +44,7 @@ export async function generateMetadata({
   const desc =
     (post.seoDescription ?? '').trim() || plainText(post.body).slice(0, 155) || post.title
   const canonical = postPath(post.slug)
-  const image = post.coverPath ? publicBlogUrl(post.coverPath) : absoluteUrl('/tutormint-logo1200x630.png')
+  const image = post.coverPath ? publicBlogUrl(post.coverPath) : absoluteUrl(OG_DEFAULT_IMAGE)
 
   return {
     title: (post.seoTitle ?? '').trim() || pageTitle(post.title),
@@ -95,7 +95,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     url,
     title: post.title,
     description: (post.seoDescription ?? '').trim() || plainText(post.body).slice(0, 155),
-    image: cover ?? absoluteUrl('/tutormint-logo1200x630.png'),
+    image: cover ?? absoluteUrl(OG_DEFAULT_IMAGE),
     datePublished: post.publishedAt,
     dateModified: post.updatedAt,
     language: post.language,

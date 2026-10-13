@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import "./globals.css";
-import { SITE_DESCRIPTION } from '@/lib/siteIdentity'
+import { SITE_DEFAULT_TITLE, SITE_DESCRIPTION } from '@/lib/siteIdentity'
+import { OG_DEFAULT_IMAGE } from '@/lib/seo'
+import { absoluteUrl } from '@/lib/siteUrl'
 import OfflineNotice from "@/components/OfflineNotice";
 import VerifiedToast from "@/components/VerifiedToast";
 import ActivityTracker from "@/components/ActivityTracker";
@@ -10,7 +12,7 @@ import { ToastProvider } from '@/components/ui/Toast'
 import { ConfirmProvider } from '@/components/ui/ConfirmDialog'
 
 export const metadata: Metadata = {
-  title: "TutorMint - Pakistan's Largest Verified Tutors Network",
+  title: SITE_DEFAULT_TITLE,
   description: SITE_DESCRIPTION,
   metadataBase: new URL('https://www.tutormint.org'),
   // Public pages are indexable NOW (owner, 8 Sep 2026) — indexing is decoupled
@@ -19,16 +21,16 @@ export const metadata: Metadata = {
   // their metadata and are disallowed in robots.txt. See "Index now, banner
   // stays" in CLAUDE.md.
   openGraph: {
-    title: "TutorMint - Pakistan's Largest Verified Tutors Network",
+    title: SITE_DEFAULT_TITLE,
     description: SITE_DESCRIPTION,
     url: 'https://www.tutormint.org',
     siteName: 'TutorMint',
     images: [
       {
-        url: 'https://www.tutormint.org/tutormint-logo1200x630.png',
+        url: absoluteUrl(OG_DEFAULT_IMAGE),
         width: 1200,
         height: 630,
-        alt: 'TutorMint - Pakistan\'s Largest Verified Tutors Network',
+        alt: SITE_DEFAULT_TITLE,
       },
     ],
     locale: 'en_PK',
@@ -36,9 +38,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: "TutorMint - Pakistan's Largest Verified Tutors Network",
+    title: SITE_DEFAULT_TITLE,
     description: SITE_DESCRIPTION,
-    images: ['https://www.tutormint.org/tutormint-logo1200x630.png'],
+    images: [absoluteUrl(OG_DEFAULT_IMAGE)],
   },
 };
 

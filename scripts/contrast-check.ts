@@ -348,13 +348,12 @@ const PAIRS: Pair[] = [
   { fg: 'navy', bg: 'white', where: 'social v2 inverted Premium badge, bold (navy on white)' },
 
   // Blog composed covers (lib/covers/compose.tsx). next/og literals from
-  // lib/brand.ts, three grounds: white, mint tint, navy. Every text/ground pair.
-  { fg: 'navy', bg: 'tintGreen', where: 'blog cover title, mint ground' },
-  { fg: 'white', bg: 'navy', where: 'blog cover title + wordmark, navy ground' },
-  { fg: 'slate700', bg: 'tintGreen', where: 'blog cover site line, mint ground' },
-  { fg: 'mint', bg: 'navy', where: 'blog cover site line + wordmark "Mint", navy ground' },
-  { fg: 'black', bg: 'tintGreen', where: 'blog cover wordmark "Tutor", mint ground' },
-  { fg: 'red', bg: 'tintGreen', where: 'blog cover wordmark "Mint", mint ground' },
+  // lib/brand.ts. ONE fixed layout (owner, 14 Oct 2026): every word sits on the
+  // white text column, whatever the scene's ground — so these are all the pairs.
+  { fg: 'navy', bg: 'white', where: 'blog cover title + site address, white text column' },
+  { fg: 'slate700', bg: 'white', where: 'blog cover brand line, white text column' },
+  { fg: 'red', bg: 'white', where: 'blog cover tagline + wordmark "Mint", white text column' },
+  { fg: 'black', bg: 'white', where: 'blog cover wordmark "Tutor" (when the logo image is missing)' },
 ]
 
 // ----------------------------------------------------------------- run ------

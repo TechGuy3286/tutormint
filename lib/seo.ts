@@ -20,7 +20,7 @@ import { SITE_URL, absoluteUrl } from '@/lib/siteUrl'
 import type { Company } from '@/lib/company'
 import { formatSupportPhoneSchema } from '@/lib/supportContacts'
 import { provinceForCity, postcodeFor } from '@/lib/pkLocations'
-import { ORGANIZATION_ID, WEBSITE_ID, SITE_DESCRIPTION, SITE_TAGLINE, socialProfiles } from '@/lib/siteIdentity'
+import { ORGANIZATION_ID, WEBSITE_ID, SITE_DESCRIPTION, SITE_LOGO_PATH, SITE_LOGO_SIZE, SITE_TAGLINE, socialProfiles } from '@/lib/siteIdentity'
 
 export const BRAND = 'TutorMint'
 export const SLOGAN = 'Free to join, no commission, no middleman'
@@ -220,11 +220,11 @@ export function organizationJsonLd(company: Company, phone: string | null) {
     areaServed: { '@type': 'Country', name: 'Pakistan' },
     logo: {
       '@type': 'ImageObject',
-      url: absoluteUrl('/tutormint-logo1200x630.png'),
-      width: 1200,
-      height: 630,
+      url: absoluteUrl(SITE_LOGO_PATH),
+      width: SITE_LOGO_SIZE.width,
+      height: SITE_LOGO_SIZE.height,
     },
-    image: absoluteUrl('/tutormint-logo1200x630.png'),
+    image: absoluteUrl(OG_DEFAULT_IMAGE),
     slogan: SITE_TAGLINE,
     address: {
       '@type': 'PostalAddress',
@@ -636,7 +636,7 @@ export function articleJsonLd(a: {
       '@id': ORGANIZATION_ID,
       name: 'TutorMint',
       url: SITE_URL,
-      logo: { '@type': 'ImageObject', url: absoluteUrl('/tutormint-logo1200x630.png'), width: 1200, height: 630 },
+      logo: { '@type': 'ImageObject', url: absoluteUrl(SITE_LOGO_PATH), width: SITE_LOGO_SIZE.width, height: SITE_LOGO_SIZE.height },
     },
   }
 }

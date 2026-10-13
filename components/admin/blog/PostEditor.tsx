@@ -63,6 +63,8 @@ export type EditorPost = {
   coverPath: string | null
   coverSquarePath: string | null
   coverAlt: string | null
+  /** The scene prompt the current cover was made from (posts.cover_prompt). */
+  coverPrompt: string | null
   seoTitle: string
   seoDescription: string
   related: string[]
@@ -720,7 +722,9 @@ export default function PostEditor({
         coverSquarePath: null,
         // Auto alt, editable. Keep a hand-typed alt, but replace a previous
         // auto one (a different variant describes a different picture).
-        coverAlt: !p.coverAlt || p.coverAlt.startsWith('Illustration:') ? data.coverAlt : p.coverAlt,
+        coverAlt: !p.coverAlt || p.coverAlt.startsWith('Illustration:') || p.coverAlt.startsWith('Cover for ') ? data.coverAlt : p.coverAlt,
+        // The prompt this cover stands for, kept with the post so it can be made again.
+        coverPrompt: typeof data.coverPrompt === 'string' ? data.coverPrompt : null,
       }))
       setDirty(true)
       setNotice('Cover set. Save to keep it.')
@@ -841,8 +845,11 @@ export default function PostEditor({
         ? coverImagePrompt({
             title: post.title,
             clusterLabel: clusterLabel(post.cluster),
+            cluster: post.cluster,
             city: post.city,
             subject: post.subject,
+            audience: post.audience,
+            slug: post.slug || null,
           })
         : null,
     )
@@ -899,6 +906,7 @@ export default function PostEditor({
       coverPath: post.coverPath,
       coverSquarePath: post.coverSquarePath,
       coverAlt: post.coverAlt,
+      coverPrompt: post.coverPrompt,
       seoTitle: post.seoTitle,
       seoDescription: post.seoDescription,
       relatedLandingPages: post.related,
@@ -1916,9 +1924,12 @@ export default function PostEditor({
               <ImageIcon aria-hidden size={14} className="text-tm-navy" />
               <p className={label}>Cover image</p>
             </div>
-            {/* Three composed variants (seeds base..base+2) built from the brand
-                asset library — pick one, or Shuffle for three more. A picked
-                cover derives its own alt text. */}
+            {/* Three options side by side (seeds base..base+2), each in the one
+                fixed brand layout: the scene comes from the house illustration
+                library and follows the post's subject, level, city and cluster;
+                the logo, title, brand line and tagline are typed on top by
+                code. Pick one, or Regenerate for three new ones. A picked cover
+                derives its own alt text and keeps its scene prompt. */}
             {readOnly ? null : pv.title.trim() ? (
               <>
                 <div className="grid grid-cols-3 gap-2">
@@ -1949,7 +1960,7 @@ export default function PostEditor({
                     onClick={() => setCoverBase((b) => b + 3)}
                     className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-[11px] font-bold text-tm-navy hover:border-tm-navy"
                   >
-                    <Shuffle aria-hidden size={12} /> Shuffle
+                    <Shuffle aria-hidden size={12} /> Regenerate
                   </button>
                   {/* §2 — build an image prompt to generate a matching cover in
                       your own tool, then upload it below. Nothing is generated
@@ -1967,8 +1978,8 @@ export default function PostEditor({
                 {coverPrompt !== null && (
                   <div className="space-y-2 rounded-xl border border-gray-200 bg-tm-bg p-3">
                     <p className="text-[11px] text-gray-500">
-                      Generate this in your own image tool, then upload the result below. The style is
-                      locked to match TutorMint covers — edit if you like.
+                      This asks for the background scene only, with no text in it. Generate it in your
+                      own image tool, then upload the result below — the prompt is saved with the cover.
                     </p>
                     <textarea
                       value={coverPrompt}
@@ -2025,6 +2036,21 @@ export default function PostEditor({
               </figure>
             )}
 
+            {/* The scene prompt stored with the current cover — so a good cover
+                can be made again (owner, 14 Oct 2026). */}
+            {post.coverPath && post.coverPrompt && (
+              <details className="rounded-lg border border-gray-200 bg-tm-bg p-2">
+                <summary className="cursor-pointer text-[11px] font-bold text-tm-navy">Image prompt used for this cover</summary>
+                <textarea
+                  readOnly
+                  value={post.coverPrompt}
+                  rows={8}
+                  aria-label="Image prompt used for this cover"
+                  className={`${input} mt-2 font-mono text-[11px] leading-relaxed`}
+                />
+              </details>
+            )}
+
             {!readOnly && <p className="text-[11px] text-gray-500">or upload your own:</p>}
             {!readOnly && <FileUpload
               label="Cover image"
@@ -2043,7 +2069,9 @@ export default function PostEditor({
                 const res = await fetch('/api/admin/blog/cover', { method: 'POST', body: fd })
                 const data = await res.json().catch(() => ({}))
                 if (!res.ok) throw new Error(data.error ?? 'Upload failed.')
-                setPost((p) => ({ ...p, coverPath: data.path, coverSquarePath: null }))
+                // An uploaded cover keeps the prompt that was open when it was
+                // uploaded (the one it was made from), or none.
+                setPost((p) => ({ ...p, coverPath: data.path, coverSquarePath: null, coverPrompt: coverPrompt?.trim() || null }))
                 setDirty(true)
                 toast.success('Cover uploaded.')
               }}

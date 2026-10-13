@@ -378,7 +378,7 @@ export async function banMember(params: {
   return { ok: true }
 }
 
-/** Reverse a ban. Owner only (enforced by the route). */
+/** Reverse a ban. The Owner and the Partner (enforced by the route). */
 export async function unbanMember(params: {
   userId: string
   reason: string

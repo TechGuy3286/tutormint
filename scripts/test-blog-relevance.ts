@@ -8,6 +8,7 @@ import path from 'node:path'
 
 import {
   groupOfText,
+  groupsOfText,
   matchTier,
   matchingTutorSlugs,
   postTopic,
@@ -21,6 +22,7 @@ import { CoverTextError, renderCoverPng } from '../lib/covers/compose'
 import { selectCover } from '../lib/covers/select'
 import { coverImagePrompt } from '../lib/covers/prompt'
 import { collectBlogProblems } from '../lib/ai/blogChecker'
+import { levelGroup } from '../lib/contentQueue/topics'
 
 const read = (...p: string[]) => readFileSync(path.join(...p), 'utf8')
 
@@ -52,7 +54,44 @@ test('a post topic is read from its City and Subject fields', () => {
   assert.ok(t.subjects.includes('islamiat'))
   // No subject field: the level may still come from the title; no subject is guessed.
   const career = postTopic({ title: 'How to become a home tutor in Pakistan: a step-by-step start' })
-  assert.deepEqual(career, { city: '', group: '', subjects: [] })
+  assert.deepEqual(career, { city: '', group: '', groups: [], subjects: [] })
+})
+
+test('"exam prep" is not the Prep class; O Level, A Level and IGCSE win (owner, 14 Oct 2026)', () => {
+  // The post the owner saw: /blog/o-and-a-level-october-november-exam-prep-2026
+  const exam = postTopic({ title: 'O and A Level October–November exam prep, 2026' })
+  assert.deepEqual(exam.groups, ['o-level', 'a-level'])
+  assert.equal(exam.group, 'o-level')
+  assert.deepEqual(groupsOfText('O/A Level exam prep'), ['o-level', 'a-level'])
+  assert.deepEqual(groupsOfText('IGCSE test prep in Karachi'), ['igcse'])
+  assert.equal(groupOfText('A Level Physics exam preparation'), 'a-level')
+  // The bare word is never a level.
+  for (const t of ['exam prep', 'Exam prep tips for parents', 'Test prep', 'How to prepare for exams', 'Preparation checklist', 'Admission Test Prep']) {
+    assert.equal(groupOfText(t), '', t)
+  }
+  // Written as a level, it is one.
+  for (const t of ['Prep class tutor', 'Prep / KG III', 'Prep', 'KG', 'Play Group', 'Nursery and Prep English', 'Nursery / KG II', 'Prep level Maths']) {
+    assert.equal(groupOfText(t), 'kg', t)
+  }
+  assert.equal(groupOfText('preparing for Matric'), 'matric')
+  assert.equal(groupOfText('Preparing for Grade 9 and 10 board exams'), 'matric')
+  // A named senior level beats a weaker word in the same title.
+  assert.equal(groupOfText('O Level prep class for nursery teachers'), 'o-level')
+  // So the exam-prep post is related to O and A Level pages, never to KG ones.
+  const pages = [
+    page('tuitions', 'Lahore', 'Prep / KG III', 'English'),
+    page('tutors', 'Karachi', 'Pre Nursery / Play Group / KG I', 'Mathematics'),
+    page('tutors', 'Lahore', 'O Levels', 'Physics'),
+    page('tuitions', 'Karachi', 'AS & A Levels', 'Chemistry'),
+  ]
+  const shown = relevantItems(pages, exam, { closestOnly: true })
+  assert.deepEqual(shown.map((p) => p.level).sort(), ['AS & A Levels', 'O Levels'])
+  // With no O or A Level page at all, the box is hidden — not filled with KG pages.
+  assert.deepEqual(relevantItems(pages.slice(0, 2), exam, { closestOnly: true }), [])
+  // The content queue reads levels by the same rule.
+  assert.equal(levelGroup('O and A Level exam prep').key, 'a-level')
+  assert.equal(levelGroup('Admission Test Prep').label, 'Admission Test Prep')
+  assert.equal(levelGroup('Prep / KG III').key, 'kg')
 })
 
 test('the tiers: subject + level + city, subject + city, level + city, city only', () => {
@@ -212,8 +251,11 @@ test('the brand line switches at 100 and rounds down to the nearest 50', () => {
   // Neither line trips the guard.
   for (const n of [0, 100, 250]) assert.equal(coverTextProblem(brandLine(n)), null)
   // The count is the live number of tutors holding the Verified badge, by the site's own rule.
-  const render = read('lib', 'covers', 'render.ts')
-  assert.ok(render.includes('loadVerifiedBadgeOk(') && render.includes('brandLine(await verifiedBadgeTutorCount())'))
+  // One loader for the homepage pill and every cover.
+  const line = read('lib', 'brandLineServer.ts')
+  assert.ok(line.includes('loadVerifiedBadgeOk(') && line.includes('brandLine(await verifiedBadgeTutorCount())'))
+  assert.ok(read('lib', 'covers', 'render.ts').includes("from '@/lib/brandLineServer'"))
+  assert.ok(read('app', '(site)', 'page.tsx').includes('await cachedBrandLine()'))
 })
 
 test('the guard rejects any cover text with a banned word', () => {
@@ -228,6 +270,8 @@ test('the guard rejects any cover text with a banned word', () => {
   const assets = { city: null, person: null, motifs: [] }
   // A banned TITLE is never painted…
   assert.throws(() => renderCoverPng({ title: "Pakistan's largest tutor network", selection: sel, assets }), CoverTextError)
+  // …nor a banned tagline: every word the overlay types is checked.
+  assert.throws(() => renderCoverPng({ title: 'Primary Islamiat in Lahore', selection: sel, assets, tagline: 'The No.1 tutor site' }), CoverTextError)
   // …nor a banned brand line, whoever passes it.
   assert.throws(() => renderCoverPng({ title: 'Primary Islamiat in Lahore', selection: sel, assets, brandLine: "Pakistan's Largest Tutors Network" }), CoverTextError)
   // A clean cover renders.
@@ -246,4 +290,9 @@ test('no template or image prompt carries a superlative; the editor can regenera
   assert.ok(prompt.includes('NO text'))
   assert.ok(prompt.includes('never add a slogan or a claim'))
   assert.ok(read('components', 'admin', 'blog', 'PostEditor.tsx').includes('Regenerate cover'))
+  // No user-facing "Largest" is left: the default title, the pill and the logo files.
+  for (const f of [['app', 'layout.tsx'], ['lib', 'siteIdentity.ts'], ['lib', 'seo.ts'], ['components', 'Navbar.tsx'], ['components', 'Footer.tsx']]) {
+    assert.ok(!/largest/i.test(read(...f)), f.join('/'))
+  }
+  assert.ok(!/Largest/.test(read('app', '(site)', 'page.tsx').replace(/\/\/.*$/gm, '')))
 })

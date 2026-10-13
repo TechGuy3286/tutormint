@@ -49,6 +49,9 @@ const SaveBody = z.object({
   coverPath: z.string().nullable().optional(),
   coverSquarePath: z.string().nullable().optional(),
   coverAlt: z.string().max(300).nullable().optional(),
+  // The scene prompt the cover was made from (owner, 14 Oct 2026) — kept so a
+  // good cover can be made again. Shown to staff only.
+  coverPrompt: z.string().max(6000).nullable().optional(),
   seoTitle: z.string().max(300).nullable().optional(),
   seoDescription: z.string().max(600).nullable().optional(),
   relatedLandingPages: z.array(z.string().max(200)).max(20).optional(),
@@ -257,6 +260,7 @@ export async function POST(request: Request) {
       cover_path: body.coverPath ?? null,
       cover_square_path: body.coverSquarePath ?? null,
       cover_alt: (body.coverAlt ?? '').trim() || null,
+      cover_prompt: body.coverPath ? (body.coverPrompt ?? '').trim() || null : null,
       seo_title: (body.seoTitle ?? '').trim().slice(0, SEO_TITLE_MAX) || null,
       seo_description: (body.seoDescription ?? '').trim().slice(0, SEO_DESCRIPTION_MAX) || null,
       related_landing_pages: body.relatedLandingPages ?? [],

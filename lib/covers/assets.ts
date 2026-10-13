@@ -18,9 +18,9 @@ import { coverAsset } from './catalog'
 
 const CACHE = new Map<string, string | null>()
 
-async function fromDisk(file: string): Promise<string | null> {
+async function fromDisk(file: string, dir = 'covers'): Promise<string | null> {
   try {
-    const buf = await readFile(path.join(process.cwd(), 'public', 'covers', file))
+    const buf = await readFile(path.join(process.cwd(), 'public', dir, file))
     if (buf.length === 0) return null
     return `data:image/png;base64,${buf.toString('base64')}`
   } catch {
@@ -28,9 +28,9 @@ async function fromDisk(file: string): Promise<string | null> {
   }
 }
 
-async function fromOrigin(file: string): Promise<string | null> {
+async function fromOrigin(file: string, dir = 'covers'): Promise<string | null> {
   try {
-    const res = await fetch(`${SITE_URL}/covers/${file}`, { signal: AbortSignal.timeout(5000) })
+    const res = await fetch(`${SITE_URL}/${dir}/${file}`, { signal: AbortSignal.timeout(5000) })
     if (!res.ok) return null
     const ct = res.headers.get('content-type') || 'image/png'
     if (!ct.startsWith('image/')) return null
@@ -53,5 +53,18 @@ export async function coverAssetDataUri(slug: string | null | undefined): Promis
   if (CACHE.has(asset.file)) return CACHE.get(asset.file) ?? null
   const uri = (await fromDisk(asset.file)) ?? (await fromOrigin(asset.file))
   CACHE.set(asset.file, uri)
+  return uri
+}
+
+/** The clean TutorMint logo lockup a cover carries (public/brand, made by
+ *  scripts/build-clean-logos.ts — no tagline line in the picture). Null when it
+ *  cannot be loaded; the composer then types the wordmark instead. */
+export const BRAND_LOGO_FILE = 'tutormint-logo-640.png'
+
+export async function brandLogoDataUri(): Promise<string | null> {
+  const key = `brand/${BRAND_LOGO_FILE}`
+  if (CACHE.has(key)) return CACHE.get(key) ?? null
+  const uri = (await fromDisk(BRAND_LOGO_FILE, 'brand')) ?? (await fromOrigin(BRAND_LOGO_FILE, 'brand'))
+  CACHE.set(key, uri)
   return uri
 }

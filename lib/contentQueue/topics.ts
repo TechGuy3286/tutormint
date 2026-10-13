@@ -25,6 +25,21 @@ export type LevelGroup = { key: string; label: string }
 
 const clean = (s: string) => s.replace(/\s+/g, ' ').trim()
 
+const KG_PHRASE = /pre[\s-]*nursery|play\s*group|\bnursery\b|\bkg\b|kindergarten|montessori|pre[\s-]*school/
+// "Prep" is the Prep / KG class only when it is written as a level: on its own,
+// beside another early-years level ("Prep / KG III", "Nursery and Prep"), or
+// before "class", "level", "section" or "grade". The everyday word — "exam
+// prep", "test prep", "prep for Matric" — is never a level.
+const PREP_AS_LEVEL =
+  /^prep$|\bprep\s*(?:[/&,-]|and|to)?\s*(?:kg|nursery|class(?:es)?|level|section|grade)\b|\b(?:kg(?:\s*i{1,3})?|nursery|play\s*group)\s*(?:[/&,-]|and|to)\s*prep\b/
+const PREP_AS_WORD = /\b(?:exam|exams|test|tests|entrance|admission|entry|interview|board|paper)\s+prep\b/
+
+/** Does this lower-case text name the Play Group / Nursery / KG / Prep level? */
+export function namesKgLevel(lower: string): boolean {
+  if (KG_PHRASE.test(lower)) return true
+  return PREP_AS_LEVEL.test(lower) && !PREP_AS_WORD.test(lower)
+}
+
 /**
  * The range a taxonomy level belongs to, with the words a title uses. An
  * unknown level keeps its own name, cleaned of brackets and slashes.
@@ -35,7 +50,12 @@ export function levelGroup(level: string | null | undefined, override?: string |
   if (o) return { key: slugify(o) || 'level', label: o }
   const l = raw.toLowerCase()
   if (!l) return { key: '', label: '' }
-  if (/pre[\s-]*nursery|play\s*group|nursery|\bprep\b|\bkg\b|kindergarten|montessori|pre[\s-]*school/.test(l)) return { key: 'kg', label: 'Play Group and KG' }
+  // O Level, A Level and IGCSE are named outright, so they win over any weaker
+  // match in the same text ("O and A Level exam prep" is not the Prep class).
+  if (/igcse/.test(l)) return { key: 'igcse', label: 'IGCSE' }
+  if (/\bo[\s-]*levels?\b/.test(l)) return { key: 'o-level', label: 'O Level' }
+  if (/\ba[\s-]*levels?\b/.test(l)) return { key: 'a-level', label: 'A Level' }
+  if (namesKgLevel(l)) return { key: 'kg', label: 'Play Group and KG' }
   const grade = /\bgrade\s*(\d{1,2})\b/.exec(l)
   if (grade) {
     const n = Number(grade[1])
@@ -48,9 +68,6 @@ export function levelGroup(level: string | null | undefined, override?: string |
   if (/^f\.?\s*a\b/.test(l)) return { key: 'fa', label: 'FA' }
   if (/^i\.?\s*c\.?\s*s\b/.test(l)) return { key: 'ics', label: 'ICS' }
   if (/^i\.?\s*com\b/.test(l)) return { key: 'icom', label: 'I.Com' }
-  if (/igcse/.test(l)) return { key: 'igcse', label: 'IGCSE' }
-  if (/\bo[\s-]*levels?\b/.test(l)) return { key: 'o-level', label: 'O Level' }
-  if (/\ba[\s-]*levels?\b/.test(l)) return { key: 'a-level', label: 'A Level' }
   if (/semester|\bbs\b|\badp\b|bachelor|university/.test(l)) return { key: 'bs', label: 'BS' }
   if (/\bms\b|m\.?phil|master/.test(l)) return { key: 'ms', label: 'MS / MPhil' }
   // Anything else: its own name without brackets, slashes or stray codes.

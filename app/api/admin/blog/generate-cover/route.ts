@@ -4,16 +4,21 @@ import { randomUUID } from 'node:crypto'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { isClusterSlug, publicBlogUrl } from '@/lib/blog'
+import { isClusterSlug, publicBlogUrl, POST_CLUSTERS } from '@/lib/blog'
 import { parseBody, z } from '@/lib/validate'
 import { composeCoverResponse, composeCoverAlt } from '@/lib/covers/render'
 import type { CoverInput } from '@/lib/covers/select'
 import { CoverTextError } from '@/lib/covers/compose'
 import { coverTextProblem } from '@/lib/brandClaims'
 import { logAdminAction } from '@/lib/auditLog'
+import { coverJpeg } from '@/lib/covers/encode'
+import { coverImagePrompt } from '@/lib/covers/prompt'
+import { selectCover } from '@/lib/covers/select'
 
 // Commit ONE chosen composed cover variant (the seed the manager picked among
-// the three previews) to the public `blog` bucket, at 1200x630. A composed
+// the three previews) to the public `blog` bucket, at 1200x630, as a JPEG under
+// about 250 KB (owner, 14 Oct 2026). The answer also carries the scene PROMPT
+// for this cover, which the editor saves with the post (posts.cover_prompt). A composed
 // cover is a single wide image — there is no square social variant — so
 // cover_square_path is cleared, exactly as an uploaded cover does.
 //
@@ -61,12 +66,15 @@ export async function POST(request: Request) {
   const banned = coverTextProblem(d.title)
   if (banned) return NextResponse.json({ error: banned }, { status: 400 })
 
-  const coverPath = `covers/gen-${randomUUID()}.png`
+  // A new name every time: an earlier cover's file is never replaced.
+  const coverPath = `covers/gen-${randomUUID()}.jpg`
+  let bytesStored = 0
 
   try {
     const res = await composeCoverResponse(input, seed)
-    const bytes = new Uint8Array(await res.arrayBuffer())
-    const up = await admin.storage.from('blog').upload(coverPath, bytes, { contentType: 'image/png', upsert: false })
+    const bytes = await coverJpeg(new Uint8Array(await res.arrayBuffer()))
+    bytesStored = bytes.length
+    const up = await admin.storage.from('blog').upload(coverPath, bytes, { contentType: 'image/jpeg', upsert: false })
     if (up.error) return serverError(up.error, 'admin/blog/generate-cover')
   } catch (e) {
     if (e instanceof CoverTextError) return NextResponse.json({ error: e.message }, { status: 400 })
@@ -78,6 +86,15 @@ export async function POST(request: Request) {
   const altProblem = coverTextProblem(coverAlt)
   if (altProblem) return NextResponse.json({ error: altProblem }, { status: 400 })
 
+  // The scene prompt this cover stands for, and what the library drew for it.
+  const selection = selectCover(input, seed)
+  const clusterLabel = POST_CLUSTERS.find((c) => c.slug === d.cluster)?.label ?? d.cluster
+  const coverPrompt = [
+    coverImagePrompt({ title: d.title, clusterLabel, cluster: d.cluster, city: input.city, subject: input.subject, audience: input.audience, slug: input.slug }),
+    '',
+    `Composed by TutorMint from the house illustration library — option seed ${seed}: scene "${selection.scene}", ${selection.personSlug}, ${selection.motifs.join(' + ')}, ${selection.citySlug}, ${selection.background} ground.`,
+  ].join('\n')
+
   await logAdminAction({
     actorId: gate.actor.id,
     actorRole: gate.actor.adminRole,
@@ -85,7 +102,7 @@ export async function POST(request: Request) {
     action: 'blog.cover_generate',
     targetType: 'post',
     targetId: (d.slug ?? d.title).slice(0, 120),
-    detail: { seed, coverPath },
+    detail: { seed, coverPath, scene: selection.scene, bytes: bytesStored },
   })
 
   return NextResponse.json({
@@ -93,6 +110,7 @@ export async function POST(request: Request) {
     coverPath,
     coverSquarePath: null,
     coverAlt,
+    coverPrompt,
     coverUrl: publicBlogUrl(coverPath),
   })
 }
