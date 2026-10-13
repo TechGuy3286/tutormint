@@ -56,8 +56,9 @@ test('the subject step has no Select all and no second repeated list', () => {
   assert.ok(step.includes('More subjects'))
   assert.ok(step.includes('Need help? WhatsApp us'))
   assert.ok(step.includes('60_000'))
-  // Still saves every grade of the level, in the same master-id shape.
-  assert.ok(step.includes('resolveMasterIds(cat, Object.keys(tree[cat] ?? {}), subs)'))
+  // Since 13 Oct 2026 the step saves the chosen grades of each level range
+  // (lib/onboarding/levelRanges), in the same master-id shape.
+  assert.ok(step.includes('resolveSelection(sel, ranges, masters)'))
 })
 
 const base: FlowFacts = {

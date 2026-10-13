@@ -70,6 +70,31 @@ export function tutorProfileIndexable(f: TutorIndexFacts): boolean {
   return true
 }
 
+export type IndexRequirement = { key: 'fee' | 'cnic' | 'photo' | 'selfie'; label: string; met: boolean }
+
+/**
+ * The SAME rule as tutorProfileIndexable, as the list of what it needs — for
+ * the tutor's "what makes my profile visible on Google" line (owner, 13 Oct
+ * 2026). Nothing is added to or left out of the rule: for an account that is
+ * not a fixture and not under review, the page is indexable exactly when every
+ * item here is met (scripts/test-missing-items.ts checks all sixteen cases).
+ */
+export function tutorIndexRequirements(f: TutorIndexFacts): IndexRequirement[] {
+  return [
+    { key: 'fee', label: 'the Verification Fee is paid', met: !!f.feePaid },
+    { key: 'cnic', label: 'our team has approved your CNIC', met: !!f.cnicApproved },
+    { key: 'photo', label: 'our team has approved your profile photo', met: !!f.profilePicApproved },
+    { key: 'selfie', label: 'our team has approved your selfie', met: !!f.selfieApproved },
+  ]
+}
+
+/** "Your profile appears on Google once: A, B, C and D." */
+export function googleVisibilityLine(reqs: IndexRequirement[]): string {
+  const parts = reqs.map((r) => r.label)
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')}, and ${parts[parts.length - 1]}` : (parts[0] ?? '')
+  return `Your profile appears on Google once: ${list}.`
+}
+
 /**
  * The minimum description length for a tuition page to stand alone as an indexed
  * page (PR43 §3). Below this it is noindex and out of the sitemap — a one-line

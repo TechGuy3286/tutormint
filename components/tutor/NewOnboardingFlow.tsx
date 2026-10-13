@@ -4,7 +4,7 @@ import { useSubjectWords } from '@/lib/searchWords'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Camera, Check, CreditCard, Image as ImageIcon, Loader2, Paperclip, Plus, Search, Sparkles, Upload } from 'lucide-react'
+import { Camera, Check, CreditCard, Image as ImageIcon, Loader2, Paperclip, Plus, Search, Sparkles, Upload, X } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
@@ -26,11 +26,21 @@ import { useJobTitles } from '@/lib/jobTitles'
 import { useCityAreas } from '@/lib/cityAreas'
 import { EXPERIENCE_BANDS, composeHeadline, composeBio } from '@/lib/onboarding/copy'
 import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange } from '@/lib/fee'
-import { resolveMasterIds, fetchTaxonomyTree, fetchCoreTree, fetchNonLegacyMasters, fetchSubjectUrdu, loadedNoGradeLevels, type TaxonomyNode } from '@/lib/taxonomy'
-import { subjectGroups, filterMore } from '@/lib/onboarding/subjectGroups'
+import { fetchTaxonomyTree, fetchCoreTree, fetchNonLegacyMasters, fetchSubjectUrdu, type TaxonomyNode } from '@/lib/taxonomy'
+import {
+  applyQuickPick, canContinue as canContinueSel, levelRanges, pickApplied, resolveQuickPicks, resolveSelection, searchSubjects,
+  selectionChips, selectionCounts, selectionFromIds, subjectsOffered, toggleGrade, toggleRange, toggleSubject,
+  type Master as RangeMaster, type RangeSelection,
+} from '@/lib/onboarding/levelRanges'
+import { TUTOR_SUBJECT_CAP, TOO_MANY_SUBJECTS } from '@/lib/tutorSubjectCap'
 import { availabilityToSlots, slotsToAvailabilityList, type DaySlot } from '@/lib/timeSlots'
 import { NEW_FLOW_ORDER, firstMissingStep, nextMissingAfter, stepDone, type FlowStepKey } from '@/lib/tutorFlow'
 import LogoLoader from '@/components/LogoLoader'
+import WhatsMissing from '@/components/tutor/WhatsMissing'
+import { missingSummary } from '@/lib/onboarding/missingItems'
+import { deriveCnicStatus } from '@/lib/cnicStatus'
+import { googleVisibilityLine, tutorIndexRequirements, tutorProfileIndexable } from '@/lib/seo/indexable'
+import type { FlowFacts } from '@/lib/tutorFlow'
 import { ChipSkeletons } from '@/components/Skeletons'
 
 // The NEW tutor onboarding (PR106-G3c). A SEPARATE component from the live
@@ -70,11 +80,14 @@ type Facts = {
   // PR106 HOTFIX-PAY2: the real saved CNIC number, so the gap-flow knows the
   // cnic_number step is done and a refresh does not resume at it.
   cnicNumber: string | null
-  // PR106-G6 §1/§5: the subjects step's raw tap selection, held in the parent so
-  // going back then forward keeps an in-progress (unsaved) pick. Empty on load;
-  // the step prefills from the saved subjectIds on first open, then syncs here.
-  subjCats: string[]
-  subjByCat: Record<string, string[]>
+  // The subjects step's selection (levels, grades, subjects), held in the parent
+  // so going back then forward keeps an in-progress pick. Empty on load; the
+  // step reads the saved subjectIds on first open, then syncs here.
+  subjSel: RangeSelection
+  // What staff have approved so far — for the "visible on Google" line.
+  cnicApproved: boolean
+  photoApproved: boolean
+  selfieApproved: boolean
 }
 
 const TITLES: Record<FlowStepKey, { en: string; ur?: string }> = {
@@ -103,8 +116,11 @@ export default function NewOnboardingFlow({
   smsAvailable = true,
   payFailed = false,
   helpWaHref = null,
+  initialStep = null,
 }: {
   seed: string
+  /** Open at this step (a "Fix now" link), not at the first missing one. */
+  initialStep?: FlowStepKey | null
   smsAvailable?: boolean
   /** WhatsApp support link for the subjects step's "Need help?" line. */
   helpWaHref?: string | null
@@ -135,7 +151,7 @@ export default function NewOnboardingFlow({
       return null
     }
     const [{ data: p }, { data: tp }, subj, docsRes] = await Promise.all([
-      supabase.from('profiles').select('full_name, city, phone_verified_at, phone_number, whatsapp, email, cnic_number').eq('id', user.id).maybeSingle(),
+      supabase.from('profiles').select('full_name, city, phone_verified_at, phone_number, whatsapp, email, cnic_number, cnic_image_path, cnic_verified_at, verification_state, profile_pic_status, selfie_status').eq('id', user.id).maybeSingle(),
       supabase.from('tutor_profiles').select('city, area, gender, avatar_url, headline, bio, experience_years, fee_min_pkr, fee_max_pkr, job_types, degrees, availability_list, verified_fee_paid_at').eq('id', user.id).maybeSingle(),
       supabase.from('tutor_subjects').select('master_id').eq('tutor_id', user.id),
       // All identity docs (selfie + CNIC front/back), newest first, so each
@@ -172,8 +188,10 @@ export default function NewOnboardingFlow({
       cnicFrontPreview: previewUrl(latest('cnic', 'front')?.id),
       cnicBackPreview: previewUrl(latest('cnic', 'back')?.id),
       cnicNumber: (p?.cnic_number as string) ?? null,
-      subjCats: [],
-      subjByCat: {},
+      subjSel: {},
+      cnicApproved: deriveCnicStatus((p ?? {}) as never) === 'approved',
+      photoApproved: p?.profile_pic_status === 'approved',
+      selfieApproved: p?.selfie_status === 'approved',
     }
   }, [supabase, router])
 
@@ -198,7 +216,8 @@ export default function NewOnboardingFlow({
       const f = await load()
       if (!live || !f) return
       setFacts(f)
-      setStepKey(firstMissingStep(flowFacts(f), ORDER) ?? 'final')
+      // A "Fix now" link names its step; otherwise open at the first gap.
+      setStepKey(initialStep && ORDER.includes(initialStep) ? initialStep : (firstMissingStep(flowFacts(f), ORDER) ?? 'final'))
     })()
     return () => { live = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -280,6 +299,13 @@ export default function NewOnboardingFlow({
     return <LogoLoader fullPage />
   }
 
+  // The one missing-items list (lib/onboarding/missingItems) and the real
+  // "visible on Google" rule (lib/seo/indexable), from this tutor's own facts.
+  const checklist = missingSummary(flowFacts(facts) as FlowFacts)
+  const indexFacts = { feePaid: facts.feePaid, cnicApproved: facts.cnicApproved, profilePicApproved: facts.photoApproved, selfieApproved: facts.selfieApproved }
+  const indexReqs = tutorIndexRequirements(indexFacts)
+  const google = { line: googleVisibilityLine(indexReqs), requirements: indexReqs, visible: tutorProfileIndexable(indexFacts) }
+
   const stepIndex = stepKey === 'final' ? ORDER.length : ORDER.indexOf(stepKey)
   const title = stepKey === 'final' ? { en: 'Almost there' } : TITLES[stepKey]
   // "Finish" on the last step before Get verified (cnic_photos → tagline is last
@@ -316,9 +342,32 @@ export default function NewOnboardingFlow({
           {flowError}
         </div>
       )}
+      {/* What is still to do, at the top of every step (owner, 13 Oct 2026):
+          closed to one progress line until opened; "Fix now" jumps to the step. */}
+      <WhatsMissing
+        compact
+        done={checklist.done}
+        total={checklist.total}
+        percent={checklist.percent}
+        missing={checklist.missing}
+        google={google}
+        onFix={(item) => { setFlowError(null); setStepKey(item.step) }}
+      />
       {opts.children}
     </StepShell>
   )
+
+  // ---------- MOBILE FIRST (owner, 13 Oct 2026) ----------
+  // A tutor who signed up with an email has no verified mobile yet. A verified
+  // mobile is required, so it is asked for before the steps; the email itself
+  // does not have to be confirmed to continue.
+  if (!facts.phoneVerified && stepKey !== 'final' && stepKey !== 'contact') {
+    return <MobileVerifyScreen facts={facts} smsAvailable={smsAvailable} shell={shell} onError={setFlowError}
+      onVerified={async () => {
+        const f = await refresh()
+        if (f) setStepKey(firstMissingStep(flowFacts(f), ORDER) ?? 'final')
+      }} />
+  }
 
   // ---------- GENDER ----------
   if (stepKey === 'gender') {
@@ -355,8 +404,20 @@ export default function NewOnboardingFlow({
 
   // ---------- SUBJECTS & LEVELS ----------
   if (stepKey === 'level' || stepKey === 'subjects')
-    return <SubjectsStep initialIds={facts.subjectIds} draftCats={facts.subjCats} draftByCat={facts.subjByCat} shell={shell} helpWaHref={helpWaHref}
-      onDraft={(cats, byCat) => setFacts((f) => (f ? { ...f, subjCats: cats, subjByCat: byCat } : f))}
+    return <SubjectsStep initialIds={facts.subjectIds} draft={facts.subjSel} shell={shell} helpWaHref={helpWaHref}
+      onDraft={(sel) => setFacts((f) => (f ? { ...f, subjSel: sel } : f))}
+      // Saved quietly while the tutor is still choosing (owner, 13 Oct 2026), so
+      // leaving and coming back keeps the choices. A failure here says nothing:
+      // "Next" saves again and reports properly.
+      onAutoSave={async (ids) => {
+        try {
+          await saveProfile({ subjectMasterIds: ids })
+          setFacts((f) => (f ? { ...f, subjectIds: ids } : f))
+          return true
+        } catch {
+          return false
+        }
+      }}
       onSave={(ids) => void saveAndNext({ subjectMasterIds: ids }, { subjectIds: ids })} />
 
   // ---------- TEACHING MODE ----------
@@ -587,36 +648,41 @@ function AreaStep({ city, initial, busy, shell, onSave }: { city: string; initia
 }
 
 // --------------------------------------------------------- Subjects & levels
-// PR106-G6 §1: the OLD flow's tap-tap selection, inside StepShell — level CHIPS
-// (the academic categories, multi-select), then subject CHIPS per chosen level
-// (grades are folded in, as the old flow does — every grade of a picked level is
-// taken). No dropdown, no grade step, no helper text. Selected chip = light green
-// + tick + deep-green border (OChip). The in-progress pick is held by the parent
-// (draftCats/draftByCat) so going back then forward keeps it; a returning tutor
-// with saved subjects is prefilled from them on first open.
-function SubjectsStep({ initialIds, draftCats, draftByCat, shell, helpWaHref, onDraft, onSave }: {
-  initialIds: number[]; draftCats: string[]; draftByCat: Record<string, string[]>; shell: ShellFn
+// Rebuilt 13 Oct 2026 (owner): more tutors stopped here than at any other step.
+// The rules are pure (lib/onboarding/levelRanges); this is only the screen.
+//   • one search box — a subject typed once is found at every level, with the
+//     platform's Search words and typo tolerance ("maths", "computer", "quran");
+//   • quick picks — the commonest level + subject pairs, one tap each;
+//   • level ranges — "Grade 1–5" selects all five grades; a grade can be
+//     switched off again;
+//   • what is chosen shows as removable chips; one level + one subject is enough;
+//   • it saves as the tutor goes, so leaving and coming back keeps the choices.
+function SubjectsStep({ initialIds, draft, shell, helpWaHref, onDraft, onAutoSave, onSave }: {
+  initialIds: number[]; draft: RangeSelection; shell: ShellFn
   /** WhatsApp support link (app_settings), shown after 60s with nothing picked. */
   helpWaHref?: string | null
-  onDraft: (cats: string[], byCat: Record<string, string[]>) => void
+  onDraft: (sel: RangeSelection) => void
+  /** Save quietly while the tutor is still choosing. Resolves true when saved. */
+  onAutoSave: (ids: number[]) => Promise<boolean>
   onSave: (ids: number[]) => void
 }) {
   const [tree, setTree] = useState<TaxonomyNode | null>(null)
   const [core, setCore] = useState<TaxonomyNode>({})
   // Short Urdu subject names (migration 149), shown under the English name.
   const [urdu, setUrdu] = useState<Record<string, string>>({})
-  const [selCats, setSelCats] = useState<string[]>(draftCats)
-  const [selByCat, setSelByCat] = useState<Record<string, string[]>>(draftByCat)
-  const [levelQ, setLevelQ] = useState('')
-  const [tried, setTried] = useState(false)
-  // Hotfix (7 Oct 2026): a level's main subjects show first; the rest sit
-  // behind "More subjects", with a search box per level.
+  const [masters, setMasters] = useState<RangeMaster[]>([])
+  const [sel, setSel] = useState<RangeSelection>(draft)
+  const [q, setQ] = useState('')
+  const [serverHits, setServerHits] = useState<string[]>([])
+  const [moreLevels, setMoreLevels] = useState(false)
   const [moreOpen, setMoreOpen] = useState<Record<string, boolean>>({})
-  const subjectWords = useSubjectWords()
-  const [moreQ, setMoreQ] = useState<Record<string, string>>({})
-  const [suggested, setSuggested] = useState<Record<string, string[]>>({})
+  const [tried, setTried] = useState(false)
+  const [tooMany, setTooMany] = useState(false)
+  const [savedNote, setSavedNote] = useState(false)
   const [helpVisible, setHelpVisible] = useState(false)
-  const prefilled = useRef(draftCats.length > 0)
+  const subjectWords = useSubjectWords()
+  const touched = useRef(false)
+  const lastSaved = useRef(initialIds.slice().sort((a, b) => a - b).join(','))
 
   // A tutor still on this step after 60 seconds gets a small WhatsApp help link
   // (shown only while nothing is picked).
@@ -625,159 +691,218 @@ function SubjectsStep({ initialIds, draftCats, draftByCat, shell, helpWaHref, on
     return () => clearTimeout(t)
   }, [])
 
-  // The platform's typo-tolerant + Roman-Urdu matching (/api/search/suggest —
-  // "fizics" → Physics, "hisab" → Mathematics), debounced per open search box.
-  useEffect(() => {
-    const ctrl = new AbortController()
-    const timers = Object.entries(moreQ).map(([cat, q]) => {
-      const term = q.trim()
-      if (term.length < 2) return null
-      return setTimeout(() => {
-        fetch(`/api/search/suggest?q=${encodeURIComponent(term)}`, { signal: ctrl.signal })
-          .then((r) => (r.ok ? r.json() : null))
-          .then((j: { suggestions?: { group: string; label: string }[] } | null) => {
-            const labels = (j?.suggestions ?? []).filter((x) => x.group === 'subject').map((x) => x.label)
-            setSuggested((cur) => ({ ...cur, [cat]: labels }))
-          })
-          .catch(() => {})
-      }, 250)
-    })
-    return () => { ctrl.abort(); for (const t of timers) if (t) clearTimeout(t) }
-  }, [moreQ])
+  const ranges = useMemo(() => (tree ? levelRanges(tree) : []), [tree])
 
   useEffect(() => {
     let live = true
-    void Promise.all([fetchTaxonomyTree(), fetchCoreTree(), fetchSubjectUrdu()])
-      .then(([t, c, u]) => { if (live) { setTree(t); setCore(c); setUrdu(u) } })
+    void Promise.all([fetchTaxonomyTree(), fetchCoreTree(), fetchSubjectUrdu(), fetchNonLegacyMasters()])
+      .then(([t, c, u, m]) => {
+        if (!live) return
+        setTree(t); setCore(c); setUrdu(u); setMasters(m)
+        // First open with saved subjects and no draft yet: show them as chosen.
+        if (Object.keys(draft).length === 0 && initialIds.length > 0) {
+          const saved = selectionFromIds(initialIds, levelRanges(t), m)
+          if (Object.keys(saved).length > 0) { setSel(saved); onDraft(saved) }
+        }
+      })
       .catch(() => {})
-    // First open with a saved selection and no draft yet → prefill from the saved
-    // master ids, grouped by every category taught. Later opens use the draft.
-    if (!prefilled.current && initialIds.length > 0) {
-      prefilled.current = true
-      void (async () => {
-        try {
-          const masters = await fetchNonLegacyMasters()
-          const byId = new Map(masters.map((m) => [m.id, m]))
-          const cats: string[] = []
-          const byCat: Record<string, string[]> = {}
-          for (const id of initialIds) {
-            const m = byId.get(id)
-            if (!m || !m.subject) continue
-            if (!byCat[m.category]) { byCat[m.category] = []; cats.push(m.category) }
-            if (!byCat[m.category].includes(m.subject)) byCat[m.category].push(m.subject)
-          }
-          if (live && cats.length > 0) { setSelCats(cats); setSelByCat(byCat); onDraft(cats, byCat) }
-        } catch { /* start empty */ }
-      })()
-    }
     return () => { live = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const toggleCat = (cat: string) => {
-    const nextCats = selCats.includes(cat) ? selCats.filter((c) => c !== cat) : [...selCats, cat]
-    const nextByCat = { ...selByCat }
-    if (!selCats.includes(cat)) nextByCat[cat] = nextByCat[cat] ?? []
-    else delete nextByCat[cat]
-    setSelCats(nextCats); setSelByCat(nextByCat); onDraft(nextCats, nextByCat)
-  }
-  const toggleSub = (cat: string, sub: string) => {
-    const cur = selByCat[cat] ?? []
-    const nextByCat = { ...selByCat, [cat]: cur.includes(sub) ? cur.filter((x) => x !== sub) : [...cur, sub] }
-    setSelByCat(nextByCat); onDraft(selCats, nextByCat)
-  }
+  const update = (next: RangeSelection) => { touched.current = true; setTried(false); setTooMany(false); setSel(next); onDraft(next) }
 
-  const total = Object.values(selByCat).reduce((n, a) => n + a.length, 0)
-  const submit = async () => {
-    if (total === 0 || !tree) { setTried(true); return }
-    const all: number[] = []
-    for (const cat of selCats) {
-      const subs = selByCat[cat] ?? []
-      if (subs.length === 0) continue
-      const ids = await resolveMasterIds(cat, Object.keys(tree[cat] ?? {}), subs)
-      all.push(...ids)
-    }
-    const ids = Array.from(new Set(all))
+  // The platform's typo-tolerant + Roman-Urdu matching (/api/search/suggest —
+  // "fizics" → Physics, "hisab" → Mathematics), debounced. Only its SUBJECT
+  // rows are read: a school's name is never a subject.
+  useEffect(() => {
+    const term = q.trim()
+    if (term.length < 2) return
+    const ctrl = new AbortController()
+    const t = setTimeout(() => {
+      fetch(`/api/search/suggest?q=${encodeURIComponent(term)}`, { signal: ctrl.signal })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j: { suggestions?: { group: string; label: string }[] } | null) => {
+          setServerHits((j?.suggestions ?? []).filter((x) => x.group === 'subject').map((x) => x.label))
+        })
+        .catch(() => {})
+    }, 250)
+    return () => { ctrl.abort(); clearTimeout(t) }
+  }, [q])
+
+  // Save as they go: a moment after the last tap, once one level and one subject
+  // are chosen. Leaving and coming back then finds the choices saved.
+  useEffect(() => {
+    if (!touched.current || masters.length === 0 || !canContinueSel(sel)) return
+    const ids = resolveSelection(sel, ranges, masters)
+    const key = ids.slice().sort((a, b) => a - b).join(',')
+    if (ids.length === 0 || ids.length > TUTOR_SUBJECT_CAP || key === lastSaved.current) return
+    const t = setTimeout(() => {
+      void onAutoSave(ids).then((ok) => {
+        if (!ok) return
+        lastSaved.current = key
+        setSavedNote(true)
+      })
+    }, 900)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sel, masters, ranges])
+
+  const submit = () => {
+    if (!canContinueSel(sel) || !tree) { setTried(true); return }
+    const ids = resolveSelection(sel, ranges, masters)
     if (ids.length === 0) { setTried(true); return }
+    if (ids.length > TUTOR_SUBJECT_CAP) { setTooMany(true); return }
     onSave(ids)
   }
 
-  const cats = tree ? Object.keys(tree) : []
-  const lq = levelQ.trim().toLowerCase()
-  const shownCats = lq ? cats.filter((c) => c.toLowerCase().includes(lq)) : cats
+  const picks = useMemo(() => (tree ? resolveQuickPicks(tree, core, ranges) : []), [tree, core, ranges])
+  const hits = useMemo(() => (tree ? searchSubjects(q, tree, ranges, sel, subjectWords, q.trim().length >= 2 ? serverHits : []) : []), [q, tree, ranges, sel, subjectWords, serverHits])
+  const chips = selectionChips(sel, ranges)
+  const named = ranges.filter((r) => r.named)
+  const others = ranges.filter((r) => !r.named)
+  const chosen = ranges.filter((r) => sel[r.id])
+  const counts = selectionCounts(sel)
+  const SMALL = 'inline-flex min-h-[36px] items-center gap-1 rounded-full border px-3 text-xs font-bold transition-colors'
 
   return shell({
-    onNext: () => void submit(),
-    nextDisabled: total === 0,
+    onNext: submit,
+    nextDisabled: !canContinueSel(sel),
     children: (
       <div className="space-y-4">
         {!tree ? (
           <ChipSkeletons count={8} />
         ) : (
           <>
-            {/* Level chips (categories) */}
+            {/* What is chosen so far — tap a chip to remove it. */}
+            {(chosen.length > 0 || chips.length > 0) && (
+              <div className="space-y-1.5" aria-live="polite">
+                <p className="text-[11px] font-bold text-gray-600">
+                  {counts.levels} level{counts.levels === 1 ? '' : 's'} · {counts.subjects} subject{counts.subjects === 1 ? '' : 's'} chosen
+                  {savedNote && <span className="font-semibold text-tm-green-deep"> · Saved</span>}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {chips.map(({ range, subject }) => (
+                    <button key={`${range.id}|${subject}`} type="button" onClick={() => update(toggleSubject(sel, range, subject))}
+                      aria-label={`Remove ${subject} at ${range.label}`}
+                      className={`${SMALL} border-tm-green-deep bg-tm-tint-green text-tm-green-deep`}>
+                      {subject} · {range.label}<X size={12} aria-hidden />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* The ONE search box. */}
             <div className="space-y-2">
-              {cats.length > 6 && (
-                <input value={levelQ} onChange={(e) => setLevelQ(e.target.value)} placeholder="Search levels" aria-label="Search levels"
-                  className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-tm-navy" />
+              <div className="relative">
+                <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" aria-hidden />
+                <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search a subject — maths, computer, quran" aria-label="Search a subject"
+                  className="min-h-[48px] w-full rounded-xl border border-gray-200 bg-white p-3 pl-9 text-sm outline-none focus:border-tm-navy" />
+              </div>
+              {q.trim().length >= 2 && (
+                hits.length > 0 ? (
+                  <ul className="space-y-1.5">
+                    {hits.map((h) => (
+                      <li key={`${h.range.id}|${h.subject}`}>
+                        <button type="button" aria-pressed={h.selected} onClick={() => update(toggleSubject(sel, h.range, h.subject))}
+                          className={`flex min-h-[44px] w-full items-center justify-between gap-2 rounded-xl border px-3 text-left text-sm font-bold transition-colors ${h.selected ? 'border-tm-green-deep bg-tm-tint-green text-tm-green-deep' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'}`}>
+                          <span className="min-w-0 break-words">{h.subject} <span className="font-semibold text-gray-600">· {h.range.label}</span></span>
+                          {h.selected ? <Check size={16} aria-hidden className="shrink-0" /> : <Plus size={16} aria-hidden className="shrink-0" />}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-center text-xs text-gray-500">No subject matches “{q.trim()}”. Try another spelling, or pick a level below.</p>
+                )
               )}
-              <div className="flex flex-wrap justify-center gap-2">
-                {Array.from(new Set([...selCats, ...shownCats])).map((c) => (
-                  <OChip key={c} label={c} selected={selCats.includes(c)} onClick={() => toggleCat(c)} />
+            </div>
+
+            {/* Quick picks: a level and a subject in one tap. */}
+            {picks.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-bold text-gray-600">Quick picks</p>
+                <div className="flex flex-wrap gap-2">
+                  {picks.map((p) => (
+                    <OChip key={p.pick.id} label={p.pick.label} selected={pickApplied(sel, p)} onClick={() => update(applyQuickPick(sel, p))} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Level ranges: one tap takes every grade in the range. */}
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-bold text-gray-600">Levels you teach</p>
+              <div className="flex flex-wrap gap-2">
+                {[...named, ...(moreLevels ? others : others.filter((r) => sel[r.id]))].map((r) => (
+                  <OChip key={r.id} label={r.label} selected={!!sel[r.id]} onClick={() => update(toggleRange(sel, r))} />
                 ))}
+                {others.length > 0 && (
+                  <button type="button" aria-expanded={moreLevels} onClick={() => setMoreLevels((v) => !v)}
+                    className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-tm-navy px-4 text-sm font-bold text-tm-navy hover:bg-tm-tint-navy">
+                    {moreLevels ? 'Fewer levels' : <><Plus size={14} aria-hidden />More levels</>}
+                  </button>
+                )}
               </div>
             </div>
-            {/* One subject list per chosen LEVEL (never per grade): the main
-                subjects first, the rest behind "More subjects" — opened straight
-                away when the level has no main subjects. A picked subject shows
-                once, ticked, with the main chips. */}
-            {selCats.map((cat) => {
-              const picked = selByCat[cat] ?? []
-              const g = subjectGroups(tree, core, cat, picked, loadedNoGradeLevels().includes(cat))
-              const open = g.noMain || !!moreOpen[cat]
-              const q = moreQ[cat] ?? ''
-              const moreShown = filterMore(g.more, q, suggested[cat] ?? [], subjectWords)
+
+            {/* One block per chosen level: its grades (each can be switched off)
+                and its subjects — the main ones first, the rest behind "More". */}
+            {chosen.map((range) => {
+              const row = sel[range.id]
+              const offered = subjectsOffered(tree, range, row.grades)
+              const main = subjectsOffered(core, range, row.grades).filter((s) => offered.includes(s))
+              for (const s of row.subjects) if (offered.includes(s) && !main.includes(s)) main.push(s)
+              const rest = offered.filter((s) => !main.includes(s)).sort((a, b) => a.localeCompare(b))
+              const open = main.length === 0 || !!moreOpen[range.id]
               return (
-                <section key={cat} className="space-y-3 rounded-2xl border border-gray-200 bg-white p-3">
-                  <p className="text-sm font-black text-tm-navy">{cat}</p>
-                  {g.main.length > 0 && (
+                <section key={range.id} className="space-y-3 rounded-2xl border border-gray-200 bg-white p-3">
+                  <p className="text-sm font-black text-tm-navy">{range.label}</p>
+                  {range.grades.length > 1 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {range.grades.map((g) => {
+                        const on = row.grades.includes(g)
+                        return (
+                          <button key={g} type="button" aria-pressed={on} onClick={() => update(toggleGrade(sel, range, g))}
+                            className={`${SMALL} ${on ? 'border-tm-navy bg-tm-navy text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-tm-navy'}`}>
+                            {on && <Check size={12} aria-hidden />}{g}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                  {main.length > 0 && (
                     <div className="flex flex-wrap gap-2">
-                      {g.main.map((sub) => (
-                        <OChip key={sub} large label={sub} sub={urdu[sub]} selected={picked.includes(sub)} onClick={() => toggleSub(cat, sub)} />
+                      {main.map((sub) => (
+                        <OChip key={sub} large label={sub} sub={urdu[sub]} selected={row.subjects.includes(sub)} onClick={() => update(toggleSubject(sel, range, sub))} />
                       ))}
                     </div>
                   )}
-                  {!g.noMain && g.more.length > 0 && (
-                    <button type="button" aria-expanded={open} onClick={() => setMoreOpen((m) => ({ ...m, [cat]: !m[cat] }))}
+                  {main.length > 0 && rest.length > 0 && (
+                    <button type="button" aria-expanded={open} onClick={() => setMoreOpen((m) => ({ ...m, [range.id]: !m[range.id] }))}
                       className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-tm-navy px-4 text-sm font-bold text-tm-navy hover:bg-tm-tint-navy">
                       {open ? 'Fewer subjects' : <><Plus size={14} aria-hidden />More subjects</>}
                     </button>
                   )}
-                  {open && g.more.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="relative">
-                        <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" aria-hidden />
-                        <input value={q} onChange={(e) => setMoreQ((m) => ({ ...m, [cat]: e.target.value }))}
-                          placeholder="Search subjects" aria-label={`Search ${cat} subjects`}
-                          className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-tm-bg p-3 pl-9 text-sm outline-none focus:border-tm-navy" />
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {moreShown.map((sub) => (
-                          <OChip key={sub} large label={sub} sub={urdu[sub]} selected={false} onClick={() => toggleSub(cat, sub)} />
-                        ))}
-                      </div>
-                      {moreShown.length === 0 && (
-                        <p className="text-center text-xs text-gray-500">No subject matches “{q.trim()}”.</p>
-                      )}
+                  {open && rest.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {rest.map((sub) => (
+                        <OChip key={sub} large label={sub} sub={urdu[sub]} selected={false} onClick={() => update(toggleSubject(sel, range, sub))} />
+                      ))}
                     </div>
                   )}
                 </section>
               )
             })}
-            {tried && total === 0 && (
+
+            {tried && !canContinueSel(sel) && (
               <p className="text-center text-[11px] font-bold text-tm-red">Choose a level and at least one subject.<span lang="ur" dir="rtl" className="block font-semibold text-gray-500">ایک جماعت اور کم از کم ایک مضمون منتخب کریں۔</span></p>
             )}
-            {helpVisible && total === 0 && helpWaHref && (
+            {tooMany && (
+              <p className="whitespace-pre-line text-center text-[11px] font-bold text-tm-red">{TOO_MANY_SUBJECTS}</p>
+            )}
+            {helpVisible && counts.subjects === 0 && helpWaHref && (
               <p className="text-center">
                 <a href={helpWaHref} target="_blank" rel="noopener noreferrer"
                   className="inline-flex min-h-[44px] items-center text-xs font-bold text-tm-green-deep underline-offset-2 hover:underline">

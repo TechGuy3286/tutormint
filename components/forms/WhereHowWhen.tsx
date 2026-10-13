@@ -7,7 +7,7 @@ import { BUDGET_BANDS } from '@/lib/feeBands'
 import LocationInput from '@/components/forms/LocationInput'
 import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
-import { areaStanding } from '@/lib/areaHubCore'
+import StaffAreaField from '@/components/forms/StaffAreaField'
 
 // The "Where and how" row of the job form — city, area and budget. "When" is now
 // the shared TimeSlotGrid, rendered by the form beside this (PR73 §A).
@@ -82,9 +82,6 @@ export default function WhereHowWhen({
   // free text, so a locality outside the 23 cities is typed, not blocked.
   const { map } = useCityAreas()
   const areas = areasForCity(map, city)
-  // An area page is only made for an area in Locations (lib/areaHubCore). A new
-  // one is saved as typed and waits, unlisted, until an admin adds it.
-  const standing = staff ? areaStanding(city, area, areas) : null
 
   return (
     <>
@@ -99,15 +96,22 @@ export default function WhereHowWhen({
           placeholder="City"
         />
 
-        <LocationInput
-          id="whw-area"
-          label="Area"
-          icon={<MapPin size={15} />}
-          value={area}
-          onChange={onArea}
-          options={areas}
-          placeholder="Area"
-        />
+        {/* Staff may add a new area while posting (owner, 13 Oct 2026); parents
+            keep the plain field, and their free text goes to the Locations
+            review list as before. */}
+        {staff ? (
+          <StaffAreaField city={city} area={area} onArea={onArea} curated={areas} />
+        ) : (
+          <LocationInput
+            id="whw-area"
+            label="Area"
+            icon={<MapPin size={15} />}
+            value={area}
+            onChange={onArea}
+            options={areas}
+            placeholder="Area"
+          />
+        )}
 
         <IconSelect icon={<Wallet size={15} />} label="Monthly budget" value={band} onChange={onBand}>
           {BUDGET_BANDS.map((b) => (
@@ -117,16 +121,6 @@ export default function WhereHowWhen({
           ))}
         </IconSelect>
       </div>
-      {standing?.kind === 'unlisted' && (
-        <p role="status" className="mt-2 rounded-lg border border-tm-gold/40 bg-tm-tint-gold px-3 py-2 text-xs text-tm-gold-ink">
-          {standing.looksLikeSchool
-            ? 'This looks like a school or academy name, not an area. Put it in “School or academy name” and choose the area it is in.'
-            : 'This area is not in the Locations list. It is saved as typed, but gets its own area page only after an admin adds it to Locations.'}
-        </p>
-      )}
-      {standing?.kind === 'listed' && standing.how === 'contains' && (
-        <p className="mt-2 text-xs text-gray-500">Listed under {standing.area}.</p>
-      )}
     </>
   )
 }

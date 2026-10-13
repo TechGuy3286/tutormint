@@ -14,6 +14,7 @@
 // failure must not roll that back. Failures are logged with the template id and
 // the reason, so a silent outage still leaves a trail.
 
+import { mayEmailAddress } from '@/lib/emailConfirmCore'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEmailChannel } from './email'
 import { whatsappChannel } from './whatsapp'
@@ -53,11 +54,18 @@ export async function deliverEmail(
 
     const { data: profile } = await admin
       .from('profiles')
-      .select('email, email_opt_out')
+      .select('email, email_opt_out, email_pending_confirm')
       .eq('id', to.userId)
       .maybeSingle()
 
     if (!profile) return { ok: false, reason: 'no profile row', channel: 'email' }
+
+    // An address that is still waiting for its confirmation link (owner, 13 Oct
+    // 2026) receives the confirmation email and nothing else: a mistyped
+    // address must not be sent somebody else's receipts and reminders.
+    if (!mayEmailAddress({ email: profile.email as string | null, pending: !!profile.email_pending_confirm }, input.id)) {
+      return { ok: false, reason: 'email address not confirmed yet', channel: 'email' }
+    }
 
     // Imported tutors have a synthetic address at users.tutormint.org that no
     // mailbox exists behind. Sending there is not a delivery failure we would

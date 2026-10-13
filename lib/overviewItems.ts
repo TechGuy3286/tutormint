@@ -9,7 +9,9 @@
 // .screen) — the same key the Overview filters its cards and rows by.
 
 import { signedUpIn, signupCounts } from '@/lib/staffOutreachCore'
-import { SIGNUPS_TODAY_HREF } from '@/lib/overviewItemsCore'
+import { SIGNUPS_TODAY_HREF, payproFileNote, waitingOrderLine, type FileNote } from '@/lib/overviewItemsCore'
+import { pkr } from '@/lib/reconciliationCore'
+import { missingSentence } from '@/lib/onboarding/missingItems'
 import { loadUnmetBoard } from '@/lib/unmetSearches'
 import { testAccountIds } from '@/lib/testAccounts'
 import { pageAll } from '@/lib/pageAll'
@@ -85,6 +87,8 @@ export type OverviewList = {
   extra?: string | null
   /** The screen where staff act on these rows. */
   workHref?: string | null
+  /** A dated line under the title, with a link (the PayPro file's age). */
+  note?: FileNote | null
 }
 
 const PK_DATE = (iso: string) => formatDate(iso)
@@ -106,11 +110,12 @@ const stuckTabs = cache(async () => {
   const link = continueLink()
   const toRow = (r: (typeof stuckRows)[number], tab: 'stuck' | 'sent'): OverviewRow => {
     const st = states.get(r.id)
-    const text = template ? followUpText(template.body, { name: firstNameOf(r.name), step: r.stoppedAt, link }) : null
+    const text = template ? followUpText(template.body, { name: firstNameOf(r.name), step: r.stoppedAt, link, missing: r.missing }) : null
     return {
       id: r.id,
       title: r.name,
-      detail: `Stopped at ${r.stoppedAt} · joined ${PK_DATE(r.joinedAt)}`,
+      // The same missing-items list the tutor sees (owner, 13 Oct 2026).
+      detail: `Stopped at ${r.stoppedAt} · joined ${PK_DATE(r.joinedAt)}${r.missing.length ? ` · Still to do: ${missingSentence(r.missing, 6)}` : ''}`,
       href: `/admin/users/${r.id}`,
       memberId: r.id,
       followUp: {
@@ -413,11 +418,12 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
     case 'todo-due': {
       const { data: imp } = await admin
         .from('reconciliation_imports')
-        .select('id')
+        .select('id, created_at')
         .eq('gateway', 'paypro')
         .order('created_at', { ascending: false })
         .limit(1)
       const id = (imp ?? [])[0]?.id as string | undefined
+      const uploadedAt = ((imp ?? [])[0]?.created_at as string | undefined) ?? null
       let due: ReturnType<typeof settleByDate>['due'] = []
       if (id) {
         const data = await pageAll((from, to) =>
@@ -447,11 +453,19 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
         rows: due.map((d) => ({
           id: d.orderNumber,
           title: d.orderNumber,
-          detail: `Paid ${d.datePaid ? formatDate(d.datePaid) : '—'}${d.ageDays !== null ? ` · ${d.ageDays} day${d.ageDays === 1 ? '' : 's'} ago` : ''}${d.overdue ? ' · overdue' : ''}`,
+          // "Rs 193 · paid 8 Oct 2026 · 5 days" (owner, 13 Oct 2026). This list is
+          // owner + Partner only (the finance screen), so the amount may show.
+          detail: waitingOrderLine({
+            amountText: d.merchantShare !== null && d.merchantShare !== undefined ? pkr(d.merchantShare) : null,
+            paidText: d.datePaid ? formatDate(d.datePaid) : null,
+            ageDays: d.ageDays,
+            overdue: d.overdue,
+          }),
           href: '/admin/finance/settlement',
         })),
-        filter: 'paid at PayPro, not yet settled to our bank (latest PayPro file)',
+        filter: 'paid by customers, not yet paid out to our bank by PayPro',
         workHref: '/admin/finance/settlement',
+        note: payproFileNote(uploadedAt, uploadedAt ? `${formatDateTime(uploadedAt)} (Pakistan time)` : null, now.getTime()),
       }
     }
 

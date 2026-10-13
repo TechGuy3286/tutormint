@@ -25,7 +25,8 @@ export async function fetchCityAreas(): Promise<CityAreaMap> {
     const sb = await getBrowserClient()
     const [{ data: cityRows }, { data: areaRows }] = await Promise.all([
       sb.from('location_cities').select('id, name, sort_order'),
-      sb.from('location_areas').select('name, city_id'),
+      // A retired (merged) area is no longer offered (migration 169).
+      sb.from('location_areas').select('name, city_id').is('removed_at', null),
     ])
     const idToName = new Map((cityRows ?? []).map((c) => [c.id as number, c.name as string]))
     const map = buildCityAreaMap({
@@ -37,6 +38,15 @@ export async function fetchCityAreas(): Promise<CityAreaMap> {
     return map
   })()
   return inFlight
+}
+
+/** A just-added area shows in the pickers at once, without a reload. */
+export function addAreaToCache(city: string, area: string): void {
+  if (!cache) return
+  const key = Object.keys(cache.areasByCity).find((c) => c.toLowerCase() === city.trim().toLowerCase()) ?? city.trim()
+  const list = cache.areasByCity[key] ?? []
+  if (list.some((a) => a.toLowerCase() === area.toLowerCase())) return
+  cache = { ...cache, areasByCity: { ...cache.areasByCity, [key]: [...list, area].sort((a, b) => a.localeCompare(b)) } }
 }
 
 /** React hook: the city/area map, loaded once. Empty until it resolves. */

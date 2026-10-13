@@ -38,7 +38,7 @@ type Admin = NonNullable<ReturnType<typeof createAdminClient>>
 async function loadCuratedMap(admin: Admin): Promise<CityAreaMap> {
   const [{ data: cityRows }, { data: areaRows }] = await Promise.all([
     admin.from('location_cities').select('id, name, sort_order'),
-    admin.from('location_areas').select('name, city_id'),
+    admin.from('location_areas').select('name, city_id').is('removed_at', null),
   ])
   const idToName = new Map((cityRows ?? []).map((c) => [c.id as number, c.name as string]))
   return buildCityAreaMap({

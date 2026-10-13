@@ -64,7 +64,7 @@ export const rowKey = (city: string | null | undefined, value: string | null | u
 async function curated(admin: Admin) {
   const [{ data: cities }, areas] = await Promise.all([
     admin.from('location_cities').select('id, name'),
-    pageAll((from, to) => admin.from('location_areas').select('id, name, city_id').order('id').range(from, to)) as Promise<
+    pageAll((from, to) => admin.from('location_areas').select('id, name, city_id').is('removed_at', null).order('id').range(from, to)) as Promise<
       { id: number; name: string; city_id: number }[]
     >,
   ])

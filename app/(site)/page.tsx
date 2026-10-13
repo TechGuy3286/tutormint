@@ -1,10 +1,17 @@
 // app/page.tsx — the partner-approved homepage.
 //
 // LOCKED. design/reference/homepage.png is the specification: the pill, "HIRE",
-// the two-line headline with FREE in brand red, the red italic subline, and the
-// two large buttons. CLAUDE.md permits changes only to link targets, mobile
-// responsiveness, metadata and accessibility. No new sections, no ad slot, no
-// featured-tutor strip, no copy edits without an explicit owner instruction.
+// the headline, the red italic subline, and the two large buttons. CLAUDE.md
+// permits changes only to link targets, mobile responsiveness, metadata and
+// accessibility. No new sections, no ad slot, no featured-tutor strip, no copy
+// edits without an explicit owner instruction.
+//
+// OWNER-APPROVED, 13 Oct 2026 — exactly three changes, recorded in CLAUDE.md:
+//   a) the H1 text (same styling and size);
+//   b) the "For parents" / "For tutors" cards directly below the two buttons;
+//   c) the link block: city tuition links once, plus tutor pages and four links.
+// Everything else — hero design, Urdu line, both buttons, tagline, colours —
+// is as it was.
 //
 // It is a server component with no client JavaScript at all. This is the page
 // every organic visitor lands on, and it renders as HTML on the first byte.
@@ -17,12 +24,12 @@
 // fold at 390x844 and 1280x800 with room to spare, rather than the second
 // button finishing 79px short of the bottom edge on a laptop.
 
-import CityJobsLinks from '@/components/tuitionJobs/CityJobsLinks'
+import HomeLinks from '@/components/home/HomeLinks'
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Search, ClipboardList } from 'lucide-react'
+import { Check, Search, ClipboardList } from 'lucide-react'
 import { socialMeta } from '@/lib/seo'
-import { HOME_TITLE, SITE_DESCRIPTION } from '@/lib/siteIdentity'
+import { HOME_CARDS, HOME_H1_LINES, HOME_TITLE, SITE_DESCRIPTION } from '@/lib/siteIdentity'
 
 export async function generateMetadata(): Promise<Metadata> {
   // From lib/siteIdentity (owner, 13 Oct 2026): the title and description name
@@ -59,13 +66,13 @@ export default function HomePage() {
           HIRE
         </p>
 
-        {/* Headline. One <h1> for the page, with the line break the design
-            uses on desktop and natural wrapping on a phone. */}
-        <h1 className="tm-headline mt-2 text-3xl font-black leading-[1.15] text-tm-black sm:mt-3 sm:text-5xl md:text-6xl">
-          Trusted, Verified{' '}
-          <span className="whitespace-nowrap">
-            Tutors/Teachers <span className="text-tm-red">FREE</span>
-          </span>
+        {/* Headline. One <h1> for the page. The words are the owner-approved
+            13 Oct 2026 text (lib/siteIdentity); the styling and size are the
+            approved ones, unchanged. Two lines by meaning — one for each side —
+            and text-balance keeps each line's wrap even on a 360px phone. */}
+        <h1 className="tm-headline mt-2 text-balance text-3xl font-black leading-[1.15] text-tm-black sm:mt-3 sm:text-5xl md:text-6xl">
+          <span className="block">{HOME_H1_LINES[0]}</span>
+          <span className="block">{HOME_H1_LINES[1]}</span>
         </h1>
 
         <p className="mt-3 text-sm font-bold italic text-tm-red sm:mt-4 sm:text-base">
@@ -95,11 +102,36 @@ export default function HomePage() {
             icon={<ClipboardList aria-hidden className="h-6 w-6" />}
           />
         </div>
-        {/* The "Tuition jobs in [City]" link row (owner, 6 Oct 2026, item 6 —
-            "link these pages from … the homepage"). Links only; layout, copy
-            and the two buttons above are untouched. */}
+        {/* For parents / For tutors (owner-approved, 13 Oct 2026): two cards
+            directly below the buttons, side by side, stacked on a phone. The
+            words come from lib/siteIdentity. */}
+        <div className="mt-4 grid w-full max-w-3xl grid-cols-1 gap-3 text-left sm:grid-cols-2 sm:gap-4">
+          {HOME_CARDS.map((card) => (
+            <section key={card.title} className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+              <h2 className="text-base font-black text-tm-navy">{card.title}</h2>
+              <ul className="mt-2 space-y-1 text-sm text-slate-700">
+                {card.points.map((point) => (
+                  <li key={point} className="flex items-start gap-2">
+                    <Check aria-hidden size={16} className="mt-0.5 shrink-0 text-tm-green-deep" />
+                    {point}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 flex flex-wrap gap-x-4">
+                {card.links.map((l) => (
+                  <Link key={l.href} href={l.href} className="inline-flex min-h-[44px] items-center text-sm font-bold text-tm-red hover:underline">
+                    {l.label}
+                  </Link>
+                ))}
+              </p>
+            </section>
+          ))}
+        </div>
+
+        {/* The link block (owner-approved, 13 Oct 2026): the city tuition-job
+            links once, the busiest indexable tutor pages, and four plain links. */}
         <div className="mt-4 w-full max-w-3xl">
-          <CityJobsLinks heading="Tuition jobs by city" />
+          <HomeLinks />
         </div>
       </section>
     </div>

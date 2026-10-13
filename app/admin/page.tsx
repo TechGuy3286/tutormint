@@ -79,7 +79,7 @@ export default async function AdminHome({
     }
   })
   const todo = TODO_KEYS.filter((k) => lists.has(k))
-    .map((k) => ({ key: k, label: OVERVIEW_ITEMS[k].title, count: lists.get(k)!.rows.length, detail: lists.get(k)!.extra ?? null }))
+    .map((k) => ({ key: k, label: OVERVIEW_ITEMS[k].title, count: lists.get(k)!.rows.length, detail: lists.get(k)!.extra ?? null, note: lists.get(k)!.note ?? null }))
     .filter((r) => r.count > 0)
   const seesMembers = STEP_KEYS.every((k) => lists.has(k))
   const counts = STEP_KEYS.map((k) => lists.get(k)?.rows.length ?? 0)
@@ -151,6 +151,16 @@ export default async function AdminHome({
           <ul>
             {todo.map((row) => (
               <li key={row.key} className="border-b border-gray-200 last:border-0">
+                {row.note && (
+                  <p className="px-4 pt-3 text-[11px] leading-relaxed text-gray-600 sm:px-5">
+                    {row.note.before}
+                    <span className={row.note.stale ? 'font-bold text-tm-red' : 'font-bold text-slate-700'}>{row.note.date}</span>
+                    {row.note.after}{' '}
+                    <Link href={row.note.href} className="font-bold text-tm-navy underline-offset-2 hover:underline">
+                      {row.note.linkLabel}
+                    </Link>
+                  </p>
+                )}
                 <Link
                   href={href(row.key)}
                   className="flex min-h-[56px] items-center gap-3 px-4 py-3 transition-colors hover:bg-tm-bg sm:px-5"

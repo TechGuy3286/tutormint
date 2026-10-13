@@ -77,6 +77,38 @@ export const SITE_KEY_PATHS: { label: string; path: string }[] = [
   { label: 'Sign up', path: '/register' },
 ]
 
+/** The homepage H1 (owner-approved, 13 Oct 2026), in its two lines. */
+export const HOME_H1_LINES = ['Find verified tutors in Pakistan', '— or find tuitions as a tutor'] as const
+export const HOME_H1 = HOME_H1_LINES.join(' ')
+
+/** The two cards under the homepage buttons (owner-approved, 13 Oct 2026). */
+export const HOME_CARDS: { title: string; points: string[]; links: { label: string; href: string }[] }[] = [
+  {
+    title: 'For parents',
+    points: ['Find verified tutors free', 'Post a tuition free', 'Contact tutors directly'],
+    links: [
+      { label: 'Browse tutors', href: '/browse/tutors' },
+      { label: 'Post a tuition', href: '/parent/dashboard/post-job' },
+    ],
+  },
+  {
+    title: 'For tutors',
+    points: ['Get verified', 'Find tuitions near you', 'No commission'],
+    links: [
+      { label: 'Become a tutor', href: '/register' },
+      { label: 'Tuition jobs', href: '/browse/tuitions' },
+    ],
+  },
+]
+
+/** The plain links beside the homepage's city and tutor-page links. */
+export const HOME_MORE_LINKS: { label: string; href: string }[] = [
+  { label: 'Browse tutors', href: '/browse/tutors' },
+  { label: 'Post a tuition', href: '/parent/dashboard/post-job' },
+  { label: 'Become a tutor', href: '/register' },
+  { label: 'Blog', href: '/blog' },
+]
+
 /** Titles that name both sides. */
 export const HOME_TITLE = `Verified Tutors & Tuition Jobs in Pakistan | ${SITE_NAME}`
 

@@ -135,7 +135,7 @@ export async function addSearchWord(input: { query: string; word: string; kind: 
 }
 
 /** "Mark done": the card moves to Done. A later identical search makes a new card. */
-export async function markSearchDone(input: { query: string; note: string | null; kind?: 'done' | 'ignored' | 'subject' }, actor: Actor): Promise<{ ok: true } | { ok: false; status: 400 | 503; error: string }> {
+export async function markSearchDone(input: { query: string; note: string | null; kind?: 'done' | 'ignored' | 'subject' | 'school' }, actor: Actor): Promise<{ ok: true } | { ok: false; status: 400 | 503; error: string }> {
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: NOT_NOW }
   const key = searchKey(input.query)
@@ -161,10 +161,10 @@ export async function markSearchDone(input: { query: string; note: string | null
     actorId: actor.id,
     actorRole: actor.adminRole,
     actorEmail: actor.email ?? null,
-    action: input.kind === 'ignored' ? 'search.ignore' : 'search_unmet.done',
+    action: input.kind === 'ignored' ? 'search.ignore' : input.kind === 'school' ? 'search.link_school' : 'search_unmet.done',
     targetType: 'search',
     targetId: key.slice(0, 200),
-    detail: { searches: card.count, note, before: 'To review', after: input.kind === 'ignored' ? 'Ignored' : 'Done' },
+    detail: { searches: card.count, note, before: 'To review', after: input.kind === 'ignored' ? 'Ignored' : input.kind === 'school' ? 'Linked to school' : 'Done' },
   })
   return { ok: true }
 }
@@ -248,4 +248,30 @@ export async function addSubjectFromSearch(
   // The search leaves "To review"; a failure here does not undo the subject.
   await markSearchDone({ query: input.query, note: `Added subject ${name} at ${level.name as string}`, kind: 'subject' }, actor).catch(() => undefined)
   return { ok: true, subject: name, level: level.name as string }
+}
+
+/**
+ * "Link to school" (owner, 13 Oct 2026): the searched text is a school's name.
+ * Nothing is added to subjects or search words — the search already shows the
+ * school's row (lib/schoolSearch). The card leaves To review, recorded as
+ * linked to that school. Refused when the text does not name a school.
+ */
+export async function linkSearchToSchool(input: { query: string }, actor: Actor): Promise<{ ok: true; school: string; href: string | null } | { ok: false; status: 400 | 503; error: string }> {
+  const { schoolSuggestionFor } = await import('@/lib/schoolSearch')
+  const school = await schoolSuggestionFor(input.query)
+  if (!school) return { ok: false, status: 400, error: 'That search does not name a school we know.' }
+  const done = await markSearchDone({ query: input.query, note: `School: ${school.name}${school.href ? ` (${school.href})` : ''}`, kind: 'school' }, actor)
+  if (!done.ok) return done
+  return { ok: true, school: school.name, href: school.href }
+}
+
+/** The To review cards, each marked with the school it names (if any). */
+export async function withSchoolMatches<T extends { query: string }>(cards: T[]): Promise<(T & { schoolMatch: { name: string; href: string | null } | null })[]> {
+  const { schoolSuggestionFor } = await import('@/lib/schoolSearch')
+  return Promise.all(
+    cards.map(async (c) => {
+      const s = await schoolSuggestionFor(c.query)
+      return { ...c, schoolMatch: s ? { name: s.name, href: s.href } : null }
+    }),
+  )
 }

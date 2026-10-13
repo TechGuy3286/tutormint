@@ -223,7 +223,7 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
           placeholder="Search subjects, cities or jobs"
           ariaLabel="Search tuitions"
           city={values.city || undefined}
-          groups={['subject', 'location', 'job']}
+          groups={['school', 'subject', 'location', 'job']}
           context="tuitions"
           // §4.2: DO NOT apply on every keystroke — that re-rendered the board
           // with the half-typed literal query and flashed "no tuitions match".

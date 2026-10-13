@@ -11,7 +11,7 @@ import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
 import type { AdminRole } from '@/lib/adminAuth'
-import { stoppedAtByTutor } from '@/lib/onboardingStop'
+import { flowStateByTutor } from '@/lib/onboardingStop'
 import { normalisePkMobile } from '@/lib/phone'
 import { tuitionPath } from '@/lib/slugs'
 import { absoluteUrl } from '@/lib/siteUrl'
@@ -41,6 +41,8 @@ export type UnpaidRow = {
   city: string | null
   joinedAt: string
   stoppedAt: string | null
+  /** What is still to do, in plain English — the tutor's own missing list. */
+  missing: string[]
   completion: number
   msisdn: string | null
   waHref: string | null
@@ -77,7 +79,7 @@ export async function loadUnpaidSignups(now = new Date()): Promise<UnpaidRow[]> 
       .select('tutor_id, outcome, note, staff_email, created_at')
       .in('tutor_id', ids)
       .order('created_at', { ascending: false }),
-    stoppedAtByTutor(admin, ids),
+    flowStateByTutor(admin, ids),
   ])
   const tp = new Map((tps ?? []).map((t) => [t.id as string, t]))
   const last = new Map<string, UnpaidRow['lastContact']>()
@@ -96,7 +98,8 @@ export async function loadUnpaidSignups(now = new Date()): Promise<UnpaidRow[]> 
     const t = tp.get(p.id as string)
     if (!t || t.verified_fee_paid_at) continue // paid (or no tutor row)
     const name = formatName(p.full_name as string | null) || '—'
-    const stoppedAt = stopped.get(p.id as string) ?? null
+    const stoppedAt = stopped.get(p.id as string)?.stoppedAt ?? null
+    const missing = stopped.get(p.id as string)?.missing ?? []
     const msisdn = normalisePkMobile((p.whatsapp as string | null) || (p.phone_number as string | null))
     out.push({
       id: p.id as string,
@@ -104,6 +107,7 @@ export async function loadUnpaidSignups(now = new Date()): Promise<UnpaidRow[]> 
       city: (t.city as string | null) || (p.city as string | null) || null,
       joinedAt: p.created_at as string,
       stoppedAt,
+      missing,
       completion: (p.profile_completion as number | null) ?? 0,
       msisdn,
       waHref: msisdn ? waLink(msisdn, unpaidHelpMessage(firstNameOf(name), stoppedAt)) : null,

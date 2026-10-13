@@ -22,7 +22,7 @@ async function curated(): Promise<Map<string, string[]> | null> {
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!base || !key) return null
   try {
-    const res = await fetch(`${base}/rest/v1/location_areas?select=name,location_cities(name)&limit=5000`, {
+    const res = await fetch(`${base}/rest/v1/location_areas?select=name,location_cities(name)&removed_at=is.null&limit=5000`, {
       headers: { apikey: key, Authorization: `Bearer ${key}` },
       cache: 'no-store',
     })

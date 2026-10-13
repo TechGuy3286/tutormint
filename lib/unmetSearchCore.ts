@@ -47,6 +47,10 @@ export type UnmetCard = {
   surfaces: string[]
   roles: string[]
   last: string
+  /** The school this search names, when it names one (owner, 13 Oct 2026):
+   *  the card is labelled "School" and offers "Link to school" instead of
+   *  "Add as new subject". `href` is null when the school has no page yet. */
+  schoolMatch?: { name: string; href: string | null } | null
 }
 
 /** Two searches are the same when they match ignoring case and spacing. */

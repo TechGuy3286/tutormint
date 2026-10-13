@@ -53,13 +53,14 @@ type Props = {
 }
 
 const GROUP_LABEL: Record<SuggestGroup, string> = {
+  school: 'Schools',
   subject: 'Subjects & levels',
   location: 'Cities & areas',
   tutor: 'Tutors',
   job: 'Tuition jobs',
 }
 
-const DEFAULT_GROUPS: SuggestGroup[] = ['subject', 'location', 'tutor', 'job']
+const DEFAULT_GROUPS: SuggestGroup[] = ['school', 'subject', 'location', 'tutor', 'job']
 
 /** One navigable row. The panel groups these visually; the keyboard sees a
     single flat list. */

@@ -29,6 +29,7 @@
 
 import Image from 'next/image'
 import { indexableCityPages, cityPagePath } from '@/lib/cityJobs'
+import HideOnHome from '@/components/HideOnHome'
 import Link from 'next/link'
 import { ChevronDown } from 'lucide-react'
 import FooterTagline from '@/components/FooterTagline'
@@ -45,7 +46,8 @@ type SocialLink = {
    *  profile — wrong for the support WhatsApp line). */
   rel?: string
 }
-type FooterLink = { label: string; href: string }
+/** `hideOnHome`: the homepage lists these itself, so the footer leaves them out there. */
+type FooterLink = { label: string; href: string; hideOnHome?: boolean }
 type LinkColumn = { heading: string; links: FooterLink[] }
 
 /**
@@ -131,7 +133,7 @@ export default async function Footer() {
   // tutors column so they are never orphans. A read error leaves them out.
   let cityLinks: FooterLink[] = []
   try {
-    cityLinks = (await indexableCityPages()).slice(0, 5).map((c) => ({ label: `Tuition jobs in ${c.city}`, href: cityPagePath(c.citySlug) }))
+    cityLinks = (await indexableCityPages()).slice(0, 5).map((c) => ({ label: `Tuition jobs in ${c.city}`, href: cityPagePath(c.citySlug), hideOnHome: true }))
   } catch {
     cityLinks = []
   }
@@ -308,17 +310,20 @@ function MobileSections({ columns }: { columns: LinkColumn[] }) {
               />
             </summary>
             <ul className="pb-1 text-sm">
-              {links.map((l) => (
-                <li key={l.href + l.label}>
-                  <Link
-                    prefetch={false}
-                    href={l.href}
-                    className="flex min-h-[44px] items-center text-slate-300 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint"
-                  >
-                    {l.label}
-                  </Link>
-                </li>
-              ))}
+              {links.map((l) => {
+          const item = (
+            <li key={l.href + l.label}>
+              <Link
+                prefetch={false}
+                href={l.href}
+                className="flex min-h-[44px] items-center text-slate-300 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint"
+              >
+                {l.label}
+              </Link>
+            </li>
+          )
+          return l.hideOnHome ? <HideOnHome key={l.href + l.label}>{item}</HideOnHome> : item
+        })}
             </ul>
           </details>
         )
@@ -384,17 +389,20 @@ function FooterColumn({ heading, links }: { heading: string; links: FooterLink[]
     <div>
       <h2 className="text-xs font-bold uppercase tracking-wider text-tm-mint">{heading}</h2>
       <ul className="mt-2 text-sm">
-        {links.map((l) => (
-          <li key={l.href + l.label}>
-            <Link
-              prefetch={false}
-              href={l.href}
-              className="flex min-h-[44px] items-center text-slate-300 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint md:min-h-[28px]"
-            >
-              {l.label}
-            </Link>
-          </li>
-        ))}
+        {links.map((l) => {
+          const item = (
+            <li key={l.href + l.label}>
+              <Link
+                prefetch={false}
+                href={l.href}
+                className="flex min-h-[44px] items-center text-slate-300 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint md:min-h-[28px]"
+              >
+                {l.label}
+              </Link>
+            </li>
+          )
+          return l.hideOnHome ? <HideOnHome key={l.href + l.label}>{item}</HideOnHome> : item
+        })}
       </ul>
     </div>
   )

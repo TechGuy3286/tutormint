@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
-import { markSearchDone } from '@/lib/unmetSearches'
+import { linkSearchToSchool, markSearchDone } from '@/lib/unmetSearches'
 import { parseBody, z } from '@/lib/validate'
 
 // Unmet searches → "Mark done" (owner, 11 Oct 2026), with an optional note. The
@@ -16,7 +16,8 @@ const Body = z.object({
   query: z.string().trim().min(1).max(200),
   note: z.string().max(500, 'Keep the note under 500 characters.').optional().nullable(),
   /** 'ignored' = the Ignore button (owner, 13 Oct 2026): hidden from To review, never deleted. */
-  kind: z.enum(['done', 'ignored']).optional(),
+  /** 'school' = "Link to school" (owner, 13 Oct 2026): the text names a school. */
+  kind: z.enum(['done', 'ignored', 'school']).optional(),
 })
 
 export async function POST(request: Request) {
@@ -25,6 +26,13 @@ export async function POST(request: Request) {
 
   const parsed = await parseBody(request, Body)
   if (!parsed.ok) return parsed.response
+
+  const actor = { id: gate.actor.id, adminRole: gate.actor.adminRole, email: gate.actor.email }
+  if (parsed.data.kind === 'school') {
+    const linked = await linkSearchToSchool({ query: parsed.data.query }, actor)
+    if (!linked.ok) return NextResponse.json({ error: linked.error }, { status: linked.status })
+    return NextResponse.json({ ok: true, school: linked.school, href: linked.href })
+  }
 
   const result = await markSearchDone({ query: parsed.data.query, note: parsed.data.note ?? null, kind: parsed.data.kind ?? 'done' }, { id: gate.actor.id, adminRole: gate.actor.adminRole, email: gate.actor.email })
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })

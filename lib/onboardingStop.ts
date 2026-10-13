@@ -9,9 +9,26 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { availabilityToSlots } from '@/lib/timeSlots'
 import { stoppedAtLabel } from '@/lib/onboardingStopCore'
 import type { FlowFacts } from '@/lib/tutorFlow'
+import { missingSummary } from '@/lib/onboarding/missingItems'
+
+export type TutorFlowState = {
+  facts: FlowFacts
+  /** "Stopped at: <step>", or null when every step is done. */
+  stoppedAt: string | null
+  /** What is still to do, in plain English (lib/onboarding/missingItems). */
+  missing: string[]
+}
 
 export async function stoppedAtByTutor(admin: SupabaseClient, ids: string[]): Promise<Map<string, string>> {
   const out = new Map<string, string>()
+  for (const [id, s] of await flowStateByTutor(admin, ids)) if (s.stoppedAt) out.set(id, s.stoppedAt)
+  return out
+}
+
+/** The flow facts, the stopped-at label and the missing-items list for a page
+ *  of tutors — one read, so the three can never disagree (owner, 13 Oct 2026). */
+export async function flowStateByTutor(admin: SupabaseClient, ids: string[]): Promise<Map<string, TutorFlowState>> {
+  const out = new Map<string, TutorFlowState>()
   if (ids.length === 0) return out
   const [{ data: ps }, { data: tps }, { data: subj }, { data: docs }] = await Promise.all([
     admin.from('profiles').select('id, full_name, city, phone_verified_at, whatsapp, cnic_number').in('id', ids),
@@ -65,8 +82,11 @@ export async function stoppedAtByTutor(admin: SupabaseClient, ids: string[]): Pr
       isSeed: false, isTeamAccount: false, isBanned: false, isSuspended: false, underReview: false,
       verificationStatus: null, imported: false, claimedAt: null,
     } satisfies FlowFacts
-    const label = stoppedAtLabel(facts, { emailConfirmed: !unconfirmed.has(id) })
-    if (label) out.set(id, label)
+    out.set(id, {
+      facts,
+      stoppedAt: stoppedAtLabel(facts, { emailConfirmed: !unconfirmed.has(id) }),
+      missing: missingSummary(facts).missing.map((m) => m.label),
+    })
   }
   return out
 }

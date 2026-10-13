@@ -27,6 +27,7 @@ import {
   PRIVATE_CLIENT_NAME,
 } from '../lib/seo'
 import {
+  HOME_H1,
   HOME_TITLE,
   llmsText,
   ORGANIZATION_ID,
@@ -185,14 +186,18 @@ test('Organization and WebSite are emitted once — by the site chrome, not by a
   }
 })
 
-test('the homepage title and description name both sides; the locked hero is untouched', () => {
+test('the homepage title and description name both sides; the rest of the hero is untouched', () => {
   assert.ok(/Tutors/.test(HOME_TITLE) && /Tuition/.test(HOME_TITLE))
   assert.ok(HOME_TITLE.length <= 60)
   assert.ok(/tutors/.test(SITE_DESCRIPTION) && /tuitions/.test(SITE_DESCRIPTION))
   const home = readFileSync('app/(site)/page.tsx', 'utf8')
   assert.ok(home.includes('HOME_TITLE') && home.includes('SITE_DESCRIPTION'))
-  // The approved hero: H1, the red line, the Urdu line and the two buttons.
-  assert.ok(home.includes('Trusted, Verified{\' \'}'))
+  // The H1 is the owner-approved 13 Oct 2026 text, with the same styling.
+  assert.equal(HOME_H1, 'Find verified tutors in Pakistan — or find tuitions as a tutor')
+  assert.ok(home.includes('<h1 className="tm-headline mt-2 text-balance text-3xl font-black leading-[1.15] text-tm-black sm:mt-3 sm:text-5xl md:text-6xl">'))
+  assert.ok(home.includes('{HOME_H1_LINES[0]}') && home.includes('{HOME_H1_LINES[1]}'))
+  assert.equal((home.match(/<h1 className=/g) ?? []).length, 1)
+  // The red line, the Urdu line and the two buttons are as approved.
   assert.ok(home.includes('Free to Join &bull; No Commission &bull; No Middleman &bull; Live Demo'))
   assert.ok(home.includes('کوئی فیس نہیں &bull; کوئی کمیشن نہیں &bull; کوئی مڈل مین نہیں &bull; لائیو ڈیمو'))
   assert.ok(home.includes('label="Find Tutors / Teachers"') && home.includes('label="Find Tuitions / Jobs"'))

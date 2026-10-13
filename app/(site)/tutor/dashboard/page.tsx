@@ -25,6 +25,10 @@ import { needsOnboarding } from '@/lib/onboardingGate'
 import { pendingPayproInvoice } from '@/lib/payments/pendingInvoice'
 import { loadReceiptState } from '@/lib/payments/receipt'
 import PaymentReviewNotice from '@/components/payments/PaymentReviewNotice'
+import WhatsMissing from '@/components/tutor/WhatsMissing'
+import EmailConfirmReminder from '@/components/account/EmailConfirmReminder'
+import { loadWhatsMissing } from '@/lib/whatsMissing'
+import { emailReminderNeeded } from '@/lib/emailConfirmCore'
 import { loadPaymentsHistory } from '@/lib/paymentsHistory'
 import PaymentsRefunds from '@/components/dashboard/PaymentsRefunds'
 import { getOnboardingMode } from '@/lib/onboardingModeServer'
@@ -57,6 +61,15 @@ export default async function TutorDashboardPage() {
     getEntitlements(userId),
     loadDirectoryStatus(userId),
   ])
+
+  // "What's missing" and the email reminder (owner, 13 Oct 2026).
+  const [whatsMissing, { data: emailRow }] = await Promise.all([
+    loadWhatsMissing(userId),
+    supabase.from('profiles').select('email, email_pending_confirm').eq('id', userId).maybeSingle(),
+  ])
+  const emailToConfirm = emailReminderNeeded({ email: emailRow?.email as string | null, pending: !!emailRow?.email_pending_confirm })
+    ? ((emailRow?.email as string | null) ?? null)
+    : null
 
   const directoryListed = directory.listed
   const city = (tutorProfile?.city as string | null) ?? null
@@ -192,7 +205,22 @@ export default async function TutorDashboardPage() {
           paymentUnderReview={feeUnderReview}
         />
 
+        {/* A gentle reminder while the email waits for its link — it blocks nothing. */}
+        {emailToConfirm && <EmailConfirmReminder email={emailToConfirm} />}
+
         {feeReceipt && <PaymentReviewNotice receipt={feeReceipt} href="/pay/choose?plan=verified" />}
+
+        {/* What is still to do, each with "Fix now", and what makes the profile
+            visible on Google — both from the real rules (lib/whatsMissing). */}
+        {whatsMissing && (
+          <WhatsMissing
+            done={whatsMissing.summary.done}
+            total={whatsMissing.summary.total}
+            percent={whatsMissing.summary.percent}
+            missing={whatsMissing.summary.missing}
+            google={whatsMissing.google}
+          />
+        )}
 
         {/* PR106-G4b §5: value-first card for owner/staff; §6: everyone else keeps
             today's "Complete your payment" prompt. Both are hidden once the fee

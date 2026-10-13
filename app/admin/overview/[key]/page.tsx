@@ -62,6 +62,16 @@ export default async function OverviewListPage({
             {listHeader(list)}
             {list.amount !== undefined ? ` · ${pkr(list.amount)}` : ''}
           </p>
+          {list.note && (
+            <p className="text-[11px] leading-relaxed text-gray-600">
+              {list.note.before}
+              <span className={list.note.stale ? 'font-bold text-tm-red' : 'font-bold text-slate-700'}>{list.note.date}</span>
+              {list.note.after}{' '}
+              <Link href={list.note.href} className="font-bold text-tm-navy underline-offset-2 hover:underline">
+                {list.note.linkLabel}
+              </Link>
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           <Link

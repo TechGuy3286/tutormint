@@ -3,6 +3,10 @@ import { unmappedLocations } from '@/lib/locationsAdmin'
 import { loadLocationReview } from '@/lib/locationReview'
 
 import LocationsReviewClient from './LocationsReviewClient'
+import StaffAddedAreas from './StaffAddedAreas'
+import { loadStaffAddedAreas } from '@/lib/staffAreas'
+import { addedByLine } from '@/lib/staffAreaCore'
+import { formatDate } from '@/lib/datetime'
 
 // /admin/seo/locations — the free-text location review.
 //
@@ -21,7 +25,7 @@ export const dynamic = 'force-dynamic'
 export default async function AdminLocationsPage() {
   await requireAdminRole(...SCREEN_ACCESS.seo)
 
-  const [board, unmapped] = await Promise.all([loadLocationReview(), unmappedLocations()])
+  const [board, unmapped, added] = await Promise.all([loadLocationReview(), unmappedLocations(), loadStaffAddedAreas()])
   const cities = unmapped.filter((r) => r.kind === 'city')
 
   return (
@@ -39,6 +43,12 @@ export default async function AdminLocationsPage() {
       </header>
 
       <LocationsReviewClient rows={board.rows} areasByCity={board.areasByCity} />
+
+      {/* Areas staff added while posting a tuition (owner, 13 Oct 2026). */}
+      <StaffAddedAreas
+        areas={added.map((a) => ({ id: a.id, name: a.name, city: a.city, line: addedByLine(a.addedBy, a.addedAt ? formatDate(a.addedAt) : null) }))}
+        areasByCity={board.areasByCity}
+      />
 
       <section className="space-y-2">
         <h2 className="text-sm font-black text-tm-navy">Cities not in the list ({cities.length})</h2>

@@ -41,6 +41,7 @@ export type TemplateId =
   | 'content_digest'
   | 'admin_message'
   | 'staff_invite'
+  | 'confirm_email'
   | 'tuition_paused'
 
 export type RenderedEmail = {
@@ -264,6 +265,10 @@ export type TemplateInput =
   // A staff invite / resend. Essential (it is the only way in), and it carries an
   // ABSOLUTE one-time link, so `link()` leaves it untouched.
   | { id: 'staff_invite'; name: string; role: string; url: string }
+  // Our own "confirm your email" link (owner, 13 Oct 2026): a tutor can use the
+  // account before clicking it. Essential — it is the only mail an unconfirmed
+  // address ever receives.
+  | { id: 'confirm_email'; name: string; url: string }
   | { id: 'tuition_paused'; title: string }
   // STAFF-facing alerts (PR106-H1 §2). English only (no member Urdu); essential.
   // NEVER a CNIC number, phone, card detail or document image — member name,
@@ -321,6 +326,21 @@ export function render(input: TemplateInput): RenderedEmail {
         ],
         true,
         { label: 'Set your password', href: input.url },
+      )
+    }
+
+    case 'confirm_email': {
+      const name = properName(input.name)
+      return build(
+        'Confirm your email for TutorMint',
+        `${name ? name + ', please' : 'Please'} confirm your email`,
+        [
+          'Tap the button below to confirm that this email address is yours.',
+          'You can keep using your TutorMint account in the meantime — confirming only lets us send you receipts and reminders here.',
+          'If you did not sign up for TutorMint, you can ignore this email.',
+        ],
+        true,
+        { label: 'Confirm my email', href: input.url },
       )
     }
 

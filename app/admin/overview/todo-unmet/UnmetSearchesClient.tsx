@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Check, Copy, Megaphone } from 'lucide-react'
+import { Check, Copy, Megaphone, School } from 'lucide-react'
 
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
@@ -147,6 +147,24 @@ export default function UnmetSearchesClient({
     router.refresh()
   }
 
+  // "Link to school" (owner, 13 Oct 2026): the text is a school's name, so it
+  // is never added as a subject. The card leaves To review, linked to the school.
+  const linkSchool = async (c: UnmetCard) => {
+    setBusy(true)
+    const { ok, data } = await adminFetch<{ error?: string; school?: string }>('/api/admin/unmet-searches/done', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: c.query, note: null, kind: 'school' }),
+    })
+    setBusy(false)
+    if (!ok) {
+      toast.error(data?.error ?? 'That did not save. Please try again.')
+      return
+    }
+    toast.success(`Linked to ${data?.school ?? 'the school'}.`)
+    router.refresh()
+  }
+
   const markDone = async (c: UnmetCard) => {
     setBusy(true)
     const { ok, data } = await adminFetch<{ error?: string }>('/api/admin/unmet-searches/done', {
@@ -205,10 +223,29 @@ export default function UnmetSearchesClient({
           <li key={c.key} className="space-y-2 rounded-2xl border border-gray-200 bg-white p-3">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <p className="min-w-0 break-words text-sm font-black text-tm-navy">&ldquo;{c.query}&rdquo;</p>
-              <span className="inline-flex items-center rounded-full bg-tm-tint-navy px-2 py-0.5 text-[11px] font-bold text-tm-navy">
-                {c.count} time{c.count === 1 ? '' : 's'}
+              <span className="flex flex-wrap items-center gap-1.5">
+                {c.schoolMatch && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-tm-tint-green px-2 py-0.5 text-[11px] font-bold text-tm-green-deep">
+                    <School aria-hidden size={12} /> School
+                  </span>
+                )}
+                <span className="inline-flex items-center rounded-full bg-tm-tint-navy px-2 py-0.5 text-[11px] font-bold text-tm-navy">
+                  {c.count} time{c.count === 1 ? '' : 's'}
+                </span>
               </span>
             </div>
+            {c.schoolMatch && (
+              <p className="break-words text-[11px] text-slate-700">
+                This is a school&rsquo;s name: {c.schoolMatch.name}.{' '}
+                {c.schoolMatch.href ? (
+                  <Link href={c.schoolMatch.href} target="_blank" rel="noopener noreferrer" className="font-bold text-tm-red underline">
+                    Open the school&rsquo;s page
+                  </Link>
+                ) : (
+                  'No open post names it yet, so it has no page.'
+                )}
+              </p>
+            )}
             <p className="break-words text-[11px] text-slate-700">
               {[c.city ? `City ${c.city}` : null, c.level ? `Level ${c.level}` : null, c.subject ? `Subject ${c.subject}` : null, c.school ? `School ${c.school}` : null]
                 .filter(Boolean)
@@ -247,7 +284,8 @@ export default function UnmetSearchesClient({
                     </select>
                   </label>
                 }
-                onAdd={canAddSubject ? (name) => void addSubject(c, name) : undefined}
+                // A school is never added as a subject.
+                onAdd={canAddSubject && !c.schoolMatch ? (name) => void addSubject(c, name) : undefined}
                 onSame={(id) => void addSynonym(c, id)}
                 onIgnore={() => void ignore(c)}
               />
@@ -255,6 +293,11 @@ export default function UnmetSearchesClient({
 
             {!readOnly && !isOpen && (
               <div className="flex flex-wrap gap-2">
+                {c.schoolMatch && (
+                  <button type="button" disabled={busy} onClick={() => void linkSchool(c)} className={BUTTON}>
+                    <School aria-hidden size={14} /> Link to school
+                  </button>
+                )}
                 {c.city && (
                   <button type="button" onClick={() => show(c, 'post')} className={GHOST}>
                     <Megaphone aria-hidden size={14} /> Hiring post for {c.city}

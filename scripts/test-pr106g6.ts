@@ -31,9 +31,10 @@ test('subjects step is tap-tap chips (no dropdown, multi-select), Next needs a s
   assert.ok(!/<select/.test(FLOW), 'no <select> dropdown anywhere in the flow')
   assert.match(s, /OChip/, 'level and subjects render as tap chips (OChip)')
   assert.match(s, /fetchTaxonomyTree/, 'builds the level/subject tree')
-  assert.match(s, /toggleCat/, 'levels are multi-select')
-  assert.match(s, /toggleSub/, 'subjects are multi-select')
-  assert.match(s, /nextDisabled: total === 0/, 'Next disabled until at least one subject')
+  // Since 13 Oct 2026 the rules live in lib/onboarding/levelRanges.
+  assert.match(s, /toggleRange\(sel, r\)/, 'levels are multi-select')
+  assert.match(s, /toggleSubject\(sel, range, sub\)/, 'subjects are multi-select')
+  assert.match(s, /nextDisabled: !canContinueSel\(sel\)/, 'Next disabled until one level and one subject')
   assert.ok(!/Choose a level and grade above/.test(FLOW), 'the helper text is removed')
   // OChip selected style = light green + tick + deep-green border
   const chip = fnBody('OChip')
@@ -86,7 +87,7 @@ test('going back keeps data: thumbnails reload and drafts survive', () => {
   // Facts carries preview URLs + the subjects draft
   assert.match(FLOW, /selfiePreview: string \| null/, 'Facts has a selfie preview')
   assert.match(FLOW, /cnicFrontPreview: string \| null/, 'Facts has a CNIC front preview')
-  assert.match(FLOW, /subjCats: string\[\]/, 'Facts holds the subjects draft')
+  assert.match(FLOW, /subjSel: RangeSelection/, 'Facts holds the subjects draft')
   // load() builds the preview URLs from the user's own documents
   assert.match(FLOW, /previewUrl\(selfieDoc\?\.id\)/, 'selfie thumbnail loaded on open')
   assert.match(FLOW, /previewUrl\(latest\('cnic', 'front'\)\?\.id\)/, 'CNIC front thumbnail loaded')
@@ -97,7 +98,7 @@ test('going back keeps data: thumbnails reload and drafts survive', () => {
   assert.match(fnBody('TaglineStep'), /onDraft\(\{ headline: v \}\)/, 'tagline draft kept')
   assert.match(fnBody('TaglineStep'), /onDraft\(\{ bio: v \}\)/, 'bio draft kept')
   assert.match(fnBody('ContactStep'), /setFacts\(\(f\) => \(f \? \{ \.\.\.f, whatsapp: v \} : f\)\)/, 'WhatsApp draft kept')
-  assert.match(fnBody('SubjectsStep'), /onDraft\(nextCats, nextByCat\)/, 'subjects draft kept')
+  assert.match(fnBody('SubjectsStep'), /setSel\(next\); onDraft\(next\)/, 'subjects draft kept')
 })
 
 // --------------------------------------------- STEP 6: bio auto-grow --------

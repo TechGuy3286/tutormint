@@ -18,6 +18,8 @@
 //
 // PURE — unit-tested by scripts/test-follow-ups.ts.
 
+import { missingSentence } from '@/lib/onboarding/missingItems'
+
 export const FOLLOW_UP_HOLD_DAYS = 7
 const DAY = 86_400_000
 
@@ -117,8 +119,15 @@ export function unfilledPlaceholders(text: string): string[] {
 
 /** The WhatsApp text: the template with every placeholder filled, the
  *  continue link on its own line after it (or in place of {link}). */
-export function followUpText(templateBody: string, v: { name: string; step: string | null; link: string }): string {
+export function followUpText(templateBody: string, v: { name: string; step: string | null; link: string; missing?: string[] }): string {
+  // What is still to do (owner, 13 Oct 2026) — the same list the tutor sees on
+  // the dashboard (lib/onboarding/missingItems). English; the stored template's
+  // own wording is never changed. A template with {missing} gets it in place;
+  // otherwise it goes on its own line before the link.
+  const left = missingSentence(v.missing ?? [])
   const vars = {
+    missing: left,
+    still_to_do: left,
     name: v.name,
     first_name: v.name,
     step: v.step ?? 'your profile',
@@ -127,7 +136,9 @@ export function followUpText(templateBody: string, v: { name: string; step: stri
     continue_link: v.link,
   }
   const hasLink = /\{(link|continue_link)\}/.test(templateBody)
-  const filled = fillTemplate(templateBody.trim(), vars)
+  const hasMissing = /\{(missing|still_to_do)\}/.test(templateBody)
+  let filled = fillTemplate(templateBody.trim(), vars)
+  if (left && !hasMissing) filled = `${filled}\n\nStill to do: ${left}`
   return hasLink ? filled : `${filled}\n\n${v.link}`
 }
 

@@ -72,7 +72,9 @@ export const OVERVIEW_ITEMS: Record<OverviewItemKey, OverviewItemMeta> = {
   'todo-stuck': { title: 'Stuck in onboarding', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
   'todo-stuck-sent': { title: 'Follow-up sent', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
   'todo-payments': { title: 'Payments waiting over 1 hour', screen: 'payments', noun: ['payment', 'payments'] },
-  'todo-due': { title: 'Due from PayPro', screen: 'finance', noun: ['order', 'orders'] },
+  // Renamed from "Due from PayPro" (owner, 13 Oct 2026): the money is paid by
+  // customers and PayPro has not yet paid it out to our bank.
+  'todo-due': { title: 'Paid by customers, waiting for PayPro payout', screen: 'finance', noun: ['order', 'orders'] },
   'todo-flagged': { title: 'Flagged messages and reports', screen: 'reports', noun: ['item', 'items'] },
   'todo-pausing': { title: 'Tuitions auto-pausing in the next 2 days', screen: 'jobs', noun: ['tuition', 'tuitions'] },
   'todo-featured': { title: 'Featured tutors with new matches', screen: 'featuredWhatsapp', noun: ['tutor', 'tutors'] },
@@ -199,3 +201,50 @@ export function feePayersSince<T extends FeePayment>(
 /** Where the "Signed up today, not paid" card opens: the existing Unpaid signups
  *  list on its Today filter (WhatsApp, Call and Follow-up sent already live there). */
 export const SIGNUPS_TODAY_HREF = '/admin/users/unpaid-signups?filter=today'
+
+// ----------------------------------------------- the PayPro file's age ------
+
+/** A PayPro file older than this many days shows its date in red. */
+export const PAYPRO_FILE_STALE_DAYS = 2
+
+export type FileNote = {
+  /** "Based on the PayPro file uploaded " */
+  before: string
+  /** The upload date and time, Pakistan time — shown in red when stale. */
+  date: string
+  /** ". Upload a newer file to update." */
+  after: string
+  stale: boolean
+  href: string
+  linkLabel: string
+}
+
+/**
+ * The line under "Paid by customers, waiting for PayPro payout" (owner, 13 Oct
+ * 2026): which upload the list is based on, and whether it is getting old.
+ * `dateText` is the upload time already formatted in Pakistan time.
+ */
+export function payproFileNote(uploadedAt: string | null, dateText: string | null, nowMs: number): FileNote | null {
+  if (!uploadedAt || !dateText) return null
+  const age = nowMs - new Date(uploadedAt).getTime()
+  return {
+    before: 'Based on the PayPro file uploaded ',
+    date: dateText,
+    after: '. Upload a newer file to update.',
+    stale: age > PAYPRO_FILE_STALE_DAYS * 24 * 3600_000,
+    href: '/admin/finance/settlement',
+    linkLabel: 'Settlement check',
+  }
+}
+
+/** "Rs 193 · paid 8 Oct 2026 · 5 days" — one waiting order's card line. */
+export function waitingOrderLine(o: { amountText: string | null; paidText: string | null; ageDays: number | null; overdue?: boolean }): string {
+  return [
+    o.amountText,
+    o.paidText ? `paid ${o.paidText}` : null,
+    o.ageDays !== null ? `${o.ageDays} day${o.ageDays === 1 ? '' : 's'}` : null,
+    o.overdue ? 'overdue' : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}

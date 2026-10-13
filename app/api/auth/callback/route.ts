@@ -146,7 +146,8 @@ async function syncConfirmedEmail(): Promise<void> {
     if (profile && (profile.email as string | null) !== user.email) {
       // email_verified mirrors the confirmed auth email (the column the old
       // pre-confirmed flow set); now it is only set when the link is clicked.
-      await admin.from('profiles').update({ email: user.email, email_verified: true }).eq('id', user.id)
+      // The new address was confirmed by this link, so it is no longer pending.
+      await admin.from('profiles').update({ email: user.email, email_verified: true, email_pending_confirm: false }).eq('id', user.id)
     }
   } catch (e) {
     console.error('[auth/callback] email sync failed', e)

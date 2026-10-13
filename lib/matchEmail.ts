@@ -92,13 +92,15 @@ async function sendOne(
   // until the migration).
   const { data: prof, error } = await admin
     .from('profiles')
-    .select('email, email_opt_out, match_email_opt_out')
+    .select('email, email_opt_out, match_email_opt_out, email_pending_confirm')
     .eq('id', tutorId)
     .maybeSingle()
   if (error || !prof) return
   const email = prof.email as string | null
   if (!email || email.endsWith('@users.tutormint.org')) return // no real mailbox
   if (prof.email_opt_out || prof.match_email_opt_out) return
+  // Our own confirmation is still pending (owner, 13 Oct 2026): not verified.
+  if (prof.email_pending_confirm) return
 
   // Verified email only — the address must be confirmed on the account.
   const { data: authUser } = await admin.auth.admin.getUserById(tutorId)

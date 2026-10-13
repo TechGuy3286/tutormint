@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
+import { sendConfirmEmail } from '@/lib/emailConfirm'
 import { serverError } from '@/lib/errorResponse'
 import { AUTH_MSG, classifyAuthError } from '@/lib/authMessages'
 import { UTM_COOKIE, decodeUtm, hasUtm } from '@/lib/utm'
@@ -152,6 +153,62 @@ export async function POST(request: Request) {
         },
         { status: 409 },
       )
+    }
+
+    // A TUTOR (owner, 13 Oct 2026): email confirmation no longer blocks
+    // onboarding. The account is created ready to sign in, the tutor is signed in
+    // at once and sent to onboarding — which asks for a mobile and verifies it by
+    // SMS before anything else — and the email is confirmed by OUR OWN link
+    // whenever they click it (lib/emailConfirm). Until then the address is
+    // marked pending and receives no other mail. Parents are unchanged below.
+    if (body.role === 'tutor') {
+      const { data: created, error: createError } = await admin.auth.admin.createUser({
+        email: authEmail,
+        password: body.password,
+        email_confirm: true,
+        user_metadata: { role: body.role, full_name: formatName(body.fullName) },
+      })
+      if (createError || !created?.user) {
+        const cls = classifyAuthError(createError?.message ?? '')
+        if (cls) {
+          const m = AUTH_MSG[cls.key]
+          const status = cls.key === 'emailTaken' ? 409 : cls.key === 'tooMany' ? 429 : 400
+          return NextResponse.json(
+            { error: m.en, errorUr: m.ur, ...(cls.signIn ? { signIn: true } : {}), ...(cls.field ? { fields: { [cls.field]: m.en } } : {}) },
+            { status },
+          )
+        }
+        return serverError(createError ?? new Error('createUser returned no user'), 'auth/register')
+      }
+      const tutorId = created.user.id
+      const madeTutor = await ensureProfile(admin, {
+        userId: tutorId,
+        role: 'tutor',
+        fullName: body.fullName,
+        email: authEmail,
+        utm: hasUtm(utm) ? utm : undefined,
+        extra: { email_pending_confirm: true },
+      })
+      if (!madeTutor.ok) {
+        return NextResponse.json({ error: 'Could not finish creating the account. Please try again.' }, { status: 500 })
+      }
+      const tutorOrigin = new URL(request.url).origin
+      // The confirmation link goes out after the response; a send failure never
+      // stops the signup (the dashboard reminder has "Resend email").
+      after(async () => {
+        await sendConfirmEmail(tutorId, tutorOrigin).catch(() => undefined)
+      })
+      const session = await createClient()
+      const { error: signInError } = await session.auth.signInWithPassword({ email: authEmail, password: body.password })
+      return NextResponse.json({
+        success: true,
+        signedIn: !signInError,
+        role: 'tutor',
+        emailPending: true,
+        // Signed in → onboarding (mobile first). If the session could not be
+        // made, the sign-in page takes the same email and password.
+        next: signInError ? '/login' : '/tutor/onboarding',
+      })
     }
 
     // signUp (not admin.createUser) so Supabase sends the confirmation email and

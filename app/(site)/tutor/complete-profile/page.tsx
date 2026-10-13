@@ -10,6 +10,7 @@ import { getOnboardingMode } from '@/lib/onboardingModeServer'
 import { showNewOnboarding } from '@/lib/onboardingMode'
 import CompleteProfileFlow from '@/components/tutor/CompleteProfileFlow'
 import NewOnboardingFlow from '@/components/tutor/NewOnboardingFlow'
+import { stepFromParam } from '@/lib/onboarding/missingItems'
 
 // The tutor completion flow (PR 4 §1). The old step-tab form is retired; this is
 // the SAME tap-tap gap flow /tutor/onboarding renders. A server component only so
@@ -52,7 +53,7 @@ export default async function CompleteProfilePage({
   const methods = checkoutMethodsOf(await getGatewaySettings())
 
   if (newFlow) {
-    return <NewOnboardingFlow seed={user.id} smsAvailable={smsDeliverable()} helpWaHref={whatsappHref(support.whatsapp, "Assalam-o-Alaikum, I need help choosing my subjects on TutorMint.")} payFailed={pay === 'failed'} />
+    return <NewOnboardingFlow seed={user.id} initialStep={stepFromParam(step)} smsAvailable={smsDeliverable()} helpWaHref={whatsappHref(support.whatsapp, "Assalam-o-Alaikum, I need help choosing my subjects on TutorMint.")} payFailed={pay === 'failed'} />
   }
 
   return (

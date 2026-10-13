@@ -129,7 +129,13 @@
     "test:areahubs": "tsx --test scripts/test-area-hubs.ts",
     "test:siteidentity": "tsx --test scripts/test-site-identity.ts",
     "test:searchbeacon": "tsx --test scripts/test-search-beacon.ts",
-    "check:jsonld": "node scripts/check-jsonld-live.mjs"
+    "check:jsonld": "node scripts/check-jsonld-live.mjs",
+    "test:levelranges": "tsx --test scripts/test-level-ranges.ts",
+    "test:emailconfirm": "tsx --test scripts/test-email-confirm.ts",
+    "test:missingitems": "tsx --test scripts/test-missing-items.ts",
+    "test:schoolsearch": "tsx --test scripts/test-school-search.ts",
+    "test:staffareas": "tsx --test scripts/test-staff-areas.ts",
+    "test:homepage": "tsx --test scripts/test-homepage.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

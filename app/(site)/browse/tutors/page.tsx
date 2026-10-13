@@ -10,6 +10,8 @@ import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
 import SearchBeacon from '@/components/search/SearchBeacon'
 import { searchBeaconToken } from '@/lib/searchBeacon'
+import { schoolSuggestionFor } from '@/lib/schoolSearch'
+import SchoolSuggestionRow from '@/components/search/SchoolSuggestionRow'
 import TutorCard, { type TutorCardData, type CardViewer } from '@/components/TutorCard'
 import AdSlot from '@/components/ads/AdSlot'
 import TutorFilterBar, { type FilterValues } from './TutorFilterBar'
@@ -256,6 +258,9 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
     unmetQuery = q || null
     fallback = await tutorFallback(listFilters, parsed, PAGE_SIZE)
   }
+  // A school's name typed into the search (owner, 13 Oct 2026): a row to the
+  // school's page. A school is never treated as a subject.
+  const school = q ? await schoolSuggestionFor(q) : null
   const beaconToken = searchBeaconToken({
     s: 'tutors',
     f: { master_id: subjectId, city: city || null, area: area || null, mode: mode || null, gender: gender || null },
@@ -319,6 +324,8 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
         </header>
 
         <TutorFilterBar values={filters} facets={facets} />
+
+        {school && <SchoolSuggestionRow school={school} />}
 
         {error && (
           <p className="rounded-2xl border border-tm-red/30 bg-tm-tint-red p-4 text-xs font-bold text-tm-red">

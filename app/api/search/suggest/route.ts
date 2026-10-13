@@ -7,6 +7,7 @@ import { maskTuitionText } from '@/lib/maskTuition'
 import { parseJobRef } from '@/lib/jobRef'
 import { citySegment } from '@/lib/slugs'
 import { resolveSmartQuery } from '@/lib/smartSearch'
+import { schoolSuggestionFor } from '@/lib/schoolSearch'
 
 // GET /api/search/suggest?q=…&city=…
 //
@@ -39,7 +40,9 @@ const QuerySchema = z.object({
   for: z.enum(['tutors', 'tuitions']).optional().default('tutors'),
 })
 
-export type SuggestGroup = 'subject' | 'location' | 'tutor' | 'job'
+// 'school' (owner, 13 Oct 2026): a typed school name is never a subject — it
+// gets its own row linking to the school's page (lib/schoolSearch).
+export type SuggestGroup = 'school' | 'subject' | 'location' | 'tutor' | 'job'
 
 export type Suggestion = {
   group: SuggestGroup
@@ -174,6 +177,26 @@ export async function GET(request: Request) {
         sublabel: 'Search for all of these',
         href: retarget(`/browse/tutors?q=${encodeURIComponent(q)}`),
       },
+      ...suggestions,
+    ]
+  }
+
+  // A school's name (owner, 13 Oct 2026): one row to the school's page, and —
+  // when that school's city has listed tutors — one to those tutors. Only for a
+  // school whose page exists; nothing is added to subjects or search words.
+  const school = await schoolSuggestionFor(q)
+  if (school?.href) {
+    suggestions = [
+      {
+        group: 'school' as SuggestGroup,
+        ref: 'school',
+        label: school.label,
+        sublabel: `${school.openPosts} open job${school.openPosts === 1 ? '' : 's'} on the school's page`,
+        href: school.href,
+      },
+      ...(school.tutorsHref && school.tutorsCity
+        ? [{ group: 'school' as SuggestGroup, ref: 'school-tutors', label: `Tutors in ${school.tutorsCity}`, sublabel: `Near ${school.name}`, href: school.tutorsHref }]
+        : []),
       ...suggestions,
     ]
   }

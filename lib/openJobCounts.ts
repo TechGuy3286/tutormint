@@ -131,7 +131,7 @@ export async function onboardingFacets(): Promise<OnboardingFacets | null> {
   const [{ data: cityRows }, { data: areaRows }, { data: subjectRows }, { data: levelRows }, tax] =
     await Promise.all([
       admin.from('location_cities').select('name, sort_order'),
-      admin.from('location_areas').select('name, city_id'),
+      admin.from('location_areas').select('name, city_id').is('removed_at', null),
       admin.from('taxonomy_subjects').select('slug, name'),
       // Non-legacy levels only — the pickers never offer a retired level.
       admin.from('taxonomy_levels').select('slug, name').eq('legacy', false),

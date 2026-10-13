@@ -22,7 +22,7 @@ export async function GET(request: Request) {
   // The curated areas for this city (the chip + search source).
   const { data: cityRow } = await admin.from('location_cities').select('id').ilike('name', city).maybeSingle()
   const { data: areaRows } = cityRow
-    ? await admin.from('location_areas').select('name').eq('city_id', cityRow.id).order('name')
+    ? await admin.from('location_areas').select('name').eq('city_id', cityRow.id).is('removed_at', null).order('name')
     : { data: [] as { name: string }[] }
   const all = (areaRows ?? []).map((r) => r.name as string)
 

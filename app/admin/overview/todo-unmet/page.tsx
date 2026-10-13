@@ -1,7 +1,7 @@
 import Link from 'next/link'
 
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
-import { loadHiringTemplate, loadSubjectLevels, loadUnmetBoard, loadWordTargets } from '@/lib/unmetSearches'
+import { loadHiringTemplate, loadSubjectLevels, loadUnmetBoard, loadWordTargets, withSchoolMatches } from '@/lib/unmetSearches'
 
 import UnmetSearchesClient from './UnmetSearchesClient'
 
@@ -19,6 +19,9 @@ export default async function UnmetSearchesPage({ searchParams }: { searchParams
   const canAddSubject = roleSatisfies(actor.adminRole, SCREEN_ACCESS.subjectsCore)
   const tab = (await searchParams).tab === 'done' ? 'done' : 'review'
   const [board, targets, template, levels] = await Promise.all([loadUnmetBoard(), loadWordTargets(), loadHiringTemplate(), canAddSubject ? loadSubjectLevels() : Promise.resolve([])])
+
+  // A search that names a school is labelled "School" (owner, 13 Oct 2026).
+  const cards = await withSchoolMatches(board.toReview)
 
   return (
     <div className="space-y-4">
@@ -60,7 +63,7 @@ export default async function UnmetSearchesPage({ searchParams }: { searchParams
         })}
       </nav>
 
-      <UnmetSearchesClient tab={tab} cards={board.toReview} done={board.done} targets={targets} template={template} levels={levels} canAddSubject={canAddSubject} />
+      <UnmetSearchesClient tab={tab} cards={cards} done={board.done} targets={targets} template={template} levels={levels} canAddSubject={canAddSubject} />
     </div>
   )
 }
