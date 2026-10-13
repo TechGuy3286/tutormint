@@ -1,75 +1,62 @@
 'use client'
 
-import { createContext, useContext, useEffect } from 'react'
+import { createContext, useContext } from 'react'
+import { usePathname } from 'next/navigation'
 
-import { isReadMethod } from '@/lib/requestMethod'
+import { partnerEditsPath } from '@/lib/adminAccessCore'
 
-// View-only admin sessions (owner, 8 Oct 2026): the Partner role opens every
-// admin page and changes nothing.
+// View-only admin screens (owner, 13 Oct 2026): the Partner — shown as "Project
+// Manager" — edits tutors, parents and tuitions, and can open but not change
+// everything else.
 //
 // PRESENTATION ONLY. The rule itself is enforced on the server — checkAdminRole
-// answers 403 to a Partner on every non-GET request, and the database write
-// policies exclude the role (migration 150). This file only HIDES the controls
-// that would write, so a Partner is not offered a door that is locked:
+// answers 403 to a Partner on every non-GET request for an area whose access
+// list does not name the role (lib/adminAccessCore roleMayWrite), and the
+// database write policies for those areas exclude the role (migration 170).
+// This file only hides the controls that would write, so a Partner is not
+// offered a door that is locked:
 //
-//   useAdminReadOnly()   true in a Partner session
+//   useAdminReadOnly()   true when THIS session cannot change THIS page
 //   <WriteOnly>…         renders its children only when the session can write
 //
-// The layout provides the flag once for the whole admin area.
+// The layout provides the flag once for the whole admin area; which pages are
+// view-only comes from the page's own address (partnerEditsPath).
 
-const ReadOnlyContext = createContext(false)
+const PartnerContext = createContext(false)
 
-export const PARTNER_VIEW_ONLY_TEXT = 'Partner accounts are view-only. This change was not made.'
+export const PARTNER_VIEW_ONLY_TEXT = 'View only. Your account cannot change this.'
 
 export function AdminReadOnlyProvider({ readOnly, children }: { readOnly: boolean; children: React.ReactNode }) {
-  // Belt and braces for any write control a screen forgot to wrap: in a
-  // view-only session a non-GET call to /api/admin never leaves the browser and
-  // reads as the server's own 403. Its two-factor routes stay open — setting up
-  // two-factor is required of a Partner.
-  useEffect(() => {
-    if (!readOnly || typeof window === 'undefined') return
-    const original = window.fetch
-    const guarded: typeof window.fetch = async (input, init) => {
-      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-      const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
-      let path = ''
-      try {
-        path = new URL(url, window.location.origin).pathname
-      } catch {
-        path = url
-      }
-      if (path.startsWith('/api/admin/') && !path.startsWith('/api/admin/mfa/') && !isReadMethod(method)) {
-        return new Response(JSON.stringify({ error: PARTNER_VIEW_ONLY_TEXT }), {
-          status: 403,
-          headers: { 'Content-Type': 'application/json' },
-        })
-      }
-      return original(input, init)
-    }
-    window.fetch = guarded
-    return () => {
-      if (window.fetch === guarded) window.fetch = original
-    }
-  }, [readOnly])
-
-  return <ReadOnlyContext.Provider value={readOnly}>{children}</ReadOnlyContext.Provider>
+  return <PartnerContext.Provider value={readOnly}>{children}</PartnerContext.Provider>
 }
 
-/** True in a view-only (Partner) admin session. */
+/** True when this admin session cannot change anything on the current page. */
 export function useAdminReadOnly(): boolean {
-  return useContext(ReadOnlyContext)
+  const limited = useContext(PartnerContext)
+  const pathname = usePathname()
+  return limited && !partnerEditsPath(pathname)
 }
 
-/** Renders its children only when this admin session may change things. */
+/** Renders its children only when this admin session may change things here. */
 export function WriteOnly({ children, fallback = null }: { children: React.ReactNode; fallback?: React.ReactNode }) {
   return useAdminReadOnly() ? <>{fallback}</> : <>{children}</>
 }
 
-/** One line shown in place of a write-only screen (Post a tuition, Bulk import…). */
+/** One line shown in place of a write-only screen (Bulk import, a new post…). */
 export function ViewOnlyNotice({ what }: { what?: string }) {
   return (
     <p className="rounded-2xl border border-gray-200 bg-white p-4 text-center text-xs font-bold text-tm-navy">
-      {what ? `${what} — ` : ''}Partner accounts are view-only. Nothing can be changed here.
+      {what ? `${what} — ` : ''}View only. Nothing can be changed here from your account.
+    </p>
+  )
+}
+
+/** The small "View only" chip a view-only screen shows at its top. */
+export function ViewOnlyChip() {
+  if (!useAdminReadOnly()) return null
+  return (
+    <p className="mb-3 inline-flex items-center rounded-full bg-tm-tint-navy px-3 py-1 text-[11px] font-bold text-tm-navy">
+      View only — you can open and read this page; buttons that change things are switched off for your account.
     </p>
   )
 }

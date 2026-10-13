@@ -1,7 +1,7 @@
 import { Gauge, Landmark, Scale, SlidersHorizontal } from 'lucide-react'
 import Link from 'next/link'
 
-import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, roleSatisfies, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
 import { loadPaymentQueue, loadSubscriptionLedger, withoutAmounts } from '@/lib/adminQueues'
 import { createAdminClient } from '@/lib/supabase/admin'
 import PaymentQueue from './PaymentQueue'
@@ -27,11 +27,11 @@ export default async function AdminPaymentsPage({
   searchParams: Promise<{ filter?: string; q?: string }>
 }) {
   const actor = await requireAdminRole(...SCREEN_ACCESS.payments)
-  const canApprove = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentsApprove)
+  const canApprove = roleMayWrite(actor.adminRole, SCREEN_ACCESS.paymentsApprove)
   const canGateways = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentGateways)
   const canSwitches = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentsSwitches)
   const canReconcile = roleSatisfies(actor.adminRole, SCREEN_ACCESS.finance)
-  const canRefund = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentsRefund)
+  const canRefund = roleMayWrite(actor.adminRole, SCREEN_ACCESS.paymentsRefund)
   const seesAmounts = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentAmounts)
   const { filter = 'all', q = '' } = await searchParams
   const search = q.trim()

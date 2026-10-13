@@ -1,6 +1,7 @@
 import { getAdminActor, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { isClusterSlug } from '@/lib/blog'
 import { composeCoverResponse } from '@/lib/covers/render'
+import { CoverTextError } from '@/lib/covers/compose'
 import type { CoverInput } from '@/lib/covers/select'
 
 // Live preview of ONE composed cover variant, at a given seed. Renders on the
@@ -45,7 +46,13 @@ export async function GET(request: Request) {
   // PR16 §6.5 — the editor preview must never be served a cached render, so each
   // Shuffle shows the freshly composed cover (next/og defaults to an immutable
   // cache otherwise).
-  const res = await composeCoverResponse(input, seed)
-  res.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate')
-  return res
+  try {
+    const res = await composeCoverResponse(input, seed)
+    res.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate')
+    return res
+  } catch (e) {
+    // A title with a banned claim ("largest", "best", "No.1"…) is never painted.
+    if (e instanceof CoverTextError) return new Response(e.message, { status: 400 })
+    throw e
+  }
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { checkAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { checkAdminRole, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
 import { addSubjectFromSearch } from '@/lib/unmetSearches'
 import { parseBody, z } from '@/lib/validate'
 
@@ -22,7 +22,7 @@ const Body = z.object({
 export async function POST(request: Request) {
   const gate = await checkAdminRole(...SCREEN_ACCESS.unmetSearches)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
-  if (!roleSatisfies(gate.actor.adminRole, SCREEN_ACCESS.subjectsCore)) {
+  if (!roleMayWrite(gate.actor.adminRole, SCREEN_ACCESS.subjectsCore)) {
     return NextResponse.json({ error: 'Your admin role cannot add a subject. Ask an Admin, or add it as a synonym.' }, { status: 403 })
   }
 

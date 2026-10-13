@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/errorResponse'
-import { checkAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { checkAdminRole, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
 import { refuseOwnerTarget } from '@/lib/ownerGuard'
 import { warnMember, suspendMember, unsuspendMember, banMember, unbanMember } from '@/lib/moderation'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
   // the new number (in settings/onboarding). Duplicate check applies; a
   // synthetic (mobile-first) login address moves with the number.
   if (action === 'change-mobile') {
-    if (!roleSatisfies(actor.adminRole, ['admin'])) {
+    if (!roleMayWrite(actor.adminRole, ['admin', 'partner'])) {
       return NextResponse.json({ error: 'Only an owner or admin can change a number.' }, { status: 403 })
     }
     const admin = createAdminClient()
@@ -122,10 +122,10 @@ export async function POST(request: Request) {
 
   // Ban is owner/manager; unban is owner only. (roleSatisfies always admits the
   // owner; an empty list is owner-only.)
-  if (action === 'ban' && !roleSatisfies(actor.adminRole, ['admin'])) {
+  if (action === 'ban' && !roleMayWrite(actor.adminRole, ['admin', 'partner'])) {
     return NextResponse.json({ error: 'Only an owner or manager can ban an account.' }, { status: 403 })
   }
-  if (action === 'unban' && !roleSatisfies(actor.adminRole, [])) {
+  if (action === 'unban' && !roleMayWrite(actor.adminRole, [])) {
     return NextResponse.json({ error: 'Only the owner can lift a ban.' }, { status: 403 })
   }
 
@@ -134,7 +134,7 @@ export async function POST(request: Request) {
   // Sets phone_verified_via='admin' so it is distinguishable from 'otp'/'bridge'
   // in admin and the CSV, and starts any paused paid plan.
   if (action === 'verify-mobile') {
-    if (!roleSatisfies(actor.adminRole, ['admin'])) {
+    if (!roleMayWrite(actor.adminRole, ['admin', 'partner'])) {
       return NextResponse.json({ error: 'Only an owner or admin can verify a number manually.' }, { status: 403 })
     }
     const admin = createAdminClient()

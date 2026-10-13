@@ -16,7 +16,7 @@ import { funnelSets, isWaitingPayment } from '../lib/overviewItemsCore'
 import { stoppedAtLabel, EMAIL_NOT_CONFIRMED, MOBILE_NOT_VERIFIED } from '../lib/onboardingStopCore'
 import type { FlowFacts } from '../lib/tutorFlow'
 
-test('a Partner may open every screen and is no longer view-only (owner, 13 Oct 2026)', () => {
+test('a Partner may open every screen (what it may CHANGE is in test-partner-areas)', () => {
   for (const [key, roles] of Object.entries(SCREEN_ACCESS)) {
     assert.equal(roleSatisfies('partner', roles as AdminRole[]), true, key)
   }
@@ -38,10 +38,10 @@ test('owner areas admit the owner and the Partner, nobody else', () => {
   assert.equal(roleSatisfies('operations', SCREEN_ACCESS.paymentAmounts), false)
 })
 
-test('staff badge: every staff role reads "Admin"; owner and Partner see real roles', () => {
+test('staff badge: every staff role reads "Admin"; owner and Partner both read "Project Manager" and see real roles', () => {
   for (const r of ['admin', 'operations', 'tuitions_staff']) assert.equal(roleBadge(r), 'Admin')
-  assert.equal(roleBadge('owner'), 'Owner')
-  assert.equal(roleBadge('partner'), 'Partner')
+  assert.equal(roleBadge('owner'), 'Project Manager')
+  assert.equal(roleBadge('partner'), 'Project Manager')
   assert.equal(roleBadge('operations', 'owner'), 'Operations')
   assert.equal(roleBadge('tuitions_staff', 'partner'), 'Tuitions staff')
   assert.equal(roleBadge('operations', 'admin'), 'Admin')
@@ -76,7 +76,7 @@ test('the proxy stamps the real method; a Partner always needs two-factor', () =
   const proxy = readFileSync('proxy.ts', 'utf8')
   assert.ok(proxy.includes('headers.set(METHOD_HEADER, request.method)'))
   const auth = readFileSync(path.join('lib', 'adminAuth.ts'), 'utf8')
-  assert.ok(auth.includes('isReadOnlyRole(actor.adminRole) && !opts.self'))
+  assert.ok(auth.includes('(isReadOnlyRole(actor.adminRole) || !roleMayWrite(actor.adminRole, allowed)) && !opts.self'))
   assert.ok(auth.includes("!== 'verified'"))
   const layout = readFileSync(path.join('app', 'admin', 'layout.tsx'), 'utf8')
   assert.ok(auth.includes('alwaysNeedsTwoFactor(actor.adminRole) && !opts.self'))

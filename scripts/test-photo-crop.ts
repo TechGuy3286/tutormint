@@ -221,7 +221,7 @@ test('the viewer: "Crop / adjust" for profile pictures only, with Save crop, Res
 })
 
 test('owner, Partner, admin and operations can crop — the same access as rotate', () => {
-  assert.deepEqual(SCREEN_ACCESS.documentRotate, ['admin', 'operations'])
+  assert.deepEqual(SCREEN_ACCESS.documentRotate, ['admin', 'operations', 'partner'])
   for (const r of ['owner', 'admin', 'operations'] as const) assert.equal(roleSatisfies(r, SCREEN_ACCESS.documentRotate), true, r)
   assert.equal(roleSatisfies('tuitions_staff', SCREEN_ACCESS.documentRotate), false)
   assert.equal(isReadOnlyRole('partner'), false) // full management since 13 Oct 2026 (was view-only)
@@ -230,7 +230,7 @@ test('owner, Partner, admin and operations can crop — the same access as rotat
   }
   // checkAdminRole refuses a Partner's POST (403) and a signed-out one (401).
   const auth = read('lib', 'adminAuth.ts')
-  assert.ok(auth.includes('isReadOnlyRole(actor.adminRole) && !opts.self'))
+  assert.ok(auth.includes('!roleMayWrite(actor.adminRole, allowed)) && !opts.self'))
   assert.ok(auth.includes("status: 401, error: 'Admin access required.'"))
 })
 

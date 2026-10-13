@@ -48,11 +48,16 @@ export function emailReminderNeeded(s: EmailState): boolean {
   return !!s.pending && !!e && !e.endsWith(SYNTHETIC)
 }
 
-/** May this template be sent to this account's address? Only the confirmation
- *  email itself goes to an address that has not been confirmed. */
+/** The only templates an unconfirmed address may receive: the confirmation
+ *  email itself, and the ONE-TIME "You can now sign in to TutorMint" email the
+ *  owner asked for by name on 13 Oct 2026 (lib/switchedTutorEmailCore) — sent
+ *  once per tutor, to the address they signed up with. */
+const UNCONFIRMED_OK = new Set(['confirm_email', 'switched_tutor_signin'])
+
+/** May this template be sent to this account's address? */
 export function mayEmailAddress(s: EmailState, templateId: string): boolean {
   if (!s.pending) return true
-  return templateId === 'confirm_email'
+  return UNCONFIRMED_OK.has(templateId)
 }
 
 /**

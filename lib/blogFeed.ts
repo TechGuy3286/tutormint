@@ -222,46 +222,27 @@ export async function publishedPostLinks(): Promise<{ title: string; slug: strin
 }
 
 /**
- * Related published posts for the "Related reading" section (PR17 §4.4).
- *
- * SAME SUBJECT OR SAME CITY ONLY — a shared cluster is NOT enough. The post
- * itself is excluded. When the post has no subject and no city, or nothing else
- * shares them, the list is empty and the caller hides the section. A subject
- * match ranks above a city-only match.
+ * Related published posts for the "Related reading" section (owner, 13 Oct
+ * 2026): the same subject first, then the same level, then the same city, then
+ * the same cluster — the one rule in lib/blogRelevanceCore. A post that shares
+ * none of them is never shown; with nothing related the list is empty and the
+ * caller hides the section.
  */
 export async function relatedPosts(args: {
   excludeId: string
   limit: number
   city?: string | null
   subject?: string | null
+  title?: string | null
+  cluster?: string | null
 }): Promise<BlogListItem[]> {
-  const city = (args.city ?? '').trim()
-  const subject = (args.subject ?? '').trim()
-  if (!city && !subject) return []
-
-  const db = createPublicClient()
-  const filters: string[] = []
-  if (city) filters.push(`city.eq.${city}`)
-  if (subject) filters.push(`subject.eq.${subject}`)
-
-  const { data } = await db
-    .from('posts')
-    .select(`${PUBLIC_CARD_COLS}, city, subject`)
-    .eq('status', 'published')
-    .neq('id', args.excludeId)
-    .or(filters.join(','))
-    .order('published_at', { ascending: false })
-    .limit(Math.max(args.limit * 4, 12))
-
-  const scored = (data ?? [])
-    .map((r) => {
-      const sameSubject = !!subject && (r.subject as string) === subject
-      const sameCity = !!city && (r.city as string) === city
-      return { r, score: (sameSubject ? 2 : 0) + (sameCity ? 1 : 0) }
-    })
-    .filter((s) => s.score > 0)
-  scored.sort((a, b) => b.score - a.score)
-  return scored.slice(0, args.limit).map((s) => toListItem(s.r))
+  const { relatedPostRows } = await import('@/lib/blogRelevance')
+  const rows = await relatedPostRows(
+    { id: args.excludeId, city: args.city ?? null, subject: args.subject ?? null, title: args.title ?? '', cluster: args.cluster ?? '' },
+    PUBLIC_CARD_COLS,
+    args.limit,
+  )
+  return rows.map(toListItem)
 }
 
 // ---------------------------------------------------------------- admin ----

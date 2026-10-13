@@ -1,6 +1,7 @@
 import { ImageResponse } from 'next/og'
 
 import { BRAND, NEUTRAL } from '@/lib/brand'
+import { BRAND_LINE_GROWING, coverTextProblem } from '@/lib/brandClaims'
 import type { CoverSelection } from './select'
 
 // The composed blog cover render — 1200x630, satori.
@@ -65,15 +66,31 @@ function MotifCard({ uri, background, size }: { uri: string; background: CoverSe
   )
 }
 
+/**
+ * Thrown when a cover would carry a banned claim ("largest", "best", "No.1",
+ * "#1", "most trusted" — lib/brandClaims). The routes turn it into a 400 with
+ * the words; a cover with such text is never rendered.
+ */
+export class CoverTextError extends Error {}
+
 export function renderCoverPng({
   title,
   selection,
   assets,
+  brandLine = BRAND_LINE_GROWING,
 }: {
   title: string
   selection: CoverSelection
   assets: ComposeAssets
+  /** The brand line under the site address — lib/brandClaims brandLine(), from
+   *  the live count of tutors holding the Verified badge. Never a superlative. */
+  brandLine?: string
 }): Response {
+  // THE GUARD (owner, 13 Oct 2026): no text on a cover may make a claim we
+  // cannot prove. Checked here, at the one place every cover is painted.
+  const problem = coverTextProblem(`${title} ${brandLine}`)
+  if (problem) throw new CoverTextError(problem)
+
   const isNavy = selection.background === 'navy'
   const ink = selection.titleColor === 'white' ? BRAND.white : BRAND.navy
   const bg = BG[selection.background]
@@ -168,6 +185,21 @@ export function renderCoverPng({
           }}
         >
           tutormint.org
+        </div>
+
+        {/* Brand line — under the site line. Computed, never a superlative. */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 62,
+            left: 64,
+            display: 'flex',
+            fontSize: 17,
+            fontWeight: 600,
+            color: isNavy ? BRAND.white : NEUTRAL.slate700,
+          }}
+        >
+          {brandLine}
         </div>
 
         {/* Wordmark — top-right, always above the person. One word: the negative

@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { formatDateTime } from '@/lib/datetime'
+import { roleWord } from '@/lib/adminAccessCore'
 
 // One audit row, rendered the same whether the server drew it or the browser
 // appended it. Extracted for that reason: a second copy of this markup would be
@@ -36,7 +37,7 @@ export default function AuditEntry({ entry }: { entry: AuditRow }) {
             {entry.actor_email ?? 'system'}
           </span>
           <span className="shrink-0 text-xs font-normal text-gray-500">
-            ({entry.actor_role ?? '—'})
+            ({roleWord(entry.actor_role)})
           </span>
         </span>
         <span className="shrink-0 text-[11px] text-gray-500">

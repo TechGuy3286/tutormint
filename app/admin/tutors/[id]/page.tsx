@@ -7,7 +7,7 @@ import Avatar from '@/components/Avatar'
 import StatusChip from '@/components/admin/StatusChip'
 import WhatsappChatButton from '@/components/admin/WhatsappChatButton'
 import PublicProfileLink from '@/components/admin/PublicProfileLink'
-import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { loadDirectoryStatus } from '@/lib/directoryStatus'
 import { loadDocumentStatuses } from '@/lib/tutorDocuments'
@@ -72,10 +72,10 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
     .order('created_at', { ascending: false })
     .limit(20)
 
-  const canEdit = roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutorSlug)
-  const canReview = roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutors)
+  const canEdit = roleMayWrite(actor.adminRole, SCREEN_ACCESS.tutorSlug)
+  const canReview = roleMayWrite(actor.adminRole, SCREEN_ACCESS.tutors)
   // Editing the tutor's locked step-1 fields (PR83) — admin + operations.
-  const canFieldEdit = roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutorEdit)
+  const canFieldEdit = roleMayWrite(actor.adminRole, SCREEN_ACCESS.tutorEdit)
   const isOwner = actor.adminRole === 'owner' || actor.adminRole === 'partner' // PR106-H1 §5: owner-only "View as tutor" (Partner views too)
   // One name (PR66 §5): the canonical is profiles.full_name (what the member sees
   // on their dashboard); fall back to tutor_profiles only if it is blank.
@@ -209,7 +209,7 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
         statuses={docStatuses}
         memberWhatsapp={(profile.whatsapp as string | null) ?? (tutor.whatsapp_number as string | null) ?? (profile.phone_number as string | null) ?? null}
         lockInfo={lockInfo}
-        canUnlock={roleSatisfies(actor.adminRole, SCREEN_ACCESS.documentUnlock)}
+        canUnlock={roleMayWrite(actor.adminRole, SCREEN_ACCESS.documentUnlock)}
         cnicNumberMasked={maskCnicHeavy(profile.cnic_number as string | null)}
         canEditNumber={canFieldEdit}
       />

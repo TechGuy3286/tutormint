@@ -52,6 +52,10 @@ export type LandingCombo = {
   subjectSlug: string
   subjectName: string
   count: number
+  /** The taxonomy level and subject the page is about ("Grade 4", "Islamiat /
+   *  Islamic Studies") — what a blog post's relevance is matched on. */
+  levelName?: string
+  subjectOnly?: string | null
   /** Tutor pages only: how many of the listed tutors are VERIFIED (fee paid).
    *  A tutor page is indexable on this number, not on `count` (12 Oct 2026). */
   verified?: number
@@ -172,6 +176,8 @@ function foldCombos(
       subjectSlug: meta.slug,
       subjectName: meta.name,
       count: row.n as number,
+      levelName: meta.level,
+      subjectOnly: meta.subject,
     }
     const key = `${combo.kind}:${combo.citySlug}:${combo.subjectSlug}`
     const existing = byKey.get(key)
@@ -249,7 +255,7 @@ export const liveCombinationsAll = unstable_cache(
   async (): Promise<LandingCombo[]> => {
     return withVerified(foldCombos(await readLandingCombinations(), (await subjectIndex()).byMaster))
   },
-  ['landing-combinations-v2'],
+  ['landing-combinations-v3'],
   { revalidate: LANDING_REVALIDATE, tags: [LANDING_TAG] },
 )
 

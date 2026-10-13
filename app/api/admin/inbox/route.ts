@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { checkAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { checkAdminRole, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
 import { sendAdminMessage, saveTemplate } from '@/lib/adminMessaging'
 import { parseBody, z, uuid } from '@/lib/validate'
 
@@ -49,7 +49,7 @@ export async function PUT(request: Request) {
   const gate = await checkAdminRole(...SCREEN_ACCESS.inbox)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
   // Editing the shared library is owner/manager, not support.
-  if (!roleSatisfies(gate.actor.adminRole, ['admin'])) {
+  if (!roleMayWrite(gate.actor.adminRole, ['admin'])) {
     return NextResponse.json({ error: 'Only an owner or manager can edit templates.' }, { status: 403 })
   }
 

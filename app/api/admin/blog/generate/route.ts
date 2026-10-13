@@ -66,6 +66,10 @@ const Body = z.object({
   audience: z.enum(['parents', 'tutors', 'both']),
   language: z.enum(['en', 'ur']),
   notes: z.string().max(4000).default(''),
+  // The post's City and Subject fields: the links and tutors the writer is
+  // offered must match them (owner, 13 Oct 2026).
+  city: z.string().max(80).nullish(),
+  subject: z.string().max(120).nullish(),
   // step 'section' only: the outline and which section to write.
   sections: z.array(z.string().max(300)).max(12).optional(),
   index: z.number().int().min(0).max(11).optional(),
@@ -89,6 +93,8 @@ export async function POST(request: Request) {
     audience: body.audience,
     language: body.language,
     notes: body.notes,
+    city: body.city ?? null,
+    subject: body.subject ?? null,
   })
 
   // ----------------------------------------------------------- fix passages ---

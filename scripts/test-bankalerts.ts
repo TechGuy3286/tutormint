@@ -215,7 +215,7 @@ test('owner and Partner only: other staff cannot reach a credit or ignore one', 
   assert.equal((route.match(/checkAdminRole\(\.\.\.SCREEN_ACCESS\.finance\)/g) ?? []).length, 2, 'GET and POST are both gated')
   // checkAdminRole refuses a Partner's POST (403, view-only) and a signed-out one (401).
   const auth = read('lib', 'adminAuth.ts')
-  assert.ok(auth.includes('isReadOnlyRole(actor.adminRole) && !opts.self'))
+  assert.ok(auth.includes('!roleMayWrite(actor.adminRole, allowed)) && !opts.self'))
   assert.ok(auth.includes("status: 401, error: 'Admin access required.'"))
   // The paste form is rendered only inside the block the Partner never gets.
   const ui = read('app', 'admin', 'finance', 'settlement', 'SettlementsBoard.tsx')

@@ -63,6 +63,10 @@ export type LandingOption = {
   kind?: 'tutors' | 'tuitions'
   /** Listed tutors / open tuitions on the page — the tie-breaker. */
   count?: number
+  /** The taxonomy level and subject the page is about ("Grade 4", "Islamiat /
+   *  Islamic Studies") — what relevance to a post is matched on. */
+  level?: string | null
+  subjectOnly?: string | null
 }
 
 function sameSubject(a: string, b: string): boolean {

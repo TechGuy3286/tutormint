@@ -1,6 +1,6 @@
 import { Download, Trash2 } from 'lucide-react'
 import Link from 'next/link'
-import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, roleSatisfies, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { findJunkAccounts } from '@/lib/cleanup'
 import CleanupClient from './CleanupClient'
@@ -173,7 +173,7 @@ export default async function AdminUsersPage({
               Approval needed{approvalCount > 0 ? ` (${approvalCount})` : ''}
             </Link>
           )}
-          {roleSatisfies(actor.adminRole, SCREEN_ACCESS.cleanup) && (
+          {roleMayWrite(actor.adminRole, SCREEN_ACCESS.cleanup) && (
             <Link
               href="/admin/users?filter=suspicious"
               className="gap-1.5 inline-flex min-h-[44px] items-center rounded-xl border border-tm-gold/30 bg-tm-tint-gold px-4 text-xs font-bold text-tm-gold-ink"

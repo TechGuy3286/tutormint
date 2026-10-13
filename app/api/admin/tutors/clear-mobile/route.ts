@@ -22,7 +22,7 @@ const Body = z.object({ tutorId: z.string().min(1) })
 
 export async function POST(request: Request) {
   // owner-only: roleSatisfies(['owner']) admits the owner and nobody else.
-  const gate = await checkAdminRole('owner')
+  const gate = await checkAdminRole('owner', 'partner')
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
 
   const parsed = await parseBody(request, Body)

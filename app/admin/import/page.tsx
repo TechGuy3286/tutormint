@@ -1,4 +1,4 @@
-import { requireAdminRole, isReadOnlyRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, roleMayWrite, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { ViewOnlyNotice } from '@/components/admin/ReadOnly'
 import ImportClient from './ImportClient'
 
@@ -13,6 +13,6 @@ export const dynamic = 'force-dynamic'
 
 export default async function AdminImportPage() {
   const actor = await requireAdminRole(...SCREEN_ACCESS.import)
-  if (isReadOnlyRole(actor.adminRole)) return <ViewOnlyNotice what="Bulk import" />
+  if (!roleMayWrite(actor.adminRole, SCREEN_ACCESS.import)) return <ViewOnlyNotice what="Bulk import" />
   return <ImportClient />
 }

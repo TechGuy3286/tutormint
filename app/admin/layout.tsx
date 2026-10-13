@@ -8,8 +8,8 @@ import { approvalNeeded } from '@/lib/approvalQueue'
 import AdminSignOut from '@/components/admin/AdminSignOut'
 import BridgeBanner from '@/components/admin/BridgeBanner'
 import NotificationBell from '@/components/notifications/NotificationBell'
-import { getAdminActor, isReadOnlyRole, alwaysNeedsTwoFactor, roleBadge, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
-import { AdminReadOnlyProvider } from '@/components/admin/ReadOnly'
+import { getAdminActor, alwaysNeedsTwoFactor, roleBadge, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { AdminReadOnlyProvider, ViewOnlyChip } from '@/components/admin/ReadOnly'
 import { NAV_GROUPS, type NavGroup } from '@/lib/adminNav'
 import { unreadCount } from '@/lib/notificationFeed'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -85,7 +85,10 @@ export default async function AdminLayout({
   if (mfa === 'unverified') return <MfaGate mode="verify" email={actor.email} />
   // A Partner ALWAYS needs two-factor — never a grace window: until it is set
   // up, every admin page shows the setup screen.
-  const readOnly = isReadOnlyRole(actor.adminRole)
+  // The Partner edits tutors, parents and tuitions and views everything else
+  // (owner, 13 Oct 2026). Which pages are view-only is decided per page address
+  // in components/admin/ReadOnly; the server refuses the writes regardless.
+  const readOnly = actor.adminRole === 'partner'
   if (mfa === 'none' && (alwaysNeedsTwoFactor(actor.adminRole) || !inMfaGrace())) return <MfaGate mode="setup" email={actor.email} />
 
   const groups: NavGroup[] = NAV_GROUPS.map((g) => ({
@@ -108,8 +111,8 @@ export default async function AdminLayout({
       groups={groups}
       badges={badges}
       initialCollapsed={jar.get('tm_admin_nav')?.value === 'collapsed'}
-      // The badge: "Owner", "Partner", or "Admin" for every other staff role
-      // (owner, 8 Oct 2026, item 2). Rights never depend on this word.
+      // The badge: "Project Manager" for the Owner and the Partner, "Admin" for
+      // every other staff role (owner, 13 Oct 2026). Rights never depend on it.
       roleLabel={roleBadge(actor.adminRole)}
       email={actor.email}
       pageHead={pagehead}
@@ -128,13 +131,16 @@ export default async function AdminLayout({
           <BridgeBanner />
           {readOnly && (
             <p className="border-b border-tm-navy/10 bg-tm-tint-navy px-4 py-2 text-center text-[11px] font-bold text-tm-navy">
-              View-only account — you can open every page and download reports; nothing can be changed.
+              You can edit tutors, parents and tuitions. Every other page is view only for your account.
             </p>
           )}
         </>
       }
     >
-      <AdminReadOnlyProvider readOnly={readOnly}>{children}</AdminReadOnlyProvider>
+      <AdminReadOnlyProvider readOnly={readOnly}>
+        <ViewOnlyChip />
+        {children}
+      </AdminReadOnlyProvider>
     </AdminShell>
   )
 }

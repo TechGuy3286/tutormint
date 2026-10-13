@@ -46,6 +46,8 @@ const Body = z.object({
   audience: z.enum(['parents', 'tutors', 'both']),
   language: z.enum(['en', 'ur']),
   notes: z.string().max(4000).default(''),
+  city: z.string().max(80).nullish(),
+  subject: z.string().max(120).nullish(),
   sections: z.array(z.string().max(300)).max(12).optional(),
   index: z.number().int().min(0).max(11).optional(),
   parts: z.array(z.string().max(20000)).max(12).optional(),
@@ -66,7 +68,10 @@ export async function POST(request: Request) {
     audience: body.audience,
     language: body.language,
     notes: body.notes,
+    city: body.city ?? null,
+    subject: body.subject ?? null,
   })
+  const postRef = { city: body.city ?? null, subject: body.subject ?? null, title: body.title }
 
   if (body.step === 'outline') {
     const t0 = Date.now()
@@ -86,7 +91,7 @@ export async function POST(request: Request) {
 
   // ----------------------------------------------------------------- check ----
   if (body.step === 'check' || body.step === 'fix') {
-    const live = await liveCheckerData(null)
+    const live = await liveCheckerData(null, postRef)
     const text = body.body ?? ''
     const seo = { title: body.seoTitle ?? '', description: body.seoDescription ?? '' }
     const problems = collectBlogProblems(text, { ...live.ctx, audience: body.audience, seo })
@@ -105,13 +110,14 @@ export async function POST(request: Request) {
   const parts = body.parts ?? []
   if (parts.length === 0) return NextResponse.json({ error: 'No sections to save.' }, { status: 400 })
 
-  const live = await liveCheckerData(null)
+  const live = await liveCheckerData(null, postRef)
   const ctx = live.ctx
   const opts = {
     blogSlugs: ctx.publishedPostSlugs,
     audience: body.audience,
-    landingPaths: ctx.landingPaths,
-    tutorSlugs: ctx.tutorSlugs,
+    // Only what is related to the post may stay linked or be added.
+    landingPaths: ctx.relatedLandingPaths ?? ctx.landingPaths,
+    tutorSlugs: ctx.matchingTutorSlugs ?? ctx.tutorSlugs,
     blogTitles: live.blogTitles,
     tutorNames: live.tutorNames,
     cityJobPaths: ctx.cityJobPaths,

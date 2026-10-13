@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 
-import { requireAdminRole, isReadOnlyRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, roleMayWrite, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { ViewOnlyNotice } from '@/components/admin/ReadOnly'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { teamParentId } from '@/lib/teamAccount'
@@ -86,7 +86,7 @@ export default async function AdminJobEditPage({ params }: { params: Promise<{ i
         </p>
       </header>
 
-      {isReadOnlyRole(actor.adminRole) ? (
+      {!roleMayWrite(actor.adminRole, SCREEN_ACCESS.jobsPost) ? (
         <ViewOnlyNotice what="Edit team tuition" />
       ) : (
         <AdminJobEditForm jobId={job.id as string} initial={initial} />

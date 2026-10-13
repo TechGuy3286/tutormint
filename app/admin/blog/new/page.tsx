@@ -1,4 +1,4 @@
-import { requireAdminRole, isReadOnlyRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
 import { ViewOnlyNotice } from '@/components/admin/ReadOnly'
 import PostEditor from '@/components/admin/blog/PostEditor'
 import { editorLiveData } from '@/lib/blogGenerate'
@@ -29,7 +29,7 @@ export default async function NewPostPage({
     tutorProfileOptionsForEditor(),
     searchParams,
   ])
-  if (isReadOnlyRole(actor.adminRole)) return <ViewOnlyNotice what="New post" />
+  if (!roleMayWrite(actor.adminRole, SCREEN_ACCESS.blog)) return <ViewOnlyNotice what="New post" />
   const live = await editorLiveData(null)
 
   let initial = emptyEditorPost()
@@ -65,9 +65,9 @@ export default async function NewPostPage({
       tutorProfiles={tutorProfiles}
       live={live}
       suggestions={suggestions}
-      canPublishCap={roleSatisfies(actor.adminRole, SCREEN_ACCESS.blogPublish)}
-      canApproveCap={roleSatisfies(actor.adminRole, SCREEN_ACCESS.blogApprove)}
-      canGenerate={roleSatisfies(actor.adminRole, SCREEN_ACCESS.blogGenerate)}
+      canPublishCap={roleMayWrite(actor.adminRole, SCREEN_ACCESS.blogPublish)}
+      canApproveCap={roleMayWrite(actor.adminRole, SCREEN_ACCESS.blogApprove)}
+      canGenerate={roleMayWrite(actor.adminRole, SCREEN_ACCESS.blogGenerate)}
       suggestionId={suggestionId}
     />
   )

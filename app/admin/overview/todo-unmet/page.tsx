@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
 import { loadHiringTemplate, loadSubjectLevels, loadUnmetBoard, loadWordTargets, withSchoolMatches } from '@/lib/unmetSearches'
 
 import UnmetSearchesClient from './UnmetSearchesClient'
@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic'
 export default async function UnmetSearchesPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const actor = await requireAdminRole(...SCREEN_ACCESS.unmetSearches)
   // Adding a subject changes the subject list: the roles that manage Subjects.
-  const canAddSubject = roleSatisfies(actor.adminRole, SCREEN_ACCESS.subjectsCore)
+  const canAddSubject = roleMayWrite(actor.adminRole, SCREEN_ACCESS.subjectsCore)
   const tab = (await searchParams).tab === 'done' ? 'done' : 'review'
   const [board, targets, template, levels] = await Promise.all([loadUnmetBoard(), loadWordTargets(), loadHiringTemplate(), canAddSubject ? loadSubjectLevels() : Promise.resolve([])])
 

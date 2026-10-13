@@ -48,6 +48,6 @@ export function coverImagePrompt(input: CoverPromptInput): string {
     '',
     'Composition: 1200x630, balanced, with calm negative space on the left so a headline could sit there later.',
     '',
-    'IMPORTANT: put NO text, words, letters, numbers, captions or lettering anywhere in the image — the title is added separately by the platform.',
+    'IMPORTANT: put NO text, words, letters, numbers, captions, logos, taglines or lettering anywhere in the image — the title is added separately by the platform. In particular never add a slogan or a claim such as "largest", "best", "No.1", "#1" or "most trusted".',
   ].join('\n')
 }

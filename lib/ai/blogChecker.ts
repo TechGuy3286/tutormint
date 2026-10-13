@@ -46,6 +46,7 @@ import {
 import { staticValidPaths, suggestValidPage } from './blogRoutes'
 import { scaffoldViolations, promptLeakViolations } from './blogBrief'
 import { buildPlatformFacts, type PlatformFacts } from './factsSheet'
+import { superlativeClaims } from '@/lib/brandClaims'
 
 // ─────────────────────────────────────────────────────────── plain text ──
 //
@@ -131,7 +132,24 @@ export type CheckerContext = {
   audience?: 'parents' | 'tutors' | 'both'
   /** The SEO fields — when given, their length, tagline and facts are checked. */
   seo?: { title: string; description: string }
+  /**
+   * THE POST'S OWN TOPIC (owner, 13 Oct 2026). When given, a link to a landing
+   * page that is not about the post's subject, level or city is flagged. Paths
+   * with the leading slash, closest first (lib/blogRelevanceCore relevantItems).
+   */
+  relatedLandingPaths?: string[]
+  /**
+   * The indexable tutors who teach the post's subject at its level (and are in
+   * its city, when it has one). When given, the post may name or link ONLY
+   * these; with an empty list it may name no tutor at all.
+   */
+  matchingTutorSlugs?: string[]
+  /** Indexable tutor names by slug — to catch a tutor NAMED without a link. */
+  tutorNames?: Record<string, string>
 }
+
+const LANDING_HREF_RE = /^\/(?:tutors|tuitions)\/[^/]+\/[^/]+$/
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /**
  * Every body-level publish problem, at once, in plain words with its section.
@@ -175,8 +193,61 @@ export function collectBlogProblems(body: string, ctx: CheckerContext): BlogProb
     }
   }
 
+  // No superlative or unprovable claim about TutorMint (owner, 13 Oct 2026).
+  for (const s of superlativeClaims(body)) {
+    add(
+      `“${plainText(s)}” — this makes a claim about TutorMint that cannot be proved (largest, best, No.1, most trusted, leading). Say what TutorMint does instead.`,
+      headingForText(body, s),
+      { kind: 'superlative', match: s },
+    )
+  }
+
   const tutorSlugs = ctx.tutorSlugs ?? []
   const noindex = ctx.noindexLinks ?? {}
+
+  // A NAMED TUTOR must teach this post's subject and level (and be in its city).
+  if (ctx.matchingTutorSlugs) {
+    const ok = new Set(ctx.matchingTutorSlugs)
+    const flagged = new Set<string>()
+    for (const href of internalLinksIn(body)) {
+      const m = /^\/tutor\/([^/]+)$/.exec(href)
+      if (!m || ok.has(m[1]) || !tutorSlugs.includes(m[1])) continue
+      flagged.add(m[1])
+      add(
+        `${href} — this tutor does not teach this post's subject and level${ok.size > 0 ? '' : ', and no indexable tutor does yet'}. Name only a tutor whose profile matches the post, or name no tutor.`,
+        headingForLink(body, href),
+        { kind: 'tutor_mismatch', match: href },
+      )
+    }
+    const text = plainText(body)
+    for (const [slug, name] of Object.entries(ctx.tutorNames ?? {})) {
+      const clean = name.trim()
+      if (ok.has(slug) || flagged.has(slug) || clean.split(/\s+/).length < 2) continue
+      if (new RegExp(`(^|[^A-Za-z])${escapeRe(clean)}([^A-Za-z]|$)`, 'i').test(text)) {
+        add(
+          `“${clean}” is named, but this tutor does not teach this post's subject and level. Name only a tutor whose profile matches the post, or name no tutor.`,
+          headingForText(body, clean),
+          { kind: 'tutor_mismatch', match: clean },
+        )
+      }
+    }
+  }
+
+  // A landing-page link must be about this post's subject, level or city.
+  if (ctx.relatedLandingPaths) {
+    const related = new Set(ctx.relatedLandingPaths.map(normHref))
+    const live = new Set(ctx.landingPaths.map(normHref))
+    for (const href of internalLinksIn(body)) {
+      const h = normHref(href)
+      if (!LANDING_HREF_RE.test(h) || !live.has(h) || related.has(h)) continue
+      const instead = ctx.relatedLandingPaths[0] ?? (ctx.cityJobPaths ?? [])[0] ?? '/browse/tuitions'
+      add(`${href} is not about this post's subject, level or city — link ${instead} instead.`, headingForLink(body, href), {
+        kind: 'unrelated_link',
+        match: href,
+        suggestion: instead,
+      })
+    }
+  }
   for (const n of noindexLinkViolations(body, noindex)) {
     add(`${n.href} is not in Google right now (too few listings) — link ${n.instead} instead.`, headingForLink(body, n.href), {
       kind: 'noindex_link',
@@ -204,7 +275,7 @@ export function collectBlogProblems(body: string, ctx: CheckerContext): BlogProb
 
   for (const v of linkRuleViolations(body, {
     hasPublishedPosts: ctx.publishedPostSlugs.length > 0,
-    hasTutorProfiles: tutorSlugs.length > 0,
+    hasTutorProfiles: (ctx.matchingTutorSlugs ?? tutorSlugs).length > 0,
     hasLandingPages: ctx.landingPaths.length > 0 || (ctx.cityJobPaths ?? []).length > 0,
   })) {
     add(v.replace(/\s+/g, ' ').trim(), null, { kind: 'links' })

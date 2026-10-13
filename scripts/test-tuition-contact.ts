@@ -241,7 +241,7 @@ test('B. posting, editing and resuming go through the role check; signed out is 
   for (const [path, gate] of routes) assert.ok(read('app', 'api', 'admin', 'jobs', ...path).includes(gate), path.join('/'))
   // checkAdminRole refuses a Partner's write (403) and a signed-out one (401).
   const auth = read('lib', 'adminAuth.ts')
-  assert.ok(auth.includes('isReadOnlyRole(actor.adminRole) && !opts.self'))
+  assert.ok(auth.includes('!roleMayWrite(actor.adminRole, allowed)) && !opts.self'))
   assert.ok(auth.includes("status: 401, error: 'Admin access required.'"))
   // And the screens show the Partner no button.
   for (const f of [['app', 'admin', 'jobs', 'paused', 'PausedClient.tsx'], ['app', 'admin', 'jobs', 'applicants', 'ApplicantsClient.tsx']]) {

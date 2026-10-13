@@ -16,7 +16,7 @@ export const runtime = 'nodejs'
 const Body = z.object({ tutorId: z.string().min(1) })
 
 export async function POST(request: Request) {
-  const gate = await checkAdminRole('admin') // roleSatisfies admits owner too
+  const gate = await checkAdminRole('admin', 'partner') // owner too; the Partner edits tutors
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
 
   const parsed = await parseBody(request, Body)

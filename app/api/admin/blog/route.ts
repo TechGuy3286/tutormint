@@ -374,7 +374,13 @@ export async function POST(request: Request) {
   async function publishProblems(): Promise<string[]> {
     // The live facts, noindex pages and city pages too (owner, 7 Oct 2026), and
     // the post's audience (the CTA link) and SEO fields (length, tagline, facts).
-    const live = await liveCheckerData(post!.slug as string)
+    // …and what is RELATED to this post (owner, 13 Oct 2026): a named tutor or
+    // a landing-page link that does not match its subject, level and city.
+    const live = await liveCheckerData(post!.slug as string, {
+      city: (post!.city as string | null) ?? null,
+      subject: (post!.subject as string | null) ?? null,
+      title: (post!.title as string | null) ?? null,
+    })
     const bodyProblems = collectBlogProblems(gateInput.body, {
       ...live.ctx,
       audience: ((post!.audience as string) ?? 'both') as 'parents' | 'tutors' | 'both',

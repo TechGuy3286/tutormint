@@ -56,6 +56,8 @@ function checklistRules(brief: BlogBrief): string {
     '- Link text must describe the page ("open Grade 3 Mathematics tuitions in Karachi", "tuition jobs in Karachi") — never "click here", "this page", "read more" or "a related guide".',
     '- Never write a price, a fee amount or any Rs/PKR figure.',
     '- Never invent fees, statistics, counts or percentages.',
+    '- No superlative or unprovable claim about TutorMint (never "largest", "best", "No.1", "most trusted", "leading").',
+    '- Name a tutor only when the TUTORS rule below lists one; a landing-page link must be about this post\'s subject, level or city.',
     `- The closing call to action is a short paragraph with a Markdown link to ${ctaPathFor(brief.audience)} (link text like "${ctaLinkTextFor(brief.audience)}").`,
     '- Plain English (or plain Roman Urdu when asked), in the audience voice.',
   ].join('\n')
@@ -108,6 +110,24 @@ export type { BlogBrief, BlogDraft } from './blogBrief'
 /** The model, from the one place it is defined. Reported to the audit log. */
 export const BLOG_MODEL = MODEL
 
+// What TutorMint may say about itself (owner, 13 Oct 2026): no superlative, no
+// claim that cannot be proved. The checker enforces it (lib/brandClaims).
+const NO_SUPERLATIVE_RULE =
+  'Never make a superlative or unprovable claim about TutorMint: it is never "the largest", "the biggest", "the best", "No.1", "#1", "the most trusted", "the leading" or "top-rated", and it never guarantees a result. Say only what the TutorMint facts above state.'
+
+/** Which tutors a post may name (owner, 13 Oct 2026). */
+function tutorRule(brief: BlogBrief): string {
+  const named = brief.namedTutors ?? []
+  if (named.length === 0) {
+    return 'TUTORS: name NO tutor in this post and link no tutor profile — no listed tutor matches this post\'s subject and level. Never invent a tutor, a name or a profile.'
+  }
+  return `TUTORS: you may name or link ONLY these tutors, who teach this post's subject at its level: ${named.map((t) => `${t.name} (/tutor/${t.slug})`).join('; ')}. Name no other tutor, and never invent one. Naming a tutor is optional.`
+}
+
+/** Links must be about the post's own subject, level and city. */
+const RELATED_LINK_RULE =
+  'Every landing-page link must be about THIS post\'s subject, level or city — the list below already contains only such pages. Never link a page about a different subject or a different city.'
+
 // The banned marketing words (owner PR14 §4.5) — the model must never produce
 // them, in a full draft, an outline or a section.
 const BANNED_WORD_RULE =
@@ -157,8 +177,11 @@ function brandBrief(brief: BlogBrief): string {
     links,
     publishedPostsBlock(brief),
     REQUIRED_LINKS_RULE,
+    RELATED_LINK_RULE,
+    tutorRule(brief),
     OUTCOME_RULE,
     figureRule,
+    NO_SUPERLATIVE_RULE,
     BANNED_WORD_RULE,
     NO_META_RULE,
     brief.language === 'ur'
@@ -231,6 +254,8 @@ function sectionSystem(brief: BlogBrief, sections: string[], index: number, ters
         : 'Do NOT add a call to action.',
       OUTCOME_RULE,
       figureRuleFor(brief),
+      tutorRule(brief),
+      NO_SUPERLATIVE_RULE,
       NO_META_RULE,
       brief.language === 'ur' ? 'Write in Roman Urdu (Latin script).' : 'Write in clear English.',
       'Output the Markdown for THIS section only — no JSON, no preamble, no closing note.',
@@ -264,8 +289,11 @@ function sectionSystemFull(brief: BlogBrief, sections: string[], index: number):
     links,
     publishedPostsBlock(brief),
     last ? REQUIRED_LINKS_RULE : '',
+    RELATED_LINK_RULE,
+    tutorRule(brief),
     OUTCOME_RULE,
     figureRuleFor(brief),
+    NO_SUPERLATIVE_RULE,
     BANNED_WORD_RULE,
     NO_META_RULE,
     brief.language === 'ur' ? 'Write in Roman Urdu (Latin script).' : 'Write in clear English.',
@@ -514,9 +542,13 @@ function fixSystem(brief: BlogBrief): string {
     'Internal links you may use (exact relative paths only; invent no others):',
     links,
     publishedPostsBlock(brief),
+    RELATED_LINK_RULE,
+    tutorRule(brief),
     OUTCOME_RULE,
     figureRuleFor(brief),
+    NO_SUPERLATIVE_RULE,
     BANNED_WORD_RULE,
+    'For a tutor who does not match the post: remove the name and the link, and reword the sentence so it names no tutor. For a landing-page link that is not about the post: use the page the problem names instead.',
     'You FIX specific problems in a TutorMint blog post. For each numbered problem return ONE edit:',
     '- "before": the exact passage copied character-for-character from the post (one sentence, one paragraph or one link — as short as fixes the problem, including any Markdown in it);',
     '- "after": its rewrite. It fixes ONLY that problem, stays true to the facts, keeps the voice, and keeps the Markdown links that were in it unless the problem is about a link.',

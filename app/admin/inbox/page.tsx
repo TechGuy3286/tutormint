@@ -1,4 +1,4 @@
-import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   loadInboxThreads,
@@ -62,7 +62,7 @@ export default async function AdminInboxPage({
       selectedName={selectedName}
       selectedHasMobile={selectedHasMobile}
       conversation={conversation}
-      canEditTemplates={roleSatisfies(actor.adminRole, ['admin'])}
+      canEditTemplates={roleMayWrite(actor.adminRole, ['admin'])}
       suggestedTemplateKey={threads.find((t) => t.memberId === selectedId)?.tag?.templateKey ?? ''}
     />
   )

@@ -1,7 +1,6 @@
 import 'server-only'
-import { pageAll } from '@/lib/pageAll'
 import { liveLandingPages } from '@/lib/landing'
-import { createPublicClient } from '@/lib/supabase/public'
+import { indexableTutorsForPosts } from '@/lib/blogRelevance'
 import type { EditorPost } from '@/components/admin/blog/PostEditor'
 import type { LandingOption, PostAudience, PostLanguage, PostStatus } from '@/lib/blog'
 
@@ -23,11 +22,20 @@ export async function landingOptionsForEditor(): Promise<LandingOption[]> {
       subject: p.subjectName,
       kind: p.kind,
       count: p.count,
+      level: p.levelName ?? null,
+      subjectOnly: p.subjectOnly ?? null,
     }))
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
 }
 
-export type TutorProfileOption = { slug: string; name: string }
+export type TutorProfileOption = {
+  slug: string
+  name: string
+  /** The tutor's city and what they teach — a post may name a tutor only when
+   *  these match its subject, level and city (lib/blogRelevanceCore). */
+  city?: string | null
+  subjects?: { level?: string | null; subject?: string | null }[]
+}
 
 /**
  * The tutor profiles a post may link (owner, 6 Oct 2026): ONLY indexable ones —
@@ -37,14 +45,9 @@ export type TutorProfileOption = { slug: string; name: string }
  * anon key may read.
  */
 export async function tutorProfileOptionsForEditor(): Promise<TutorProfileOption[]> {
-  const db = createPublicClient()
-  const rows = await pageAll((from, to) => db.rpc('listed_tutor_slugs').order('slug').range(from, to))
-  const slugs = ((rows ?? []) as { slug: string }[]).map((r) => r.slug).filter(Boolean)
-  if (slugs.length === 0) return []
-  const { data: names } = await db.from('tutor_directory').select('slug, full_name').in('slug', slugs)
-  const nameBySlug = new Map((names ?? []).map((r) => [r.slug as string, (r.full_name as string) ?? '']))
-  return slugs
-    .map((slug) => ({ slug, name: nameBySlug.get(slug) || slug }))
+  const tutors = await indexableTutorsForPosts().catch(() => [])
+  return tutors
+    .map((t) => ({ slug: t.slug, name: t.name, city: t.city ?? null, subjects: t.subjects }))
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 

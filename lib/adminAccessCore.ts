@@ -13,16 +13,19 @@
 //                   activity filtered to ONLY their own actions, plus their own
 //                   Two-factor page and sign out. Everything else is refused on
 //                   the server, not just hidden.
-//   partner         FULL MANAGEMENT (owner, 13 Oct 2026; view-only from 8 Oct):
-//                   everything the owner can do — approvals, tuitions, payments,
-//                   Finance, Plans, Payment gateways, Team, Settings, Blog,
-//                   Audit — EXCEPT anything that touches the Owner account or
-//                   ownership (ownerProtection / staffChangeProblem below, and
-//                   lib/ownerGuard on the server). Two-factor is always
-//                   required of a Partner.
+//   partner         EDITS TUTORS, PARENTS AND TUITIONS; EVERYTHING ELSE VIEW
+//                   ONLY (owner, 13 Oct 2026, later the same day — this replaces
+//                   the "full management" of migration 165). A Partner may OPEN
+//                   every screen (roleSatisfies admits the role everywhere, so
+//                   pages, the menu and GET routes are unchanged), but may only
+//                   WRITE where the screen's list names 'partner'
+//                   (roleMayWrite). checkAdminRole refuses any other write with
+//                   403, whatever the route. Never the Owner account
+//                   (ownerProtection / staffChangeProblem below, lib/ownerGuard).
+//                   Two-factor is always required of a Partner.
 //
 // 'owner' satisfies every check, so callers list the OTHER roles that qualify
-// and never have to remember to add owner. 'partner' satisfies every check too.
+// and never have to remember to add owner.
 
 export type AdminRole = 'owner' | 'admin' | 'operations' | 'tuitions_staff' | 'partner'
 
@@ -31,9 +34,40 @@ export function roleSatisfies(actorRole: AdminRole, allowed: AdminRole[]): boole
 }
 
 /**
- * A role that may change nothing. No role is view-only today (owner, 13 Oct
- * 2026 — the Partner became full management); the check and the screens that
- * read it stay, so a future view-only role is one line here.
+ * May this role CHANGE things on a screen whose access list is `allowed`?
+ * Everyone except the Partner: the same answer as roleSatisfies. The Partner:
+ * only when the list names 'partner' — opening a screen and changing it are two
+ * different questions for that role (owner, 13 Oct 2026).
+ */
+export function roleMayWrite(actorRole: AdminRole, allowed: AdminRole[]): boolean {
+  if (actorRole === 'partner') return allowed.includes('partner')
+  return roleSatisfies(actorRole, allowed)
+}
+
+/** The words a Partner sees when a write is refused. */
+export const PARTNER_VIEW_ONLY = 'View only. Your account cannot change this.'
+
+/**
+ * The admin pages a Partner may CHANGE things on — presentation only (which
+ * screens show their buttons). The control is roleMayWrite on the server.
+ * Tutors, parents, People (and its outreach lists), Abandoned signups, the
+ * tuition board and everything under it, Reports, Flagged messages, the Team
+ * inbox, and the Overview work lists (not Unmet searches).
+ */
+const PARTNER_EDIT_PREFIXES = ['/admin/tutors', '/admin/parents', '/admin/users', '/admin/signups', '/admin/orphans', '/admin/jobs', '/admin/reports', '/admin/flags', '/admin/inbox', '/admin/overview', '/admin/security']
+const PARTNER_VIEW_PREFIXES = ['/admin/overview/todo-unmet']
+
+export function partnerEditsPath(pathname: string | null | undefined): boolean {
+  const p = (pathname ?? '').replace(/\/+$/, '') || '/admin'
+  const under = (prefix: string) => p === prefix || p.startsWith(prefix + '/')
+  if (PARTNER_VIEW_PREFIXES.some(under)) return false
+  return PARTNER_EDIT_PREFIXES.some(under)
+}
+
+/**
+ * A role that may change nothing ANYWHERE. No role is like that today: the
+ * Partner changes some areas and views the rest (roleMayWrite). Kept so a
+ * future fully view-only role is one line here.
  */
 export function isReadOnlyRole(role: AdminRole | null | undefined): boolean {
   void role
@@ -53,7 +87,7 @@ export function alwaysNeedsTwoFactor(role: AdminRole | null | undefined): boolea
 
 export const OWNER_PROTECTED = 'Only the Owner can change the Owner account.'
 export const OWNER_ONLY_OWNERSHIP = 'Only the Owner can make someone Owner or transfer ownership.'
-export const PARTNER_PROTECTED = 'Only the Owner can change or remove a Partner.'
+export const PARTNER_PROTECTED = 'Only the account owner can change or remove a Project Manager.'
 
 /**
  * May this actor change the TARGET account at all — edit it, pause, suspend,
@@ -92,10 +126,18 @@ export function seesRealRoles(viewer: AdminRole | null | undefined): boolean {
   return viewer === 'owner' || viewer === 'partner'
 }
 
+/** What the Owner and the Partner are both called, everywhere a role is shown
+ *  (owner, 13 Oct 2026). A label only: the internal role names, the rights and
+ *  Owner protection do not change. */
+export const PROJECT_MANAGER = 'Project Manager'
+
+/** The Partner's line in the Team role dropdown. */
+export const PARTNER_ROLE_OPTION = 'Project Manager — edits tutors, parents and tuitions; everything else view only; two-factor required'
+
 /** The real role, in words — for the owner and the Partner (Team page). */
 export const ROLE_LABEL: Record<AdminRole, string> = {
-  owner: 'Owner',
-  partner: 'Partner',
+  owner: PROJECT_MANAGER,
+  partner: PROJECT_MANAGER,
   admin: 'Admin',
   operations: 'Operations',
   tuitions_staff: 'Tuitions staff',
@@ -103,15 +145,14 @@ export const ROLE_LABEL: Record<AdminRole, string> = {
 
 /**
  * The badge a staff member wears (header, Overview, People pages). Owner and
- * Partner show as themselves; Admin, Operations and Tuitions staff all show as
- * "Admin". The owner and the Partner see the real role (pass their role as
- * `viewer`); rights never depend on this word.
+ * Partner both show as "Project Manager"; Admin, Operations and Tuitions staff
+ * all show as "Admin". The owner and the Partner see the real role of other
+ * staff (pass their role as `viewer`); rights never depend on this word.
  */
 export function roleBadge(role: string | null | undefined, viewer?: AdminRole | null): string {
   if (!role) return ''
   if (seesRealRoles(viewer ?? null)) return ROLE_LABEL[role as AdminRole] ?? role
-  if (role === 'owner') return 'Owner'
-  if (role === 'partner') return 'Partner'
+  if (role === 'owner' || role === 'partner') return PROJECT_MANAGER
   return 'Admin'
 }
 
@@ -142,8 +183,8 @@ export const SCREEN_ACCESS = {
   // keeps it out of that role's nav and redirects it away from /admin.
   overview: ['admin', 'operations'] as AdminRole[],
   // Verifying tutors and parents — operations' core work.
-  tutors: ['admin', 'operations'] as AdminRole[],
-  parents: ['admin', 'operations'] as AdminRole[],
+  tutors: ['admin', 'operations', 'partner'] as AdminRole[],
+  parents: ['admin', 'operations', 'partner'] as AdminRole[],
   // OWNER AND PARTNER AREAS (owner, 8 Oct 2026, item 3; Partner full rights
   // from 13 Oct): `[]` = the owner and the Partner (roleSatisfies admits both),
   // everyone else gets 403 and no menu item. Finance, the Overview revenue figure, payment amounts and
@@ -167,8 +208,8 @@ export const SCREEN_ACCESS = {
   // (owner, 6 Oct 2026): owner only, like that screen. `[]` = owner only.
   reconciliation: [] as AdminRole[],
   // The Duplicates view and its one-tap merge (owner, 6 Oct 2026).
-  duplicates: ['admin', 'operations'] as AdminRole[],
-  duplicatesMerge: ['admin'] as AdminRole[],
+  duplicates: ['admin', 'operations', 'partner'] as AdminRole[],
+  duplicatesMerge: ['admin', 'partner'] as AdminRole[],
   // Opening checkout to ALL members is an owner decision. `[]` = owner only.
   paymentsSwitches: [] as AdminRole[],
   // Admin → Settings → Payment gateways (owner, 6 Oct 2026, item 19): owner
@@ -182,23 +223,23 @@ export const SCREEN_ACCESS = {
   secondRole: ['admin'] as AdminRole[],
   // Staff management is the ONE thing an Admin does not get. `[]` = owner only.
   team: [] as AdminRole[],
-  reports: ['admin', 'operations'] as AdminRole[],
-  inbox: ['admin', 'operations'] as AdminRole[],
+  reports: ['admin', 'operations', 'partner'] as AdminRole[],
+  inbox: ['admin', 'operations', 'partner'] as AdminRole[],
   // The tuition board. Operations and the restricted tuitions_staff work it
   // day-to-day. MUTATE is close / pause / resume / unfeature — nothing is
   // deleted (PR49 §4), so it is safe for tuitions_staff too (the role's whole
   // job is managing tuitions, which the owner's spec grants close/reopen).
-  jobs: ['admin', 'operations', 'tuitions_staff'] as AdminRole[],
-  jobsMutate: ['admin', 'tuitions_staff'] as AdminRole[],
-  jobsPost: ['admin', 'operations', 'tuitions_staff'] as AdminRole[],
+  jobs: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
+  jobsMutate: ['admin', 'tuitions_staff', 'partner'] as AdminRole[],
+  jobsPost: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
   // Marketplace → Paused tuitions (owner, 8 Oct 2026): every role that can post
   // tuitions sees the auto-paused list and may Resume (one or many).
-  pausedTuitions: ['admin', 'operations', 'tuitions_staff'] as AdminRole[],
+  pausedTuitions: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
   // Marketplace → Applicants to forward (owner, 10 Oct 2026): tell a tuition's
   // parent which paid tutors applied. Owner, admin, operations and tuitions
   // staff act; the Partner views (refused on every write by checkAdminRole).
-  applicantForwards: ['admin', 'operations', 'tuitions_staff'] as AdminRole[],
-  users: ['admin', 'operations'] as AdminRole[],
+  applicantForwards: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
+  users: ['admin', 'operations', 'partner'] as AdminRole[],
   // Staff performance. Management view (admin/owner), plus tuitions_staff for
   // ITS OWN activity only — the page and detail route force the id to the actor
   // for this role, so it can never read another staff member's.
@@ -207,10 +248,10 @@ export const SCREEN_ACCESS = {
   // WhatsApp new tutors who have not paid) and Featured WhatsApp (send Featured
   // tutors their new matches). Owner, admin, Operations AND Tuitions staff — the
   // owner named all four. These are the only People screens tuitions_staff opens.
-  unpaidSignups: ['admin', 'operations', 'tuitions_staff'] as AdminRole[],
-  featuredWhatsapp: ['admin', 'operations', 'tuitions_staff'] as AdminRole[],
-  orphans: ['admin', 'operations'] as AdminRole[],
-  signups: ['admin', 'operations'] as AdminRole[],
+  unpaidSignups: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
+  featuredWhatsapp: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
+  orphans: ['admin', 'operations', 'partner'] as AdminRole[],
+  signups: ['admin', 'operations', 'partner'] as AdminRole[],
   usersExport: ['admin'] as AdminRole[],
   // The audit log is owner-only (owner, 8 Oct 2026, item 3).
   audit: [] as AdminRole[],
@@ -219,17 +260,17 @@ export const SCREEN_ACCESS = {
   // hiring post, mark done. The roles that could already open the list; the
   // Partner views and changes nothing.
   unmetSearches: ['admin', 'operations'] as AdminRole[],
-  videoVisibility: ['admin'] as AdminRole[],
-  tutorSlug: ['admin'] as AdminRole[],
-  tutorEdit: ['admin', 'operations'] as AdminRole[],
+  videoVisibility: ['admin', 'partner'] as AdminRole[],
+  tutorSlug: ['admin', 'partner'] as AdminRole[],
+  tutorEdit: ['admin', 'operations', 'partner'] as AdminRole[],
   // Unlock an approved, locked CNIC / selfie for ONE re-upload (owner, 9 Oct
   // 2026). Owner, admin and operations; a Partner is refused by checkAdminRole.
-  documentUnlock: ['admin', 'operations'] as AdminRole[],
+  documentUnlock: ['admin', 'operations', 'partner'] as AdminRole[],
   // Save a document's display rotation, and read a CNIC number from the photo
   // (owner, 10 Oct 2026). Owner, admin and operations; a Partner is refused by
   // checkAdminRole (both are POSTs).
-  documentRotate: ['admin', 'operations'] as AdminRole[],
-  cnicRead: ['admin', 'operations'] as AdminRole[],
+  documentRotate: ['admin', 'operations', 'partner'] as AdminRole[],
+  cnicRead: ['admin', 'operations', 'partner'] as AdminRole[],
   ads: ['admin', 'operations'] as AdminRole[],
   social: ['admin', 'operations'] as AdminRole[],
   import: ['admin', 'operations'] as AdminRole[],
@@ -245,4 +286,12 @@ export const SCREEN_ACCESS = {
   blogApprove: ['admin'] as AdminRole[],
   blogQueue: ['admin', 'operations'] as AdminRole[],
   blogGenerate: ['admin', 'operations'] as AdminRole[],
+}
+
+/** A stored role (an Audit row's actor_role, a staff row) in the words a screen
+ *  shows: the Owner and the Partner both read "Project Manager"; anything that
+ *  is not a staff role ("system", "member") is shown as stored. */
+export function roleWord(raw: string | null | undefined): string {
+  if (!raw) return '—'
+  return ROLE_LABEL[raw as AdminRole] ?? raw
 }

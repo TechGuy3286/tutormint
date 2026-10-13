@@ -1,4 +1,4 @@
-import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
 import { recentRepeats } from '@/lib/duplicates'
 import DuplicatesClient from './DuplicatesClient'
 
@@ -22,7 +22,7 @@ export default async function DuplicatesPage({ searchParams }: { searchParams: P
     <DuplicatesClient
       pairs={pairs}
       days={days}
-      canMerge={roleSatisfies(actor.adminRole, SCREEN_ACCESS.duplicatesMerge)}
+      canMerge={roleMayWrite(actor.adminRole, SCREEN_ACCESS.duplicatesMerge)}
     />
   )
 }

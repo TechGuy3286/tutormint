@@ -45,7 +45,7 @@ export default async function PasswordPage({
     ? 'Welcome to the TutorMint team'
     : 'Choose your own password'
   const subtext = isStaffInvite
-    ? `Set a password to finish setting up your ${(profile?.admin_role as string) ?? 'staff'} account. Once you do, you go straight to the admin panel.`
+    ? `Set a password to finish setting up your ${['owner', 'partner'].includes((profile?.admin_role as string) ?? '') ? 'Project Manager' : ((profile?.admin_role as string) ?? 'staff').replace('_', ' ')} account. Once you do, you go straight to the admin panel.`
     : 'You signed in with a temporary password that somebody else generated. Replace it now — it stops working once you do.'
 
   // An imported tutor goes on to claim their profile; anyone else (staff) goes

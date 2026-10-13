@@ -25,7 +25,7 @@ import { alertBody, changedFields, maskAccount, pakistanTime, shouldAlertOwner }
 const NON_OWNERS: AdminRole[] = ['partner', 'admin', 'operations', 'tuitions_staff']
 const read = (...p: string[]) => readFileSync(path.join(...p), 'utf8')
 
-test('a Partner has full management: every screen, and no view-only refusal', () => {
+test('a Partner may open every screen; two-factor is always required', () => {
   for (const [key, roles] of Object.entries(SCREEN_ACCESS)) assert.equal(roleSatisfies('partner', roles as AdminRole[]), true, key)
   assert.equal(isReadOnlyRole('partner'), false)
   // Two-factor is always required of a Partner, and only of a Partner.

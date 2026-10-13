@@ -5,13 +5,17 @@ import JobCard from '@/components/JobCard'
 import { applyBlocksFor, type ApplyBlockMap } from '@/lib/applyBlockServer'
 import { getSessionUser } from '@/lib/auth'
 import { getEntitlements } from '@/lib/entitlements'
-import { browseJobs, NO_JOB_FILTERS } from '@/lib/jobFeed'
+import { browseJobs, NO_JOB_FILTERS, type JobFilters } from '@/lib/jobFeed'
+import { mastersForTopic } from '@/lib/blogRelevance'
+import { postTopic } from '@/lib/blogRelevanceCore'
 
 // Live open tuitions at the end of every blog post (owner, 5 Oct 2026): up to
-// three OPEN tuitions matching the post's city and/or subject, then "See all
-// open tuitions in <city>" into the filtered board. With no match, the three
-// newest open tuitions — the block is never empty (and never rendered empty: a
-// board with zero open tuitions renders nothing at all rather than a hole).
+// three OPEN tuitions, then "See all open tuitions in <city>" into the filtered
+// board. From 13 Oct 2026 the cards PREFER the post's own topic, by the one
+// relevance rule (lib/blogRelevanceCore): subject + level + city, then subject
+// + city, then level + city, then the city, then the subject anywhere. With no
+// match, the three newest open tuitions — the block is never empty (and never
+// rendered empty: a board with zero open tuitions renders nothing at all).
 //
 // Apply uses the existing gated flow on the card: a guest gets the sign-in
 // modal, a tutor gets the real button with the shared "why inactive" line, a
@@ -19,25 +23,43 @@ import { browseJobs, NO_JOB_FILTERS } from '@/lib/jobFeed'
 
 const LIMIT = 3
 
-async function pick(city: string | null, subject: string | null) {
-  const attempts: { city: string | null; q: string | null }[] = []
-  if (city && subject) attempts.push({ city, q: subject })
-  if (city) attempts.push({ city, q: null })
-  if (subject) attempts.push({ city: null, q: subject })
-  attempts.push({ city: null, q: null })
+async function pick(city: string | null, subject: string | null, title: string | null) {
+  const topic = postTopic({ city, subject, title })
+  const m = await mastersForTopic(topic).catch(() => ({ both: [] as number[], subject: [] as number[], levelNames: [] as string[] }))
+  const attempts: Partial<JobFilters>[] = []
+  if (city && m.both.length > 0) attempts.push({ city, masterIds: m.both })
+  if (city && m.subject.length > 0) attempts.push({ city, masterIds: m.subject })
+  if (city && m.levelNames.length > 0) attempts.push({ city, levels: m.levelNames })
+  if (city) attempts.push({ city })
+  if (m.both.length > 0) attempts.push({ masterIds: m.both })
+  if (m.subject.length > 0) attempts.push({ masterIds: m.subject })
   for (const a of attempts) {
     try {
-      const { jobs } = await browseJobs({ ...NO_JOB_FILTERS, city: a.city, q: a.q }, LIMIT)
-      if (jobs.length > 0) return { jobs, matched: a.city !== null || a.q !== null }
+      const { jobs } = await browseJobs({ ...NO_JOB_FILTERS, ...a }, LIMIT)
+      if (jobs.length > 0) return { jobs, matched: true }
     } catch {
       /* try the next, broader scope */
     }
   }
-  return { jobs: [], matched: false }
+  // The fallback that was always here: the newest open tuitions.
+  try {
+    const { jobs } = await browseJobs({ ...NO_JOB_FILTERS }, LIMIT)
+    return { jobs, matched: false }
+  } catch {
+    return { jobs: [], matched: false }
+  }
 }
 
-export default async function OpenTuitionsBlock({ city, subject }: { city: string | null; subject: string | null }) {
-  const [{ jobs, matched }, session] = await Promise.all([pick(city, subject), getSessionUser()])
+export default async function OpenTuitionsBlock({
+  city,
+  subject,
+  title = null,
+}: {
+  city: string | null
+  subject: string | null
+  title?: string | null
+}) {
+  const [{ jobs, matched }, session] = await Promise.all([pick(city, subject, title), getSessionUser()])
   if (jobs.length === 0) return null
 
   const role = session?.profile?.role ?? null
@@ -52,6 +74,7 @@ export default async function OpenTuitionsBlock({ city, subject }: { city: strin
     viewerCity = session.profile?.city ?? null
   }
 
+  // A subject match with no city on the post is "Open tuitions", not "…in <city>".
   const where = city ? ` in ${city}` : ''
   const allHref = city ? `/browse/tuitions?city=${encodeURIComponent(city)}` : '/browse/tuitions'
 

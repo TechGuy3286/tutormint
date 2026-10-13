@@ -5,7 +5,7 @@ import { ExternalLink, Flag, MapPin, Wallet, Clock, GraduationCap, Phone, Mail, 
 import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
 import TimeAgo from '@/components/TimeAgo'
-import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { listedTutorIds } from '@/lib/directoryStatus'
 import { badgesForPlan } from '@/lib/entitlements'
@@ -125,11 +125,11 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
     !!parent?.cnic_verified_at,
   )
 
-  const canAct = roleSatisfies(actor.adminRole, SCREEN_ACCESS.jobsMutate)
+  const canAct = roleMayWrite(actor.adminRole, SCREEN_ACCESS.jobsMutate)
   // Team-posted tuitions are editable (owner PR9 §2.1) by the roles that post
   // them; a parent's own job is not (§2.3).
   const isTeamPosted = !!parent?.is_team_account
-  const canEditTeam = isTeamPosted && roleSatisfies(actor.adminRole, SCREEN_ACCESS.jobsPost)
+  const canEditTeam = isTeamPosted && roleMayWrite(actor.adminRole, SCREEN_ACCESS.jobsPost)
   const hired = (apps ?? []).find((a) => a.tutor_id === job.hired_tutor_id)
 
   // Seeded-tuition contact (job_contacts): the real parent behind an

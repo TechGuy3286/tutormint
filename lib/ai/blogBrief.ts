@@ -48,6 +48,15 @@ export type BlogBrief = {
   publishedPosts?: { title: string; slug: string }[]
   /** The LIVE facts sheet (lib/ai/factsSheetServer), as plain text (owner, 7 Oct 2026). */
   factsText?: string
+  /** The post's own city and subject fields — what its links must be about. */
+  city?: string | null
+  subject?: string | null
+  /**
+   * The ONLY tutors the post may name or link (owner, 13 Oct 2026): indexable
+   * profiles whose subjects and levels match the post (and its city). Empty or
+   * absent → the post names no tutor.
+   */
+  namedTutors?: { slug: string; name: string }[]
 }
 
 export type BlogDraft = {

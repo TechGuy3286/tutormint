@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { checkAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { checkAdminRole, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
 import { recordFollowUp, undoFollowUp } from '@/lib/followUps'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { parseBody, z, uuid } from '@/lib/validate'
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
       ? await admin.from('member_follow_ups').select('source').eq('id', b.id).maybeSingle()
       : { data: null }
     if (!row) return NextResponse.json({ error: 'That follow-up was not found.' }, { status: 404 })
-    if (!roleSatisfies(gate.actor.adminRole, screenFor(row.source as string))) {
+    if (!roleMayWrite(gate.actor.adminRole, screenFor(row.source as string))) {
       return NextResponse.json({ error: 'You do not have access to that list.' }, { status: 403 })
     }
     const res = await undoFollowUp(b.id, gate.actor)
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true })
   }
 
-  if (!roleSatisfies(gate.actor.adminRole, screenFor(b.source))) {
+  if (!roleMayWrite(gate.actor.adminRole, screenFor(b.source))) {
     return NextResponse.json({ error: 'You do not have access to that list.' }, { status: 403 })
   }
   const res = await recordFollowUp({

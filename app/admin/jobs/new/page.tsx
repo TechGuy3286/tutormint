@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { requireAdminRole, isReadOnlyRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, roleMayWrite, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { ViewOnlyNotice } from '@/components/admin/ReadOnly'
 import { teamParentId } from '@/lib/teamAccount'
 import AdminJobForm from './AdminJobForm'
@@ -28,7 +28,7 @@ export default async function AdminPostJobPage() {
         </p>
       </header>
 
-      {isReadOnlyRole(actor.adminRole) ? (
+      {!roleMayWrite(actor.adminRole, SCREEN_ACCESS.jobsPost) ? (
         <ViewOnlyNotice what="Post a tuition" />
       ) : teamId ? (
         <AdminJobForm draftKey={`post-tuition:admin:${actor.id}`} />

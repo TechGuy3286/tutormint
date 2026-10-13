@@ -37,6 +37,7 @@ import { selfCorrect, selfCheckLabel, type SelfCheckRecord } from '@/lib/ai/self
 import { applyPassageEdits, type AppliedEdit } from '@/lib/ai/passageEdits'
 import { buildPlatformFacts, factsSheetText, type PlatformFacts } from '@/lib/ai/factsSheet'
 import { coverImagePrompt } from '@/lib/covers/prompt'
+import { matchingTutorSlugs, postTopic, relevantItems, type TutorForPost } from '@/lib/blogRelevanceCore'
 import { parseMarkdown } from '@/lib/markdown'
 import { slugify } from '@/lib/slugs'
 import { SITE_URL } from '@/lib/siteUrl'
@@ -86,7 +87,7 @@ export type EditorPost = {
   selfCheck: SelfCheckRecord | null
 }
 
-type TutorProfileOption = { slug: string; name: string }
+type TutorProfileOption = { slug: string; name: string; city?: string | null; subjects?: { level?: string | null; subject?: string | null }[] }
 
 const SOURCE_LABEL: Record<string, string> = {
   search_gap: 'Search demand',
@@ -289,21 +290,82 @@ export default function PostEditor({
   )
   const landingPaths = useMemo(() => landingOptions.map((o) => `/${o.path}`), [landingOptions])
   const tutorSlugs = useMemo(() => tutorProfiles.map((t) => t.slug), [tutorProfiles])
+
+  // WHAT IS RELATED TO THIS POST (owner, 13 Oct 2026) — the one rule in
+  // lib/blogRelevanceCore, from the post's own City, Subject and title. The
+  // landing pages about its subject, level or city, closest first; and the
+  // tutors who teach its subject at its level (in its city). The checker, the
+  // fixer, the Link picker and the checklist below all read these.
+  const topic = useMemo(
+    () => postTopic({ city: post.city, subject: post.subject, title: post.title }),
+    [post.city, post.subject, post.title],
+  )
+  const relatedLanding = useMemo(
+    () =>
+      relevantItems(
+        landingOptions.map((o) => ({ path: o.path, kind: o.kind, count: o.count, city: o.city, level: o.level, subject: o.subjectOnly, option: o })),
+        topic,
+        { limit: 12 },
+      ),
+    [landingOptions, topic],
+  )
+  const relatedLandingPaths = useMemo(() => relatedLanding.map((r) => `/${r.path}`), [relatedLanding])
+  const matchingTutors = useMemo(() => {
+    const ok = new Set(matchingTutorSlugs(topic, tutorProfiles.map((t) => ({ slug: t.slug, city: t.city, subjects: t.subjects ?? [] }) satisfies TutorForPost)))
+    return tutorProfiles.filter((t) => ok.has(t.slug))
+  }, [topic, tutorProfiles])
+  const matchingSlugs = useMemo(() => matchingTutors.map((t) => t.slug), [matchingTutors])
+  // A post about one city links that city's tuition-jobs page.
+  const postCityJobPaths = useMemo(() => {
+    const all = live?.cityJobPaths ?? []
+    if (!post.city.trim()) return all
+    const own = `/tuition-jobs/${post.city.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`
+    const mine = all.filter((p) => p === own)
+    return mine.length > 0 ? mine : all
+  }, [live, post.city])
   const facts = useMemo(() => live?.facts ?? buildPlatformFacts(), [live])
   const factsText = live?.factsText ?? factsSheetText(facts)
   // Everything the checker compares against, shared by every call below.
   const liveCtx = useMemo(
-    () => ({ publishedPostSlugs, landingPaths, tutorSlugs, facts, noindexLinks: live?.noindexLinks ?? {}, cityJobPaths: live?.cityJobPaths ?? [] }),
-    [publishedPostSlugs, landingPaths, tutorSlugs, facts, live],
+    () => ({
+      publishedPostSlugs,
+      landingPaths,
+      tutorSlugs,
+      facts,
+      noindexLinks: live?.noindexLinks ?? {},
+      cityJobPaths: live?.cityJobPaths ?? [],
+      relatedLandingPaths,
+      matchingTutorSlugs: matchingSlugs,
+      tutorNames: live?.tutorNames ?? {},
+    }),
+    [publishedPostSlugs, landingPaths, tutorSlugs, facts, live, relatedLandingPaths, matchingSlugs],
   )
 
-  // Related landing pages RANKED by match with this post's city and subject
-  // (owner, 6 Oct 2026) — both match first, then subject, then city; never
-  // alphabetical. Recomputed as the city/subject fields change.
-  const rankedLanding = useMemo(
-    () => rankLandingOptions(landingOptions, post.city, post.subject),
-    [landingOptions, post.city, post.subject],
-  )
+  // The "Related landing pages" checklist: the pages that match this post
+  // first (the same list the public page shows), then the rest in their old
+  // order. Recomputed as the city/subject fields change.
+  const rankedLanding = useMemo(() => {
+    const related = new Set(relatedLanding.map((r) => r.path))
+    const rest = rankLandingOptions(landingOptions, post.city, post.subject).filter((o) => !related.has(o.path))
+    return [...relatedLanding.map((r) => r.option), ...rest]
+  }, [landingOptions, relatedLanding, post.city, post.subject])
+  const relatedPathSet = useMemo(() => new Set(relatedLanding.map((r) => r.path)), [relatedLanding])
+
+  // PRE-TICK ONLY RELEVANT PAGES: a new post with nothing ticked yet gets the
+  // matching pages ticked once its city or subject is known. A post that has
+  // been saved, or whose ticks were touched, is left alone.
+  const pretickDone = useRef(false)
+  useEffect(() => {
+    if (pretickDone.current || post.id || post.related.length > 0 || relatedLanding.length === 0) return
+    pretickDone.current = true
+    setPost((p) => (p.related.length > 0 ? p : { ...p, related: relatedLanding.slice(0, 6).map((r) => r.path) }))
+  }, [post.id, post.related.length, relatedLanding])
+
+  function tickMatching() {
+    pretickDone.current = true
+    setPost((p) => ({ ...p, related: relatedLanding.slice(0, 6).map((r) => r.path) }))
+    setDirty(true)
+  }
 
   // ALL body problems at once (PR35 §4), computed live from the CURRENT body so
   // the "Before publishing" list guides the edit in progress.
@@ -489,6 +551,8 @@ export default function PostEditor({
       audience: post.audience,
       language: post.language,
       notes: post.sourceNotes,
+      city: post.city.trim() || null,
+      subject: post.subject.trim() || null,
     }
     const fail = (reason: string) => {
       setGenFailed(reason)
@@ -541,11 +605,12 @@ export default function PostEditor({
       const opts = {
         blogSlugs: publishedPostSlugs,
         audience: post.audience,
-        landingPaths,
-        tutorSlugs,
+        // Only what is related to this post may stay linked or be added.
+        landingPaths: relatedLandingPaths,
+        tutorSlugs: matchingSlugs,
         blogTitles: live?.blogTitles,
         tutorNames: live?.tutorNames,
-        cityJobPaths: live?.cityJobPaths,
+        cityJobPaths: postCityJobPaths,
         noindexLinks: live?.noindexLinks,
       }
       const assembled = sanitizeDraft(draftAssemble(parts), opts)
@@ -794,9 +859,11 @@ export default function PostEditor({
 
   const linkChoices = [
     ...PLATFORM_LINK_MAP.map((l) => ({ path: l.path, label: l.intent, text: l.text })),
-    ...rankedLanding.slice(0, 12).map((o) => ({ path: `/${o.path}`, label: `Directory: ${o.label}`, text: o.kind === 'tuitions' ? `${o.subject ?? ''} tuitions in ${o.city ?? ''}`.trim() : `${o.subject ?? ''} tutors in ${o.city ?? ''}`.trim() })),
+    // Only pages and tutors that match this post's subject, level and city.
+    ...relatedLanding.map(({ option: o }) => ({ path: `/${o.path}`, label: `Directory: ${o.label}`, text: o.kind === 'tuitions' ? `${o.subject ?? ''} tuitions in ${o.city ?? ''}`.trim() : `${o.subject ?? ''} tutors in ${o.city ?? ''}`.trim() })),
+    ...postCityJobPaths.map((p) => ({ path: p, label: `Tuition jobs: ${p.split('/').pop()}`, text: `tuition jobs in ${(p.split('/').pop() ?? '').split('-').map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w)).join(' ')}` })),
     ...publishedPosts.map((p) => ({ path: `/blog/${p.slug}`, label: `Blog: ${p.title}`, text: p.title })),
-    ...tutorProfiles.map((t) => ({ path: `/tutor/${t.slug}`, label: `Tutor profile: ${t.name}`, text: t.name })),
+    ...matchingTutors.map((t) => ({ path: `/tutor/${t.slug}`, label: `Tutor profile: ${t.name}`, text: t.name })),
   ].filter((c) => {
     const q = linkQuery.trim().toLowerCase()
     return !q || `${c.label} ${c.path}`.toLowerCase().includes(q)
@@ -1941,6 +2008,20 @@ export default function PostEditor({
                   <img src={publicBlogUrl(post.coverPath)} alt="" className="aspect-[1200/630] w-full object-cover" />
                 </div>
                 <figcaption className="text-[10px] font-semibold text-tm-green-deep">Current cover · 1200×630</figcaption>
+                {/* One tap replaces whatever cover is set (an uploaded one too)
+                    with a freshly composed cover: the title, the house artwork
+                    and the brand line worked out from today's verified-tutor
+                    count — never a claim like "largest" (owner, 13 Oct 2026). */}
+                {!readOnly && post.title.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => pickCover(coverBase)}
+                    disabled={busy}
+                    className="inline-flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-lg border border-tm-navy/30 bg-white px-3 text-[11px] font-bold text-tm-navy hover:bg-tm-tint-navy disabled:opacity-60"
+                  >
+                    <Shuffle aria-hidden size={12} /> Regenerate cover
+                  </button>
+                )}
               </figure>
             )}
 
@@ -1990,19 +2071,35 @@ export default function PostEditor({
                 enough listed tutors or open tuitions.
               </p>
             ) : (
-              <div className="max-h-40 space-y-1.5 overflow-y-auto">
-                {rankedLanding.map((o) => (
-                  <label key={o.path} className="flex items-start gap-2 text-xs text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={post.related.includes(o.path)}
-                      onChange={() => toggleRelated(o.path)}
-                      className="mt-0.5"
-                    />
-                    <span>{o.label}</span>
-                  </label>
-                ))}
-              </div>
+              <>
+                <p className="text-[11px] leading-relaxed text-gray-500">
+                  The post page shows only pages that match its subject, level and city
+                  {relatedLanding.length === 0 ? ' — none match yet, so the box is hidden.' : ' — those are listed first.'}
+                </p>
+                {!readOnly && relatedLanding.length > 0 && (
+                  <button type="button" onClick={tickMatching} className="text-[11px] font-bold text-tm-navy hover:underline">
+                    Tick the matching pages
+                  </button>
+                )}
+                <div className="max-h-40 space-y-1.5 overflow-y-auto">
+                  {rankedLanding.map((o) => (
+                    <label key={o.path} className="flex items-start gap-2 text-xs text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={post.related.includes(o.path)}
+                        onChange={() => toggleRelated(o.path)}
+                        className="mt-0.5"
+                      />
+                      <span>
+                        {o.label}
+                        {relatedPathSet.has(o.path) && (
+                          <span className="ml-1.5 rounded-full bg-tm-tint-green px-1.5 py-0.5 text-[10px] font-bold text-tm-green-deep">matches</span>
+                        )}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </>
             )}
           </div>
 

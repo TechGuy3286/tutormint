@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/errorResponse'
-import { checkAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { checkAdminRole, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unknown action.' }, { status: 400 })
   }
   // Ban from the queue is owner/manager only (support can dismiss/warn/suspend).
-  if (action === 'ban' && !roleSatisfies(actor.adminRole, ['admin'])) {
+  if (action === 'ban' && !roleMayWrite(actor.adminRole, ['admin', 'partner'])) {
     return NextResponse.json({ error: 'Only an owner or manager can ban an account.' }, { status: 403 })
   }
   if (reason.length < 5) {

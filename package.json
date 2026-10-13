@@ -135,7 +135,10 @@
     "test:missingitems": "tsx --test scripts/test-missing-items.ts",
     "test:schoolsearch": "tsx --test scripts/test-school-search.ts",
     "test:staffareas": "tsx --test scripts/test-staff-areas.ts",
-    "test:homepage": "tsx --test scripts/test-homepage.ts"
+    "test:homepage": "tsx --test scripts/test-homepage.ts",
+    "test:partnerareas": "tsx --test scripts/test-partner-areas.ts",
+    "test:blogrelevance": "tsx --test scripts/test-blog-relevance.ts",
+    "test:switchedemail": "tsx --test scripts/test-switched-email.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

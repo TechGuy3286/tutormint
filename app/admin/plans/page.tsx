@@ -1,4 +1,4 @@
-import { requireAdminRole, roleSatisfies, getAdminActor, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, getAdminActor, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
 import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { createAdminClient } from '@/lib/supabase/admin'
 import PlanGrantClient, { type PlanRow, type AccountRow } from './PlanGrantClient'
@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic'
 export default async function AdminPlansPage() {
   await requireAdminRole(...SCREEN_ACCESS.plans)
   const actor = await getAdminActor()
-  const canMutate = actor ? roleSatisfies(actor.adminRole, SCREEN_ACCESS.plansMutate) : false
+  const canMutate = actor ? roleMayWrite(actor.adminRole, SCREEN_ACCESS.plansMutate) : false
 
   const admin = createAdminClient()
   if (!admin) {

@@ -8,6 +8,9 @@ import { isClusterSlug, publicBlogUrl } from '@/lib/blog'
 import { parseBody, z } from '@/lib/validate'
 import { composeCoverResponse, composeCoverAlt } from '@/lib/covers/render'
 import type { CoverInput } from '@/lib/covers/select'
+import { CoverTextError } from '@/lib/covers/compose'
+import { coverTextProblem } from '@/lib/brandClaims'
+import { logAdminAction } from '@/lib/auditLog'
 
 // Commit ONE chosen composed cover variant (the seed the manager picked among
 // the three previews) to the public `blog` bucket, at 1200x630. A composed
@@ -53,6 +56,11 @@ export async function POST(request: Request) {
   }
   const seed = d.seed ?? 0
 
+  // THE GUARD (owner, 13 Oct 2026): a cover never says "largest", "best",
+  // "No.1", "#1" or "most trusted". The title is the cover's main text.
+  const banned = coverTextProblem(d.title)
+  if (banned) return NextResponse.json({ error: banned }, { status: 400 })
+
   const coverPath = `covers/gen-${randomUUID()}.png`
 
   try {
@@ -61,15 +69,30 @@ export async function POST(request: Request) {
     const up = await admin.storage.from('blog').upload(coverPath, bytes, { contentType: 'image/png', upsert: false })
     if (up.error) return serverError(up.error, 'admin/blog/generate-cover')
   } catch (e) {
+    if (e instanceof CoverTextError) return NextResponse.json({ error: e.message }, { status: 400 })
     console.error('[blog cover] compose/upload failed:', String(e))
     return NextResponse.json({ error: 'Could not render the cover.' }, { status: 500 })
   }
+
+  const coverAlt = composeCoverAlt(input, seed)
+  const altProblem = coverTextProblem(coverAlt)
+  if (altProblem) return NextResponse.json({ error: altProblem }, { status: 400 })
+
+  await logAdminAction({
+    actorId: gate.actor.id,
+    actorRole: gate.actor.adminRole,
+    actorEmail: gate.actor.email,
+    action: 'blog.cover_generate',
+    targetType: 'post',
+    targetId: (d.slug ?? d.title).slice(0, 120),
+    detail: { seed, coverPath },
+  })
 
   return NextResponse.json({
     success: true,
     coverPath,
     coverSquarePath: null,
-    coverAlt: composeCoverAlt(input, seed),
+    coverAlt,
     coverUrl: publicBlogUrl(coverPath),
   })
 }

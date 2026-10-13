@@ -42,17 +42,19 @@ const ROLES = [
   { code: 'admin', label: 'Admin', blurb: 'Day-to-day management; no Team, Finance, Plans or payment settings' },
   { code: 'operations', label: 'Operations', blurb: 'Posting tuitions, verifying, assisting, marketing, SEO' },
   { code: 'tuitions_staff', label: 'Tuitions staff', blurb: 'Tuitions only — the board, posting, and their own activity' },
-  { code: 'partner', label: 'Partner', blurb: 'Full access, including Finance, Plans, payment settings and Team; cannot change the Owner; two-factor required' },
+  // Shown as "Project Manager" (owner, 13 Oct 2026); the internal role is 'partner'.
+  { code: 'partner', label: 'Project Manager', blurb: 'edits tutors, parents and tuitions; everything else view only; two-factor required' },
 ] as const
 
 // The badge pill is uppercased by CSS, so a raw 'tuitions_staff' would read
 // "TUITIONS_STAFF". Short, readable labels keyed by role.
 const ROLE_BADGE: Record<string, string> = {
-  owner: 'Owner',
+  // The Owner and the Partner are both shown as "Project Manager".
+  owner: 'Project Manager',
   admin: 'Admin',
   operations: 'Operations',
   tuitions_staff: 'Tuitions',
-  partner: 'Partner',
+  partner: 'Project Manager',
 }
 
 // The invite link's lifetime — Supabase's default. Past it, the original link is
@@ -319,7 +321,7 @@ export default function TeamClient({ staff, viewerRole }: { staff: StaffRow[]; v
     <div className="space-y-5">
       <header className="space-y-1">
         <p className="text-xs text-gray-500">
-          There is exactly one owner and it cannot be changed here. Every other role can be granted,
+          One account holds the platform and cannot be changed here. Every other role can be granted,
           changed and revoked.
         </p>
       </header>
@@ -597,6 +599,10 @@ export default function TeamClient({ staff, viewerRole }: { staff: StaffRow[]; v
                 <p className="truncate text-sm font-black text-tm-navy">
                   {s.name}
                   {s.isMe && <span className="ml-2 text-[10px] font-bold text-gray-500">you</span>}
+                  {/* Only the Owner, on their own card (owner, 13 Oct 2026). */}
+                  {s.isMe && s.adminRole === 'owner' && viewerRole === 'owner' && (
+                    <span className="ml-2 text-[10px] font-semibold text-gray-500">(account owner)</span>
+                  )}
                 </p>
                 <p className="truncate text-[11px] text-gray-500">{s.email}</p>
               </div>
@@ -622,7 +628,7 @@ export default function TeamClient({ staff, viewerRole }: { staff: StaffRow[]; v
                 )}
                 <span
                   className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
-                    s.adminRole === 'owner'
+                    s.adminRole === 'owner' || s.adminRole === 'partner'
                       ? 'bg-tm-black text-white'
                       : 'bg-tm-tint-green text-tm-green-deep'
                   }`}
@@ -645,13 +651,13 @@ export default function TeamClient({ staff, viewerRole }: { staff: StaffRow[]; v
             {readOnly ? null : s.adminRole === 'owner' ? (
               <p className="flex items-start gap-2 rounded-xl bg-tm-bg p-3 text-[11px] leading-relaxed text-gray-500">
                 <ShieldAlert size={14} className="mt-px shrink-0" />
-                The owner cannot be demoted or removed, including by themselves. Transferring
-                ownership is a database operation, on purpose.
+                This account cannot be demoted or removed, including by its own holder. Transferring
+                it is a database operation, on purpose.
               </p>
             ) : s.adminRole === 'partner' && viewerRole !== 'owner' && !s.isMe ? (
               <p className="flex items-start gap-2 rounded-xl bg-tm-bg p-3 text-[11px] leading-relaxed text-gray-500">
                 <ShieldAlert size={14} className="mt-px shrink-0" />
-                Only the Owner can change or remove a Partner.
+                Only the account owner can change or remove a Project Manager.
               </p>
             ) : s.isMe ? null : (
               <>

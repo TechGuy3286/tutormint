@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { AlertTriangle, Plus } from 'lucide-react'
 
-import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
 import BlogAdminList from '@/components/admin/blog/BlogAdminList'
 import { listAdminPosts } from '@/lib/blogFeed'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -39,7 +39,7 @@ async function blogStats() {
 export default async function AdminBlogPage() {
   const actor = await requireAdminRole(...SCREEN_ACCESS.blog)
   const [{ items, nextCursor }, stats] = await Promise.all([listAdminPosts({ limit: 20 }), blogStats()])
-  const canPublish = roleSatisfies(actor.adminRole, SCREEN_ACCESS.blogPublish)
+  const canPublish = roleMayWrite(actor.adminRole, SCREEN_ACCESS.blogPublish)
 
   return (
     <div className="space-y-4">

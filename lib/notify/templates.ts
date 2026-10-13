@@ -42,6 +42,7 @@ export type TemplateId =
   | 'admin_message'
   | 'staff_invite'
   | 'confirm_email'
+  | 'switched_tutor_signin'
   | 'tuition_paused'
 
 export type RenderedEmail = {
@@ -269,6 +270,9 @@ export type TemplateInput =
   // account before clicking it. Essential — it is the only mail an unconfirmed
   // address ever receives.
   | { id: 'confirm_email'; name: string; url: string }
+  // ONE-TIME (owner, 13 Oct 2026): the email-only tutors switched that day can
+  // sign in and were never told. Plain and short — no marketing, no prices.
+  | { id: 'switched_tutor_signin'; name: string; supportWhatsapp: string }
   | { id: 'tuition_paused'; title: string }
   // STAFF-facing alerts (PR106-H1 §2). English only (no member Urdu); essential.
   // NEVER a CNIC number, phone, card detail or document image — member name,
@@ -314,7 +318,9 @@ export function render(input: TemplateInput): RenderedEmail {
             ? 'Operations team member'
             : input.role.toLowerCase() === 'tuitions_staff'
               ? 'Tuitions team member'
-              : input.role
+              : input.role.toLowerCase() === 'partner' || input.role.toLowerCase() === 'owner'
+                ? 'Project Manager'
+                : input.role
       const asRole = /^[aeiou]/i.test(roleName) ? `an ${roleName}` : `a ${roleName}`
       return build(
         `You have been invited to the TutorMint team`,
@@ -621,6 +627,21 @@ export function render(input: TemplateInput): RenderedEmail {
       )
 
     // ---------------------------------------------------------------------
+    case 'switched_tutor_signin': {
+      const name = properName(input.name)
+      return build(
+        'You can now sign in to TutorMint',
+        `${name ? name + ', you' : 'You'} can now sign in to TutorMint`,
+        [
+          'You can sign in to your TutorMint account with the email address and the password you chose when you signed up.',
+          'Your next step is to add your mobile number and verify it with the code we send you. After that, finish your profile.',
+          `Need help? Message our support team on WhatsApp: ${input.supportWhatsapp}.`,
+        ],
+        true,
+        { label: 'Sign in', href: '/login' },
+      )
+    }
+
     case 'tuition_paused':
       return build(
         'Your tuition is paused',

@@ -1,9 +1,10 @@
 import Link from 'next/link'
+import { roleWord } from '@/lib/adminAccessCore'
 import { avatarOriginalUrl } from '@/lib/avatarCrop'
 import SecondRoleCard from './SecondRoleCard'
 import { secondRoleState } from '@/lib/secondRole'
 import { notFound } from 'next/navigation'
-import { requireAdminRole, roleBadge, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, roleBadge, roleSatisfies, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { describeUtm } from '@/lib/utm'
 import { applicationStatus, jobStatus, adminActionLabel } from '@/lib/display'
@@ -184,8 +185,8 @@ export default async function AdminMemberPage({
   // only through /api/documents/[id]/preview (owner or staff, never public).
   const isParent = profile.role === 'parent' || profile.role === 'academy'
   const secondRole = await secondRoleState(id)
-  const canReviewParent = roleSatisfies(actor.adminRole, SCREEN_ACCESS.parents)
-  const canReviewTutor = roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutors)
+  const canReviewParent = roleMayWrite(actor.adminRole, SCREEN_ACCESS.parents)
+  const canReviewTutor = roleMayWrite(actor.adminRole, SCREEN_ACCESS.tutors)
   const parentDocs = isParent ? await loadParentDocs(id) : null
   let tutorDocs: {
     cnicFrontId: string | null
@@ -196,7 +197,7 @@ export default async function AdminMemberPage({
   } | null = null
   // Approved-document locks (owner, 9 Oct 2026) for whichever card renders.
   const lockInfo: AdminLockInfo | null = isTutor || isParent ? await loadAdminLockInfo(id) : null
-  const canUnlock = roleSatisfies(actor.adminRole, SCREEN_ACCESS.documentUnlock)
+  const canUnlock = roleMayWrite(actor.adminRole, SCREEN_ACCESS.documentUnlock)
   if (isTutor) {
     const { data: numRow } = await admin.from('profiles').select('cnic_number').eq('id', id).maybeSingle()
     const [{ data: idDocs }, statuses] = await Promise.all([
@@ -373,7 +374,7 @@ export default async function AdminMemberPage({
               lockInfo={lockInfo ?? undefined}
               canUnlock={canUnlock}
               cnicNumberMasked={tutorDocs.cnicNumberMasked}
-              canEditNumber={roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutorEdit)}
+              canEditNumber={roleMayWrite(actor.adminRole, SCREEN_ACCESS.tutorEdit)}
             />
           )}
         </section>
@@ -401,18 +402,18 @@ export default async function AdminMemberPage({
         name={formatName(profile.full_name as string | null)}
         suspended={!!profile.is_suspended}
         banned={!!profile.is_banned}
-        canBan={roleSatisfies(actor.adminRole, ['admin'])}
-        canUnban={roleSatisfies(actor.adminRole, [])}
+        canBan={roleMayWrite(actor.adminRole, ['admin', 'partner'])}
+        canUnban={roleMayWrite(actor.adminRole, [])}
         isSelf={id === actor.id}
         isStaff={profile.role === 'admin'}
         isOwner={profile.admin_role === 'owner'}
         isTutor={isTutor}
-        canVerifyMobile={roleSatisfies(actor.adminRole, ['admin'])}
+        canVerifyMobile={roleMayWrite(actor.adminRole, ['admin', 'partner'])}
         mobileVerified={!!profile.phone_verified_at}
         hasMobile={!!profile.phone_number}
       />
 
-      {roleSatisfies(actor.adminRole, SCREEN_ACCESS.secondRole) && profile.role !== 'admin' && (
+      {roleMayWrite(actor.adminRole, SCREEN_ACCESS.secondRole) && profile.role !== 'admin' && (
         <SecondRoleCard
           memberId={id}
           role={secondRole.canCreate ? secondRole.role : null}
@@ -523,7 +524,7 @@ export default async function AdminMemberPage({
             <Row
               key={a.id as string}
               main={adminActionLabel(a.action as string)}
-              sub={`${a.actor_email ?? 'system'} (${a.actor_role ?? '—'}) · ${formatDateTime(a.created_at as string)}`}
+              sub={`${a.actor_email ?? 'system'} (${roleWord(a.actor_role as string | null)}) · ${formatDateTime(a.created_at as string)}`}
             />
           ))}
         </Panel>
