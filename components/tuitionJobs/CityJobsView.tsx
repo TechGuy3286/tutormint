@@ -37,7 +37,8 @@ export function variantFilters(citySlug: string, city: string, variant: CityVari
     q: null,
     tutorScope: null,
     viewerGender: null,
-    area: variant?.kind === 'area' ? (variant.area ?? null) : null,
+    area: variant?.kind === 'area' && !variant.areas?.length ? (variant.area ?? null) : null,
+    areas: variant?.kind === 'area' ? (variant.areas ?? null) : null,
     genderPreference: variant?.kind === 'female' ? 'female' : null,
   }
 }
@@ -179,7 +180,7 @@ export default async function CityJobsView({
                 city: page.city,
                 ...(variant?.kind === 'online' ? { mode: ONLINE_JOB_TITLE } : {}),
                 ...(variant?.kind === 'female' ? { gender: 'female' } : {}),
-                ...(variant?.kind === 'area' && variant.area ? { area: variant.area } : {}),
+                ...(variant?.kind === 'area' ? { areaHub: variant.slug } : {}),
                 ...(pageNo > 1 ? { page: String(pageNo) } : {}),
               }}
               initialCursor={nextCursor}

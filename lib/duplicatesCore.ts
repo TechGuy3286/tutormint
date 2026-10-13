@@ -4,16 +4,20 @@
 // server-only import — shared by the post-time check, the tuition page's
 // safety net, the admin Duplicates view, the merge data-op and the tests.
 //
-// Two tuitions are REPEATS of each other when they share
-//   • the same full combination: city + area + level/grade set + subject set
-//     + gender preference + budget band, or
-//   • the same title (normalised: lower-case, collapsed spaces) — but ONLY when
-//     the area (and city) also match (owner, 6 Oct 2026, item 17). A generic
-//     title such as "Home Tutor Required | Grade 6" posted in two different
-//     areas is two different tuitions, never a repeat.
-// A pair matched only by the combination, where the titles describe DIFFERENT
-// jobs (the first "|" segment — "Coordinator Required" vs "Primary Teacher
-// Required"), is NOT merged; it is listed instead.
+// Two tuitions are REPEATS of each other ONLY when they are the same
+// requirement (owner, 13 Oct 2026 — this supersedes the 6 Oct "same title, or
+// same combination" rule, which pointed the canonical of unrelated open
+// tuitions at each other). ALL of these must hold:
+//   • same city, and same area (or both empty);
+//   • same level/grade set;
+//   • overlapping subjects (or neither has any); when both carry per-grade
+//     subjects, the same split;
+//   • same Job Type (the job title: Coordinator vs Online Tutor is never a repeat);
+//   • the same parent contact number — known on BOTH sides;
+//   • posted within 30 days of each other.
+// A different job title (Coordinator vs Online Tutor) or a different contact
+// number is never a duplicate. Gender preference and budget are not compared: a
+// repost with a changed budget is still the same requirement.
 
 export type DuplicateFacts = {
   id: string
@@ -31,6 +35,10 @@ export type DuplicateFacts = {
   /** Per-grade subjects (owner, 7 Oct 2026). When BOTH tuitions have them, the
    *  combination compares them grade by grade; otherwise the combined list. */
   gradeSubjects?: GradeSubjectIds | null
+  /** The Job Type (jobs.teaching_mode). */
+  jobType?: string | null
+  /** The parent contact number as an MSISDN (lib/tuitionContactCore), or null. */
+  contact?: string | null
 }
 
 import { perGradeKey, type GradeSubjectIds } from './gradeSubjects'
@@ -64,16 +72,53 @@ export function titleJobSegment(title: string | null | undefined): string {
   return norm((title ?? '').split('|')[0])
 }
 
+/** Two posts of one requirement are at most this many days apart. */
+export const DUPLICATE_WINDOW_DAYS = 30
+
+const levelSet = (f: DuplicateFacts): string =>
+  (f.classLevels && f.classLevels.length > 0 ? f.classLevels : f.classLevel ? [f.classLevel] : []).map(norm).sort().join('|')
+
+/** The one rule: are these two posts the same requirement? */
+export function sameRequirement(a: DuplicateFacts, b: DuplicateFacts): boolean {
+  if (!samePlace(a, b)) return false
+  if (levelSet(a) !== levelSet(b)) return false
+  if (a.masterIds.length > 0 || b.masterIds.length > 0) {
+    const mine = new Set(a.masterIds)
+    if (!b.masterIds.some((m) => mine.has(m))) return false
+  }
+  // Both tuitions carry per-grade subjects: the split must match too.
+  const ga = a.gradeSubjects && a.gradeSubjects.length > 0 ? a.gradeSubjects : null
+  const gb = b.gradeSubjects && b.gradeSubjects.length > 0 ? b.gradeSubjects : null
+  if (ga && gb && perGradeKey(ga) !== perGradeKey(gb)) return false
+  if (norm(a.jobType) !== norm(b.jobType)) return false
+  if (!a.contact || !b.contact || a.contact !== b.contact) return false
+  const ta = Date.parse(a.createdAt)
+  const tb = Date.parse(b.createdAt)
+  if (!Number.isFinite(ta) || !Number.isFinite(tb)) return false
+  return Math.abs(ta - tb) <= DUPLICATE_WINDOW_DAYS * 86_400_000
+}
+
 export type DuplicateReason = 'same title' | 'same combination'
 
-/** How two tuitions repeat each other, or an empty list when they do not. */
+/**
+ * How two tuitions repeat each other, or an empty list when they do not. Never
+ * non-empty unless sameRequirement holds; 'same title' is added when the titles
+ * are identical as well.
+ */
 export function duplicateReasons(a: DuplicateFacts, b: DuplicateFacts): DuplicateReason[] {
+  if (!sameRequirement(a, b)) return []
+  const out: DuplicateReason[] = []
+  if (titleKey(a) && titleKey(a) === titleKey(b)) out.push('same title')
+  out.push('same combination')
+  return out
+}
+
+/** The 6 Oct rule, kept ONLY so a report can say what it used to flag. */
+export function legacyDuplicateReasons(a: DuplicateFacts, b: DuplicateFacts): DuplicateReason[] {
   const out: DuplicateReason[] = []
   if (titleKey(a) && titleKey(a) === titleKey(b) && samePlace(a, b)) out.push('same title')
   const ka = comboKey(a)
   if (ka && ka === comboKey(b)) {
-    // Both tuitions carry per-grade subjects: they must match grade by grade
-    // too (same combined list, different split = different tuitions).
     const ga = a.gradeSubjects && a.gradeSubjects.length > 0 ? a.gradeSubjects : null
     const gb = b.gradeSubjects && b.gradeSubjects.length > 0 ? b.gradeSubjects : null
     if (!ga || !gb || perGradeKey(ga) === perGradeKey(gb)) out.push('same combination')
@@ -82,9 +127,8 @@ export function duplicateReasons(a: DuplicateFacts, b: DuplicateFacts): Duplicat
 }
 
 /**
- * The merge rule (item 15): merge when the titles match, or when the
- * combination matches AND the titles describe the same job. A combination-only
- * pair whose first title segment differs is skipped.
+ * The merge rule (item 15): only a real repeat (sameRequirement) merges; the
+ * title-segment guard stays as a second check.
  */
 export function shouldMerge(a: DuplicateFacts, b: DuplicateFacts): { merge: boolean; reasons: DuplicateReason[]; skipWhy: string | null } {
   const reasons = duplicateReasons(a, b)

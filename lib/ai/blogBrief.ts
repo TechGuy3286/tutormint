@@ -399,7 +399,7 @@ export function composeBlogDraft(brief: BlogBrief): BlogDraft {
 
   parts.push(
     brief.audience === 'tutors'
-      ? 'Ready to teach? [Create your free tutor profile](/apply) and appear to parents searching for your subject in your area.'
+      ? 'Ready to teach? [Create your free tutor profile](/register) and appear to parents searching for your subject in your area.'
       : brief.audience === 'parents'
         ? 'Looking for a tutor? [Browse tutors near you](/browse/tutors) and message the ones who fit.'
         : 'Ready to start? [See open tuitions](/browse/tuitions) or browse tutors in your city.',

@@ -8,7 +8,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { comboKey, duplicateReasons, olderOf, refreshAllowed, shouldMerge, titleJobSegment, type DuplicateFacts } from '../lib/duplicatesCore'
+import { DUPLICATE_WINDOW_DAYS, comboKey, duplicateReasons, legacyDuplicateReasons, olderOf, refreshAllowed, sameRequirement, shouldMerge, titleJobSegment, type DuplicateFacts } from '../lib/duplicatesCore'
 import { overlapNoindexSet } from '../lib/landingOverlapCore'
 import { seoTitle, seoDescription, tuitionDescription, TITLE_MAX, DESCRIPTION_MAX, jobPostingJsonLd, tutorJsonLd } from '../lib/seo'
 
@@ -26,46 +26,72 @@ const base: DuplicateFacts = {
   createdAt: '2026-09-24T10:00:00Z',
 }
 
-test('same title (case/space-insensitive) and same full combination are repeats', () => {
-  const b = { ...base, id: 'b', title: 'female teacher  required | grade 7 | lahore', createdAt: '2026-10-02T10:00:00Z' }
-  assert.deepEqual(duplicateReasons(base, b), ['same title', 'same combination'])
-  const c = { ...base, id: 'c', title: 'Home Tutor Required | Grade 7 | Lahore' }
-  assert.deepEqual(duplicateReasons(base, c), ['same combination'])
-  const d = { ...base, id: 'd', title: 'Something else', masterIds: [10] }
-  assert.deepEqual(duplicateReasons(base, d), [])
-  // The combination ignores order of levels/subjects.
-  assert.equal(comboKey({ ...base, masterIds: [11, 10] }), comboKey(base))
+// A repeat is the SAME REQUIREMENT (owner, 13 Oct 2026): place, levels,
+// overlapping subjects, Job Type, contact number, within 30 days.
+const b0: DuplicateFacts = { ...base, jobType: 'Home Tutor', contact: '923001234567' }
+
+test('a true repost — same contact, same requirement — is a repeat, whatever the budget or wording', () => {
+  const repost = { ...b0, id: 'b', title: 'female teacher  required | grade 7 | lahore', createdAt: '2026-10-02T10:00:00Z' }
+  assert.deepEqual(duplicateReasons(b0, repost), ['same title', 'same combination'])
+  // A new title, a changed budget and only one subject in common: still the same requirement.
+  const reworded = { ...repost, id: 'c', title: 'Home Tutor Required | Grade 7 | Lahore', masterIds: [11, 99], budgetMinPkr: 20000, budgetMaxPkr: null, genderPreference: null }
+  assert.deepEqual(duplicateReasons(b0, reworded), ['same combination'])
+  assert.equal(sameRequirement(b0, reworded), true)
+  assert.equal(shouldMerge(b0, repost).merge, true)
 })
 
-test('a generic title in DIFFERENT areas is not a repeat; the same title in the SAME area is (item 17)', () => {
-  const generic = 'Home Tutor Required | Grade 6'
-  const johar = { ...base, id: 'j', title: generic, area: 'Johar Town', masterIds: [1], budgetMinPkr: 5000, budgetMaxPkr: 9999 }
-  const dha = { ...base, id: 'd', title: generic, area: 'DHA', masterIds: [2], budgetMinPkr: 10000, budgetMaxPkr: 14999 }
-  assert.deepEqual(duplicateReasons(johar, dha), [], 'different areas: not flagged')
-  assert.equal(shouldMerge(johar, dha).merge, false)
-  const joharAgain = { ...johar, id: 'j2', area: 'johar  town', masterIds: [9] }
-  assert.deepEqual(duplicateReasons(johar, joharAgain), ['same title'], 'same area (case/space-insensitive): flagged')
-  // Same area + level + subjects + gender + budget band is a repeat whatever the titles say.
-  const comboTwin = { ...johar, id: 'j3', title: 'Something else entirely' }
-  assert.deepEqual(duplicateReasons(johar, comboTwin), ['same combination'])
-  // ...and the same combination in a DIFFERENT area is not.
-  assert.deepEqual(duplicateReasons(johar, { ...comboTwin, id: 'j4', area: 'Model Town' }), [])
+test('each field of the rule, alone, stops a match', () => {
+  const twin = { ...b0, id: 'b', createdAt: '2026-10-02T10:00:00Z' }
+  assert.equal(sameRequirement(b0, twin), true)
+  assert.equal(sameRequirement(b0, { ...twin, contact: '923009999999' }), false, 'a different contact number is never a duplicate')
+  assert.equal(sameRequirement(b0, { ...twin, contact: null }), false, 'an unknown number cannot be called the same')
+  assert.equal(sameRequirement({ ...b0, contact: null }, { ...twin, contact: null }), false)
+  assert.equal(sameRequirement(b0, { ...twin, jobType: 'Online Tutor' }), false, 'a different job title')
+  assert.equal(sameRequirement(b0, { ...twin, city: 'Karachi' }), false)
+  assert.equal(sameRequirement(b0, { ...twin, area: 'DHA' }), false, 'one has an area, the other none')
+  assert.equal(sameRequirement({ ...b0, area: 'johar  town' }, { ...twin, area: 'Johar Town' }), true)
+  assert.equal(sameRequirement(b0, { ...twin, classLevels: ['Grade 7', 'Grade 8'] }), false, 'a different grade set')
+  assert.equal(sameRequirement(b0, { ...twin, masterIds: [50, 51] }), false, 'no subject in common')
+  assert.equal(sameRequirement({ ...b0, masterIds: [] }, { ...twin, masterIds: [] }), true, 'neither has subjects')
+  assert.equal(sameRequirement(b0, { ...twin, createdAt: '2026-10-24T10:00:00Z' }), true, '30 days apart')
+  assert.equal(sameRequirement(b0, { ...twin, createdAt: '2026-10-25T10:00:00Z' }), false, '31 days apart')
+  assert.equal(DUPLICATE_WINDOW_DAYS, 30)
 })
 
-test('merge rule: titles match → merge; combination-only with different job titles → skip', () => {
-  const sameTitle = { ...base, id: 'b' }
-  assert.equal(shouldMerge(base, sameTitle).merge, true)
-  const coordinator = { ...base, id: 'c', title: 'Coordinator Required | Karachi' }
-  const primary = { ...base, id: 'd', title: 'Primary Teacher Required | Grade 1–5 | Karachi' }
+test('the wrong-canonical examples: TM-1250 and TM-1253 are not repeats of TM-1172; TM-1245 IS a repost of TM-1215', () => {
+  // TM-1172, TM-1250, TM-1253: one city, no area, the same Grade 1–5 subject
+  // list and budget — which is all the old rule compared.
+  const grades = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5']
+  const shared = { city: 'Karachi', area: '', classLevels: grades, masterIds: [3258, 3259, 3260, 3261], genderPreference: null, budgetPkr: 20000, budgetMinPkr: 20000, budgetMaxPkr: null }
+  const tm1172: DuplicateFacts = { ...shared, id: '1172', title: 'Online Tutor Required | Grade 1–5 | Karachi', jobType: 'Online Tutor', contact: '923000000001', createdAt: '2026-09-23T10:00:00Z' }
+  const tm1250: DuplicateFacts = { ...shared, id: '1250', title: 'Coordinator Required | Karachi', jobType: 'Co-ordinator / Section Head', contact: '923000000002', createdAt: '2026-09-26T10:00:00Z' }
+  const tm1253: DuplicateFacts = { ...shared, id: '1253', title: 'Primary Teacher Required | Grade 1–5 | Karachi', jobType: 'Primary Teacher', contact: '923000000002', createdAt: '2026-09-26T11:00:00Z' }
+  assert.deepEqual(legacyDuplicateReasons(tm1250, tm1172), ['same combination'], 'what the old rule did')
+  assert.deepEqual(legacyDuplicateReasons(tm1253, tm1172), ['same combination'])
+  assert.deepEqual(duplicateReasons(tm1250, tm1172), [])
+  assert.deepEqual(duplicateReasons(tm1253, tm1172), [])
+  // Two posts from one number for different jobs are not repeats either.
+  assert.deepEqual(duplicateReasons(tm1253, tm1250), [])
+
+  // TM-1245 / TM-1215: the same number, Grade 1, the same three subjects, Online
+  // Tutor, one day apart — the same requirement posted twice.
+  const g1 = { city: 'Karachi', area: '', classLevels: ['Grade 1'], masterIds: [3258, 3259, 3260], genderPreference: null, budgetPkr: 20000, budgetMinPkr: 20000, budgetMaxPkr: null, jobType: 'Online Tutor', contact: '923000000003' }
+  const tm1215: DuplicateFacts = { ...g1, id: '1215', title: 'Online Tutor Required for Primary class -( Grade 1 ) -Karachi', createdAt: '2026-09-25T10:00:00Z' }
+  const tm1245: DuplicateFacts = { ...g1, id: '1245', title: 'Male / Female Online Tutor (Grade 1 ) - Karachi.', createdAt: '2026-09-26T10:00:00Z' }
+  assert.deepEqual(duplicateReasons(tm1245, tm1215), ['same combination'])
+})
+
+test('merge rule: only a real repeat merges', () => {
+  const coordinator = { ...b0, id: 'c', title: 'Coordinator Required | Karachi' }
+  const primary = { ...b0, id: 'd', title: 'Primary Teacher Required | Grade 1–5 | Karachi' }
   const r = shouldMerge(coordinator, primary)
   assert.equal(r.merge, false)
   assert.match(r.skipWhy ?? '', /different jobs/)
-  // Same job, different area wording → combination match with the same first segment → merge.
-  const h1 = { ...base, id: 'e', title: 'Home Tutor Required | Grade 6 | Civil Lines, Karachi' }
-  const h2 = { ...base, id: 'f', title: 'Home Tutor Required | Grade 6 | Civil Lines Karachi' }
-  assert.equal(shouldMerge(h1, h2).merge, true)
+  assert.equal(shouldMerge(b0, { ...b0, id: 'x', contact: '923009999999' }).skipWhy, 'not a repeat')
   assert.equal(titleJobSegment('Coordinator Required | Karachi'), 'coordinator required')
   assert.equal(olderOf({ id: 'x', createdAt: '2026-01-02' }, { id: 'y', createdAt: '2026-01-01' }).id, 'y')
+  // The old combination key still ignores the order of levels and subjects.
+  assert.equal(comboKey({ ...base, masterIds: [11, 10] }), comboKey(base))
 })
 
 test('Refresh is allowed at most once every 3 days', () => {

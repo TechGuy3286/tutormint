@@ -9,7 +9,9 @@ import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { citySegment } from '@/lib/slugs'
-import { comboKey, titleKey, duplicateReasons, type DuplicateFacts, type DuplicateReason } from './duplicatesCore'
+import { contactFactsForJobs } from '@/lib/tuitionContact'
+import { tuitionContactNumber } from '@/lib/tuitionContactCore'
+import { DUPLICATE_WINDOW_DAYS, duplicateReasons, norm, type DuplicateFacts, type DuplicateReason } from './duplicatesCore'
 
 export type ExistingTuition = {
   id: string
@@ -24,7 +26,7 @@ export type ExistingTuition = {
   href: string
 }
 
-const COLS = 'id, ref_id, title, public_slug, city, area, class_levels, class_level, gender_preference, budget_pkr, budget_min_pkr, budget_max_pkr, status, created_at, parent_id, grade_subjects'
+const COLS = 'id, ref_id, title, public_slug, city, area, class_levels, class_level, gender_preference, budget_pkr, budget_min_pkr, budget_max_pkr, status, created_at, parent_id, grade_subjects, teaching_mode'
 
 async function factsFor(admin: NonNullable<ReturnType<typeof createAdminClient>>, rows: Record<string, unknown>[]): Promise<(DuplicateFacts & { row: Record<string, unknown> })[]> {
   const ids = rows.map((r) => r.id as string)
@@ -39,6 +41,8 @@ async function factsFor(admin: NonNullable<ReturnType<typeof createAdminClient>>
       masters.set(l.job_id as string, arr)
     }
   }
+  // The parent contact number of each tuition — part of the duplicate rule.
+  const contacts = await contactFactsForJobs(admin, rows.map((r) => ({ id: r.id as string, parent_id: (r.parent_id as string | null) ?? null })))
   return rows.map((r) => ({
     row: r,
     id: r.id as string,
@@ -54,7 +58,14 @@ async function factsFor(admin: NonNullable<ReturnType<typeof createAdminClient>>
     budgetMaxPkr: (r.budget_max_pkr as number | null) ?? null,
     createdAt: String(r.created_at),
     gradeSubjects: (r.grade_subjects as DuplicateFacts['gradeSubjects']) ?? null,
+    jobType: (r.teaching_mode as string | null) ?? null,
+    contact: tuitionContactNumber(contacts.get(r.id as string) ?? { isTeam: false }),
   }))
+}
+
+/** The earliest posting date a repeat of a tuition posted at `iso` can have. */
+function windowStart(iso: string): string {
+  return new Date(Date.parse(iso) - DUPLICATE_WINDOW_DAYS * 86_400_000).toISOString()
 }
 
 export function tuitionHref(city: string | null, publicSlug: string | null): string {
@@ -62,34 +73,31 @@ export function tuitionHref(city: string | null, publicSlug: string | null): str
 }
 
 /**
- * The OPEN or PAUSED tuition this input would repeat (same title, or same full
- * combination), oldest first, or null. `excludeId` leaves the tuition being
- * edited out of its own check.
+ * The OPEN or PAUSED tuition this input would repeat (the same requirement —
+ * lib/duplicatesCore.sameRequirement), oldest first, or null. `excludeId`
+ * leaves the tuition being edited out of its own check.
  */
 export async function findExistingDuplicate(
-  input: { title: string; city: string | null; area: string | null; classLevels: string[]; masterIds: number[]; genderPreference: string | null; budgetPkr: number | null; budgetMinPkr: number | null; budgetMaxPkr: number | null; gradeSubjects?: DuplicateFacts['gradeSubjects'] },
+  input: { title: string; city: string | null; area: string | null; classLevels: string[]; masterIds: number[]; genderPreference: string | null; budgetPkr: number | null; budgetMinPkr: number | null; budgetMaxPkr: number | null; gradeSubjects?: DuplicateFacts['gradeSubjects']; jobType?: string | null; contact?: string | null },
   excludeId: string | null = null,
 ): Promise<ExistingTuition | null> {
   const admin = createAdminClient()
   if (!admin) return null
-  const me: DuplicateFacts = { id: '__new__', ...input, classLevel: null, createdAt: '9999' }
-  const tKey = titleKey(me)
-  const cKey = comboKey(me)
+  // A repeat has the same city and the same contact number, so without either
+  // there is nothing to compare.
+  const city = input.city?.trim()
+  if (!city || !input.contact) return null
+  const me: DuplicateFacts = { id: '__new__', ...input, classLevel: null, createdAt: new Date().toISOString() }
 
-  // Candidates: same title (exact, case-insensitive) OR same city — the
-  // combination test runs in code on that small set.
-  let q = admin.from('jobs').select(COLS).in('status', ['open', 'paused']).limit(500)
-  const parts: string[] = []
-  if (tKey) parts.push(`title.ilike.${JSON.stringify((input.title ?? '').trim())}`)
-  if (input.city) parts.push(`city.ilike.${JSON.stringify(input.city.trim())}`)
-  if (parts.length === 0) return null
-  q = q.or(parts.join(','))
-  const { data } = await q
-  const rows = ((data ?? []) as Record<string, unknown>[]).filter((r) => r.id !== excludeId)
+  // Candidates: the same city, posted inside the window — the rule runs in code.
+  const data = await pageAll((from, to) =>
+    admin.from('jobs').select(COLS).in('status', ['open', 'paused']).ilike('city', city).gte('created_at', windowStart(me.createdAt)).order('id').range(from, to),
+  )
+  const rows = (data as Record<string, unknown>[]).filter((r) => r.id !== excludeId)
   const facts = await factsFor(admin, rows)
   const hits = facts
     .map((f) => ({ f, reasons: duplicateReasons(me, f) }))
-    .filter((x) => x.reasons.length > 0 && (x.reasons.includes('same title') || cKey))
+    .filter((x) => x.reasons.length > 0)
     .sort((a, b) => a.f.createdAt.localeCompare(b.f.createdAt))
   const hit = hits[0]
   if (!hit) return null
@@ -117,19 +125,21 @@ export async function repeatOfOlderOpen(jobId: string): Promise<ExistingTuition 
   const { data: me } = await admin.from('jobs').select(COLS).eq('id', jobId).maybeSingle()
   if (!me || me.status !== 'open') return null
   const [mine] = await factsFor(admin, [me as Record<string, unknown>])
-  const parts: string[] = []
-  if (mine.title) parts.push(`title.ilike.${JSON.stringify(mine.title.trim())}`)
-  if (mine.city) parts.push(`city.ilike.${JSON.stringify(mine.city.trim())}`)
-  if (parts.length === 0) return null
-  const { data } = await admin
-    .from('jobs')
-    .select(COLS)
-    .eq('status', 'open')
-    .neq('id', jobId)
-    .lt('created_at', mine.createdAt)
-    .or(parts.join(','))
-    .limit(500)
-  const facts = await factsFor(admin, (data ?? []) as Record<string, unknown>[])
+  const city = mine.city?.trim()
+  if (!city || !mine.contact) return null
+  const data = await pageAll((from, to) =>
+    admin
+      .from('jobs')
+      .select(COLS)
+      .eq('status', 'open')
+      .neq('id', jobId)
+      .lt('created_at', mine.createdAt)
+      .gte('created_at', windowStart(mine.createdAt))
+      .ilike('city', city)
+      .order('id')
+      .range(from, to),
+  )
+  const facts = await factsFor(admin, data as Record<string, unknown>[])
   const hits = facts
     .map((f) => ({ f, reasons: duplicateReasons(mine, f) }))
     .filter((x) => x.reasons.length > 0)
@@ -150,6 +160,49 @@ export async function repeatOfOlderOpen(jobId: string): Promise<ExistingTuition 
   }
 }
 
+// A repeat shares its city and its contact number, so that pair is the bucket
+// the pairwise rule runs inside.
+const bucketKey = (f: DuplicateFacts): string => (f.contact && f.city ? `${norm(f.city)}#${f.contact}` : '')
+function contactBuckets<T extends DuplicateFacts>(facts: T[]): Map<string, T[]> {
+  const out = new Map<string, T[]>()
+  for (const f of facts) {
+    const k = bucketKey(f)
+    if (k) (out.get(k) ?? out.set(k, []).get(k)!).push(f)
+  }
+  return out
+}
+
+export type OpenRepeat = { refId: string | null; originalRefId: string | null; originalHref: string }
+
+/**
+ * Every OPEN tuition that repeats an OLDER open one, keyed by its public slug —
+ * the answer repeatOfOlderOpen gives each page, in one read. The sitemap leaves
+ * these out (their canonical points at the original).
+ */
+export async function openRepeatSlugs(): Promise<Map<string, OpenRepeat>> {
+  const out = new Map<string, OpenRepeat>()
+  const admin = createAdminClient()
+  if (!admin) return out
+  const all = await pageAll((from, to) => admin.from('jobs').select(COLS).eq('status', 'open').order('id').range(from, to))
+  const facts = await factsFor(admin, all as Record<string, unknown>[])
+  for (const list of contactBuckets(facts).values()) {
+    if (list.length < 2) continue
+    for (const f of list) {
+      const original = list
+        .filter((s) => s.id !== f.id && s.createdAt < f.createdAt && duplicateReasons(f, s).length > 0)
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0]
+      const slug = (f.row.public_slug as string | null) ?? null
+      if (!original || !slug) continue
+      out.set(slug, {
+        refId: (f.row.ref_id as string) ?? null,
+        originalRefId: (original.row.ref_id as string) ?? null,
+        originalHref: tuitionHref(original.city, (original.row.public_slug as string) ?? null),
+      })
+    }
+  }
+  return out
+}
+
 export type RepeatPair = {
   repeat: ExistingTuition & { postedBy: string | null; applications: number }
   original: ExistingTuition
@@ -166,19 +219,14 @@ export async function recentRepeats(since: Date): Promise<RepeatPair[]> {
   if (!admin) return []
   const all = await pageAll((from, to) => admin.from('jobs').select(COLS).in('status', ['open', 'paused']).order('id').range(from, to))
   const facts = await factsFor(admin, all as Record<string, unknown>[])
-  const byTitle = new Map<string, typeof facts>()
-  const byCombo = new Map<string, typeof facts>()
-  for (const f of facts) {
-    const t = titleKey(f)
-    if (t) (byTitle.get(t) ?? byTitle.set(t, []).get(t)!).push(f)
-    const c = comboKey(f)
-    if (c) (byCombo.get(c) ?? byCombo.set(c, []).get(c)!).push(f)
-  }
+  const bucket = contactBuckets(facts)
   const recent = facts.filter((f) => f.createdAt >= since.toISOString())
   const pairs = new Map<string, { repeat: typeof facts[number]; original: typeof facts[number]; reasons: Set<DuplicateReason> }>()
   for (const f of recent) {
-    const siblings = [...(byTitle.get(titleKey(f)) ?? []), ...(comboKey(f) ? byCombo.get(comboKey(f)) ?? [] : [])]
-    const older = siblings.filter((s) => s.id !== f.id && s.createdAt < f.createdAt).sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    const siblings = bucket.get(bucketKey(f)) ?? []
+    const older = siblings
+      .filter((s) => s.id !== f.id && s.createdAt < f.createdAt && duplicateReasons(f, s).length > 0)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
     const original = older[0]
     if (!original) continue
     const key = f.id

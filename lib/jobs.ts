@@ -67,6 +67,7 @@ import type { AdminRole } from '@/lib/adminAuth'
 import { formatName } from '@/lib/formatName'
 import { placeLabel } from '@/lib/place'
 import { parseContactNumber, resumeContactProblem } from '@/lib/tuitionContactCore'
+import { normalisePkMobile } from '@/lib/phone'
 import { contactFactsForJobs } from '@/lib/tuitionContact'
 
 // Level is multi-select now (migration 79): jobs.class_levels is the array, and
@@ -133,8 +134,9 @@ export type JobInput = {
   contactSocial?: string | null
   /**
    * Duplicate prevention (owner, 6 Oct 2026, item 16). Before publishing, the
-   * post is checked against open/paused tuitions with the same title or the
-   * same city + area + level + subjects + gender + budget band. When one is
+   * post is checked against open/paused tuitions that are the same requirement
+   * (lib/duplicatesCore.sameRequirement: place, levels, subjects, Job Type and
+   * contact number, within 30 days). When one is
    * found the create is REFUSED with `duplicate` set, and the form offers
    * "Reopen this one" or "Post anyway". "Post anyway" sends allowDuplicate=true
    * (a staff post must also carry a one-line duplicateReason, which is stored).
@@ -166,8 +168,10 @@ function prepareGradeSubjects(input: JobInput): { ok: true; input: JobInput } | 
 type Fail = { ok: false; status: number; error: string; upgrade?: string; gate?: Gate; similarHref?: string; duplicate?: ExistingTuition }
 
 /** The fields the duplicate check compares (lib/duplicates). */
-function duplicateFacts(input: JobInput) {
+function duplicateFacts(input: JobInput, contact: string | null) {
   return {
+    jobType: input.teachingMode || 'Home Tutor',
+    contact,
     title: input.title,
     city: input.city,
     area: input.area ?? '',
@@ -293,9 +297,12 @@ export async function createJob(
     if (!child) return { ok: false, status: 400, error: 'That child is not on your account.' }
   }
 
-  // Duplicate check (item 16): an open/paused tuition with the same title or the
-  // same full combination. Refused unless the parent chose "Post anyway".
-  const existing = await findExistingDuplicate(duplicateFacts(input))
+  // Duplicate check (item 16): an open/paused tuition that is the same
+  // requirement from the same contact number (the parent's own verified mobile).
+  // Refused unless the parent chose "Post anyway".
+  const { data: own } = await supabase.from('profiles').select('phone_number, phone_verified_at').eq('id', parentId).maybeSingle()
+  const ownNumber = own?.phone_verified_at ? normalisePkMobile(own.phone_number as string | null) : null
+  const existing = await findExistingDuplicate(duplicateFacts(input, ownNumber))
   if (existing && !input.allowDuplicate) {
     return {
       ok: false,
@@ -492,7 +499,7 @@ export async function createTeamJob(
 
   // Duplicate check (item 16). A staff member who posts anyway must say why in
   // one line; the reason is stored on the row and shows on the Duplicates view.
-  const existing = await findExistingDuplicate(duplicateFacts(input))
+  const existing = await findExistingDuplicate(duplicateFacts(input, number.msisdn))
   if (existing && !input.allowDuplicate) {
     return {
       ok: false,

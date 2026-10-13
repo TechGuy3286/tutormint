@@ -17,6 +17,7 @@ import { schoolGroups, schoolHubPath, SCHOOL_HUB_THRESHOLD } from '@/lib/schoolJ
 import { liveCombinationsAllUncached, LANDING_THRESHOLD } from '@/lib/landing'
 import { liveOverlapNoindex, overlapKey } from '@/lib/landingOverlap'
 import { publishedSlugs } from '@/lib/blogFeed'
+import { openRepeatSlugs } from '@/lib/duplicates'
 import {
   cleanEntries,
   hubSitemapEntries,
@@ -40,18 +41,21 @@ export async function tuitionSitemap(): Promise<SitemapEntry[]> {
   const db = createPublicClient()
   // indexable_job_slugs() = open + a real slug + not a fixture/test + not a
   // one-line post — the SQL mirror of tuitionIndexable.
-  const [rows, clocks] = await Promise.all([
+  const [rows, clocks, repeats] = await Promise.all([
     pageAll((from, to) => db.rpc('indexable_job_slugs').order('public_slug').range(from, to)) as Promise<
       { public_slug: string; city: string | null; created_at: string }[]
     >,
     pageAll((from, to) =>
       db.from('jobs').select('public_slug, resumed_at, refreshed_at, bumped_at').eq('status', 'open').order('id').range(from, to),
     ) as Promise<{ public_slug: string | null; resumed_at: string | null; refreshed_at: string | null; bumped_at: string | null }[]>,
+    // A real repeat of an older open tuition points its canonical at the
+    // original (lib/duplicates), so it is never listed (owner, 13 Oct 2026).
+    openRepeatSlugs().catch(() => new Map<string, unknown>()),
   ])
   const clock = new Map(clocks.filter((c) => c.public_slug).map((c) => [c.public_slug as string, c]))
   return tuitionSitemapEntries(
     BASE,
-    rows.map((r) => {
+    rows.filter((r) => !repeats.has(r.public_slug)).map((r) => {
       const c = clock.get(r.public_slug)
       return {
         path: `/tuitions/${citySegment(r.city)}/${r.public_slug}`,

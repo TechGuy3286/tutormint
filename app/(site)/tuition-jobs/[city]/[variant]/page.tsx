@@ -1,9 +1,12 @@
 import type { Metadata } from 'next'
-import { notFound } from 'next/navigation'
+import { notFound, permanentRedirect } from 'next/navigation'
 
 import CityJobsView, { variantHub } from '@/components/tuitionJobs/CityJobsView'
 import { hubDescription, hubTitle } from '@/lib/hubCopy'
-import { CITY_PAGE_THRESHOLD, cityPageBySlug, cityPagePath } from '@/lib/cityJobs'
+import { CITY_PAGE_THRESHOLD, cityPageBySlug, cityPagePath, retiredAreaValue } from '@/lib/cityJobs'
+import { indexableSchoolHubsCached } from '@/lib/schoolJobs'
+import { schoolHubPath } from '@/lib/schoolJobsCore'
+import { cityFromSegment, slugify } from '@/lib/slugs'
 import { seoTitle, socialMeta } from '@/lib/seo'
 
 // /tuition-jobs/[city]/[variant] — female / online / an area (owner, 6 Oct 2026,
@@ -38,7 +41,24 @@ export default async function CityVariantPage({ params, searchParams }: { params
   const [{ city, variant }, sp] = await Promise.all([params, searchParams])
   const page = await cityPageBySlug(city)
   const v = page?.variants.find((x) => x.slug === variant) ?? null
-  if (!page || !v) notFound()
+  if (!v) {
+    // Not a hub of this city (owner, 13 Oct 2026). An address a tuition's saved
+    // area once made — a school's name, a street address, an area that is not in
+    // Locations — is sent on, permanently: to the school's hub when it has one,
+    // else to the city hub. (A merged AREA is a 301 in proxy.ts before this
+    // runs.) An address nothing ever made is a real 404.
+    const cityName = page?.city ?? cityFromSegment(city)
+    const retired = cityName ? await retiredAreaValue(cityName, variant) : null
+    if (!retired) notFound()
+    if (retired.school) {
+      const slug = slugify(retired.school)
+      const hubs = await indexableSchoolHubsCached().catch(() => [])
+      if (hubs.some((h) => h.slug === slug)) permanentRedirect(schoolHubPath(slug))
+    }
+    // Any curated-area hub is kept even when it has no open tuition today.
+    permanentRedirect(page ? cityPagePath(page.citySlug) : '/browse/tuitions')
+  }
+  if (!page) notFound()
   const n = Math.max(1, Math.floor(Number(sp.page) || 1))
   return <CityJobsView page={page} variant={v} pageNo={n} />
 }

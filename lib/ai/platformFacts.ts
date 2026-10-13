@@ -325,7 +325,7 @@ export function priceViolations(body: string): { line: string; match: string; he
 
 /** Where the closing call to action links, by audience (owner, 7 Oct 2026). */
 export function ctaPathFor(audience: 'parents' | 'tutors' | 'both'): string {
-  return audience === 'tutors' ? '/apply' : audience === 'parents' ? '/browse/tutors' : '/browse/tuitions'
+  return audience === 'tutors' ? '/register' : audience === 'parents' ? '/browse/tutors' : '/browse/tuitions'
 }
 
 /** The link text the fixer uses for the CTA link. */

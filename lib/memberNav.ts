@@ -7,3 +7,12 @@ export const MEMBER_SETTINGS_HREF = {
   tutor: '/tutor/dashboard/settings',
   parent: '/parent/dashboard/settings',
 } as const
+
+/**
+ * The member's Team conversation — the final address, per role (owner, 13 Oct
+ * 2026). /account/messages still redirects here for links already sent; nothing
+ * new should point at the redirect.
+ */
+export function teamMessagesHref(role: string | null | undefined): string {
+  return role === 'tutor' ? '/tutor/dashboard/messages/team' : '/parent/dashboard/messages/team'
+}

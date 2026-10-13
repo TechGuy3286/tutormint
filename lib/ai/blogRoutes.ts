@@ -58,8 +58,9 @@ export const BLOG_ROUTES: BlogRoute[] = [
   { path: '/about', public: true },
   { path: '/support', public: true },
   { path: '/register', public: true },
-  // The tutor sign-up link the closing call to action uses (owner, 7 Oct 2026);
-  // it redirects to /register, keeping every query parameter.
+  // The short link for social posts: it redirects (307) to /register. Posts link
+  // /register directly (owner, 13 Oct 2026); /apply stays a known address so an
+  // older draft is not reported as a dead link.
   { path: '/apply', public: true },
   { path: '/', public: true },
 ]

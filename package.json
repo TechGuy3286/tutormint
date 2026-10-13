@@ -119,7 +119,9 @@
     "test:applicantforwards": "tsx --test scripts/test-applicant-forwards.ts",
     "test:paychoice": "tsx --test scripts/test-pay-choice.ts",
     "test:seosc": "tsx --test scripts/test-seo-search-console.ts",
-    "audit:seo": "node scripts/audit-seo-live.mjs"
+    "audit:seo": "node scripts/audit-seo-live.mjs",
+    "check:links": "node scripts/check-internal-redirects.mjs",
+    "test:areahubs": "tsx --test scripts/test-area-hubs.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

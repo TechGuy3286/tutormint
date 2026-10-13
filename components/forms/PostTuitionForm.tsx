@@ -545,6 +545,7 @@ export default function PostTuitionForm({
             city={v.city}
             area={v.area}
             band={band}
+            staff={adminExtras}
             onCity={(x) => setV((p) => ({ ...p, city: x, area: '' }))}
             onArea={(x) => set('area', x)}
             onBand={(x) => {

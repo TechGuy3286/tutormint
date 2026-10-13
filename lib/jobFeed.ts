@@ -468,6 +468,9 @@ export type JobFilters = {
   /** The city tuition-jobs pages (owner, 6 Oct 2026): an exact area, and/or the
    *  tuitions that REQUIRE a tutor of this gender. */
   area?: string | null
+  /** An area HUB (owner, 13 Oct 2026): every saved spelling that belongs to one
+   *  curated area — "DHA", "DHA Lahore", "DHA Phase 5" (lib/areaHubCore). */
+  areas?: string[] | null
   genderPreference?: 'male' | 'female' | 'trans' | null
   /** Smart search (owner, 8 Oct 2026): a named level ("primary", "matric") with
    *  no subject — tuitions whose class_levels overlap these level names. */
@@ -776,7 +779,8 @@ export async function browseJobs(
       q = q.or(`gender_preference.is.null,gender_preference.eq.${filters.viewerGender}`)
     }
     if (filters.city) q = q.ilike('city', filters.city)
-    if (filters.area) q = q.ilike('area', filters.area)
+    if (filters.areas && filters.areas.length > 0) q = q.in('area', filters.areas)
+    else if (filters.area) q = q.ilike('area', filters.area)
     if (filters.genderPreference) q = q.eq('gender_preference', filters.genderPreference)
     if (filters.mode) {
       // A job carries exactly one Job Type title (migration 77), stored

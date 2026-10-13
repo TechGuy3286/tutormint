@@ -147,11 +147,11 @@ test('descriptive link text is accepted; only generic text is flagged', () => {
 test('a closing call to action without a link is flagged; the fixer links it by audience', () => {
   const body = '## Start\n\nSome advice.\n\nReady to put your profile in front of parents? Create your listing and start browsing open tuitions today.'
   const v = ctaViolation(body, 'tutors')
-  assert.ok(v && v.path === '/apply')
-  assert.equal(ctaViolation(body + ' [Create your profile](/apply).', 'tutors'), null)
+  assert.ok(v && v.path === '/register')
+  assert.equal(ctaViolation(body + ' [Create your profile](/register).', 'tutors'), null)
   const fixed = sanitizeDraft(body, { blogSlugs: ['other-post'], audience: 'tutors', landingPaths: ['/tuitions/karachi/grade-3-mathematics'] })
   assert.equal(ctaViolation(fixed, 'tutors'), null)
-  assert.ok(fixed.includes('](/apply)'))
+  assert.ok(fixed.includes('](/register)'))
   assert.ok(sanitizeDraft(body, { blogSlugs: [], audience: 'parents' }).includes('](/browse/tutors)'))
   assert.ok(sanitizeDraft(body, { blogSlugs: [], audience: 'both' }).includes('](/browse/tuitions)'))
 })

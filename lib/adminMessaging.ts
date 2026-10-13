@@ -1,4 +1,5 @@
 import 'server-only'
+import { teamMessagesHref } from '@/lib/memberNav'
 
 import { pageAll } from '@/lib/pageAll'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -269,7 +270,7 @@ export async function sendAdminMessage(params: {
 
   const { data: member } = await admin
     .from('profiles')
-    .select('id, full_name, phone_number, whatsapp, email')
+    .select('id, full_name, phone_number, whatsapp, email, role')
     .eq('id', params.memberId)
     .maybeSingle()
   if (!member) return { ok: false, status: 404, error: 'Member not found.' }
@@ -309,7 +310,7 @@ export async function sendAdminMessage(params: {
       kind: 'admin_message',
       title: `Message from ${TEAM_NAME}`,
       body: body.length > 140 ? `${body.slice(0, 137)}…` : body,
-      href: '/account/messages',
+      href: teamMessagesHref(member.role as string | null),
     })
     // Never email a SYNTHETIC address (<msisdn>@users.tutormint.org) — it accepts
     // no mail, so a "send" there is a silent nothing. A mobile-signup member is
@@ -317,7 +318,7 @@ export async function sendAdminMessage(params: {
     // (The outreach view already routes mobile accounts to the WhatsApp channel;
     // this is the belt-and-braces so no caller can email a number's synthetic.)
     if (!isSyntheticEmail((member.email as string | null) ?? '')) {
-      await deliverEmail({ userId: params.memberId }, { id: 'admin_message', body })
+      await deliverEmail({ userId: params.memberId }, { id: 'admin_message', body, role: (member.role as string | null) ?? null })
     }
   }
 

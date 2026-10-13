@@ -11,6 +11,8 @@ import {
   type FeedLevel,
 } from '@/lib/jobFeed'
 import { createClient } from '@/lib/supabase/server'
+import { cityPageBySlug } from '@/lib/cityJobs'
+import { citySegment } from '@/lib/slugs'
 import { applyBlocksFor, type ApplyBlockMap } from '@/lib/applyBlockServer'
 
 // Load-more for /browse/tuitions.
@@ -67,6 +69,14 @@ export async function GET(request: Request) {
     }
   }
 
+  // An area hub's list (owner, 13 Oct 2026): the hub's address segment, turned
+  // back into the saved spellings that belong to it by the rule the page used.
+  const areaHub = get('areaHub')
+  const hubAreas =
+    areaHub && get('city')
+      ? ((await cityPageBySlug(citySegment(get('city'))))?.variants.find((v) => v.kind === 'area' && v.slug === areaHub)?.areas ?? [])
+      : null
+
   const filters: JobFilters = {
     masterId: intOrNull(get('subject')),
     city: get('city') || null,
@@ -78,6 +88,8 @@ export async function GET(request: Request) {
     viewerGender,
     // The city tuition-jobs pages (owner, 6 Oct 2026).
     area: get('area') || null,
+    // An unknown hub matches nothing, never the whole city.
+    areas: hubAreas ? (hubAreas.length > 0 ? hubAreas : ['__no_such_area_hub__']) : null,
     genderPreference: (['male', 'female', 'trans'] as const).find((g) => g === get('gender')) ?? null,
   }
 

@@ -20,6 +20,7 @@
 
 export { SITE_URL } from '@/lib/siteUrl'
 import { SITE_URL } from '@/lib/siteUrl'
+import { teamMessagesHref } from '@/lib/memberNav'
 import { properName } from '@/lib/display'
 import { placeLabel } from '@/lib/place'
 
@@ -254,7 +255,7 @@ export type TemplateInput =
     }
   // An official message from the TutorMint Team, sent by an admin. Essential:
   // the admin chose to send it, and it is account/verification correspondence.
-  | { id: 'admin_message'; body: string }
+  | { id: 'admin_message'; body: string; role?: string | null }
   // A staff invite / resend. Essential (it is the only way in), and it carries an
   // ABSOLUTE one-time link, so `link()` leaves it untouched.
   | { id: 'staff_invite'; name: string; role: string; url: string }
@@ -695,7 +696,7 @@ export function render(input: TemplateInput): RenderedEmail {
         'A message from the TutorMint Team',
         paragraphs.length > 0 ? paragraphs : [input.body],
         true,
-        { label: 'Open your messages', href: '/account/messages' },
+        { label: 'Open your messages', href: teamMessagesHref(input.role) },
       )
     }
   }

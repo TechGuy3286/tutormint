@@ -157,7 +157,7 @@ test('backfill: each grade keeps the tuition’s current subjects; the union is 
 })
 
 test('duplicate check compares per grade when both tuitions have it, otherwise the combined list', () => {
-  const base: DuplicateFacts = { id: 'a', title: 'A', city: 'Lahore', area: 'DHA', classLevels: ['Grade 1', 'Grade 2'], masterIds: [11, 21], genderPreference: null, budgetPkr: 5000, budgetMinPkr: 5000, budgetMaxPkr: 9999, createdAt: '2026-10-01' }
+  const base: DuplicateFacts = { id: 'a', title: 'A', city: 'Lahore', area: 'DHA', classLevels: ['Grade 1', 'Grade 2'], masterIds: [11, 21], genderPreference: null, budgetPkr: 5000, budgetMinPkr: 5000, budgetMaxPkr: 9999, createdAt: '2026-10-01', jobType: 'Home Tutor', contact: '923001234567' }
   const a = { ...base, gradeSubjects: [{ grade: 'Grade 1', masterIds: [11] }, { grade: 'Grade 2', masterIds: [21] }] }
   const sameSplit = { ...base, id: 'b', title: 'B', gradeSubjects: [{ grade: 'Grade 2', masterIds: [21] }, { grade: 'Grade 1', masterIds: [11] }] }
   assert.deepEqual(duplicateReasons(a, sameSplit), ['same combination'])

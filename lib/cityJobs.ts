@@ -13,12 +13,18 @@ import { createPublicClient } from '@/lib/supabase/public'
 import { LANDING_TAG } from '@/lib/landing'
 import { citySegment, cityFromSegment } from '@/lib/slugs'
 import { slugify } from '@/lib/slugs'
+import { pageAll } from '@/lib/pageAll'
 import { ONLINE_JOB_TITLE } from '@/lib/jobTitlesCore'
+import { areaHubSlug, areaHubsFor, resolveAreaHub, schoolFromAreaValue } from '@/lib/areaHubCore'
 
 /** A city page or variant is indexable (and in the sitemap) from this many open tuitions. */
 export const CITY_PAGE_THRESHOLD = 3
 
-export type CityVariant = { kind: 'female' | 'online' | 'area'; slug: string; label: string; count: number; area?: string }
+// An AREA variant is built only from an area in the curated Locations list
+// (owner, 13 Oct 2026 — lib/areaHubCore). `areas` is every saved spelling that
+// belongs to the hub ("DHA", "DHA Lahore", "DHA Phase 5"): the list filter
+// reads it, and no tuition's own saved text is changed.
+export type CityVariant = { kind: 'female' | 'online' | 'area'; slug: string; label: string; count: number; area?: string; areas?: string[] }
 
 export type CityPage = { city: string; citySlug: string; count: number; variants: CityVariant[] }
 
@@ -43,9 +49,38 @@ async function openRows(): Promise<OpenRow[]> {
 
 const cityName = (c: string) => c.trim().replace(/\s+/g, ' ')
 
+/** The curated areas of every city (Locations), keyed by the lower-case city name. */
+export async function curatedAreasByCity(): Promise<Map<string, string[]>> {
+  const db = createPublicClient()
+  const [{ data: cities }, areas] = await Promise.all([
+    db.from('location_cities').select('id, name'),
+    pageAll((from, to) => db.from('location_areas').select('id, name, city_id').order('id').range(from, to)) as Promise<
+      { name: string; city_id: number | string }[]
+    >,
+  ])
+  const nameById = new Map((cities ?? []).map((c) => [String(c.id), String(c.name).toLowerCase()]))
+  const out = new Map<string, string[]>()
+  for (const a of areas) {
+    const city = nameById.get(String(a.city_id))
+    if (city) (out.get(city) ?? out.set(city, []).get(city)!).push(a.name)
+  }
+  return out
+}
+
+// Locations changes rarely: ten minutes, cleared with the landing cache.
+const curatedCached = unstable_cache(
+  async (): Promise<[string, string[]][]> => [...(await curatedAreasByCity()).entries()],
+  ['curated-areas-by-city'],
+  { revalidate: 600, tags: [LANDING_TAG] },
+)
+
+async function curatedMap(): Promise<Map<string, string[]>> {
+  return new Map(await curatedCached())
+}
+
 /** Every city with at least one open tuition, with its variants. Sorted by count. */
 export async function cityPages(): Promise<CityPage[]> {
-  const rows = await openRows()
+  const [rows, curated] = await Promise.all([openRows(), curatedMap()])
   const byCity = new Map<string, OpenRow[]>()
   for (const r of rows) {
     const c = r.city?.trim()
@@ -64,18 +99,9 @@ export async function cityPages(): Promise<CityPage[]> {
     if (female > 0) variants.push({ kind: 'female', slug: 'female', label: `Female tutor required`, count: female })
     const online = list.filter((r) => r.teaching_mode === ONLINE_JOB_TITLE).length
     if (online > 0) variants.push({ kind: 'online', slug: 'online', label: `Online tuitions`, count: online })
-    const areas = new Map<string, { area: string; n: number }>()
-    for (const r of list) {
-      const a = r.area?.trim()
-      if (!a) continue
-      const k = slugify(a)
-      if (!k || k === 'female' || k === 'online') continue
-      const cur = areas.get(k) ?? { area: a, n: 0 }
-      cur.n++
-      areas.set(k, cur)
-    }
-    for (const [slug, v] of [...areas.entries()].sort((a, b) => b[1].n - a[1].n || a[1].area.localeCompare(b[1].area))) {
-      variants.push({ kind: 'area', slug, label: v.area, count: v.n, area: v.area })
+    // Area hubs: curated areas only, every saved spelling of one area in one hub.
+    for (const hub of areaHubsFor(city, list.map((r) => r.area), curated.get(city.toLowerCase()) ?? [])) {
+      variants.push({ kind: 'area', slug: hub.slug, label: hub.label, count: hub.count, area: hub.label, areas: hub.areas })
     }
     pages.push({ city, citySlug: citySegment(city), count: list.length, variants })
   }
@@ -102,9 +128,28 @@ export const indexableCityPagesCached = unstable_cache(
 /** The area hub for a tuition's own area, when that hub exists (3+ open posts). */
 export async function areaHubFor(city: string | null, area: string | null): Promise<{ href: string; label: string } | null> {
   if (!city || !area) return null
+  const hit = resolveAreaHub(city, area, (await curatedMap()).get(city.trim().toLowerCase()) ?? [])
+  if (!hit) return null
+  const slug = areaHubSlug(hit.area, city)
   const page = (await indexableCityPagesCached()).find((p) => p.citySlug === citySegment(city))
-  const v = page?.variants.find((x) => x.kind === 'area' && x.slug === slugify(area) && x.count >= CITY_PAGE_THRESHOLD)
+  const v = page?.variants.find((x) => x.kind === 'area' && x.slug === slug && x.count >= CITY_PAGE_THRESHOLD)
   return page && v ? { href: cityPagePath(page.citySlug, v.slug), label: v.label } : null
+}
+
+/**
+ * An address under a city that is NOT one of its hubs (owner, 13 Oct 2026): the
+ * value a tuition in this city once saved as its area — a school's name, a
+ * street address, an area that is not in Locations. Returns that value, or null
+ * when no tuition (in any status) ever made this address, which is a real 404.
+ * The page sends it to the school hub when one exists, else to the city hub.
+ */
+export async function retiredAreaValue(city: string, segment: string): Promise<{ value: string; school: string | null } | null> {
+  const db = createPublicClient()
+  const rows = (await pageAll((from, to) =>
+    db.from('jobs').select('id, area').ilike('city', city).not('area', 'is', null).order('id').range(from, to),
+  )) as { area: string | null }[]
+  const value = rows.map((r) => (r.area ?? '').trim()).find((a) => a && slugify(a) === segment)
+  return value ? { value, school: schoolFromAreaValue(value) } : null
 }
 
 /** One city by its URL segment, or null when it has no open tuition at all. */

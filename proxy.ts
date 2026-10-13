@@ -23,6 +23,7 @@ import { ANON_COOKIE, ANON_MAX_AGE_SECONDS, newAnonId } from '@/lib/anonSession'
 import { PERSIST_COOKIE, persistOffFrom, applySessionPersistence } from '@/lib/sessionCookies'
 import { needsPhoneGate } from '@/lib/phoneGate'
 import { METHOD_HEADER } from '@/lib/requestMethod'
+import { areaHubRedirectPath } from '@/lib/areaHubRedirect'
 
 // /pay/* is the checkout journey (gateway hand-off, transfer instructions,
 // return screen). Every page under it reads the signed-in member's own
@@ -176,6 +177,19 @@ export async function proxy(request: NextRequest) {
     target.pathname = '/membership-plans'
     target.search = ''
     return NextResponse.redirect(target, 301)
+  }
+
+  // An area hub whose address was merged into another (owner, 13 Oct 2026):
+  // /tuition-jobs/lahore/dha-lahore → /tuition-jobs/lahore/dha, a 301. Only
+  // these two-segment hub addresses are looked at; the curated list behind the
+  // rule is held in memory (lib/areaHubRedirect).
+  if (request.nextUrl.pathname.startsWith('/tuition-jobs/')) {
+    const moved = await areaHubRedirectPath(request.nextUrl.pathname)
+    if (moved) {
+      const target = request.nextUrl.clone()
+      target.pathname = moved
+      return NextResponse.redirect(target, 301)
+    }
   }
 
   // Rebuilt after a token refresh (setAll below) so the page sees the NEW
