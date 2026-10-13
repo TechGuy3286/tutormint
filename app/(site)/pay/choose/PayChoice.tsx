@@ -233,7 +233,7 @@ export default function PayChoice({
         {bank && (
           <label className={option(method === 'bank')}>
             <input type="radio" name="pay-via" className="h-5 w-5 accent-tm-navy" checked={method === 'bank'} onChange={() => setMethod('bank')} />
-            <Logo src={logos.bank} alt="Faysal Bank" />
+            <Logo src={logos.bank} alt={bank.bankName ?? 'Bank'} />
             <span className="min-w-0 text-sm font-bold text-tm-navy">
               Other method: bank transfer
               <span className="block text-[11px] font-semibold text-gray-500">{bank.bankName} · activated after we check your receipt</span>
