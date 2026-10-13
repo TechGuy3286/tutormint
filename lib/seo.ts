@@ -20,6 +20,7 @@ import { SITE_URL, absoluteUrl } from '@/lib/siteUrl'
 import type { Company } from '@/lib/company'
 import { formatSupportPhoneSchema } from '@/lib/supportContacts'
 import { provinceForCity, postcodeFor } from '@/lib/pkLocations'
+import { ORGANIZATION_ID, WEBSITE_ID, SITE_DESCRIPTION, SITE_TAGLINE, socialProfiles } from '@/lib/siteIdentity'
 
 export const BRAND = 'TutorMint'
 export const SLOGAN = 'Free to join, no commission, no middleman'
@@ -187,15 +188,7 @@ export function pageDescription(lead: string): string {
 
 /** The social profiles that actually exist. An unset handle emits nothing. */
 export function sameAs(): string[] {
-  return [
-    process.env.SOCIAL_FACEBOOK,
-    process.env.SOCIAL_INSTAGRAM,
-    process.env.SOCIAL_YOUTUBE,
-    process.env.SOCIAL_X,
-    process.env.SOCIAL_TIKTOK,
-  ]
-    .map((u) => (u ?? '').trim())
-    .filter((u) => /^https?:\/\//i.test(u))
+  return socialProfiles()
 }
 
 /**
@@ -223,6 +216,8 @@ export function organizationJsonLd(company: Company, phone: string | null) {
     name: BRAND,
     legalName: company.legalName,
     url: SITE_URL,
+    description: SITE_DESCRIPTION,
+    areaServed: { '@type': 'Country', name: 'Pakistan' },
     logo: {
       '@type': 'ImageObject',
       url: absoluteUrl('/tutormint-logo1200x630.png'),
@@ -230,7 +225,7 @@ export function organizationJsonLd(company: Company, phone: string | null) {
       height: 630,
     },
     image: absoluteUrl('/tutormint-logo1200x630.png'),
-    slogan: SLOGAN,
+    slogan: SITE_TAGLINE,
     address: {
       '@type': 'PostalAddress',
       streetAddress: '4th Floor, 37-M, Civic Center, Model Town',
@@ -269,7 +264,7 @@ export function webSiteJsonLd() {
     '@id': `${SITE_URL}/#website`,
     url: SITE_URL,
     name: BRAND,
-    description: pageDescription('Find verified tutors across Pakistan'),
+    description: SITE_DESCRIPTION,
     inLanguage: 'en-PK',
     publisher: { '@id': `${SITE_URL}/#organization` },
     potentialAction: {
@@ -284,103 +279,120 @@ export function webSiteJsonLd() {
 }
 
 /**
- * A tutor, as a Person who provides a Service.
- *
- * Person and Service rather than one or the other: the person is who a parent
- * hires, and the service is what they are hiring. `provider` links them, so a
- * search engine reading either finds the other.
- *
- * NOTHING IS ASSERTED THAT THE PROFILE DOES NOT HOLD. No rating unless there
- * are real reviews, no price unless a rate is set, no area unless one is
- * chosen. An `aggregateRating` with a zero count is a rich-result violation
- * and, more to the point, a claim about a tutor nobody has reviewed.
+ * Organization + WebSite as ONE graph, emitted once on every public page
+ * (owner, 13 Oct 2026) by the site chrome. Other blocks point at the two nodes
+ * by @id (#organization, #website).
  */
-export function tutorJsonLd(t: {
+export function siteGraphJsonLd(company: Company, phone: string | null) {
+  const { '@context': _c1, ...org } = organizationJsonLd(company, phone)
+  const { '@context': _c2, ...site } = webSiteJsonLd()
+  void _c1
+  void _c2
+  return { '@context': 'https://schema.org', '@graph': [org, site] }
+}
+
+/**
+ * A tutor's public profile: ProfilePage whose mainEntity is the Person (owner,
+ * 13 Oct 2026). The page is part of the WebSite; the tutor is NOT an employee of
+ * TutorMint, so there is no worksFor / affiliation.
+ *
+ * HONEST AND PRIVATE: no rating, no review, no fee, no phone, no email, no CNIC,
+ * no street address. `image` only when the tutor has a real profile photo (the
+ * grey default avatar is never passed in). `areaServed` is the city and the
+ * areas the tutor chose to show on the profile.
+ */
+export function tutorProfileJsonLd(t: {
   slug: string
   name: string
-  headline: string | null
   avatarUrl: string | null
   city: string | null
-  area: string | null
+  areas: string[]
   subjects: string[]
-  hourlyRatePkr: number | null
-  feeMinPkr?: number | null
-  feeMaxPkr?: number | null
-  ratingAvg: number | null
-  ratingCount: number | null
+  levels: string[]
+  dateModified?: string | null
 }) {
   const url = absoluteUrl(`/tutor/${t.slug}`)
-  const areaServed = [t.area, t.city].filter(Boolean).join(', ') || null
-
-  // The fee is a MONTHLY range (PR67); fall back to the single legacy figure.
-  const feeLo = (typeof t.feeMinPkr === 'number' && t.feeMinPkr > 0 ? t.feeMinPkr : null) ?? t.hourlyRatePkr
-  const feeHi = (typeof t.feeMaxPkr === 'number' && t.feeMaxPkr > 0 ? t.feeMaxPkr : null) ?? t.hourlyRatePkr
-  const feeSpec =
-    feeLo && feeHi
-      ? feeLo === feeHi
-        ? { '@type': 'UnitPriceSpecification', price: feeLo, priceCurrency: 'PKR', unitText: 'MONTH' }
-        : { '@type': 'UnitPriceSpecification', minPrice: feeLo, maxPrice: feeHi, priceCurrency: 'PKR', unitText: 'MONTH' }
-      : null
-
-  // Person.jobTitle: the headline when the tutor wrote one, else built from the
-  // first subject ("Mathematics tutor") — never empty (owner, 6 Oct 2026).
-  const firstSubject = t.subjects[0] ?? null
-  const jobTitle = t.headline?.trim() || (firstSubject ? `${firstSubject} tutor` : 'Private tutor')
-  const serviceName = `${firstSubject ? firstSubject + ' tutoring' : 'Private tutoring'}${t.city ? ' in ' + t.city : ''}`
-  const serviceDescription = `${t.name} teaches ${t.subjects.length > 0 ? t.subjects.slice(0, 5).join(', ') : 'private lessons'}${areaServed ? ' in ' + areaServed : ''} — a verified tutor on TutorMint.`
-
+  const clean = (xs: (string | null | undefined)[]) => [...new Set(xs.map((x) => (x ?? '').trim()).filter(Boolean))]
+  const knowsAbout = clean([...t.subjects, ...t.levels])
+  const places = clean([...t.areas.map((a) => (t.city && !a.toLowerCase().includes(t.city.toLowerCase()) ? `${a}, ${t.city}` : a)), t.city])
   const person = {
     '@type': 'Person',
     '@id': `${url}#person`,
     name: t.name,
     url,
-    jobTitle,
+    jobTitle: 'Tutor',
     ...(t.avatarUrl ? { image: t.avatarUrl } : {}),
-    ...(t.subjects.length > 0 ? { knowsAbout: t.subjects } : {}),
-    ...(areaServed
-      ? { address: { '@type': 'PostalAddress', addressLocality: t.city, addressCountry: 'PK' } }
-      : {}),
-    worksFor: { '@id': `${SITE_URL}/#organization` },
+    ...(knowsAbout.length > 0 ? { knowsAbout } : {}),
+    ...(places.length > 0 ? { areaServed: places.map((name) => ({ '@type': 'Place', name })) } : {}),
   }
-
-  const service = {
-    '@type': 'Service',
-    '@id': `${url}#service`,
-    name: serviceName,
-    description: serviceDescription,
-    serviceType: t.subjects.length > 0 ? `${t.subjects.join(', ')} tutoring` : 'Private tutoring',
-    provider: { '@id': `${url}#person` },
+  const page = {
+    '@type': 'ProfilePage',
+    '@id': `${url}#profilepage`,
     url,
-    ...(areaServed ? { areaServed: { '@type': 'Place', name: areaServed } } : {}),
-    ...(feeSpec
-      ? {
-          offers: {
-            '@type': 'Offer',
-            priceCurrency: 'PKR',
-            availability: 'https://schema.org/InStock',
-            // The stored figures are a MONTHLY fee range (PR67; the column
-            // hourly_rate_pkr is the legacy single figure). A bare `price` reads
-            // as per-session in a rich result and understates it by an order of
-            // magnitude, so it is a per-month unit price — a min/max range when
-            // the tutor set one, a single price when min = max.
-            priceSpecification: feeSpec,
-          },
-        }
-      : {}),
-    // Only with real reviews behind it.
-    ...(t.ratingAvg && t.ratingCount && t.ratingCount > 0
-      ? {
-          aggregateRating: {
-            '@type': 'AggregateRating',
-            ratingValue: t.ratingAvg,
-            reviewCount: t.ratingCount,
-          },
-        }
-      : {}),
+    name: `${t.name} — tutor on ${BRAND}`,
+    isPartOf: { '@id': WEBSITE_ID },
+    ...(t.dateModified ? { dateModified: t.dateModified } : {}),
+    mainEntity: { '@id': `${url}#person` },
   }
-
-  return { '@context': 'https://schema.org', '@graph': [person, service] }
+  return { '@context': 'https://schema.org', '@graph': [page, person] }
 }
+
+/** How many list items a hub's structured data carries at most. */
+export const COLLECTION_ITEMS_MAX = 20
+
+/**
+ * A hub (city, area, school, city × subject) as a CollectionPage whose
+ * mainEntity is the ItemList of what the page visibly lists — url and name
+ * only, at most COLLECTION_ITEMS_MAX (owner, 13 Oct 2026).
+ */
+export function collectionPageJsonLd(params: {
+  name: string
+  url: string
+  description?: string | null
+  items: { name: string; url: string }[]
+}) {
+  const items = params.items.slice(0, COLLECTION_ITEMS_MAX)
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'CollectionPage',
+        '@id': `${params.url}#collection`,
+        url: params.url,
+        name: params.name,
+        ...(params.description ? { description: params.description } : {}),
+        isPartOf: { '@id': WEBSITE_ID },
+        about: { '@id': ORGANIZATION_ID },
+        mainEntity: { '@id': `${params.url}#itemlist` },
+      },
+      {
+        '@type': 'ItemList',
+        '@id': `${params.url}#itemlist`,
+        name: params.name,
+        numberOfItems: items.length,
+        itemListElement: items.map((it, i) => ({ '@type': 'ListItem', position: i + 1, name: it.name, url: it.url })),
+      },
+    ],
+  }
+}
+
+/** /about — AboutPage whose mainEntity is the Organization. */
+export function aboutPageJsonLd() {
+  const url = absoluteUrl('/about')
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'AboutPage',
+    '@id': `${url}#aboutpage`,
+    url,
+    name: `About ${BRAND}`,
+    description: SITE_DESCRIPTION,
+    isPartOf: { '@id': WEBSITE_ID },
+    mainEntity: { '@id': ORGANIZATION_ID },
+  }
+}
+
+/** The honest name of who is hiring on an ordinary tuition: a private household. */
+export const PRIVATE_CLIENT_NAME = `Private tutoring client (via ${BRAND})`
 
 /**
  * A posted tuition, as a JobPosting.
@@ -400,11 +412,12 @@ export function tutorJsonLd(t: {
  * would understate a band-posted job by up to ten thousand rupees, which is the
  * same reason the card renders a range.
  *
- * `hiringOrganization` is the platform, not the parent. A parent is a private
- * household; naming them as an employer would publish an individual as a
- * business, and their name is already on the page as a member, linked to their
- * own profile. A post that NAMES its school is the exception (12 Oct 2026):
- * the school is an organisation and is named as the hiring organisation.
+ * `hiringOrganization` is neither the parent by name nor the platform (13 Oct
+ * 2026). A parent is a private household — naming them would publish an
+ * individual as a business — and TutorMint lists the tuition, it does not
+ * employ the tutor. So it is the generic honest form, "Private tutoring client
+ * (via TutorMint)", pointing at this site. A post that NAMES its school is the
+ * exception (12 Oct 2026): the school is the hiring organisation.
  *
  * `employmentType` is PART_TIME for a tuition and, for a school post, only what
  * the post's own words say (lib/jobPostingCore) — left out when it does not say.
@@ -497,14 +510,16 @@ export function jobPostingJsonLd(job: {
     // A post that names its school is that school's vacancy (owner, 12 Oct
     // 2026): the school is the hiring organisation — name only, we hold no site
     // or logo for it. Every other posting is listed by TutorMint.
+    // (13 Oct 2026) An ordinary tuition is hired by a private household, not by
+    // TutorMint: TutorMint is where it is listed. The household is never named,
+    // so it is the honest generic form, pointing at this site.
     hiringOrganization: job.schoolName
       ? { '@type': 'Organization', name: job.schoolName }
       : {
           '@type': 'Organization',
-          '@id': `${SITE_URL}/#organization`,
-          name: BRAND,
+          name: PRIVATE_CLIENT_NAME,
           sameAs: SITE_URL,
-          logo: absoluteUrl('/tutormint-logo1200x630.png'),
+          url: SITE_URL,
         },
     // Applications are made on this page, not on somebody else's site.
     directApply: true,
@@ -615,9 +630,10 @@ export function articleJsonLd(a: {
     author: { '@type': 'Organization', name: a.legalName, url: SITE_URL },
     // The publisher is spelled out (owner, 5 Oct 2026) — a blog post is read on
     // its own, without the homepage's Organization node to resolve an @id.
+    isPartOf: { '@id': WEBSITE_ID },
     publisher: {
       '@type': 'Organization',
-      '@id': `${SITE_URL}/#organization`,
+      '@id': ORGANIZATION_ID,
       name: 'TutorMint',
       url: SITE_URL,
       logo: { '@type': 'ImageObject', url: absoluteUrl('/tutormint-logo1200x630.png'), width: 1200, height: 630 },

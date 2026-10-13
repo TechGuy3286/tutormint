@@ -24,6 +24,7 @@ import { PERSIST_COOKIE, persistOffFrom, applySessionPersistence } from '@/lib/s
 import { needsPhoneGate } from '@/lib/phoneGate'
 import { METHOD_HEADER } from '@/lib/requestMethod'
 import { NEW_VISITOR_HEADER } from '@/lib/searchCountCore'
+import { ANON_ID_HEADER } from '@/lib/searchBeaconCore'
 import { areaHubRedirectPath } from '@/lib/areaHubRedirect'
 
 // /pay/* is the checkout journey (gateway hand-off, transfer instructions,
@@ -95,6 +96,20 @@ const TUITION_CITY_HEADER = 'x-tm-tuition-city'
  * view-only Partner role. Always OVERWRITTEN from the real method, so a client
  * that sends its own `x-tm-method` gets nothing.
  */
+// The visitor id minted for a request that arrived without one — the SAME id
+// goes on the response cookie and to the route (ANON_ID_HEADER), so the search
+// beacon can count a cookieless first visit once (lib/searchBeaconCore).
+const mintedAnon = new WeakMap<NextRequest, string>()
+function mintedAnonId(request: NextRequest): string | null {
+  if (request.cookies.has(ANON_COOKIE)) return null
+  let id = mintedAnon.get(request)
+  if (!id) {
+    id = newAnonId()
+    mintedAnon.set(request, id)
+  }
+  return id
+}
+
 function forwardHeaders(request: NextRequest): { headers: Headers } {
   const headers = new Headers(request.headers)
   headers.set(METHOD_HEADER, request.method)
@@ -102,6 +117,10 @@ function forwardHeaders(request: NextRequest): { headers: Headers } {
   // its requests is a "new visitor" — the search logs do not count those
   // (lib/searchCountCore). Always overwritten, so a client cannot fake it.
   headers.set(NEW_VISITOR_HEADER, request.cookies.has(ANON_COOKIE) ? '0' : '1')
+  // Always overwritten or removed, so a client cannot supply its own.
+  const minted = mintedAnonId(request)
+  if (minted) headers.set(ANON_ID_HEADER, minted)
+  else headers.delete(ANON_ID_HEADER)
   const { pathname } = request.nextUrl
   if (pathname.startsWith('/tuitions/')) {
     const city = pathname.split('/')[2]
@@ -150,8 +169,9 @@ function captureUtm(request: NextRequest, response: NextResponse): void {
  * searches into one demand signal; see lib/anonSearch.ts.
  */
 function captureAnon(request: NextRequest, response: NextResponse): void {
-  if (request.cookies.has(ANON_COOKIE)) return
-  response.cookies.set(ANON_COOKIE, newAnonId(), {
+  const minted = mintedAnonId(request)
+  if (!minted) return
+  response.cookies.set(ANON_COOKIE, minted, {
     maxAge: ANON_MAX_AGE_SECONDS,
     httpOnly: true,
     sameSite: 'lax',

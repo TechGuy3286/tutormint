@@ -3,7 +3,9 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import { getCompany } from '@/lib/company'
-import { pageDescription, pageTitle, SLOGAN } from '@/lib/seo'
+import { aboutPageJsonLd, jsonLdScript, seoTitle, socialMeta } from '@/lib/seo'
+import { getSupportContact, whatsappHref, formatSupportWhatsApp } from '@/lib/support'
+import { SITE_DESCRIPTION, SITE_FEATURES, SITE_HOW_IT_WORKS, SITE_TAGLINE, SITE_TWO_SIDED } from '@/lib/siteIdentity'
 
 // About, and the legal identity.
 //
@@ -18,25 +20,125 @@ import { pageDescription, pageTitle, SLOGAN } from '@/lib/seo'
 
 export const dynamic = 'force-dynamic'
 
+const ABOUT_TITLE = seoTitle('About TutorMint — Tutors and Tuitions in Pakistan')
+
 export const metadata: Metadata = {
-  title: pageTitle('About us'),
-  description: pageDescription(
-    'Who runs TutorMint, where we are registered, and how we make money without taking a cut of your fee',
-  ),
+  title: ABOUT_TITLE,
+  // The one description the whole site uses (lib/siteIdentity).
+  description: SITE_DESCRIPTION,
   alternates: { canonical: '/about' },
+  ...socialMeta({ title: ABOUT_TITLE, description: SITE_DESCRIPTION, path: '/about', type: 'website' }),
 }
 
 export default async function AboutPage() {
-  const company = await getCompany()
+  const [company, support] = await Promise.all([getCompany(), getSupportContact()])
+  const wa = whatsappHref(support.whatsapp, 'Hello TutorMint, I have a question about ')
 
   return (
     <main className="mx-auto w-full max-w-3xl space-y-5 p-4 sm:p-6">
+      {/* AboutPage → the Organization the site chrome emits (owner, 13 Oct 2026). */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdScript(aboutPageJsonLd())} />
       <Breadcrumbs items={[{ label: 'About' }]} />
 
       <header className="space-y-2">
         <h1 className="text-2xl font-black text-tm-navy sm:text-3xl">About TutorMint</h1>
-        <p className="text-sm font-bold text-tm-green-deep">{SLOGAN}</p>
+        <p className="text-sm font-bold text-tm-green-deep">{SITE_TAGLINE}</p>
+        <p className="text-sm leading-relaxed text-slate-700">{SITE_DESCRIPTION}</p>
       </header>
+
+      {/* Both sides, said plainly (owner, 13 Oct 2026) — from lib/siteIdentity. */}
+      <section className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4 text-sm leading-relaxed text-slate-700 sm:p-5">
+          <h2 className="text-base font-black text-tm-navy">For parents, schools and academies</h2>
+          <p>{SITE_TWO_SIDED.parents}</p>
+          <p>
+            The problem we solve: finding a tutor you can trust usually means asking around or paying
+            an agency. Here you can see who the tutor is, what they teach and where, before you send
+            the first message.
+          </p>
+          <ol className="list-decimal space-y-1 pl-5">
+            {SITE_HOW_IT_WORKS.parents.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+          <p className="flex flex-wrap gap-x-4 gap-y-1 pt-1">
+            <Link href="/browse/tutors" className="font-bold text-tm-red hover:underline">Find tutors</Link>
+            <Link href="/parent/dashboard/post-job" className="font-bold text-tm-red hover:underline">Post a tuition</Link>
+          </p>
+        </div>
+        <div className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4 text-sm leading-relaxed text-slate-700 sm:p-5">
+          <h2 className="text-base font-black text-tm-navy">For tutors</h2>
+          <p>{SITE_TWO_SIDED.tutors}</p>
+          <p>
+            The problem we solve: a good tutor is hard to find for a parent who does not already know
+            them, and an academy keeps a share of the fee. Here your profile is in front of parents
+            who are searching for your subject in your area.
+          </p>
+          <ol className="list-decimal space-y-1 pl-5">
+            {SITE_HOW_IT_WORKS.tutors.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+          <p className="flex flex-wrap gap-x-4 gap-y-1 pt-1">
+            <Link href="/browse/tuitions" className="font-bold text-tm-red hover:underline">Find tuitions</Link>
+            <Link href="/register" className="font-bold text-tm-red hover:underline">Become a tutor</Link>
+          </p>
+        </div>
+      </section>
+
+      <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4 text-sm leading-relaxed text-slate-700 sm:p-5">
+        <h2 className="text-base font-black text-tm-navy">What you get</h2>
+        <ul className="list-disc space-y-1 pl-5">
+          {SITE_FEATURES.map((feature) => (
+            <li key={feature}>{feature}</li>
+          ))}
+        </ul>
+        <p className="flex flex-wrap gap-x-4 gap-y-1 pt-1">
+          <Link href="/blog" className="font-bold text-tm-red hover:underline">Read the guides</Link>
+          <Link href="/faq" className="font-bold text-tm-red hover:underline">Questions and answers</Link>
+        </p>
+      </section>
+
+      <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4 text-sm leading-relaxed text-slate-700 sm:p-5">
+        <h2 className="text-base font-black text-tm-navy">What is free, and how we earn</h2>
+        <p>
+          Browsing tutors and tuitions is free and needs no account. Signing up is free. Parents post
+          tuitions, message tutors and request demo lessons free once their mobile number is verified.
+          TutorMint takes no commission on any tuition.
+        </p>
+        <p>
+          We earn in two ways only: a one-time Verification Fee that a tutor pays to become verified,
+          and optional{' '}
+          <Link href="/membership-plans" className="font-bold text-tm-red hover:underline">
+            membership plans
+          </Link>{' '}
+          for tutors and parents who want more.
+        </p>
+      </section>
+
+      <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4 text-sm leading-relaxed text-slate-700 sm:p-5">
+        <h2 className="text-base font-black text-tm-navy">Support</h2>
+        <p>
+          Our team answers on WhatsApp
+          {support.whatsapp && (
+            <>
+              {' '}
+              <a href={wa || undefined} className="font-bold text-tm-navy hover:underline">
+                {formatSupportWhatsApp(support.whatsapp)}
+              </a>
+            </>
+          )}
+          {support.email && (
+            <>
+              {' '}and by email at{' '}
+              <a href={`mailto:${support.email}`} className="font-bold text-tm-navy hover:underline">
+                {support.email}
+              </a>
+            </>
+          )}
+          .
+        </p>
+      </section>
 
       <section className="space-y-4 rounded-2xl border border-gray-200 bg-white p-4 text-sm leading-relaxed text-slate-700 sm:p-5">
         <p>
@@ -95,10 +197,11 @@ export default async function AboutPage() {
             sending their CNIC, a profile photo and a selfie, which our team checks. A degree,
             certificates and an introduction video are optional extras a tutor can add to their
             profile; none of them is needed for the badge.{' '}
+Parents verify their mobile number before they can post a tuition, and can{' '}
             <Link href="/parent/verify" className="font-bold text-tm-red hover:underline">
-              Parents verify their CNIC and a home address
+              send their CNIC and home address
             </Link>{' '}
-            before they can post a job, because a tutor is being asked to travel to a
+            to earn the Verified badge, because a tutor is being asked to travel to a
             stranger&apos;s house.
           </p>
           <p>

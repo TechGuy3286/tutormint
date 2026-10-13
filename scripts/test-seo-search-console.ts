@@ -99,8 +99,10 @@ test('JobPosting: a home tuition has every required and recommended field', () =
   assert.equal(j.directApply, true)
   assert.equal((j.identifier as { value: string }).value, 'TM-2001')
   const org = j.hiringOrganization as Record<string, unknown>
-  assert.equal(org.name, 'TutorMint')
-  assert.ok(org.sameAs && org.logo, 'TutorMint carries sameAs and a logo')
+  // A private household hires, not TutorMint (owner, 13 Oct 2026).
+  assert.equal(org.name, 'Private tutoring client (via TutorMint)')
+  assert.ok(org.sameAs && org.url, 'it points at this site')
+  assert.equal(org['@id'], undefined, 'it is not the TutorMint Organization node')
   const addr = (j.jobLocation as { address: Record<string, string> }).address
   assert.equal(addr.addressCountry, 'PK')
   assert.equal(addr.addressRegion, 'Punjab')

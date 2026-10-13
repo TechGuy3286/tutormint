@@ -8,10 +8,8 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createPublicClient } from '@/lib/supabase/public'
 import { getEntitlements } from '@/lib/entitlements'
-import { cookies } from 'next/headers'
-import { logSearchPerformed } from '@/lib/activityLog'
-import { logAnonSearch } from '@/lib/anonSearch'
-import { ANON_COOKIE, isAnonId } from '@/lib/anonSession'
+import SearchBeacon from '@/components/search/SearchBeacon'
+import { searchBeaconToken } from '@/lib/searchBeacon'
 import {
   browseJobs,
   slimForCard,
@@ -24,7 +22,7 @@ import {
 } from '@/lib/jobFeed'
 import SearchChips from '@/components/search/SearchChips'
 import { jobFallback } from '@/lib/searchFallback'
-import { logUnmetSearch, resolveSmartQuery } from '@/lib/smartSearch'
+import { resolveSmartQuery } from '@/lib/smartSearch'
 import JobCard from '@/components/JobCard'
 import AdSlot from '@/components/ads/AdSlot'
 import JobFilterBar, { type JobFilterValues } from './JobFilterBar'
@@ -259,10 +257,23 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
   const feedLevel: 1 | 2 | 3 | null = 'level' in result ? (result.level as 1 | 2 | 3) : null
   // Nothing found (owner, 8 Oct 2026): log it, then show the nearest match.
   let fallback: Awaited<ReturnType<typeof jobFallback>> = null
+  let unmetQuery: string | null = null
   if (jobs.length === 0 && !defaultApplied && (q || city)) {
-    if (q) await logUnmetSearch({ query: q, surface: 'tuitions', parsed, role: viewerRole, userId: user?.id ?? null })
+    // The miss is logged by the beacon (the ticket carries the typed search).
+    unmetQuery = q || null
     fallback = await jobFallback(filters, parsed, PAGE_SIZE)
   }
+  // SEARCH LOGGING (owner, 13 Oct 2026): rendering this page writes NOTHING. A
+  // real browser that has loaded the page posts this signed ticket back once
+  // (components/search/SearchBeacon → POST /api/search/log), and only that post
+  // records the search. See lib/searchBeaconCore.
+  const beaconToken = searchBeaconToken({
+    s: 'tuitions',
+    f: { master_id: subjectId, city: city || null, mode: mode || null },
+    x: filtered,
+    r: total,
+    u: unmetQuery,
+  })
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   if (user) {
@@ -278,34 +289,6 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
         .eq('user_id', user.id)
         .in('job_id', jobs.map((j) => j.id))
       savedIds = new Set((savedRows ?? []).map((s) => s.job_id as string))
-    }
-
-    if (filtered) {
-      // Collapsed for the typeahead -- see logSearchPerformed().
-      await logSearchPerformed({
-        userId: user.id,
-        surface: 'tuitions',
-        filters: {
-          master_id: subjectId,
-          city: city || null,
-          mode: mode || null,
-        },
-        results: total,
-      })
-    }
-  } else {
-    // Anonymous demand — most of the traffic. Session-scoped, no PII, never on
-    // a member timeline. See lib/anonSearch.ts.
-    if (filtered) {
-      const sessionId = (await cookies()).get(ANON_COOKIE)?.value
-      if (isAnonId(sessionId)) {
-        await logAnonSearch({
-          sessionId,
-          surface: 'tuitions',
-          filters: { master_id: subjectId, city: city || null, mode: mode || null },
-          results: total,
-        })
-      }
     }
   }
 
@@ -344,6 +327,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
 
   return (
     <main className="min-h-screen bg-tm-bg px-4 py-4 text-slate-700 sm:px-6 sm:py-6 lg:px-8">
+      <SearchBeacon token={beaconToken} />
       <div className="mx-auto max-w-5xl space-y-4">
         <Breadcrumbs items={[{ label: 'Find tuitions' }]} />
         <header className="space-y-1">

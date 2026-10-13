@@ -126,7 +126,10 @@
     "test:seosc": "tsx --test scripts/test-seo-search-console.ts",
     "audit:seo": "node scripts/audit-seo-live.mjs",
     "check:links": "node scripts/check-internal-redirects.mjs",
-    "test:areahubs": "tsx --test scripts/test-area-hubs.ts"
+    "test:areahubs": "tsx --test scripts/test-area-hubs.ts",
+    "test:siteidentity": "tsx --test scripts/test-site-identity.ts",
+    "test:searchbeacon": "tsx --test scripts/test-search-beacon.ts",
+    "check:jsonld": "node scripts/check-jsonld-live.mjs"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

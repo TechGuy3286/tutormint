@@ -6,7 +6,9 @@ import JobCard from '@/components/JobCard'
 import MoreJobs from '@/app/(site)/browse/tuitions/MoreJobs'
 import { browseJobs, slimForCard, type JobFilters } from '@/lib/jobFeed'
 import { absoluteUrl } from '@/lib/siteUrl'
-import { itemListJsonLd, jsonLdScript } from '@/lib/seo'
+import { collectionPageJsonLd, jsonLdScript } from '@/lib/seo'
+import { liveLandingPages } from '@/lib/landing'
+import { GraduationCap } from 'lucide-react'
 import { tuitionPath } from '@/lib/slugs'
 import { ONLINE_JOB_TITLE } from '@/lib/jobTitlesCore'
 import { CITY_PAGE_THRESHOLD, cityPagePath, indexableCityPagesCached, type CityPage, type CityVariant } from '@/lib/cityJobs'
@@ -116,6 +118,12 @@ export default async function CityJobsView({
   // Variant links: the other pages in this city that exist (3+ open tuitions).
   const liveVariants = page.variants.filter((v) => v.count >= CITY_PAGE_THRESHOLD && v.slug !== variant?.slug)
 
+  // The other side of this hub (owner, 13 Oct 2026): tutor pages in the same
+  // city — only ones that exist — and the tutor directory.
+  const tutorPages = (await liveLandingPages().catch(() => []))
+    .filter((p) => p.kind === 'tutors' && p.citySlug === page.citySlug)
+    .slice(0, 8)
+
   const crumbs = [
     { label: 'Tuition jobs', href: '/browse/tuitions' },
     ...(variant ? [{ label: page.city, href: cityPagePath(page.citySlug) }, { label: variant.kind === 'area' ? (variant.area ?? variant.label) : variant.label }] : [{ label: page.city }]),
@@ -126,9 +134,10 @@ export default async function CityJobsView({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={jsonLdScript(
-          itemListJsonLd({
+          collectionPageJsonLd({
             url: absoluteUrl(path),
             name: heading,
+            description: intro,
             items: jobs.map((j) => ({ name: j.headline ?? j.title, url: absoluteUrl(tuitionPath(j)) })),
           }),
         )}
@@ -200,6 +209,27 @@ export default async function CityJobsView({
         )}
 
         {indexable && jobs.length > 0 && <HubFaq items={hubFaq(hub.kind, hub.name, facts)} path={path} />}
+
+        <nav aria-label={`Tutors in ${page.city}`} className="space-y-1.5 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+          <p className="text-xs font-black text-tm-navy">Looking for a tutor in {page.city}?</p>
+          <p className="text-xs leading-relaxed text-gray-600">
+            This page lists tuition and teaching jobs for tutors. Parents can browse tutors free and contact them directly.
+          </p>
+          <ul className="flex flex-wrap gap-2">
+            <li>
+              <Link href="/browse/tutors" className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-gray-200 bg-tm-bg px-3 text-[11px] font-semibold text-tm-navy hover:border-tm-navy">
+                <GraduationCap aria-hidden size={12} /> Find tutors
+              </Link>
+            </li>
+            {tutorPages.map((p) => (
+              <li key={p.subjectSlug}>
+                <Link href={`/tutors/${p.citySlug}/${p.subjectSlug}`} className="inline-flex min-h-[36px] items-center rounded-lg border border-gray-200 bg-tm-bg px-3 text-[11px] font-semibold text-tm-navy hover:border-tm-navy">
+                  {p.subjectName} tutors
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
 
         {otherCities.length > 0 && (
           <nav aria-label="Teaching jobs in other cities" className="space-y-1.5 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">

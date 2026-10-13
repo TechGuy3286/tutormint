@@ -94,9 +94,9 @@ test('the recount: a visitor seen once is left out; a returning visitor keeps th
 
 test('every search log asks the rule before it writes, and the queue reads only counted rows', () => {
   for (const [f, call] of [
-    ['lib/anonSearch.ts', 'if (await searchNotCounted()) return'],
-    ['lib/activityLog.ts', 'if (await searchNotCounted({ userId: params.userId })) return'],
-    ['lib/smartSearch.ts', 'if (await searchNotCounted({ userId: input.userId ?? null, role: input.role })) return'],
+    ['lib/anonSearch.ts', 'if (await searchNotCounted({ fromBeacon: params.fromBeacon })) return'],
+    ['lib/activityLog.ts', 'if (await searchNotCounted({ userId: params.userId, fromBeacon: params.fromBeacon })) return'],
+    ['lib/smartSearch.ts', 'if (await searchNotCounted({ userId: input.userId ?? null, role: input.role, fromBeacon: input.fromBeacon })) return'],
   ] as const) {
     assert.ok(readFileSync(f, 'utf8').includes(call), f)
   }

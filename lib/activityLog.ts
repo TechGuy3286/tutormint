@@ -151,11 +151,13 @@ export async function logSearchPerformed(params: {
   filters: Record<string, unknown>
   results: number
   withinSeconds?: number
+  /** True when called from the search beacon route (lib/searchBeacon). */
+  fromBeacon?: boolean
 }): Promise<void> {
   // Bots, our own link check and signed-in staff are not demand (owner,
   // 13 Oct 2026 — lib/searchCountCore).
   const { searchNotCounted } = await import('@/lib/searchCount')
-  if (await searchNotCounted({ userId: params.userId })) return
+  if (await searchNotCounted({ userId: params.userId, fromBeacon: params.fromBeacon })) return
 
   const admin = createAdminClient()
   if (!admin) return

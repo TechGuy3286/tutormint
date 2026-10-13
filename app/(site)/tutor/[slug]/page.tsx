@@ -28,7 +28,8 @@ import { formatDate } from '@/lib/datetime'
 import { levelLabel } from '@/lib/display'
 import { feeLabelOf } from '@/lib/fee'
 import JobTypesChip from '@/components/JobTypesChip'
-import { jsonLdScript, pageDescription, pageTitle, socialMeta, tutorJsonLd, seoTitle, seoDescription } from '@/lib/seo'
+import { jsonLdScript, pageDescription, pageTitle, socialMeta, tutorProfileJsonLd, seoTitle, seoDescription } from '@/lib/seo'
+import { tutorMetaDescription } from '@/lib/tutorMeta'
 import { getLandingLinker } from '@/lib/landing'
 import { currentSlugForRetired } from '@/lib/tutorSlug'
 import { formatName } from '@/lib/formatName'
@@ -340,12 +341,18 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   // ≤ 60 characters (owner, 6 Oct 2026): "Name — Subject tutor in City | TutorMint"
   // when it fits, the brand dropped when it does not, cut at a word otherwise.
   const title = seoTitle(`${tutor.full_name} — ${subjectText} tutor in ${city}`)
+  // "<Name> — verified <subjects> tutor in <areas, city> (home/online). Contact
+  // directly on TutorMint, no commission." (owner, 13 Oct 2026). "verified" is
+  // said only when the page is indexable — fee paid and documents approved.
   const description = seoDescription(
-    pageDescription(
-      tutor.headline
-        ? `${tutor.headline} — ${subjectText} in ${city}`
-        : `${tutor.full_name} teaches ${subjectText} in ${city}`,
-    ),
+    tutorMetaDescription({
+      name: tutor.full_name,
+      subjects,
+      city: tutor.city,
+      areas: tutor.areas && tutor.areas.length > 0 ? tutor.areas : tutor.area ? [tutor.area] : [],
+      jobTypes: tutor.job_types ?? [],
+      verified: !tutorProfileNoindex(flags),
+    }),
   )
 
   return {
@@ -844,31 +851,21 @@ export default async function TutorPublicProfile({ params }: { params: Params })
   const linker = await getLandingLinker()
   const subjectHref = (masterId: number) => linker.tutorSubjectHref(masterId, tutor.city)
 
-  // Person + Service, linked to each other and to the Organization on the
-  // homepage. Nothing is asserted that the profile does not hold -- no rating
-  // without real reviews, no price without a rate, no area without one chosen.
-  // An aggregateRating with a zero count is both a rich-result violation and a
-  // claim about a tutor nobody has reviewed.
+  // ProfilePage whose mainEntity is the Person (owner, 13 Oct 2026). No
+  // rating, no fee, no contact detail; the photo only when it is a real one.
   // PR100 — structured data is emitted ONLY when the page is indexable
   // (completion = 100 AND fee paid) and not a preview. A noindex page must not
   // hand a crawler a Person/Service schema for what the noindex withholds.
   const profileSchema =
     indexable && !preview
-      ? tutorJsonLd({
+      ? tutorProfileJsonLd({
           slug: tutor.slug,
           name: tutor.full_name,
-          headline: tutor.headline,
           avatarUrl: tutor.avatar_url,
           city: tutor.city,
-          area: tutor.area,
-          subjects: Array.from(
-            new Set(tutor.subjects.map((x) => x.subject ?? x.level).filter(Boolean) as string[]),
-          ),
-          hourlyRatePkr: tutor.hourly_rate_pkr,
-          feeMinPkr: tutor.fee_min_pkr,
-          feeMaxPkr: tutor.fee_max_pkr,
-          ratingAvg: tutor.rating_avg === null ? null : Number(tutor.rating_avg),
-          ratingCount: tutor.rating_count,
+          areas: tutor.areas && tutor.areas.length > 0 ? tutor.areas : tutor.area ? [tutor.area] : [],
+          subjects: tutor.subjects.map((x) => x.subject).filter(Boolean) as string[],
+          levels: tutor.subjects.map((x) => x.level).filter(Boolean) as string[],
         })
       : null
 

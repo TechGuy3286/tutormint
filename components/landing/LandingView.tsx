@@ -13,7 +13,8 @@ import { isOnlineTitle } from '@/lib/jobTitlesCore'
 import { browseJobs } from '@/lib/jobFeed'
 import { tutorPath, tuitionPath } from '@/lib/slugs'
 import { absoluteUrl } from '@/lib/siteUrl'
-import { itemListJsonLd, jsonLdScript } from '@/lib/seo'
+import { collectionPageJsonLd, jsonLdScript } from '@/lib/seo'
+import { cityPagePath, indexableCityPagesCached } from '@/lib/cityJobs'
 import { buildIntro, liveLandingPages, landingIndexable, type LandingCombo, type IntroFacts } from '@/lib/landing'
 import { landingFaq } from '@/lib/hubCopy'
 import HubFaq from '@/components/seo/HubFaq'
@@ -84,6 +85,13 @@ export default async function LandingView({ combo }: { combo: LandingCombo }) {
   const inOtherCities = pages
     .filter((p) => p.kind === kind && p.subjectSlug === subjectSlug && p.citySlug !== citySlug)
     .slice(0, 8)
+
+  // The other side of this page (owner, 13 Oct 2026): the same subject and city
+  // as tuitions (or tutors), and the city's tuition-jobs hub — only when each
+  // exists, so nothing links to a page that is not there.
+  const otherKind = isTutors ? 'tuitions' : 'tutors'
+  const counterpart = pages.find((p) => p.kind === otherKind && p.citySlug === citySlug && p.subjectSlug === subjectSlug) ?? null
+  const cityHub = (await indexableCityPagesCached().catch(() => [])).find((p) => p.citySlug === citySlug) ?? null
 
   const params = { subject: String(masterId), city }
 
@@ -159,9 +167,10 @@ export default async function LandingView({ combo }: { combo: LandingCombo }) {
 
   return (
     <main className="min-h-screen bg-tm-bg px-4 py-4 text-slate-700 sm:px-6 sm:py-6 lg:px-8">
-      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdScript(itemListJsonLd({
+      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdScript(collectionPageJsonLd({
         name: heading,
         url: absoluteUrl(canonical),
+        description: intro,
         items: itemList,
       }))} />
 
@@ -228,6 +237,37 @@ export default async function LandingView({ combo }: { combo: LandingCombo }) {
         {landingIndexable(combo) && total > 0 && (
           <HubFaq items={landingFaq(kind, subjectName, city, facts)} path={canonical} />
         )}
+
+        <nav aria-label={isTutors ? 'Tuition jobs for tutors' : 'Tutors for parents'} className="space-y-1.5 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+          <p className="text-xs font-black text-tm-navy">
+            {isTutors ? `Are you a tutor? Tuition jobs in ${city}` : `Are you a parent? Tutors in ${city}`}
+          </p>
+          <ul className="flex flex-wrap gap-2">
+            {counterpart && (
+              <li>
+                <Link
+                  href={`/${counterpart.kind}/${counterpart.citySlug}/${counterpart.subjectSlug}`}
+                  className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-gray-200 bg-tm-bg px-3 text-[11px] font-semibold text-tm-navy hover:border-tm-navy"
+                >
+                  {isTutors ? <Briefcase aria-hidden size={12} /> : <GraduationCap aria-hidden size={12} />}
+                  {subjectName} {otherKind} in {city}
+                </Link>
+              </li>
+            )}
+            {isTutors && cityHub && (
+              <li>
+                <Link href={cityPagePath(cityHub.citySlug)} className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-gray-200 bg-tm-bg px-3 text-[11px] font-semibold text-tm-navy hover:border-tm-navy">
+                  <Briefcase aria-hidden size={12} /> All tuition jobs in {city}
+                </Link>
+              </li>
+            )}
+            <li>
+              <Link href={isTutors ? '/browse/tuitions' : '/browse/tutors'} className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-gray-200 bg-tm-bg px-3 text-[11px] font-semibold text-tm-navy hover:border-tm-navy">
+                {isTutors ? 'All tuition jobs' : 'Find tutors'}
+              </Link>
+            </li>
+          </ul>
+        </nav>
 
         {(inCity.length > 0 || inOtherCities.length > 0) && (
           <nav aria-label="Related pages" className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">

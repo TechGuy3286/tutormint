@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import "./globals.css";
+import { SITE_DESCRIPTION } from '@/lib/siteIdentity'
 import OfflineNotice from "@/components/OfflineNotice";
 import VerifiedToast from "@/components/VerifiedToast";
 import ActivityTracker from "@/components/ActivityTracker";
@@ -10,7 +11,7 @@ import { ConfirmProvider } from '@/components/ui/ConfirmDialog'
 
 export const metadata: Metadata = {
   title: "TutorMint - Pakistan's Largest Verified Tutors Network",
-  description: "Connect directly with verified tutors and parents across Pakistan.",
+  description: SITE_DESCRIPTION,
   metadataBase: new URL('https://www.tutormint.org'),
   // Public pages are indexable NOW (owner, 8 Sep 2026) — indexing is decoupled
   // from the "launching soon" banner, which stays. There is no site-wide
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
   // stays" in CLAUDE.md.
   openGraph: {
     title: "TutorMint - Pakistan's Largest Verified Tutors Network",
-    description: "Connect directly with verified tutors and parents across Pakistan.",
+    description: SITE_DESCRIPTION,
     url: 'https://www.tutormint.org',
     siteName: 'TutorMint',
     images: [
@@ -36,7 +37,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: "TutorMint - Pakistan's Largest Verified Tutors Network",
-    description: "Connect directly with verified tutors and parents across Pakistan.",
+    description: SITE_DESCRIPTION,
     images: ['https://www.tutormint.org/tutormint-logo1200x630.png'],
   },
 };

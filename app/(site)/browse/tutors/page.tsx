@@ -8,10 +8,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
-import { cookies } from 'next/headers'
-import { logSearchPerformed } from '@/lib/activityLog'
-import { logAnonSearch } from '@/lib/anonSearch'
-import { ANON_COOKIE, isAnonId } from '@/lib/anonSession'
+import SearchBeacon from '@/components/search/SearchBeacon'
+import { searchBeaconToken } from '@/lib/searchBeacon'
 import TutorCard, { type TutorCardData, type CardViewer } from '@/components/TutorCard'
 import AdSlot from '@/components/ads/AdSlot'
 import TutorFilterBar, { type FilterValues } from './TutorFilterBar'
@@ -23,7 +21,6 @@ import { tutorFallback } from '@/lib/searchFallback'
 import { tutorFacets } from '@/lib/tutorFacets'
 import { resolveSmartQuery } from '@/lib/smartSearch'
 import NotifyMe from '@/components/search/NotifyMe'
-import { logUnmetSearch } from '@/lib/smartSearch'
 import { uniqueById } from '@/lib/infiniteMerge'
 
 // /browse/tutors -- a server component, on purpose.
@@ -238,51 +235,34 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
     const { data: shortlisted } = await supabase.from('shortlists').select('tutor_id')
     saved = new Set((shortlisted ?? []).map((s) => s.tutor_id as string))
 
-    // Instrumentation: what was searched, never who it was for beyond the
-    // member's own timeline. No free-text query is stored.
-    const filtered = !!(subjectId || city || area || mode || gender || feeMin || feeMax || q)
-    if (filtered) {
-      // Collapsed: the typeahead re-renders this page on every debounced
-      // keystroke, and the query text is not part of the payload, so a burst
-      // of refinements is one search rather than seven.
-      await logSearchPerformed({
-        userId: user.id,
-        surface: 'tutors',
-        filters: {
-          master_id: subjectId,
-          city: city || null,
-          area: area || null,
-          mode: mode || null,
-          gender: gender || null,
-        },
-        results: total,
-      })
-    }
-  } else {
-    // Guests are most of the traffic on a "feels free" site, so their searches
-    // are most of the demand. Logged session-scoped and anonymous — see
-    // lib/anonSearch.ts — never on any member timeline.
-    const filtered = !!(subjectId || city || area || mode || gender || feeMin || feeMax || q)
-    if (filtered) {
-      const sessionId = (await cookies()).get(ANON_COOKIE)?.value
-      if (isAnonId(sessionId)) {
-        await logAnonSearch({
-          sessionId,
-          surface: 'tutors',
-          filters: { master_id: subjectId, city: city || null, area: area || null, mode: mode || null, gender: gender || null },
-          results: total,
-        })
-      }
-    }
   }
+
+  // SEARCH LOGGING (owner, 13 Oct 2026): rendering this page writes NOTHING.
+  // The page hands the browser a signed ticket for the search it showed, and a
+  // real browser that has loaded it posts the ticket back once
+  // (components/search/SearchBeacon → POST /api/search/log). Only that post
+  // records the search — on the member's timeline or, for a guest, in the
+  // anonymous log — so a crawler that only fetches the page adds no row, and a
+  // parent landing from Google on their first visit is counted. No free-text
+  // query is stored except for a search that found nothing (below).
+  const filtered = !!(subjectId || city || area || mode || gender || feeMin || feeMax || q)
 
   // Nothing found (owner, 8 Oct 2026): log it, then show the nearest match with
   // a clear line — never an unrelated subject, never a blank page.
   let fallback: Awaited<ReturnType<typeof tutorFallback>> = null
+  let unmetQuery: string | null = null
   if (tutors.length === 0 && !error && (q || city || subjectId)) {
-    if (q) await logUnmetSearch({ query: q, surface: 'tutors', parsed, role: viewer.role ?? null, userId: viewer.id ?? null })
+    // The miss is logged by the beacon too (the ticket carries the typed search).
+    unmetQuery = q || null
     fallback = await tutorFallback(listFilters, parsed, PAGE_SIZE)
   }
+  const beaconToken = searchBeaconToken({
+    s: 'tutors',
+    f: { master_id: subjectId, city: city || null, area: area || null, mode: mode || null, gender: gender || null },
+    x: filtered,
+    r: total,
+    u: unmetQuery,
+  })
 
   // The dropdowns show only options that have a tutor, with counts (owner,
   // 13 Oct 2026). The subject is the dropdown's id, or what the typed search means.
@@ -319,6 +299,7 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
 
   return (
     <main className="min-h-screen bg-tm-bg px-4 py-4 text-slate-700 sm:px-6 sm:py-6 lg:px-8">
+      <SearchBeacon token={beaconToken} />
       <div className="mx-auto max-w-5xl space-y-4">
         <Breadcrumbs items={[{ label: 'Find tutors' }]} />
         <header className="space-y-1">

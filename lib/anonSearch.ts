@@ -28,10 +28,12 @@ export async function logAnonSearch(params: {
   filters: { master_id?: number | null; city?: string | null; area?: string | null; mode?: string | null; gender?: string | null }
   results: number
   withinSeconds?: number
+  /** True when called from the search beacon route (lib/searchBeacon). */
+  fromBeacon?: boolean
 }): Promise<void> {
   // Bots, our own link check, and a visitor's cookieless first request are not
   // demand (owner, 13 Oct 2026 — lib/searchCountCore).
-  if (await searchNotCounted()) return
+  if (await searchNotCounted({ fromBeacon: params.fromBeacon })) return
 
   const admin = createAdminClient()
   if (!admin) return

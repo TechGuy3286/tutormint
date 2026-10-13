@@ -3,7 +3,9 @@ import Navbar from '@/components/Navbar'
 import MessagesDock from '@/components/messages/MessagesDock'
 import { getSessionUser } from '@/lib/auth'
 import { unreadMessageCount } from '@/lib/messaging'
-import { supportContactFromEnv, whatsappHref } from '@/lib/support'
+import { getSupportContact, supportContactFromEnv, whatsappHref } from '@/lib/support'
+import { getCompany } from '@/lib/company'
+import { jsonLdScript, siteGraphJsonLd } from '@/lib/seo'
 
 // The public site's chrome: header, main, footer — plus (PR 4) the desktop
 // messages dock. The floating WhatsApp support button was removed (PR21 — it
@@ -50,8 +52,17 @@ export default async function SiteChrome({ children }: { children: React.ReactNo
   const dockRole = role === 'tutor' ? 'tutor' : 'parent'
   const basePath = role === 'tutor' ? '/tutor/dashboard/messages' : '/parent/dashboard/messages'
 
+  // Organization + WebSite, ONCE on every public page (owner, 13 Oct 2026) —
+  // the homepage no longer emits its own. The legal facts and the support number
+  // come from app_settings (env fallback), never from page source.
+  const [company, support] = await Promise.all([getCompany(), getSupportContact()])
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={jsonLdScript(siteGraphJsonLd(company, support.whatsapp))}
+      />
       <Navbar />
       <main className="flex-1">{children}</main>
       <Footer />

@@ -34,7 +34,7 @@ const BASE = SITE_URL
 // The code-only pages (home, about, faq, support, legal) change only when their
 // code changes, so they carry a stored date rather than "now" on every fetch.
 // Bump it when that content changes.
-const STATIC_LASTMOD = new Date('2026-10-12T00:00:00.000Z')
+const STATIC_LASTMOD = new Date('2026-10-13T00:00:00.000Z')
 
 /** Open tuitions only; lastmod = the tuition's last change (posted, resumed, refreshed). */
 export async function tuitionSitemap(): Promise<SitemapEntry[]> {

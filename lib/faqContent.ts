@@ -21,6 +21,8 @@
 // figure, English and Roman Urdu) was removed by the owner on 8 Oct 2026. The
 // fee filter bands stay, as does the tutor-side Meta ad-spend comparison.
 
+import { SUPPORT_EMAIL_FALLBACK, SUPPORT_WHATSAPP_DISPLAY } from '@/lib/supportContacts'
+
 export type FaqLink = { label: string; href: string }
 
 export type FaqItem = {
@@ -42,6 +44,76 @@ export type FaqItem = {
 export type FaqGroup = { id: string; heading: string; blurb: string; items: FaqItem[] }
 
 export const FAQ_GROUPS: FaqGroup[] = [
+  {
+    // What TutorMint is, for both sides (owner, 13 Oct 2026). Short answers
+    // that agree with lib/siteIdentity and with the longer answers below.
+    id: 'basics',
+    heading: 'About TutorMint',
+    blurb: 'What it is, who it is for, and what it costs.',
+    items: [
+      {
+        q: 'What is TutorMint?',
+        a: 'TutorMint connects parents with verified home and online tutors across Pakistan, and helps tutors find tuitions. Parents, schools and academies browse tutors or post a tuition; tutors build a profile and apply to tuition and teaching jobs. The two sides talk to each other directly. It is free to join, there is no commission and there is no middleman.',
+        links: [
+          { label: 'About TutorMint', href: '/about' },
+          { label: 'Find tutors', href: '/browse/tutors' },
+          { label: 'Find tuitions', href: '/browse/tuitions' },
+        ],
+      },
+      {
+        q: 'Is TutorMint free for parents?',
+        a: 'Yes. Browsing tutors needs no account. Once your mobile number is verified you can post tuitions, message tutors and request demo lessons free. A paid membership is optional and adds extras such as seeing a tutor’s phone and WhatsApp number.',
+        links: [
+          { label: 'Find tutors', href: '/browse/tutors' },
+          { label: 'Membership plans', href: '/membership-plans' },
+        ],
+      },
+      {
+        q: 'Do tutors pay commission?',
+        a: 'No. TutorMint takes no commission on any tuition. The fee a parent agrees with a tutor goes to the tutor, and we never handle it. A tutor pays a one-time Verification Fee to become verified, and can choose an optional membership plan.',
+        links: [{ label: 'Membership plans', href: '/membership-plans' }],
+      },
+      {
+        q: 'How are tutors verified?',
+        a: 'A tutor pays the one-time Verification Fee and sends a CNIC, a profile photo and a selfie, which our staff check. A tutor who passes carries the Verified badge. It means the person in the profile is the person in the documents; it does not mean we have watched them teach.',
+        links: [{ label: 'Find tutors', href: '/browse/tutors' }],
+      },
+      {
+        q: 'How do parents contact tutors?',
+        a: 'Directly. Once your mobile number is verified you can message any tutor in the app or request a demo lesson. There is no agent in between and no commission. A tutor’s phone and WhatsApp number are shown to parents on the Featured membership.',
+        links: [
+          { label: 'Find tutors', href: '/browse/tutors' },
+          { label: 'Membership plans', href: '/membership-plans' },
+        ],
+      },
+      {
+        q: 'Does TutorMint have both home and online tuition?',
+        a: 'Yes. A home tutor comes to your house and is found by city and area. An online tutor teaches over a video call and can be in any city. You can filter tutors by teaching mode, and a tuition is posted as home or online.',
+        links: [{ label: 'Find tutors', href: '/browse/tutors' }],
+      },
+      {
+        q: 'Which cities does TutorMint cover?',
+        a: 'All of Pakistan. A tutor or a tuition can be listed from any city, and online tuition works anywhere. Most listings today are in Karachi, Lahore, Islamabad and Rawalpindi.',
+        links: [
+          { label: 'Find tutors', href: '/browse/tutors' },
+          { label: 'Find tuitions', href: '/browse/tuitions' },
+        ],
+      },
+      {
+        q: 'How do I post a tuition?',
+        a: 'Sign up as a parent, verify your mobile number with a one-time code, then choose Post a tuition. Pick the level, the subjects, your city and area, home or online, and a budget. It is free, and tutors who match can apply or message you.',
+        links: [
+          { label: 'Create an account', href: '/register' },
+          { label: 'Post a tuition', href: '/parent/dashboard/post-job' },
+        ],
+      },
+      {
+        q: 'How do I get support?',
+        a: `Message our team on WhatsApp at ${SUPPORT_WHATSAPP_DISPLAY}, or email ${SUPPORT_EMAIL_FALLBACK}. The support page has the same details and answers to common problems.`,
+        links: [{ label: 'Support', href: '/support' }],
+      },
+    ],
+  },
   {
     id: 'parents',
     heading: 'For parents, schools and academies',

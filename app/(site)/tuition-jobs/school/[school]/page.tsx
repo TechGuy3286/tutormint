@@ -10,7 +10,7 @@ import { hubDescription, hubFaq, hubHeading, hubIntro, hubTitle } from '@/lib/hu
 import { openJobsByIds, slimForCard } from '@/lib/jobFeed'
 import { indexableSchoolHubs, schoolGroupBySlug, schoolHubPath, schoolShortName, SCHOOL_HUB_THRESHOLD } from '@/lib/schoolJobs'
 import { cityPagePath, indexableCityPagesCached } from '@/lib/cityJobs'
-import { itemListJsonLd, jsonLdScript, seoTitle, socialMeta } from '@/lib/seo'
+import { collectionPageJsonLd, jsonLdScript, seoTitle, socialMeta } from '@/lib/seo'
 import { absoluteUrl } from '@/lib/siteUrl'
 import { citySegment, tuitionPath } from '@/lib/slugs'
 import { createClient } from '@/lib/supabase/server'
@@ -76,9 +76,10 @@ export default async function SchoolJobsPage({ params }: { params: Params }) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={jsonLdScript(
-          itemListJsonLd({
+          collectionPageJsonLd({
             url: absoluteUrl(path),
             name: heading,
+            description: hubIntro('school', group.name, facts),
             items: cards.map((j) => ({ name: j.headline ?? j.title, url: absoluteUrl(tuitionPath(j)) })),
           }),
         )}
@@ -108,7 +109,7 @@ export default async function SchoolJobsPage({ params }: { params: Params }) {
 
         {indexable && cards.length > 0 && <HubFaq items={hubFaq('school', group.name, facts)} path={path} />}
 
-        {(inCities.length > 0 || otherSchools.length > 0) && (
+        {(
           <nav aria-label="Related job pages" className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
             {inCities.length > 0 && (
               <div className="space-y-1.5">
@@ -124,6 +125,16 @@ export default async function SchoolJobsPage({ params }: { params: Params }) {
                 </ul>
               </div>
             )}
+            <div className="space-y-1.5">
+              <p className="text-xs font-black text-tm-navy">Looking for a tutor instead?</p>
+              <ul className="flex flex-wrap gap-2">
+                <li>
+                  <Link href="/browse/tutors" className="inline-flex min-h-[36px] items-center rounded-lg border border-gray-200 bg-tm-bg px-3 text-[11px] font-semibold text-tm-navy hover:border-tm-navy">
+                    Find tutors
+                  </Link>
+                </li>
+              </ul>
+            </div>
             {otherSchools.length > 0 && (
               <div className="space-y-1.5">
                 <p className="text-xs font-black text-tm-navy">Jobs at other schools</p>

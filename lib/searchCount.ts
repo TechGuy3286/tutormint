@@ -18,7 +18,9 @@ import { NEW_VISITOR_HEADER, notCountedReason, type NotCounted } from '@/lib/sea
  * Why the current request's search is not counted, or null when it counts.
  * Outside a request (a script) there is nothing to read and nothing is refused.
  */
-export async function searchNotCounted(input: { userId?: string | null; role?: string | null } = {}): Promise<NotCounted | null> {
+export async function searchNotCounted(
+  input: { userId?: string | null; role?: string | null; fromBeacon?: boolean } = {},
+): Promise<NotCounted | null> {
   let userAgent: string | null = null
   let newVisitor: boolean | null = null
   try {
@@ -27,6 +29,11 @@ export async function searchNotCounted(input: { userId?: string | null; role?: s
     const stamp = h.get(NEW_VISITOR_HEADER)
     // No stamp at all: the request did not pass the proxy — not a person browsing.
     newVisitor = stamp === null ? true : stamp === '1'
+    // A search that arrives by the BEACON was posted by a browser that loaded
+    // the results page and ran its script (owner, 13 Oct 2026) — so a first
+    // visit with no cookie yet is a person, and counts. The bot, own-crawler
+    // and staff rules below still apply.
+    if (input.fromBeacon) newVisitor = false
   } catch {
     return null
   }

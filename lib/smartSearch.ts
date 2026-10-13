@@ -106,11 +106,11 @@ export async function resolveSmartQuery(q: string): Promise<SmartResolved> {
 }
 
 /** Every "nothing found" search, for the Overview to-do. Never throws. */
-export async function logUnmetSearch(input: { query: string; surface: string; parsed: Parsed | null; role: string | null; userId?: string | null }): Promise<void> {
+export async function logUnmetSearch(input: { query: string; surface: string; parsed: Parsed | null; role: string | null; userId?: string | null; fromBeacon?: boolean }): Promise<void> {
   try {
     // Bots, our own link check, signed-in staff and a visitor's cookieless
     // first request are not unmet demand (owner, 13 Oct 2026).
-    if (await searchNotCounted({ userId: input.userId ?? null, role: input.role })) return
+    if (await searchNotCounted({ userId: input.userId ?? null, role: input.role, fromBeacon: input.fromBeacon })) return
     const admin = createAdminClient()
     if (!admin) return
     // A phone number or email typed into a search is masked before it is kept.

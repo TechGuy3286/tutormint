@@ -10,7 +10,7 @@ import assert from 'node:assert/strict'
 
 import { DUPLICATE_WINDOW_DAYS, comboKey, duplicateReasons, legacyDuplicateReasons, olderOf, refreshAllowed, sameRequirement, shouldMerge, titleJobSegment, type DuplicateFacts } from '../lib/duplicatesCore'
 import { overlapNoindexSet } from '../lib/landingOverlapCore'
-import { seoTitle, seoDescription, tuitionDescription, TITLE_MAX, DESCRIPTION_MAX, jobPostingJsonLd, tutorJsonLd } from '../lib/seo'
+import { seoTitle, seoDescription, tuitionDescription, TITLE_MAX, DESCRIPTION_MAX, jobPostingJsonLd, tutorProfileJsonLd } from '../lib/seo'
 
 const base: DuplicateFacts = {
   id: 'a',
@@ -151,11 +151,11 @@ test('JobPosting carries identifier and, for online, TELECOMMUTE + Pakistan; Per
   const noBudget = jobPostingJsonLd({ url: 'u', title: 't', description: 'd', datePosted: '2026-10-01', city: 'Lahore', area: null, subjects: [], budgetMin: null, budgetMax: null, online: false }) as Record<string, unknown>
   assert.equal(noBudget.baseSalary, undefined)
   assert.equal(noBudget.jobLocationType, undefined)
-  const graph = tutorJsonLd({ slug: 's', name: 'Ali', headline: null, avatarUrl: null, city: 'Lahore', area: 'DHA', subjects: ['Mathematics', 'Physics'], hourlyRatePkr: null, ratingAvg: null, ratingCount: null }) as { '@graph'?: Record<string, unknown>[] } & Record<string, unknown>
-  const nodes = (graph['@graph'] ?? [graph]) as Record<string, unknown>[]
-  const person = nodes.find((n) => n['@type'] === 'Person') ?? graph
-  const service = nodes.find((n) => n['@type'] === 'Service')
-  assert.equal(person.jobTitle, 'Mathematics tutor')
-  assert.equal(service?.name, 'Mathematics tutoring in Lahore')
-  assert.match(String(service?.description), /Ali teaches Mathematics, Physics in DHA, Lahore/)
+  // The tutor profile is a ProfilePage + Person now (owner, 13 Oct 2026): no
+  // Service, no fee, no rating.
+  const graph = tutorProfileJsonLd({ slug: 's', name: 'Ali', avatarUrl: null, city: 'Lahore', areas: ['DHA'], subjects: ['Mathematics', 'Physics'], levels: ['O Levels'] }) as { '@graph': Record<string, unknown>[] }
+  const person = graph['@graph'].find((n) => n['@type'] === 'Person')!
+  assert.equal(person.jobTitle, 'Tutor')
+  assert.deepEqual(person.knowsAbout, ['Mathematics', 'Physics', 'O Levels'])
+  assert.equal(graph['@graph'].some((n) => n['@type'] === 'Service'), false)
 })
