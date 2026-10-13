@@ -169,7 +169,7 @@ export function topicCandidate(t: Topic): Candidate {
     // Real search demand decides the order; listed tutors only break a tie.
     components: { demand: t.searches > 0 ? 10 + t.searches : 1 + Math.min(t.tutors, 90) / 100, rankProximity: t.tutors >= 3 ? 1.5 : 1, seasonality: 1, gapAge: 1 },
     evidence,
-    evidenceKey: { searches: t.searches, tutors: t.tutors, subjectName: name, city: t.city },
+    evidenceKey: { searches: t.searches, tutors: t.tutors, subjectName: name, city: t.city, group: t.group.key, subject: t.subject },
     notes: '',
   }
 }
@@ -179,6 +179,8 @@ export function topicCandidate(t: Topic): Candidate {
 const STOP = new Set([
   'a', 'an', 'the', 'and', 'or', 'of', 'in', 'on', 'for', 'to', 'with', 'by', 'at', 'from', 'your', 'you', 'that', 'this', 'what', 'how', 'why', 'is', 'are', 'be',
   'it', 'its', 'do', 'does', 'should', 'can', 'will', 'before', 'after', 'first', 'actually', 'really', 'good', 'best', 'guide', 'complete',
+  // The wording of a title, not its topic.
+  'fee', 'fees', 'cost', 'costs', 'choose', 'choosing', 'check', 'question', 'questions', 'ask', 'hire', 'hiring', 'find', 'finding', 'need', 'know',
   // Words every TutorMint title carries — they say nothing about the topic.
   'tutor', 'tutors', 'tutoring', 'tuition', 'tuitions', 'teacher', 'teachers', 'pakistan', 'parent', 'parents', 'tutormint', 'child', 'children',
 ])
@@ -212,26 +214,37 @@ const plain = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 
 /**
  * The existing post (published, scheduled or draft — any post that exists) that
- * already covers this candidate, or null. Either the titles say the same thing,
- * or the post is about the same subject group in the same city.
+ * already covers this candidate, or null.
+ *
+ * A GROUPED topic (one subject group in one city) is covered only by a post
+ * about the same group, subject and city — its wording rotates, so comparing
+ * words would call "BS Computer Science in Lahore" covered by a Lahore post
+ * about Science English. Every other candidate is covered when the titles say
+ * the same thing.
  */
 export function coveredByPost(c: { title: string; cluster: string | null; evidenceKey?: Record<string, number | string> }, posts: ExistingPost[]): ExistingPost | null {
-  const subject = low(String(c.evidenceKey?.subjectName ?? ''))
+  const group = String(c.evidenceKey?.group ?? '')
+  const subject = low(String(c.evidenceKey?.subject ?? ''))
   const city = low(String(c.evidenceKey?.city ?? ''))
+  const grouped = !!(subject && city)
   for (const p of posts) {
     if (p.status === 'unpublished') continue
     // The same title, whatever its case or punctuation.
     if (plain(c.title) !== '' && plain(c.title) === plain(p.title)) return p
-    const o = titleOverlap(c.title, p.title)
-    if (o.shared >= 2 && o.score >= 0.6) return p
-    if (subject && city) {
+    if (grouped) {
       const text = ` ${low(p.title)} `
       const sameCity = low(p.city) === city || text.includes(` ${city}`)
+      if (!sameCity) continue
+      // The post's own group, read from its title and its subject field.
+      const postGroups = new Set([levelGroup(p.title).key, levelGroup(p.subject).key])
+      const titleWords = new Set([...topicWords(p.title), ...topicWords(p.subject ?? '')])
       const subjectWords = topicWords(subject)
-      const titleHas = subjectWords.length > 0 && subjectWords.every((w) => topicWords(p.title).includes(w))
-      const sameSubject = (low(p.subject) !== '' && titleOverlap(subject, p.subject ?? '').score >= 0.99) || titleHas
-      if (sameCity && sameSubject) return p
+      const sameSubject = subjectWords.length > 0 && subjectWords.every((w) => titleWords.has(w))
+      if (sameSubject && (group === '' || postGroups.has(group))) return p
+      continue
     }
+    const o = titleOverlap(c.title, p.title)
+    if (o.shared >= 2 && o.score >= 0.6) return p
   }
   return null
 }

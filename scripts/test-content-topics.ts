@@ -98,6 +98,11 @@ test('a topic an existing post already covers is not suggested (published, sched
   // A different city or subject is a different topic.
   assert.equal(coveredByPost(topicCandidate(groupTopics([sig('Grade 9 - Science', 'English', 'Karachi', 4)])[0]), posts), null)
   assert.equal(coveredByPost(topicCandidate(groupTopics([sig('Grade 9 - Science', 'Physics', 'Lahore', 4)])[0]), posts), null)
+  // Another subject or another level group in the SAME city is not covered,
+  // whatever words the titles share ("Science", "fees and how to choose").
+  assert.equal(coveredByPost(topicCandidate(groupTopics([sig('Semester 1 - 8', 'Computer Science', 'Lahore', 4)])[0]), posts), null, 'BS Computer Science in Lahore')
+  assert.equal(coveredByPost(topicCandidate(groupTopics([sig('Grade 4', 'English', 'Lahore', 4)])[0]), posts), null, 'Primary English in Lahore')
+  assert.equal(coveredByPost(topicCandidate(groupTopics([sig('Grade 7', 'General Science', 'Lahore', 4)])[0]), posts), null, 'Middle Science in Lahore')
   // Different topics that share only everyday words are not "covered".
   assert.equal(coveredByPost({ title: 'How to become an online tutor in Pakistan', cluster: 'tutor-career' }, [{ title: 'How to become a school teacher in Lahore', status: 'published' }]), null)
   // An unpublished post covers nothing.
