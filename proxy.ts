@@ -23,6 +23,7 @@ import { ANON_COOKIE, ANON_MAX_AGE_SECONDS, newAnonId } from '@/lib/anonSession'
 import { PERSIST_COOKIE, persistOffFrom, applySessionPersistence } from '@/lib/sessionCookies'
 import { needsPhoneGate } from '@/lib/phoneGate'
 import { METHOD_HEADER } from '@/lib/requestMethod'
+import { NEW_VISITOR_HEADER } from '@/lib/searchCountCore'
 import { areaHubRedirectPath } from '@/lib/areaHubRedirect'
 
 // /pay/* is the checkout journey (gateway hand-off, transfer instructions,
@@ -97,6 +98,10 @@ const TUITION_CITY_HEADER = 'x-tm-tuition-city'
 function forwardHeaders(request: NextRequest): { headers: Headers } {
   const headers = new Headers(request.headers)
   headers.set(METHOD_HEADER, request.method)
+  // Did the browser send the visitor cookie? A crawler never does, so each of
+  // its requests is a "new visitor" — the search logs do not count those
+  // (lib/searchCountCore). Always overwritten, so a client cannot fake it.
+  headers.set(NEW_VISITOR_HEADER, request.cookies.has(ANON_COOKIE) ? '0' : '1')
   const { pathname } = request.nextUrl
   if (pathname.startsWith('/tuitions/')) {
     const city = pathname.split('/')[2]

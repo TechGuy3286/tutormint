@@ -14,6 +14,7 @@ import { pageAll } from '@/lib/pageAll'
 import { CITY_COORDS } from '@/lib/cityDistance'
 import { parseQuery, understood, type Dict, type Parsed } from '@/lib/smartSearchCore'
 import { maskTuitionText } from '@/lib/maskTuition'
+import { searchNotCounted } from '@/lib/searchCount'
 
 export const SMART_SEARCH_TAG = 'smart-search'
 const SCHOOL_LEVEL = 'admission-test-prep'
@@ -107,6 +108,9 @@ export async function resolveSmartQuery(q: string): Promise<SmartResolved> {
 /** Every "nothing found" search, for the Overview to-do. Never throws. */
 export async function logUnmetSearch(input: { query: string; surface: string; parsed: Parsed | null; role: string | null; userId?: string | null }): Promise<void> {
   try {
+    // Bots, our own link check, signed-in staff and a visitor's cookieless
+    // first request are not unmet demand (owner, 13 Oct 2026).
+    if (await searchNotCounted({ userId: input.userId ?? null, role: input.role })) return
     const admin = createAdminClient()
     if (!admin) return
     // A phone number or email typed into a search is masked before it is kept.

@@ -38,6 +38,7 @@ import {
   type Candidate,
 } from './core'
 import { careerCandidates } from './careerTopics'
+import { repeatIds, type LoggedSearch } from '@/lib/searchCountCore'
 import { dedupeTitles, gscCandidate } from './mix'
 import {
   chooseQueue,
@@ -96,10 +97,12 @@ async function topicSignals(admin: Admin): Promise<{ signals: TopicSignal[]; rec
 
   const [members, anon, unmet, names] = await Promise.all([
     pageAll((from, to) =>
-      admin.from('user_activity_log').select('id, meta').eq('event', 'search_performed').gte('created_at', since).order('id').range(from, to),
+      admin.from('user_activity_log').select('id, user_id, meta, created_at').eq('event', 'search_performed').gte('created_at', since).order('id').range(from, to),
     ),
     pageAll((from, to) =>
-      admin.from('anon_search_events').select('id, surface, master_id, city').eq('surface', 'tutors').gte('created_at', since).order('id').range(from, to),
+      // Only searches that count (lib/searchCountCore): rows flagged as a crawl,
+      // a cookieless first request or a repeat are left out.
+      admin.from('anon_search_events').select('id, surface, master_id, city').eq('surface', 'tutors').is('excluded', null).gte('created_at', since).order('id').range(from, to),
     ),
     pageAll((from, to) =>
       admin.from('search_unmet').select('id, city, subject, level, role, is_test').gte('created_at', since).order('id').range(from, to),
@@ -116,9 +119,28 @@ async function topicSignals(admin: Admin): Promise<{ signals: TopicSignal[]; rec
     cur.n += 1
     counts.set(key, cur)
   }
-  for (const row of members ?? []) {
+  // Member searches: staff are not demand, and the identical search by one
+  // member inside 30 minutes is one search.
+  const memberRows = ((members ?? []) as { id: string | number; user_id: string | null; meta: Record<string, unknown> | null; created_at: string }[]).filter(
+    (r) => (r.meta ?? {}).surface === 'tutors',
+  )
+  const staffIds = new Set<string>()
+  const memberIds = [...new Set(memberRows.map((r) => r.user_id).filter((v): v is string => !!v))]
+  for (let i = 0; i < memberIds.length; i += 200) {
+    const { data } = await admin.from('profiles').select('id').eq('role', 'admin').in('id', memberIds.slice(i, i + 200))
+    for (const p of data ?? []) staffIds.add(p.id as string)
+  }
+  const asLogged: LoggedSearch[] = memberRows.map((r) => ({
+    id: String(r.id),
+    visitor: r.user_id ?? '',
+    what: `${String((r.meta ?? {}).master_id ?? '')}|${String((r.meta ?? {}).city ?? '').toLowerCase()}`,
+    at: r.created_at,
+  }))
+  const repeats = repeatIds(asLogged)
+  for (const row of memberRows) {
+    if (row.user_id && staffIds.has(row.user_id)) continue
+    if (repeats.has(String(row.id))) continue
     const meta = (row.meta ?? {}) as Record<string, unknown>
-    if (meta.surface !== 'tutors') continue
     tally(Number(meta.master_id), meta.city)
   }
   for (const row of anon ?? []) {

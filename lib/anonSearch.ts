@@ -19,6 +19,8 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimit } from '@/lib/rateLimit'
+import { searchNotCounted } from '@/lib/searchCount'
+import { REPEAT_WINDOW_SECONDS } from '@/lib/searchCountCore'
 
 export async function logAnonSearch(params: {
   sessionId: string
@@ -27,6 +29,10 @@ export async function logAnonSearch(params: {
   results: number
   withinSeconds?: number
 }): Promise<void> {
+  // Bots, our own link check, and a visitor's cookieless first request are not
+  // demand (owner, 13 Oct 2026 — lib/searchCountCore).
+  if (await searchNotCounted()) return
+
   const admin = createAdminClient()
   if (!admin) return
 
@@ -36,7 +42,7 @@ export async function logAnonSearch(params: {
   const gate = await rateLimit('anon_search', params.sessionId)
   if (!gate.allowed) return
 
-  const since = new Date(Date.now() - (params.withinSeconds ?? 60) * 1000).toISOString()
+  const since = new Date(Date.now() - (params.withinSeconds ?? REPEAT_WINDOW_SECONDS) * 1000).toISOString()
 
   try {
     const { data } = await admin
@@ -45,10 +51,10 @@ export async function logAnonSearch(params: {
       .eq('session_id', params.sessionId)
       .gte('created_at', since)
       .order('created_at', { ascending: false })
-      .limit(1)
+      .limit(200)
 
-    const prev = data?.[0] as Record<string, unknown> | undefined
-    if (prev) {
+    // The identical search by this visitor in the last 30 minutes is one search.
+    for (const prev of (data ?? []) as Record<string, unknown>[]) {
       const same =
         prev.surface === params.surface &&
         (prev.master_id ?? null) === (params.filters.master_id ?? null) &&

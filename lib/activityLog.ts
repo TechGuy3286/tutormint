@@ -152,10 +152,16 @@ export async function logSearchPerformed(params: {
   results: number
   withinSeconds?: number
 }): Promise<void> {
+  // Bots, our own link check and signed-in staff are not demand (owner,
+  // 13 Oct 2026 — lib/searchCountCore).
+  const { searchNotCounted } = await import('@/lib/searchCount')
+  if (await searchNotCounted({ userId: params.userId })) return
+
   const admin = createAdminClient()
   if (!admin) return
 
-  const since = new Date(Date.now() - (params.withinSeconds ?? 60) * 1000).toISOString()
+  // The identical search by this member in the last 30 minutes is one search.
+  const since = new Date(Date.now() - (params.withinSeconds ?? 1800) * 1000).toISOString()
 
   try {
     const { data } = await admin
@@ -165,10 +171,10 @@ export async function logSearchPerformed(params: {
       .eq('event', 'search_performed')
       .gte('created_at', since)
       .order('created_at', { ascending: false })
-      .limit(1)
+      .limit(200)
 
-    const previous = data?.[0]?.meta as Record<string, unknown> | undefined
-    if (previous) {
+    for (const row of data ?? []) {
+      const previous = (row.meta ?? {}) as Record<string, unknown>
       const sameSurface = previous.surface === params.surface
       const sameFilters = Object.entries(params.filters).every(
         ([k, v]) => (previous[k] ?? null) === (v ?? null),

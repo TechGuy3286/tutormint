@@ -93,6 +93,7 @@
     "test:locationclean": "tsx --test scripts/test-location-clean.ts",
     "test:contenttopics": "tsx --test scripts/test-content-topics.ts",
     "test:tutorsearch": "tsx --test scripts/test-tutor-search.ts",
+    "test:searchcount": "tsx --test scripts/test-search-count.ts",
     "test:selfpause": "tsx --test scripts/test-self-pause.ts",
     "test:selfpause:live": "tsx --conditions=react-server --env-file=.env.local --test scripts/test-self-pause-live.ts",
     "test:overview:live": "tsx --conditions=react-server --env-file=.env.local --test scripts/test-overview-live.ts",
