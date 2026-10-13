@@ -73,10 +73,11 @@ function CopyValue({ label, value }: { label: string; value: string }) {
   )
 }
 
-function Logo({ src }: { src: string | null }) {
+function Logo({ src, alt }: { src: string | null; alt: string }) {
   if (!src) return null
-  // eslint-disable-next-line @next/next/no-img-element -- a tiny static logo from public/payments
-  return <img src={src} alt="" className="h-[22px] w-auto shrink-0" />
+  // A fixed height and an automatic width: the logo keeps its own shape, never stretched.
+  // eslint-disable-next-line @next/next/no-img-element -- a small static logo from public/payments
+  return <img src={src} alt={alt} className="h-7 w-auto max-w-[120px] shrink-0 object-contain" />
 }
 
 type Method = 'jazzcash' | 'bank'
@@ -221,7 +222,7 @@ export default function PayChoice({
         {online && (
           <label className={option(method === 'jazzcash')}>
             <input type="radio" name="pay-via" className="h-5 w-5 accent-tm-navy" checked={method === 'jazzcash'} onChange={() => setMethod('jazzcash')} />
-            <Logo src={logos.jazzcash} />
+            <Logo src={logos.jazzcash} alt="JazzCash" />
             <span className="min-w-0 text-sm font-bold text-tm-navy">
               JazzCash (PayPro)
               <span className="block text-[11px] font-semibold text-gray-500">Activates automatically</span>
@@ -232,7 +233,7 @@ export default function PayChoice({
         {bank && (
           <label className={option(method === 'bank')}>
             <input type="radio" name="pay-via" className="h-5 w-5 accent-tm-navy" checked={method === 'bank'} onChange={() => setMethod('bank')} />
-            <Logo src={logos.bank} />
+            <Logo src={logos.bank} alt="Faysal Bank" />
             <span className="min-w-0 text-sm font-bold text-tm-navy">
               Other method: bank transfer
               <span className="block text-[11px] font-semibold text-gray-500">{bank.bankName} · activated after we check your receipt</span>
