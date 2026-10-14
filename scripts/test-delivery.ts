@@ -12,7 +12,7 @@
  * WHAT IS AND IS NOT PROVEN HERE. These tests assert the request we build:
  * the URL, the authorization header, the encoding, the number normalisation,
  * and that a failure is reported as a failure rather than swallowed. They do
- * NOT prove Twilio or Resend accept it — that needs live credentials and a
+ * NOT prove SendPK or Resend accept it — that needs live credentials and a
  * verified sending domain. Both of those are on PRODUCTION_CHECKLIST.md, and
  * the distinction matters: a green run here means the adapter is correct, not
  * that delivery works.
@@ -20,6 +20,8 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 
 const realFetch = globalThis.fetch
 
@@ -41,115 +43,47 @@ function mockFetch(response: { status: number; body: unknown }): {
   return { calls, restore: () => { globalThis.fetch = realFetch } }
 }
 
-// ---------------------------------------------------------------- twilio ---
-
-test('twilio: sends to a normalised E.164 number with basic auth', async () => {
-  process.env.TWILIO_ACCOUNT_SID = 'ACtest123'
-  process.env.TWILIO_AUTH_TOKEN = 'secrettoken'
-  process.env.TWILIO_FROM = '+12025550123'
-  delete process.env.TWILIO_MESSAGING_SERVICE_SID
-
-  const { twilioProvider } = await import('../lib/sms/twilio')
-  const m = mockFetch({ status: 201, body: { sid: 'SM123' } })
-
-  try {
-    // Typed the way a Pakistani member actually types it: leading zero,
-    // spaces, a dash. All three have to survive into one E.164 number.
-    const result = await twilioProvider.send('0300 123-4567'.replace('123-4567', '1234567'), 'Your code is 123456')
-
-    assert.equal(result.ok, true)
-    assert.equal(m.calls.length, 1)
-    assert.equal(
-      m.calls[0].url,
-      'https://api.twilio.com/2010-04-01/Accounts/ACtest123/Messages.json',
-    )
-
-    const headers = m.calls[0].init.headers as Record<string, string>
-    assert.equal(
-      headers.Authorization,
-      'Basic ' + Buffer.from('ACtest123:secrettoken').toString('base64'),
-    )
-    assert.equal(headers['Content-Type'], 'application/x-www-form-urlencoded')
-
-    const form = new URLSearchParams(m.calls[0].init.body as string)
-    // The whole point: 0300… became +92300… on the way out.
-    assert.equal(form.get('To'), '+923001234567')
-    assert.equal(form.get('From'), '+12025550123')
-    assert.equal(form.get('Body'), 'Your code is 123456')
-  } finally {
-    m.restore()
-  }
-})
-
-test('twilio: prefers a Messaging Service SID over a bare From', async () => {
-  process.env.TWILIO_MESSAGING_SERVICE_SID = 'MG999'
-  const { twilioProvider } = await import('../lib/sms/twilio')
-  const m = mockFetch({ status: 201, body: { sid: 'SM124' } })
-
-  try {
-    await twilioProvider.send('03001234567', 'hello')
-    const form = new URLSearchParams(m.calls[0].init.body as string)
-    assert.equal(form.get('MessagingServiceSid'), 'MG999')
-    assert.equal(form.get('From'), null)
-  } finally {
-    m.restore()
-    delete process.env.TWILIO_MESSAGING_SERVICE_SID
-  }
-})
-
-test('twilio: a rejected number never reaches the network', async () => {
-  const { twilioProvider } = await import('../lib/sms/twilio')
-  const m = mockFetch({ status: 201, body: { sid: 'nope' } })
-
-  try {
-    const result = await twilioProvider.send('12345', 'hello')
-    assert.equal(result.ok, false)
-    // Not merely reported as failed — not SENT. A malformed number that
-    // reaches Twilio is a billable error.
-    assert.equal(m.calls.length, 0)
-  } finally {
-    m.restore()
-  }
-})
-
-test('twilio: an API error is reported, not swallowed', async () => {
-  const { twilioProvider } = await import('../lib/sms/twilio')
-  const m = mockFetch({
-    status: 400,
-    body: { code: 21408, message: 'Permission to send an SMS has not been enabled for the region' },
-  })
-
-  try {
-    const result = await twilioProvider.send('03001234567', 'hello')
-    assert.equal(result.ok, false)
-    if (!result.ok) {
-      // The account-setting hint has to survive: this exact error is a Twilio
-      // geographic-permissions checkbox, and only the message says so.
-      assert.match(result.error, /21408/)
-      assert.match(result.error, /region/)
-    }
-  } finally {
-    m.restore()
-  }
-})
-
-test('twilio: reports itself unconfigured when credentials are missing', async () => {
-  const saved = process.env.TWILIO_ACCOUNT_SID
-  delete process.env.TWILIO_ACCOUNT_SID
-  const { twilioProvider } = await import('../lib/sms/twilio')
-  assert.equal(twilioProvider.isConfigured(), false)
-  process.env.TWILIO_ACCOUNT_SID = saved
-})
-
 // ---------------------------------------------- OTP is SMS-only (PR5a/5b §2) ---
 // SMS Point delivered OTP over WhatsApp; it was removed from getSmsProvider()'s
 // chain (PR5a) and its module deleted (PR5b §5.1). The chain is SMS-only —
-// SendPK / Twilio / console / unconfigured — so no WhatsApp provider can be
+// SendPK / console / unconfigured — so no WhatsApp provider can be
 // selected. In a bare test env with no provider configured, `console` is chosen.
 
 test('getSmsProvider: only ever selects an SMS provider, never a WhatsApp one', async () => {
   const { getSmsProvider } = await import('../lib/sms/index')
-  assert.ok(['sendpk', 'twilio', 'console', 'none'].includes(getSmsProvider().name))
+  assert.ok(['sendpk', 'console', 'none'].includes(getSmsProvider().name))
+})
+
+test('getSmsProvider: SendPK is the only SMS provider in the chain', () => {
+  const src = readFileSync(path.join(process.cwd(), 'lib', 'sms', 'index.ts'), 'utf8')
+  assert.ok(src.includes('if (sendpkProvider.isConfigured()) return sendpkProvider'))
+  // Exactly one real provider in the chain.
+  assert.equal(src.split('.isConfigured()) return ').length - 1, 1)
+  // The stated failure names SendPK's settings.
+  assert.ok(src.includes('Set SENDPK_API_KEY, SENDPK_SENDER, SENDPK_TEMPLATE_ID and SENDPK_BASE_URL'))
+})
+
+test('startup warns about SMS only when a SendPK setting is missing, and names SendPK', async () => {
+  const { missingSendpkEnv } = await import('../lib/sms/sendpk')
+  const keys = ['SENDPK_API_KEY', 'SENDPK_SENDER', 'SENDPK_TEMPLATE_ID', 'SENDPK_BASE_URL'] as const
+  const saved = Object.fromEntries(keys.map((k) => [k, process.env[k]]))
+  try {
+    for (const k of keys) process.env[k] = 'x'
+    assert.deepEqual(missingSendpkEnv(), [])
+    delete process.env.SENDPK_TEMPLATE_ID
+    assert.deepEqual(missingSendpkEnv(), ['SENDPK_TEMPLATE_ID'])
+    process.env.SENDPK_SENDER = '   '
+    assert.deepEqual(missingSendpkEnv(), ['SENDPK_SENDER', 'SENDPK_TEMPLATE_ID'])
+  } finally {
+    for (const k of keys) {
+      if (saved[k] === undefined) delete process.env[k]
+      else process.env[k] = saved[k]
+    }
+  }
+  const boot = readFileSync(path.join(process.cwd(), 'instrumentation.ts'), 'utf8')
+  assert.ok(boot.includes('[startup] SendPK is not fully configured'))
+  // The only SMS warning at startup is the SendPK one.
+  assert.equal(boot.split('console.warn(`[startup] S').length - 1, 1)
 })
 
 // ------------------------------------------------ one SMS per number (rule) ---

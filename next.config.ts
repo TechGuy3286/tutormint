@@ -78,7 +78,7 @@ function contentSecurityPolicy(): string {
 
     'font-src': ["'self'", 'data:'],
 
-    // Where the browser may talk to. Resend and Twilio are absent on purpose:
+    // Where the browser may talk to. Resend and SendPK are absent on purpose:
     // those are called from the server, and an API key that a browser could
     // reach would be an API key that has already leaked.
     'connect-src': ["'self'", supabase, supabaseWs],

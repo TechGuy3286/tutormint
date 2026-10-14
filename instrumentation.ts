@@ -16,6 +16,7 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== 'nodejs') return
 
   const { assertOtpSafety, smsProviderLabel } = await import('@/lib/sms')
+  const { missingSendpkEnv } = await import('@/lib/sms/sendpk')
   const { isDeployed, describeEnv } = await import('@/lib/env')
 
   // Throws if DEV_DEFAULT_OTP is set on the LIVE SITE. A preview deployment is
@@ -35,20 +36,16 @@ export async function register() {
   const smsProvider = smsProviderLabel()
   console.info(`[startup] SMS provider: ${smsProvider}`)
 
-  // Warn about SMS ONLY when NO provider at all is configured — never name a
-  // specific unconfigured fallback (owner PR28 §2.2/§2.3). "TWILIO_ACCOUNT_SID
-  // is not set" was logged on every request even though SendPK is the live
-  // provider and codes deliver fine: a wrong, noisy line. getSmsProvider()
-  // picks whatever IS configured (SendPK, then Twilio), so the only real fault
-  // is when it falls through to 'unconfigured'.
-  if (smsProvider === 'unconfigured') {
-    console.warn('[startup] no SMS provider is configured — phone OTP codes cannot be delivered')
+  // SendPK is the only SMS provider (owner, 14 Oct 2026). Warn only when one of
+  // its four settings is missing, and name SendPK and the missing settings —
+  // nothing else, so the line points diagnosis the right way.
+  const sendpkMissing = missingSendpkEnv()
+  if (sendpkMissing.length > 0) {
+    console.warn(`[startup] SendPK is not fully configured (missing: ${sendpkMissing.join(', ')}) — phone and password-reset codes cannot be sent by SMS`)
   }
 
   // Everything below is a warning, not a refusal: each one degrades a feature
-  // rather than opening a hole. These have no alternative provider — a missing
-  // one is genuinely a degraded feature, so it is named. (An unconfigured SMS
-  // FALLBACK is not, per above.)
+  // rather than opening a hole, so a missing one is named.
   const optional: [string, string][] = [
     ['SUPABASE_SERVICE_ROLE_KEY', 'admin screens, activation and moderation cannot write'],
     ['RESEND_API_KEY', 'no email will be sent'],

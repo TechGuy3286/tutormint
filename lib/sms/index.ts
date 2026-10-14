@@ -2,7 +2,7 @@
 //
 // Provider selection, and the one rule that matters most in this directory.
 //
-// SELECTION: twilio when its credentials are present, otherwise the console
+// SELECTION: SendPK when its credentials are present, otherwise the console
 // adapter in development, otherwise a provider that reports failure. There is
 // no "pretend it worked" branch in production. A member told "code sent" who
 // never receives one has no way to tell that from a slow network, and will sit
@@ -34,7 +34,6 @@
 
 import type { SmsProvider, SmsResult } from './provider'
 import { sendpkProvider } from './sendpk'
-import { twilioProvider } from './twilio'
 import { consoleProvider } from './console'
 import { isProduction, describeEnv } from '@/lib/env'
 
@@ -47,30 +46,29 @@ const unconfigured: SmsProvider = {
     return {
       ok: false,
       provider: 'none',
-      error: 'No SMS provider is configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_FROM.',
+      error: 'SendPK is not configured. Set SENDPK_API_KEY, SENDPK_SENDER, SENDPK_TEMPLATE_ID and SENDPK_BASE_URL.',
     }
   },
 }
 
 export function getSmsProvider(): SmsProvider {
-  // Order is preference: SendPK first, then Twilio, then the console adapter in
-  // development, then a stated failure in production. Each is selected only when
-  // fully configured (isConfigured() checks its own env), so a half-configured
-  // provider is skipped rather than reaching a member. A configured real provider
+  // SendPK is the only SMS provider (owner, 14 Oct 2026). Then the console
+  // adapter in development, then a stated failure in production. SendPK is
+  // selected only when fully configured (isConfigured() checks its own env), so
+  // a half-configured SendPK never reaches a member. A configured real provider
   // is used in dev too — but the DEV_DEFAULT_OTP bypass short-circuits sendOtp
   // BEFORE the provider, so a dev with the bypass set never spends a real message.
   // With none configured, the console adapter prints in development and production
   // falls to `unconfigured` — never a silent success.
   //
   // SMS ONLY (owner PR5a §2): the SMS Point provider delivered the code over
-  // WhatsApp; the codes must go by SMS, so it is no longer in the chain. Both
-  // SendPK and Twilio are SMS. There is no WhatsApp OTP-sending path left.
+  // WhatsApp; the codes must go by SMS, so it is no longer in the chain. There
+  // is no WhatsApp OTP-sending path left.
   //
   // SENDPK_SENDER is ADVISORY on this account: both "8584" and "TutorMint" route
   // through the same short code, 8062050, so the sender param does not decide the
   // on-device sender name — the SendPK account's approved routing does.
   if (sendpkProvider.isConfigured()) return sendpkProvider
-  if (twilioProvider.isConfigured()) return twilioProvider
   if (!isProduction()) return consoleProvider
   return unconfigured
 }
@@ -97,8 +95,6 @@ export function smsProviderLabel(): string {
   switch (getSmsProvider().name) {
     case 'sendpk':
       return 'SendPK'
-    case 'twilio':
-      return 'Twilio'
     case 'console':
       return 'console (development)'
     case 'none':

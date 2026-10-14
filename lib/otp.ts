@@ -35,7 +35,7 @@ export type OtpPurpose = 'verify' | 'reset'
 /**
  * The exact SMS body (PR93 Part A.4): "Your TutorMint verification code is
  * 123456. tutormint.org" — no expiry line. For a provider that sends the body
- * verbatim (Twilio, the dev console) this IS the delivered text; SendPK renders
+ * verbatim (the dev console) this IS the delivered text; SendPK renders
  * its OWN pre-approved template and only extracts the code from here, so the
  * delivered wording there is owner-controlled (re-register it to match). Pure, so
  * the exact wording is asserted by a test.

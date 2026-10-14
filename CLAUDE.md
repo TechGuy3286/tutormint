@@ -532,7 +532,7 @@ route calls the helper rather than `process.env`. The throw is the point — a
 variable set in production means somebody believes it works, and a warning in a
 log is read after the incident it would have prevented.
 
-**Nothing pretends to have sent.** Every adapter — Resend, Twilio, WhatsApp —
+**Nothing pretends to have sent.** Every adapter — Resend, SendPK —
 answers `isConfigured()` first and returns a stated failure rather than a
 cheerful `ok:true`. In development a console adapter prints the message, and the
 log line says CONSOLE. In production a missing key is never silently swapped for
@@ -840,7 +840,7 @@ This supersedes the observation in "T-UI1" below that a live fetch of tutormint.
 
 ## Open owner decisions (blocking launch)
 
-- **SMS provider — DECIDED and WIRED (Part 7 stage 2, 9 Sep 2026): SMS Point (smspoint.pk), delivering the code on WhatsApp.** `lib/sms/smspoint.ts` implements the `SmsProvider` interface; `getSmsProvider()` uses it whenever `SMSPOINT_USERNAME/_PASSWORD/_CLIENTID/_MASK` are all set (Twilio stays as the documented alternative). Delivery is fire-and-forget — a 200 "Sent Successfully" means accepted, not delivered, and an exhausted balance is undetectable — so a send is only ever reported as "sent on WhatsApp" with the support fallback always visible, and a per-number daily cap (6/day) bounds the prepaid-balance cost. The owner activates it by setting the four env vars in Vercel; BRIDGE_OTP stays as a backstop until real codes are confirmed arriving.
+- **SMS provider — DECIDED and WIRED (Part 7 stage 2, 9 Sep 2026): SMS Point (smspoint.pk), delivering the code on WhatsApp.** `lib/sms/smspoint.ts` implements the `SmsProvider` interface; `getSmsProvider()` uses it whenever `SMSPOINT_USERNAME/_PASSWORD/_CLIENTID/_MASK` are all set. Delivery is fire-and-forget — a 200 "Sent Successfully" means accepted, not delivered, and an exhausted balance is undetectable — so a send is only ever reported as "sent on WhatsApp" with the support fallback always visible, and a per-number daily cap (6/day) bounds the prepaid-balance cost. The owner activates it by setting the four env vars in Vercel; BRIDGE_OTP stays as a backstop until real codes are confirmed arriving.
 - SMTP on the Supabase project — **configured** (Resend, `noreply@tutormint.org`; Part 8). Confirmation, password-reset and staff-invite email deliver. No longer a blocker.
 - AssanPay — in negotiation.
 - CUIN and NTN — **filled** (owner, 9 Sep 2026, from the FBR taxpayer certificate):
@@ -3432,7 +3432,7 @@ The probe (stage 1) proved delivery; stage 2 wires it. NO migration.
   `GET https://smspoint.pk/api/sendsms/?username&password&clientid&msg&to&mask&Language=English`,
   the URL built by a pure `smspointUrl()` from env creds only (no literals). It
   delivers on **WhatsApp** from the approved mask. `getSmsProvider()` now returns
-  it first (then Twilio, then the dev console, then `unconfigured`), so it is used
+  it first (then the dev console, then `unconfigured`), so it is used
   whenever the four `SMSPOINT_*` vars are set and **fails closed** otherwise (a
   stated failure in production, never a silent success). Numbers go through
   `lib/phone.ts`; the request URL — which carries the code and the credentials —
@@ -7385,3 +7385,7 @@ No migration. Later-dated than everything above, so under precedence rule 10 it 
 No migration. An image model can paint a hex code onto the picture as text, so `lib/covers/prompt.ts` writes colour NAMES only: `COLOUR_NAMES` (keyed by the theme's own values in `lib/brand`) — #151E6B "dark navy blue", #9AE899 "fresh mint green", #C20202 "deep red", #0A0A0A "near black", #F8FAFC "very light off-white" — and the line reads "Colours: dark navy blue, fresh mint green, deep red accents and near black, on a very light off-white background." Those five are the only colours the prompt uses. Everything else in the prompt is unchanged. `hasHexCode()` is the check; `test:covers` runs it on every post shape and `test:coverprompts:live` runs it, with the 120-word limit, on every published post through `scripts/coverPromptPosts.ts` (the same source as `scripts/print-cover-prompts.ts`). Prompts already SAVED on a cover keep their text (3 posts carried hex codes on 14 Oct 2026; `scripts/report-saved-cover-prompts.ts` counts them); "Regenerate prompt" writes the new version.
 
 **Decisions recorded (owner, 14 Oct 2026), no code change:** the city silhouettes with a landmark mosque or shrine (Lahore, Islamabad, Peshawar, Multan) stay on every post for those cities; the typed "TutorMint" wordmark beside the monogram on composed covers stays.
+
+## SendPK is the only SMS provider (owner, 14 Oct 2026)
+
+No migration. TutorMint never used the second SMS adapter that sat behind SendPK in `getSmsProvider()`; it is deleted, with its tests, its sample env lines and every mention in the docs. The chain is SendPK → the console adapter in development → a stated failure in production ("SendPK is not configured. Set SENDPK_API_KEY, SENDPK_SENDER, SENDPK_TEMPLATE_ID and SENDPK_BASE_URL."). The startup check (`instrumentation.ts`) warns about SMS only when one of those four is missing, naming SendPK and the missing settings (`missingSendpkEnv()` in `lib/sms/sendpk.ts`, names only). SendPK's behaviour, its env vars, the OTP rules and the password-reset flow are unchanged. `.env.example` documents the four SendPK variables. `npm run test:delivery`.

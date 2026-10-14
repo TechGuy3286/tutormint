@@ -49,7 +49,7 @@ says so.
 |---|---|
 | `RESEND_API_KEY` | **No email is sent at all** in production, and `instrumentation.ts` warns at startup. Development prints messages to the log instead. The sending domain must be verified in Resend first. |
 | `MAIL_FROM` | Defaults to `TutorMint <noreply@tutormint.org>`. |
-| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM` *(or `TWILIO_MESSAGING_SERVICE_SID`)* | Phone OTP codes cannot be delivered, so nobody can verify a number, so no parent can be verified and no import can be claimed. Enable Pakistan in Twilio's geographic permissions — that is an account setting, not code. |
+| `SENDPK_API_KEY` / `SENDPK_SENDER` / `SENDPK_TEMPLATE_ID` / `SENDPK_BASE_URL` | Phone OTP and password-reset codes cannot be sent by SMS, so nobody can verify a number, so no parent can be verified and no import can be claimed. `instrumentation.ts` warns at startup naming the missing ones. |
 | `YOUTUBE_CLIENT_ID` / `_SECRET` / `_REDIRECT_URI` / `_REFRESH_TOKEN` | Video visibility changes are recorded on the profile but not applied on YouTube, and the response says so in words. |
 | `SUPPORT_WHATSAPP` / `SUPPORT_EMAIL` / `SUPPORT_HOURS` | `/support` shows the FAQ with no contact buttons. Can be set as `app_settings` rows (`support.*`) instead. |
 | `SUPABASE_DB_URL` | Scripts only (`seed:dev`, `verify:schema`, `rls:audit`, `backup.sh`). The app never uses it. |
@@ -97,7 +97,7 @@ Copy across from Production: `NEXT_PUBLIC_SUPABASE_URL`,
 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, the
 `MANUAL_PAY_*` values, and `SUPPORT_*`.
 
-Leave **unset** on Preview: `RESEND_API_KEY` and the `TWILIO_*` values, unless
+Leave **unset** on Preview: `RESEND_API_KEY` and the `SENDPK_*` values, unless
 you specifically want a preview sending real email and real SMS. Without them
 the console adapters print to the Vercel function log, which is where a tester
 should be reading the OTP from anyway.

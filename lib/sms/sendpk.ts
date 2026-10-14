@@ -59,6 +59,15 @@ function configFromEnv(): SendpkConfig | null {
   return { apiKey, sender, templateId, baseUrl }
 }
 
+/** The four SendPK settings, in the order the startup warning names them. */
+export const SENDPK_ENV_KEYS = ['SENDPK_API_KEY', 'SENDPK_SENDER', 'SENDPK_TEMPLATE_ID', 'SENDPK_BASE_URL'] as const
+
+/** Which of the four settings are missing or blank — NAMES only, never a
+ *  value (the startup warning in instrumentation.ts reads this). */
+export function missingSendpkEnv(): string[] {
+  return SENDPK_ENV_KEYS.filter((k) => !process.env[k]?.trim())
+}
+
 /** The send endpoint, tolerant of a trailing slash on the base URL. */
 export function sendpkEndpoint(baseUrl: string): string {
   return `${baseUrl.replace(/\/+$/, '')}/api/sms.php`
