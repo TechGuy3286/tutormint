@@ -205,10 +205,10 @@ export function coverAltText(input: CoverInput, sel: CoverSelection): string {
       : `the ${titleCity(input.city, sel.citySlug)} skyline`
 
   const PERSON_WORD: Record<string, string> = {
-    'parent-child': 'a parent and child',
-    student: 'a student',
-    'teacher-male': 'a teacher',
-    'teacher-female': 'a teacher',
+    'parent-child': 'a mother walking with her child',
+    student: 'a student writing at a desk',
+    'teacher-male': 'a male teacher holding a book',
+    'teacher-female': 'a female teacher holding a tablet',
   }
   const MOTIF_WORD: Record<string, string> = {
     search: 'a search bar',

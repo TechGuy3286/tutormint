@@ -13,6 +13,8 @@ import {
   matchingTutorSlugs,
   postTopic,
   rankRelatedPosts,
+  tuitionLevelConflicts,
+  tuitionSteps,
   relevantItems,
   subjectOfText,
   type TutorForPost,
@@ -92,6 +94,31 @@ test('"exam prep" is not the Prep class; O Level, A Level and IGCSE win (owner, 
   assert.equal(levelGroup('O and A Level exam prep').key, 'a-level')
   assert.equal(levelGroup('Admission Test Prep').label, 'Admission Test Prep')
   assert.equal(levelGroup('Prep / KG III').key, 'kg')
+})
+
+test('tuition cards under a post: the order of the steps, and no level conflict (owner, 14 Oct 2026)', () => {
+  // O / A Level post, no city, no subject: level only — never the newest.
+  const exam = postTopic({ title: 'O and A Level October–November exam prep, 2026' })
+  assert.deepEqual(tuitionSteps(exam), ['level'])
+  // A KG tuition conflicts with it; an O Level or an A Level one does not.
+  assert.equal(tuitionLevelConflicts(exam, ['Nursery / KG - II', 'Pre Nursery / Play Group / KG I']), true)
+  assert.equal(tuitionLevelConflicts(exam, ['O Levels']), false)
+  assert.equal(tuitionLevelConflicts(exam, ['AS & A Levels']), false)
+  assert.equal(tuitionLevelConflicts(exam, ['Grade 4']), true)
+  // A tuition whose levels cannot be read is not called a conflict.
+  assert.equal(tuitionLevelConflicts(exam, [null, '']), false)
+  // Primary Islamiat in Lahore: the full order, primary Lahore first.
+  assert.deepEqual(tuitionSteps(postTopic(ISLAMIAT)), ['subject+level+city', 'subject+level', 'level+city', 'level', 'subject+city', 'city', 'subject'])
+  assert.equal(tuitionLevelConflicts(postTopic(ISLAMIAT), ['Grade 3']), false)
+  assert.equal(tuitionLevelConflicts(postTopic(ISLAMIAT), ['O Levels']), true)
+  // A general tutor-career post names nothing: the newest tuitions.
+  assert.deepEqual(tuitionSteps(postTopic({ title: 'How to become a home tutor in Pakistan: a step-by-step start' })), ['newest'])
+  // A post with no level never filters by level.
+  assert.equal(tuitionLevelConflicts(postTopic({ city: 'Lahore', title: 'Finding a tutor in Lahore' }), ['O Levels']), false)
+  // The block hides itself when nothing relevant is found, and only 'newest' is unconditional.
+  const block = read('components', 'blog', 'OpenTuitionsBlock.tsx')
+  assert.ok(block.includes('tuitionSteps(topic)') && block.includes('tuitionLevelConflicts(topic'))
+  assert.ok(block.includes("if (jobs.length === 0 || !step) return null"))
 })
 
 test('the tiers: subject + level + city, subject + city, level + city, city only', () => {
@@ -287,8 +314,8 @@ test('no template or image prompt carries a superlative; the editor can regenera
   const compose = read('lib', 'covers', 'compose.tsx')
   assert.ok(!/largest/i.test(compose.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')))
   const prompt = coverImagePrompt({ title: 'Primary Islamiat in Lahore', clusterLabel: 'Subject guides', city: 'Lahore', subject: 'Primary Islamiat' })
-  assert.ok(prompt.includes('NO text'))
-  assert.ok(prompt.includes('never add a slogan or a claim'))
+  assert.ok(prompt.includes('Do not include: text, letters, numbers, logos'))
+  assert.ok(!/largest|\bbest\b|#1\b|no\.1/i.test(prompt))
   assert.ok(read('components', 'admin', 'blog', 'PostEditor.tsx').includes('Regenerate cover'))
   // No user-facing "Largest" is left: the default title, the pill and the logo files.
   for (const f of [['app', 'layout.tsx'], ['lib', 'siteIdentity.ts'], ['lib', 'seo.ts'], ['components', 'Navbar.tsx'], ['components', 'Footer.tsx']]) {

@@ -13,8 +13,9 @@ import type { CoverSelection } from './select'
 //
 //   sceneLayer()    the PICTURE: the right-hand panel with the city, the person
 //                   and the motifs. It contains NO text of any kind.
-//   overlayLayer()  everything that is read: the TutorMint logo (top-left, the
-//                   clean lockup), the title (navy on white, at most three
+//   overlayLayer()  the brand and everything that is read: the TM monogram
+//                   (top-left, the same size on every cover) with the
+//                   wordmark typed beside it, the title (navy on white, at most three
 //                   lines, auto-sized, inside safe margins), the brand line,
 //                   the tagline and the site address. All of it is typed by
 //                   code, so the spelling is always right.
@@ -41,7 +42,8 @@ export const COVER_LAYOUT = {
   textWidth: 620,
   sceneLeft: 728,
   sceneWidth: COVER_W - 728,
-  logoHeight: 76,
+  /** The TM monogram's height; its width follows its own shape. */
+  monogramHeight: 84,
   titleTop: 168,
   titleMaxLines: 3,
 } as const
@@ -53,9 +55,9 @@ export type ComposeAssets = {
   person: string | null
   /** Up to two motif data URIs (nulls dropped). */
   motifs: (string | null)[]
-  /** The clean TutorMint logo lockup (public/brand), or null — then the
-   *  wordmark is typed instead. */
-  logo?: string | null
+  /** The plain TM monogram (public/brand/tutormint-monogram.png), or null —
+   *  then the typed wordmark stands alone. */
+  monogram?: string | null
 }
 
 // The scene panel's ground. The text column is always white.
@@ -157,42 +159,44 @@ export function sceneLayer(selection: CoverSelection, assets: ComposeAssets): Re
 }
 
 /**
- * Everything that is READ. The logo, the title, the brand line, the tagline
- * and the site address — typed by code on the white text column.
+ * The brand and everything that is READ: the TM monogram, the wordmark, the
+ * title, the brand line, the tagline and the site address — typed by code on
+ * the white text column. The same on every option and every cover.
  */
 export function overlayLayer({
   title,
   brandLine,
   tagline,
-  logo,
+  monogram,
 }: {
   title: string
   brandLine: string
   tagline: string
-  logo: string | null
+  monogram: string | null
 }): ReactElement {
   const L = COVER_LAYOUT
   const cleanTitle = (title || 'TutorMint').slice(0, 130)
   const size = titleSize(cleanTitle)
   return (
     <div style={{ position: 'absolute', left: 0, top: 0, width: L.sceneLeft, height: COVER_H, display: 'flex' }}>
-      {/* Logo — always top-left. The clean lockup when it loaded; the typed
-          wordmark (one word: the negative margin defeats satori's word-space
-          between the two colour runs) when it did not. */}
-      {logo ? (
-        <img
-          src={logo}
-          alt=""
-          height={L.logoHeight}
-          width={Math.round((L.logoHeight * 2048) / 752)}
-          style={{ position: 'absolute', top: 40, left: L.margin - 6, objectFit: 'contain' }}
-        />
-      ) : (
-        <div style={{ position: 'absolute', top: 52, left: L.margin, display: 'flex', alignItems: 'baseline' }}>
-          <div style={{ fontSize: 40, fontWeight: 900, color: BRAND.black, marginRight: -Math.round(40 * 0.273) }}>Tutor</div>
-          <div style={{ fontSize: 40, fontWeight: 900, color: BRAND.red }}>Mint</div>
+      {/* The brand, always top-left at one size: the TM monogram, and the
+          wordmark typed beside it (one word: the negative margin defeats
+          satori's word-space between the two colour runs). */}
+      <div style={{ position: 'absolute', top: 40, left: L.margin, display: 'flex', alignItems: 'center', gap: 14 }}>
+        {monogram && (
+          <img
+            src={monogram}
+            alt=""
+            height={L.monogramHeight}
+            width={Math.round((L.monogramHeight * 869) / 814)}
+            style={{ objectFit: 'contain' }}
+          />
+        )}
+        <div style={{ display: 'flex', alignItems: 'baseline' }}>
+          <div style={{ fontSize: 38, fontWeight: 900, color: BRAND.black, marginRight: -Math.round(38 * 0.273) }}>Tutor</div>
+          <div style={{ fontSize: 38, fontWeight: 900, color: BRAND.red }}>Mint</div>
         </div>
-      )}
+      </div>
 
       {/* Title. Capped at three lines with an ellipsis (the webkit line-clamp
           trio, which satori honours) so a long title never spills, and held
@@ -269,7 +273,7 @@ export function renderCoverPng({
         }}
       >
         {sceneLayer(selection, assets)}
-        {overlayLayer({ title, brandLine, tagline, logo: assets.logo ?? null })}
+        {overlayLayer({ title, brandLine, tagline, monogram: assets.monogram ?? null })}
       </div>
     ),
     { width: COVER_W, height: COVER_H },

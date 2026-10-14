@@ -183,21 +183,80 @@ for (const seed of [0, 1, 2]) {
 // ── PR38 — cover image prompt (pure, no image service) ──
 import { coverImagePrompt } from '../lib/covers/prompt'
 
-test('PR38: cover prompt locks house style, palette, size, and forbids text', () => {
-  const p = coverImagePrompt({ title: 'O Level Physics fees in Lahore', clusterLabel: 'Cost & hiring', city: 'Lahore', subject: 'O Level Physics' })
-  assert.ok(p.includes('O Level Physics fees in Lahore'), 'title')
-  assert.ok(p.includes('Cost & hiring'), 'cluster')
-  assert.ok(p.includes('Lahore, Pakistan'), 'city + country')
-  assert.ok(p.includes('O Level Physics'), 'subject')
-  assert.ok(p.includes('1200x630'), 'size')
-  for (const hex of ['#C20202', '#151E6B', '#9AE899', '#0A0A0A']) assert.ok(p.includes(hex), `palette ${hex}`)
-  assert.ok(/NO text/i.test(p), 'forbids text')
+import { PROMPT_COLOURS, PROMPT_COMPOSITION, PROMPT_DO_NOT, PROMPT_STYLE } from '../lib/covers/prompt'
+import { BRAND } from '../lib/brand'
+
+// Every post shape the blog has, including the raw database labels a Subject
+// field can carry, and every cluster.
+const PROMPT_POSTS: Parameters<typeof coverImagePrompt>[0][] = [
+  { title: 'Grade 9 & 10 - Science English tutors in Lahore: fees and how to choose', cluster: 'cost-hiring', city: 'Lahore', subject: 'Grade 9 & 10 - Science English', audience: 'parents', slug: 'a' },
+  { title: 'How to find a good Primary Islamiat tutor in Lahore', cluster: 'subject-guides', city: 'Lahore', subject: 'Primary Islamiat', audience: 'parents', slug: 'b' },
+  { title: 'How to become a home tutor in Pakistan: a step-by-step start', cluster: 'tutor-career', audience: 'tutors', slug: 'c' },
+  { title: 'FA Maths tutors', cluster: 'cost-hiring', city: 'Karachi', subject: 'FA ( Part I & Part II) Mathematics', audience: 'parents', slug: 'd' },
+  { title: 'BS tutors', cluster: 'subject-guides', city: 'Islamabad', subject: 'Semester 1 - 8 Computer Science', audience: 'both', slug: 'e' },
+  { title: 'O and A Level October–November exam prep, 2026', cluster: 'boards-exams', audience: 'both', slug: 'f' },
+  { title: 'Finding a tutor in Multan', cluster: 'city-guides', city: 'Multan', audience: 'parents', slug: 'g' },
+  { title: 'Keeping messages useful: how TutorMint handles spam', cluster: 'safety-trust', audience: 'both', slug: 'h' },
+  { title: 'Online O Level Physics tutoring', cluster: 'subject-guides', subject: 'O Level Physics', audience: 'both', slug: 'i' },
+  { title: 'Play Group English', cluster: 'subject-guides', subject: 'Pre Nursery / Play Group / KG I English', audience: 'parents', slug: 'j' },
+]
+
+test('the cover prompt has the fixed style, colours, composition and "do not" lines', () => {
+  assert.equal(PROMPT_STYLE, 'Flat vector illustration, 1200×630 landscape, clean and friendly, soft daylight.')
+  // The colours are the site theme's own values (lib/brand mirrors app/globals.css).
+  for (const hex of [BRAND.navy, BRAND.mint, BRAND.red, BRAND.black, BRAND.bg]) assert.ok(PROMPT_COLOURS.includes(hex), hex)
+  assert.ok(PROMPT_COMPOSITION.includes('left 45% plain and uncluttered'))
+  for (const p of PROMPT_POSTS) {
+    const text = coverImagePrompt(p)
+    for (const part of [PROMPT_STYLE, PROMPT_COLOURS, PROMPT_COMPOSITION, PROMPT_DO_NOT]) assert.ok(text.includes(part), `${p.title}: ${part}`)
+    assert.ok(text.endsWith(PROMPT_DO_NOT), 'the "do not" line ends the prompt')
+    assert.ok(text.includes('everyday Pakistani clothing') && text.includes('age-appropriate'))
+    assert.ok(!text.includes('\n'), 'one paragraph')
+    const words = text.split(/\s+/).length
+    assert.ok(words <= 125, `${p.title}: ${words} words`)
+  }
+  for (const part of ['no text', 'no letters', 'no numbers', 'no logos', 'no signage', 'no watermarks', 'no school crests or uniforms with badges', 'no real or famous people', 'no distorted hands or faces']) {
+    assert.ok(PROMPT_DO_NOT.toLowerCase().replace(/^do not include: /, 'no ').replace(/, /g, ', no ').includes(part), part)
+  }
 })
 
-test('PR38: cover prompt omits optional fields cleanly', () => {
-  const p = coverImagePrompt({ title: 'How verification works', clusterLabel: 'Safety & trust' })
-  assert.ok(p.includes('set in Pakistan'), 'defaults to Pakistan when no city')
-  assert.ok(!/focused on/.test(p), 'no subject clause when subject absent')
+test('the cover prompt never carries a raw label, a cluster name, a claim or a brand name', () => {
+  const RAW = [/grade\s*9\s*&\s*10/i, /\(\s*part/i, /semester/i, /pre nursery \/ play group/i, /\s-\s/, /\bscience english\b/i]
+  const CLUSTERS = ['Cost & hiring', 'Boards & exams', 'Subject guides', 'City guides', 'Tutor career', 'Safety & trust', 'cost-hiring', 'subject-guides', 'tutor-career', 'city-guides', 'boards-exams', 'safety-trust']
+  for (const p of PROMPT_POSTS) {
+    const text = coverImagePrompt({ ...p, clusterLabel: 'Cost & hiring' })
+    for (const re of RAW) assert.ok(!re.test(text), `${p.title}: raw label ${re}`)
+    for (const c of CLUSTERS) assert.ok(!text.includes(c), `${p.title}: cluster ${c}`)
+    assert.ok(!/largest|biggest|\bbest\b|#1\b|no\.?\s*1\b|most trusted/i.test(text), `${p.title}: claim`)
+    assert.ok(!/tutor\s?mint|jazzcash|easypaisa|paypro|beaconhouse|whatsapp|zoom/i.test(text), `${p.title}: brand name`)
+    // The post title (which carries raw labels) is never pasted in.
+    assert.ok(!text.includes(p.title), `${p.title}: title pasted`)
+  }
+})
+
+test('the scene uses plain lesson names and fits the post', () => {
+  const s = (i: number) => coverImagePrompt(PROMPT_POSTS[i])
+  assert.match(s(0), /It is a Matric English lesson./)
+  assert.match(s(0), /reading an English book together at a home study table/)
+  assert.match(s(1), /studying the Quran together at a home study table/)
+  assert.match(s(1), /It is a Primary Islamiat lesson./)
+  assert.match(s(2), /tutor alone at a home desk, preparing a lesson/)
+  assert.match(s(3), /It is an FA Maths lesson./)
+  assert.match(s(3), /maths problem in a notebook/)
+  assert.match(s(4), /It is a BS Computer Science lesson./)
+  assert.match(s(5), /It is an O and A Level lesson./)
+  assert.match(s(6), /calm street in Multan/)
+  assert.match(s(8), /video lesson on a laptop/)
+  assert.match(s(9), /It is a Play Group and KG English lesson./)
+  // Religious items only for a religious topic.
+  assert.ok(!s(1).includes('no religious items'))
+  for (const i of [0, 2, 3, 4, 5, 6, 7, 8, 9]) {
+    assert.ok(s(i).includes('no religious items'), String(i))
+    assert.ok(!/quran|mosque|prayer/i.test(s(i)), String(i))
+  }
+  // A parent appears for a parents' post about a young child.
+  assert.match(s(9), /a parent sitting nearby/)
+  assert.ok(!s(3).includes('parent'))
 })
 
 // ── 14 Oct 2026 — one fixed layout, a scene with no text, compressed output ──
@@ -259,11 +318,12 @@ test('text is ONLY in the overlay layer; the scene layer has none', () => {
     assert.deepEqual(textIn(scene), [], `seed ${seed}: the scene must not contain text`)
   }
   const line = brandLine(6)
-  const withLogo = textIn(overlayLayer({ title: base.title, brandLine: line, tagline: 'Free to join. No commission. No middleman.', logo: 'data:image/png;base64,AA' }))
-  assert.deepEqual(withLogo, [base.title, line, 'Free to join. No commission. No middleman.', 'tutormint.org'])
-  // Without the logo picture the wordmark is typed — still in the overlay.
-  const typed = textIn(overlayLayer({ title: base.title, brandLine: line, tagline: 'Free to join. No commission. No middleman.', logo: null }))
-  assert.deepEqual(typed.slice(0, 2), ['Tutor', 'Mint'])
+  // The monogram is a picture; the wordmark beside it, the title, the brand
+  // line, the tagline and the site address are typed.
+  const withMark = textIn(overlayLayer({ title: base.title, brandLine: line, tagline: 'Free to join. No commission. No middleman.', monogram: 'data:image/png;base64,AA' }))
+  assert.deepEqual(withMark, ['Tutor', 'Mint', base.title, line, 'Free to join. No commission. No middleman.', 'tutormint.org'])
+  // Without the monogram the same words are typed, in the same order.
+  assert.deepEqual(textIn(overlayLayer({ title: base.title, brandLine: line, tagline: 'Free to join. No commission. No middleman.', monogram: null })), withMark)
 })
 
 test('one fixed layout: logo corner, safe margins, title sized to three lines', () => {
@@ -278,7 +338,7 @@ test('one fixed layout: logo corner, safe margins, title sized to three lines', 
   // The overlay does not depend on the option: it takes no selection at all.
   assert.equal(overlayLayer.length, 1)
   // The clean logo files exist; the old ones are kept.
-  for (const f of ['brand/tutormint-logo.png', 'brand/tutormint-logo-dark.png', 'brand/tutormint-logo-640.png', 'logo.png', 'TutorMint-Footer-Logo-2448x752.png']) {
+  for (const f of ['brand/tutormint-logo.png', 'brand/tutormint-logo-dark.png', 'brand/tutormint-logo-640.png', 'brand/tutormint-monogram.png', 'logo.png', 'TutorMint-Footer-Logo-2448x752.png', 'tutormint-logo-1080x1080.png']) {
     assert.ok(existsSync(path.join(process.cwd(), 'public', f)), f)
   }
 })
@@ -297,10 +357,10 @@ test('a generated overlay with a banned word is refused; the tagline is the site
 })
 
 test('the stored cover is a 1200×630 JPEG under 250 KB', async () => {
-  const logo = `data:image/png;base64,${readFileSync(path.join(process.cwd(), 'public', 'brand', 'tutormint-logo-640.png')).toString('base64')}`
+  const monogram = `data:image/png;base64,${readFileSync(path.join(process.cwd(), 'public', 'brand', 'tutormint-monogram.png')).toString('base64')}`
   for (const seed of [0, 2]) {
     const sel = selectCover(base, seed)
-    const res = renderCoverPng({ title: base.title, selection: sel, assets: { city: assetUri(sel.citySlug), person: assetUri(sel.personSlug), motifs: sel.motifs.map(assetUri), logo } })
+    const res = renderCoverPng({ title: base.title, selection: sel, assets: { city: assetUri(sel.citySlug), person: assetUri(sel.personSlug), motifs: sel.motifs.map(assetUri), monogram } })
     const jpg = await coverJpeg(new Uint8Array(await res.arrayBuffer()))
     const meta = await sharp(jpg).metadata()
     assert.equal(meta.format, 'jpeg')
@@ -316,22 +376,34 @@ test('alt text comes from the title and the scene; the prompt asks for a scene w
   assert.ok(alt.startsWith('Cover for “How to find a good Primary Islamiat tutor in Lahore”: '))
   assert.ok(alt.includes('the Lahore skyline') && alt.includes('a Quran on a stand'))
   assert.ok(alt.length <= 300)
-  const religious = coverImagePrompt({ title: input.title, clusterLabel: 'Subject guides', cluster: 'subject-guides', city: 'Lahore', subject: 'Primary Islamiat' })
-  assert.ok(religious.includes('studying the Quran together at a table'))
-  assert.ok(religious.includes('This topic is religious'))
-  const physics = coverImagePrompt({ title: 'O Level Physics tutors', clusterLabel: 'Subject guides', cluster: 'subject-guides', subject: 'O Level Physics' })
-  assert.ok(physics.includes('science experiment') && physics.includes('no religious or cultural dress'))
-  for (const p of [religious, physics]) {
-    assert.ok(p.includes('background scene'))
-    assert.ok(/NO text/.test(p))
-    assert.ok(p.includes('No real person, no celebrity and no lookalike'))
-    assert.ok(p.includes('school logos or crests') && p.includes('uniforms with badges') && p.includes('watermarks'))
-    assert.ok(p.includes('Nothing unsuitable for children'))
-  }
   // The route stores the prompt with the cover, and the editor shows it.
   const route = readFileSync(path.join(process.cwd(), 'app', 'api', 'admin', 'blog', 'generate-cover', 'route.ts'), 'utf8')
   assert.ok(route.includes('coverPrompt,') && route.includes("contentType: 'image/jpeg'") && route.includes('upsert: false'))
+  // The stored prompt is the clean paragraph alone — no note about the library.
+  assert.ok(!route.includes('Composed by TutorMint'))
   assert.ok(readFileSync(path.join(process.cwd(), 'app', 'api', 'admin', 'blog', 'route.ts'), 'utf8').includes('cover_prompt:'))
   const editor = readFileSync(path.join(process.cwd(), 'components', 'admin', 'blog', 'PostEditor.tsx'), 'utf8')
   assert.ok(editor.includes('Image prompt used for this cover') && editor.includes('grid grid-cols-3') && editor.includes('or upload your own'))
+  assert.ok(editor.includes('Regenerate prompt') && editor.includes('freshCoverPrompt()'))
+})
+
+test('the teacher illustrations are named by what they show', async () => {
+  // teacher-male.png is the man holding a book (436 wide); teacher-female.png is
+  // the woman holding a tablet (400 wide). They were swapped before 14 Oct 2026.
+  assert.equal(coverAsset('teacher-male')?.width, 436)
+  assert.equal(coverAsset('teacher-female')?.width, 400)
+  for (const slug of ['teacher-male', 'teacher-female']) {
+    const a = coverAsset(slug)!
+    const meta = await sharp(path.join(COVERS_DIR, a.file)).metadata()
+    assert.equal(meta.width, a.width, slug)
+    assert.equal(meta.height, a.height, slug)
+  }
+  const build = readFileSync(path.join(process.cwd(), 'scripts', 'covers-build.ts'), 'utf8')
+  assert.ok(build.includes("{ token: 'Teacher_holding_open', slug: 'teacher-male'"))
+  assert.ok(build.includes("{ token: 'Teacher_holding_tablet', slug: 'teacher-female'"))
+  // The alt text says which.
+  const career = { title: 'How to become a home tutor', cluster: 'tutor-career', city: null, subject: null, audience: 'tutors' as const, slug: 'c' }
+  const words = [0, 3].map((seed) => coverAltText(career, selectCover(career, seed)))
+  assert.ok(words.some((w) => w.includes('a female teacher holding a tablet')))
+  assert.ok(words.some((w) => w.includes('a male teacher holding a book')))
 })

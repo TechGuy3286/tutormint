@@ -94,6 +94,25 @@ async function main() {
   await clean('TutorMint-Footer-Logo-2448x752.png', 'tutormint-logo-dark.png')
   await sharp(light).resize({ width: 640 }).png({ compressionLevel: 9, palette: true, quality: 95 }).toFile(path.join(OUT, 'tutormint-logo-640.png'))
   console.log('brand/tutormint-logo-640.png written (for composed covers)')
+
+  // The plain TM monogram for composed covers (owner, 14 Oct 2026): the two
+  // figures and "TM", no wordmark, no tagline. The largest copy in the repo is
+  // public/tutormint-logo-1080x1080.png (the share-image square); it is trimmed
+  // of its white margin, and its near-white ground made transparent so it sits
+  // on any panel. Nothing is redrawn.
+  const src = path.join(PUBLIC, 'tutormint-logo-1080x1080.png')
+  const trimmed = await sharp(src).trim({ background: '#ffffff', threshold: 24 }).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+  const { data, info } = trimmed
+  for (let i = 0; i < data.length; i += 4) {
+    const min = Math.min(data[i], data[i + 1], data[i + 2])
+    // Pure white → clear, with a soft ramp so the edges stay smooth.
+    if (min >= 245) data[i + 3] = 0
+    else if (min >= 225) data[i + 3] = Math.round((data[i + 3] * (245 - min)) / 20)
+  }
+  await sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
+    .png({ compressionLevel: 9 })
+    .toFile(path.join(OUT, 'tutormint-monogram.png'))
+  console.log(`brand/tutormint-monogram.png written (${info.width}x${info.height}, from the 1080x1080 monogram)`)
 }
 
 main().catch((e) => {

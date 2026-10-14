@@ -49,10 +49,10 @@ const RULES: Rule[] = [
   { token: 'Mother_holding_child', slug: 'parent-child', kind: 'person', tags: ['parents'] },
   { token: 'Student_writing', slug: 'student', kind: 'person', tags: ['both', 'student'] },
   // Two teachers, one slug each; the composer alternates by a slug hash. The
-  // male/female assignment is arbitrary — the source art is not gendered — and
-  // is recorded here so it is a decision, not an accident.
-  { token: 'Teacher_holding_open', slug: 'teacher-female', kind: 'person', tags: ['tutors'] },
-  { token: 'Teacher_holding_tablet', slug: 'teacher-male', kind: 'person', tags: ['tutors'] },
+  // name follows the picture (owner, 14 Oct 2026): the man with a book is
+  // teacher-male, the woman with a tablet is teacher-female. They were swapped.
+  { token: 'Teacher_holding_open', slug: 'teacher-male', kind: 'person', tags: ['tutors'] },
+  { token: 'Teacher_holding_tablet', slug: 'teacher-female', kind: 'person', tags: ['tutors'] },
 
   // Motifs — subjects and clusters.
   { token: 'search_bar', slug: 'search', kind: 'motif', tags: ['search', 'city-guides'] },

@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { isClusterSlug, publicBlogUrl, POST_CLUSTERS } from '@/lib/blog'
+import { isClusterSlug, publicBlogUrl } from '@/lib/blog'
 import { parseBody, z } from '@/lib/validate'
 import { composeCoverResponse, composeCoverAlt } from '@/lib/covers/render'
 import type { CoverInput } from '@/lib/covers/select'
@@ -86,14 +86,10 @@ export async function POST(request: Request) {
   const altProblem = coverTextProblem(coverAlt)
   if (altProblem) return NextResponse.json({ error: altProblem }, { status: 400 })
 
-  // The scene prompt this cover stands for, and what the library drew for it.
+  // The scene prompt this cover stands for — the clean, paste-ready paragraph
+  // (lib/covers/prompt). What the library drew goes in the audit row instead.
   const selection = selectCover(input, seed)
-  const clusterLabel = POST_CLUSTERS.find((c) => c.slug === d.cluster)?.label ?? d.cluster
-  const coverPrompt = [
-    coverImagePrompt({ title: d.title, clusterLabel, cluster: d.cluster, city: input.city, subject: input.subject, audience: input.audience, slug: input.slug }),
-    '',
-    `Composed by TutorMint from the house illustration library — option seed ${seed}: scene "${selection.scene}", ${selection.personSlug}, ${selection.motifs.join(' + ')}, ${selection.citySlug}, ${selection.background} ground.`,
-  ].join('\n')
+  const coverPrompt = coverImagePrompt({ title: d.title, cluster: d.cluster, city: input.city, subject: input.subject, audience: input.audience, slug: input.slug })
 
   await logAdminAction({
     actorId: gate.actor.id,
@@ -102,7 +98,7 @@ export async function POST(request: Request) {
     action: 'blog.cover_generate',
     targetType: 'post',
     targetId: (d.slug ?? d.title).slice(0, 120),
-    detail: { seed, coverPath, scene: selection.scene, bytes: bytesStored },
+    detail: { seed, coverPath, scene: selection.scene, person: selection.personSlug, motifs: selection.motifs, city: selection.citySlug, bytes: bytesStored },
   })
 
   return NextResponse.json({

@@ -1,5 +1,5 @@
 /**
- * scripts/preview-covers.ts — writes sample composed covers to a folder so the
+ * scripts/preview-covers.ts — writes sample composed covers (with the TM monogram) to a folder so the
  * fixed layout can be looked at without the admin editor. Offline: it reads the
  * house illustration library and the clean logo from public/.
  *   npx tsx scripts/preview-covers.ts <out-dir>
@@ -28,11 +28,11 @@ async function main() {
   const out = process.argv[2]
   if (!out) throw new Error('give an output folder')
   mkdirSync(out, { recursive: true })
-  const logo = uri(path.join(process.cwd(), 'public', 'brand', 'tutormint-logo-640.png'))
+  const monogram = uri(path.join(process.cwd(), 'public', 'brand', 'tutormint-monogram.png'))
   for (const p of POSTS) {
     for (const seed of [0, 1, 2]) {
       const sel = selectCover(p, seed)
-      const res = renderCoverPng({ title: p.title, selection: sel, assets: { city: asset(sel.citySlug), person: asset(sel.personSlug), motifs: sel.motifs.map(asset), logo } })
+      const res = renderCoverPng({ title: p.title, selection: sel, assets: { city: asset(sel.citySlug), person: asset(sel.personSlug), motifs: sel.motifs.map(asset), monogram } })
       const jpg = await coverJpeg(new Uint8Array(await res.arrayBuffer()))
       const file = path.join(out, `${p.name}-${seed}.jpg`)
       writeFileSync(file, jpg)

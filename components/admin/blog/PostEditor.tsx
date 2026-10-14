@@ -838,21 +838,22 @@ export default function PostEditor({
     })
   }
 
+  // The scene prompt for the post as it stands now (lib/covers/prompt) — the
+  // same paragraph the cover route saves with a composed cover.
+  function freshCoverPrompt(): string {
+    return coverImagePrompt({
+      title: post.title,
+      cluster: post.cluster,
+      city: post.city,
+      subject: post.subject,
+      audience: post.audience,
+      slug: post.slug || null,
+    })
+  }
+
   // §2 — open/close the cover-prompt box, seeding it from the post's fields.
   function toggleCoverPrompt() {
-    setCoverPrompt((cur) =>
-      cur === null
-        ? coverImagePrompt({
-            title: post.title,
-            clusterLabel: clusterLabel(post.cluster),
-            cluster: post.cluster,
-            city: post.city,
-            subject: post.subject,
-            audience: post.audience,
-            slug: post.slug || null,
-          })
-        : null,
-    )
+    setCoverPrompt((cur) => (cur === null ? freshCoverPrompt() : null))
   }
 
   async function copyCoverPrompt() {
@@ -1991,6 +1992,13 @@ export default function PostEditor({
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
+                        onClick={() => setCoverPrompt(freshCoverPrompt())}
+                        className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-[11px] font-bold text-tm-navy hover:border-tm-navy"
+                      >
+                        <Shuffle aria-hidden size={12} /> Regenerate prompt
+                      </button>
+                      <button
+                        type="button"
                         onClick={copyCoverPrompt}
                         className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg bg-tm-navy px-3 text-[11px] font-bold text-white hover:bg-tm-navy-hover"
                       >
@@ -2048,6 +2056,18 @@ export default function PostEditor({
                   aria-label="Image prompt used for this cover"
                   className={`${input} mt-2 font-mono text-[11px] leading-relaxed`}
                 />
+                {!readOnly && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPost((p) => ({ ...p, coverPrompt: freshCoverPrompt() }))
+                      setDirty(true)
+                    }}
+                    className="mt-2 inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-[11px] font-bold text-tm-navy hover:border-tm-navy"
+                  >
+                    <Shuffle aria-hidden size={12} /> Regenerate prompt
+                  </button>
+                )}
               </details>
             )}
 

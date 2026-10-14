@@ -52,8 +52,8 @@ export const COVER_ASSETS: CoverAsset[] = [
   { slug: "wallet", kind: "motif", file: "wallet.png", tags: ["cost-hiring","fees"], width: 743, height: 800 },
   { slug: "parent-child", kind: "person", file: "parent-child.png", tags: ["parents"], width: 861, height: 1200 },
   { slug: "student", kind: "person", file: "student.png", tags: ["both","student"], width: 807, height: 1200 },
-  { slug: "teacher-female", kind: "person", file: "teacher-female.png", tags: ["tutors"], width: 436, height: 1200 },
-  { slug: "teacher-male", kind: "person", file: "teacher-male.png", tags: ["tutors"], width: 400, height: 1200 },
+  { slug: "teacher-female", kind: "person", file: "teacher-female.png", tags: ["tutors"], width: 400, height: 1200 },
+  { slug: "teacher-male", kind: "person", file: "teacher-male.png", tags: ["tutors"], width: 436, height: 1200 },
 ]
 
 export const COVER_BY_SLUG: Map<string, CoverAsset> = new Map(COVER_ASSETS.map((a) => [a.slug, a]))

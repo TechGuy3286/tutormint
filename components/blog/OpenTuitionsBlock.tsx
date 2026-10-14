@@ -6,48 +6,68 @@ import { applyBlocksFor, type ApplyBlockMap } from '@/lib/applyBlockServer'
 import { getSessionUser } from '@/lib/auth'
 import { getEntitlements } from '@/lib/entitlements'
 import { browseJobs, NO_JOB_FILTERS, type JobFilters } from '@/lib/jobFeed'
+import type { JobCardData } from '@/components/JobCard'
 import { mastersForTopic } from '@/lib/blogRelevance'
-import { postTopic } from '@/lib/blogRelevanceCore'
+import { postTopic, tuitionLevelConflicts, tuitionSteps, type TuitionStep } from '@/lib/blogRelevanceCore'
 
 // Live open tuitions at the end of every blog post (owner, 5 Oct 2026): up to
-// three OPEN tuitions, then "See all open tuitions in <city>" into the filtered
-// board. From 13 Oct 2026 the cards PREFER the post's own topic, by the one
-// relevance rule (lib/blogRelevanceCore): subject + level + city, then subject
-// + city, then level + city, then the city, then the subject anywhere. With no
-// match, the three newest open tuitions — the block is never empty (and never
-// rendered empty: a board with zero open tuitions renders nothing at all).
+// three OPEN tuitions, then "See all open tuitions…" into the board.
+//
+// Which tuitions (owner, 14 Oct 2026): the post's own topic — city, level and
+// subject, read by the one relevance rule (lib/blogRelevanceCore) — tried in
+// the order tuitionSteps() gives: subject + level + city, subject + level,
+// level + city, level anywhere, subject + city, city, subject anywhere. A
+// tuition whose level clearly conflicts with the post's (a KG tuition under an
+// O / A Level post) is never shown. Only a post that names no level, subject
+// or city at all gets the newest tuitions; any other post with nothing
+// relevant gets no block at all.
 //
 // Apply uses the existing gated flow on the card: a guest gets the sign-in
 // modal, a tutor gets the real button with the shared "why inactive" line, a
 // parent sees no Apply. No membership prices appear anywhere here.
 
 const LIMIT = 3
+// Read a few more than shown, so the level check can drop a conflicting card
+// and still fill the block.
+const FETCH = 12
 
 async function pick(city: string | null, subject: string | null, title: string | null) {
   const topic = postTopic({ city, subject, title })
+  const steps = tuitionSteps(topic)
   const m = await mastersForTopic(topic).catch(() => ({ both: [] as number[], subject: [] as number[], levelNames: [] as string[] }))
-  const attempts: Partial<JobFilters>[] = []
-  if (city && m.both.length > 0) attempts.push({ city, masterIds: m.both })
-  if (city && m.subject.length > 0) attempts.push({ city, masterIds: m.subject })
-  if (city && m.levelNames.length > 0) attempts.push({ city, levels: m.levelNames })
-  if (city) attempts.push({ city })
-  if (m.both.length > 0) attempts.push({ masterIds: m.both })
-  if (m.subject.length > 0) attempts.push({ masterIds: m.subject })
-  for (const a of attempts) {
-    try {
-      const { jobs } = await browseJobs({ ...NO_JOB_FILTERS, ...a }, LIMIT)
-      if (jobs.length > 0) return { jobs, matched: true }
-    } catch {
-      /* try the next, broader scope */
+  const filtersFor = (step: TuitionStep): Partial<JobFilters> | null => {
+    switch (step) {
+      case 'subject+level+city':
+        return m.both.length > 0 ? { city, masterIds: m.both } : null
+      case 'subject+level':
+        return m.both.length > 0 ? { masterIds: m.both } : null
+      case 'level+city':
+        return m.levelNames.length > 0 ? { city, levels: m.levelNames } : null
+      case 'level':
+        return m.levelNames.length > 0 ? { levels: m.levelNames } : null
+      case 'subject+city':
+        return m.subject.length > 0 ? { city, masterIds: m.subject } : null
+      case 'city':
+        return city ? { city } : null
+      case 'subject':
+        return m.subject.length > 0 ? { masterIds: m.subject } : null
+      case 'newest':
+        return {}
     }
   }
-  // The fallback that was always here: the newest open tuitions.
-  try {
-    const { jobs } = await browseJobs({ ...NO_JOB_FILTERS }, LIMIT)
-    return { jobs, matched: false }
-  } catch {
-    return { jobs: [], matched: false }
+  const levelsOf = (j: JobCardData) => (j.class_levels && j.class_levels.length > 0 ? j.class_levels : [j.class_level])
+  for (const step of steps) {
+    const f = filtersFor(step)
+    if (!f) continue
+    try {
+      const { jobs } = await browseJobs({ ...NO_JOB_FILTERS, ...f }, FETCH)
+      const fit = jobs.filter((j) => !tuitionLevelConflicts(topic, levelsOf(j))).slice(0, LIMIT)
+      if (fit.length > 0) return { jobs: fit, step }
+    } catch {
+      /* try the next, broader step */
+    }
   }
+  return { jobs: [] as JobCardData[], step: null }
 }
 
 export default async function OpenTuitionsBlock({
@@ -59,8 +79,9 @@ export default async function OpenTuitionsBlock({
   subject: string | null
   title?: string | null
 }) {
-  const [{ jobs, matched }, session] = await Promise.all([pick(city, subject, title), getSessionUser()])
-  if (jobs.length === 0) return null
+  const [{ jobs, step }, session] = await Promise.all([pick(city, subject, title), getSessionUser()])
+  // Nothing relevant: no block, rather than unrelated cards.
+  if (jobs.length === 0 || !step) return null
 
   const role = session?.profile?.role ?? null
   const signedIn = !!session
@@ -74,16 +95,17 @@ export default async function OpenTuitionsBlock({
     viewerCity = session.profile?.city ?? null
   }
 
-  // A subject match with no city on the post is "Open tuitions", not "…in <city>".
-  const where = city ? ` in ${city}` : ''
-  const allHref = city ? `/browse/tuitions?city=${encodeURIComponent(city)}` : '/browse/tuitions'
+  // "…in <city>" only when the cards were chosen by the city.
+  const byCity = !!city && step.endsWith('city')
+  const where = byCity ? ` in ${city}` : ''
+  const allHref = byCity ? `/browse/tuitions?city=${encodeURIComponent(city as string)}` : '/browse/tuitions'
 
   return (
     <section aria-labelledby="open-tuitions" className="space-y-3">
       <div className="flex items-center gap-2">
         <Briefcase aria-hidden size={16} className="text-tm-navy" />
         <h2 id="open-tuitions" className="text-sm font-black text-tm-navy">
-          {matched ? `Open tuitions${where}` : 'Newest open tuitions'}
+          {step === 'newest' ? 'Newest open tuitions' : `Open tuitions${where}`}
         </h2>
       </div>
       <div className="space-y-4">

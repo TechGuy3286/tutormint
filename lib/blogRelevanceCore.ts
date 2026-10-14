@@ -71,8 +71,10 @@ const LEVEL_PHRASES: RegExp[] = [
   /\b[oa]\s*levels?\b/g,
   /\bplay\s*group(?:\s*(?:and|to|&)\s*kg)?\b/g,
   /\bpre\s*(?:nursery|school|primary)\b/g,
+  /\bkg\s*(?:iii|ii|i|1|2|3)\b/g, // "KG I", "KG - II"
   /\b(?:primary|middle|matric(?:ulation)?|secondary|intermediate|igcse|nursery|kindergarten|montessori|kg|prep|fsc|f\s*sc|fa|ics|i\s*com|icom|bs|adp|ms|mphil)\b/g,
   /\bpart\s*(?:i{1,2}|1|2)(?:\s*(?:&|and)\s*(?:i{1,2}|1|2))?\b/g,
+  /\bsemesters?\s*\d{1,2}(?:\s*(?:to|-)?\s*\d{1,2})?\b/g, // "Semester 1 - 8"
 ]
 
 /** The subject a post's Subject field names, without its level words:
@@ -226,6 +228,54 @@ export function rankRelatedPosts<T extends RelatablePost>(current: RelatablePost
     .filter((s) => s.score > 0)
   scored.sort((a, b) => b.score - a.score || String(b.p.publishedAt ?? '').localeCompare(String(a.p.publishedAt ?? '')))
   return scored.slice(0, limit).map((s) => s.p)
+}
+
+// --------------------------------------------------- tuitions under a post ---
+
+/**
+ * The order in which the tuition cards under a post are looked for (owner,
+ * 14 Oct 2026). Each step is tried in turn and the first that finds a live
+ * tuition wins. A step the post cannot use (no city, no level, no subject) is
+ * left out. Only a post that names NO level, subject or city at all falls back
+ * to the newest tuitions; any other post with nothing relevant gets no block.
+ */
+export type TuitionStep =
+  | 'subject+level+city'
+  | 'subject+level'
+  | 'level+city'
+  | 'level'
+  | 'subject+city'
+  | 'city'
+  | 'subject'
+  | 'newest'
+
+export function tuitionSteps(topic: PostTopic): TuitionStep[] {
+  if (topicIsEmpty(topic)) return ['newest']
+  const city = !!topic.city
+  const level = topic.groups.length > 0
+  const subject = topic.subjects.length > 0
+  const steps: TuitionStep[] = []
+  if (subject && level && city) steps.push('subject+level+city')
+  if (subject && level) steps.push('subject+level')
+  if (level && city) steps.push('level+city')
+  if (level) steps.push('level')
+  if (subject && city) steps.push('subject+city')
+  if (city) steps.push('city')
+  if (subject) steps.push('subject')
+  return steps
+}
+
+/**
+ * Does a tuition's level clearly conflict with the post's? Only when the post
+ * names a level AND the tuition's own levels name one, and the two share none
+ * — a Nursery / KG tuition under an O / A Level post. A tuition whose levels
+ * cannot be read is not a conflict.
+ */
+export function tuitionLevelConflicts(topic: PostTopic, jobLevels: (string | null | undefined)[]): boolean {
+  if (topic.groups.length === 0) return false
+  const theirs = new Set(jobLevels.flatMap((l) => groupsOfText(l)))
+  if (theirs.size === 0) return false
+  return !topic.groups.some((g) => theirs.has(g))
 }
 
 // ----------------------------------------------------------------- tutors ---

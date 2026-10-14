@@ -56,15 +56,16 @@ export async function coverAssetDataUri(slug: string | null | undefined): Promis
   return uri
 }
 
-/** The clean TutorMint logo lockup a cover carries (public/brand, made by
- *  scripts/build-clean-logos.ts — no tagline line in the picture). Null when it
- *  cannot be loaded; the composer then types the wordmark instead. */
-export const BRAND_LOGO_FILE = 'tutormint-logo-640.png'
+/** The plain TM monogram every composed cover carries (public/brand, made by
+ *  scripts/build-clean-logos.ts from the 1080x1080 monogram — no wordmark, no
+ *  tagline in the picture). Null when it cannot be loaded; the composer then
+ *  shows the typed wordmark alone. */
+export const COVER_MONOGRAM_FILE = 'tutormint-monogram.png'
 
-export async function brandLogoDataUri(): Promise<string | null> {
-  const key = `brand/${BRAND_LOGO_FILE}`
+export async function brandMonogramDataUri(): Promise<string | null> {
+  const key = `brand/${COVER_MONOGRAM_FILE}`
   if (CACHE.has(key)) return CACHE.get(key) ?? null
-  const uri = (await fromDisk(BRAND_LOGO_FILE, 'brand')) ?? (await fromOrigin(BRAND_LOGO_FILE, 'brand'))
+  const uri = (await fromDisk(COVER_MONOGRAM_FILE, 'brand')) ?? (await fromOrigin(COVER_MONOGRAM_FILE, 'brand'))
   CACHE.set(key, uri)
   return uri
 }

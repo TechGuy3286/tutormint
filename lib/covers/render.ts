@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { brandLogoDataUri, coverAssetDataUri } from './assets'
+import { brandMonogramDataUri, coverAssetDataUri } from './assets'
 import { renderCoverPng } from './compose'
 import { selectCover, coverAltText, type CoverInput } from './select'
 import { currentBrandLine, verifiedBadgeTutorCount } from '@/lib/brandLineServer'
@@ -20,13 +20,13 @@ export { currentBrandLine, verifiedBadgeTutorCount }
 export async function composeCoverResponse(input: CoverInput, seed: number): Promise<Response> {
   const line = await currentBrandLine()
   const selection = selectCover(input, seed)
-  const [logo, city, person, ...motifs] = await Promise.all([
-    brandLogoDataUri(),
+  const [monogram, city, person, ...motifs] = await Promise.all([
+    brandMonogramDataUri(),
     coverAssetDataUri(selection.citySlug),
     coverAssetDataUri(selection.personSlug),
     ...selection.motifs.map((m) => coverAssetDataUri(m)),
   ])
-  return renderCoverPng({ title: input.title, selection, assets: { city, person, motifs, logo }, brandLine: line })
+  return renderCoverPng({ title: input.title, selection, assets: { city, person, motifs, monogram }, brandLine: line })
 }
 
 /** The auto-filled alt text for a composed cover at a given seed. */
