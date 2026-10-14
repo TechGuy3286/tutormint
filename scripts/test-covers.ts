@@ -183,7 +183,7 @@ for (const seed of [0, 1, 2]) {
 // ── PR38 — cover image prompt (pure, no image service) ──
 import { coverImagePrompt } from '../lib/covers/prompt'
 
-import { PROMPT_COLOURS, PROMPT_COMPOSITION, PROMPT_DO_NOT, PROMPT_STYLE } from '../lib/covers/prompt'
+import { COLOUR_NAMES, PROMPT_COLOURS, PROMPT_COMPOSITION, PROMPT_DO_NOT, PROMPT_STYLE, hasHexCode } from '../lib/covers/prompt'
 import { BRAND } from '../lib/brand'
 
 // Every post shape the blog has, including the raw database labels a Subject
@@ -204,7 +204,14 @@ const PROMPT_POSTS: Parameters<typeof coverImagePrompt>[0][] = [
 test('the cover prompt has the fixed style, colours, composition and "do not" lines', () => {
   assert.equal(PROMPT_STYLE, 'Flat vector illustration, 1200×630 landscape, clean and friendly, soft daylight.')
   // The colours are the site theme's own values (lib/brand mirrors app/globals.css).
-  for (const hex of [BRAND.navy, BRAND.mint, BRAND.red, BRAND.black, BRAND.bg]) assert.ok(PROMPT_COLOURS.includes(hex), hex)
+  // The colours are the site theme's own, by NAME — never a hex code, which an
+  // image model can paint onto the picture as text (owner, 14 Oct 2026).
+  assert.equal(PROMPT_COLOURS, 'Colours: dark navy blue, fresh mint green, deep red accents and near black, on a very light off-white background.')
+  for (const hex of [BRAND.navy, BRAND.mint, BRAND.red, BRAND.black, BRAND.bg]) {
+    assert.ok(COLOUR_NAMES[hex], `the theme colour ${hex} has a name`)
+    assert.ok(!PROMPT_COLOURS.includes(hex), hex)
+  }
+  for (const p of PROMPT_POSTS) assert.ok(!hasHexCode(coverImagePrompt(p)), p.title)
   assert.ok(PROMPT_COMPOSITION.includes('left 45% plain and uncluttered'))
   for (const p of PROMPT_POSTS) {
     const text = coverImagePrompt(p)

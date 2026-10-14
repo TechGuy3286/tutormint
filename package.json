@@ -34,6 +34,7 @@
     "test:messaging": "tsx --test scripts/test-messaging.ts",
     "test:social": "tsx --test scripts/test-social.ts",
     "test:covers": "tsx --test scripts/test-covers.ts",
+    "test:coverprompts:live": "tsx --env-file-if-exists=.env.local --test scripts/test-cover-prompts-live.ts",
     "test:outsidepointer": "tsx --test scripts/test-outside-pointer.ts",
     "test:masking": "tsx --test scripts/test-masking.ts",
     "test:posttuition": "tsx --test scripts/test-posttuition.ts",
