@@ -249,9 +249,22 @@ export const SCREEN_ACCESS = {
   // staff act; the Partner views (refused on every write by checkAdminRole).
   applicantForwards: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
   users: ['admin', 'operations', 'partner'] as AdminRole[],
-  // Staff activity (verifications, messages): the Owner and the Project
-  // Managers only (owner, 15 Oct 2026). `[]` = owner + Partner.
-  staffActivity: [] as AdminRole[],
+  // Staff activity (verifications, messages): the Owner, the Project Managers
+  // and Admin, view only (owner, 15 Oct 2026, later the same day — Admin got it
+  // back; the page has no writes).
+  staffActivity: ['admin'] as AdminRole[],
+  // Tuitions → Tuition posting activity → "Sign-ups by staff" (owner, 15 Oct
+  // 2026). The tab opens for every role on tuitionPosting; who sees EVERY row
+  // and the Team total is staffSignupsAll (Owner, Project Managers, Admin) —
+  // everyone else sees only their own row and lists (lib/staffSignupsCore).
+  staffSignupsAll: ['admin'] as AdminRole[],
+  // Claiming a sign-up that came without a link: the participants (Tuitions
+  // staff, Operations, Admin). The Owner passes this list but carries no link,
+  // so the server refuses; the Partner is refused by roleMayWrite.
+  staffSignupClaim: ['admin', 'operations', 'tuitions_staff'] as AdminRole[],
+  // Claims to review: the Owner and Admin approve or reject; the Project
+  // Managers view (roleMayWrite refuses their POST).
+  staffClaimsReview: ['admin'] as AdminRole[],
   // Tuitions → Tuition posting activity (owner, 15 Oct 2026): every role that
   // posts tuitions — Tuitions staff, Operations, Admin, the Project Managers.
   tuitionPosting: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],

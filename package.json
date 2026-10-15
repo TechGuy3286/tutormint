@@ -142,7 +142,9 @@
     "test:partnerareas": "tsx --test scripts/test-partner-areas.ts",
     "test:blogrelevance": "tsx --test scripts/test-blog-relevance.ts",
     "test:switchedemail": "tsx --test scripts/test-switched-email.ts",
-    "test:smshealth": "tsx --conditions=react-server --test scripts/test-sms-health.ts"
+    "test:smshealth": "tsx --conditions=react-server --test scripts/test-sms-health.ts",
+    "test:staffsignups": "tsx --test scripts/test-staff-signups.ts",
+    "test:staffsignups:live": "tsx --conditions=react-server --env-file=.env.local --test scripts/test-staff-signups-live.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

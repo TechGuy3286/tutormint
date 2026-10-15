@@ -47,6 +47,7 @@ test('every view-only area refuses a Partner write; the Owner is unaffected', ()
     'finance', 'revenue', 'paymentAmounts', 'payments', 'paymentsApprove', 'paymentsRefund', 'paymentsSettings', 'paymentsSwitches',
     'paymentGateways', 'smsHealth', 'reconciliation', 'plans', 'plansMutate', 'subjectsCore', 'secondRole', 'team', 'audit', 'seo', 'unmetSearches',
     'ads', 'social', 'import', 'cleanup', 'blog', 'blogPublish', 'blogApprove', 'blogQueue', 'blogGenerate', 'staffActivity', 'signupFunnel', 'usersExport', 'overview',
+    'staffSignupsAll', 'staffSignupClaim', 'staffClaimsReview',
   ]
   for (const key of VIEW) {
     assert.equal(roleMayWrite('partner', SCREEN_ACCESS[key]), false, key)
@@ -134,6 +135,8 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   'reauth': 'self',
   'reports': 'edit',
   'social': 'view',
+  'staff-signups/claims': 'view',
+  'staff-signups/claims/decide': 'view',
   'taxonomy/core': 'view',
   'team': 'view',
   'tutors/clear-mobile': 'edit',

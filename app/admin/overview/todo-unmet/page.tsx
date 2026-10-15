@@ -2,6 +2,7 @@ import Link from 'next/link'
 
 import { requireAdminRole, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
 import { loadHiringTemplate, loadSubjectLevels, loadUnmetBoard, loadWordTargets, withSchoolMatches } from '@/lib/unmetSearches'
+import { joinLinkFor } from '@/lib/staffSignups'
 
 import UnmetSearchesClient from './UnmetSearchesClient'
 
@@ -18,7 +19,7 @@ export default async function UnmetSearchesPage({ searchParams }: { searchParams
   // Adding a subject changes the subject list: the roles that manage Subjects.
   const canAddSubject = roleMayWrite(actor.adminRole, SCREEN_ACCESS.subjectsCore)
   const tab = (await searchParams).tab === 'done' ? 'done' : 'review'
-  const [board, targets, template, levels] = await Promise.all([loadUnmetBoard(), loadWordTargets(), loadHiringTemplate(), canAddSubject ? loadSubjectLevels() : Promise.resolve([])])
+  const [board, targets, template, levels, joinLink] = await Promise.all([loadUnmetBoard(), loadWordTargets(), loadHiringTemplate(), canAddSubject ? loadSubjectLevels() : Promise.resolve([]), joinLinkFor(actor.id)])
 
   // A search that names a school is labelled "School" (owner, 13 Oct 2026).
   const cards = await withSchoolMatches(board.toReview)
@@ -63,7 +64,7 @@ export default async function UnmetSearchesPage({ searchParams }: { searchParams
         })}
       </nav>
 
-      <UnmetSearchesClient tab={tab} cards={cards} done={board.done} targets={targets} template={template} levels={levels} canAddSubject={canAddSubject} />
+      <UnmetSearchesClient tab={tab} cards={cards} done={board.done} targets={targets} template={template} levels={levels} canAddSubject={canAddSubject} joinLink={joinLink?.url ?? null} />
     </div>
   )
 }

@@ -3,15 +3,58 @@ import Link from 'next/link'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadTuitionPosting } from '@/lib/tuitionPosting'
 import { change, changeLabel, type Change, type PostingRow } from '@/lib/tuitionPostingCore'
+import { parsePeriod } from '@/lib/staffSignupsCore'
+
+import SignupsTab from './SignupsTab'
 
 // Tuitions → Tuition posting activity (owner, 15 Oct 2026). Every role that
 // posts tuitions sees it (SCREEN_ACCESS.tuitionPosting): Tuitions staff,
 // Operations, Admin and the Project Managers. Read only.
+//
+// Two tabs (owner, 15 Oct 2026): "Tuitions posted" (the board below) and
+// "Sign-ups by staff" (SignupsTab — join links, credit, claims).
 
 export const dynamic = 'force-dynamic'
 
-export default async function TuitionPostingPage() {
-  await requireAdminRole(...SCREEN_ACCESS.tuitionPosting)
+export default async function TuitionPostingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string; period?: string }>
+}) {
+  const actor = await requireAdminRole(...SCREEN_ACCESS.tuitionPosting)
+  const sp = await searchParams
+  const tab = sp.tab === 'signups' ? 'signups' : 'posted'
+
+  return (
+    <div className="space-y-4">
+      <nav aria-label="Tabs" className="flex flex-wrap gap-1 border-b border-gray-200">
+        <TabLink href="/admin/jobs/posting-activity" active={tab === 'posted'}>
+          Tuitions posted
+        </TabLink>
+        <TabLink href="/admin/jobs/posting-activity?tab=signups" active={tab === 'signups'}>
+          Sign-ups by staff
+        </TabLink>
+      </nav>
+      {tab === 'signups' ? <SignupsTab actor={actor} period={parsePeriod(sp.period)} /> : <PostedTab />}
+    </div>
+  )
+}
+
+function TabLink({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? 'page' : undefined}
+      className={`-mb-px min-h-[44px] border-b-2 px-3 py-2.5 text-xs font-bold ${
+        active ? 'border-tm-red text-tm-navy' : 'border-transparent text-gray-600 hover:text-tm-navy'
+      }`}
+    >
+      {children}
+    </Link>
+  )
+}
+
+async function PostedTab() {
   const { rows, total } = await loadTuitionPosting()
 
   return (

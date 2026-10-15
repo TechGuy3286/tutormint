@@ -37,7 +37,10 @@ export default function UnmetSearchesClient({
   template,
   levels = [],
   canAddSubject = false,
+  joinLink = null,
 }: {
+  /** The viewer's own join link, filled into {join_link} (owner, 15 Oct 2026). */
+  joinLink?: string | null
   tab: 'review' | 'done'
   cards: UnmetCard[]
   done: DoneRow[]
@@ -67,7 +70,7 @@ export default function UnmetSearchesClient({
     setFind('')
     setPick(null)
     setNote('')
-    setPost(c.city ? hiringPost(template, c.city) : '')
+    setPost(c.city ? hiringPost(template, c.city, joinLink) : '')
   }
 
   const addWord = async (c: UnmetCard) => {

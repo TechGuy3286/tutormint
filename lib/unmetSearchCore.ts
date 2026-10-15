@@ -149,11 +149,15 @@ export const HIRING_TEMPLATE_KEY = 'city_hiring_post'
 
 /** Used when the template row is missing. The same words as the seeded row. */
 export const HIRING_TEMPLATE_DEFAULT =
-  'Hiring tutors in {city}! Join TutorMint free — find home and online tuitions near you. No commission, no middleman. Apply: https://tutormint.org/apply'
+  'Hiring tutors in {city}! Join TutorMint free — find home and online tuitions near you. No commission, no middleman. Join: {join_link}'
 
-/** The ready-to-copy post for one city. */
-export function hiringPost(template: string | null | undefined, city: string): string {
-  return (template && template.trim() ? template : HIRING_TEMPLATE_DEFAULT).replace(/\{city\}/g, city.trim())
+/** The ready-to-copy post for one city. {join_link} is the sending staff
+ *  member's own join link (owner, 15 Oct 2026); staff with no link of their own
+ *  share the sign-up page. */
+export function hiringPost(template: string | null | undefined, city: string, joinLink?: string | null): string {
+  return (template && template.trim() ? template : HIRING_TEMPLATE_DEFAULT)
+    .replace(/\{city\}/g, city.trim())
+    .replace(/\{join_link\}/g, joinLink || 'https://www.tutormint.org/register')
 }
 
 /** A WhatsApp share link with the text prefilled (no number: the sender picks the group). */

@@ -8,6 +8,9 @@ import { STAFF_METRICS, type StaffMetricKey } from '@/lib/staffActivityCore'
 import StaffActivityTable from '@/components/admin/StaffActivityTable'
 import { formatDateTime } from '@/lib/datetime'
 import { formatName } from '@/lib/formatName'
+import { joinLinkFor } from '@/lib/staffSignups'
+import { isParticipantRole } from '@/lib/staffSignupsCore'
+import JoinLinkCard from '@/components/admin/JoinLinkCard'
 
 // One staff member's activity in detail (PR40 §4): the counts, a by-city and
 // open/paused/closed breakdown of the tuitions they posted, and the actual
@@ -60,6 +63,8 @@ export default async function StaffDetailPage({
   const to = sp.to || undefined
 
   const detail = await loadStaffDetail(id, { metric, from, to })
+  // Their personal join link and code (owner, 15 Oct 2026).
+  const joinLink = isParticipantRole(staff.admin_role as string | null) ? await joinLinkFor(id) : null
   const name = formatName(staff.full_name as string | null) || '—'
   const metricLabel = metric ? STAFF_METRICS.find((m) => m.key === metric)?.label : null
 
@@ -80,6 +85,8 @@ export default async function StaffDetailPage({
           ← All staff
         </Link>
       </div>
+
+      {joinLink && <JoinLinkCard url={joinLink.url} code={joinLink.code} title={actor.id === id ? 'Your join link' : `${name}'s join link`} />}
 
       {/* The same counts as the list — numbers here re-filter the list below. */}
       <div className={card}>

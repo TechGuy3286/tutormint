@@ -47,6 +47,8 @@ export default function robots(): MetadataRoute.Robots {
           '/account/',
           '/verify-phone',
           '/verify-email',
+          // Staff join links (owner, 15 Oct 2026): a redirect to /register.
+          '/join/',
           '/messages',
           '/chat/',
           '/pay/',

@@ -17,6 +17,8 @@ import { ensureProfile } from '@/lib/ensureProfile'
 import { startPendingSignup, PENDING_COOKIE } from '@/lib/pendingSignup'
 import { CODE_TTL_MS } from '@/lib/otp'
 import { formatName } from '@/lib/formatName'
+import { creditNewAccount, staffCodeVisit } from '@/lib/staffSignups'
+import { CREDIT_MS, STAFF_REF_COOKIE } from '@/lib/staffSignupsCore'
 
 // Signup.
 //
@@ -52,6 +54,9 @@ const RegisterBody = z.object({
     .max(320),
   password: z.string().min(8, 'Use at least 8 characters.').max(200),
   acceptedTerms: z.literal(true, { message: 'Please accept the terms to continue.' }),
+  // "Staff code (if someone helped you)" (owner, 15 Oct 2026). Optional; an
+  // unknown code is ignored and never stops the sign-up.
+  staffCode: z.string().trim().max(40).optional(),
 })
 
 // Neutral message when a signup is refused because the identifier is on the
@@ -104,6 +109,26 @@ export async function POST(request: Request) {
   }
 
   const utm = decodeUtm((await cookies()).get(UTM_COOKIE)?.value ?? null)
+
+  // Sign-ups by staff (owner, 15 Oct 2026). The browser's stored credit (a join
+  // link opened in the last 30 days) wins; the Staff code gives credit only when
+  // there is none. The credit is attached when the account is created — below
+  // for an email sign-up, at /api/auth/register/verify for a mobile one.
+  const refJar = await cookies()
+  let staffVisitId: string | null = refJar.get(STAFF_REF_COOKIE)?.value ?? null
+  if (body.staffCode) {
+    const fromCode = await staffCodeVisit(body.staffCode, staffVisitId).catch(() => null)
+    if (fromCode?.recorded && fromCode.visit) {
+      staffVisitId = fromCode.visit.id
+      refJar.set(STAFF_REF_COOKIE, fromCode.visit.id, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+        maxAge: Math.floor(CREDIT_MS / 1000),
+      })
+    }
+  }
 
   // ====================================================== EMAIL PATH ========
   // LIVE AGAIN (owner, Part 8, 9 Sep). The Part 5 gate was explicitly conditional
@@ -193,6 +218,7 @@ export async function POST(request: Request) {
       if (!madeTutor.ok) {
         return NextResponse.json({ error: 'Could not finish creating the account. Please try again.' }, { status: 500 })
       }
+      await creditNewAccount(tutorId, staffVisitId)
       const tutorOrigin = new URL(request.url).origin
       // The confirmation link goes out after the response; a send failure never
       // stops the signup (the dashboard reminder has "Resend email").
@@ -265,6 +291,7 @@ export async function POST(request: Request) {
           { status: 500 },
         )
       }
+      await creditNewAccount(uid, staffVisitId)
     }
 
     await bumpSiteVisit('signup_parent') // daily funnel count (15 Oct 2026); email tutors returned above

@@ -15,6 +15,8 @@ import { absoluteUrl } from '@/lib/siteUrl'
 import { citySegment } from '@/lib/slugs'
 import type { AdminRole } from '@/lib/adminAuth'
 import { formatName } from '@/lib/formatName'
+import { joinLinkFor } from '@/lib/staffSignups'
+import { fillJoinLink } from '@/lib/staffSignupsCore'
 
 // The official TutorMint Team ↔ member channel (owner, Sunday 6 Sep).
 //
@@ -347,7 +349,7 @@ export async function sendAdminMessage(params: {
 // Fallback if the template row is missing (a fresh env before migration 65).
 // No promise of a tutor, an outcome or a timeframe; no price.
 const SEEDED_LIVE_FALLBACK =
-  'Hi {name}, your tuition is now live on TutorMint and verified tutors browsing the site can see it here: {tuition_url}. If you would like to post and manage your own tuitions next time, you can create a free account at tutormint.org.'
+  'Hi {name}, your tuition is now live on TutorMint and verified tutors browsing the site can see it here: {tuition_url}. If you would like to post and manage your own tuitions next time, you can create a free account here: {join_link}'
 
 /**
  * WhatsApp a seeded tuition's real parent that their post is live, with a link
@@ -401,8 +403,12 @@ export async function messageSeededParent(
   const body = ((template?.body as string | null) ?? SEEDED_LIVE_FALLBACK)
     .replaceAll('{name}', name)
     .replaceAll('{tuition_url}', tuitionUrl)
+  // {join_link}: the sending staff member's own join link (owner, 15 Oct 2026),
+  // so a parent who signs up from this message is credited to them. Staff with
+  // no link of their own send the plain sign-up page.
+  const filled = fillJoinLink(body, (await joinLinkFor(actor.id))?.url, absoluteUrl('/register'))
 
-  const waHref = whatsappHref(msisdn, body)
+  const waHref = whatsappHref(msisdn, filled)
   if (!waHref) return { ok: false, status: 400, error: 'Could not build the WhatsApp link.' }
 
   await logAdminAction({

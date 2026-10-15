@@ -63,6 +63,8 @@ export default function RegisterForm({
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [acceptedTerms, setAcceptedTerms] = useState(false)
+  // Optional (owner, 15 Oct 2026): the code of the staff member who helped.
+  const [staffCode, setStaffCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [errorUr, setErrorUr] = useState<string | null>(null)
@@ -139,6 +141,7 @@ export default function RegisterForm({
       identifier,
       password,
       acceptedTerms,
+      ...(staffCode.trim() ? { staffCode: staffCode.trim() } : {}),
     })
 
     if (!ok) {
@@ -297,6 +300,26 @@ export default function RegisterForm({
             {fieldErrors.password && (
               <p className="text-[11px] font-bold text-tm-red">{fieldErrors.password}</p>
             )}
+          </div>
+
+          {/* Sign-ups by staff (owner, 15 Oct 2026): optional; an unknown code
+              is ignored and never stops the sign-up. */}
+          <div className="space-y-1">
+            <label htmlFor="staffCode" className="text-xs font-bold text-tm-navy">
+              Staff code (if someone helped you)
+            </label>
+            <input
+              id="staffCode"
+              type="text"
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              maxLength={40}
+              value={staffCode}
+              onChange={(e) => setStaffCode(e.target.value)}
+              placeholder="Optional"
+              className={fieldClass('staffCode')}
+            />
           </div>
 
           {/* PR106-G §4: one short consent line. The photo-use consent and the

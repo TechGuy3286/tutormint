@@ -7,6 +7,8 @@ import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 import { verifyPendingSignup, PENDING_COOKIE } from '@/lib/pendingSignup'
 import { homeForRole, nextForRole } from '@/lib/authRoutes'
 import { newTutorDestination } from '@/lib/returnTo'
+import { creditNewAccount } from '@/lib/staffSignups'
+import { STAFF_REF_COOKIE } from '@/lib/staffSignupsCore'
 
 // Verify a pending mobile signup — and CREATE THE ACCOUNT.
 //
@@ -58,6 +60,11 @@ export async function POST(request: Request) {
 
   // The account exists and the number is verified. Consume the cookie.
   jar.delete(PENDING_COOKIE)
+
+  // Sign-ups by staff (owner, 15 Oct 2026): a mobile sign-up is credited here,
+  // where the account is created, from the join link / staff code the browser
+  // still holds. Silent: a missing or refused credit never affects the sign-up.
+  await creditNewAccount(result.userId, jar.get(STAFF_REF_COOKIE)?.value ?? null)
 
   // Mint a session WITHOUT the plaintext password: an admin magic-link token,
   // verified on the cookie-backed client, signs the member in — the same

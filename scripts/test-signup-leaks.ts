@@ -211,7 +211,8 @@ test('Tuitions staff open the posting board and the Tuitions group, never Staff 
     assert.equal(roleSatisfies('tuitions_staff', SCREEN_ACCESS[k]), true, k)
   }
   assert.equal(roleSatisfies('tuitions_staff', SCREEN_ACCESS.staffActivity), false)
-  assert.equal(roleSatisfies('admin', SCREEN_ACCESS.staffActivity), false)
+  // Admin got Staff activity back, view only (owner, 15 Oct 2026, later).
+  assert.equal(roleSatisfies('admin', SCREEN_ACCESS.staffActivity), true)
   assert.equal(roleSatisfies('operations', SCREEN_ACCESS.staffActivity), false)
   assert.equal(roleSatisfies('owner', SCREEN_ACCESS.staffActivity), true)
   assert.equal(roleSatisfies('partner', SCREEN_ACCESS.staffActivity), true)
