@@ -3,6 +3,7 @@ import Link from 'next/link'
 
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
 import { loadPaymentQueue, loadSubscriptionLedger, withoutAmounts } from '@/lib/adminQueues'
+import { canApprove as canApproveRole } from '@/lib/adminAccessCore'
 import { createAdminClient } from '@/lib/supabase/admin'
 import PaymentQueue from './PaymentQueue'
 
@@ -27,7 +28,9 @@ export default async function AdminPaymentsPage({
   searchParams: Promise<{ filter?: string; q?: string }>
 }) {
   const actor = await requireAdminRole(...SCREEN_ACCESS.payments)
-  const canApprove = roleMayWrite(actor.adminRole, SCREEN_ACCESS.paymentsApprove)
+  // Approving a bank-transfer receipt is the Owner's alone (owner, 15 Oct
+  // 2026); the decide route refuses everyone else.
+  const canApprove = roleMayWrite(actor.adminRole, SCREEN_ACCESS.paymentsApprove) && canApproveRole(actor.adminRole)
   const canGateways = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentGateways)
   const canSwitches = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentsSwitches)
   const canReconcile = roleSatisfies(actor.adminRole, SCREEN_ACCESS.finance)
@@ -84,7 +87,7 @@ export default async function AdminPaymentsPage({
           </Link>
           {canReconcile && (
             <Link
-              href="/admin/finance/settlement"
+              href="/admin/finance?tab=settlement"
               className="gap-1.5 inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
             >
               <Scale aria-hidden size={14} />

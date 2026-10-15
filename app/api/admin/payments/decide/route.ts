@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { refuseUnlessOwnerApproval } from '@/lib/ownerGuard'
 import { activatePayment, rejectPayment } from '@/lib/payments/activate'
 import { requireFreshAuth } from '@/lib/reauth'
 import { parseBody, z, uuid } from '@/lib/validate'
@@ -29,6 +30,10 @@ const DecideBody = z.object({
 export async function POST(request: Request) {
   const gate = await checkAdminRole(...SCREEN_ACCESS.paymentsApprove)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
+
+  // Owner-only approvals (owner, 15 Oct 2026): every other role views only.
+  const notOwner = await refuseUnlessOwnerApproval(gate.actor, 'approve or reject a bank-transfer receipt', null)
+  if (notOwner) return notOwner
 
   const fresh = await requireFreshAuth(gate.actor.id)
   if (!fresh.ok) return fresh.response

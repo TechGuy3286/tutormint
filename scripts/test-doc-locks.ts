@@ -132,7 +132,8 @@ test('owner, Partner, admin and operations can unlock; Tuitions staff cannot', (
   assert.match(route, /export async function POST/)
   assert.match(route, /checkAdminRole\(\.\.\.SCREEN_ACCESS\.documentUnlock\)/)
   assert.doesNotMatch(route, /export async function GET/)
-  assert.match(read('components/admin/UnlockDocButton.tsx'), /if \(!canUnlock \|\| readOnly\) return null/)
+  // Unlocking is the Owner's alone since 15 Oct 2026 (useCanApprove).
+  assert.match(read('components/admin/UnlockDocButton.tsx'), /if \(!canUnlock \|\| readOnly \|\| !ownerApproves\) return null/)
   // Audited with who and when.
   assert.match(read('lib/docLocks.ts'), /action: 'document\.unlock'/)
 })

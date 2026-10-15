@@ -95,10 +95,10 @@ export const NAV_GROUPS: NavGroup[] = [
     color: 'navy', // #151E6B
     items: [
       { href: '/admin/users', label: 'People', icon: 'contact', screen: 'users' },
-      // Orphaned accounts folded into Abandoned signups as a second section
-      // (owner, 14 Sep 2026) — /admin/orphans now redirects there.
-      { href: '/admin/signups', label: 'Abandoned signups', icon: 'userPlus', screen: 'signups' },
-      { href: '/admin/users/unpaid-signups', label: 'Unpaid signups', icon: 'phone', screen: 'unpaidSignups' },
+      // ONE page for follow-ups (owner, 15 Oct 2026): it replaced Unpaid signups
+      // and Abandoned signups (tabs Tutors | Parents & email not confirmed |
+      // Orphaned accounts). Tuitions staff see the Tutors tab only.
+      { href: '/admin/follow-ups', label: 'Follow-ups', icon: 'phone', screen: 'unpaidSignups' },
       { href: '/admin/users/featured-whatsapp', label: 'Featured WhatsApp', icon: 'messageCircle', screen: 'featuredWhatsapp' },
       { href: '/admin/team', label: 'Team', icon: 'key', screen: 'team' },
     ],
@@ -128,8 +128,8 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/admin/payments', label: 'Payments', icon: 'wallet', screen: 'payments' },
       // Owner only, plus the view-only Partner (owner, 8 Oct 2026, item 4).
+      // Settlement check is a tab of it (owner, 15 Oct 2026).
       { href: '/admin/finance', label: 'Finance', icon: 'scale', screen: 'finance' },
-      { href: '/admin/finance/settlement', label: 'Settlement check', icon: 'scale', screen: 'reconciliation' },
       { href: '/admin/payments/settings', label: 'Settings', icon: 'listChecks', screen: 'paymentsSwitches' },
       { href: '/admin/payments/settings/gateways', label: 'Payment gateways', icon: 'card', screen: 'paymentGateways' },
       { href: '/admin/settings/subjects', label: 'Subjects', icon: 'listChecks', screen: 'subjectsCore' },
@@ -141,8 +141,8 @@ export const NAV_GROUPS: NavGroup[] = [
     title: 'Trust',
     color: 'gold', // #F59E0B
     items: [
-      { href: '/admin/reports', label: 'Reports', icon: 'flag', screen: 'reports' },
-      { href: '/admin/flags', label: 'Flagged messages', icon: 'shieldAlert', screen: 'reports' },
+      // ONE page, tabs Reports | Flagged messages (owner, 15 Oct 2026).
+      { href: '/admin/reports', label: 'Reports & flags', icon: 'flag', screen: 'reports' },
       { href: '/admin/inbox', label: 'Team inbox', icon: 'mail', screen: 'inbox' },
       { href: '/admin/audit', label: 'Audit', icon: 'scroll', screen: 'audit' },
     ],
@@ -176,7 +176,7 @@ export const SECTION_LABELS: Record<string, string> = {
   overview: 'Overview',
   subjects: 'Subjects',
   settings: 'Settings',
-  payers: 'Recent payers',
+  payers: 'Paid today',
   ads: 'Advertisements',
   audit: 'Audit',
   blog: 'Blog',
@@ -197,12 +197,14 @@ export const SECTION_LABELS: Record<string, string> = {
   accounts: 'Accounts',
   claims: 'Claims to review',
   plans: 'Plans',
-  reports: 'Reports',
+  reports: 'Reports & flags',
+  flags: 'Reports & flags',
+  'follow-ups': 'Follow-ups',
   security: 'Two-factor',
   seo: 'SEO',
   landing: 'Landing pages',
-  orphans: 'Orphaned accounts',
-  signups: 'Abandoned signups',
+  orphans: 'Follow-ups',
+  signups: 'Follow-ups',
   social: 'Social posts',
   'staff-activity': 'Team activity',
   team: 'Team',
@@ -211,7 +213,7 @@ export const SECTION_LABELS: Record<string, string> = {
   // "Members" → "People" everywhere admin reads it (owner PR32 §6). The URL stays
   // /admin/users — only the label changes.
   users: 'People',
-  'unpaid-signups': 'Unpaid signups',
+  'unpaid-signups': 'Follow-ups',
   'featured-whatsapp': 'Featured WhatsApp',
 }
 

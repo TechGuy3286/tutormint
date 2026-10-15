@@ -14,7 +14,7 @@ import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notify } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
-import { OWNER_ONLY_OWNERSHIP, OWNER_PROTECTED, ROLE_LABEL, type AdminRole } from '@/lib/adminAccessCore'
+import { OWNER_ONLY_APPROVAL, OWNER_ONLY_OWNERSHIP, OWNER_PROTECTED, ROLE_LABEL, type AdminRole } from '@/lib/adminAccessCore'
 import {
   alertBody,
   blockedAttemptBody,
@@ -41,7 +41,9 @@ export async function alertOwnerBlocked(params: {
   when?: Date
 }): Promise<void> {
   try {
-    if (!isOwnerProtectionRefusal(params.problem, OWNER_PROTECTED, OWNER_ONLY_OWNERSHIP)) return
+    // An Owner-only approval refused (owner, 15 Oct 2026) raises the same alert.
+    const approval = params.problem === OWNER_ONLY_APPROVAL
+    if (!approval && !isOwnerProtectionRefusal(params.problem, OWNER_PROTECTED, OWNER_ONLY_OWNERSHIP)) return
     if (!shouldAlertOwner(params.actor.adminRole)) return
     const admin = createAdminClient()
     if (!admin) return
@@ -69,17 +71,19 @@ export async function alertOwnerBlocked(params: {
       await notify({
         userId: ownerId,
         kind: 'owner_alert',
-        title: 'Blocked attempt on the Owner account',
-        body: blockedAttemptBody(who, params.what, when),
+        title: approval ? 'Blocked attempt at an Owner-only approval' : 'Blocked attempt on the Owner account',
+        body: approval
+          ? blockedAttemptBody(who, params.what, when).replace('Refused by Owner protection', 'Refused: approvals are Owner only')
+          : blockedAttemptBody(who, params.what, when),
         href: '/admin/audit',
       })
       await deliverEmail(
         { userId: ownerId },
         {
           id: 'owner_alert',
-          area: 'Owner account protection',
+          area: approval ? 'Owner-only approvals' : 'Owner account protection',
           who,
-          lines: [`Tried to: ${params.what}.`, 'Owner protection refused it — nothing changed.'],
+          lines: [`Tried to: ${params.what}.`, approval ? 'Only the Owner can approve or reject — nothing changed.' : 'Owner protection refused it — nothing changed.'],
           when: pakistanTime(when),
           href: '/admin/audit',
         },

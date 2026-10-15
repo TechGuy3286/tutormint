@@ -276,7 +276,11 @@ test('owner and Partner only: other staff cannot open the page or its APIs', () 
   assert.equal(isReadOnlyRole('partner'), false) // full management since 13 Oct 2026 (was view-only)
   for (const r of ['admin', 'operations', 'tuitions_staff'] as const) assert.equal(roleSatisfies(r, SCREEN_ACCESS.finance), false, r)
 
-  assert.ok(read('app', 'admin', 'finance', 'settlement', 'page.tsx').includes('await requireAdminRole(...SCREEN_ACCESS.finance)'))
+  // Settlement check is a tab of Finance (owner, 15 Oct 2026); the Finance page
+  // that renders it checks the role, and the old address redirects there.
+  assert.ok(read('app', 'admin', 'finance', 'page.tsx').includes('await requireAdminRole(...SCREEN_ACCESS.finance)'))
+  assert.ok(read('app', 'admin', 'finance', 'page.tsx').includes('<SettlementTab sp={sp} />'))
+  assert.ok(read('app', 'admin', 'finance', 'settlement', 'page.tsx').includes("redirect(financeHref('settlement', await searchParams))"))
   const base = ['app', 'api', 'admin', 'payments', 'settlement']
   for (const route of [[], ['credits'], ['links'], ['month']]) {
     const src = read(...base, ...route, 'route.ts')

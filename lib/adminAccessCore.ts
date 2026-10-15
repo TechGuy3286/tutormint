@@ -6,9 +6,11 @@
 // '@/lib/adminAuth' are unaffected.
 //
 // The role tree (owner, 14 Sep 2026 + PR106-H2):
-//   owner           everything, plus the Team screen.
-//   admin           everything except Team.
-//   operations      office staff: tuitions, verifying, assisting, marketing, SEO.
+//   owner           everything, plus the Team screen and every approval
+//                   (OWNER-ONLY APPROVALS below, owner 15 Oct 2026).
+//   admin           everything except Team and approvals.
+//   operations      office staff: tuitions, assisting, marketing, SEO; views
+//                   the verification queues (approvals are Owner only).
 //   tuitions_staff  RESTRICTED: the Tuitions group (the board, Post a tuition,
 //                   Paused tuitions, Duplicates, Applicants to forward, Team
 //                   activity without its Verifications tab) and the two
@@ -56,7 +58,7 @@ export const PARTNER_VIEW_ONLY = 'View only. Your account cannot change this.'
  * tuition board and everything under it, Reports, Flagged messages, the Team
  * inbox, and the Overview work lists (not Unmet searches).
  */
-const PARTNER_EDIT_PREFIXES = ['/admin/tutors', '/admin/parents', '/admin/users', '/admin/signups', '/admin/orphans', '/admin/jobs', '/admin/reports', '/admin/flags', '/admin/inbox', '/admin/overview', '/admin/security']
+const PARTNER_EDIT_PREFIXES = ['/admin/tutors', '/admin/parents', '/admin/users', '/admin/follow-ups', '/admin/signups', '/admin/orphans', '/admin/jobs', '/admin/reports', '/admin/flags', '/admin/inbox', '/admin/overview', '/admin/security']
 const PARTNER_VIEW_PREFIXES = ['/admin/overview/todo-unmet']
 
 export function partnerEditsPath(pathname: string | null | undefined): boolean {
@@ -88,6 +90,27 @@ export function alwaysNeedsTwoFactor(role: AdminRole | null | undefined): boolea
 // OWNER PROTECTION (owner, 13 Oct 2026). Pure rules; the server applies them in
 // lib/ownerGuard and lib/staff. Hiding a button is never the control.
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// OWNER-ONLY APPROVALS (owner, 15 Oct 2026). Only the Owner account may:
+//   • approve / reject (re-upload) a tutor's or parent's CNIC, selfie, profile
+//     photo, address or video, type or confirm a CNIC number (and read one
+//     from the photo), rotate or crop a document or profile photo, and unlock
+//     an approved CNIC or selfie;
+//   • approve / reject a bank-transfer receipt;
+//   • approve / reject a staff sign-up claim.
+// Every other role (Project Manager, Admin, Operations, Tuitions staff) may
+// still OPEN the queues and records — view only. The server refuses them with
+// 403 (lib/ownerGuard refuseUnlessOwnerApproval, which also alerts the Owner),
+// and the screens hide the controls (canApprove).
+// ---------------------------------------------------------------------------
+
+export const OWNER_ONLY_APPROVAL = 'Only the Owner can approve or reject. Your account can view this.'
+
+/** May this role make an approval decision? The Owner only. */
+export function canApprove(role: AdminRole | null | undefined): boolean {
+  return role === 'owner'
+}
 
 export const OWNER_PROTECTED = 'Only the Owner can change the Owner account.'
 export const OWNER_ONLY_OWNERSHIP = 'Only the Owner can make someone Owner or transfer ownership.'
@@ -136,7 +159,7 @@ export function seesRealRoles(viewer: AdminRole | null | undefined): boolean {
 export const PROJECT_MANAGER = 'Project Manager'
 
 /** The Partner's line in the Team role dropdown. */
-export const PARTNER_ROLE_OPTION = 'Project Manager — edits tutors, parents and tuitions; everything else view only; two-factor required'
+export const PARTNER_ROLE_OPTION = 'Project Manager — edits tutors, parents and tuitions; approvals are Owner only; everything else view only; two-factor required'
 
 /** The real role, in words — for the owner and the Partner (Team page). */
 export const ROLE_LABEL: Record<AdminRole, string> = {
@@ -186,7 +209,8 @@ export const SCREEN_ACCESS = {
   // restricted tuitions_staff does NOT (its figures are refused), so this key
   // keeps it out of that role's nav and redirects it away from /admin.
   overview: ['admin', 'operations'] as AdminRole[],
-  // Verifying tutors and parents — operations' core work.
+  // The tutor and parent verification queues: open to these roles; the
+  // approve / reject decisions themselves are the Owner's alone (canApprove).
   tutors: ['admin', 'operations', 'partner'] as AdminRole[],
   parents: ['admin', 'operations', 'partner'] as AdminRole[],
   // OWNER AND PARTNER AREAS (owner, 8 Oct 2026, item 3; Partner full rights

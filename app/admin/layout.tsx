@@ -9,6 +9,7 @@ import AdminSignOut from '@/components/admin/AdminSignOut'
 import BridgeBanner from '@/components/admin/BridgeBanner'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import { getAdminActor, alwaysNeedsTwoFactor, roleBadge, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { canApprove } from '@/lib/adminAccessCore'
 import { AdminReadOnlyProvider, ViewOnlyChip } from '@/components/admin/ReadOnly'
 import { NAV_GROUPS, type NavGroup } from '@/lib/adminNav'
 import { unreadCount } from '@/lib/notificationFeed'
@@ -138,7 +139,7 @@ export default async function AdminLayout({
         </>
       }
     >
-      <AdminReadOnlyProvider readOnly={readOnly}>
+      <AdminReadOnlyProvider readOnly={readOnly} canApprove={canApprove(actor.adminRole)}>
         <ViewOnlyChip />
         {children}
       </AdminReadOnlyProvider>

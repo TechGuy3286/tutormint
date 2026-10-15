@@ -14,13 +14,10 @@ import {
   mayOpenTab,
   pickTab,
   postingActivityRedirect,
-  sortVerificationRows,
   staffActivityRedirect,
   tabsFor,
   teamActivityHref,
-  verificationTotal,
   withQuery,
-  type VerificationRow,
 } from '../lib/teamActivityCore'
 import {
   boardRow,
@@ -37,19 +34,15 @@ const DAY = 86_400_000
 const iso = (ms: number) => new Date(ms).toISOString()
 const ROLES: AdminRole[] = ['owner', 'partner', 'admin', 'operations', 'tuitions_staff']
 
-test('tab visibility per role', () => {
-  for (const r of ['owner', 'partner', 'admin'] as AdminRole[]) {
-    assert.deepEqual(tabsFor(r), ['paid', 'posted', 'verifications'], r)
-  }
-  for (const r of ['operations', 'tuitions_staff'] as AdminRole[]) {
+test('tab visibility per role (two tabs; Verifications & messages removed)', () => {
+  for (const r of ROLES) {
     assert.deepEqual(tabsFor(r), ['paid', 'posted'], r)
-    assert.equal(mayOpenTab(r, 'verifications'), false, r)
-    // A forbidden tab in the URL renders the default tab, never the forbidden one.
+    assert.equal(mayOpenTab(r, 'paid'), true, r)
+    // The removed tab in the URL renders the default tab.
     assert.equal(pickTab(r, 'verifications'), 'paid', r)
   }
   assert.equal(DEFAULT_TAB, 'paid')
   assert.equal(pickTab('admin', 'nonsense'), 'paid')
-  assert.equal(pickTab('admin', 'verifications'), 'verifications')
   assert.deepEqual(tabsFor(null), [])
 })
 
@@ -61,7 +54,7 @@ test('the API answers 403 for a tab the role may not open, and gates the page fi
   const page = read('app/admin/team-activity/page.tsx')
   assert.ok(page.includes('requireAdminRole(...SCREEN_ACCESS.tuitionPosting)'))
   assert.ok(page.includes('pickTab(actor.adminRole, sp.tab)'))
-  // The staff detail page carries verification and message actions.
+  // The staff detail page: Owner, Project Managers and Admin.
   assert.ok(read('app/admin/team-activity/[id]/page.tsx').includes('requireAdminRole(...SCREEN_ACCESS.staffActivity)'))
   // No amounts on any of it.
   for (const f of ['app/admin/team-activity/page.tsx', 'app/admin/team-activity/PaidTab.tsx', 'app/api/admin/team-activity/route.ts']) {
@@ -73,7 +66,7 @@ test('old URLs redirect to the matching tab', () => {
   assert.equal(postingActivityRedirect({}), '/admin/team-activity?tab=posted')
   assert.equal(postingActivityRedirect({ tab: 'signups' }), '/admin/team-activity')
   assert.equal(postingActivityRedirect({ tab: 'signups', period: 'last7' }), '/admin/team-activity?period=last7')
-  assert.equal(staffActivityRedirect(), '/admin/team-activity?tab=verifications')
+  assert.equal(staffActivityRedirect(), '/admin/team-activity')
   assert.equal(
     withQuery('/admin/team-activity/accounts', { staff: 'x', role: 'tutor', step: 'paid', period: 'month' }),
     '/admin/team-activity/accounts?staff=x&role=tutor&step=paid&period=month',
@@ -127,18 +120,6 @@ test('Paid sign-ups sort by paid first; the Team total is the sum of paid', () =
   assert.ok(tab.includes('Claims to review ('))
   // The paid column comes before the change column.
   assert.ok(tab.indexOf('>Paid sign-ups<') < tab.indexOf('>Paid: Today vs Yesterday<'))
-})
-
-test('Verifications & messages: rows, sort and Team total', () => {
-  const w = (t: number, k: number, total: number) => ({ today: t, week: k, total })
-  const rows: VerificationRow[] = [
-    { id: 'a', name: 'Aqsa', counts: { approved: w(0, 1, 5), rejected: w(0, 0, 1), messages: w(0, 0, 0) } },
-    { id: 'b', name: 'Bilal', counts: { approved: w(2, 3, 3), rejected: w(1, 1, 1), messages: w(0, 2, 2) } },
-  ]
-  assert.deepEqual(sortVerificationRows(rows).map((r) => r.id), ['b', 'a'])
-  const total = verificationTotal(rows)
-  assert.deepEqual(total.counts.approved, w(2, 4, 8))
-  assert.deepEqual(total.counts.messages, w(0, 2, 2))
 })
 
 test('sidebar: one Team activity entry per allowed role; the old entries are gone', () => {

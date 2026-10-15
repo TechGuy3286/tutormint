@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
-import { refuseOwnerTarget } from '@/lib/ownerGuard'
+import { refuseOwnerTarget, refuseUnlessOwnerApproval } from '@/lib/ownerGuard'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import { recomputeCompletion } from '@/lib/completion'
@@ -127,6 +127,9 @@ export async function POST(request: Request) {
 
   // ----------------------------------------------------------- cnic number ---
   if (action === 'set-cnic-number') {
+    // Typing or confirming a CNIC number is part of approval: Owner only (owner, 15 Oct 2026).
+    const notOwner = await refuseUnlessOwnerApproval(gate.actor, "type a tutor's CNIC number", tutorId)
+    if (notOwner) return notOwner
     const raw = body.cnicNumber ?? ''
     if (!isValidCnic(raw)) return NextResponse.json({ error: CNIC_FORMAT_HINT }, { status: 400 })
     const oldCnic = (prof.cnic_number as string | null) ?? null

@@ -289,7 +289,7 @@ export default function SettlementsBoard({ data }: { data: BoardData }) {
           <input
             type="month"
             defaultValue={view.month}
-            onChange={(e) => /^\d{4}-\d{2}$/.test(e.target.value) && router.push(`/admin/finance/settlement?month=${e.target.value}`)}
+            onChange={(e) => /^\d{4}-\d{2}$/.test(e.target.value) && router.push(`/admin/finance?tab=settlement&month=${e.target.value}`)}
             className={INPUT}
           />
         </label>

@@ -39,6 +39,10 @@ import { FEE_LABEL } from '@/lib/display'
 import {
   OVERVIEW_ITEMS,
   feePayersSince,
+  feePayersInRange,
+  payerPeriodRange,
+  PAYER_PERIODS,
+  type PayerPeriod,
   funnelSets,
   isWaitingPayment,
   nounFor,
@@ -205,7 +209,10 @@ async function profilesByRole(admin: SupabaseClient, roles: string[]): Promise<O
 }
 
 // ---------------------------------------------------------------- loaders
-export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 30; now?: Date } = {}): Promise<OverviewList> {
+export async function loadOverviewList(
+  key: OverviewItemKey,
+  opts: { days?: 7 | 30; now?: Date; period?: PayerPeriod } = {},
+): Promise<OverviewList> {
   const now = opts.now ?? new Date()
   const days = opts.days ?? 7
   const admin = createAdminClient()
@@ -244,17 +251,21 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
           .order('id')
           .range(from, to),
       )
-      const { today, month, week } = feePayersSince(
-        (data ?? []).map((p) => ({
-          userId: p.user_id as string | null,
-          approvedAt: (p.reviewed_at as string | null) ?? (p.updated_at as string | null),
-          refundedAmountPkr: p.refunded_amount_pkr as number | null,
-          refundedAt: p.refunded_at as string | null,
-          ref: (p.provider_ref as string | null) ?? null,
-        })),
-        nowMs,
-        pkMonthStartMs(nowMs),
-      )
+      const fee = (data ?? []).map((p) => ({
+        userId: p.user_id as string | null,
+        approvedAt: (p.reviewed_at as string | null) ?? (p.updated_at as string | null),
+        refundedAmountPkr: p.refunded_amount_pkr as number | null,
+        refundedAt: p.refunded_at as string | null,
+        ref: (p.provider_ref as string | null) ?? null,
+      }))
+      const { month, week } = feePayersSince(fee, nowMs, pkMonthStartMs(nowMs))
+      // The period switch (owner, 15 Oct 2026; it replaced Payments → Recent
+      // payers). The card counts today; the list may show another period,
+      // with the same rule (feePayersInRange).
+      const period: PayerPeriod = opts.period ?? 'today'
+      const range = payerPeriodRange(period, nowMs)
+      const today = feePayersInRange(fee, range.start, range.end)
+      const periodWords = PAYER_PERIODS.find((x) => x.key === period)?.label.toLowerCase() ?? 'today'
       const ids = today.map((r) => r.userId as string)
       const [{ data: profs }, { data: selfies }] = ids.length
         ? await Promise.all([
@@ -284,9 +295,11 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
             reviewHref: `/admin/tutors/${r.userId}`,
           }
         }),
-        filter: `paid the ${FEE_LABEL} today (since 00:00 Pakistan time)`,
+        filter:
+          period === 'today'
+            ? `paid the ${FEE_LABEL} today (since 00:00 Pakistan time)`
+            : `paid the ${FEE_LABEL} — ${periodWords} (Pakistan time), not refunded, account not deleted`,
         extra: `${month} this month · ${week} in the last 7 days`,
-        workHref: '/admin/payments/payers',
       }
     }
 
@@ -363,7 +376,7 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
         key,
         rows: rows.map((r) => ({ id: r.id, title: r.name, detail: `Joined ${PK_DATE(r.joinedAt)} · stopped at ${r.stoppedAt ?? 'payment'}`, href: `/admin/users/${r.id}`, memberId: r.id })),
         filter: 'who joined in the last 30 days, have not paid, and nobody has contacted yet',
-        workHref: '/admin/users/unpaid-signups?filter=uncontacted',
+        workHref: '/admin/follow-ups?filter=uncontacted',
       }
     }
 
@@ -374,7 +387,7 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
         rows: t.stuck,
         filter: 'who joined in the last 30 days and stopped before the payment step',
         extra: stuckBreakdown(t.all.map((r) => r.stoppedAt)).detail,
-        workHref: '/admin/users/unpaid-signups?filter=onboarding',
+        workHref: '/admin/follow-ups?filter=onboarding',
       }
     }
 
@@ -384,7 +397,7 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
         key,
         rows: t.sent,
         filter: 'stuck in onboarding, followed up in the last 7 days',
-        workHref: '/admin/users/unpaid-signups?filter=followed',
+        workHref: '/admin/follow-ups?filter=followed',
       }
     }
 
@@ -461,10 +474,10 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
             ageDays: d.ageDays,
             overdue: d.overdue,
           }),
-          href: '/admin/finance/settlement',
+          href: '/admin/finance?tab=settlement',
         })),
         filter: 'paid by customers, not yet paid out to our bank by PayPro',
-        workHref: '/admin/finance/settlement',
+        workHref: '/admin/finance?tab=settlement',
         note: payproFileNote(uploadedAt, uploadedAt ? `${formatDateTime(uploadedAt)} (Pakistan time)` : null, now.getTime()),
       }
     }
@@ -479,7 +492,7 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
           id: `flag-${f.id}`,
           title: `Flagged ${(f.source as string | null) ?? 'message'}`,
           detail: `${formatDateTime(f.created_at as string)}${f.matched ? ` · matched “${String(f.matched).slice(0, 40)}”` : ''}`,
-          href: '/admin/flags',
+          href: '/admin/reports?tab=flags',
         })),
         ...(reports ?? []).map((r) => ({
           id: `report-${r.id}`,
@@ -493,7 +506,7 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
         rows,
         filter: 'open flagged messages and open reports',
         extra: `${(flags ?? []).length} flagged · ${(reports ?? []).length} reports`,
-        workHref: (flags ?? []).length > 0 ? '/admin/flags' : '/admin/reports',
+        workHref: (flags ?? []).length > 0 ? '/admin/reports?tab=flags' : '/admin/reports',
       }
     }
 
@@ -610,7 +623,7 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
         key,
         rows: tutorRows(pick[key] ?? []),
         filter: `who ${words[key] ?? ''} — joined in the last ${days} days (paused, test and staff accounts left out)`,
-        workHref: '/admin/users/unpaid-signups',
+        workHref: '/admin/follow-ups',
       }
     }
   }

@@ -107,8 +107,9 @@ test('the settlement check (and the old reconciliation) is owner only', () => {
   assert.ok(lib.includes(".select('id, provider_ref, amount_pkr, reviewed_at, updated_at, created_at, method, raw')"), 'payments are read by reference, amount, dates and method only')
   assert.ok(!/select\('[^']*(full_name|email|phone)/.test(lib), 'no personal column is selected')
   const old = readFileSync(join(__dirname, '..', 'app', 'admin', 'payments', 'reconciliation', 'page.tsx'), 'utf8')
-  // Moved to Admin → Finance → Settlement check (owner, 8 Oct 2026).
-  assert.ok(old.includes("permanentRedirect(`/admin/finance/settlement"), 'the old URL redirects')
+  // Moved to Admin → Finance → Settlement check (owner, 8 Oct 2026), now a tab
+  // of Finance (owner, 15 Oct 2026).
+  assert.ok(old.includes('permanentRedirect(`/admin/finance?tab=settlement'), 'the old URL redirects')
 })
 
 // --- per settle date (owner, 8 Oct 2026) -----------------------------------

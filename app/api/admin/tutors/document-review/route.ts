@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { refuseUnlessOwnerApproval } from '@/lib/ownerGuard'
 import { reviewTutorDocument, type DocItem } from '@/lib/tutorDocuments'
 import { parseBody, z, uuid, text } from '@/lib/validate'
 
@@ -23,6 +24,10 @@ export async function POST(request: Request) {
   const parsed = await parseBody(request, Body)
   if (!parsed.ok) return parsed.response
   const { tutorId, item, decision } = parsed.data
+
+  // Owner-only approvals (owner, 15 Oct 2026): every other role views only.
+  const notOwner = await refuseUnlessOwnerApproval(gate.actor, `${decision} a tutor's ${item === 'profile_pic' ? 'profile photo' : item === 'cnic' ? 'CNIC' : 'selfie'}`, tutorId)
+  if (notOwner) return notOwner
 
   const result = await reviewTutorDocument({
     actor: gate.actor,

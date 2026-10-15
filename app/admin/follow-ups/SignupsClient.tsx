@@ -139,9 +139,10 @@ export default function SignupsClient({
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-lg font-black text-tm-navy">Abandoned signups</h1>
+        <h2 className="text-lg font-black text-tm-navy">Parents &amp; email not confirmed</h2>
         <p className="text-xs text-gray-500">
-          Accounts that started but never crossed the line. Message them on the channel they gave —
+          Parents who have not finished, and anyone who signed up with an email and never confirmed it. Tutors who
+          have not finished are on the Tutors tab. Message them on the channel they gave —
           email for an email signup, WhatsApp for a mobile one. No prices; these are nudges to
           finish, not offers.
         </p>

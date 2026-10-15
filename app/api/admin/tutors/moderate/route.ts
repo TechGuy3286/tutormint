@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/errorResponse'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { refuseUnlessOwnerApproval } from '@/lib/ownerGuard'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
@@ -65,6 +66,13 @@ export async function POST(request: Request) {
   }
   if (reason.length < 3) {
     return NextResponse.json({ error: 'A written reason is required.' }, { status: 400 })
+  }
+  // Owner-only approvals (owner, 15 Oct 2026): approving or holding (asking
+  // for a re-record of) a tutor's video is the Owner's alone. Suspend and
+  // unsuspend are moderation, not approval, and are unchanged.
+  if (action === 'approve' || action === 'hold') {
+    const notOwner = await refuseUnlessOwnerApproval(gate.actor, action === 'approve' ? "approve a tutor's video" : "hold a tutor's video (ask for a re-record)", tutorId)
+    if (notOwner) return notOwner
   }
 
   const { data: tutor } = await admin

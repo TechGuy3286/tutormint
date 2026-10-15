@@ -28,10 +28,13 @@ function cell(staffId: string | undefined, metric: StaffMetricKey, period: 'toda
 export default function StaffActivityTable({
   counts,
   staffId,
+  only,
 }: {
   counts: StaffCounts
   /** When set, each number links to the filtered staff detail page. */
   staffId?: string
+  /** Show only these rows (the Team activity detail page shows tuitions posted). */
+  only?: StaffMetricKey[]
 }) {
   return (
     <div className="overflow-x-auto">
@@ -45,7 +48,7 @@ export default function StaffActivityTable({
           </tr>
         </thead>
         <tbody>
-          {STAFF_METRICS.map((m) => {
+          {STAFF_METRICS.filter((m) => !only || only.includes(m.key)).map((m) => {
             const w = counts[m.key]
             return (
               <tr key={m.key} className="border-b border-gray-100 last:border-0">

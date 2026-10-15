@@ -12,8 +12,29 @@ import 'server-only'
 import { NextResponse } from 'next/server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { ownerProtection, type AdminRole } from '@/lib/adminAccessCore'
+import { canApprove, OWNER_ONLY_APPROVAL, ownerProtection, type AdminRole } from '@/lib/adminAccessCore'
 import { alertOwnerBlocked } from '@/lib/ownerAlerts'
+
+/**
+ * OWNER-ONLY APPROVALS (owner, 15 Oct 2026). Every approval route calls this
+ * after its view gate and before it writes: a 403 for anyone but the Owner,
+ * and the Owner is told of the attempt (bell + email + Audit). `what` says what
+ * was tried, in words: "approve a tutor's CNIC".
+ */
+export async function refuseUnlessOwnerApproval(
+  actor: { id: string; adminRole: AdminRole; email?: string | null },
+  what: string,
+  targetId?: string | null,
+): Promise<NextResponse | null> {
+  if (canApprove(actor.adminRole)) return null
+  await alertOwnerBlocked({
+    actor: { id: actor.id, adminRole: actor.adminRole, email: actor.email ?? null },
+    problem: OWNER_ONLY_APPROVAL,
+    what,
+    targetId,
+  })
+  return NextResponse.json({ error: OWNER_ONLY_APPROVAL }, { status: 403 })
+}
 
 /** The target's staff role, or null for an ordinary member / unknown id. */
 export async function staffRoleOf(userId: string | null | undefined): Promise<string | null> {

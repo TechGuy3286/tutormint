@@ -4,19 +4,22 @@ import { notFound } from 'next/navigation'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { loadStaffDetail } from '@/lib/staffActivity'
-import { STAFF_METRICS, type StaffMetricKey } from '@/lib/staffActivityCore'
 import StaffActivityTable from '@/components/admin/StaffActivityTable'
 import { formatDateTime } from '@/lib/datetime'
 import { formatName } from '@/lib/formatName'
 import { joinLinkFor } from '@/lib/staffSignups'
 import { isParticipantRole } from '@/lib/staffSignupsCore'
+import { teamActivityHref } from '@/lib/teamActivityCore'
 import JoinLinkCard from '@/components/admin/JoinLinkCard'
 
-// One staff member's activity in detail (PR40 §4): the counts, a by-city and
-// open/paused/closed breakdown of the tuitions they posted, and the actual
-// actions newest-first — each line opening the tuition or the member. Filters by
-// action and date; all from the audit log. Moved under Team activity (owner,
-// 15 Oct 2026): Owner, Project Managers and Admin (SCREEN_ACCESS.staffActivity).
+// One staff member under Team activity (PR40 §4; owner, 15 Oct 2026): their
+// join link, the tuitions they posted — today / 7 days / total, by city, how
+// many are open / paused / closed — and each posting newest first, opening the
+// tuition. Owner, Project Managers and Admin (SCREEN_ACCESS.staffActivity).
+//
+// Verifications and messages are no longer shown here: that tab was removed
+// (owner, 15 Oct 2026, later the same day) and approvals are the Owner's alone.
+// They stay recorded in Audit. All from the audit log.
 
 export const dynamic = 'force-dynamic'
 
@@ -27,14 +30,16 @@ function startOfKarachiToday(): string {
   return new Date(dayStart).toISOString()
 }
 
-const METRIC_KEYS = new Set(STAFF_METRICS.map((m) => m.key as string))
+function weekAgoIso(): string {
+  return new Date(Date.now() - 7 * 86_400_000).toISOString()
+}
 
 export default async function StaffDetailPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ action?: string; period?: string; from?: string; to?: string }>
+  searchParams: Promise<{ period?: string; from?: string; to?: string }>
 }) {
   const actor = await requireAdminRole(...SCREEN_ACCESS.staffActivity)
   const { id } = await params
@@ -46,25 +51,19 @@ export default async function StaffDetailPage({
     : { data: null }
   if (!staff || staff.role !== 'admin') notFound()
 
-  const metric: StaffMetricKey | null =
-    sp.action && METRIC_KEYS.has(sp.action) ? (sp.action as StaffMetricKey) : null
-
   // The window from ?period= (what the count links pass) or explicit ?from/?to.
   let from = sp.from || undefined
   if (!from) {
     if (sp.period === 'today') from = startOfKarachiToday()
-    else if (sp.period === 'week') from = new Date(Date.now() - 7 * 86_400_000).toISOString()
+    else if (sp.period === 'week') from = weekAgoIso()
   }
   const to = sp.to || undefined
 
-  const detail = await loadStaffDetail(id, { metric, from, to })
+  const detail = await loadStaffDetail(id, { metric: 'posted', from, to })
   // Their personal join link and code (owner, 15 Oct 2026).
   const joinLink = isParticipantRole(staff.admin_role as string | null) ? await joinLinkFor(id) : null
   const name = formatName(staff.full_name as string | null) || '—'
-  const metricLabel = metric ? STAFF_METRICS.find((m) => m.key === metric)?.label : null
 
-  const link = 'rounded-lg border border-gray-200 px-2.5 py-1 text-[11px] font-bold hover:border-tm-navy'
-  const activeLink = 'rounded-lg border border-tm-navy bg-tm-tint-navy px-2.5 py-1 text-[11px] font-bold text-tm-navy'
   const card = 'space-y-2 rounded-2xl border border-gray-200 bg-white p-4'
 
   return (
@@ -76,22 +75,22 @@ export default async function StaffDetailPage({
             Member record →
           </Link>
         </div>
-        <Link href="/admin/team-activity?tab=verifications" className="text-[11px] font-bold text-tm-navy hover:underline">
+        <Link href={teamActivityHref('posted')} className="text-[11px] font-bold text-tm-navy hover:underline">
           ← Team activity
         </Link>
       </div>
 
       {joinLink && <JoinLinkCard url={joinLink.url} code={joinLink.code} title={actor.id === id ? 'Your join link' : `${name}'s join link`} />}
 
-      {/* The same counts as the list — numbers here re-filter the list below. */}
+      {/* Tuitions posted: today / 7 days / total — each number re-filters the list. */}
       <div className={card}>
-        <StaffActivityTable counts={detail.counts} staffId={id} />
+        <StaffActivityTable counts={detail.counts} staffId={id} only={['posted']} />
       </div>
 
       {/* Tuitions posted, by city + current status. */}
       {detail.cityCounts.length > 0 && (
         <div className={card}>
-          <p className="text-xs font-black text-tm-navy">Tuitions posted</p>
+          <p className="text-xs font-black text-tm-navy">By city</p>
           <p className="text-[11px] text-gray-600">
             {detail.cityCounts.map((c) => `${c.city} ${c.count}`).join(' · ')}
           </p>
@@ -103,25 +102,10 @@ export default async function StaffDetailPage({
         </div>
       )}
 
-      {/* Filters: action + date range. Plain GET form so it works without JS. */}
+      {/* Date filter. Plain GET form so it works without JS. */}
       <form className={card} method="get">
-        <p className="text-xs font-black text-tm-navy">Filter</p>
-        <div className="flex flex-wrap gap-1.5">
-          <Link href={`/admin/team-activity/${id}`} className={!metric ? activeLink : link}>
-            All actions
-          </Link>
-          {STAFF_METRICS.map((m) => (
-            <Link
-              key={m.key}
-              href={`/admin/team-activity/${id}?action=${m.key}`}
-              className={metric === m.key ? activeLink : link}
-            >
-              {m.label}
-            </Link>
-          ))}
-        </div>
+        <p className="text-xs font-black text-tm-navy">Filter by date</p>
         <div className="flex flex-wrap items-end gap-2">
-          {metric && <input type="hidden" name="action" value={metric} />}
           <label className="text-[11px] font-semibold text-gray-600">
             From
             <input type="date" name="from" defaultValue={sp.from ?? ''} className="mt-0.5 block rounded-lg border border-gray-200 px-2 py-1 text-xs" />
@@ -136,10 +120,10 @@ export default async function StaffDetailPage({
         </div>
       </form>
 
-      {/* The actions themselves, newest first. Each opens the thing. */}
+      {/* The postings themselves, newest first. Each opens the tuition. */}
       <div className={card}>
         <p className="text-xs font-black text-tm-navy">
-          {metricLabel ?? 'All activity'}
+          Tuitions posted
           <span className="ml-1 font-semibold text-gray-500">({detail.items.length})</span>
         </p>
         {detail.items.length === 0 ? (

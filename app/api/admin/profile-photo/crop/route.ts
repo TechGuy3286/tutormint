@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { refuseUnlessOwnerApproval } from '@/lib/ownerGuard'
 import { resetAvatarToOriginal, saveAvatarCrop } from '@/lib/avatarCrop'
 import { parseBody, z, uuid } from '@/lib/validate'
 
@@ -30,6 +31,10 @@ export async function POST(request: Request) {
   if (!parsed.ok) return parsed.response
   const { memberId, crop, reset } = parsed.data
   if (!reset && !crop) return NextResponse.json({ error: 'Move the photo into the circle first.' }, { status: 400 })
+
+  // Owner-only approvals (owner, 15 Oct 2026): every other role views only.
+  const notOwner = await refuseUnlessOwnerApproval(gate.actor, reset ? 'reset a cropped profile photo' : 'crop a profile photo', memberId)
+  if (notOwner) return notOwner
 
   const result = reset ? await resetAvatarToOriginal({ actor: gate.actor, memberId }) : await saveAvatarCrop({ actor: gate.actor, memberId, crop: crop! })
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })

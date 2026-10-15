@@ -4,7 +4,7 @@ import { ArrowRight } from 'lucide-react'
 
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { listHeader, loadOverviewList, stuckTabCounts } from '@/lib/overviewItems'
-import { OVERVIEW_ITEMS, isOverviewItemKey, parseFunnelDays } from '@/lib/overviewItemsCore'
+import { OVERVIEW_ITEMS, PAYER_PERIODS, isOverviewItemKey, paidListHref, parseFunnelDays, parsePayerPeriod } from '@/lib/overviewItemsCore'
 import { pkr } from '@/lib/reconciliationCore'
 import { loadMemberCards } from '@/lib/overviewCards'
 import OverviewCardGrid, { type GridItem } from '@/components/admin/OverviewCardGrid'
@@ -22,7 +22,7 @@ export default async function OverviewListPage({
   searchParams,
 }: {
   params: Promise<{ key: string }>
-  searchParams: Promise<{ days?: string }>
+  searchParams: Promise<{ days?: string; period?: string }>
 }) {
   const { key } = await params
   if (!isOverviewItemKey(key)) notFound()
@@ -31,7 +31,10 @@ export default async function OverviewListPage({
   const sp = await searchParams
   const days = parseFunnelDays(sp.days)
 
-  const list = await loadOverviewList(key, { days })
+  // "Paid today" has a period switch (owner, 15 Oct 2026; it replaced
+  // Payments → Recent payers). Today is the card's own number.
+  const period = key === 'paid-today' ? parsePayerPeriod(sp.period) : undefined
+  const list = await loadOverviewList(key, { days, period })
   // Member facts for the cards (owner, 9 Oct 2026) — added to the loader's own
   // rows, never adding or dropping one, so the cards equal the header count.
   const members = await loadMemberCards(list.rows.map((r) => r.memberId ?? '').filter(Boolean))
@@ -91,6 +94,26 @@ export default async function OverviewListPage({
           )}
         </div>
       </header>
+
+      {period && (
+        <nav aria-label="Period" className="flex flex-wrap gap-2">
+          {PAYER_PERIODS.map((p) => {
+            const on = p.key === period
+            return (
+              <Link
+                key={p.key}
+                href={paidListHref(p.key)}
+                aria-current={on ? 'page' : undefined}
+                className={`inline-flex min-h-[40px] items-center rounded-full border px-4 text-xs font-bold ${
+                  on ? 'border-tm-navy bg-tm-navy text-white' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'
+                }`}
+              >
+                {p.label}
+              </Link>
+            )
+          })}
+        </nav>
+      )}
 
       {tabCounts && (
         <nav aria-label="Tabs" className="flex flex-wrap gap-2">

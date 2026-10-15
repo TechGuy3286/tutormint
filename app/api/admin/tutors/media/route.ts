@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { refuseUnlessOwnerApproval } from '@/lib/ownerGuard'
 import { storeDocument } from '@/lib/documents'
 import { recomputeCompletion } from '@/lib/completion'
 import { logAdminAction } from '@/lib/auditLog'
@@ -8,7 +9,8 @@ import { logActivity } from '@/lib/activityLog'
 import { recordFieldChanges, type Step1Field } from '@/lib/fieldHistory'
 
 // PR83 (Part B) — staff upload of a tutor's step-1 IMAGES: CNIC front/back,
-// profile picture and selfie. admin/operations only (SCREEN_ACCESS.tutorEdit).
+// profile picture and selfie. Owner only since 15 Oct 2026 (an upload here is
+// saved as approved, and approvals are the Owner's alone).
 //
 // A staff image edit is SAVED AS APPROVED BY THAT STAFF MEMBER (the spec): the
 // upload sets the relevant *_status='approved' + *_reviewed_by = the actor, so
@@ -56,6 +58,14 @@ export async function POST(request: Request) {
   if (!(file instanceof File) || file.size === 0) {
     return NextResponse.json({ error: 'Choose a file to upload.' }, { status: 400 })
   }
+  // A staff upload is saved as APPROVED, so it is an approval: Owner only
+  // (owner, 15 Oct 2026).
+  const notOwner = await refuseUnlessOwnerApproval(
+    gate.actor,
+    `upload and approve a tutor's ${kind === 'avatar' ? 'profile photo' : kind === 'cnic' ? 'CNIC' : 'selfie'}`,
+    tutorId,
+  )
+  if (notOwner) return notOwner
 
   // The target must be a tutor.
   const { data: prof } = await admin

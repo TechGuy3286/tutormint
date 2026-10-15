@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { refuseUnlessOwnerApproval } from '@/lib/ownerGuard'
 import { rateLimit } from '@/lib/rateLimit'
 import { cachedSuggestion, cnicDuplicateFor, readCnicForMember } from '@/lib/cnicReader'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -55,6 +56,10 @@ export async function POST(request: Request) {
       duplicate: c.number ? await cnicDuplicateFor(memberId, c.number) : null,
     })
   }
+
+  // Owner-only approvals (owner, 15 Oct 2026): every other role views only.
+  const notOwner = await refuseUnlessOwnerApproval(gate.actor, 'read a CNIC number from the photo', memberId)
+  if (notOwner) return notOwner
 
   const limit = await rateLimit('cnic_read', gate.actor.id)
   if (!limit.allowed) {

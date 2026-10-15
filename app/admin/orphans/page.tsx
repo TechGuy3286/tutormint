@@ -1,17 +1,16 @@
 import { redirect } from 'next/navigation'
 
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { followUpsHref } from '@/lib/followUpsPageCore'
 
-// Orphaned accounts were folded into the Abandoned signups page as a second
-// section (owner, 14 Sep 2026). The standalone screen is gone from the nav; this
-// route stays only to redirect any bookmark or old link to its new home.
+// Orphaned accounts is the "Orphaned accounts" tab of People → Follow-ups
+// (owner, 15 Oct 2026). This route stays only to redirect old links.
 
 export const dynamic = 'force-dynamic'
 
 export default async function AdminOrphansPage() {
-  // PR106-H2 §1.5 — this route had no role check. Enforce the same role that
-  // guards its destination before redirecting, so a restricted role is refused
-  // here rather than only at /admin/signups.
+  // PR106-H2 §1.5 — enforce the role that guards the destination tab before
+  // redirecting, so a restricted role is refused here too.
   await requireAdminRole(...SCREEN_ACCESS.signups)
-  redirect('/admin/signups')
+  redirect(followUpsHref('orphans'))
 }

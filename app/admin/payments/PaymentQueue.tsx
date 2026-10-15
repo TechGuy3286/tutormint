@@ -8,6 +8,7 @@ import QueueSearch from '@/components/admin/QueueSearch'
 import StatusChip from '@/components/admin/StatusChip'
 import PaymentDecide from './PaymentDecide'
 import DocumentViewer from '@/components/admin/DocumentViewer'
+import { OwnerOnlyNote } from '@/components/admin/ReadOnly'
 import { channelLabel, receiptUnderReview } from '@/lib/payments/receiptCore'
 import RefundControl from './RefundControl'
 import { refundLabel } from '@/lib/payments/refundCore'
@@ -225,6 +226,7 @@ export default function PaymentQueue({
                 {canApprove && awaitingApproval(p) && (
                   <PaymentDecide paymentId={p.id} payerName={p.name} />
                 )}
+                {!canApprove && awaitingApproval(p) && <OwnerOnlyNote />}
 
                 {/* Mark as refunded — owner/admin, on an approved payment not yet
                     fully refunded (PR106-H4 §4). */}

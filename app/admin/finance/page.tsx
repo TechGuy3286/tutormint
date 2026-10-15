@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Download, Scale } from 'lucide-react'
+import { Download } from 'lucide-react'
 
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadFinance } from '@/lib/finance'
@@ -7,6 +7,9 @@ import { monthRangeLabel, type FinancePayment } from '@/lib/financeCore'
 import { pkr } from '@/lib/reconciliationCore'
 import { formatDate, formatDateTime, pkDayKey } from '@/lib/datetime'
 import { TILE_TONE } from '@/lib/tileTones'
+import { FINANCE_TABS, financeHref, pickFinanceTab, type FinanceTab } from '@/lib/financeTabsCore'
+
+import SettlementTab from './settlement/SettlementTab'
 
 // Admin → Finance (owner, 8 Oct 2026, item 4). OWNER ONLY, plus the view-only
 // Partner: SCREEN_ACCESS.finance is `[]`, so every other role is redirected
@@ -16,6 +19,10 @@ import { TILE_TONE } from '@/lib/tileTones'
 // refunded; refunds and deleted-account payments are listed separately below
 // and never mixed into a total (lib/financeCore). Dated by approval, in
 // Pakistan time. No member contact detail is read for this page.
+//
+// Two tabs (owner, 15 Oct 2026): Finance | Settlement check — the settlement
+// check was its own page and sidebar entry (/admin/finance/settlement, now a
+// redirect to ?tab=settlement). Same access; its actions stay Owner only.
 
 export const dynamic = 'force-dynamic'
 
@@ -30,9 +37,22 @@ const card = 'space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5'
 const th = 'p-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-500'
 const td = 'p-2 text-xs text-slate-700'
 
-export default async function FinancePage({ searchParams }: { searchParams: Promise<{ from?: string; to?: string }> }) {
+export default async function FinancePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string; from?: string; to?: string; month?: string }>
+}) {
   await requireAdminRole(...SCREEN_ACCESS.finance)
   const sp = await searchParams
+  const tab = pickFinanceTab(sp.tab)
+  if (tab === 'settlement') {
+    return (
+      <div className="space-y-4">
+        <FinanceTabs active={tab} />
+        <SettlementTab sp={sp} />
+      </div>
+    )
+  }
   const today = pkDayKey(new Date())
   let from = sp.from && ISO_DAY.test(sp.from) ? sp.from : `${today.slice(0, 7)}-01`
   let to = sp.to && ISO_DAY.test(sp.to) ? sp.to : today
@@ -49,6 +69,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
 
   return (
     <div className="space-y-6">
+      <FinanceTabs active={tab} />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-lg font-black text-tm-navy">Finance</h1>
@@ -57,13 +78,6 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
             accounts — both are listed on their own below.
           </p>
         </div>
-        <Link
-          href="/admin/finance/settlement"
-          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy"
-        >
-          <Scale aria-hidden size={14} />
-          Settlement check
-        </Link>
       </header>
 
       {/* ------------------------------------------------------- totals */}
@@ -233,5 +247,24 @@ function PaymentList({
         </ul>
       )}
     </section>
+  )
+}
+
+function FinanceTabs({ active }: { active: FinanceTab }) {
+  return (
+    <nav aria-label="Tabs" className="flex flex-wrap gap-1 border-b border-gray-200">
+      {FINANCE_TABS.map((t) => (
+        <Link
+          key={t.key}
+          href={financeHref(t.key)}
+          aria-current={active === t.key ? 'page' : undefined}
+          className={`-mb-px min-h-[44px] border-b-2 px-3 py-2.5 text-xs font-bold ${
+            active === t.key ? 'border-tm-red text-tm-navy' : 'border-transparent text-gray-600 hover:text-tm-navy'
+          }`}
+        >
+          {t.label}
+        </Link>
+      ))}
+    </nav>
   )
 }

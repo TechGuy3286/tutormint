@@ -39,7 +39,8 @@ export default async function PaymentGatewaysPage({
     const q = new URLSearchParams()
     if (sp.from) q.set('from', sp.from)
     if (sp.to) q.set('to', sp.to)
-    permanentRedirect(`/admin/finance/settlement?${q.toString()}`)
+    q.set('tab', 'settlement')
+    permanentRedirect(`/admin/finance?${q.toString()}`)
   }
   const [settings, health] = await Promise.all([getGatewaySettings(), loadGatewayHealth()])
   const configured = gatewayConfigured()
@@ -76,7 +77,7 @@ export default async function PaymentGatewaysPage({
             audit log
           </Link>
           . The settlement check is under{' '}
-          <Link href="/admin/finance/settlement" className="font-bold text-tm-navy hover:underline">
+          <Link href="/admin/finance?tab=settlement" className="font-bold text-tm-navy hover:underline">
             Finance
           </Link>
           .

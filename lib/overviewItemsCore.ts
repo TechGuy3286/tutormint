@@ -198,9 +198,69 @@ export function feePayersSince<T extends FeePayment>(
   return { today, month: month.size, week: week.size }
 }
 
-/** Where the "Signed up today, not paid" card opens: the existing Unpaid signups
+/**
+ * The "Paid today" LIST with a period switch (owner, 15 Oct 2026): it replaced
+ * Payments → Recent payers. The same rule as feePayersSince — approved fee, not
+ * refunded, account not deleted, each tutor once (their latest fee payment in
+ * the range) — over [startMs, endMs). With the "today" range it returns exactly
+ * feePayersSince(...).today, so the card and its list still agree.
+ */
+export function feePayersInRange<T extends FeePayment>(
+  rows: T[],
+  startMs: number,
+  endMs: number,
+): (T & { at: string })[] {
+  const latest = new Map<string, T & { at: string }>()
+  for (const r of rows) {
+    if (!r.userId || !r.approvedAt) continue
+    if ((r.refundedAmountPkr ?? 0) > 0 || r.refundedAt) continue
+    const t = Date.parse(r.approvedAt)
+    if (!Number.isFinite(t) || t < startMs || t >= endMs) continue
+    const cur = latest.get(r.userId)
+    if (!cur || cur.at < r.approvedAt) latest.set(r.userId, { ...r, at: r.approvedAt })
+  }
+  return [...latest.values()].sort((a, b) => b.at.localeCompare(a.at))
+}
+
+export type PayerPeriod = 'today' | 'yesterday' | 'last7' | 'month'
+export const PAYER_PERIODS: { key: PayerPeriod; label: string }[] = [
+  { key: 'today', label: 'Today' },
+  { key: 'yesterday', label: 'Yesterday' },
+  { key: 'last7', label: 'Last 7 days' },
+  { key: 'month', label: 'This month' },
+]
+
+export function parsePayerPeriod(v: string | null | undefined): PayerPeriod {
+  return PAYER_PERIODS.some((p) => p.key === v) ? (v as PayerPeriod) : 'today'
+}
+
+/** [start, end) of a payer period in Pakistan time — the same windows as the
+ *  rest of the admin (Last 7 days = today and the six days before). */
+export function payerPeriodRange(p: PayerPeriod, nowMs: number): { start: number; end: number } {
+  const today = pkDayStartMs(nowMs)
+  const DAY = 86_400_000
+  switch (p) {
+    case 'today':
+      return { start: today, end: nowMs + 1 }
+    case 'yesterday':
+      return { start: today - DAY, end: today }
+    case 'last7':
+      return { start: today - 6 * DAY, end: nowMs + 1 }
+    case 'month': {
+      const shifted = new Date(nowMs + PK_OFFSET_MS)
+      return { start: Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), 1) - PK_OFFSET_MS, end: nowMs + 1 }
+    }
+  }
+}
+
+/** Where Payments → Recent payers went: the Paid today list on a period. */
+export function paidListHref(period: PayerPeriod): string {
+  return period === 'today' ? '/admin/overview/paid-today' : `/admin/overview/paid-today?period=${period}`
+}
+
+/** Where the "Signed up today, not paid" card opens: the Tutors tab of Follow-ups (was Unpaid signups)
  *  list on its Today filter (WhatsApp, Call and Follow-up sent already live there). */
-export const SIGNUPS_TODAY_HREF = '/admin/users/unpaid-signups?filter=today'
+export const SIGNUPS_TODAY_HREF = '/admin/follow-ups?filter=today'
 
 // ----------------------------------------------- the PayPro file's age ------
 
@@ -232,7 +292,7 @@ export function payproFileNote(uploadedAt: string | null, dateText: string | nul
     date: dateText,
     after: '. Upload a newer file to update.',
     stale: age > PAYPRO_FILE_STALE_DAYS * 24 * 3600_000,
-    href: '/admin/finance/settlement',
+    href: '/admin/finance?tab=settlement',
     linkLabel: 'Settlement check',
   }
 }

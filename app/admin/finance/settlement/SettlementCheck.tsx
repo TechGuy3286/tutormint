@@ -72,7 +72,7 @@ export default function SettlementCheck({ view, gatewayName }: { view: Settlemen
       toast.error('Choose both dates.')
       return
     }
-    router.push(`/admin/finance/settlement?from=${from}&to=${to}`)
+    router.push(`/admin/finance?tab=settlement&from=${from}&to=${to}`)
   }
 
   const upload = async (kind: 'gateway' | 'bank', input: HTMLInputElement | null) => {

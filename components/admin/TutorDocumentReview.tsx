@@ -7,7 +7,7 @@ import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import DocumentViewer, { ViewerThumb as Zoomable, type ViewerImage } from '@/components/admin/DocumentViewer'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
-import { useAdminReadOnly } from '@/components/admin/ReadOnly'
+import { OwnerOnlyNote, useAdminReadOnly, useCanApprove } from '@/components/admin/ReadOnly'
 import type { DocumentStatuses, DocItem, DocState } from '@/lib/tutorDocuments'
 import { cnicSideNote } from '@/lib/tutorDocQueueCore'
 import { CNIC_NUMBER_MISSING } from '@/lib/docLockCore'
@@ -265,7 +265,10 @@ function ReviewItem({
   const toast = useToast()
   // A view-only (Partner) session sees each document and its status, never Approve/Reject.
   const readOnly = useAdminReadOnly()
-  const canReview = canReviewProp && !readOnly
+  // Approvals are the Owner's alone (owner, 15 Oct 2026); other staff view.
+  const ownerApproves = useCanApprove()
+  const canReview = canReviewProp && !readOnly && ownerApproves
+  const viewOnlyNote = canReviewProp && !ownerApproves && state.hasUpload
   const [status, setStatus] = useState(state.status)
   const [reason, setReason] = useState('')
   const [rejecting, setRejecting] = useState(false)
@@ -331,6 +334,8 @@ function ReviewItem({
       {state.reason && status === 'rejected' && (
         <p className="text-[11px] text-tm-red">{state.reason}</p>
       )}
+
+      {viewOnlyNote && <OwnerOnlyNote />}
 
       {/* PR106-E §3 — no file, nothing to review: show "Not uploaded", no
           Approve/Reject (the server rejects approving a missing file too). */}

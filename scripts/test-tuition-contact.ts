@@ -84,7 +84,8 @@ test('A. the card number equals the rows of the Today filter, followed up or not
   assert.ok(items.includes("case 'signups-today'") && items.includes("const all = await unpaid()") && items.includes("signedUpIn(r.joinedAt, 'today', nowMs)"))
   assert.ok(items.includes('const unpaid = cache(async () => loadUnpaidSignups('))
   assert.ok(items.includes('`${counts.yesterday} yesterday · ${counts.week} in the last 7 days`'))
-  const page = read('app', 'admin', 'users', 'unpaid-signups', 'page.tsx')
+  // Unpaid signups is the Tutors tab of People → Follow-ups (owner, 15 Oct 2026).
+  const page = read('app', 'admin', 'follow-ups', 'page.tsx')
   assert.ok(page.includes('loadUnpaidSignups()') && page.includes('unpaidRowMatches(facts(r), filter, now)'))
   for (const label of ["label: 'Today'", "label: 'Yesterday'", "label: 'Last 7 days'"]) assert.ok(page.includes(label), label)
   assert.ok(page.includes('UnpaidSignupRow'), 'the existing WhatsApp / Call / Follow-up sent rows — no new list')
@@ -105,7 +106,7 @@ test('A. the sixth card: its own tone, the same visibility rule, and it opens Un
   assert.ok((OVERVIEW_ITEM_KEYS as readonly string[]).includes('signups-today'))
   assert.equal(OVERVIEW_ITEMS['signups-today'].title, 'Signed up today, not paid')
   assert.equal(OVERVIEW_ITEMS['signups-today'].screen, 'unpaidSignups')
-  assert.equal(SIGNUPS_TODAY_HREF, '/admin/users/unpaid-signups?filter=today')
+  assert.equal(SIGNUPS_TODAY_HREF, '/admin/follow-ups?filter=today')
   const page = read('app', 'admin', 'page.tsx')
   assert.ok(page.includes("const CARD_KEYS: OverviewItemKey[] = ['revenue', 'paid-today', 'tutors', 'parents', 'open-tuitions', 'signups-today']"))
   assert.ok(page.includes("k === 'signups-today' ? SIGNUPS_TODAY_HREF"))

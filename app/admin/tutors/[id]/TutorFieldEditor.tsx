@@ -10,7 +10,7 @@ import TaxonomySelector from '@/components/TaxonomySelector'
 import LocationInput from '@/components/forms/LocationInput'
 import TutorCitiesEditor, { type CitiesState } from '@/components/tutor/TutorCitiesEditor'
 import { useToast } from '@/components/ui/Toast'
-import { useAdminReadOnly } from '@/components/admin/ReadOnly'
+import { useAdminReadOnly, useCanApprove } from '@/components/admin/ReadOnly'
 import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
 import { resolveMasterIds } from '@/lib/taxonomy'
@@ -104,6 +104,10 @@ export default function TutorFieldEditor({
   const router = useRouter()
   const toast = useToast()
   const readOnly = useAdminReadOnly()
+  // A CNIC, photo or selfie saved here is saved as APPROVED, so these three
+  // sections are the Owner's alone (owner, 15 Oct 2026; the media route and
+  // the CNIC-number action refuse everyone else).
+  const ownerApproves = useCanApprove()
   const { map } = useCityAreas()
   const cities = map.cities
   const [open, setOpen] = useState<string | null>(null)
@@ -215,6 +219,7 @@ export default function TutorFieldEditor({
         </button>
       </Section>
 
+      {ownerApproves && (<>
       {/* CNIC — shared CnicCapture pointed at the admin media route */}
       <Section icon={<IdCard size={16} />} title="CNIC (number and pictures)" titleUr="شناختی کارڈ" open={open === 'cnic'} onToggle={() => toggle('cnic')}>
         <ReasonField value={cnicReason} onChange={setCnicReason} />
@@ -268,6 +273,7 @@ export default function TutorFieldEditor({
           />
         </label>
       </Section>
+      </>)}
 
       {/* Subjects */}
       <Section icon={<BookOpen size={16} />} title="Subjects" titleUr="مضامین" open={open === 'subjects'} onToggle={() => toggle('subjects')}>

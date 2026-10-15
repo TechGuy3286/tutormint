@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Loader2, Save, ScanText } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
-import { useAdminReadOnly } from '@/components/admin/ReadOnly'
+import { useAdminReadOnly, useCanApprove } from '@/components/admin/ReadOnly'
 import { formatCnic, isValidCnic, normaliseCnic } from '@/lib/cnic'
 import { CNIC_DUPLICATE_STAFF, CNIC_NOT_READ_STAFF, CNIC_SUGGESTED_STAFF } from '@/lib/cnicReaderCore'
 
@@ -93,7 +93,9 @@ export default function AdminCnicNumberBox({
   const [suggested, setSuggested] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
   const [duplicate, setDuplicate] = useState<Duplicate>(null)
-  const mayWrite = canEdit && !readOnly
+  // Typing / reading the CNIC number is part of approval: Owner only (owner, 15 Oct 2026).
+  const ownerApproves = useCanApprove()
+  const mayWrite = canEdit && !readOnly && ownerApproves
 
   // On open: a saved number is checked for a duplicate; an empty box is
   // pre-filled from a suggestion already on file. Neither calls the reader.

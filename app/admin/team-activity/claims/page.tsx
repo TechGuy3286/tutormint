@@ -1,6 +1,7 @@
 import Link from 'next/link'
 
 import { requireAdminRole, roleMayWrite, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { canApprove } from '@/lib/adminAccessCore'
 import { formatDateTime } from '@/lib/datetime'
 import { loadClaims } from '@/lib/staffSignups'
 import { maskMobile } from '@/lib/smsHealthCore'
@@ -17,7 +18,9 @@ export const dynamic = 'force-dynamic'
 
 export default async function ClaimsPage() {
   const actor = await requireAdminRole(...SCREEN_ACCESS.staffClaimsReview)
-  const canDecide = roleMayWrite(actor.adminRole, SCREEN_ACCESS.staffClaimsReview)
+  // Deciding a claim is the Owner's alone (owner, 15 Oct 2026); Admin and the
+  // Project Managers view. The decide route refuses everyone else.
+  const canDecide = roleMayWrite(actor.adminRole, SCREEN_ACCESS.staffClaimsReview) && canApprove(actor.adminRole)
   const claims = await loadClaims(actor)
   const pending = claims.filter((c) => c.status === 'pending')
   const decided = claims.filter((c) => c.status !== 'pending').slice(0, 50)
@@ -48,7 +51,9 @@ export default async function ClaimsPage() {
               <ClaimDecision claimId={c.id} />
             ) : canDecide ? (
               <p className="text-[11px] font-bold text-gray-600">Your own claim. The Owner reviews it.</p>
-            ) : null}
+            ) : (
+              <p className="text-[11px] font-bold text-gray-600">View only — the Owner approves or rejects claims.</p>
+            )}
           </section>
         ))}
       </div>

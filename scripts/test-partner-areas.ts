@@ -238,9 +238,10 @@ test('"Project Manager" is a label only: Owner and Partner both read it; roles a
   assert.equal(roleWord('operations'), 'Operations')
   assert.equal(roleWord('system'), 'system')
   for (const r of ['admin', 'operations', 'tuitions_staff']) assert.equal(roleBadge(r), 'Admin')
-  assert.equal(PARTNER_ROLE_OPTION, 'Project Manager — edits tutors, parents and tuitions; everything else view only; two-factor required')
+  // Approvals are the Owner's alone (owner, 15 Oct 2026).
+  assert.equal(PARTNER_ROLE_OPTION, 'Project Manager — edits tutors, parents and tuitions; approvals are Owner only; everything else view only; two-factor required')
   const team = read('app', 'admin', 'team', 'TeamClient.tsx')
-  assert.ok(team.includes("label: 'Project Manager', blurb: 'edits tutors, parents and tuitions; everything else view only; two-factor required'"))
+  assert.ok(team.includes("label: 'Project Manager', blurb: 'edits tutors, parents and tuitions; approvals are Owner only; everything else view only; two-factor required'"))
   // Only the Owner, on their own card, sees "(account owner)".
   assert.ok(team.includes("s.isMe && s.adminRole === 'owner' && viewerRole === 'owner'"))
   assert.ok(team.includes('(account owner)'))

@@ -13,6 +13,6 @@ export default async function ReconciliationMoved({
 }) {
   const sp = await searchParams
   const day = /^\d{4}-\d{2}-\d{2}$/
-  const q = sp.from && sp.to && day.test(sp.from) && day.test(sp.to) ? `?from=${sp.from}&to=${sp.to}` : ''
-  permanentRedirect(`/admin/finance/settlement${q}`)
+  const q = sp.from && sp.to && day.test(sp.from) && day.test(sp.to) ? `&from=${sp.from}&to=${sp.to}` : ''
+  permanentRedirect(`/admin/finance?tab=settlement${q}`)
 }

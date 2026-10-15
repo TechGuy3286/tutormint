@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Loader2, Unlock } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
-import { useAdminReadOnly } from '@/components/admin/ReadOnly'
+import { useAdminReadOnly, useCanApprove } from '@/components/admin/ReadOnly'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 
 // "Unlock for re-upload" (owner, 9 Oct 2026) — next to an approved, locked CNIC
@@ -26,6 +26,8 @@ export default function UnlockDocButton({
   canUnlock: boolean
 }) {
   const readOnly = useAdminReadOnly()
+  // Unlocking an approved document is the Owner's alone (owner, 15 Oct 2026).
+  const ownerApproves = useCanApprove()
   const toast = useToast()
   const confirm = useConfirm()
   const router = useRouter()
@@ -40,7 +42,7 @@ export default function UnlockDocButton({
       </p>
     )
   }
-  if (!canUnlock || readOnly) return null
+  if (!canUnlock || readOnly || !ownerApproves) return null
 
   const run = async () => {
     const ok = await confirm({

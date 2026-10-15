@@ -9,7 +9,7 @@ import DocumentViewer, { ViewerThumb as Zoomable, type ViewerImage } from '@/com
 import { SavedCnicDuplicate } from '@/components/admin/AdminCnicNumberBox'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
-import { useAdminReadOnly } from '@/components/admin/ReadOnly'
+import { OwnerOnlyNote, useAdminReadOnly, useCanApprove } from '@/components/admin/ReadOnly'
 import { PARENT_REJECT_PRESETS, type ParentDocItem, type ParentItemState } from '@/lib/parentDocsCore'
 import { cnicSideNote } from '@/lib/tutorDocQueueCore'
 import UnlockDocButton from '@/components/admin/UnlockDocButton'
@@ -160,7 +160,10 @@ function ReviewItem({
   const router = useRouter()
   // A view-only (Partner) session sees each document and its status, never Approve/Reject.
   const readOnly = useAdminReadOnly()
-  const canReview = canReviewProp && !readOnly
+  // Approvals are the Owner's alone (owner, 15 Oct 2026); other staff view.
+  const ownerApproves = useCanApprove()
+  const canReview = canReviewProp && !readOnly && ownerApproves
+  const viewOnlyNote = canReviewProp && !ownerApproves && state.hasUpload
   const [status, setStatus] = useState(state.status)
   const [shownReason, setShownReason] = useState(state.reason)
   const [reason, setReason] = useState('')
@@ -227,6 +230,8 @@ function ReviewItem({
       </div>
       {children}
       {shownReason && status === 'rejected' && <p className="text-[11px] text-tm-red">{shownReason}</p>}
+
+      {viewOnlyNote && <OwnerOnlyNote />}
 
       {canReview && !state.hasUpload && (
         <p className="text-[11px] font-semibold text-gray-500">

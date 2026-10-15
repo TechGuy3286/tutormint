@@ -163,7 +163,7 @@ test('"Paid by customers, waiting for PayPro payout": the name, the file date, t
   const fresh = payproFileNote('2026-10-12T09:00:00Z', '12 Oct 2026, 2:00 pm (Pakistan time)', now)!
   assert.equal(`${fresh.before}${fresh.date}${fresh.after}`, 'Based on the PayPro file uploaded 12 Oct 2026, 2:00 pm (Pakistan time). Upload a newer file to update.')
   assert.equal(fresh.stale, false)
-  assert.equal(fresh.href, '/admin/finance/settlement')
+  assert.equal(fresh.href, '/admin/finance?tab=settlement')
   assert.equal(PAYPRO_FILE_STALE_DAYS, 2)
   assert.equal(payproFileNote('2026-10-11T09:59:00Z', 'x', now)!.stale, true, 'older than 2 days: the date is red')
   assert.equal(payproFileNote('2026-10-11T10:01:00Z', 'x', now)!.stale, false)

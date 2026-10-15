@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Crop, RotateCcw, RotateCw, Save, Loader2, Maximize2 } from 'lucide-react'
 
 import { adminFetch } from '@/components/admin/adminFetch'
-import { useAdminReadOnly } from '@/components/admin/ReadOnly'
+import { useAdminReadOnly, useCanApprove } from '@/components/admin/ReadOnly'
 import { useToast } from '@/components/ui/Toast'
 import { DOC_ROTATED_EVENT, rotateBy, swapsAspect } from '@/lib/docRotation'
 import PhotoCropper from '@/components/photo/PhotoCropper'
@@ -88,6 +88,9 @@ export default function DocumentViewer({
   // True in the browser, false while server-rendering: a portal needs <body>.
   const inBrowser = useSyncExternalStore(subscribeNoop, () => true, () => false)
   const readOnly = useAdminReadOnly()
+  // Saving a rotation or a crop is part of approval: the Owner only (owner,
+  // 15 Oct 2026). Everyone else may still turn the picture on screen.
+  const ownerApproves = useCanApprove()
   const toast = useToast()
   const router = useRouter()
 
@@ -163,9 +166,9 @@ export default function DocumentViewer({
 
   if (!open || !inBrowser) return null
   const img = images[index as number]
-  const canRotate = (!!img.documentId || !!img.profileId) && !readOnly
+  const canRotate = (!!img.documentId || !!img.profileId) && !readOnly && ownerApproves
   // A turn-only picture (a receipt) can be turned on screen, never saved.
-  const canTurn = canRotate || !!img.turnOnly
+  const canTurn = canRotate || !!img.turnOnly || !!img.documentId || !!img.profileId
 
   const saveRotation = async () => {
     if (turns === 0 || saving) return

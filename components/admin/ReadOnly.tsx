@@ -23,11 +23,47 @@ import { partnerEditsPath } from '@/lib/adminAccessCore'
 // view-only comes from the page's own address (partnerEditsPath).
 
 const PartnerContext = createContext(false)
+// Owner-only approvals (owner, 15 Oct 2026): true only for the Owner account.
+// Presentation only — every approval route refuses other roles
+// (lib/ownerGuard refuseUnlessOwnerApproval) and migration 176 refuses a
+// direct database write.
+const ApproveContext = createContext(false)
 
 export const PARTNER_VIEW_ONLY_TEXT = 'View only. Your account cannot change this.'
 
-export function AdminReadOnlyProvider({ readOnly, children }: { readOnly: boolean; children: React.ReactNode }) {
-  return <PartnerContext.Provider value={readOnly}>{children}</PartnerContext.Provider>
+export function AdminReadOnlyProvider({
+  readOnly,
+  canApprove = false,
+  children,
+}: {
+  readOnly: boolean
+  /** The session may approve or reject (the Owner only). */
+  canApprove?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <PartnerContext.Provider value={readOnly}>
+      <ApproveContext.Provider value={canApprove}>{children}</ApproveContext.Provider>
+    </PartnerContext.Provider>
+  )
+}
+
+/** True only for the Owner: approve / reject / re-upload / unlock / CNIC number
+ *  / rotate / crop controls render only then. */
+export function useCanApprove(): boolean {
+  return useContext(ApproveContext)
+}
+
+/** Renders its children only for the Owner; everyone else sees `fallback`. */
+export function ApproveOnly({ children, fallback = null }: { children: React.ReactNode; fallback?: React.ReactNode }) {
+  return useCanApprove() ? <>{children}</> : <>{fallback}</>
+}
+
+/** The line shown where approval buttons would be, for every role but the Owner. */
+export const OWNER_ONLY_LINE = 'View only — approvals are made by the Owner.'
+
+export function OwnerOnlyNote({ className = '' }: { className?: string }) {
+  return <p className={`text-[11px] font-bold text-gray-600 ${className}`}>{OWNER_ONLY_LINE}</p>
 }
 
 /** True when this admin session cannot change anything on the current page. */

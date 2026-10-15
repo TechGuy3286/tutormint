@@ -14,7 +14,7 @@ import { useInfinite } from '@/lib/useInfinite'
 import { submitJson, submitSignal } from '@/lib/submit'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
-import { useAdminReadOnly } from '@/components/admin/ReadOnly'
+import { OwnerOnlyNote, useAdminReadOnly, useCanApprove } from '@/components/admin/ReadOnly'
 import WhatsappChatButton from '@/components/admin/WhatsappChatButton'
 import type { QueueTutorRow } from '@/lib/adminQueues'
 import { BLOCKER_LABEL, type ListingBlocker } from '@/lib/tutorListingStatus'
@@ -63,6 +63,8 @@ export default function TutorModerationClient({
   // A view-only (Partner) session sees the queue and every tutor's details, and
   // none of the controls that change them.
   const readOnly = useAdminReadOnly()
+  // Approve / Hold (re-record) a video is the Owner's alone (owner, 15 Oct 2026).
+  const ownerApproves = useCanApprove()
   const canSetVisibility = canSetVisibilityProp && !readOnly
   const canRevealCnic = canRevealCnicProp && !readOnly
   const canClearMobile = canClearMobileProp && !readOnly
@@ -611,7 +613,9 @@ export default function TutorModerationClient({
               </p>
             )}
 
-            {!readOnly && <div className="grid grid-cols-3 gap-2">
+            {!readOnly && !ownerApproves && <OwnerOnlyNote />}
+            {!readOnly && <div className={`grid gap-2 ${ownerApproves ? 'grid-cols-3' : 'grid-cols-1'}`}>
+              {ownerApproves && <>
               <button onClick={() => act('approve')} disabled={busy} className="inline-flex items-center justify-center gap-1.5 min-h-[44px] py-3 bg-tm-green-deep hover:bg-tm-green-deep-hover text-white text-xs font-bold rounded-xl disabled:opacity-50">
                 <Check aria-hidden size={13} />
                 Approve
@@ -620,6 +624,7 @@ export default function TutorModerationClient({
                 <Pause aria-hidden size={13} />
                 Hold
               </button>
+              </>}
               {open.verificationStatus === 'suspended' ? (
                 <button onClick={() => act('unsuspend')} disabled={busy} className="inline-flex items-center justify-center gap-1.5 min-h-[44px] py-3 bg-tm-black text-white text-xs font-bold rounded-xl disabled:opacity-50">
                   <RotateCcw aria-hidden size={13} />

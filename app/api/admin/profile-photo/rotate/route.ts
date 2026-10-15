@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { refuseUnlessOwnerApproval } from '@/lib/ownerGuard'
 import { saveAvatarRotation } from '@/lib/avatarRotation'
 import { parseBody, z, uuid } from '@/lib/validate'
 
@@ -24,6 +25,10 @@ export async function POST(request: Request) {
 
   const parsed = await parseBody(request, Body)
   if (!parsed.ok) return parsed.response
+
+  // Owner-only approvals (owner, 15 Oct 2026): every other role views only.
+  const notOwner = await refuseUnlessOwnerApproval(gate.actor, 'rotate a profile photo', parsed.data.memberId)
+  if (notOwner) return notOwner
 
   const result = await saveAvatarRotation({ actor: gate.actor, memberId: parsed.data.memberId, delta: parsed.data.delta })
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
