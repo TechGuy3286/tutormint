@@ -14,6 +14,7 @@ import { formatName } from '@/lib/formatName'
 import { formatPkMobile } from '@/lib/phone'
 import OrderPageNav from '../manual/[ref]/OrderPageNav'
 import PayChoice from './PayChoice'
+import { afterFeeReturnPath, safeReturnTo } from '@/lib/returnTo'
 
 // The payment choice screen (owner, 11 Oct 2026).
 //
@@ -60,10 +61,13 @@ const UNLOCKS: Record<string, { en: string; ur: string }> = {
   },
 }
 
-export default async function PayChoosePage({ searchParams }: { searchParams: Promise<{ plan?: string }> }) {
-  const { plan: planParam } = await searchParams
+export default async function PayChoosePage({ searchParams }: { searchParams: Promise<{ plan?: string; next?: string }> }) {
+  const { plan: planParam, next } = await searchParams
   const planCode = (planParam ?? '').trim()
-  const here = `/pay/choose?plan=${encodeURIComponent(planCode)}`
+  // The page to go back to after paying (the tuition the tutor tapped Apply on,
+  // owner 15 Oct 2026). Same-site paths only.
+  const returnTo = safeReturnTo(next)
+  const here = `/pay/choose?plan=${encodeURIComponent(planCode)}${returnTo ? `&next=${encodeURIComponent(returnTo)}` : ''}`
 
   const session = await getSessionUser()
   if (!session) redirect(`/login?next=${encodeURIComponent(here)}`)
@@ -89,7 +93,7 @@ export default async function PayChoosePage({ searchParams }: { searchParams: Pr
     const { data: tp } = await supabase.from('tutor_profiles').select('verified_fee_paid_at').eq('id', userId).maybeSingle()
     const feePaid = !!tp?.verified_fee_paid_at
     // The fee is paid once; a plan needs the fee first (the checkout's own rules).
-    if (isFee && feePaid) redirect(dashboard)
+    if (isFee && feePaid) redirect((returnTo && afterFeeReturnPath(returnTo, 'paid')) || dashboard)
     if (!isFee && !feePaid) redirect(`/tutor/complete-profile?step=verify&next=${encodeURIComponent(here)}`)
   }
 
@@ -135,6 +139,7 @@ export default async function PayChoosePage({ searchParams }: { searchParams: Pr
         <PayChoice
           planCode={plan.code as string}
           isFee={isFee}
+          returnTo={isFee ? returnTo : null}
           amount={rupees(price.price_pkr)}
           online={online}
           bank={bank}

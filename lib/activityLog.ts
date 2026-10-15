@@ -20,6 +20,8 @@ export type ActivityEvent =
   | 'login'
   | 'otp_verified'
   | 'profile_updated'
+  // Every required onboarding step answered (owner, 15 Oct 2026; lib/onboardingDone).
+  | 'onboarding_done'
   | 'completion_changed'
   | 'subjects_changed'
   | 'document_uploaded'

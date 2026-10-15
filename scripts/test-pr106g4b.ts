@@ -40,8 +40,9 @@ test('the final screen is "Complete Your Verification": English-only, full progr
   // HOTFIX-G4b: button label carries no amount; the failure line is the shared
   // reason-based message (see the dedicated HOTFIX test).
   assert.match(g, /Get verified now/, 'the one red button label, no amount')
-  assert.match(g, /<Link href=\{PAY_CHOICE_HREF\}/, 'opens the payment choice screen')
-  assert.match(FLOW, /const PAY_CHOICE_HREF = '\/pay\/choose\?plan=verified'/, 'for the fee')
+  // The fee's choice screen, carrying the tuition to come back to (15 Oct 2026).
+  assert.match(g, /<Link href=\{payChoiceHref\('verified', returnTo\)\}/, 'opens the payment choice screen')
+  assert.match(FLOW, /import \{ payChoiceHref \} from '@\/lib\/returnTo'/, 'for the fee')
   assert.match(g, /stepIndex=\{stepTotal\}/, 'progress bar is full (stepIndex === stepTotal)')
   assert.match(g, /What do I get\?/, '"What do I get?" link')
   assert.match(g, /VerifyBenefitsDialog/, 'opens the shared benefits pop-up')
@@ -57,8 +58,9 @@ test('the final screen is "Complete Your Verification": English-only, full progr
 test('the PayPro hook reuses a pending invoice via /api/payments/checkout, and fails friendly', () => {
   const h = read('components/tutor/useVerifyCheckout.ts')
   assert.match(h, /\/api\/payments\/checkout/, 'hits the checkout route')
-  assert.match(h, /useVerifyCheckout\(planCode: string = 'verified'\)/, 'the fee by default')
-  assert.match(h, /body: JSON\.stringify\(\{ planCode \}\)/, 'posts the package with no payment method → the online (PayPro) path')
+  assert.match(h, /useVerifyCheckout\(planCode: string = 'verified', returnTo: string \| null = null\)/, 'the fee by default')
+  // + the page to come back to (15 Oct 2026); still no payment method → PayPro.
+  assert.match(h, /body: JSON\.stringify\(returnTo \? \{ planCode, returnTo \} : \{ planCode \}\)/, 'posts the package with no payment method → the online (PayPro) path')
   assert.match(h, /data\?\.mode === 'redirect'/, 'a redirect navigates; any non-redirect sets a reason (see the HOTFIX test), never a raw error')
   // the checkout route still routes the no-method verified path through startPayproCheckout,
   // which reuses a < 24h pending invoice.

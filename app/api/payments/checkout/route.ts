@@ -7,6 +7,8 @@ import { pproVisibleFor, startPayproCheckout, toPayproMobile } from '@/lib/payme
 import { isSyntheticEmail } from '@/lib/phone'
 import { logActivity } from '@/lib/activityLog'
 import { parseBody, z, text } from '@/lib/validate'
+import { paymentReturnTo } from '@/lib/returnTo'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
 import { bankTransferOn, getGatewaySettings, onlineCheckoutOn, recordGatewayEvent } from '@/lib/payments/gatewaySettings'
 import { RELOAD_AND_RETRY } from '@/lib/tutorSubjectCap'
@@ -40,6 +42,8 @@ const CheckoutBody = z.object({
   planCode: text({ min: 1, max: 64, label: 'Plan' }),
   // 'card' (default) → PayPro; 'transfer' → the bank/wallet transfer order page.
   method: z.enum(['card', 'transfer'], { message: RELOAD_AND_RETRY }).optional(),
+  // The page to come back to after paying the fee (owner, 15 Oct 2026).
+  returnTo: z.string({ message: RELOAD_AND_RETRY }).max(512, { message: RELOAD_AND_RETRY }).optional(),
 }, { message: RELOAD_AND_RETRY })
 
 export async function POST(request: Request) {
@@ -242,6 +246,16 @@ export async function POST(request: Request) {
       )
       const code = started.reason === 'unavailable' ? 'paypro_unavailable' : 'payment_failed'
       return NextResponse.json({ error: 'We could not start your payment.', code }, { status: started.status })
+    }
+    // Remember the tuition to come back to (payments.return_to, migration 174).
+    // Best-effort: a failure only means the tutor lands on the dashboard.
+    const returnTo = paymentReturnTo(plan.code as string, body.returnTo)
+    if (returnTo) {
+      const admin = createAdminClient()
+      const { error: rtError } = admin
+        ? await admin.from('payments').update({ return_to: returnTo }).eq('id', started.paymentId).eq('user_id', user.id)
+        : { error: null }
+      if (rtError) console.error('[paypro] return_to not saved:', rtError.message)
     }
     await logActivity({
       userId: user.id,

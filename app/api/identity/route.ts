@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
+import { markOnboardedIfComplete } from '@/lib/onboardingDone'
 import { serverError } from '@/lib/errorResponse'
 
 import { logActivity } from '@/lib/activityLog'
@@ -127,6 +128,7 @@ export async function POST(request: Request) {
       { field: 'cnic_number', oldValue: maskCnicHistory(before?.cnic_number as string | null), newValue: maskCnicHistory(formatCnic(cnicNumber)) },
     ])
     await recomputeCompletion(user.id)
+    after(() => markOnboardedIfComplete(user.id, 'cnic_number'))
     return NextResponse.json({ success: true, cnicNumber: formatCnic(cnicNumber) })
   }
 
@@ -228,5 +230,6 @@ export async function POST(request: Request) {
     targetId: user.id,
   })
 
+  after(() => markOnboardedIfComplete(user.id, 'cnic_submit'))
   return NextResponse.json({ success: true, state: 'submitted' })
 }

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/errorResponse'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { paymentReturnTo } from '@/lib/returnTo'
 import { newPaymentReference } from '@/lib/payments'
 import { notify } from '@/lib/notifications'
 import { logActivity } from '@/lib/activityLog'
@@ -55,6 +56,8 @@ export async function POST(request: Request) {
 
   const planCode = String(form.get('planCode') ?? '').trim()
   const transactionId = String(form.get('transactionId') ?? '').trim().slice(0, 80)
+  // The tuition to come back to (owner, 15 Oct 2026) — same-site only.
+  const returnTo = paymentReturnTo(planCode, form.get('returnTo'))
   const file = form.get('receipt')
 
   const problem = receiptFileProblem(file instanceof File ? { type: file.type, size: file.size } : null)
@@ -169,6 +172,7 @@ export async function POST(request: Request) {
       method: 'bank',
       reference: transactionId || null,
       screenshot_path: path,
+      ...(returnTo ? { return_to: returnTo } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('id', paymentId)

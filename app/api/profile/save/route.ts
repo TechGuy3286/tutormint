@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
+import { markOnboardedIfComplete } from '@/lib/onboardingDone'
 import { createClient } from '@/lib/supabase/server'
 import { flagIfAbusive } from '@/lib/abuse/flag'
 import { detectAbuse } from '@/lib/abuse/filter'
@@ -379,6 +380,9 @@ export async function POST(request: Request) {
   // no-op once the tutor is listed: at that point somebody may hold the link,
   // and an address stops following the data.
   if (role === 'tutor') await ensureTutorSlug(user.id)
+  // "Onboarding done" the moment the last required step is saved (owner,
+  // 15 Oct 2026) — checked after the response, never with a step missing.
+  if (role === 'tutor') after(() => markOnboardedIfComplete(user.id, 'profile_save'))
 
   const completion = await recomputeCompletion(user.id)
 

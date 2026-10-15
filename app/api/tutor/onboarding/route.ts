@@ -6,6 +6,7 @@ import { recomputeCompletion } from '@/lib/completion'
 import { ensureTutorSlug } from '@/lib/tutorSlug'
 import { logActivity } from '@/lib/activityLog'
 import { labelsForMasterIdsServer } from '@/lib/taxonomyServer'
+import { markOnboardedIfComplete } from '@/lib/onboardingDone'
 
 // The tutor onboarding submit. Writes everything the tap-only flow collected —
 // city, area, gender, experience band, fee band, subjects, and the composed
@@ -34,8 +35,11 @@ type Body = {
   headline?: string | null
   bio?: string | null
   avatarUrl?: string | null
-  /** The tutor chose "I'll do this later" — record it and land on the dashboard. */
+  /** The tutor chose "I'll do this later" / left from the last screen. */
   dismiss?: boolean
+  /** The flow reached its fee step or last screen: stamp "onboarding done" if
+   *  every required step is answered (owner, 15 Oct 2026). */
+  complete?: boolean
 }
 
 export async function POST(request: Request) {
@@ -52,12 +56,13 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => ({}))) as Body
 
-  // Dismiss: the tutor chose "I'll do this later". Record that they went through
-  // the flow so the sign-in gate never sends them back, and land on the
-  // dashboard. Nothing else is written.
-  if (body.dismiss) {
-    await supabase.from('tutor_profiles').update({ onboarded_at: new Date().toISOString() }).eq('id', user.id)
-    return NextResponse.json({ ok: true, next: '/tutor/dashboard' })
+  // Complete / dismiss (owner, 15 Oct 2026): "onboarding done" is stamped ONLY
+  // when every required step is answered (lib/onboardingDone) — leaving early
+  // no longer marks a tutor done. The sign-in gate does not loop without it: it
+  // sends a tutor back only when city or subjects are missing (needsOnboarding).
+  if (body.complete || body.dismiss) {
+    const r = await markOnboardedIfComplete(user.id, body.complete ? 'flow' : 'leave')
+    return NextResponse.json({ ok: true, done: r.done, next: '/tutor/dashboard' })
   }
 
   const subjectSlugs = (body.subjectSlugs ?? []).filter((s) => typeof s === 'string').slice(0, 50)
@@ -139,11 +144,10 @@ export async function POST(request: Request) {
     }
   }
 
-  // Mark onboarding done so the sign-in gate never sends them back (no loop).
-  await supabase.from('tutor_profiles').update({ onboarded_at: new Date().toISOString() }).eq('id', user.id)
-
   await ensureTutorSlug(user.id)
   await recomputeCompletion(user.id)
+  // "Onboarding done" only when every required step is answered.
+  await markOnboardedIfComplete(user.id, 'onboarding_submit')
 
   await logActivity({
     userId: user.id,

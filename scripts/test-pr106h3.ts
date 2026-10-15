@@ -44,7 +44,8 @@ test('checkout refuses a second verification-fee purchase (server-side)', () => 
 test('a paid fee returns to the dashboard with a green message; a failed one to Complete Your Verification', () => {
   const ret = read('app/(site)/pay/return/page.tsx')
   assert.match(ret, /plan_code === 'verified'/, 'only the fee is redirected')
-  assert.match(ret, /redirect\('\/tutor\/dashboard\?paid=1'\)/, 'paid → dashboard?paid=1')
+  // paid → the dashboard, or the tuition it started from (15 Oct 2026).
+  assert.match(ret, /\?\? '\/tutor\/dashboard\?paid=1'\)/, 'paid → dashboard?paid=1')
   assert.match(ret, /redirect\('\/tutor\/complete-profile\?pay=failed'\)/, 'failed → the verification screen')
   const toast = read('components/VerifiedToast.tsx')
   assert.match(toast, /paid[^]*Payment received\. Thank you!/, 'the green message')

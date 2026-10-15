@@ -73,6 +73,7 @@
     "test:formchecklist": "tsx --test scripts/test-formchecklist.ts",
     "test:taxonomy:live": "tsx --test scripts/test-taxonomy-live.ts",
     "test:onboarding": "tsx --test scripts/test-onboarding.ts",
+    "test:onboardingdone": "tsx --test scripts/test-onboarding-done.ts",
     "test:activity": "tsx --test scripts/test-activity.ts",
     "test:timeline": "tsx --test scripts/test-timeline.ts",
     "test:paypro": "tsx --test scripts/test-paypro.ts",

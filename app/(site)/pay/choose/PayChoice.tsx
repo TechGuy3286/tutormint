@@ -5,6 +5,8 @@ import { Check, Copy, Loader2, Upload } from 'lucide-react'
 
 import { useVerifyCheckout, CHECKOUT_FAIL_MESSAGES } from '@/components/tutor/useVerifyCheckout'
 import { useToast } from '@/components/ui/Toast'
+import Link from 'next/link'
+import { afterFeeReturnPath } from '@/lib/returnTo'
 import { submitSignal, UPLOAD_TIMEOUT_MS } from '@/lib/submit'
 import {
   RECEIPT_ACCEPT,
@@ -89,6 +91,7 @@ export default function PayChoice({
   online,
   bank,
   receipt,
+  returnTo = null,
   waHref,
   logos,
 }: {
@@ -100,11 +103,16 @@ export default function PayChoice({
   /** null = "Other method" is not offered (switch off or details empty). */
   bank: BankDetails | null
   receipt: ReceiptState
+  /** The tuition to go back to after paying the fee (owner, 15 Oct 2026). */
+  returnTo?: string | null
   waHref: string
   logos: { jazzcash: string | null; bank: string | null }
 }) {
   const toast = useToast()
-  const { start, busy, reason } = useVerifyCheckout(planCode)
+  const { start, busy, reason } = useVerifyCheckout(planCode, returnTo)
+  // After a bank-transfer receipt: back to the tuition, with the note that
+  // applying unlocks once the receipt is approved.
+  const backToTuition = afterFeeReturnPath(returnTo, 'receipt')
   const [method, setMethod] = useState<Method>(online ? 'jazzcash' : 'bank')
   const [state, setState] = useState<ReceiptState>(receipt)
   const [file, setFile] = useState<File | null>(null)
@@ -136,6 +144,12 @@ export default function PayChoice({
             <TwoLine text={isFee ? RECEIPT_MESSAGES.received : RECEIPT_MESSAGES.receivedPlan} />
           </p>
         </section>
+        {backToTuition && (
+          <Link href={backToTuition}
+            className="flex min-h-[44px] items-center justify-center rounded-xl bg-tm-navy px-4 text-xs font-bold text-white hover:bg-tm-navy-hover">
+            Back to the tuition
+          </Link>
+        )}
         {support}
       </div>
     )
@@ -171,6 +185,7 @@ export default function PayChoice({
       form.set('planCode', planCode)
       form.set('receipt', file)
       form.set('transactionId', txn.trim())
+      if (returnTo) form.set('returnTo', returnTo)
       const res = await fetch('/api/payments/receipt', { method: 'POST', body: form, signal: submitSignal(UPLOAD_TIMEOUT_MS) })
       const data = (await res.json().catch(() => null)) as { success?: boolean; error?: string; code?: string; message?: string } | null
       if (res.ok && data?.success) {

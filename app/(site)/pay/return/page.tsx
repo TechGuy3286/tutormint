@@ -9,6 +9,7 @@ import BadgeRow from '@/components/badges/BadgeRow'
 import { formatDate } from '@/lib/datetime'
 import { confirmPayproOrder } from '@/lib/payments/payproReconcile'
 import { payReturnView } from '@/lib/payments/returnView'
+import { afterFeeReturnPath } from '@/lib/returnTo'
 
 // Where the gateway sends the member back to — and where they land when they
 // come back after a PayPro payment (PR65 §4).
@@ -79,7 +80,7 @@ export default async function PayReturnPage({
   const { data: payment } = ref
     ? await supabase
         .from('payments')
-        .select('id, plan_code, amount_pkr, status, provider, provider_ref, rejection_reason, raw')
+        .select('id, plan_code, amount_pkr, status, provider, provider_ref, rejection_reason, raw, return_to')
         .eq('provider_ref', ref)
         .eq('user_id', userId)
         .maybeSingle()
@@ -122,7 +123,9 @@ export default async function PayReturnPage({
   //     one plain line, so they can try again.
   // Plan purchases and the parent flows keep the detailed card below.
   if (ent.audience === 'tutor' && payment?.plan_code === 'verified') {
-    if (view === 'approved') redirect('/tutor/dashboard?paid=1')
+    // Started from a tuition's Apply (owner, 15 Oct 2026): back to that tuition,
+    // Apply made ready with "You're ready — tap Apply".
+    if (view === 'approved') redirect(afterFeeReturnPath(payment.return_to as string | null, 'paid') ?? '/tutor/dashboard?paid=1')
     if (view === 'notpaid') redirect('/tutor/complete-profile?pay=failed')
   }
 

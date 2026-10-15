@@ -73,3 +73,40 @@ export function newTutorDestination(next: string | null | undefined): string {
   if (safe.startsWith('/tutor/') || safe === '/tutor') return safe
   return `/tutor/onboarding?next=${encodeURIComponent(safe)}`
 }
+
+/** The query flag a tuition page reads after the Verification Fee was paid
+ *  (owner, 15 Oct 2026): "You're ready — tap Apply". */
+export const PAID_PARAM = 'paid'
+/** …and after a bank-transfer receipt was sent: applying unlocks on approval. */
+export const RECEIPT_PARAM = 'receipt'
+
+/** /pay/choose for a package, carrying the page to come back to (same-site only). */
+export function payChoiceHref(planCode: string, returnTo: string | null | undefined): string {
+  const params = new URLSearchParams({ plan: planCode })
+  const safe = safeReturnTo(returnTo)
+  if (safe) params.set('next', safe)
+  return `/pay/choose?${params.toString()}`
+}
+
+/** Where a tutor lands after paying the fee when they started from a tuition:
+ *  the tuition, Apply made ready, with the "paid" line. Null = no return-to. */
+export function afterFeeReturnPath(returnTo: string | null | undefined, outcome: 'paid' | 'receipt'): string | null {
+  const safe = safeReturnTo(returnTo)
+  if (!safe) return null
+  // A tutor-area page is never a "back to the tuition" target.
+  if (safe.startsWith('/tutor/') || safe.startsWith('/pay/') || safe.startsWith('/admin')) return null
+  const ready = applyReturnPath(safe)
+  const [path, query = ''] = ready.split('?')
+  const params = new URLSearchParams(query)
+  params.set(outcome === 'paid' ? PAID_PARAM : RECEIPT_PARAM, '1')
+  return `${path}?${params.toString()}`
+}
+
+/** What a payment row may remember as its return-to (payments.return_to,
+ *  migration 174): only for the Verification Fee, and only a page that
+ *  afterFeeReturnPath would send a tutor back to. Anything else → null. */
+export function paymentReturnTo(planCode: string, raw: unknown): string | null {
+  if (planCode !== 'verified' || typeof raw !== 'string') return null
+  const safe = safeReturnTo(raw)
+  return safe && afterFeeReturnPath(safe, 'paid') ? safe : null
+}

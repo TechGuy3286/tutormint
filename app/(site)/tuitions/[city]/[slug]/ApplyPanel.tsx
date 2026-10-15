@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Search } from 'lucide-react'
 
 import AuthGateModal, { clearDraft } from '@/components/AuthGateModal'
-import { APPLY_READY_PARAM } from '@/lib/returnTo'
+import { APPLY_READY_PARAM, PAID_PARAM, RECEIPT_PARAM } from '@/lib/returnTo'
 import { postGated } from '@/lib/gatedFetch'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import ApplyReasonLine from '@/components/ApplyReasonLine'
@@ -31,6 +31,7 @@ export default function ApplyPanel({
   genderBlockedNotice = null,
   city = null,
   applyBlock = null,
+  feeReceiptPending = false,
 }: {
   jobId: string
   title: string
@@ -49,6 +50,9 @@ export default function ApplyPanel({
   city?: string | null
   /** Why Apply is inactive for this viewer (owner, 5 Oct 2026). */
   applyBlock?: ApplyBlock | null
+  /** A signed-in tutor's Verification Fee bank-transfer receipt is with staff
+   *  (owner, 15 Oct 2026): applying unlocks once it is approved. */
+  feeReceiptPending?: boolean
 }) {
   const upgradeSheet = useUpgradeSheet()
   const [gateOpen, setGateOpen] = useState(false)
@@ -61,19 +65,25 @@ export default function ApplyPanel({
   // button is brought into view and focused, with one line saying it is ready.
   // Nothing is sent until the tutor taps it — applying uses a monthly allowance.
   const [ready, setReady] = useState(false)
+  // Back from paying the Verification Fee (owner, 15 Oct 2026): ?paid=1 after a
+  // PayPro payment, ?receipt=1 after a bank-transfer receipt was sent.
+  const [arrived, setArrived] = useState<'paid' | 'receipt' | null>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     if (!signedIn) return
     const params = new URLSearchParams(window.location.search)
     if (params.get(APPLY_READY_PARAM) !== '1') return
     clearDraft('apply')
-    // Drop the flag so a reload or a shared link does not repeat this.
+    const came = params.get(PAID_PARAM) === '1' ? 'paid' : params.get(RECEIPT_PARAM) === '1' ? 'receipt' : null
+    // Drop the flags so a reload or a shared link does not repeat this.
     params.delete(APPLY_READY_PARAM)
+    params.delete(RECEIPT_PARAM)
     const qs = params.toString()
     window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash)
     // After the first paint: show the line, bring the button into view, focus it.
     const frame = requestAnimationFrame(() => {
       setReady(true)
+      setArrived(came)
       const btn = buttonRef.current
       if (btn) {
         btn.scrollIntoView({ block: 'center' })
@@ -138,16 +148,23 @@ export default function ApplyPanel({
   return (
     <>
       <div className="space-y-2">
-        {ready && state === 'idle' && !block && (
+        {feeReceiptPending && state === 'idle' && !block ? (
+          <p role="status" className="rounded-xl bg-tm-tint-gold p-3 text-xs font-bold text-tm-gold-ink">
+            {arrived === 'receipt' ? 'We have your bank transfer receipt. ' : 'Your bank transfer receipt is with our team. '}
+            You can apply as soon as we approve it. We will let you know.
+          </p>
+        ) : ready && state === 'idle' && !block && (
           <p className="rounded-xl bg-tm-tint-green p-3 text-xs font-bold text-tm-green-deep">
-            You are back on the tuition. Tap Apply to send your application.
+            {arrived === 'paid'
+              ? 'You’re ready — tap Apply.'
+              : 'You are back on the tuition. Tap Apply to send your application.'}
           </p>
         )}
         <button
           ref={buttonRef}
           type="button"
-          onClick={block ? undefined : apply}
-          disabled={state !== 'idle' || !!block}
+          onClick={block || feeReceiptPending ? undefined : apply}
+          disabled={state !== 'idle' || !!block || feeReceiptPending}
           className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-tm-red px-5 text-sm font-bold text-white transition-colors hover:bg-tm-red-hover disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-slate-800 sm:w-auto sm:px-8"
         >
           {state === 'done' ? 'Applied' : state === 'sending' ? 'Sending…' : 'Apply for this tuition'}

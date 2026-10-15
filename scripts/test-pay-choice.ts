@@ -58,11 +58,11 @@ test('the choice screen shows the amount from the plans row, never a typed figur
 
 // ------------------------------------------------ PayPro path unchanged ------
 test('JazzCash (PayPro) is the same checkout as before and still activates on its own', () => {
-  assert.match(CHOICE, /useVerifyCheckout\(planCode\)/, 'the choice screen starts the same checkout hook')
+  assert.match(CHOICE, /useVerifyCheckout\(planCode, returnTo\)/, 'the choice screen starts the same checkout hook')
   assert.match(CHOICE, /Continue to JazzCash/, 'the button label')
   const hook = read('components/tutor/useVerifyCheckout.ts')
   assert.match(hook, /fetch\('\/api\/payments\/checkout'/, 'same endpoint')
-  assert.match(hook, /body: JSON\.stringify\(\{ planCode \}\)/, 'no payment method → the online (PayPro) path')
+  assert.match(hook, /body: JSON\.stringify\(returnTo \? \{ planCode, returnTo \} : \{ planCode \}\)/, 'no payment method → the online (PayPro) path')
   // The route itself: same order creation, amount from the plan.
   assert.match(CHECKOUT, /startPayproCheckout\(\{/, 'creates the PayPro order')
   assert.match(CHECKOUT, /amountPkr: plan\.price_pkr as number/, 'amount from the plan, never the request')
@@ -76,8 +76,9 @@ test('JazzCash (PayPro) is the same checkout as before and still activates on it
 })
 
 test('every paid checkout opens the choice screen first', () => {
-  assert.match(read('components/upgrade/TutorVerifyGate.tsx'), /const PAY_CHOICE_HREF = '\/pay\/choose\?plan=verified'/)
-  assert.match(read('components/tutor/NewOnboardingFlow.tsx'), /<Link href=\{PAY_CHOICE_HREF\}/)
+  // The fee's choice screen, carrying the tuition to come back to (owner, 15 Oct 2026).
+  assert.match(read('components/upgrade/TutorVerifyGate.tsx'), /router\.push\(payChoiceHref\('verified', /)
+  assert.match(read('components/tutor/NewOnboardingFlow.tsx'), /<Link href=\{payChoiceHref\('verified', returnTo\)\}/)
   assert.match(read('components/tutor/GetVerifiedValueCard.tsx'), /href="\/pay\/choose\?plan=verified"/)
   const buy = read('components/membership-plans/BuyButton.tsx')
   assert.match(buy, /router\.push\(`\/pay\/choose\?plan=\$\{encodeURIComponent\(planCode\)\}`\)/, 'Premium / Featured too')

@@ -9,6 +9,7 @@ import { ChecklistStatus } from '@/components/forms/FormChecklist'
 import Link from 'next/link'
 import type { ManualInstructions } from '@/lib/payments/provider'
 import type { IdentityState } from '@/lib/identity'
+import { afterFeeReturnPath, payChoiceHref } from '@/lib/returnTo'
 import { DEFAULT_CHECKOUT_METHODS, type CheckoutMethods } from '@/lib/payments/gatewaySettingsCore'
 
 // The verification gate an UNVERIFIED tutor meets when they tap Apply (owner,
@@ -31,8 +32,6 @@ import { DEFAULT_CHECKOUT_METHODS, type CheckoutMethods } from '@/lib/payments/g
 // The images save to the tutor's profile automatically (kind 'cnic' — the private
 // identity-docs bucket; never re-uploaded elsewhere, never shown publicly).
 
-
-const PAY_CHOICE_HREF = '/pay/choose?plan=verified'
 
 export default function TutorVerifyGate({
   onClose,
@@ -94,7 +93,10 @@ export default function TutorVerifyGate({
   // JazzCash (PayPro) or bank transfer, and refuses a paid or unavailable one.
   function start() {
     setStarting(true)
-    router.push(PAY_CHOICE_HREF)
+    // Opened from a tuition's Apply: carry that page, so the tutor comes back to
+    // it after paying (owner, 15 Oct 2026). Only a public page is carried.
+    const here = window.location.pathname + window.location.search
+    router.push(payChoiceHref('verified', afterFeeReturnPath(here, 'paid') ? here : null))
   }
 
   if (loadError) {

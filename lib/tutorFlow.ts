@@ -235,14 +235,27 @@ export function stepDone(f: FlowFacts, key: FlowStepKey): boolean {
   }
 }
 
+/**
+ * Is this step done IN THIS FLOW? The new flow asks gender first and the
+ * tagline + bio as their own late step, so its Contact screen is ONLY the
+ * verified mobile + WhatsApp (owner, 15 Oct 2026). Judged by the old flow's
+ * rule (which also needs tagline + bio), a tutor who had finished Contact and
+ * was on the CNIC or tagline step was sent BACK to Contact on every return, and
+ * Admin read them as "Stopped at: Contact".
+ */
+export function stepDoneIn(f: FlowFacts, key: FlowStepKey, order: FlowStepKey[]): boolean {
+  if (key === 'contact' && order.includes('tagline')) return f.phoneVerified && nonblank(f.whatsapp)
+  return stepDone(f, key)
+}
+
 /** The missing steps, in flow order. */
 export function missingSteps(f: FlowFacts, order: FlowStepKey[] = FLOW_ORDER): FlowStepKey[] {
-  return order.filter((k) => !stepDone(f, k))
+  return order.filter((k) => !stepDoneIn(f, k, order))
 }
 
 /** The first missing step, or null when nothing is missing. */
 export function firstMissingStep(f: FlowFacts, order: FlowStepKey[] = FLOW_ORDER): FlowStepKey | null {
-  return order.find((k) => !stepDone(f, k)) ?? null
+  return order.find((k) => !stepDoneIn(f, k, order)) ?? null
 }
 
 /** The next missing step strictly AFTER `from` in flow order (for "Next"/"Skip"),
@@ -250,7 +263,7 @@ export function firstMissingStep(f: FlowFacts, order: FlowStepKey[] = FLOW_ORDER
 export function nextMissingAfter(f: FlowFacts, from: FlowStepKey, order: FlowStepKey[] = FLOW_ORDER): FlowStepKey | null {
   const i = order.indexOf(from)
   for (let j = i + 1; j < order.length; j++) {
-    if (!stepDone(f, order[j])) return order[j]
+    if (!stepDoneIn(f, order[j], order)) return order[j]
   }
   return null
 }
@@ -283,4 +296,15 @@ export function toListingFacts(f: FlowFacts): ListingFacts {
  *  (directoryBlockers empty — item 8, one source). Step-1 gaps are nudges. */
 export function isListed(f: FlowFacts): boolean {
   return directoryBlockers(toListingFacts(f)).length === 0
+}
+
+/** The steps that make onboarding DONE (owner, 15 Oct 2026): every step of the
+ *  live flow except the Verification Fee. Paying is its own funnel step, after
+ *  "Onboarding done", and is never required to finish onboarding. */
+export const ONBOARDING_DONE_STEPS: FlowStepKey[] = NEW_FLOW_ORDER.filter((k) => k !== 'verify')
+
+/** Has this tutor answered every required onboarding step? The ONE rule behind
+ *  tutor_profiles.onboarded_at — nothing stamps the flag unless this is true. */
+export function onboardingStepsComplete(f: FlowFacts): boolean {
+  return f.phoneVerified && ONBOARDING_DONE_STEPS.every((k) => stepDoneIn(f, k, NEW_FLOW_ORDER))
 }

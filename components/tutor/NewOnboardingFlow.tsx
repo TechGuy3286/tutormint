@@ -38,6 +38,7 @@ import { NEW_FLOW_ORDER, firstMissingStep, nextMissingAfter, stepDone, type Flow
 import LogoLoader from '@/components/LogoLoader'
 import WhatsMissing from '@/components/tutor/WhatsMissing'
 import { missingSummary } from '@/lib/onboarding/missingItems'
+import { payChoiceHref } from '@/lib/returnTo'
 import { deriveCnicStatus } from '@/lib/cnicStatus'
 import { googleVisibilityLine, tutorIndexRequirements, tutorProfileIndexable } from '@/lib/seo/indexable'
 import type { FlowFacts } from '@/lib/tutorFlow'
@@ -231,6 +232,19 @@ export default function NewOnboardingFlow({
   // A step error belongs to its step: clear it whenever the step changes.
   useEffect(() => { setFlowError(null) }, [stepKey])
 
+  // "Onboarding done" (owner, 15 Oct 2026): reaching the fee step or the last
+  // screen asks the server to stamp it. The server checks every required step
+  // itself (lib/onboardingDone) and stamps nothing while one is missing. Before
+  // this, the new flow stamped only when a leave button was pressed — and a
+  // tutor who went from the fee step to payment never pressed one.
+  const completeSent = useRef(false)
+  useEffect(() => {
+    if ((stepKey === 'verify' || stepKey === 'final') && !completeSent.current) {
+      completeSent.current = true
+      void fetch('/api/tutor/onboarding', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ complete: true }) }).catch(() => { /* the server also stamps on save and on payment */ })
+    }
+  }, [stepKey])
+
   const refresh = useCallback(async () => {
     const f = await load()
     if (f) setFacts(f)
@@ -290,7 +304,7 @@ export default function NewOnboardingFlow({
 
   const leave = useCallback(async (to: string) => {
     setBusy(true)
-    try { await fetch('/api/tutor/onboarding', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dismiss: true }) }) } catch { /* leaving anyway */ }
+    try { await fetch('/api/tutor/onboarding', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ complete: true }) }) } catch { /* leaving anyway */ }
     router.push(to)
   }, [router])
 
@@ -1062,8 +1076,11 @@ function ContactStep({ facts, smsAvailable, shell, onDone, onRefresh, saveProfil
 
   if (screen === 'whatsapp') return shell({
     headingEn: 'Your WhatsApp number', headingUr: 'آپ کا واٹس ایپ نمبر',
-    onNext: () => { if (whatsapp.trim()) void saveProfile({ profile: { whatsapp: normalisePkMobile(whatsapp) ?? whatsapp.trim() } }).then(() => next()).catch(() => onError('We couldn’t save that. Please try again.')); else next() },
-    nextDisabled: !!whatsapp.trim() && !waValid,
+    // WhatsApp is a REQUIRED part of the contact step (lib/tutorFlow stepDone, PR86).
+    // An empty box used to continue, which left the tutor unable to ever finish
+    // onboarding (owner, 15 Oct 2026) — so Next waits for a valid number.
+    onNext: () => { if (!waValid) return; void saveProfile({ profile: { whatsapp: normalisePkMobile(whatsapp) ?? whatsapp.trim() } }).then(() => next()).catch(() => onError('We couldn’t save that. Please try again.')) },
+    nextDisabled: !waValid,
     children: (
       <div className="space-y-2">
         <MobileNumberInput value={whatsapp} onChange={setWhatsapp} ariaLabel="WhatsApp number"
@@ -1438,7 +1455,6 @@ function TaglineStep({ facts, shell, onSave, onError, onDraft }: { facts: Facts;
 // redirect happens from this screen. No CNIC card, no pay-later exit, no
 // TutorVerifyGate, no Urdu and no amount on this screen.
 // "What do I get?" opens the shared VerifyBenefitsDialog.
-const PAY_CHOICE_HREF = '/pay/choose?plan=verified'
 
 function GetVerifiedStep({ stepTotal, onBack, payFailed = false, returnTo = null }: {
   stepTotal: number; onBack: () => void; payFailed?: boolean
@@ -1462,7 +1478,7 @@ function GetVerifiedStep({ stepTotal, onBack, payFailed = false, returnTo = null
         <p className="rounded-xl bg-tm-tint-green/60 px-3 py-2 text-[12px] font-semibold leading-snug text-tm-green-deep">
           Verification Fee. We keep TutorMint clean of fake and spam accounts.
         </p>
-        <Link href={PAY_CHOICE_HREF}
+        <Link href={payChoiceHref('verified', returnTo)}
           className="inline-flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-xl bg-tm-red px-6 text-sm font-bold text-white hover:bg-tm-red-hover">
           <CreditCard size={16} aria-hidden /> Get verified now
         </Link>

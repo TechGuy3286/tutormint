@@ -53,6 +53,9 @@ ${WELCOME_BACK_UR}`
     url.searchParams.delete('verified')
     url.searchParams.delete('paid')
     url.searchParams.delete('welcome')
+    // Back on a tuition after paying (owner, 15 Oct 2026): the tuition's Apply
+    // panel has already read its own flags, so they go with this one.
+    if (paid) url.searchParams.delete('apply')
     router.replace(url.pathname + url.search, { scroll: false })
   }, [verified, paid, welcome, toast, router])
 

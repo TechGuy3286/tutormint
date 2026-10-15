@@ -17,6 +17,8 @@
 // not a member action, and `subscriptions` is deliberately not member-writable.
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { markOnboardedIfComplete } from '@/lib/onboardingDone'
+import { afterFeeReturnPath } from '@/lib/returnTo'
 import { isTutorListable } from '@/lib/payments/listable'
 import { logActivity } from '@/lib/activityLog'
 import { logAdminAction } from '@/lib/auditLog'
@@ -95,7 +97,7 @@ export async function activatePayment(params: {
 
   const { data: payment } = await admin
     .from('payments')
-    .select('id, user_id, plan_code, amount_pkr, status, provider, provider_ref')
+    .select('id, user_id, plan_code, amount_pkr, status, provider, provider_ref, return_to')
     .eq('id', params.paymentId)
     .maybeSingle()
 
@@ -181,6 +183,10 @@ export async function activatePayment(params: {
     const { activatePausedIfListed } = await import('@/lib/payments/goLive')
     await activatePausedIfListed(userId)
 
+    // A tutor who finished every onboarding step and then paid: "Onboarding
+    // done" is stamped here too (owner, 15 Oct 2026; never with a step missing).
+    await markOnboardedIfComplete(userId, 'fee_paid')
+
     await notify({
       userId,
       kind: 'verification_fee_paid',
@@ -188,7 +194,9 @@ export async function activatePayment(params: {
       body:
         'Your Verification Fee is paid and your profile is now shown to parents. Complete your ' +
         'profile to appear higher in search. There are no refunds.',
-      href: '/tutor/dashboard',
+      // Started from a tuition (a bank transfer approved hours later): the
+      // notification takes the tutor back to it, Apply ready (owner, 15 Oct 2026).
+      href: afterFeeReturnPath(payment.return_to as string | null, 'paid') ?? '/tutor/dashboard',
     })
 
     const { data: feeBuyer } = await admin

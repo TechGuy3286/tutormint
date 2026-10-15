@@ -1,4 +1,5 @@
 import { NextResponse, after } from 'next/server'
+import { markOnboardedIfComplete } from '@/lib/onboardingDone'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { storeDocument } from '@/lib/documents'
@@ -114,6 +115,8 @@ export async function POST(request: Request) {
   if ((kind === 'cnic' || kind === 'selfie') && !review) {
     await alertIfReupload(user.id, kind)
   }
+  // A selfie or CNIC side can be the last onboarding step (owner, 15 Oct 2026).
+  if (kind === 'selfie' || kind === 'cnic') after(() => markOnboardedIfComplete(user.id, 'document_upload'))
 
   await logActivity({
     userId: user.id, event: 'document_uploaded', targetType: 'user_document', targetId: result.doc.id,

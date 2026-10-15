@@ -45,6 +45,7 @@ import LandingView from '@/components/landing/LandingView'
 import ApplyPanel from './ApplyPanel'
 import { areaWithoutCity } from '@/lib/place'
 import { applyBlocksFor } from '@/lib/applyBlockServer'
+import { loadReceiptState } from '@/lib/payments/receipt'
 import type { ApplyBlock } from '@/lib/applyBlock'
 
 // THIS ROUTE SERVES TWO PAGES. Next forbids two dynamic param names at one
@@ -270,6 +271,8 @@ export default async function TuitionPage({ params }: { params: Params }) {
   let isPoster = false
   let isAdmin = false
   let applyBlock: ApplyBlock | null = null
+  // The tutor's Verification Fee receipt is with staff (owner, 15 Oct 2026).
+  let feeReceiptPending = false
   // PR92 Part A.3: the full tuition contact when the signed-in tutor ALREADY has
   // access (applied / viewed before) — shown on the contact line instead of the
   // masked teaser, with no spend.
@@ -291,6 +294,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
       revealedContact = peeked
       // Why Apply is inactive (owner, 5 Oct 2026) — the one shared rule.
       applyBlock = (await applyBlocksFor(supabase, user.id, ent, [{ id: job.id, status: job.status }]))[job.id] ?? null
+      if (!ent.verified) feeReceiptPending = (await loadReceiptState(user.id, 'verified')).state === 'under_review'
     }
   }
 
@@ -665,6 +669,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
               genderBlockedNotice={genderBlockedNotice}
               city={job.city}
               applyBlock={applyBlock}
+              feeReceiptPending={feeReceiptPending}
             />
           </div>
         )}

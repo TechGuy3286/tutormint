@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 import { onlinePaymentOpenFrom, payproCardVisibleFrom } from '../lib/payments/paymentOpen'
+import { payChoiceHref as payChoiceHrefForTest } from '../lib/returnTo'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const read = (p: string) => readFileSync(join(ROOT, p), 'utf8')
@@ -91,6 +92,8 @@ test('onlinePaymentOpen() is derived from the live-gateway facts, so it matches 
 // a receipt — so the button no longer starts PayPro itself.
 test('the verify/fee step opens the choice screen, where bank transfer is the second option', () => {
   const src = read('components/upgrade/TutorVerifyGate.tsx')
-  assert.ok(src.includes("const PAY_CHOICE_HREF = '/pay/choose?plan=verified'"), 'Verify opens the choice screen')
+  // The choice screen for the fee, carrying the tuition to come back to (15 Oct 2026).
+  assert.ok(src.includes("router.push(payChoiceHref('verified',"), 'Verify opens the choice screen')
+  assert.equal(payChoiceHrefForTest('verified', null), '/pay/choose?plan=verified', 'for the fee')
   assert.ok(read('app/(site)/pay/choose/PayChoice.tsx').includes('Other method: bank transfer'), 'bank transfer is offered as the second option')
 })

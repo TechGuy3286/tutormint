@@ -33,8 +33,9 @@ function fnBody(src: string, name: string): string {
 // a receipt — so the button no longer starts PayPro itself.
 test('the PayPro request (now sent from the choice screen) matches the working checkout contract', () => {
   assert.match(HOOK, /fetch\('\/api\/payments\/checkout'/, 'same endpoint as the verify flow')
-  assert.match(HOOK, /body: JSON\.stringify\(\{ planCode \}\)/, 'the package, no payment method → the online path')
-  assert.match(read('app/(site)/pay/choose/PayChoice.tsx'), /useVerifyCheckout\(planCode\)/, 'the choice screen is the caller')
+  // The package (+ the page to come back to, 15 Oct 2026), no payment method → the online path.
+  assert.match(HOOK, /body: JSON\.stringify\(returnTo \? \{ planCode, returnTo \} : \{ planCode \}\)/, 'the package, no payment method → the online path')
+  assert.match(read('app/(site)/pay/choose/PayChoice.tsx'), /useVerifyCheckout\(planCode, returnTo\)/, 'the choice screen is the caller')
   // reuse/replace of a pending invoice is the route's job (unchanged, proven)
   assert.match(ROUTE, /startPayproCheckout\(/, 'routes through startPayproCheckout (reuses a < 24h pending invoice)')
 })
