@@ -30,6 +30,8 @@ const LABEL_SCREEN = {
   users: SCREEN_ACCESS.users,
   tutors: SCREEN_ACCESS.tutors,
   blog: SCREEN_ACCESS.blog,
+  // A staff member's detail under Team activity (owner, 15 Oct 2026).
+  'team-activity': SCREEN_ACCESS.staffActivity,
 } as const
 
 async function dynamicLabel(slug: string[]): Promise<string | null> {
@@ -37,7 +39,7 @@ async function dynamicLabel(slug: string[]): Promise<string | null> {
   if (!id || slug.length !== 2) return null
   // /admin/overview/<key>: the item's own title, from the pure list of items.
   if (section === 'overview') return isOverviewItemKey(id) ? OVERVIEW_ITEMS[id].title : null
-  if (section !== 'jobs' && section !== 'users' && section !== 'tutors' && section !== 'blog') {
+  if (section !== 'jobs' && section !== 'users' && section !== 'tutors' && section !== 'blog' && section !== 'team-activity') {
     return null
   }
 
@@ -62,6 +64,8 @@ async function dynamicLabel(slug: string[]): Promise<string | null> {
     return (data?.title as string) ?? null
   }
 
+  // 'claims' and 'accounts' are sections, not ids.
+  if (section === 'team-activity' && !/^[0-9a-f-]{36}$/i.test(id)) return null
   const { data } = await admin.from('profiles').select('full_name').eq('id', id).maybeSingle()
   return formatName(data?.full_name as string | null) || null
 }

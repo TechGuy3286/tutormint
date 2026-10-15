@@ -4,7 +4,7 @@ import { loadSignupList } from '@/lib/staffSignups'
 import { currentStep, isStep, parsePeriod, type MemberRole } from '@/lib/staffSignupsCore'
 import { maskMobile } from '@/lib/smsHealthCore'
 
-// The accounts behind one number on "Sign-ups by staff" (owner, 15 Oct 2026).
+// The accounts behind one number on Team activity → Paid sign-ups (owner, 15 Oct 2026).
 // A participant may read only their own lists: another staff member's id, or
 // the Team total, answers 403. Mobiles are masked.
 //   GET ?staff=<id>|team&role=tutor|parent&step=<step>&period=today|yesterday|last7|month
@@ -19,7 +19,9 @@ export async function GET(request: Request) {
   const step = sp.get('step')
   if (!isStep(role, step)) return NextResponse.json({ error: 'Unknown step.' }, { status: 400 })
   const staff = sp.get('staff') ?? gate.actor.id
-  const result = await loadSignupList(gate.actor, staff, role, step, parsePeriod(sp.get('period')))
+  // inprogress=1: only tutors who have NOT paid (Team activity's "In progress").
+  const inProgress = sp.get('inprogress') === '1'
+  const result = await loadSignupList(gate.actor, staff, role, step, parsePeriod(sp.get('period')), undefined, { inProgress })
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
   return NextResponse.json({
     staffName: result.staffName,

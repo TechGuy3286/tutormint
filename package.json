@@ -144,6 +144,7 @@
     "test:switchedemail": "tsx --test scripts/test-switched-email.ts",
     "test:smshealth": "tsx --conditions=react-server --test scripts/test-sms-health.ts",
     "test:staffsignups": "tsx --test scripts/test-staff-signups.ts",
+    "test:teamactivity": "tsx --test scripts/test-team-activity.ts",
     "test:staffsignups:live": "tsx --conditions=react-server --env-file=.env.local --test scripts/test-staff-signups-live.ts"
   },
   "dependencies": {

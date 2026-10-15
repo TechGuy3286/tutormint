@@ -22,7 +22,7 @@ export type AdminScreen =
   | 'tutors'
   | 'parents'
   | 'users'
-  | 'staffActivity'
+  | 'staffActivity' // Team activity → Verifications & messages (no nav entry of its own)
   | 'orphans'
   | 'signups'
   | 'team'
@@ -100,7 +100,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/signups', label: 'Abandoned signups', icon: 'userPlus', screen: 'signups' },
       { href: '/admin/users/unpaid-signups', label: 'Unpaid signups', icon: 'phone', screen: 'unpaidSignups' },
       { href: '/admin/users/featured-whatsapp', label: 'Featured WhatsApp', icon: 'messageCircle', screen: 'featuredWhatsapp' },
-      { href: '/admin/staff-activity', label: 'Staff activity', icon: 'activity', screen: 'staffActivity' },
       { href: '/admin/team', label: 'Team', icon: 'key', screen: 'team' },
     ],
   },
@@ -117,7 +116,10 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/jobs/duplicates', label: 'Duplicates', icon: 'copy', screen: 'duplicates' },
       // Paid tutors who applied or viewed a number — one card per tuition (owner, 10 Oct 2026).
       { href: '/admin/jobs/applicants', label: 'Applicants to forward', icon: 'userPlus', screen: 'applicantForwards' },
-      { href: '/admin/jobs/posting-activity', label: 'Tuition posting activity', icon: 'activity', screen: 'tuitionPosting' },
+      // ONE page for staff numbers (owner, 15 Oct 2026): it replaced Staff
+      // activity (People) and Tuition posting activity. Paid sign-ups first; the
+      // Verifications & messages tab is checked separately (staffActivity).
+      { href: '/admin/team-activity', label: 'Team activity', icon: 'activity', screen: 'tuitionPosting' },
     ],
   },
   {
@@ -189,7 +191,11 @@ export const SECTION_LABELS: Record<string, string> = {
   reconciliation: 'Reconciliation',
   duplicates: 'Duplicates',
   paused: 'Paused tuitions',
-  'posting-activity': 'Tuition posting activity',
+  // Old addresses, now redirects to Team activity (owner, 15 Oct 2026).
+  'posting-activity': 'Team activity',
+  'team-activity': 'Team activity',
+  accounts: 'Accounts',
+  claims: 'Claims to review',
   plans: 'Plans',
   reports: 'Reports',
   security: 'Two-factor',
@@ -198,7 +204,7 @@ export const SECTION_LABELS: Record<string, string> = {
   orphans: 'Orphaned accounts',
   signups: 'Abandoned signups',
   social: 'Social posts',
-  'staff-activity': 'Staff activity',
+  'staff-activity': 'Team activity',
   team: 'Team',
   tutors: 'Tutors',
   usage: 'Quota usage',
@@ -246,7 +252,9 @@ export function adminTrail(
               ? 'Tutor'
               : parts[i - 1] === 'blog'
                 ? 'Post'
-                : part))
+                : parts[i - 1] === 'team-activity'
+                  ? 'Staff member'
+                  : part))
       : SECTION_LABELS[part]
     crumbs.push(i === parts.length - 1 ? { label } : { label, href })
   })

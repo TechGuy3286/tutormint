@@ -206,7 +206,10 @@ export default function AdminShell({
     href === '/admin' ? pathname === '/admin' : pathname === href || pathname.startsWith(href + '/')
 
   const NavList = ({ compact }: { compact: boolean }) => (
-    <nav aria-label="Admin sections" className="flex-1 overflow-y-auto px-2 pb-6">
+    // min-h-0 so the list, not the panel, takes the scroll when it is taller
+    // than the screen; overscroll-contain so reaching its end does not scroll
+    // the page behind it.
+    <nav aria-label="Admin sections" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-6">
       {groups.map((g, gi) => {
         // Per-group collapse only in the expanded sidebar; a compact (icon-only)
         // rail always shows its items (there is no header to collapse from).
@@ -304,33 +307,43 @@ export default function AdminShell({
   )
 
   return (
-    <div className="min-h-screen bg-tm-bg text-slate-700">
-      {/* -------------------------------------------------------- sidebar -- */}
+    <div className="min-h-screen bg-tm-bg text-slate-700 md:flex">
+      {/* -------------------------------------------------------- sidebar --
+          A COLUMN IN THE PAGE, NOT A FIXED BOX (owner, 15 Oct 2026). It used to
+          be `position: fixed; inset-y-0`, which is exactly one screen tall: on
+          a long page a full-page capture (and some browsers while painting a
+          long scroll) showed the dark panel for the first screen only, then a
+          white gap where Marketplace's items should be. Now the outer column
+          is a flex item that stretches to the full page height, so the dark
+          background runs from top to bottom at any length; the panel inside
+          it is sticky and exactly one screen tall, so it stays in view on
+          scroll and its list scrolls on its own when it is taller than the
+          screen (1366×768 with every group open). */}
       <aside
-        className={`fixed inset-y-0 left-0 z-30 hidden flex-col bg-tm-black md:flex ${
-          collapsed ? 'w-[68px]' : 'w-56'
-        }`}
+        className={`hidden shrink-0 bg-tm-black md:block ${collapsed ? 'w-[68px]' : 'w-56'}`}
       >
-        <Wordmark compact={collapsed} />
-        <NavList compact={collapsed} />
-        <button
-          type="button"
-          onClick={() => {
-            setCollapsed((c) => {
-              rememberCollapsed(!c)
-              return !c
-            })
-          }}
-          aria-expanded={!collapsed}
-          className="flex min-h-[44px] shrink-0 items-center gap-2 border-t border-white/10 px-4 text-[11px] font-bold text-gray-300 transition-colors hover:text-white"
-        >
-          {collapsed ? (
-            <ChevronsRight aria-hidden size={16} />
-          ) : (
-            <ChevronsLeft aria-hidden size={16} />
-          )}
-          <span className={collapsed ? 'sr-only' : ''}>Collapse</span>
-        </button>
+        <div className="sticky top-0 flex h-screen flex-col supports-[height:100dvh]:h-dvh">
+          <Wordmark compact={collapsed} />
+          <NavList compact={collapsed} />
+          <button
+            type="button"
+            onClick={() => {
+              setCollapsed((c) => {
+                rememberCollapsed(!c)
+                return !c
+              })
+            }}
+            aria-expanded={!collapsed}
+            className="flex min-h-[44px] shrink-0 items-center gap-2 border-t border-white/10 px-4 text-[11px] font-bold text-gray-300 transition-colors hover:text-white"
+          >
+            {collapsed ? (
+              <ChevronsRight aria-hidden size={16} />
+            ) : (
+              <ChevronsLeft aria-hidden size={16} />
+            )}
+            <span className={collapsed ? 'sr-only' : ''}>Collapse</span>
+          </button>
+        </div>
       </aside>
 
       {/* --------------------------------------------------- mobile drawer -- */}
@@ -367,7 +380,7 @@ export default function AdminShell({
       )}
 
       {/* -------------------------------------------------------- content -- */}
-      <div className={collapsed ? 'md:pl-[68px]' : 'md:pl-56'}>
+      <div className="min-w-0 flex-1">
         {/* THE ONLY HEADER ON /admin. components/Navbar.tsx returns null under
             this path — two stacked headers cost ~148px before any content and
             said the same things twice. */}

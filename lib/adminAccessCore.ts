@@ -10,10 +10,10 @@
 //   admin           everything except Team.
 //   operations      office staff: tuitions, verifying, assisting, marketing, SEO.
 //   tuitions_staff  RESTRICTED: the Tuitions group (the board, Post a tuition,
-//                   Paused tuitions, Duplicates, Applicants to forward, Tuition
-//                   posting activity) and the two outreach lists, plus their own
-//                   Two-factor page and sign out (Staff activity left this role
-//                   on 15 Oct 2026). Everything else is refused on
+//                   Paused tuitions, Duplicates, Applicants to forward, Team
+//                   activity without its Verifications tab) and the two
+//                   outreach lists, plus their own Two-factor page and sign
+//                   out. Everything else is refused on
 //                   the server, not just hidden.
 //   partner         EDITS TUTORS, PARENTS AND TUITIONS; EVERYTHING ELSE VIEW
 //                   ONLY (owner, 13 Oct 2026, later the same day — this replaces
@@ -249,12 +249,12 @@ export const SCREEN_ACCESS = {
   // staff act; the Partner views (refused on every write by checkAdminRole).
   applicantForwards: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
   users: ['admin', 'operations', 'partner'] as AdminRole[],
-  // Staff activity (verifications, messages): the Owner, the Project Managers
-  // and Admin, view only (owner, 15 Oct 2026, later the same day — Admin got it
-  // back; the page has no writes).
+  // Team activity → "Verifications & messages" tab, its API and the per-staff
+  // detail pages: the Owner, the Project Managers and Admin, view only (owner,
+  // 15 Oct 2026). Operations and Tuitions staff are refused (403 on the API).
   staffActivity: ['admin'] as AdminRole[],
-  // Tuitions → Tuition posting activity → "Sign-ups by staff" (owner, 15 Oct
-  // 2026). The tab opens for every role on tuitionPosting; who sees EVERY row
+  // Team activity → "Paid sign-ups" (owner, 15 Oct 2026). The tab opens for
+  // every role on tuitionPosting; who sees EVERY row
   // and the Team total is staffSignupsAll (Owner, Project Managers, Admin) —
   // everyone else sees only their own row and lists (lib/staffSignupsCore).
   staffSignupsAll: ['admin'] as AdminRole[],
@@ -265,8 +265,10 @@ export const SCREEN_ACCESS = {
   // Claims to review: the Owner and Admin approve or reject; the Project
   // Managers view (roleMayWrite refuses their POST).
   staffClaimsReview: ['admin'] as AdminRole[],
-  // Tuitions → Tuition posting activity (owner, 15 Oct 2026): every role that
-  // posts tuitions — Tuitions staff, Operations, Admin, the Project Managers.
+  // Tuitions → Team activity (owner, 15 Oct 2026; it merged Tuition posting
+  // activity and Staff activity): every role that posts tuitions — Tuitions
+  // staff, Operations, Admin, the Project Managers. Opens the page and the
+  // "Paid sign-ups" and "Tuitions posted" tabs; the third tab is staffActivity.
   tuitionPosting: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
   // The daily sign-up funnel on Overview (owner, 15 Oct 2026): the Owner and
   // the Project Managers. `[]` = owner + Partner.

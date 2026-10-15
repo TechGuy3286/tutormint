@@ -84,17 +84,18 @@ test('Overview figures are gated and the denied notice is shown on both homes', 
   assert.match(jobs, /denied && <AccessDeniedNotice/, 'notice on /admin/jobs (the role home)')
 })
 
-// Superseded (owner, 6 Oct 2026, item 18): Tuitions staff now see the
-// TUITION-POSTING activity of every staff member — and nothing else — read on
-// the server with the tuition-only action list.
-test('Staff activity for tuitions_staff is tuition-posting only, for all staff', () => {
+// Superseded again (owner, 15 Oct 2026): Staff activity and Tuition posting
+// activity merged into Team activity. Tuitions staff open it without the
+// Verifications & messages tab; the old Staff activity pages are redirects.
+test('Team activity for tuitions_staff: no Verifications tab; old Staff activity pages redirect', () => {
   const list = read('app/admin/staff-activity/page.tsx')
-  assert.ok(list.includes("if (actor.adminRole === 'tuitions_staff') {"), 'its own branch')
-  assert.ok(list.includes("loadTuitionActivity("), 'the tuition-only loader')
-  const lib = read('lib/staffActivity.ts')
-  assert.ok(lib.includes(".in('action', [...TUITION_ACTIVITY_ACTIONS])"), 'the server query is bounded to tuition actions')
+  assert.ok(list.includes('redirect(staffActivityRedirect())'), 'old list redirects')
   const detail = read('app/admin/staff-activity/[id]/page.tsx')
-  assert.ok(detail.includes("redirect(`/admin/staff-activity?person="), 'detail never shows the full view')
+  assert.ok(detail.includes('redirect(withQuery('), 'old detail redirects')
+  const moved = read('app/admin/team-activity/[id]/page.tsx')
+  assert.ok(moved.includes('requireAdminRole(...SCREEN_ACCESS.staffActivity)'), 'detail is Owner/PM/Admin only')
+  const lib = read('lib/staffActivity.ts')
+  assert.ok(lib.includes(".in('action', [...TUITION_ACTIVITY_ACTIONS])"), 'the tuition-only loader stays bounded')
 })
 
 test('no admin route is left without a role check (the one gap is closed)', () => {

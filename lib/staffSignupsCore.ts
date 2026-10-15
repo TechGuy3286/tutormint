@@ -291,11 +291,37 @@ export function paidTodayVsYesterday(accounts: CreditedAccount[], nowMs: number)
   return change(now, before)
 }
 
+// "In progress (not counted)" (owner, 15 Oct 2026): staff are paid for PAID
+// tutor sign-ups only. A tutor who reached an earlier step in the period and has
+// NOT paid (at any time) is in progress — never in the Paid number, and a tutor
+// who has paid is never in progress.
+export type InProgressStep = Exclude<TutorStep, 'paid'>
+export const IN_PROGRESS_STEPS: { key: InProgressStep; label: string }[] = TUTOR_STEPS.filter(
+  (s): s is { key: InProgressStep; label: string } => s.key !== 'paid',
+)
+
+export function isInProgressStep(v: string | null | undefined): v is InProgressStep {
+  return IN_PROGRESS_STEPS.some((s) => s.key === v)
+}
+
+/** Tutors who reached `step` in the period and have not paid. The ONE rule for
+ *  the in-progress numbers and the lists behind them. */
+export function inProgressAt(accounts: CreditedAccount[], step: InProgressStep, period: Period, nowMs: number): CreditedAccount[] {
+  return accountsAt(
+    accounts.filter((a) => a.role === 'tutor' && !a.at.paid),
+    step,
+    period,
+    nowMs,
+  )
+}
+
 export type BoardRow = {
   staffId: string
   name: string
   tutor: Record<TutorStep, number>
   parent: Record<ParentStep, number>
+  /** Tutors at an earlier step who have not paid — never part of `tutor.paid`. */
+  inProgress: Record<InProgressStep, number>
   paidChange: Change
 }
 
@@ -306,10 +332,13 @@ export function boardRow(staffId: string, name: string, accounts: CreditedAccoun
   for (const s of TUTOR_STEPS) t[s.key] = accountsAt(tutors, s.key, period, nowMs).length
   const p = {} as Record<ParentStep, number>
   for (const s of PARENT_STEPS) p[s.key] = accountsAt(parents, s.key, period, nowMs).length
-  return { staffId, name, tutor: t, parent: p, paidChange: paidTodayVsYesterday(tutors, nowMs) }
+  const ip = {} as Record<InProgressStep, number>
+  for (const s of IN_PROGRESS_STEPS) ip[s.key] = inProgressAt(tutors, s.key, period, nowMs).length
+  return { staffId, name, tutor: t, parent: p, inProgress: ip, paidChange: paidTodayVsYesterday(tutors, nowMs) }
 }
 
-/** Highest Paid first, then onboarded, signed up, then by name. */
+/** Highest Paid first (the number staff are paid for), then onboarded, signed
+ *  up, then by name. */
 export function sortBoardRows(rows: BoardRow[]): BoardRow[] {
   return [...rows].sort(
     (a, b) =>

@@ -236,10 +236,10 @@ test('{join_link} is filled with the sender’s own link, else the sign-up page'
 })
 
 test('no prices or amounts on the board; mobiles masked', () => {
-  for (const f of ['app/admin/jobs/posting-activity/SignupsTab.tsx', 'app/admin/jobs/posting-activity/signups/page.tsx', 'app/admin/jobs/posting-activity/claims/page.tsx']) {
+  for (const f of ['app/admin/team-activity/PaidTab.tsx', 'app/admin/team-activity/accounts/page.tsx', 'app/admin/team-activity/claims/page.tsx', 'app/admin/team-activity/page.tsx', 'app/api/admin/team-activity/route.ts']) {
     const s = read(f)
     assert.equal(/Rs\.?\s|PKR|amount_pkr|price_pkr/.test(s), false, f)
   }
-  assert.ok(read('app/admin/jobs/posting-activity/signups/page.tsx').includes('maskMobile(a.mobile)'))
-  assert.ok(read('app/admin/jobs/posting-activity/claims/page.tsx').includes('maskMobile(c.memberMobile)'))
+  assert.ok(read('app/admin/team-activity/accounts/page.tsx').includes('maskMobile(a.mobile)'))
+  assert.ok(read('app/admin/team-activity/claims/page.tsx').includes('maskMobile(c.memberMobile)'))
 })

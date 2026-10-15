@@ -38,6 +38,8 @@ import {
   normaliseSlug,
   normaliseStaffCode,
   accountsAt,
+  inProgressAt,
+  isInProgressStep,
   pickSlug,
   seesEveryone,
   sortBoardRows,
@@ -626,6 +628,7 @@ export async function loadSignupList(
   step: Step,
   period: Period,
   nowMs = Date.now(),
+  opts: { inProgress?: boolean } = {},
 ): Promise<SignupListResult> {
   if (staffId === 'team' ? !seesEveryone(viewer.adminRole) : !mayViewStaff(viewer, staffId)) {
     return { ok: false, status: 403, error: 'You can only see your own sign-ups.' }
@@ -640,7 +643,13 @@ export async function loadSignupList(
   }
   const all = await loadCreditedAccounts()
   const mine = all.filter((a) => a.role === role && (staffId === 'team' ? true : a.staffId === staffId))
-  const accounts = accountsAt(mine, step, period, nowMs).sort(
+  // "In progress": the same step, tutors who have not paid (inProgressAt) — the
+  // rule the board's in-progress numbers use.
+  const picked =
+    opts.inProgress && role === 'tutor' && isInProgressStep(step)
+      ? inProgressAt(mine, step, period, nowMs)
+      : accountsAt(mine, step, period, nowMs)
+  const accounts = picked.sort(
     (a, b) => Date.parse(b.at[step] ?? '') - Date.parse(a.at[step] ?? ''),
   )
   return { ok: true, staffName, accounts }

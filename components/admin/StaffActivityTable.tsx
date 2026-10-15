@@ -17,7 +17,7 @@ function cell(staffId: string | undefined, metric: StaffMetricKey, period: 'toda
   if (!staffId || value === 0) return <span className={cls}>{value}</span>
   return (
     <Link
-      href={`/admin/staff-activity/${staffId}?action=${metric}&period=${period}`}
+      href={`/admin/team-activity/${staffId}?action=${metric}&period=${period}`}
       className={`${cls} hover:text-tm-red hover:underline`}
     >
       {value}

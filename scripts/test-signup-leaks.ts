@@ -221,10 +221,10 @@ test('Tuitions staff open the posting board and the Tuitions group, never Staff 
   assert.equal(roleSatisfies('tuitions_staff', SCREEN_ACCESS.tutors), false)
   const nav = read('lib/adminNav.ts')
   const group = nav.slice(nav.indexOf("title: 'Tuitions'"), nav.indexOf("title: 'Marketplace'"))
-  for (const href of ['/admin/jobs', '/admin/jobs/new', '/admin/jobs/paused', '/admin/jobs/duplicates', '/admin/jobs/applicants', '/admin/jobs/posting-activity']) {
+  for (const href of ['/admin/jobs', '/admin/jobs/new', '/admin/jobs/paused', '/admin/jobs/duplicates', '/admin/jobs/applicants', '/admin/team-activity']) {
     assert.ok(group.includes(`href: '${href}'`), href)
   }
-  assert.ok(read('app/admin/jobs/posting-activity/page.tsx').includes('requireAdminRole(...SCREEN_ACCESS.tuitionPosting)'))
+  assert.ok(read('app/admin/team-activity/page.tsx').includes('requireAdminRole(...SCREEN_ACCESS.tuitionPosting)'))
 })
 
 test('daily sign-up funnel: real browsers, counts only, drop at each step', () => {
