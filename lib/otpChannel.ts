@@ -2,7 +2,7 @@
 //
 // How the mobile verification code is delivered, for MEMBER-FACING COPY ONLY.
 //
-// Delivery moved from SMS Point (WhatsApp) to SendPK (SMS over a Pakistani short
+// Delivery is SendPK (SMS over a Pakistani short
 // code). A tutor watching their phone now sees the code arrive as an ordinary
 // SMS from an unfamiliar 7-digit sender, so the copy names that sender —
 // otherwise the message reads like it might not be from us. The number is the

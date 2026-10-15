@@ -53,6 +53,7 @@ export type AdminScreen =
   | 'pausedTuitions'
   | 'applicantForwards'
   | 'jobsPost'
+  | 'tuitionPosting'
 
 export type NavItem = {
   href: string
@@ -104,16 +105,25 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: 'Marketplace',
+    // One group for everything tuition (owner, 15 Oct 2026), shown to every
+    // role that posts tuitions. Each item still carries its own screen key.
+    title: 'Tuitions',
     color: 'red', // #C20202
     items: [
       { href: '/admin/jobs', label: 'Tuitions', icon: 'clipboard', screen: 'jobs' },
       { href: '/admin/jobs/new', label: 'Post a tuition', icon: 'filePlus', screen: 'jobsPost' },
       // Auto-paused tuitions with Resume (owner, 8 Oct 2026): the roles that post.
       { href: '/admin/jobs/paused', label: 'Paused tuitions', icon: 'pause', screen: 'pausedTuitions' },
+      { href: '/admin/jobs/duplicates', label: 'Duplicates', icon: 'copy', screen: 'duplicates' },
       // Paid tutors who applied or viewed a number — one card per tuition (owner, 10 Oct 2026).
       { href: '/admin/jobs/applicants', label: 'Applicants to forward', icon: 'userPlus', screen: 'applicantForwards' },
-      { href: '/admin/jobs/duplicates', label: 'Duplicates', icon: 'copy', screen: 'duplicates' },
+      { href: '/admin/jobs/posting-activity', label: 'Tuition posting activity', icon: 'activity', screen: 'tuitionPosting' },
+    ],
+  },
+  {
+    title: 'Marketplace',
+    color: 'red', // #C20202
+    items: [
       { href: '/admin/payments', label: 'Payments', icon: 'wallet', screen: 'payments' },
       // Owner only, plus the view-only Partner (owner, 8 Oct 2026, item 4).
       { href: '/admin/finance', label: 'Finance', icon: 'scale', screen: 'finance' },
@@ -179,6 +189,7 @@ export const SECTION_LABELS: Record<string, string> = {
   reconciliation: 'Reconciliation',
   duplicates: 'Duplicates',
   paused: 'Paused tuitions',
+  'posting-activity': 'Tuition posting activity',
   plans: 'Plans',
   reports: 'Reports',
   security: 'Two-factor',

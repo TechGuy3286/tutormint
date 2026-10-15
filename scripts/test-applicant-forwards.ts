@@ -199,10 +199,10 @@ test('who can act: owner, Partner, admin, operations and tuitions staff', () => 
   assert.match(code('app/admin/jobs/[id]/page.tsx'), /\.eq\('target_type', 'job'\)/)
   // Nothing about it reaches a member: no notify, no member timeline, no email.
   assert.doesNotMatch(lib, /notify\(|logActivity\(|deliverEmail\(/)
-  // The sidebar item sits under Marketplace, and its badge is the To-forward count.
+  // The sidebar item sits under Tuitions, and its badge is the To-forward count.
   const nav = read('lib/adminNav.ts')
   assert.match(nav, /href: '\/admin\/jobs\/applicants', label: 'Applicants to forward', icon: '\w+', screen: 'applicantForwards'/)
-  assert.ok(nav.indexOf("'/admin/jobs/applicants'") > nav.indexOf("title: 'Marketplace'") && nav.indexOf("'/admin/jobs/applicants'") < nav.indexOf("title: 'Trust'"))
+  assert.ok(nav.indexOf("'/admin/jobs/applicants'") > nav.indexOf("title: 'Tuitions'") && nav.indexOf("'/admin/jobs/applicants'") < nav.indexOf("title: 'Marketplace'"))
   assert.match(read('app/admin/layout.tsx'), /'\/admin\/jobs\/applicants': toForward/)
   // Unpaid, paused, banned and test tutors are dropped where the paid set is built.
   assert.match(lib, /!!t\.verified_fee_paid_at && !blocked\.has\(t\.id\)/)

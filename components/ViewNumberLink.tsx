@@ -8,6 +8,7 @@ import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import { submitSignal } from '@/lib/submit'
 import { goCompleteProfile } from '@/lib/gatedFetch'
 import { formatPkMobile } from '@/lib/phone'
+import { authHref } from '@/lib/returnTo'
 
 // The inline "View number" affordance (PR91 Part A/B) that sits after a masked
 // tuition sentence — a plain text link, same size as the sentence, not a button.
@@ -98,10 +99,11 @@ export default function ViewNumberLink({
   }
 
   if (state === 'guest') {
-    const next = encodeURIComponent(pathname || '/')
+    // "Sign up" goes to sign-up (it went to /login), keeping the way back here;
+    // the sign-up page links to sign-in with the same return-to (owner, 15 Oct 2026).
     return (
       <span className="text-tm-navy">
-        <Link href={`/login?next=${next}`} className="font-bold text-tm-red hover:underline">
+        <Link href={authHref('/register', pathname || '/', 'tutor')} className="font-bold text-tm-red hover:underline">
           Sign up first to view numbers
         </Link>
         <span lang="ur" dir="rtl" className="ms-1 text-gray-500">

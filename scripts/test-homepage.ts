@@ -70,7 +70,8 @@ test('nothing else on the homepage changed', () => {
   assert.equal(brandLine(99), "Pakistan's fast-growing tutor network")
   assert.equal(brandLine(100), '100+ verified tutors across Pakistan')
   assert.equal(brandLine(260), '250+ verified tutors across Pakistan')
-  assert.ok(home.includes('>\n          HIRE\n        </p>'))
+  // "HIRE" is gone (owner-approved, 15 Oct 2026) — and nothing else with it.
+  assert.ok(!home.replace(/\/\/.*$/gm, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '').includes('HIRE'))
   assert.ok(home.includes('Free to Join &bull; No Commission &bull; No Middleman &bull; Live Demo'))
   assert.ok(home.includes('کوئی فیس نہیں &bull; کوئی کمیشن نہیں &bull; کوئی مڈل مین نہیں &bull; لائیو ڈیمو'))
   assert.ok(home.includes('label="Find Tutors / Teachers"') && home.includes('label="Find Tuitions / Jobs"'))
@@ -81,4 +82,5 @@ test('nothing else on the homepage changed', () => {
   const claude = read('CLAUDE.md')
   assert.ok(claude.includes('Homepage — fourth owner authorisation (13 Oct 2026)'))
   assert.ok(claude.includes('Homepage — fifth owner authorisation (14 Oct 2026)'))
+  assert.ok(claude.includes('Homepage — sixth owner authorisation (15 Oct 2026)'))
 })

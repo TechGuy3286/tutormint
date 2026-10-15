@@ -57,7 +57,7 @@ export async function POST(request: Request) {
   const reason = (body.reason ?? '').trim()
 
   if (!tutorId) return NextResponse.json({ error: 'Missing tutor.' }, { status: 400 })
-  const ownerRefusal = await refuseOwnerTarget(gate.actor, tutorId)
+  const ownerRefusal = await refuseOwnerTarget(gate.actor, tutorId, "edit the Owner account")
   if (ownerRefusal) return ownerRefusal
   if (reason.length < 3) {
     return NextResponse.json({ error: 'A reason is required (at least 3 characters).' }, { status: 400 })

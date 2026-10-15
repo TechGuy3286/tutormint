@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { nextForRole } from '@/lib/authRoutes'
 
 import { createClient } from '@/lib/supabase/server'
 import { getSupportContact, whatsappHref, formatSupportWhatsApp } from '@/lib/support'
@@ -17,12 +18,23 @@ import NewOnboardingFlow from '@/components/tutor/NewOnboardingFlow'
 
 export const dynamic = 'force-dynamic'
 
-export default async function TutorOnboardingPage() {
+export default async function TutorOnboardingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>
+}) {
+  // The tuition a tutor tapped Apply on, carried through sign-up (owner,
+  // 15 Oct 2026). Same-site paths only; a tutor-area page is not a return-to.
+  const { next } = await searchParams
+  const allowedNext = nextForRole(next, 'tutor')
+  const returnTo = allowedNext && !allowedNext.startsWith('/tutor/onboarding') ? allowedNext : null
+  const selfPath = returnTo ? `/tutor/onboarding?next=${encodeURIComponent(returnTo)}` : '/tutor/onboarding'
+
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) redirect('/login?next=/tutor/onboarding')
+  if (!user) redirect(`/login?next=${encodeURIComponent(selfPath)}`)
 
   const { data: profile } = await supabase.from('profiles').select('role, admin_role').eq('id', user.id).maybeSingle()
   if (profile?.role !== 'tutor') redirect('/')
@@ -34,7 +46,7 @@ export default async function TutorOnboardingPage() {
   // Loop guard: a tutor who has finished or dismissed onboarding is never held
   // here again — they go to their dashboard (they can still edit via settings).
   const { data: tp } = await supabase.from('tutor_profiles').select('onboarded_at').eq('id', user.id).maybeSingle()
-  if (tp?.onboarded_at) redirect('/tutor/dashboard')
+  if (tp?.onboarded_at) redirect(returnTo ?? '/tutor/dashboard')
 
   const support = await getSupportContact()
   const waHref = whatsappHref(
@@ -45,7 +57,7 @@ export default async function TutorOnboardingPage() {
   const manual = await manualInstructions()
 
   if (newFlow) {
-    return <NewOnboardingFlow seed={user.id} smsAvailable={smsDeliverable()} helpWaHref={whatsappHref(support.whatsapp, "Assalam-o-Alaikum, I need help choosing my subjects on TutorMint.")} />
+    return <NewOnboardingFlow seed={user.id} returnTo={returnTo} smsAvailable={smsDeliverable()} helpWaHref={whatsappHref(support.whatsapp, "Assalam-o-Alaikum, I need help choosing my subjects on TutorMint.")} />
   }
 
   return (

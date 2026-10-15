@@ -289,6 +289,10 @@ export type TemplateInput =
   // decision they are waiting on). NEVER the CNIC number or image — the item
   // name, the reason and a link straight to the re-upload step only.
   | { id: 'verification_rejected'; name: string; what: string; reason: string; href: string; audience?: 'tutor' | 'parent' }
+  // One document approved (owner, 15 Oct 2026) — the email that pairs with the
+  // in-app "Your <document> is approved". Essential (a decision they wait on).
+  // NEVER the CNIC number or image — the item name and a link only.
+  | { id: 'document_approved'; what: string; href: string; audience?: 'tutor' | 'parent'; note?: string | null }
   // A tuition matching a Premium/Featured tutor's subjects (PR54 §C). Not
   // essential — it carries a one-click unsubscribe. NEVER a parent's name or
   // contact details, and no price.
@@ -514,6 +518,22 @@ export function render(input: TemplateInput): RenderedEmail {
       )
 
     // ---------------------------------------------------------------------
+    case 'document_approved':
+      return build(
+        `Your ${input.what} is approved`,
+        `Your ${input.what} is approved`,
+        [
+          `Your ${input.what} on TutorMint has been checked and approved.`,
+          ...(input.note ? [input.note] : []),
+          'Need help? WhatsApp us on 0321 5872222.',
+        ],
+        true, // a verification decision the member is waiting on
+        {
+          label: input.audience === 'parent' ? 'Open your verification page' : 'Open your dashboard',
+          href: input.href,
+        },
+      )
+
     case 'verification_rejected':
       return build(
         `Your ${input.what} was not approved`,
@@ -723,6 +743,17 @@ export function render(input: TemplateInput): RenderedEmail {
 
     // ---------------------------------------------------------------------
     case 'owner_alert':
+      // A REFUSED attempt on the Owner account (owner, 15 Oct 2026): nothing
+      // changed, so it is not worded as a change.
+      if (input.area === 'Owner account protection') {
+        return build(
+          'Blocked attempt on the Owner account',
+          'Blocked attempt on the Owner account',
+          [`Attempted by ${input.who}.`, ...input.lines, input.when, 'If you did not expect this, check the Audit log in the admin panel.'],
+          true,
+          { label: 'Open the Audit log', href: input.href },
+        )
+      }
       return build(
         `${input.area} changed`,
         `${input.area} changed`,

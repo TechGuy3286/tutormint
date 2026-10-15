@@ -268,6 +268,11 @@ export async function reviewTutorDocument(params: {
       { id: 'verification_rejected', name: '', what: whatLabel, reason: reason.trim(), href: reuploadHref },
     )
     if (!mailed.ok) console.info('[review] rejection email not sent:', mailed.reason, tutorId)
+  } else {
+    // The approval email (owner, 15 Oct 2026) — the in-app notice above had no
+    // email partner. No SMS: SendPK sends only the verification-code template.
+    const mailed = await deliverEmail({ userId: tutorId }, { id: 'document_approved', what: label, href: '/tutor/dashboard' })
+    if (!mailed.ok) console.info('[review] approval email not sent:', mailed.reason, tutorId)
   }
 
   await logActivity({
@@ -363,6 +368,20 @@ async function decideRereview(params: {
         : `Your new ${label} was not approved: ${reason} Please upload a clear one here.`,
     href: '/tutor/dashboard/settings#identity',
   })
+  // Email partners for the in-app notice (owner, 15 Oct 2026).
+  const mailed = approved
+    ? await deliverEmail({ userId: tutorId }, { id: 'document_approved', what: `new ${label}`, href: '/tutor/dashboard' })
+    : await deliverEmail(
+        { userId: tutorId },
+        {
+          id: 'verification_rejected',
+          name: '',
+          what: `new ${label}`,
+          reason: keepsOld ? `${reason} Your earlier approved ${label} stays on record.` : reason,
+          href: '/tutor/dashboard/settings#identity',
+        },
+      )
+  if (!mailed.ok) console.info('[review] decision email not sent:', mailed.reason, tutorId)
   await logActivity({
     userId: tutorId,
     event: 'verification_decision_received',

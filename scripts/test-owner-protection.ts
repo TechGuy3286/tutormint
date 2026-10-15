@@ -28,9 +28,9 @@ const read = (...p: string[]) => readFileSync(path.join(...p), 'utf8')
 test('a Partner may open every screen; two-factor is always required', () => {
   for (const [key, roles] of Object.entries(SCREEN_ACCESS)) assert.equal(roleSatisfies('partner', roles as AdminRole[]), true, key)
   assert.equal(isReadOnlyRole('partner'), false)
-  // Two-factor is always required of a Partner, and only of a Partner.
-  assert.equal(alwaysNeedsTwoFactor('partner'), true)
-  for (const r of ['owner', 'admin', 'operations', 'tuitions_staff'] as AdminRole[]) assert.equal(alwaysNeedsTwoFactor(r), false)
+  // Every staff role needs two-factor since 15 Oct 2026 (same flow as Partner).
+  for (const r of ['owner', 'admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[]) assert.equal(alwaysNeedsTwoFactor(r), true)
+  assert.equal(alwaysNeedsTwoFactor(null), false)
 })
 
 test('nobody except the Owner may change the Owner account (edit, pause, suspend, password, email, mobile, 2FA)', () => {

@@ -51,7 +51,11 @@ export async function POST(request: Request) {
   if (!userId) return NextResponse.json({ error: 'Missing member.' }, { status: 400 })
   // Owner protection (owner, 13 Oct 2026): nobody but the Owner changes the
   // Owner account — warn, suspend, ban, or its mobile number.
-  const ownerRefusal = await refuseOwnerTarget(actor, userId)
+  const tried =
+    action === 'verify-mobile' ? 'verify the mobile number of the Owner account'
+      : action === 'change-mobile' ? 'change the mobile number of the Owner account'
+        : `${action || 'change'} the Owner account`
+  const ownerRefusal = await refuseOwnerTarget(actor, userId, tried)
   if (ownerRefusal) return ownerRefusal
   if (!['warn', 'suspend', 'unsuspend', 'ban', 'unban', 'verify-mobile', 'change-mobile'].includes(action)) {
     return NextResponse.json({ error: 'Unknown action.' }, { status: 400 })

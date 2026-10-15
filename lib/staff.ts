@@ -24,7 +24,8 @@ import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import { ensureProfile } from '@/lib/ensureProfile'
 import { deliverEmail } from '@/lib/notify'
-import { staffChangeProblem, type AdminRole } from '@/lib/adminAccessCore'
+import { OWNER_PROTECTED, staffChangeProblem, type AdminRole } from '@/lib/adminAccessCore'
+import { alertOwnerBlocked } from '@/lib/ownerAlerts'
 import type { Actor } from '@/lib/moderation'
 import { formatName } from '@/lib/formatName'
 
@@ -248,7 +249,10 @@ export async function resendStaffInvite(params: {
   // A fresh invite is a way into the account: only the Owner sends one for the
   // Owner or a Partner (owner, 13 Oct 2026).
   const protectedTarget = staffChangeProblem(params.actor.adminRole, target.admin_role as string)
-  if (protectedTarget) return { ok: false, status: 403, error: protectedTarget }
+  if (protectedTarget) {
+    await alertOwnerBlocked({ actor: params.actor, problem: protectedTarget, what: 'send a sign-in link for the Owner account', targetId: params.userId })
+    return { ok: false, status: 403, error: protectedTarget }
+  }
   const email = (target.email as string | null) ?? ''
   if (!email) return { ok: false, status: 400, error: 'That account has no email to send to.' }
 
@@ -501,12 +505,18 @@ export async function changeStaffRole(params: {
     return { ok: false, status: 404, error: 'That is not a staff account.' }
   }
   if (target.admin_role === 'owner') {
+    if (params.actor.adminRole !== 'owner') {
+      await alertOwnerBlocked({ actor: params.actor, problem: OWNER_PROTECTED, what: 'change the Owner role', targetId: params.userId })
+    }
     return { ok: false, status: 403, error: 'The owner role cannot be changed here.' }
   }
   // A Partner cannot demote another Partner; nobody but the Owner hands out
   // the Owner role (owner, 13 Oct 2026).
   const protectedTarget = staffChangeProblem(params.actor.adminRole, target.admin_role as string, params.adminRole)
-  if (protectedTarget) return { ok: false, status: 403, error: protectedTarget }
+  if (protectedTarget) {
+    await alertOwnerBlocked({ actor: params.actor, problem: protectedTarget, what: params.adminRole === 'owner' ? 'make someone Owner' : 'change the Owner role', targetId: params.userId })
+    return { ok: false, status: 403, error: protectedTarget }
+  }
 
   const { error } = await admin
     .from('profiles')

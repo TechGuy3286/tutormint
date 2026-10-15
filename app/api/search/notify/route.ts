@@ -15,7 +15,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 const Body = z.object({
-  contact: z.string().trim().min(5, 'Enter a mobile number or an email address.').max(200),
+  contact: z.string().trim().min(5, 'Enter your email address.').max(200),
   consent: z.boolean(),
   q: z.string().max(200).optional().nullable(),
   city: z.string().max(120).optional().nullable(),

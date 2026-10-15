@@ -10,7 +10,9 @@
 // /admin/dashboard, a URL that has never existed, long after lib/auth.ts was
 // fixed. One definition now, re-exported from lib/auth.ts for server callers.
 
-export type Role = 'tutor' | 'parent' | 'academy' | 'admin'
+import { safeReturnTo } from '@/lib/returnTo'
+
+export type Role ='tutor' | 'parent' | 'academy' | 'admin'
 
 /**
  * Where a role belongs after signing in.
@@ -78,8 +80,10 @@ export function nextForRole(
   next: string | null | undefined,
   role: Role | null | undefined,
 ): string | null {
+  // Same-site paths only (lib/returnTo): no absolute, protocol-relative,
+  // backslash or control-character tricks.
+  if (!safeReturnTo(next)) return null
   if (!next) return null
-  if (!next.startsWith('/') || next.startsWith('//')) return null
 
   const area = next.startsWith('/tutor')
     ? 'tutor'

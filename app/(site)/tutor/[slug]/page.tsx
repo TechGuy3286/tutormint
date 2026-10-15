@@ -36,6 +36,7 @@ import { formatName } from '@/lib/formatName'
 import { distinctAreaLabels } from '@/lib/place'
 import { withAreaCities } from '@/lib/tutorAreaCities'
 import { withCanonAreas } from '@/lib/areaAliases'
+import { authHref } from '@/lib/returnTo'
 
 // The public tutor profile. Server component, results in the HTML.
 //
@@ -1212,7 +1213,8 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                   </div>
                 ) : (
                   <p className="rounded-xl bg-tm-bg p-3 text-xs text-gray-500">
-                    <Link href="/login" className="font-bold text-tm-red hover:underline">
+                    {/* Back to this profile after signing in (owner, 15 Oct 2026). */}
+                    <Link href={authHref('/login', `/tutor/${slug}`, 'parent')} className="font-bold text-tm-red hover:underline">
                       Sign in
                     </Link>{' '}
                     to view {certificateDocs.length} uploaded certificate

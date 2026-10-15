@@ -273,6 +273,18 @@ export async function reviewParentDocument(params: {
           : 'Your address is approved. Your CNIC is the last step before you are verified.',
       href: verifyHref,
     })
+    // The email partner (owner, 15 Oct 2026).
+    const mailed = await deliverEmail(
+      { userId: parentId },
+      {
+        id: 'document_approved',
+        what: label,
+        href: verifyHref,
+        audience: 'parent',
+        note: item === 'cnic' ? 'Your address is the last step before you are verified.' : 'Your CNIC is the last step before you are verified.',
+      },
+    )
+    if (!mailed.ok) console.info('[parent-review] approval email not sent:', mailed.reason, parentId)
   }
 
   return { ok: true, verified }
@@ -335,5 +347,20 @@ async function decideParentCnicRereview(params: {
       : `Your new CNIC photos were not approved: ${reason} Your earlier approved CNIC stays on record.`,
     href: '/parent/verify',
   })
+  // Email partners for the in-app notice (owner, 15 Oct 2026).
+  const mailed = approved
+    ? await deliverEmail({ userId: parentId }, { id: 'document_approved', what: 'new CNIC', href: '/parent/verify', audience: 'parent' })
+    : await deliverEmail(
+        { userId: parentId },
+        {
+          id: 'verification_rejected',
+          name: before.name,
+          what: 'new CNIC',
+          reason: `${reason} Your earlier approved CNIC stays on record.`,
+          href: '/parent/verify',
+          audience: 'parent',
+        },
+      )
+  if (!mailed.ok) console.info('[parent-review] decision email not sent:', mailed.reason, parentId)
   return { ok: true, verified: before.verified }
 }

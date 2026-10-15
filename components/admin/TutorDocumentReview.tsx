@@ -13,6 +13,8 @@ import { cnicSideNote } from '@/lib/tutorDocQueueCore'
 import { CNIC_NUMBER_MISSING } from '@/lib/docLockCore'
 import UnlockDocButton from '@/components/admin/UnlockDocButton'
 import AdminCnicNumberBox, { CNIC_NUMBER_BOX_ID } from '@/components/admin/AdminCnicNumberBox'
+import DocumentsApprovedWhatsApp from '@/components/admin/DocumentsApprovedWhatsApp'
+import { allDocumentsApproved } from '@/lib/documentsApprovedCore'
 
 /** The admin lock facts for the card (lib/docLocks loadAdminLockInfo). */
 export type ReviewLockInfo = {
@@ -77,6 +79,10 @@ export default function TutorDocumentReview({
   canEditNumber?: boolean
 }) {
   const [numberHighlight, setNumberHighlight] = useState(false)
+  // Each item's status as it changes on this card, so "Send WhatsApp" appears
+  // the moment the last of the three is approved (owner, 15 Oct 2026).
+  const [live, setLive] = useState({ cnic: statuses.cnic.status, profilePic: statuses.profilePic.status, selfie: statuses.selfie.status })
+  const readOnlyCard = useAdminReadOnly()
   const rv = lockInfo?.review
   // PR106-C §3 — the related images, in a fixed order, so the viewer can page
   // CNIC front ↔ back ↔ photo ↔ selfie. Each thumbnail opens the viewer at its
@@ -106,6 +112,7 @@ export default function TutorDocumentReview({
           canReview={canReview}
           memberWhatsapp={memberWhatsapp}
           state={statuses.cnic}
+          onStatus={(st) => setLive((l) => ({ ...l, cnic: st }))}
           onNumberMissing={() => {
             setNumberHighlight(true)
             const box = document.getElementById(CNIC_NUMBER_BOX_ID)
@@ -161,6 +168,7 @@ export default function TutorDocumentReview({
           canReview={canReview}
           memberWhatsapp={memberWhatsapp}
           state={statuses.profilePic}
+          onStatus={(st) => setLive((l) => ({ ...l, profilePic: st }))}
         >
           {avatarUrl ? (
             <Zoomable onOpen={() => setLbIndex(at.pic)}>
@@ -184,6 +192,7 @@ export default function TutorDocumentReview({
           canReview={canReview}
           memberWhatsapp={memberWhatsapp}
           state={statuses.selfie}
+          onStatus={(st) => setLive((l) => ({ ...l, selfie: st }))}
         >
           {selfieDocId ? (
             <Zoomable onOpen={() => setLbIndex(at.selfie)}>
@@ -204,6 +213,8 @@ export default function TutorDocumentReview({
           )}
         </ReviewItem>
       </div>
+
+      {canReview && !readOnlyCard && allDocumentsApproved(live) && <DocumentsApprovedWhatsApp tutorId={tutorId} />}
 
       <DocumentViewer images={images} index={lbIndex} onIndex={setLbIndex} onClose={() => setLbIndex(null)} />
     </section>
@@ -236,6 +247,7 @@ function ReviewItem({
   state,
   memberWhatsapp,
   onNumberMissing,
+  onStatus,
   children,
 }: {
   tutorId: string
@@ -246,6 +258,8 @@ function ReviewItem({
   memberWhatsapp: string | null
   /** Approve was refused because the CNIC number is missing. */
   onNumberMissing?: () => void
+  /** Tells the card this item's status changed. */
+  onStatus?: (status: DocState['status']) => void
   children: React.ReactNode
 }) {
   const toast = useToast()
@@ -294,6 +308,7 @@ function ReviewItem({
     setBusy(null)
     if (ok) {
       setStatus(decision === 'approve' ? 'approved' : 'rejected')
+      onStatus?.(decision === 'approve' ? 'approved' : 'rejected')
       setRejecting(false)
       setReason('')
       setChanging(false)

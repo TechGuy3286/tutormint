@@ -122,8 +122,8 @@ test('every send path reaches the adapter through sendSms()', () => {
   // The signup code: register → startPendingSignup → deliverCode(…, 'signup').
   assert.match(src('app/api/auth/register/route.ts'), /startPendingSignup\(/)
   assert.match(src('lib/pendingSignup.ts'), /deliverCode\(opts\.mobile, code, 'verify', 'signup'\)/)
-  // Search alerts.
-  assert.match(src('lib/tutorAlerts.ts'), /sendSms\(\{ to: r\.contact, body: alertSms\(r\.label, url\), purpose: 'alert' \}\)/)
+  // Search alerts are email only (owner, 15 Oct 2026): they send no SMS.
+  assert.doesNotMatch(src('lib/tutorAlerts.ts'), /sendSms/)
   // The test SMS.
   assert.match(src('app/api/admin/sms/test/route.ts'), /sendSms\(\{ to: msisdn, body: smsTestBody\(now\), purpose: 'test'/)
 

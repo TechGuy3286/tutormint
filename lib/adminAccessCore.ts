@@ -9,9 +9,11 @@
 //   owner           everything, plus the Team screen.
 //   admin           everything except Team.
 //   operations      office staff: tuitions, verifying, assisting, marketing, SEO.
-//   tuitions_staff  RESTRICTED: the tuition board, Post a tuition, and Staff
-//                   activity filtered to ONLY their own actions, plus their own
-//                   Two-factor page and sign out. Everything else is refused on
+//   tuitions_staff  RESTRICTED: the Tuitions group (the board, Post a tuition,
+//                   Paused tuitions, Duplicates, Applicants to forward, Tuition
+//                   posting activity) and the two outreach lists, plus their own
+//                   Two-factor page and sign out (Staff activity left this role
+//                   on 15 Oct 2026). Everything else is refused on
 //                   the server, not just hidden.
 //   partner         EDITS TUTORS, PARENTS AND TUITIONS; EVERYTHING ELSE VIEW
 //                   ONLY (owner, 13 Oct 2026, later the same day — this replaces
@@ -75,9 +77,11 @@ export function isReadOnlyRole(role: AdminRole | null | undefined): boolean {
 }
 
 /** Roles that must ALWAYS have two-factor on — no grace window, and no admin
- *  request is served to a session that has not passed it. */
+ *  request is served to a session that has not passed it. Every staff role
+ *  since 15 Oct 2026 (owner: "same flow as Partner"); it was the Partner only. */
+export const STAFF_ROLES: AdminRole[] = ['owner', 'admin', 'operations', 'tuitions_staff', 'partner']
 export function alwaysNeedsTwoFactor(role: AdminRole | null | undefined): boolean {
-  return role === 'partner'
+  return !!role && STAFF_ROLES.includes(role)
 }
 
 // ---------------------------------------------------------------------------
@@ -208,7 +212,9 @@ export const SCREEN_ACCESS = {
   // (owner, 6 Oct 2026): owner only, like that screen. `[]` = owner only.
   reconciliation: [] as AdminRole[],
   // The Duplicates view and its one-tap merge (owner, 6 Oct 2026).
-  duplicates: ['admin', 'operations', 'partner'] as AdminRole[],
+  // Tuitions staff open it too since it joined the Tuitions group (owner,
+  // 15 Oct 2026); merging stays admin + Partner.
+  duplicates: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
   duplicatesMerge: ['admin', 'partner'] as AdminRole[],
   // Opening checkout to ALL members is an owner decision. `[]` = owner only.
   paymentsSwitches: [] as AdminRole[],
@@ -243,10 +249,15 @@ export const SCREEN_ACCESS = {
   // staff act; the Partner views (refused on every write by checkAdminRole).
   applicantForwards: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
   users: ['admin', 'operations', 'partner'] as AdminRole[],
-  // Staff performance. Management view (admin/owner), plus tuitions_staff for
-  // ITS OWN activity only — the page and detail route force the id to the actor
-  // for this role, so it can never read another staff member's.
-  staffActivity: ['admin', 'tuitions_staff'] as AdminRole[],
+  // Staff activity (verifications, messages): the Owner and the Project
+  // Managers only (owner, 15 Oct 2026). `[]` = owner + Partner.
+  staffActivity: [] as AdminRole[],
+  // Tuitions → Tuition posting activity (owner, 15 Oct 2026): every role that
+  // posts tuitions — Tuitions staff, Operations, Admin, the Project Managers.
+  tuitionPosting: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
+  // The daily sign-up funnel on Overview (owner, 15 Oct 2026): the Owner and
+  // the Project Managers. `[]` = owner + Partner.
+  signupFunnel: [] as AdminRole[],
   // Staff outreach under People (owner, 8 Oct 2026): Unpaid signups (call /
   // WhatsApp new tutors who have not paid) and Featured WhatsApp (send Featured
   // tutors their new matches). Owner, admin, Operations AND Tuitions staff — the

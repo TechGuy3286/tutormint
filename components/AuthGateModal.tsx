@@ -1,8 +1,9 @@
 'use client'
 
-import { ArrowLeft, LogIn } from 'lucide-react'
+import { ArrowLeft, LogIn, UserPlus } from 'lucide-react'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { applyReturnPath, authHref, safeReturnTo } from '@/lib/returnTo'
 
 // "Sign in to continue" — the moment a guest attempts a transactional action.
 //
@@ -17,8 +18,8 @@ export type AuthIntent = 'apply' | 'post' | 'message' | 'demo' | 'shortlist' | '
 
 const COPY: Record<AuthIntent, { title: string; body: string; cta: string }> = {
   apply: {
-    title: 'Sign in to apply',
-    body: 'Create a free tutor account to apply for this tuition. Your application is saved.',
+    title: 'Apply for this tuition',
+    body: 'Join free to apply. We bring you back to this tuition when you are done.',
     cta: 'Sign in and apply',
   },
   post: {
@@ -130,17 +131,27 @@ export default function AuthGateModal({
   if (!open) return null
 
   const copy = COPY[intent]
+  const isApply = intent === 'apply'
 
-  const goToLogin = () => {
+  // Where the guest comes back to. For Apply it is the TUITION page with the
+  // Apply-ready flag (owner, 15 Oct 2026), so the button is waiting for them
+  // after sign-up (through mobile verification and onboarding) or sign-in.
+  const returnTarget = () => {
+    const here = typeof window !== 'undefined' ? window.location.pathname + window.location.search : '/'
+    const base = next ?? here
+    return isApply ? applyReturnPath(base) : (safeReturnTo(base) ?? '/')
+  }
+
+  // Carry the role the sign-up form should start on (owner PR33 §3): every
+  // gated action here is a PARENT one except applying, which is the tutor's.
+  // /login forwards this to its "Create an account" link, so a guest who
+  // messages a tutor lands on a sign-up form with Parent pre-selected — even
+  // though `next` is that tutor's own page.
+  const role = isApply ? 'tutor' : 'parent'
+
+  const go = (page: '/register' | '/login') => {
     if (draft !== undefined) saveDraft(intent, draft)
-    const target = next ?? (typeof window !== 'undefined' ? window.location.pathname : '/')
-    // Carry the role the sign-up form should start on (owner PR33 §3): every
-    // gated action here is a PARENT one except applying, which is the tutor's.
-    // /login forwards this to its "Create an account" link, so a guest who
-    // messages a tutor lands on a sign-up form with Parent pre-selected — even
-    // though `next` is that tutor's own page.
-    const role = intent === 'apply' ? 'tutor' : 'parent'
-    router.push(`/login?next=${encodeURIComponent(target)}&role=${role}`)
+    router.push(authHref(page, returnTarget(), role))
   }
 
   return (
@@ -162,22 +173,54 @@ export default function AuthGateModal({
           <p className="text-xs text-gray-600 leading-relaxed">{copy.body}</p>
         </div>
 
-        <div className="space-y-2 pt-1">
-          <button
-            onClick={goToLogin}
-            className="inline-flex w-full min-h-[44px] items-center justify-center gap-2 py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs rounded-xl transition-colors"
-          >
-            <LogIn aria-hidden size={14} />
-            {copy.cta}
-          </button>
-          <button
-            onClick={onClose}
-            className="inline-flex w-full min-h-[44px] items-center justify-center gap-2 py-3 bg-tm-bg hover:bg-gray-100 text-slate-700 font-bold text-xs rounded-xl border border-gray-200 transition-colors"
-          >
-            <ArrowLeft aria-hidden size={14} />
-            Keep browsing
-          </button>
-        </div>
+        {isApply ? (
+          // Apply (owner, 15 Oct 2026): joining comes FIRST — "Sign in to apply"
+          // read as members-only to a visitor who has no account yet.
+          <div className="space-y-2 pt-1">
+            <button
+              type="button"
+              onClick={() => go('/register')}
+              className="inline-flex w-full min-h-[44px] items-center justify-center gap-2 py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-sm rounded-xl transition-colors"
+            >
+              <UserPlus aria-hidden size={16} />
+              Join free — new tutor
+            </button>
+            <button
+              type="button"
+              onClick={() => go('/login')}
+              className="inline-flex w-full min-h-[44px] items-center justify-center text-xs font-bold text-tm-navy hover:underline"
+            >
+              Already have an account? Sign in
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2 pt-1">
+            <button
+              type="button"
+              onClick={() => go('/login')}
+              className="inline-flex w-full min-h-[44px] items-center justify-center gap-2 py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs rounded-xl transition-colors"
+            >
+              <LogIn aria-hidden size={14} />
+              {copy.cta}
+            </button>
+            <button
+              type="button"
+              onClick={() => go('/register')}
+              className="inline-flex w-full min-h-[44px] items-center justify-center text-xs font-bold text-tm-navy hover:underline"
+            >
+              New here? Join free
+            </button>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="inline-flex w-full min-h-[44px] items-center justify-center gap-2 text-xs font-bold text-slate-600 hover:text-slate-800"
+        >
+          <ArrowLeft aria-hidden size={14} />
+          Keep browsing
+        </button>
 
         <p className="text-center text-[11px] text-gray-500">
           Browsing tutors and tuitions is always free.

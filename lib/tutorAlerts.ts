@@ -4,9 +4,9 @@ import 'server-only'
 //
 // "Notify me when a matching tutor joins" (owner, 13 Oct 2026).
 //
-// A parent whose search found nobody leaves a mobile number or an email, with a
+// A parent whose search found nobody leaves an email, with a
 // clear opt-in. When a tutor who answers the search becomes visible, they get
-// ONE message — an SMS or an email — and the request is closed. No marketing,
+// ONE email (owner, 15 Oct 2026: email only) and the request is closed. No marketing,
 // no second message. A request lapses after 60 days. Nothing is deleted.
 //
 // The match is pure (lib/tutorFacetsCore.matchesAlert): same city, at least one
@@ -14,21 +14,28 @@ import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { pageAll } from '@/lib/pageAll'
-import { sendSms } from '@/lib/smsLog'
 import { deliverEmail } from '@/lib/notify'
 import { normalisePkMobile, looksLikeEmail } from '@/lib/phone'
 import { resolveSmartQuery } from '@/lib/smartSearch'
 import { loadTutorIndexFresh } from '@/lib/tutorFacets'
-import { alertLabel, alertOpen, alertSms, matchesAlert, type AlertContact, type IndexedTutor } from '@/lib/tutorFacetsCore'
+import { alertLabel, alertOpen, matchesAlert, type AlertContact, type IndexedTutor } from '@/lib/tutorFacetsCore'
 import { SITE_URL } from '@/lib/siteUrl'
 
-/** A mobile or an email, as the parent typed it → what we can message. */
+/**
+ * An email, as the parent typed it → what we can message. EMAIL ONLY (owner,
+ * 15 Oct 2026): SendPK sends only the approved verification-code template, so
+ * an alert SMS can never be delivered. A mobile number is refused with a plain
+ * message; requests already stored with a mobile are left alone (see the sweep).
+ */
 export function readContact(raw: string): AlertContact | null {
   const v = (raw ?? '').trim()
-  if (!v) return null
-  if (v.includes('@')) return looksLikeEmail(v) ? { channel: 'email', contact: v.toLowerCase() } : null
-  const msisdn = normalisePkMobile(v)
-  return msisdn ? { channel: 'sms', contact: msisdn } : null
+  if (!v || !v.includes('@')) return null
+  return looksLikeEmail(v) ? { channel: 'email', contact: v.toLowerCase() } : null
+}
+
+/** True when the parent typed a mobile number instead of an email. */
+export function looksLikeMobile(raw: string): boolean {
+  return !!normalisePkMobile((raw ?? '').trim())
 }
 
 export type AlertRequest = {
@@ -45,7 +52,15 @@ export type AlertRequest = {
 export async function createTutorAlert(input: AlertRequest): Promise<{ ok: true; channel: 'sms' | 'email'; label: string } | { ok: false; status: number; error: string }> {
   if (!input.consent) return { ok: false, status: 400, error: 'Tick the box to agree to one message, then try again.' }
   const contact = readContact(input.contact)
-  if (!contact) return { ok: false, status: 400, error: 'Enter a mobile number like 0300 1234567, or an email address.' }
+  if (!contact) {
+    return {
+      ok: false,
+      status: 400,
+      error: looksLikeMobile(input.contact)
+        ? 'We can only send this by email. Enter your email address.'
+        : 'Enter an email address, like you@example.com.',
+    }
+  }
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes.' }
 
@@ -148,6 +163,9 @@ export async function sweepTutorAlerts(now = new Date()): Promise<{ open: number
   if (index.length === 0) return out
 
   for (const r of live) {
+    // A request stored with a mobile (before 15 Oct 2026) is left alone: an
+    // alert SMS cannot be delivered, so nothing is sent and it lapses at 60 days.
+    if (r.channel !== 'email') continue
     const tutor = index.find((t) => matchesAlert({ city: r.city, masterIds: r.master_ids ?? [], knownTutorIds: r.known_tutor_ids ?? [] }, t))
     if (!tutor || !tutor.slug) continue
     // Close first (guarded on still-open), then send: one message, ever.
@@ -161,8 +179,7 @@ export async function sweepTutorAlerts(now = new Date()): Promise<{ open: number
     const url = `${SITE_URL}/tutor/${tutor.slug}`
     let ok = false
     try {
-      if (r.channel === 'sms') ok = (await sendSms({ to: r.contact, body: alertSms(r.label, url), purpose: 'alert' })).ok
-      else ok = (await deliverEmail({ email: r.contact }, { id: 'tutor_alert', label: r.label, url })).ok
+      ok = (await deliverEmail({ email: r.contact }, { id: 'tutor_alert', label: r.label, url })).ok
     } catch {
       ok = false
     }

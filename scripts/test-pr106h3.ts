@@ -55,7 +55,8 @@ test('a paid fee returns to the dashboard with a green message; a failed one to 
 
 test('reopening onboarding after the fee is paid goes to the dashboard', () => {
   const flow = read('components/tutor/NewOnboardingFlow.tsx')
-  assert.match(flow, /if \(facts\.feePaid\) \{\s*\n?\s*void leave\('\/tutor\/dashboard'\)/, 'feePaid at verify → dashboard')
+  // …or back to the tuition the tutor came from, when there is one (owner, 15 Oct 2026).
+  assert.match(flow, /if \(facts\.feePaid\) \{\s*\n?\s*void leave\(returnTo \?\? '\/tutor\/dashboard'\)/, 'feePaid at verify → dashboard')
 })
 
 // --------------------------------------------- STEP 3: auto-advance ---------

@@ -539,6 +539,9 @@ export default function JobCard({
       <AuthGateModal
         open={gateOpen}
         intent="apply"
+        // Back to THIS tuition's page with Apply ready, not to the list the
+        // card sat on (owner, 15 Oct 2026).
+        next={detailHref}
         draft={{ jobId: job.id, title: job.title }}
         onClose={() => setGateOpen(false)}
       />

@@ -61,7 +61,7 @@ export function getSmsProvider(): SmsProvider {
   // With none configured, the console adapter prints in development and production
   // falls to `unconfigured` — never a silent success.
   //
-  // SMS ONLY (owner PR5a §2): the SMS Point provider delivered the code over
+  // SMS ONLY (owner PR5a §2): an earlier provider delivered the code over
   // WhatsApp; the codes must go by SMS, so it is no longer in the chain. There
   // is no WhatsApp OTP-sending path left.
   //

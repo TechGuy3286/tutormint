@@ -68,7 +68,9 @@ test('Tuitions staff see tuition-posting actions only', () => {
   assert.ok(TUITION_ACTIVITY_ACTIONS.every((a) => a.startsWith('job.')))
   assert.equal(tuitionActionLabel('job.post', true), 'Posted anyway after a duplicate warning')
   assert.equal(tuitionActionLabel('job.resume'), 'Reopened a tuition')
-  // The role keeps its menu entry and is refused payments on the server.
-  assert.equal(roleSatisfies('tuitions_staff', SCREEN_ACCESS.staffActivity), true)
+  // Staff activity is the Owner and Project Managers' only (owner, 15 Oct 2026);
+  // the role has the Tuition posting activity board instead, and no payments.
+  assert.equal(roleSatisfies('tuitions_staff', SCREEN_ACCESS.staffActivity), false)
+  assert.equal(roleSatisfies('tuitions_staff', SCREEN_ACCESS.tuitionPosting), true)
   assert.equal(roleSatisfies('tuitions_staff', SCREEN_ACCESS.payments), false)
 })

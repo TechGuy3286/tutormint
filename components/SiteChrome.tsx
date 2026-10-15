@@ -1,6 +1,7 @@
 import Footer from '@/components/Footer'
 import Navbar from '@/components/Navbar'
 import MessagesDock from '@/components/messages/MessagesDock'
+import VisitBeacon from '@/components/VisitBeacon'
 import { getSessionUser } from '@/lib/auth'
 import { unreadMessageCount } from '@/lib/messaging'
 import { getSupportContact, supportContactFromEnv, whatsappHref } from '@/lib/support'
@@ -64,6 +65,8 @@ export default async function SiteChrome({ children }: { children: React.ReactNo
         dangerouslySetInnerHTML={jsonLdScript(siteGraphJsonLd(company, support.whatsapp))}
       />
       <Navbar />
+      {/* Signed-out page views feed the daily sign-up funnel (owner, 15 Oct 2026). */}
+      {!session && <VisitBeacon />}
       <main className="flex-1">{children}</main>
       <Footer />
       {isMember && (

@@ -117,8 +117,13 @@ export default function NewOnboardingFlow({
   payFailed = false,
   helpWaHref = null,
   initialStep = null,
+  returnTo = null,
 }: {
   seed: string
+  /** Where the tutor was before onboarding (the tuition they tapped Apply on),
+   *  validated on the server — used in place of the dashboard at the end
+   *  (owner, 15 Oct 2026). */
+  returnTo?: string | null
   /** Open at this step (a "Fix now" link), not at the first missing one. */
   initialStep?: FlowStepKey | null
   smsAvailable?: boolean
@@ -512,17 +517,17 @@ export default function NewOnboardingFlow({
     // pay screen (and its "Get verified now" button) is never shown again
     // (PR106-H3 §2 / urgent fix).
     if (facts.feePaid) {
-      void leave('/tutor/dashboard')
+      void leave(returnTo ?? '/tutor/dashboard')
       return <LogoLoader fullPage />
     }
-    return <GetVerifiedStep stepTotal={ORDER.length} onBack={goBack} payFailed={payFailed} />
+    return <GetVerifiedStep stepTotal={ORDER.length} onBack={goBack} payFailed={payFailed} returnTo={returnTo} />
   }
 
   // ---------- FINAL ----------
   return (
     <StepShell heading="You're almost there" stepIndex={stepIndex} stepTotal={ORDER.length}
       onBack={goBack} backDisabled={false}
-      buttonLabel="Go to dashboard" onNext={() => void leave('/tutor/dashboard')}>
+      buttonLabel={returnTo ? 'Back to the tuition' : 'Go to dashboard'} onNext={() => void leave(returnTo ?? '/tutor/dashboard')}>
       <p className="text-center text-xs leading-relaxed text-gray-500">
         You can edit anything later from your dashboard.
       </p>
@@ -1435,8 +1440,10 @@ function TaglineStep({ facts, shell, onSave, onError, onDraft }: { facts: Facts;
 // "What do I get?" opens the shared VerifyBenefitsDialog.
 const PAY_CHOICE_HREF = '/pay/choose?plan=verified'
 
-function GetVerifiedStep({ stepTotal, onBack, payFailed = false }: {
+function GetVerifiedStep({ stepTotal, onBack, payFailed = false, returnTo = null }: {
   stepTotal: number; onBack: () => void; payFailed?: boolean
+  /** The tuition the tutor came from, offered as a way back (owner, 15 Oct 2026). */
+  returnTo?: string | null
 }) {
   const [benefits, setBenefits] = useState(false)
   const benefitState = verificationFeeCardState({ feePaid: false, verifiedOk: false, findable: false })
@@ -1463,6 +1470,11 @@ function GetVerifiedStep({ stepTotal, onBack, payFailed = false }: {
           className="text-[11px] font-bold text-tm-navy underline-offset-2 hover:underline">
           What do I get?
         </button>
+        {returnTo && (
+          <Link href={returnTo} className="block min-h-[44px] pt-2 text-xs font-bold text-tm-navy underline-offset-2 hover:underline">
+            Back to the tuition
+          </Link>
+        )}
       </div>
       <VerifyBenefitsDialog open={benefits} onClose={() => setBenefits(false)} state={benefitState} />
     </StepShell>

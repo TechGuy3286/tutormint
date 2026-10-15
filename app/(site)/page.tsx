@@ -17,6 +17,11 @@
 // "Largest"; it shows the computed brand line (lib/brandClaims brandLine).
 // Same styling. Recorded in CLAUDE.md.
 //
+// OWNER-APPROVED, 15 Oct 2026 — the "HIRE" word above the H1 is removed (it
+// belonged with the old heading), and the site header's "Join free" button
+// shows here as on every public page. Nothing else changed. Recorded in
+// CLAUDE.md.
+//
 // It is a server component with no client JavaScript at all. This is the page
 // every organic visitor lands on, and it renders as HTML on the first byte.
 //
@@ -70,10 +75,8 @@ export default async function HomePage() {
           {pill}
         </p>
 
-        {/* HIRE */}
-        <p className="mt-3 text-4xl font-black tracking-[0.18em] text-tm-green-deep sm:mt-4 sm:text-6xl">
-          HIRE
-        </p>
+        {/* "HIRE" was removed here (owner-approved, 15 Oct 2026): it read as
+            part of the old headline and makes no sense above the new one. */}
 
         {/* Headline. One <h1> for the page. The words are the owner-approved
             13 Oct 2026 text (lib/siteIdentity); the styling and size are the

@@ -19,15 +19,18 @@ const Body = z.union([
     memberId: uuid,
     channel: z.enum(['whatsapp', 'call', 'email']),
     templateKey: z.string().max(80).nullish(),
-    source: z.enum(['stuck', 'unpaid', 'abandoned']),
+    source: z.enum(['stuck', 'unpaid', 'abandoned', 'documents']),
   }),
   z.object({ action: z.literal('undo'), id: uuid }),
 ])
 
-const screenFor = (source: string) => (source === 'abandoned' ? SCREEN_ACCESS.signups : SCREEN_ACCESS.unpaidSignups)
+// 'documents' (owner, 15 Oct 2026): the WhatsApp sent after a tutor's documents
+// are approved — whoever reviews tutor documents may log it.
+const screenFor = (source: string) =>
+  source === 'abandoned' ? SCREEN_ACCESS.signups : source === 'documents' ? SCREEN_ACCESS.tutors : SCREEN_ACCESS.unpaidSignups
 
 export async function POST(request: Request) {
-  const gate = await checkAdminRole(...new Set([...SCREEN_ACCESS.unpaidSignups, ...SCREEN_ACCESS.signups]))
+  const gate = await checkAdminRole(...new Set([...SCREEN_ACCESS.unpaidSignups, ...SCREEN_ACCESS.signups, ...SCREEN_ACCESS.tutors]))
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
 
   const parsed = await parseBody(request, Body)

@@ -13,6 +13,7 @@ import { NextResponse } from 'next/server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ownerProtection, type AdminRole } from '@/lib/adminAccessCore'
+import { alertOwnerBlocked } from '@/lib/ownerAlerts'
 
 /** The target's staff role, or null for an ordinary member / unknown id. */
 export async function staffRoleOf(userId: string | null | undefined): Promise<string | null> {
@@ -32,11 +33,18 @@ export async function ownerTargetProblem(
   return ownerProtection(actor.adminRole, await staffRoleOf(targetId))
 }
 
-/** A 403 response when the target is the Owner and the actor is not; else null. */
+/**
+ * A 403 response when the target is the Owner and the actor is not; else null.
+ * A refusal also tells the Owner (bell + email + Audit; owner, 15 Oct 2026) —
+ * `what` says what was tried, in words.
+ */
 export async function refuseOwnerTarget(
-  actor: { id: string; adminRole: AdminRole },
+  actor: { id: string; adminRole: AdminRole; email?: string | null },
   targetId: string | null | undefined,
+  what = 'change the Owner account',
 ): Promise<NextResponse | null> {
   const problem = await ownerTargetProblem(actor, targetId)
-  return problem ? NextResponse.json({ error: problem }, { status: 403 }) : null
+  if (!problem) return null
+  await alertOwnerBlocked({ actor: { id: actor.id, adminRole: actor.adminRole, email: actor.email ?? null }, problem, what, targetId })
+  return NextResponse.json({ error: problem }, { status: 403 })
 }

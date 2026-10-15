@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/errorResponse'
 import { checkAdminRole, staffChangeProblem, ROLE_LABEL, SCREEN_ACCESS, type AdminRole } from '@/lib/adminAuth'
-import { alertOwner } from '@/lib/ownerAlerts'
+import { alertOwner, alertOwnerBlocked } from '@/lib/ownerAlerts'
+import { OWNER_PROTECTED } from '@/lib/adminAccessCore'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createStaff, changeStaffRole, resendStaffInvite, grantStaffToExisting, searchGrantCandidates } from '@/lib/staff'
 import { logAdminAction } from '@/lib/auditLog'
@@ -70,7 +71,9 @@ export async function POST(request: Request) {
 
   // Nobody but the Owner hands out the Owner role — whatever the action.
   if (body.adminRole === 'owner' && gate.actor.adminRole !== 'owner') {
-    return NextResponse.json({ error: staffChangeProblem(gate.actor.adminRole, null, 'owner') }, { status: 403 })
+    const problem = staffChangeProblem(gate.actor.adminRole, null, 'owner')
+    await alertOwnerBlocked({ actor: gate.actor, problem, what: 'make someone Owner', targetId: body.userId ?? null })
+    return NextResponse.json({ error: problem }, { status: 403 })
   }
   const roleWord = (r: string | null | undefined) => (r ? (ROLE_LABEL[r as AdminRole] ?? r) : 'Not staff')
   const tellOwner = (who: string, from: string | null | undefined, to: string | null | undefined) =>
@@ -183,6 +186,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'That is not a staff account.' }, { status: 404 })
     }
     if (target.admin_role === 'owner') {
+      if (actor.adminRole !== 'owner') {
+        await alertOwnerBlocked({ actor, problem: OWNER_PROTECTED, what: 'remove the Owner from the team', targetId: body.userId ?? null })
+      }
       return NextResponse.json({ error: 'The owner account cannot be removed.' }, { status: 403 })
     }
     // A Partner cannot remove another Partner (owner, 13 Oct 2026).

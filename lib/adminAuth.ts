@@ -155,8 +155,8 @@ async function checkAdmin(
     if (!(await isReadRequest())) return { ok: false, status: 403, error: PARTNER_READ_ONLY }
   }
   if (alwaysNeedsTwoFactor(actor.adminRole) && !opts.self) {
-    // Partner: no admin request is served without two-factor passed in THIS
-    // session.
+    // Every staff role (owner, 15 Oct 2026; it was the Partner only): no admin
+    // request is served without two-factor passed in THIS session.
     const { mfaState } = await import('@/lib/adminMfa')
     const supabase = await createClient()
     if ((await mfaState(supabase)) !== 'verified') {

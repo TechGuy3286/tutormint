@@ -63,6 +63,22 @@ export function pakistanTime(when: Date): string {
   return `${d}, ${t} (Pakistan time)`
 }
 
+/**
+ * Should a REFUSED action raise the blocked-attempt alert (owner, 15 Oct 2026)?
+ * Only when the refusal came from Owner protection — someone other than the
+ * Owner tried to change the Owner account (edit, pause, remove, demote, email,
+ * mobile, password, two-factor) or to make anyone Owner. A Partner-protection
+ * refusal, or any other 403, is not this alert.
+ */
+export function isOwnerProtectionRefusal(problem: string | null | undefined, ownerProtected: string, ownerOnly: string): boolean {
+  return !!problem && (problem === ownerProtected || problem === ownerOnly)
+}
+
+/** The in-app body for a blocked attempt: who, what they tried, when. */
+export function blockedAttemptBody(who: string, what: string, when: Date): string {
+  return [`By ${who}`, `Tried to: ${what}`, 'Refused by Owner protection — nothing changed.', pakistanTime(when)].join('\n')
+}
+
 /** The in-app body: who, what changed, when. */
 export function alertBody(who: string, changes: AlertChange[], when: Date): string {
   return [`By ${who}`, ...changeLines(changes), pakistanTime(when)].join('\n')

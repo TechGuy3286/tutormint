@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { authHref, newTutorDestination, safeReturnTo } from '@/lib/returnTo'
 import { armEscape, STUCK_MESSAGE, submitJson } from '@/lib/submit'
 import SubmitEscape from '@/components/SubmitEscape'
 import PasswordInput from '@/components/ui/PasswordInput'
@@ -156,9 +157,14 @@ export default function RegisterForm({
     // on its way). Only the mobile path carries `next` forward — the email path
     // breaks the session until the link is clicked, so there is nothing to hand
     // back yet.
-    const target = data?.next === '/verify-phone' && next
-      ? `/verify-phone?next=${encodeURIComponent(next)}`
-      : (data?.next ?? '/verify-phone')
+    // An email-signup TUTOR is signed in at once and sent to onboarding (13 Oct);
+    // the return-to rides along to the end of onboarding (owner, 15 Oct 2026).
+    const safeNext = safeReturnTo(next)
+    const target = data?.next === '/verify-phone' && safeNext
+      ? `/verify-phone?next=${encodeURIComponent(safeNext)}`
+      : data?.next === '/tutor/onboarding' && safeNext
+        ? newTutorDestination(safeNext)
+        : (data?.next ?? '/verify-phone')
 
     // Keep the draft so Back from the verify screen refills the form (§14).
     saveDraft()
@@ -326,7 +332,9 @@ export default function RegisterForm({
 
           {/* A full-width outlined "Sign in" under it (no WhatsApp icon on signup). */}
           <Link
-            href="/login"
+            // Keeps the return-to (owner, 15 Oct 2026): a guest who came here
+            // from a tuition's Apply and already has an account goes back there.
+            href={authHref('/login', next ?? null, role === 'parent' || role === 'tutor' ? role : undefined)}
             className="flex min-h-[44px] w-full items-center justify-center rounded-xl border border-tm-navy bg-white text-xs font-bold text-tm-navy transition-colors hover:bg-tm-navy/5"
           >
             Sign in

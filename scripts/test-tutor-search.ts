@@ -106,7 +106,7 @@ test('zero results never end the page: closest tutors, a free request, and Notif
   // The opt-in renders, and is not pre-ticked.
   const html = renderToStaticMarkup(createElement(NotifyMe, { q: 'astronomy', city: 'Gilgit' }))
   assert.ok(html.includes('Notify me when a matching tutor joins'))
-  assert.ok(html.includes('Send me one message when a tutor matching this search joins.'))
+  assert.ok(html.includes('Email me once when a tutor matching this search joins.'))
   assert.ok(html.includes('type="checkbox"') && !/type="checkbox"[^>]*checked/.test(html), 'an explicit, unticked opt-in')
 })
 
@@ -126,7 +126,9 @@ test('Notify me: one message for a NEW matching tutor, then closed; lapses after
   assert.ok(sms.includes('only message') && !/rs\.?\s*\d|free|offer|discount/i.test(sms), 'no marketing, no price')
   // The sweep closes the request BEFORE it sends, so a retry cannot send twice.
   const sweep = readFileSync('lib/tutorAlerts.ts', 'utf8')
-  assert.ok(sweep.indexOf("close_reason: 'notified'") < sweep.indexOf('await sendSms('))
+  assert.ok(sweep.indexOf("close_reason: 'notified'") < sweep.indexOf('await deliverEmail('))
+  // Email only (owner, 15 Oct 2026): no alert SMS, and a stored mobile request is skipped.
+  assert.ok(!sweep.includes('sendSms') && sweep.includes("if (r.channel !== 'email') continue"))
   const sql = readFileSync('supabase/migrations/167_search_synonyms_alerts_title_names.sql', 'utf8')
   assert.ok(sql.includes("interval '60 days'"))
 })

@@ -1,4 +1,5 @@
 import { NextResponse, after } from 'next/server'
+import { bumpSiteVisit } from '@/lib/siteVisits'
 import { sendConfirmEmail } from '@/lib/emailConfirm'
 import { serverError } from '@/lib/errorResponse'
 import { AUTH_MSG, classifyAuthError } from '@/lib/authMessages'
@@ -200,6 +201,7 @@ export async function POST(request: Request) {
       })
       const session = await createClient()
       const { error: signInError } = await session.auth.signInWithPassword({ email: authEmail, password: body.password })
+      await bumpSiteVisit(body.role === 'tutor' ? 'signup_tutor' : 'signup_parent') // daily funnel count (15 Oct 2026)
       return NextResponse.json({
         success: true,
         signedIn: !signInError,
@@ -265,6 +267,7 @@ export async function POST(request: Request) {
       }
     }
 
+    await bumpSiteVisit('signup_parent') // daily funnel count (15 Oct 2026); email tutors returned above
     return NextResponse.json({
       success: true,
       signedIn: false,
@@ -362,6 +365,8 @@ export async function POST(request: Request) {
     maxAge: Math.floor(CODE_TTL_MS / 1000),
   })
 
+  // A repeat submit while a code is still live is not a new sign-up form.
+  if (!started.alreadySent) await bumpSiteVisit(body.role === 'tutor' ? 'signup_tutor' : 'signup_parent') // daily funnel count (15 Oct 2026)
   return NextResponse.json({
     success: true,
     signedIn: false,

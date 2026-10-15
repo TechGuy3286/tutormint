@@ -6,6 +6,7 @@ import { parseBody, z } from '@/lib/validate'
 import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 import { verifyPendingSignup, PENDING_COOKIE } from '@/lib/pendingSignup'
 import { homeForRole, nextForRole } from '@/lib/authRoutes'
+import { newTutorDestination } from '@/lib/returnTo'
 
 // Verify a pending mobile signup — and CREATE THE ACCOUNT.
 //
@@ -83,8 +84,15 @@ export async function POST(request: Request) {
   // (owner, 14 Sep 2026) — the screen that turns a Meta-ad signup into a listed
   // tutor — not the dashboard. An explicit `next` (e.g. an apply draft) still
   // wins. Parents and admins go to their role home as before.
-  const fallback = result.role === 'tutor' ? '/tutor/onboarding' : homeForRole(result.role)
-  const dest = nextForRole(parsed.data.next, result.role) ?? fallback
+  //
+  // A brand-new tutor cannot apply until onboarding is finished
+  // (lib/applications), so a return-to (the tuition they tapped Apply on) is
+  // carried THROUGH onboarding and used at its end (owner, 15 Oct 2026).
+  const allowed = nextForRole(parsed.data.next, result.role)
+  const dest =
+    result.role === 'tutor'
+      ? newTutorDestination(allowed)
+      : (allowed ?? homeForRole(result.role))
 
   // If the session could not be minted, the account is still real — the member
   // signs in with the password they set. Never a dead end.

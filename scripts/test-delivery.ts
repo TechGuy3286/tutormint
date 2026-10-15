@@ -44,7 +44,7 @@ function mockFetch(response: { status: number; body: unknown }): {
 }
 
 // ---------------------------------------------- OTP is SMS-only (PR5a/5b §2) ---
-// SMS Point delivered OTP over WhatsApp; it was removed from getSmsProvider()'s
+// An earlier provider delivered OTP over WhatsApp; it was removed from getSmsProvider()'s
 // chain (PR5a) and its module deleted (PR5b §5.1). The chain is SMS-only —
 // SendPK / console / unconfigured — so no WhatsApp provider can be
 // selected. In a bare test env with no provider configured, `console` is chosen.

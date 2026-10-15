@@ -7,7 +7,10 @@ import StaffActivityTable from '@/components/admin/StaffActivityTable'
 import { recentRepeats } from '@/lib/duplicates'
 
 // Every staff member with their activity counts (PR29 §2.3), read from the
-// audit log by actor. Admin (and owner) only — a management view.
+// audit log by actor. The Owner and the Project Managers only (owner, 15 Oct
+// 2026; SCREEN_ACCESS.staffActivity is []). Tuitions staff use Tuitions →
+// Tuition posting activity instead, so the tuition-only branch below is no
+// longer reached; it is kept for the record.
 
 export const dynamic = 'force-dynamic'
 

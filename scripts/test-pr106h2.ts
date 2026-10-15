@@ -24,10 +24,10 @@ const satisfiedKeys = (role: AdminRole) => KEYS.filter((k) => roleSatisfies(role
 // -------------------------------------------- the access matrix (STEP 1) ----
 // Owner, 8 Oct 2026: Tuitions staff also work the two People outreach tabs
 // (Unpaid signups, Featured WhatsApp) — the owner named all four roles.
-test('tuitions_staff may open ONLY jobs, jobsPost, jobsMutate, Paused tuitions, staffActivity and the two outreach tabs', () => {
+test('tuitions_staff may open ONLY the Tuitions group and the two outreach tabs', () => {
   // Paused tuitions (owner, 8 Oct 2026): every role that can post tuitions.
   // Applicants to forward (owner, 10 Oct 2026): tuitions staff act there too.
-  assert.deepEqual(satisfiedKeys('tuitions_staff'), ['applicantForwards', 'featuredWhatsapp', 'jobs', 'jobsMutate', 'jobsPost', 'pausedTuitions', 'staffActivity', 'unpaidSignups'])
+  assert.deepEqual(satisfiedKeys('tuitions_staff'), ['applicantForwards', 'duplicates', 'featuredWhatsapp', 'jobs', 'jobsMutate', 'jobsPost', 'pausedTuitions', 'tuitionPosting', 'unpaidSignups'])
 })
 
 test('every other screen is refused for tuitions_staff', () => {
@@ -37,6 +37,8 @@ test('every other screen is refused for tuitions_staff', () => {
     'inbox', 'users', 'orphans', 'signups', 'usersExport', 'audit', 'seo',
     'videoVisibility', 'tutorSlug', 'tutorEdit', 'ads', 'social', 'import',
     'cleanup', 'blog', 'blogPublish', 'blogQueue', 'blogGenerate',
+    // Staff activity is the Owner and Project Managers' only (owner, 15 Oct 2026).
+    'staffActivity',
   ]
   for (const k of refused) {
     assert.equal(roleSatisfies('tuitions_staff', SCREEN_ACCESS[k]), false, `tuitions_staff must NOT satisfy ${k}`)

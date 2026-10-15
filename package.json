@@ -137,6 +137,7 @@
     "test:schoolsearch": "tsx --test scripts/test-school-search.ts",
     "test:staffareas": "tsx --test scripts/test-staff-areas.ts",
     "test:homepage": "tsx --test scripts/test-homepage.ts",
+    "test:signupleaks": "tsx --test scripts/test-signup-leaks.ts",
     "test:partnerareas": "tsx --test scripts/test-partner-areas.ts",
     "test:blogrelevance": "tsx --test scripts/test-blog-relevance.ts",
     "test:switchedemail": "tsx --test scripts/test-switched-email.ts",

@@ -56,6 +56,7 @@ Brand colours are defined once, in `app/globals.css`, and used only through Tail
 - `job_contacts` (migration 65, extended migration 76) — the real poster's contact for a seeded (admin-posted) tuition, keyed 1:1 by `job_id` (cascade): `contact_name`, `contact_phone`, `contact_whatsapp`, `contact_email`, `contact_address`, `contact_social` (migration 76), `created_by`, `created_at`. All optional; only what was filled is stored. A DEDICATED table, NOT columns on `jobs`, because `jobs` has a public row-read policy and RLS cannot hide a column — so a contact on the jobs row would be one `select('*')` away from a public, indexed page. Admin-read RLS (`is_admin()`), service-role writes only (createTeamJob); no anon/member read. Normalised/validated by `buildJobContact()` (`lib/jobContactCore.ts`) before write — phone and WhatsApp to canonical MSISDN, email shape-checked, address/social free text — and read via `loadJobContact()`. Rendered only for a signed-in tutor on the job page and on `/admin/jobs/[id]`, both via the service role; never in metadata, JSON-LD, OG or the sitemap.
 - `posts.cover_prompt text` (migration 171) — the scene prompt a post's cover was made from, saved with the cover so it can be made again. Shown in the admin editor; no public page selects it. NULL for covers set before 14 Oct 2026.
 - `sms_sends` / `sms_alerts` (migration 172) — the SMS log and the "SMS may not be sending" alert history. `sms_sends`: one row per verification-code request or SMS send — `purpose` (signup | verify | reset | test | alert), `to_masked` (0321•••••22, never the full number), `provider`, `outcome` (sent | failed | reused | not_sent), `message_id` or scrubbed `error`, `actor_id` (test sends). Never a code or message body. Deleted after 90 days by the daily cron. `sms_alerts`: `reasons`, `last_success_at`, `message`. Both admin-read RLS, service-role writes.
+- `site_visit_counts` (migration 173) — the daily sign-up funnel's counts: `day` (Pakistan time), `kind` (`public_page` | `register_page` | `signup_tutor` | `signup_parent`), `count`. A number per day per kind — no visitor id, no IP. Written only through the service-role `bump_site_visit()`; admin-read RLS. `member_follow_ups.source` may also be `documents` (the WhatsApp after a tutor's documents are approved).
 - `one_off_emails` (migration 170) — a send-once record for a one-time email to a member: `user_id`, `email_key`, `sent_at`, unique (user_id, email_key). The row is written BEFORE the email leaves, so a second run cannot send again. Admin-read RLS, service-role writes. First use: `switched_tutor_signin_2026_10_13` (lib/switchedTutorEmailCore).
 - `search_unmet` (migration 154) — every search that found nothing: `query` (masked), `surface`, parsed `city`/`subject`/`level`/`school`, `role`, `created_at`. Admin-read RLS, server writes. Feeds the Overview to-do "Unmet searches this week".
 - `profiles.email_pending_confirm bool default false` (migration 169) — true ONLY while a tutor who signed up with an email has not clicked our own confirmation link; blocks nothing; no other email goes to the address meanwhile. `location_areas` gained `created_by`, `created_by_name`, `created_at` (an area staff added while posting a tuition; NULL for the owner's list) and `removed_at` / `removed_by` (a staff-added area merged into an existing one — retired, never deleted; every reader filters `removed_at is null`). `search_unmet_done.kind` may also be `school`.
@@ -629,6 +630,7 @@ Finishing the AssanPay integration is a fill-in job, not a rewrite. Everything t
 - **Hero pill text colour is `tm-navy` (#151E6B).** Explicit owner authorisation dated 2 Sep 2026, and the only permitted change to this page in that pass. The pill's background (`tm-tint-green`) and border (`tm-green-deep/20`) are unchanged. Recorded here so it is not reverted as a stray edit to a locked file.
 - **Three more changes were approved by the owner on 13 Oct 2026** — the H1 text, the "For parents" / "For tutors" cards under the two buttons, and the balanced link block. They are listed exactly in "Homepage — fourth owner authorisation (13 Oct 2026)" near the end of this file. Nothing else on the page is unlocked by it.
 - **The pill's TEXT was approved for change by the owner on 14 Oct 2026** — this element only, same styling. It no longer reads "Pakistan's Largest Verified Tutors & Teachers Network"; it shows the computed brand line (`brandLine()` in `lib/brandClaims.ts`): under 100 tutors holding the Verified badge "Pakistan's fast-growing tutor network", 100 or more "100+ verified tutors across Pakistan" (rounded down to the nearest 50). See "Homepage — fifth owner authorisation (14 Oct 2026)" near the end of this file.
+- **"HIRE" above the H1 was removed, and the site header's "Join free" button shows here as on every page** — owner-approved on 15 Oct 2026. Nothing else on the page changed. See "Homepage — sixth owner authorisation (15 Oct 2026)" near the end of this file.
 - **Hero line reads "Free to Join • No Commission • No Middleman • Live Demo"** (was "No Fee • …"). Explicit owner authorisation dated 8 Oct 2026 (the tagline change, confirmed for the locked hero). Recorded here so it is not reverted as a stray edit to a locked file.
 
 ## Graceful handling of unknown input (T8 polish checklist)
@@ -841,7 +843,7 @@ This supersedes the observation in "T-UI1" below that a live fetch of tutormint.
 
 ## Open owner decisions (blocking launch)
 
-- **SMS provider — DECIDED and WIRED (Part 7 stage 2, 9 Sep 2026): SMS Point (smspoint.pk), delivering the code on WhatsApp.** `lib/sms/smspoint.ts` implements the `SmsProvider` interface; `getSmsProvider()` uses it whenever `SMSPOINT_USERNAME/_PASSWORD/_CLIENTID/_MASK` are all set. Delivery is fire-and-forget — a 200 "Sent Successfully" means accepted, not delivered, and an exhausted balance is undetectable — so a send is only ever reported as "sent on WhatsApp" with the support fallback always visible, and a per-number daily cap (6/day) bounds the prepaid-balance cost. The owner activates it by setting the four env vars in Vercel; BRIDGE_OTP stays as a backstop until real codes are confirmed arriving.
+- **SMS provider — DECIDED: SendPK is the only provider** (owner, 14 Oct 2026; see "SendPK is the only SMS provider" and "SMS health"). It sends only the approved verification-code template. The earlier WhatsApp provider was removed from the chain in PR5a and its module deleted in PR5b. BRIDGE_OTP stays as a backstop until real codes are confirmed arriving.
 - SMTP on the Supabase project — **configured** (Resend, `noreply@tutormint.org`; Part 8). Confirmation, password-reset and staff-invite email deliver. No longer a blocker.
 - AssanPay — in negotiation.
 - CUIN and NTN — **filled** (owner, 9 Sep 2026, from the FBR taxpayer certificate):
@@ -2907,10 +2909,9 @@ describe what is.
 
 ### Owner actions blocking launch (not code)
 
-- **SMS provider** — **wired: SMS Point over WhatsApp** (Part 7 stage 2). Code
-  is live behind `SMSPOINT_*`; the owner sets those four in Vercel to activate
-  delivery, and removes `BRIDGE_OTP`/`BRIDGE_OTP_EXPIRES` once real codes are
-  confirmed arriving. No longer a code blocker.
+- **SMS provider** — **SendPK, the only provider** (`SENDPK_*`). The owner
+  removes `BRIDGE_OTP`/`BRIDGE_OTP_EXPIRES` once real codes are confirmed
+  arriving. No longer a code blocker.
 - **SMTP** on the Supabase project — **configured** (Resend, `noreply@tutormint.org`;
   Part 8). Confirmation links, password-reset email and staff invites deliver.
 - **AssanPay go-live** — in negotiation; until then manual transfer + admin
@@ -3380,9 +3381,10 @@ SMTP"), so this restores it.
   `/api/auth/callback`). The Part 5 gate — the 400 "Email signup isn't available
   yet" that created no account — is removed. This restores the Sunday 6 Sep
   decision as originally written.
-- **OTP is delivered on WhatsApp, not SMS.** The provider (SMS Point) sends the
+- **OTP is delivered on WhatsApp, not SMS.** (Superseded: since PR5a/5b the code
+  goes by SMS through SendPK, the only provider.) The provider of the time sent the
   code as a WhatsApp message from an approved business number; SMS on the same
-  account does not deliver. `/register` and `/verify-phone` say so plainly ("code
+  account did not deliver. `/register` and `/verify-phone` say so plainly ("code
   on WhatsApp") so nobody signs up with a WhatsApp-less number and waits for a
   message that cannot arrive; the /verify-phone support fallback (Part 6) is the
   route for anyone without WhatsApp. SMS may be added later as a SECOND channel —
@@ -3420,55 +3422,22 @@ rls:audit 174/174 · suites green.
   SMTP bullets; `PRODUCTION_CHECKLIST.md`'s SMTP item is ticked. Historical dated
   As-built paragraphs (Part 4/5/6) are left as records with a Part-8 pointer where
   they would otherwise read as current.
-- **Not touched:** the WhatsApp send-layer wiring itself (SMS Point is Part 7
-  stage 1, probe-only) and BRIDGE_OTP. The copy tells the truth about the intended
+- **Not touched:** the WhatsApp send-layer wiring itself (Part 7 stage 1,
+  probe-only) and BRIDGE_OTP. The copy tells the truth about the intended
   channel; the bridge remains the live delivery stopgap until real WhatsApp codes
   are confirmed arriving.
 
-## Part 7 stage 2 — SMS Point OTP delivery, wired (9 Sep 2026)
+## Part 7 stage 2 — OTP delivery, wired (9 Sep 2026) — SUPERSEDED
 
-The probe (stage 1) proved delivery; stage 2 wires it. NO migration.
-
-- **`lib/sms/smspoint.ts`** implements the `SmsProvider` interface —
-  `GET https://smspoint.pk/api/sendsms/?username&password&clientid&msg&to&mask&Language=English`,
-  the URL built by a pure `smspointUrl()` from env creds only (no literals). It
-  delivers on **WhatsApp** from the approved mask. `getSmsProvider()` now returns
-  it first (then the dev console, then `unconfigured`), so it is used
-  whenever the four `SMSPOINT_*` vars are set and **fails closed** otherwise (a
-  stated failure in production, never a silent success). Numbers go through
-  `lib/phone.ts`; the request URL — which carries the code and the credentials —
-  is never logged, echoed, or put in an error (the dev console adapter that does
-  print the message is never returned in production).
-- **Delivery is undetectable** (fire-and-forget: a non-existent number and an
-  exhausted balance both return 200 "Sent Successfully"). So `send()` returns
-  `ok:true` only for a 2xx + a success marker — which still fails closed on the
-  one detectable class, a bad-credentials/format response — and `ok:true` means
-  ACCEPTED, not delivered. The member-facing copy says only "sent on WhatsApp"
-  and the **support fallback is always visible** on `/verify-phone` and the
-  completion Mobile step (never hidden behind a failure the system cannot see).
-- **Per-number rate limits (`lib/otp.ts` `sendCapDecision`, pure):** the 5-minute
-  resend cooldown (existing), a 5/hour burst cap (existing), and a NEW **6/day**
-  per-number cap — the prepaid-cost ceiling, since every send is Re 1 with no way
-  to read the remaining balance. On top sit the per-IP caps (`otp_send`,
-  `register`, and `register_bridge` while the bridge is active). A number cannot
-  open two accounts: `/api/auth/register` rejects a duplicate mobile, and the
-  synthetic `<msisdn>@users.tutormint.org` is unique on `auth.users` by
-  construction, so a second signup fails even if the app check were bypassed.
-- **BRIDGE_OTP is NOT removed here** (owner). It coexists as a backstop: with a
-  provider configured, `sendOtp` sends a real code AND `verifyOtp` still accepts
-  the bridge code. The handover is `needsBridgeReverify()` (pure, unit-tested):
-  once `BRIDGE_OTP` is unset, a `phone_verified_via='bridge'` account is re-gated
-  at next login, re-verifies with a real code (→ `'otp'`), and any paused plan
-  reactivates.
-- **Tests** (`test:delivery` 23, `test:authtrust` 22): the send URL is built from
-  env with no hardcoded values, missing env fails closed and never touches the
-  network, the accept/reject detection, no number or code in a failure error, the
-  per-number day/hour/cooldown caps, and the bridge-handover decision.
-
-**OWNER ACTIONS in Vercel:** set `SMSPOINT_USERNAME`, `SMSPOINT_PASSWORD`,
-`SMSPOINT_CLIENTID`, `SMSPOINT_MASK` to activate delivery. Later, once real codes
-are confirmed on the live site, remove `BRIDGE_OTP` and `BRIDGE_OTP_EXPIRES` and
-redeploy — the handover then runs on each bridge account's next login.
+The WhatsApp OTP provider wired here was taken out of `getSmsProvider()`'s chain
+in PR5a and its module deleted in PR5b; SendPK is the only SMS provider (owner,
+14 Oct 2026 — see "SendPK is the only SMS provider"). What still stands from this
+part: delivery is reported as ACCEPTED, never as delivered; the support fallback
+is always visible on `/verify-phone`; a number cannot open two accounts; and
+BRIDGE_OTP is a backstop whose handover is `needsBridgeReverify()` (once
+`BRIDGE_OTP` is unset, a `phone_verified_via='bridge'` account re-verifies once
+at next login). The per-number send caps were later replaced by "one OTP per
+number" (11 Sep 2026).
 
 ## The auth trigger, restored (9 Sep 2026) — migration 59
 
@@ -7402,3 +7371,26 @@ Migration 172 (additive, dry-run then applied before the code). `npm run test:sm
 - **Hourly alert** (`/api/cron/sms-health`, `0 * * * *`, CRON_SECRET): `smsAlertDecision()` fires when a non-test send failed since the last alert (or in the last 12 h), OR 2+ distinct numbers asked for a signup/verify code in 12 h and no SMS was sent; never within 6 h of the last alert. Records `sms_alerts`, then a bell notification (`sms_alert`) and the `sms_alert` email to every Owner: "SMS may not be sending — last successful SMS at <time PKT>. Check Admin → Settings → SMS."
 - **Reported, not changed:** the "Notify me when a matching tutor joins" SMS (`alertSms`, `lib/tutorAlerts.ts`) carries no code, and SendPK sends only the code template, so every such SMS is refused (`no verification code found in the message body`) and the request closes as `send_failed`. Each one now shows as a failed "Search alert" row and can trigger the hourly alert.
 
+## Homepage — sixth owner authorisation (15 Oct 2026)
+
+The homepage stays LOCKED. The owner approved two things on 15 Oct 2026: the green "HIRE" word above the H1 is removed (it belonged with the old heading), and the site header's signed-out "Join free" button (beside "Login") appears on the homepage as on every public page. The H1 keeps its classes exactly. Nothing else on the page changed. `npm run test:homepage` pins it.
+
+## Sign-up leaks: header Join free, Apply pop-up, funnel, Notify-me email, team display, approval notices, Tuitions group (owner, 15 Oct 2026)
+
+Migration 173 (additive, dry-run then applied before the code). Later-dated than everything above, so under precedence rule 10 it wins where it touches them: **Notify me is email only** (supersedes "a mobile number or an email", 13 Oct); **every staff role needs two-factor** (supersedes "the Partner only"); **Staff activity is the Owner and Project Managers' only** (supersedes Admin + Tuitions staff own-activity); **the signed-out Apply pop-up leads with joining**. `npm run test:signupleaks`.
+
+- **Header.** Signed out, every public page shows "Join free" (primary, red, → `/register`) beside "Login" (secondary outline), at every width; the button that goes where the visitor already is hides (`lib/headerAuth.ts`). Below 360px the logo steps down so both fit one row at 320px. Signed in, neither shows.
+- **Return-to** (`lib/returnTo.ts`, pure): `safeReturnTo()` accepts a same-site path only — no absolute, protocol-relative, backslash, encoded-slash or control-character value — and `nextForRole()` calls it first, so every `next` on /register, /login, /verify-phone and onboarding is checked. `applyReturnPath()` adds `?apply=1`; `authHref()` builds /register or /login with `next` and `role`.
+- **Apply pop-up** (`AuthGateModal`, intent apply): "Apply for this tuition", primary "Join free — new tutor" → `/register?next=<tuition>?apply=1&role=tutor`, secondary "Already have an account? Sign in" → /login with the same return-to. The card (`JobCard`) returns to the tuition's own page, not the list. Other intents keep their sign-in button and gained "New here? Join free". After sign-up a NEW tutor goes through onboarding first (`newTutorDestination`: /verify-phone → `/tutor/onboarding?next=<tuition>`; the email path the same) — applying needs a finished profile (lib/applications). `NewOnboardingFlow` now takes `returnTo` (it ignored `next`): the last screen reads "Back to the tuition", the pay screen links back, and a finished tutor is redirected straight to it. Back on the tuition, `ApplyPanel` focuses Apply with one line ("Tap Apply to send your application") and drops the flag; nothing is sent until the tutor taps. Not carried: a PayPro payment round trip (the tutor returns to the dashboard after paying).
+- **Other signed-out entry points fixed:** "Sign up first to view numbers" (tuition page) went to /login — now /register with the return-to; the tutor profile's certificate "Sign in" link now returns to the profile; /register's "Sign in" link keeps `next`.
+- **Daily sign-up funnel** (Overview, `SCREEN_ACCESS.signupFunnel = []` — Owner + Project Managers): Today / Yesterday / Last 7 days, public page visits → /register visits → tutor sign-up forms submitted → mobile verified → onboarding done → paid, with the drop at each step and parent sign-up forms beside it. Visits: `components/VisitBeacon` (signed-out visitors only, in the site chrome) → `POST /api/visit` → the existing bot / own-crawler rules (`lib/searchCountCore`) → `bump_site_visit()` into `site_visit_counts` (one number per Pakistan-time day per kind; no id, no IP; service-role writes, admin read). Forms submitted are counted in `/api/auth/register` (a repeat while a code is live is not counted). Counting starts at deploy; no backfill. Not an Overview "item" (it has no list to open), so outside the counts-match-lists rule.
+- **Notify me → email only.** The form asks for an email (opt-in tick unchanged); a mobile is refused with "We can only send this by email." Stored mobile requests are skipped by the sweep and lapse at 60 days (there were none). No alert SMS is ever sent.
+- **Team display** (`TeamClient`): for every viewer but the Owner, the Owner and the Partner are two identical "Project Manager" cards — no "(account owner)", no "One account holds the platform…", no "cannot be demoted" note, role names without descriptions. Permissions and the server's Owner protection are unchanged.
+- **Owner display name** is "Alee Sabeer" (migration 173; profiles + auth metadata; email and login unchanged).
+- **Blocked-attempt alert** (`alertOwnerBlocked`, `lib/ownerAlerts.ts`): when Owner protection refuses a non-Owner (edit / pause / suspend / ban / warn / mobile / two-factor / remove / demote the Owner, or make anyone Owner), the Owner gets a bell notification and an email (who, what, when in Pakistan time) and `admin_audit_log` gets `owner.protection_blocked`. A Partner-protection refusal is not this alert. Wired in `refuseOwnerTarget` (every caller now says what was tried), the team route, the two-factor reset and `lib/staff.ts`. A Partner's write on the Team screen is refused earlier by the view-only rule, so it raises no alert.
+- **Two-factor for all staff.** `alwaysNeedsTwoFactor` is true for every staff role; `checkAdminRole` refuses any admin request from a session that has not passed two-factor (the admin layout already showed the setup screen to everyone once the 25 Sep grace ended).
+- **Approval / rejection notices.** Before: tutor CNIC/photo/selfie approve → in-app only; reject → in-app + email; a re-upload decision → in-app only both ways; parent partial approval → in-app only; parent full verification → in-app + email; parent CNIC re-upload → in-app only; no SMS anywhere. Added the missing emails (new `document_approved` template; `verification_rejected` reused for re-upload rejections, with the "earlier approved one stays on record" line). Still no SMS.
+- **WhatsApp after approval.** Templates `documents_approved` (fee not paid → pay link `/pay/choose?plan=verified`) and `documents_approved_paid` (fee paid → public profile link), English, no amount, editable in Team inbox → Templates; `lib/documentsApprovedCore` picks and fills. When CNIC, photo and selfie are all approved, the review card (member page and Verification → Tutors) shows "Send WhatsApp" → wa.me to the tutor's WhatsApp, else mobile; the click is logged in `member_follow_ups` (source `documents`, migration 173) with the Audit + timeline rows every follow-up writes.
+- **Tuitions sidebar group:** Tuitions, Post a tuition, Paused tuitions, Duplicates, Applicants to forward, Tuition posting activity. Tuitions staff now open Duplicates (view; merging stays admin + Partner).
+- **Tuition posting activity** (`/admin/jobs/posting-activity`, `SCREEN_ACCESS.tuitionPosting` = admin, operations, tuitions staff, Partner + Owner): one row per staff member who posts (tuitions staff and operations always; anyone else once they posted in the last two weeks) and a Team total; Today | Yesterday | Last 7 days | Today vs Yesterday (today so far against yesterday up to the same time, Pakistan time; "—" when that is 0) | Last 7 days vs the 7 before | Repeated tuitions this week (red, linking to Duplicates). Sorted by Today. Read from `admin_audit_log` `job.post` by actor; maths pure in `lib/tuitionPostingCore`.
+- **SMS Point cleanup:** removed from `.env.example` (`SMSPOINT_*`), comments, and this file's current-status notes; its old "Part 7 stage 2" section is now a short superseded record. `scripts/sms-probe.ts` (a dev probe of that provider) and migration 74 keep their historical mentions.

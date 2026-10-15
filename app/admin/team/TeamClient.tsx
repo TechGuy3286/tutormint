@@ -78,6 +78,11 @@ export default function TeamClient({ staff, viewerRole }: { staff: StaffRow[]; v
   // A Partner sees the roster and every real role, and changes nothing
   // (owner, 8 Oct 2026); the server refuses their writes regardless.
   const readOnly = useAdminReadOnly()
+  // Every viewer except the Owner sees the Owner and the Partner as two
+  // identical "Project Manager" cards, and role NAMES only — no owner notes,
+  // no role descriptions (owner, 15 Oct 2026). Display only: the server's
+  // Owner protection and the permissions are unchanged.
+  const ownerView = viewerRole === 'owner'
   const router = useRouter()
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -319,12 +324,14 @@ export default function TeamClient({ staff, viewerRole }: { staff: StaffRow[]; v
 
   return (
     <div className="space-y-5">
-      <header className="space-y-1">
-        <p className="text-xs text-gray-500">
-          One account holds the platform and cannot be changed here. Every other role can be granted,
-          changed and revoked.
-        </p>
-      </header>
+      {ownerView && (
+        <header className="space-y-1">
+          <p className="text-xs text-gray-500">
+            One account holds the platform and cannot be changed here. Every other role can be granted,
+            changed and revoked.
+          </p>
+        </header>
+      )}
 
       {error && (
         <p className="rounded-xl border border-tm-red/30 bg-tm-tint-red p-3 text-xs font-bold text-tm-red">
@@ -449,7 +456,7 @@ export default function TeamClient({ staff, viewerRole }: { staff: StaffRow[]; v
                 />
                 <span className="min-w-0">
                   <span className="block text-xs font-black text-tm-navy">{r.label}</span>
-                  <span className="block text-[11px] text-gray-500">{r.blurb}</span>
+                  {ownerView && <span className="block text-[11px] text-gray-500">{r.blurb}</span>}
                 </span>
               </label>
             ))}
@@ -648,7 +655,7 @@ export default function TeamClient({ staff, viewerRole }: { staff: StaffRow[]; v
               </Link>
             )}
 
-            {readOnly ? null : s.adminRole === 'owner' ? (
+            {readOnly || !ownerView && (s.adminRole === 'owner' || s.adminRole === 'partner') ? null : s.adminRole === 'owner' ? (
               <p className="flex items-start gap-2 rounded-xl bg-tm-bg p-3 text-[11px] leading-relaxed text-gray-500">
                 <ShieldAlert size={14} className="mt-px shrink-0" />
                 This account cannot be demoted or removed, including by its own holder. Transferring
@@ -671,7 +678,7 @@ export default function TeamClient({ staff, viewerRole }: { staff: StaffRow[]; v
                   >
                     {ROLES.map((r) => (
                       <option key={r.code} value={r.code}>
-                        {r.label} — {r.blurb}
+                        {ownerView ? `${r.label} — ${r.blurb}` : r.label}
                       </option>
                     ))}
                   </select>

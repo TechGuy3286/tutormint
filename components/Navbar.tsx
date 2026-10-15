@@ -195,7 +195,9 @@ function Shell({ children, member = false }: { children: React.ReactNode; member
           className={
             member
               ? 'h-8 w-[72px] object-contain min-[360px]:h-9 min-[360px]:w-[88px] min-[400px]:h-11 min-[400px]:w-[120px] sm:h-14 sm:w-[153px]'
-              : 'h-11 w-[120px] object-contain sm:h-14 sm:w-[153px]'
+              : // Below 360px the logo steps down so "Join free" and "Login" fit
+                // one row beside it at 320px (owner, 15 Oct 2026).
+                'h-9 w-[96px] object-contain min-[360px]:h-11 min-[360px]:w-[120px] sm:h-14 sm:w-[153px]'
           }
         />
       </Link>

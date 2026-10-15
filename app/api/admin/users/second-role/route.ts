@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
   const parsed = await parseBody(request, Body)
   if (!parsed.ok) return parsed.response
-  const ownerRefusal = await refuseOwnerTarget(gate.actor, parsed.data.memberId)
+  const ownerRefusal = await refuseOwnerTarget(gate.actor, parsed.data.memberId, "create a second account for the Owner")
   if (ownerRefusal) return ownerRefusal
   const r = await createSecondRoleAccount(gate.actor, parsed.data.memberId, { name: parsed.data.name, reason: parsed.data.reason })
   if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status })

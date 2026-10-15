@@ -42,6 +42,7 @@ export type BucketName =
   | 'client_error'
   | 'activity'
   | 'tutor_alert'
+  | 'site_visit'
   | 'sms_test'
 
 /**
@@ -130,6 +131,9 @@ const BUDGETS: Record<BucketName, { windowSeconds: number; max: number }> = {
   activity: { windowSeconds: 60, max: 60 },
   // "Notify me when a matching tutor joins": each one can cost a message later.
   tutor_alert: { windowSeconds: 3600, max: 5 },
+  // One page-view count per beacon (owner, 15 Oct 2026): generous for a person
+  // browsing quickly, small enough that one device cannot inflate the funnel.
+  site_visit: { windowSeconds: 600, max: 120 },
   // Admin → Settings → SMS "Send test SMS" (owner, 15 Oct 2026): each one costs
   // a real message. Five an hour, keyed on the Owner's account.
   sms_test: { windowSeconds: 3600, max: 5 },

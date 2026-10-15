@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   const parsed = await parseBody(request, Body)
   if (!parsed.ok) return parsed.response
 
-  const ownerRefusal = await refuseOwnerTarget(gate.actor, parsed.data.tutorId)
+  const ownerRefusal = await refuseOwnerTarget(gate.actor, parsed.data.tutorId, "clear the Owner account's mobile number")
   if (ownerRefusal) return ownerRefusal
 
   const admin = createAdminClient()

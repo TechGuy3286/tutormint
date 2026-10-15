@@ -10,6 +10,7 @@ import { funnelSteps } from '@/lib/staffOutreachCore'
 import { TILE_TONE, type TileTone } from '@/lib/tileTones'
 import { smsProviderLabel } from '@/lib/sms'
 import { pkr } from '@/lib/reconciliationCore'
+import { loadSignupFunnel, type FunnelWindowResult } from '@/lib/siteVisits'
 
 // Each Overview card a distinct colour (PR32 §2), keyed on the item key.
 const TILE_STYLE: Record<string, { tone: TileTone; icon: ComponentType<{ size?: number; 'aria-hidden'?: boolean }>; meaning: string }> = {
@@ -82,6 +83,9 @@ export default async function AdminHome({
     .map((k) => ({ key: k, label: OVERVIEW_ITEMS[k].title, count: lists.get(k)!.rows.length, detail: lists.get(k)!.extra ?? null, note: lists.get(k)!.note ?? null }))
     .filter((r) => r.count > 0)
   const seesMembers = STEP_KEYS.every((k) => lists.has(k))
+  // The daily sign-up funnel (owner, 15 Oct 2026): the Owner and the Project
+  // Managers only (SCREEN_ACCESS.signupFunnel is []).
+  const dailyFunnel = roleSatisfies(actor.adminRole, SCREEN_ACCESS.signupFunnel) ? await loadSignupFunnel() : null
   const counts = STEP_KEYS.map((k) => lists.get(k)?.rows.length ?? 0)
   const funnel = funnelSteps(counts, STEP_KEYS.map((k) => OVERVIEW_ITEMS[k].title))
 
@@ -236,6 +240,50 @@ export default async function AdminHome({
           </ol>
         </section>
       )}
+
+      {/* ------------------------------------------- daily sign-up funnel */}
+      {dailyFunnel && <DailySignupFunnel windows={dailyFunnel} />}
     </div>
+  )
+}
+
+/**
+ * The daily sign-up funnel (owner, 15 Oct 2026) — the Owner and the Project
+ * Managers. Page-visit counts started on 15 Oct 2026, so earlier days read 0.
+ */
+function DailySignupFunnel({ windows }: { windows: FunnelWindowResult[] }) {
+  return (
+    <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+      <div>
+        <h2 className="text-sm font-black text-tm-navy">Daily sign-up funnel</h2>
+        <p className="mt-0.5 text-[11px] text-gray-500">
+          Signed-out visits from real browsers (bots and our own crawls are not counted), then real tutor accounts.
+          Pakistan time. Visits are counted from 15 Oct 2026.
+        </p>
+      </div>
+      <div className="grid gap-3 lg:grid-cols-3">
+        {windows.map((w) => (
+          <div key={w.key} className="space-y-1.5 rounded-xl bg-tm-bg p-3">
+            <p className="text-[11px] font-black uppercase tracking-wide text-tm-navy">{w.label}</p>
+            <ol className="space-y-1">
+              {w.steps.map((s) => (
+                <li key={s.key} className="flex items-baseline justify-between gap-2 text-xs">
+                  <span className="text-slate-700">{s.label}</span>
+                  <span className="shrink-0 text-right">
+                    <strong className="text-tm-navy tabular-nums">{s.count}</strong>
+                    {s.lostPct !== null && (
+                      <span className={`ml-1.5 text-[11px] font-bold ${s.lost ? 'text-tm-red' : 'text-tm-green-deep'}`}>
+                        {s.lost ? `−${s.lost} (${s.lostPct}%)` : 'no drop'}
+                      </span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ol>
+            <p className="text-[11px] text-gray-600">Parent sign-up forms: {w.parentSignups}</p>
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }

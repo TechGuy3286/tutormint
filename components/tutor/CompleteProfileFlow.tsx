@@ -52,6 +52,7 @@ import {
 import { directoryBlockers, profileGaps, listingFixItems } from '@/lib/tutorListingStatus'
 import LogoLoader from '@/components/LogoLoader'
 import { ChipSkeletons } from '@/components/Skeletons'
+import { safeReturnTo } from '@/lib/returnTo'
 
 // One tap-tap flow for every tutor (PR 4 §1). It replaces the long step-tab form
 // at /tutor/complete-profile and unifies with /tutor/onboarding. It computes what
@@ -805,7 +806,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
         {stepKey === 'cnic_number' && <CnicNumberStep support={support} onNext={() => void advance()} />}
         {stepKey === 'cnic_photos' && <CnicPhotosStep support={support} onSubmitted={() => void advance()} />}
 
-        {stepKey === 'final' && <FinalScreen facts={facts} onLeave={leave} next={params.get('next')} />}
+        {stepKey === 'final' && <FinalScreen facts={facts} onLeave={leave} next={safeReturnTo(params.get('next'))} />}
       </main>
 
       {/* PR106-F §2: there is no separate app footer. Every step renders ONE

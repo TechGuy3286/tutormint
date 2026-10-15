@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Search } from 'lucide-react'
 
-import AuthGateModal from '@/components/AuthGateModal'
+import AuthGateModal, { clearDraft } from '@/components/AuthGateModal'
+import { APPLY_READY_PARAM } from '@/lib/returnTo'
 import { postGated } from '@/lib/gatedFetch'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import ApplyReasonLine from '@/components/ApplyReasonLine'
@@ -56,6 +57,31 @@ export default function ApplyPanel({
   )
   const [notice, setNotice] = useState<string | null>(null)
   const [appliedNow, setAppliedNow] = useState<string | null>(null)
+  // Back from sign-up / sign-in with ?apply=1 (owner, 15 Oct 2026): the Apply
+  // button is brought into view and focused, with one line saying it is ready.
+  // Nothing is sent until the tutor taps it — applying uses a monthly allowance.
+  const [ready, setReady] = useState(false)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (!signedIn) return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get(APPLY_READY_PARAM) !== '1') return
+    clearDraft('apply')
+    // Drop the flag so a reload or a shared link does not repeat this.
+    params.delete(APPLY_READY_PARAM)
+    const qs = params.toString()
+    window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash)
+    // After the first paint: show the line, bring the button into view, focus it.
+    const frame = requestAnimationFrame(() => {
+      setReady(true)
+      const btn = buttonRef.current
+      if (btn) {
+        btn.scrollIntoView({ block: 'center' })
+        btn.focus({ preventScroll: true })
+      }
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [signedIn])
   const block: ApplyBlock | null =
     state === 'done'
       ? applyBlock?.kind === 'applied'
@@ -112,7 +138,13 @@ export default function ApplyPanel({
   return (
     <>
       <div className="space-y-2">
+        {ready && state === 'idle' && !block && (
+          <p className="rounded-xl bg-tm-tint-green p-3 text-xs font-bold text-tm-green-deep">
+            You are back on the tuition. Tap Apply to send your application.
+          </p>
+        )}
         <button
+          ref={buttonRef}
           type="button"
           onClick={block ? undefined : apply}
           disabled={state !== 'idle' || !!block}

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { checkAdminRole, staffChangeProblem, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { requireFreshAuth } from '@/lib/reauth'
+import { alertOwnerBlocked } from '@/lib/ownerAlerts'
 import { deleteAllFactors } from '@/lib/adminMfa'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
@@ -45,7 +46,10 @@ export async function POST(request: Request) {
   // Owner protection (owner, 13 Oct 2026): only the Owner resets the Owner's or
   // a Partner's two-factor.
   const protectedTarget = staffChangeProblem(gate.actor.adminRole, target.admin_role as string)
-  if (protectedTarget) return NextResponse.json({ error: protectedTarget }, { status: 403 })
+  if (protectedTarget) {
+    await alertOwnerBlocked({ actor: gate.actor, problem: protectedTarget, what: 'reset two-factor on the Owner account', targetId: userId })
+    return NextResponse.json({ error: protectedTarget }, { status: 403 })
+  }
 
   await deleteAllFactors(userId)
   await admin.from('admin_backup_codes').delete().eq('user_id', userId)

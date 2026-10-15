@@ -4,8 +4,8 @@ import { useState } from 'react'
 import { BellRing, Check } from 'lucide-react'
 
 // "Notify me when a matching tutor joins" (owner, 13 Oct 2026) — shown when a
-// tutor search finds nobody. The parent leaves a mobile number or an email and
-// ticks a clear opt-in. They get ONE message when a tutor matching the search
+// tutor search finds nobody. The parent leaves an email (email only since
+// 15 Oct 2026 — an alert SMS cannot be delivered) and ticks a clear opt-in. They get ONE message when a tutor matching the search
 // joins, and nothing else. No sign-in needed.
 
 export default function NotifyMe({
@@ -44,7 +44,8 @@ export default function NotifyMe({
         setError(data.error ?? 'That did not save. Please try again.')
         return
       }
-      setDone(data.channel === 'email' ? 'We will email you once, when a matching tutor joins.' : 'We will text you once, when a matching tutor joins.')
+      void data.channel
+      setDone('We will email you once, when a matching tutor joins.')
     } catch {
       setError('We could not reach TutorMint. Check your internet connection and try again.')
     } finally {
@@ -68,20 +69,21 @@ export default function NotifyMe({
         Notify me when a matching tutor joins
       </p>
       <label className="block space-y-1">
-        <span className="block text-[11px] font-bold text-gray-600">Mobile number or email</span>
+        <span className="block text-[11px] font-bold text-gray-600">Your email</span>
         <input
+          type="email"
           value={contact}
           onChange={(e) => setContact(e.target.value)}
           inputMode="email"
-          autoComplete="off"
-          placeholder="0300 1234567 or you@example.com"
+          autoComplete="email"
+          placeholder="you@example.com"
           maxLength={200}
           className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-slate-800 focus:border-tm-navy focus:outline-none"
         />
       </label>
       <label className="flex min-h-[44px] cursor-pointer items-start gap-2 text-xs text-slate-700">
         <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-tm-navy" />
-        <span>Send me one message when a tutor matching this search joins.</span>
+        <span>Email me once when a tutor matching this search joins.</span>
       </label>
       {error && (
         <p role="alert" className="text-xs font-bold text-tm-red">
@@ -95,7 +97,7 @@ export default function NotifyMe({
       >
         {busy ? 'Saving…' : 'Notify me'}
       </button>
-      <p className="text-[11px] text-gray-600">One message only. No other messages, and your number or email is not shown to anyone.</p>
+      <p className="text-[11px] text-gray-600">One email only. No other messages, and your email is not shown to anyone.</p>
     </form>
   )
 }

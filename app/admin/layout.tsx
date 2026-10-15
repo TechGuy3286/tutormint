@@ -83,7 +83,8 @@ export default async function AdminLayout({
   const supabase = await createClient()
   const mfa = await mfaState(supabase)
   if (mfa === 'unverified') return <MfaGate mode="verify" email={actor.email} />
-  // A Partner ALWAYS needs two-factor — never a grace window: until it is set
+  // Every staff role ALWAYS needs two-factor (owner, 15 Oct 2026; it was the
+  // Partner only) — never a grace window: until it is set
   // up, every admin page shows the setup screen.
   // The Partner edits tutors, parents and tuitions and views everything else
   // (owner, 13 Oct 2026). Which pages are view-only is decided per page address

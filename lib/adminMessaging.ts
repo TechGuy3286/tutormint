@@ -247,7 +247,7 @@ export type AdminMessageChannel = 'inapp' | 'whatsapp'
  *
  *   'inapp'    — the original: an in-app notification + an email (+ the record).
  *   'whatsapp' — WhatsApp is the platform's live channel but there is no
- *                outbound WhatsApp API here (SMS Point is OTP-only), so this
+ *                outbound WhatsApp API here (SendPK sends codes only), so this
  *                returns a wa.me link the ADMIN clicks to actually send. It does
  *                NOT auto-send in-app/email — those are the other channel — but
  *                it records, audits and timelines identically. Refused when the
