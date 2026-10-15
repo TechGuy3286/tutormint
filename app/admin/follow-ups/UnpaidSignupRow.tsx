@@ -18,8 +18,11 @@ import FollowUpActions, { MarkFollowedUp } from '@/components/admin/FollowUpActi
 export default function UnpaidSignupRow({
   row,
   followUp,
+  showMissing = false,
 }: {
   row: UnpaidRow
+  /** "Still to do: …" — the tutor's own missing list (owner, 16 Oct 2026). */
+  showMissing?: boolean
   /** The shared follow-up state (owner, 9 Oct 2026). */
   followUp: { tab: 'stuck' | 'sent'; line: string | null; tag: string | null }
 }) {
@@ -78,6 +81,12 @@ export default function UnpaidSignupRow({
         {row.completion}% complete
         {row.stoppedAt && <span className="font-bold text-tm-red"> · Stopped at: {row.stoppedAt}</span>}
       </p>
+
+      {showMissing && row.missing.length > 0 && (
+        <p className="text-xs text-slate-700">
+          <span className="font-bold">Still to do:</span> {row.missing.join(', ')}
+        </p>
+      )}
 
       {followUp.tag && (
         <span className="inline-block rounded-full bg-tm-tint-gold px-2 py-0.5 text-[10px] font-bold text-tm-gold-ink">{followUp.tag}</span>

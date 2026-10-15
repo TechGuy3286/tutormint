@@ -54,6 +54,8 @@ import {
   type Step,
   type Visit,
 } from '@/lib/staffSignupsCore'
+import { accountsInRange, inProgressIn, isInProgressStepFor, type Range } from '@/lib/staffSignupsCore'
+import { firstPaidAt, type PaymentFacts } from '@/lib/staffTargetsCore'
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>
 
@@ -517,9 +519,8 @@ export async function loadCreditedAccounts(): Promise<CreditedAccount[]> {
     pageAllIn(ids, (part, from, to) =>
       admin
         .from('payments')
-        .select('id, user_id, reviewed_at, refunded_amount_pkr, refunded_at')
+        .select('id, user_id, plan_code, status, reviewed_at, refunded_amount_pkr, refunded_at')
         .in('user_id', part)
-        .eq('plan_code', 'verified')
         .eq('status', 'approved')
         .order('id')
         .range(from, to),
@@ -530,12 +531,20 @@ export async function loadCreditedAccounts(): Promise<CreditedAccount[]> {
   ])
   const prof = new Map(profiles.map((p) => [p.id as string, p]))
   const onboarded = new Map(tutors.map((t) => [t.id as string, (t.onboarded_at as string | null) ?? null]))
-  const paid = new Map<string, string>()
+  // The paid rule (lib/staffTargetsCore firstPaidAt): the first approved, not
+  // refunded Verification Fee for a tutor, plan purchase for a parent.
+  const payBy = new Map<string, PaymentFacts[]>()
   for (const p of payments) {
-    if ((Number(p.refunded_amount_pkr) || 0) > 0 || p.refunded_at || !p.reviewed_at) continue
     const k = p.user_id as string
-    const t = p.reviewed_at as string
-    if (!paid.has(k) || Date.parse(t) < Date.parse(paid.get(k)!)) paid.set(k, t)
+    const list = payBy.get(k) ?? []
+    list.push({
+      planCode: (p.plan_code as string | null) ?? null,
+      status: (p.status as string | null) ?? null,
+      approvedAt: (p.reviewed_at as string | null) ?? null,
+      refundedAmountPkr: (p.refunded_amount_pkr as number | null) ?? null,
+      refundedAt: (p.refunded_at as string | null) ?? null,
+    })
+    payBy.set(k, list)
   }
   const posted = new Map<string, string>()
   for (const j of jobs) {
@@ -555,10 +564,10 @@ export async function loadCreditedAccounts(): Promise<CreditedAccount[]> {
     }
     if (role === 'tutor') {
       at.onboarded = onboarded.get(id) ?? null
-      at.paid = paid.get(id) ?? null
     } else {
       at.posted = posted.get(id) ?? null
     }
+    at.paid = firstPaidAt(payBy.get(id) ?? [], role)
     out.push({
       memberId: id,
       staffId: c.staff_id as string,
@@ -628,7 +637,9 @@ export async function loadSignupList(
   step: Step,
   period: Period,
   nowMs = Date.now(),
-  opts: { inProgress?: boolean } = {},
+  /** `range` (a calendar month, owner 16 Oct 2026) replaces `period` when set;
+   *  `inProgress` then covers parents too (Signed up / Posted, not paid). */
+  opts: { inProgress?: boolean; range?: Range } = {},
 ): Promise<SignupListResult> {
   if (staffId === 'team' ? !seesEveryone(viewer.adminRole) : !mayViewStaff(viewer, staffId)) {
     return { ok: false, status: 403, error: 'You can only see your own sign-ups.' }
@@ -645,8 +656,11 @@ export async function loadSignupList(
   const mine = all.filter((a) => a.role === role && (staffId === 'team' ? true : a.staffId === staffId))
   // "In progress": the same step, tutors who have not paid (inProgressAt) — the
   // rule the board's in-progress numbers use.
-  const picked =
-    opts.inProgress && role === 'tutor' && isInProgressStep(step)
+  const picked = opts.range
+    ? opts.inProgress && isInProgressStepFor(role, step)
+      ? inProgressIn(mine, role, step, opts.range)
+      : accountsInRange(mine, step, opts.range)
+    : opts.inProgress && role === 'tutor' && isInProgressStep(step)
       ? inProgressAt(mine, step, period, nowMs)
       : accountsAt(mine, step, period, nowMs)
   const accounts = picked.sort(

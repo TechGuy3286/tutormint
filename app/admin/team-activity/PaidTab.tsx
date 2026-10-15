@@ -2,176 +2,160 @@ import Link from 'next/link'
 
 import JoinLinkCard from '@/components/admin/JoinLinkCard'
 import { formatDateTime } from '@/lib/datetime'
-import { loadClaims, loadSignupBoard, pendingClaimCount } from '@/lib/staffSignups'
+import { loadClaims, pendingClaimCount } from '@/lib/staffSignups'
+import { loadTargetBoard, type InProgressCounts, type TargetCard } from '@/lib/staffTargets'
 import { maskMobile } from '@/lib/smsHealthCore'
 import { changeLabel, type Change } from '@/lib/tuitionPostingCore'
-import {
-  IN_PROGRESS_STEPS,
-  PARENT_STEPS,
-  PERIODS,
-  isParticipantRole,
-  type BoardRow,
-  type MemberRole,
-  type Period,
-  type Step,
-} from '@/lib/staffSignupsCore'
-import { teamActivityHref } from '@/lib/teamActivityCore'
+import { isParticipantRole, type MemberRole, type Step } from '@/lib/staffSignupsCore'
+import { PACE_LABEL, monthLabel, perDayLabel, type MonthKey, type Pace, type PaceStatus } from '@/lib/staffTargetsCore'
 import type { AdminActor } from '@/lib/adminAuth'
 
 import ClaimForm from './ClaimForm'
+import CumulativeChart from './CumulativeChart'
+import MonthPicker from './MonthPicker'
+import SetTargetsPanel from './SetTargetsPanel'
 
-// Team activity → "Paid sign-ups" (owner, 15 Oct 2026). Staff are paid for PAID
-// tutor sign-ups only (an approved, not-refunded Verification Fee), so that is
-// the first column, the sort, and the Team total. Tutors at an earlier step who
-// have not paid are a separate "In progress (not counted)" block — a different
-// rule (inProgressAt) that can never add to Paid. Parents are listed below, for
-// information. Counts only — no prices, no amounts. The Owner, the Project
-// Managers and Admin see every participant and the Team total; everyone else
-// sees their own row only (decided on the server in lib/staffSignups).
+// Team activity → "Paid sign-ups" (owner, 16 Oct 2026). A month at a time:
+//   a) the team strip (target-list staff only): paid · target · % · status ·
+//      needed per day · days left;
+//   b) one card per target-list staff member, highest % of target first;
+//   c) the running-total chart against the straight target line;
+//   d) "No target" (collapsed): others who still brought paid sign-ups;
+//   e) "In progress (not counted)" (collapsed): earlier steps, not paid yet.
+// A paid sign-up is the first approved, not refunded Verification Fee (tutor)
+// or plan purchase (parent) — lib/staffTargetsCore. Counts only, never an
+// amount. What each viewer sees is cut on the SERVER (lib/staffTargets): staff
+// on the target list see their own card, own line, own lists and the team's
+// status only; other staff see their own paid count and lists only.
 
 const LIST_PATH = '/admin/team-activity/accounts'
 
-function listHref(staffId: string, role: MemberRole, step: Step, period: Period, inProgress = false): string {
-  const q = new URLSearchParams({ staff: staffId, role, step, period })
+function listHref(staffId: string, role: MemberRole, step: Step, month: MonthKey, inProgress = false): string {
+  const q = new URLSearchParams({ staff: staffId, role, step, month })
   if (inProgress) q.set('inprogress', '1')
   return `${LIST_PATH}?${q.toString()}`
 }
 
-export default async function PaidTab({ actor, period }: { actor: AdminActor; period: Period }) {
-  const board = await loadSignupBoard(actor, period)
+const STATUS_CHIP: Record<PaceStatus, string> = {
+  on_pace: 'bg-tm-tint-green text-tm-green-deep',
+  slightly_behind: 'bg-tm-tint-gold text-tm-gold-ink',
+  behind: 'bg-tm-tint-red text-tm-red',
+}
+const STATUS_BAR: Record<PaceStatus, string> = {
+  on_pace: 'bg-tm-green-deep',
+  slightly_behind: 'bg-tm-gold',
+  behind: 'bg-tm-red',
+}
+
+export default async function PaidTab({ actor, month }: { actor: AdminActor; month: MonthKey }) {
+  const board = await loadTargetBoard(actor, month)
+  const everyone = board.scope === 'everyone'
   const isParticipant = isParticipantRole(actor.adminRole)
   const [myClaims, pending] = await Promise.all([
     isParticipant ? loadClaims({ id: actor.id, adminRole: 'self' }) : Promise.resolve([]),
-    board.everyone ? pendingClaimCount() : Promise.resolve(0),
+    everyone ? pendingClaimCount() : Promise.resolve(0),
   ])
-  const rows = board.rows
-  const total = board.everyone ? board.total : null
-  const periodLabel = PERIODS.find((p) => p.key === period)?.label ?? ''
+  const label = monthLabel(month)
+  const current = board.tense === 'current'
 
   return (
     <div className="space-y-5">
       {board.myLink && <JoinLinkCard url={board.myLink.url} code={board.myLink.code} />}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <nav aria-label="Period" className="flex flex-wrap gap-1">
-          {PERIODS.map((p) => (
-            <Link
-              key={p.key}
-              href={teamActivityHref('paid', { period: p.key === 'today' ? null : p.key })}
-              aria-current={p.key === period ? 'page' : undefined}
-              className={`min-h-[36px] rounded-full border px-3 py-1.5 text-xs font-bold ${
-                p.key === period ? 'border-tm-navy bg-tm-navy text-white' : 'border-gray-200 bg-white text-slate-700 hover:border-tm-navy'
-              }`}
-            >
-              {p.label}
-            </Link>
-          ))}
-        </nav>
-        {board.everyone && (
+        <MonthPicker month={month} options={board.months.map((m) => ({ key: m, label: monthLabel(m) }))} />
+        {everyone && (
           <Link href="/admin/team-activity/claims" className="text-xs font-bold text-tm-red hover:underline">
             Claims to review ({pending})
           </Link>
         )}
       </div>
 
-      {/* ------------------------------------------------ paid tutor sign-ups */}
-      <section className="space-y-2">
-        <h2 className="text-sm font-black text-tm-navy">Tutors — paid sign-ups</h2>
-        {total && (
-          <p className="text-xs text-gray-600">
-            Team total, {periodLabel.toLowerCase()}:{' '}
-            <span className="text-base font-black tabular-nums text-tm-navy">{total.tutor.paid}</span> paid sign-up
-            {total.tutor.paid === 1 ? '' : 's'}
+      {board.setPanel && <SetTargetsPanel key={month} month={month} monthLabel={label} rows={board.setPanel} />}
+
+      {/* a) team strip */}
+      {everyone && board.team && <TeamStrip pace={board.team} />}
+      {!everyone && board.scope === 'target_self' && board.teamStatus && (
+        <p className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-700">
+          Team: <StatusChip status={board.teamStatus} />
+          {board.teamReached && <span className="text-tm-green-deep">Target reached ✓</span>}
+        </p>
+      )}
+
+      {/* b) cards */}
+      {board.cards.length > 0 && (
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {board.cards.map((c) => (
+            <Card key={c.staffId} card={c} current={current} month={month} />
+          ))}
+        </ul>
+      )}
+      {everyone && board.cards.length === 0 && (
+        <p className="rounded-2xl border border-gray-200 bg-white p-4 text-xs text-gray-600">Nobody is on the target list for {label}.</p>
+      )}
+
+      {/* the "self" view: their own paid count */}
+      {board.ownPaid && (
+        <section className="rounded-2xl border border-gray-200 bg-white p-4">
+          <h2 className="text-xs font-bold text-gray-600">Your paid sign-ups, {label}</h2>
+          <p className="text-3xl font-black tabular-nums text-tm-navy">
+            {board.ownPaid.paid}
           </p>
-        )}
-        <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
-          <table className="w-full min-w-[420px] text-left text-xs">
-            <thead className="bg-tm-bg text-[11px] font-bold text-gray-600">
-              <tr>
-                <th className="px-3 py-2">Staff</th>
-                <th className="px-3 py-2 text-right">Paid sign-ups</th>
-                <th className="px-3 py-2 text-right">Paid: Today vs Yesterday</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={3} className="px-3 py-4 text-gray-500">
-                    No staff with a join link yet.
-                  </td>
-                </tr>
-              )}
-              {rows.map((r) => (
-                <PaidRow key={r.staffId} row={r} period={period} />
-              ))}
-              {total && rows.length > 0 && <PaidRow row={total} period={period} strong />}
-            </tbody>
-          </table>
-        </div>
-      </section>
+          <SplitLine staffId={actor.id} tutors={board.ownPaid.tutors} parents={board.ownPaid.parents} month={month} />
+        </section>
+      )}
 
-      {/* ------------------------------------ in progress (not counted) */}
-      <section className="space-y-2 rounded-2xl border border-dashed border-gray-300 bg-tm-bg p-3">
-        <div>
-          <h2 className="text-xs font-black text-slate-700">In progress (not counted)</h2>
-          <p className="text-[11px] text-gray-600">
-            Tutors who reached a step in this period ({periodLabel.toLowerCase()}) and have not paid yet. Open a number
-            to follow up.
+      {/* c) chart */}
+      {board.chart && (board.chart.team || board.chart.people.length > 0) && (
+        <CumulativeChart
+          days={board.chart.days}
+          team={board.chart.team}
+          teamTarget={board.chart.teamTarget}
+          people={board.chart.people}
+          monthLabel={label}
+        />
+      )}
+
+      {/* d) no target */}
+      {everyone && board.noTarget.length > 0 && (
+        <details className="rounded-2xl border border-gray-200 bg-white p-4">
+          <summary className="min-h-[44px] cursor-pointer text-sm font-black text-tm-navy">
+            No target ({board.noTarget.reduce((s, r) => s + r.paid, 0)} paid)
+          </summary>
+          <p className="mt-1 text-[11px] text-gray-600">Paid sign-ups from staff who are not on the target list. Not added to the team target.</p>
+          <ul className="mt-2 divide-y divide-gray-100 text-xs">
+            {board.noTarget.map((r) => (
+              <li key={r.staffId} className="flex items-baseline justify-between gap-2 py-2">
+                <span className="font-bold text-slate-800">{r.name}</span>
+                <span className="text-right">
+                  <span className="block text-base font-black tabular-nums text-tm-navy">{r.paid}</span>
+                  <SplitLine staffId={r.staffId} tutors={r.tutors} parents={r.parents} month={month} />
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
+      {/* e) in progress */}
+      {board.inProgress.length > 0 && (
+        <details className="rounded-2xl border border-dashed border-gray-300 bg-tm-bg p-4">
+          <summary className="min-h-[44px] cursor-pointer text-sm font-black text-slate-700">In progress (not counted)</summary>
+          <p className="mt-1 text-[11px] text-gray-600">
+            Sign-ups who reached a step in {label} and have not paid yet. Open a number to follow up.
           </p>
-        </div>
-        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
-          <table className="w-full min-w-[420px] text-left text-[11px]">
-            <thead className="text-gray-600">
-              <tr>
-                <th className="px-3 py-1.5 font-bold">Staff</th>
-                {IN_PROGRESS_STEPS.map((s) => (
-                  <th key={s.key} className="px-3 py-1.5 text-right font-bold">
-                    {s.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {rows.map((r) => (
-                <InProgressRow key={r.staffId} row={r} period={period} />
-              ))}
-              {total && rows.length > 0 && <InProgressRow row={total} period={period} strong />}
-            </tbody>
-          </table>
-        </div>
-      </section>
+          <ul className="mt-2 space-y-2">
+            {board.inProgress.map((r) => (
+              <InProgress key={r.staffId} row={r} month={month} />
+            ))}
+          </ul>
+        </details>
+      )}
 
-      {/* --------------------------------------------------------- parents */}
-      <section className="space-y-2">
-        <h2 className="text-sm font-black text-tm-navy">Parents (for information)</h2>
-        <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
-          <table className="w-full min-w-[480px] text-left text-xs">
-            <thead className="bg-tm-bg text-[11px] font-bold text-gray-600">
-              <tr>
-                <th className="px-3 py-2">Staff</th>
-                {PARENT_STEPS.map((s) => (
-                  <th key={s.key} className="px-3 py-2 text-right">
-                    {s.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {rows.map((r) => (
-                <ParentRow key={r.staffId} row={r} period={period} />
-              ))}
-              {total && rows.length > 0 && <ParentRow row={total} period={period} strong />}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <p className="text-xs font-bold text-tm-navy">Only paid tutor sign-ups count as results.</p>
+      <p className="text-xs font-bold text-tm-navy">Only paid sign-ups count as results.</p>
       <p className="text-[11px] text-gray-500">
-        Each step is counted on the day it happened, in Pakistan time. &ldquo;Paid: Today vs Yesterday&rdquo; compares
-        today so far with yesterday up to the same time of day. No credit is given for test or staff accounts, a staff
-        member&rsquo;s own mobile or email, accounts that duplicate an existing member, or accounts that existed before
-        the link was opened.
+        A paid sign-up is a tutor&rsquo;s approved Verification Fee or a parent&rsquo;s approved plan purchase, counted
+        once on the day it was approved (Pakistan time). A refund removes it from that month. Free grants do not count.
       </p>
 
       {isParticipant && <ClaimForm />}
@@ -188,7 +172,7 @@ export default async function PaidTab({ actor, period }: { actor: AdminActor; pe
                   <span className="block text-gray-500">Claimed {formatDateTime(c.createdAt)}</span>
                   {c.reason && <span className="block text-gray-600">Reason: {c.reason}</span>}
                 </span>
-                <StatusPill status={c.status} />
+                <ClaimPill status={c.status} />
               </li>
             ))}
           </ul>
@@ -198,7 +182,140 @@ export default async function PaidTab({ actor, period }: { actor: AdminActor; pe
   )
 }
 
-function StatusPill({ status }: { status: 'pending' | 'approved' | 'rejected' }) {
+function StatusChip({ status }: { status: PaceStatus }) {
+  return <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${STATUS_CHIP[status]}`}>{PACE_LABEL[status]}</span>
+}
+
+function NeededLine({ pace }: { pace: Pace }) {
+  if (pace.target == null || pace.target <= 0) return <span className="text-gray-500">No target set</span>
+  if (pace.reached) return <span className="font-bold text-tm-green-deep">Target reached ✓</span>
+  if (pace.neededPerDay == null) return <span className="text-gray-500">Month ended</span>
+  return (
+    <span>
+      Needed per day: <strong className="tabular-nums text-slate-800">{perDayLabel(pace.neededPerDay)}</strong>
+    </span>
+  )
+}
+
+function TeamStrip({ pace }: { pace: Pace }) {
+  return (
+    <section className="grid grid-cols-2 gap-3 rounded-2xl border border-gray-200 bg-white p-4 sm:grid-cols-3 lg:grid-cols-6">
+      <Stat label="Paid this month" value={String(pace.paid)} />
+      <Stat label="Team target" value={pace.target ? String(pace.target) : '—'} />
+      <Stat label="% done" value={pace.pct == null ? '—' : `${pace.pct}%`} />
+      <div>
+        <p className="text-[11px] font-bold text-gray-600">Status</p>
+        <p className="mt-1">{pace.status ? <StatusChip status={pace.status} /> : <span className="text-xs text-gray-500">—</span>}</p>
+      </div>
+      <div>
+        <p className="text-[11px] font-bold text-gray-600">Needed per day</p>
+        <p className="mt-1 text-xs">
+          {pace.reached ? (
+            <span className="font-bold text-tm-green-deep">Target reached ✓</span>
+          ) : pace.neededPerDay == null ? (
+            <span className="text-gray-500">—</span>
+          ) : (
+            <span className="text-lg font-black tabular-nums text-tm-navy">{perDayLabel(pace.neededPerDay)}</span>
+          )}
+        </p>
+      </div>
+      <Stat label="Days left" value={String(pace.daysLeft)} />
+    </section>
+  )
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[11px] font-bold text-gray-600">{label}</p>
+      <p className="text-lg font-black tabular-nums text-tm-navy">{value}</p>
+    </div>
+  )
+}
+
+function Card({ card, current, month }: { card: TargetCard; current: boolean; month: MonthKey }) {
+  const p = card.pace
+  const width = p.pct == null ? 0 : Math.min(100, p.pct)
+  return (
+    <li className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="text-sm font-black text-tm-navy">{card.name}</h3>
+        {p.status && <StatusChip status={p.status} />}
+      </div>
+      <p className="flex items-baseline gap-2">
+        <span className="text-3xl font-black tabular-nums text-tm-navy">
+          {p.paid}
+          <span className="text-lg text-gray-500"> / {p.target ?? '—'}</span>
+        </span>
+        {p.pct != null && <span className="text-sm font-bold text-slate-700">{p.pct}%</span>}
+      </p>
+      <SplitLine staffId={card.staffId} tutors={card.tutors} parents={card.parents} month={month} />
+      <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100" role="presentation">
+        <div className={`h-full rounded-full ${p.status ? STATUS_BAR[p.status] : 'bg-gray-300'}`} style={{ width: `${width}%` }} />
+      </div>
+      {current && (
+        <p className="text-[11px] text-gray-600">
+          Today <strong className="tabular-nums text-slate-800">{card.today}</strong> · Yesterday{' '}
+          <strong className="tabular-nums text-slate-800">{card.yesterday}</strong> · Today vs Yesterday{' '}
+          <ChangeText value={card.change} />
+        </p>
+      )}
+      <p className="text-[11px] text-gray-600">
+        <NeededLine pace={p} />
+      </p>
+    </li>
+  )
+}
+
+/** "Tutors x · Parents y" — each number opens the list behind it. */
+function SplitLine({ staffId, tutors, parents, month }: { staffId: string; tutors: number; parents: number; month: MonthKey }) {
+  const n = (v: number, role: MemberRole) =>
+    v > 0 ? (
+      <Link href={listHref(staffId, role, 'paid', month)} className="font-bold text-tm-navy hover:text-tm-red hover:underline">
+        {v}
+      </Link>
+    ) : (
+      <span className="font-bold text-gray-500">0</span>
+    )
+  return (
+    <p className="text-[11px] text-gray-600">
+      Tutors {n(tutors, 'tutor')} · Parents {n(parents, 'parent')}
+    </p>
+  )
+}
+
+function InProgress({ row, month }: { row: InProgressCounts; month: MonthKey }) {
+  const cell = (n: number, role: MemberRole, step: Step, label: string) => (
+    <span className="whitespace-nowrap">
+      {label}{' '}
+      {n > 0 ? (
+        <Link href={listHref(row.staffId, role, step, month, true)} className="font-bold text-tm-navy hover:text-tm-red hover:underline">
+          {n}
+        </Link>
+      ) : (
+        <span className="font-bold text-gray-500">0</span>
+      )}
+    </span>
+  )
+  return (
+    <li className="rounded-xl border border-gray-200 bg-white p-3 text-[11px] text-slate-700">
+      <p className="text-xs font-bold text-slate-800">{row.name}</p>
+      <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+        <span className="font-bold text-gray-600">Tutors:</span>
+        {cell(row.tutor.signed_up, 'tutor', 'signed_up', 'Signed up')}
+        {cell(row.tutor.mobile_verified, 'tutor', 'mobile_verified', 'Mobile verified')}
+        {cell(row.tutor.onboarded, 'tutor', 'onboarded', 'Onboarded')}
+      </p>
+      <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+        <span className="font-bold text-gray-600">Parents:</span>
+        {cell(row.parent.signed_up, 'parent', 'signed_up', 'Signed up')}
+        {cell(row.parent.posted, 'parent', 'posted', 'Posted a tuition')}
+      </p>
+    </li>
+  )
+}
+
+function ClaimPill({ status }: { status: 'pending' | 'approved' | 'rejected' }) {
   const cls =
     status === 'approved'
       ? 'bg-tm-tint-green text-tm-green-deep'
@@ -209,57 +326,7 @@ function StatusPill({ status }: { status: 'pending' | 'approved' | 'rejected' })
   return <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${cls}`}>{word}</span>
 }
 
-function CountLink({ n, href, big = false }: { n: number; href: string; big?: boolean }) {
-  const size = big ? 'text-lg font-black' : 'font-bold'
-  if (n <= 0) return <span className={`${size} text-gray-500`}>0</span>
-  return (
-    <Link href={href} className={`${size} text-tm-navy underline-offset-2 hover:text-tm-red hover:underline`}>
-      {n}
-    </Link>
-  )
-}
-
-function PaidRow({ row, period, strong = false }: { row: BoardRow; period: Period; strong?: boolean }) {
-  return (
-    <tr className={strong ? 'bg-tm-bg font-black text-tm-navy' : 'text-slate-800'}>
-      <td className="px-3 py-2 font-bold">{row.name}</td>
-      <td className="px-3 py-2 text-right tabular-nums">
-        <CountLink n={row.tutor.paid} href={listHref(row.staffId, 'tutor', 'paid', period)} big />
-      </td>
-      <td className="px-3 py-2 text-right tabular-nums">
-        <ChangeCell value={row.paidChange} />
-      </td>
-    </tr>
-  )
-}
-
-function InProgressRow({ row, period, strong = false }: { row: BoardRow; period: Period; strong?: boolean }) {
-  return (
-    <tr className={strong ? 'font-black text-slate-800' : 'text-slate-700'}>
-      <td className="px-3 py-1.5 font-bold">{row.name}</td>
-      {IN_PROGRESS_STEPS.map((s) => (
-        <td key={s.key} className="px-3 py-1.5 text-right tabular-nums">
-          <CountLink n={row.inProgress[s.key]} href={listHref(row.staffId, 'tutor', s.key, period, true)} />
-        </td>
-      ))}
-    </tr>
-  )
-}
-
-function ParentRow({ row, period, strong = false }: { row: BoardRow; period: Period; strong?: boolean }) {
-  return (
-    <tr className={strong ? 'bg-tm-bg font-black text-tm-navy' : 'text-slate-800'}>
-      <td className="px-3 py-2 font-bold">{row.name}</td>
-      {PARENT_STEPS.map((s) => (
-        <td key={s.key} className="px-3 py-2 text-right tabular-nums">
-          <CountLink n={row.parent[s.key]} href={listHref(row.staffId, 'parent', s.key, period)} />
-        </td>
-      ))}
-    </tr>
-  )
-}
-
-function ChangeCell({ value }: { value: Change }) {
+function ChangeText({ value }: { value: Change }) {
   const cls = !value || value.direction === 'same' ? 'text-gray-500' : value.direction === 'up' ? 'font-bold text-tm-green-deep' : 'font-bold text-tm-red'
   return <span className={cls}>{changeLabel(value)}</span>
 }

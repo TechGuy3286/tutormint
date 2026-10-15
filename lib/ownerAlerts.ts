@@ -24,6 +24,7 @@ import {
   shouldAlertOwner,
   type AlertChange,
 } from '@/lib/ownerAlertCore'
+import { OWNER_ONLY_TARGETS } from '@/lib/staffTargetsCore'
 
 /**
  * A non-Owner tried something Owner protection refused (owner, 15 Oct 2026).
@@ -41,8 +42,10 @@ export async function alertOwnerBlocked(params: {
   when?: Date
 }): Promise<void> {
   try {
-    // An Owner-only approval refused (owner, 15 Oct 2026) raises the same alert.
-    const approval = params.problem === OWNER_ONLY_APPROVAL
+    // An Owner-only approval refused (owner, 15 Oct 2026) raises the same alert,
+    // and so does a refused target change (owner, 16 Oct 2026).
+    const targets = params.problem === OWNER_ONLY_TARGETS
+    const approval = params.problem === OWNER_ONLY_APPROVAL || targets
     if (!approval && !isOwnerProtectionRefusal(params.problem, OWNER_PROTECTED, OWNER_ONLY_OWNERSHIP)) return
     if (!shouldAlertOwner(params.actor.adminRole)) return
     const admin = createAdminClient()
@@ -71,9 +74,16 @@ export async function alertOwnerBlocked(params: {
       await notify({
         userId: ownerId,
         kind: 'owner_alert',
-        title: approval ? 'Blocked attempt at an Owner-only approval' : 'Blocked attempt on the Owner account',
+        title: targets
+          ? 'Blocked attempt to change staff targets'
+          : approval
+            ? 'Blocked attempt at an Owner-only approval'
+            : 'Blocked attempt on the Owner account',
         body: approval
-          ? blockedAttemptBody(who, params.what, when).replace('Refused by Owner protection', 'Refused: approvals are Owner only')
+          ? blockedAttemptBody(who, params.what, when).replace(
+              'Refused by Owner protection',
+              targets ? 'Refused: targets are Owner only' : 'Refused: approvals are Owner only',
+            )
           : blockedAttemptBody(who, params.what, when),
         href: '/admin/audit',
       })
@@ -81,9 +91,16 @@ export async function alertOwnerBlocked(params: {
         { userId: ownerId },
         {
           id: 'owner_alert',
-          area: approval ? 'Owner-only approvals' : 'Owner account protection',
+          area: targets ? 'Owner-only targets' : approval ? 'Owner-only approvals' : 'Owner account protection',
           who,
-          lines: [`Tried to: ${params.what}.`, approval ? 'Only the Owner can approve or reject — nothing changed.' : 'Owner protection refused it — nothing changed.'],
+          lines: [
+            `Tried to: ${params.what}.`,
+            targets
+              ? 'Only the Owner can set targets — nothing changed.'
+              : approval
+                ? 'Only the Owner can approve or reject — nothing changed.'
+                : 'Owner protection refused it — nothing changed.',
+          ],
           when: pakistanTime(when),
           href: '/admin/audit',
         },

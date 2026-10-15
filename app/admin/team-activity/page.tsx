@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadTuitionPosting } from '@/lib/tuitionPosting'
 import { change, changeLabel, type Change, type PostingRow } from '@/lib/tuitionPostingCore'
-import { parsePeriod } from '@/lib/staffSignupsCore'
+import { parseMonth } from '@/lib/staffTargetsCore'
 import { TEAM_TABS, isRemovedTab, pickTab, tabsFor, teamActivityHref } from '@/lib/teamActivityCore'
 
 import PaidTab from './PaidTab'
@@ -13,8 +13,9 @@ import PaidTab from './PaidTab'
 // "Tuition posting activity" and "Staff activity", which showed overlapping
 // numbers. Read only; counts only, never an amount.
 //
-//   Paid sign-ups (default)    every role on the page; Operations and Tuitions
-//                              staff see their own row only.
+//   Paid sign-ups (default)    a month at a time against monthly targets
+//                              (owner, 16 Oct 2026); what each role sees is
+//                              cut on the server (lib/staffTargets).
 //   Tuitions posted            everyone's rows, for every role on the page.
 //
 // The "Verifications & messages" tab was removed (owner, 15 Oct 2026): a link
@@ -22,10 +23,13 @@ import PaidTab from './PaidTab'
 
 export const dynamic = 'force-dynamic'
 
+/** The request's clock, read once per render. */
+const nowMs = () => Date.now()
+
 export default async function TeamActivityPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; period?: string }>
+  searchParams: Promise<{ tab?: string; period?: string; month?: string }>
 }) {
   const actor = await requireAdminRole(...SCREEN_ACCESS.tuitionPosting)
   const sp = await searchParams
@@ -45,7 +49,7 @@ export default async function TeamActivityPage({
           </TabLink>
         ))}
       </nav>
-      {tab === 'paid' && <PaidTab actor={actor} period={parsePeriod(sp.period)} />}
+      {tab === 'paid' && <PaidTab actor={actor} month={parseMonth(sp.month, nowMs())} />}
       {tab === 'posted' && <PostedTab detailLinks={detailLinks} />}
     </div>
   )

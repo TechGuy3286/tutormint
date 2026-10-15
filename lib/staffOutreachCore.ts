@@ -98,6 +98,45 @@ export function unpaidRowMatches(
   return true
 }
 
+// Which tutors the Follow-ups → Tutors tab lists (owner, 16 Oct 2026):
+//   recent           joined in the last 30 days, Verification Fee not paid
+//                    (the default — the list as it always was);
+//   older            joined MORE than 30 days ago, fee not paid;
+//   paid_unfinished  an approved, not refunded Verification Fee and onboarding
+//                    not done, whenever they joined.
+// Paused, banned, test, seed, team and staff accounts are out of all three.
+export const TUTOR_SCOPES = ['recent', 'older', 'paid_unfinished'] as const
+export type TutorScope = (typeof TUTOR_SCOPES)[number]
+
+export const TUTOR_SCOPE_LABEL: Record<TutorScope, string> = {
+  recent: `Last ${UNPAID_WINDOW_DAYS} days (unpaid)`,
+  older: `Older than ${UNPAID_WINDOW_DAYS} days (unpaid)`,
+  paid_unfinished: 'Paid, profile not finished',
+}
+
+export function parseTutorScope(v: string | null | undefined): TutorScope {
+  return (TUTOR_SCOPES as readonly string[]).includes(v ?? '') ? (v as TutorScope) : 'recent'
+}
+
+/**
+ * Does a tutor belong in this scope?
+ *   feeStamped   tutor_profiles.verified_fee_paid_at is set — the "unpaid" rule
+ *                the list has always used (a free grant also stamps it);
+ *   feeApproved  an approved, not refunded Verification Fee PAYMENT;
+ *   onboarded    onboarding done (tutor_profiles.onboarded_at).
+ */
+export function tutorInScope(
+  t: { joinedAt: string; feeStamped: boolean; feeApproved: boolean; onboarded: boolean },
+  scope: TutorScope,
+  nowMs: number,
+): boolean {
+  if (scope === 'paid_unfinished') return t.feeApproved && !t.onboarded
+  const joined = Date.parse(t.joinedAt)
+  if (!Number.isFinite(joined) || t.feeStamped) return false
+  const recent = joined >= nowMs - UNPAID_WINDOW_DAYS * DAY_MS
+  return scope === 'recent' ? recent : !recent
+}
+
 /** The short help message an unpaid signup gets on WhatsApp (English + Urdu). */
 export function unpaidHelpMessage(firstName: string, stoppedAt: string | null): string {
   const where = stoppedAt && stoppedAt !== PAYMENT_STEP_LABEL ? ` We saw you stopped at "${stoppedAt}".` : ''

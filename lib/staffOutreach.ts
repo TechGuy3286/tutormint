@@ -26,10 +26,13 @@ import {
   firstNameOf,
   isTestName,
   tutorMatchesJob,
+  tutorInScope,
   unpaidHelpMessage,
   waLink,
   type ContactOutcome,
+  type TutorScope,
 } from '@/lib/staffOutreachCore'
+import { isQualifyingPayment } from '@/lib/staffTargetsCore'
 
 type Actor = { id: string; adminRole: AdminRole; email?: string | null }
 
@@ -51,39 +54,84 @@ export type UnpaidRow = {
 }
 
 /** Tutors who signed up in the last 30 days and have not paid the
- *  Verification Fee — newest first, paused (suspended/banned) and test accounts out. */
-export async function loadUnpaidSignups(now = new Date()): Promise<UnpaidRow[]> {
+ *  Verification Fee — newest first, paused (suspended/banned) and test accounts out.
+ *  `scope` (owner, 16 Oct 2026; lib/staffOutreachCore tutorInScope) also lists
+ *  unpaid tutors who joined EARLIER ('older'), or tutors with an approved fee
+ *  whose onboarding is not done ('paid_unfinished'). */
+export async function loadUnpaidSignups(now = new Date(), scope: TutorScope = 'recent'): Promise<UnpaidRow[]> {
   const admin = createAdminClient()
   if (!admin) return []
   const since = new Date(now.getTime() - UNPAID_WINDOW_DAYS * 86_400_000).toISOString()
-  const profiles = await pageAll((from, to) =>
-    admin
-      .from('profiles')
-      .select('id, full_name, city, created_at, profile_completion, phone_number, whatsapp, is_suspended, is_banned, is_seed, is_team_account, admin_role')
-      .eq('role', 'tutor')
-      .gte('created_at', since)
-      .order('created_at', { ascending: false })
-      .order('id')
-      .range(from, to),
-  )
+  // 'paid_unfinished': the tutors with an approved Verification Fee payment.
+  const approvedFee = new Set<string>()
+  if (scope === 'paid_unfinished') {
+    const pays = await pageAll((from, to) =>
+      admin
+        .from('payments')
+        .select('id, user_id, plan_code, status, reviewed_at, refunded_amount_pkr, refunded_at')
+        .eq('plan_code', 'verified')
+        .eq('status', 'approved')
+        .order('id')
+        .range(from, to),
+    )
+    for (const p of pays) {
+      if (
+        p.user_id &&
+        isQualifyingPayment(
+          {
+            planCode: p.plan_code as string,
+            status: p.status as string,
+            approvedAt: (p.reviewed_at as string | null) ?? null,
+            refundedAmountPkr: (p.refunded_amount_pkr as number | null) ?? null,
+            refundedAt: (p.refunded_at as string | null) ?? null,
+          },
+          'tutor',
+        )
+      )
+        approvedFee.add(p.user_id as string)
+    }
+    if (approvedFee.size === 0) return []
+  }
+  const cols = 'id, full_name, city, created_at, profile_completion, phone_number, whatsapp, is_suspended, is_banned, is_seed, is_team_account, admin_role'
+  const profiles =
+    scope === 'paid_unfinished'
+      ? (
+          await pageAllIn([...approvedFee], (part, from, to) =>
+            admin.from('profiles').select(cols).eq('role', 'tutor').in('id', part).order('id').range(from, to),
+          )
+        ).sort((a, b) => Date.parse(b.created_at as string) - Date.parse(a.created_at as string))
+      : await pageAll((from, to) => {
+          const q = admin.from('profiles').select(cols).eq('role', 'tutor')
+          return (scope === 'older' ? q.lt('created_at', since) : q.gte('created_at', since))
+            .order('created_at', { ascending: false })
+            .order('id')
+            .range(from, to)
+        })
   const candidates = profiles.filter(
     // Staff accounts (any admin_role) are TutorMint's own people, not leads.
     (p) => !p.is_suspended && !p.is_banned && !p.is_seed && !p.is_team_account && !p.admin_role && !isTestName(p.full_name as string | null),
   )
   const ids = candidates.map((p) => p.id as string)
   if (ids.length === 0) return []
-  const [{ data: tps }, { data: logs }, stopped] = await Promise.all([
-    admin.from('tutor_profiles').select('id, city, verified_fee_paid_at').in('id', ids),
-    admin
-      .from('tutor_contact_logs')
-      .select('tutor_id, outcome, note, staff_email, created_at')
-      .in('tutor_id', ids)
-      .order('created_at', { ascending: false }),
+  const [tps, logs, stopped] = await Promise.all([
+    pageAllIn(ids, (part, from, to) =>
+      admin.from('tutor_profiles').select('id, city, verified_fee_paid_at, onboarded_at').in('id', part).order('id').range(from, to),
+    ),
+    pageAllIn(ids, (part, from, to) =>
+      admin
+        .from('tutor_contact_logs')
+        .select('id, tutor_id, outcome, note, staff_email, created_at')
+        .in('tutor_id', part)
+        .order('created_at', { ascending: false })
+        .order('id')
+        .range(from, to),
+    ),
     flowStateByTutor(admin, ids),
   ])
-  const tp = new Map((tps ?? []).map((t) => [t.id as string, t]))
+  const tp = new Map(tps.map((t) => [t.id as string, t]))
   const last = new Map<string, UnpaidRow['lastContact']>()
-  for (const l of logs ?? []) {
+  const sortedLogs = [...logs].sort((a, b) => Date.parse(b.created_at as string) - Date.parse(a.created_at as string))
+  for (const l of sortedLogs) {
     const k = l.tutor_id as string
     if (last.has(k)) continue // newest first
     last.set(k, {
@@ -96,7 +144,18 @@ export async function loadUnpaidSignups(now = new Date()): Promise<UnpaidRow[]> 
   const out: UnpaidRow[] = []
   for (const p of candidates) {
     const t = tp.get(p.id as string)
-    if (!t || t.verified_fee_paid_at) continue // paid (or no tutor row)
+    if (!t) continue // no tutor row
+    const inScope = tutorInScope(
+      {
+        joinedAt: p.created_at as string,
+        feeStamped: !!t.verified_fee_paid_at,
+        feeApproved: approvedFee.has(p.id as string),
+        onboarded: !!t.onboarded_at,
+      },
+      scope,
+      now.getTime(),
+    )
+    if (!inScope) continue
     const name = formatName(p.full_name as string | null) || '—'
     const stoppedAt = stopped.get(p.id as string)?.stoppedAt ?? null
     const missing = stopped.get(p.id as string)?.missing ?? []

@@ -14,6 +14,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { canApprove, OWNER_ONLY_APPROVAL, ownerProtection, type AdminRole } from '@/lib/adminAccessCore'
 import { alertOwnerBlocked } from '@/lib/ownerAlerts'
+import { mayManageTargets, OWNER_ONLY_TARGETS } from '@/lib/staffTargetsCore'
 
 /**
  * OWNER-ONLY APPROVALS (owner, 15 Oct 2026). Every approval route calls this
@@ -34,6 +35,24 @@ export async function refuseUnlessOwnerApproval(
     targetId,
   })
   return NextResponse.json({ error: OWNER_ONLY_APPROVAL }, { status: 403 })
+}
+
+/**
+ * OWNER-ONLY TARGETS (owner, 16 Oct 2026): setting monthly targets and the
+ * target list. A 403 for anyone but the Owner, and the Owner is told of the
+ * attempt (bell + email + Audit).
+ */
+export async function refuseUnlessOwnerTargets(
+  actor: { id: string; adminRole: AdminRole; email?: string | null },
+  what: string,
+): Promise<NextResponse | null> {
+  if (mayManageTargets(actor.adminRole)) return null
+  await alertOwnerBlocked({
+    actor: { id: actor.id, adminRole: actor.adminRole, email: actor.email ?? null },
+    problem: OWNER_ONLY_TARGETS,
+    what,
+  })
+  return NextResponse.json({ error: OWNER_ONLY_TARGETS }, { status: 403 })
 }
 
 /** The target's staff role, or null for an ordinary member / unknown id. */

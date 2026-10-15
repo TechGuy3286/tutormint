@@ -113,13 +113,14 @@ test('Paid sign-ups sort by paid first; the Team total is the sum of paid', () =
   const total = boardRow('team', 'Team total', all, 'today', NOW)
   assert.equal(total.tutor.paid, 2)
   assert.equal(total.inProgress.signed_up, 1)
+  // The tab became monthly targets (owner, 16 Oct 2026): parents count toward
+  // targets too, so the footer and layout changed (scripts/test-staff-targets.ts).
   const tab = read('app/admin/team-activity/PaidTab.tsx')
-  assert.ok(tab.includes('Only paid tutor sign-ups count as results.'))
+  assert.ok(tab.includes('Only paid sign-ups count as results.'))
   assert.ok(tab.includes('In progress (not counted)'))
-  assert.ok(tab.includes('Parents (for information)'))
   assert.ok(tab.includes('Claims to review ('))
-  // The paid column comes before the change column.
-  assert.ok(tab.indexOf('>Paid sign-ups<') < tab.indexOf('>Paid: Today vs Yesterday<'))
+  // The team strip comes before the cards.
+  assert.ok(tab.indexOf('<TeamStrip') < tab.indexOf('<Card '))
 })
 
 test('sidebar: one Team activity entry per allowed role; the old entries are gone', () => {

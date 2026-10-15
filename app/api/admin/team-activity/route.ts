@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
-import { loadSignupBoard } from '@/lib/staffSignups'
-import { parsePeriod } from '@/lib/staffSignupsCore'
+import { loadTargetBoard } from '@/lib/staffTargets'
+import { parseMonth } from '@/lib/staffTargetsCore'
 import { loadTuitionPosting } from '@/lib/tuitionPosting'
 import { DEFAULT_TAB, isRemovedTab, isTeamTab, mayOpenTab } from '@/lib/teamActivityCore'
 
 // The numbers behind Tuitions → Team activity (owner, 15 Oct 2026), read only.
-//   GET ?tab=paid|posted&period=today|yesterday|last7|month
+//   GET ?tab=paid|posted[&month=YYYY-MM]
 // The page and this route read the same rule (lib/teamActivityCore mayOpenTab).
 // "paid" returns only the caller's own row unless they see everyone. Counts
 // only — no amounts, no mobiles. The "verifications" tab was removed (owner,
@@ -28,24 +28,12 @@ export async function GET(request: Request) {
   }
 
   if (raw === 'paid') {
-    const period = parsePeriod(sp.get('period'))
-    const board = await loadSignupBoard(gate.actor, period)
-    return NextResponse.json({
-      tab: raw,
-      period,
-      everyone: board.everyone,
-      rows: board.rows.map(({ staffId, name, tutor, parent, inProgress, paidChange }) => ({
-        staffId,
-        name,
-        paid: tutor.paid,
-        paidChange,
-        inProgress,
-        parent,
-      })),
-      total: board.total
-        ? { paid: board.total.tutor.paid, inProgress: board.total.inProgress, parent: board.total.parent }
-        : null,
-    })
+    // Monthly targets (owner, 16 Oct 2026): the same board the tab renders,
+    // already cut to what this caller may see.
+    const now = Date.now()
+    const month = parseMonth(sp.get('month'), now)
+    const board = await loadTargetBoard(gate.actor, month, now)
+    return NextResponse.json({ tab: raw, ...board })
   }
 
   const { rows, total } = await loadTuitionPosting()

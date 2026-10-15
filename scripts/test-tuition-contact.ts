@@ -17,6 +17,7 @@ import { join } from 'node:path'
 
 import { isReadOnlyRole, roleSatisfies, SCREEN_ACCESS } from '../lib/adminAccessCore'
 import { OVERVIEW_ITEMS, OVERVIEW_ITEM_KEYS, SIGNUPS_TODAY_HREF } from '../lib/overviewItemsCore'
+import { tutorInScope } from '../lib/staffOutreachCore'
 import { isTestName, parseUnpaidFilter, pkDayStart, signedUpIn, signupCounts, unpaidRowMatches } from '../lib/staffOutreachCore'
 import {
   CONTACT_NUMBER_MESSAGE,
@@ -86,7 +87,7 @@ test('A. the card number equals the rows of the Today filter, followed up or not
   assert.ok(items.includes('`${counts.yesterday} yesterday · ${counts.week} in the last 7 days`'))
   // Unpaid signups is the Tutors tab of People → Follow-ups (owner, 15 Oct 2026).
   const page = read('app', 'admin', 'follow-ups', 'page.tsx')
-  assert.ok(page.includes('loadUnpaidSignups()') && page.includes('unpaidRowMatches(facts(r), filter, now)'))
+  assert.ok(page.includes('loadUnpaidSignups(new Date(), scope)') && page.includes('unpaidRowMatches(facts(r), filter, now)'))
   for (const label of ["label: 'Today'", "label: 'Yesterday'", "label: 'Last 7 days'"]) assert.ok(page.includes(label), label)
   assert.ok(page.includes('UnpaidSignupRow'), 'the existing WhatsApp / Call / Follow-up sent rows — no new list')
 })
@@ -95,7 +96,10 @@ test('A. staff, test, paused, banned and paid accounts are not in the number', (
   const lib = read('lib', 'staffOutreach.ts')
   // The one filter of the list the card reads.
   assert.ok(lib.includes('!p.is_suspended && !p.is_banned && !p.is_seed && !p.is_team_account && !p.admin_role && !isTestName(p.full_name'))
-  assert.ok(lib.includes("if (!t || t.verified_fee_paid_at) continue"), 'a tutor who paid is left out')
+  // A tutor who paid is left out of the default group (owner, 16 Oct 2026: the
+  // rule moved into tutorInScope, read by the loader).
+  assert.ok(lib.includes('feeStamped: !!t.verified_fee_paid_at') && lib.includes('if (!inScope) continue'), 'a tutor who paid is left out')
+  assert.equal(tutorInScope({ joinedAt: new Date().toISOString(), feeStamped: true, feeApproved: true, onboarded: false }, 'recent', Date.now()), false)
   assert.ok(lib.includes(".eq('role', 'tutor')"))
   assert.equal(isTestName('Test Tutor 6'), true)
   assert.equal(isTestName('New User'), true)

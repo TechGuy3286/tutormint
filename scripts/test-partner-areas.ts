@@ -136,6 +136,9 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   'reports': 'edit',
   'social': 'view',
   'staff-signups/claims': 'view',
+  // Monthly targets (owner, 16 Oct 2026): Owner only by its own check
+  // (refuseUnlessOwnerTargets → 403 + the Owner is alerted).
+  'team-activity/targets': 'owner',
   'staff-signups/claims/decide': 'view',
   'taxonomy/core': 'view',
   'team': 'view',

@@ -2,7 +2,16 @@ import Link from 'next/link'
 
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadUnpaidSignups } from '@/lib/staffOutreach'
-import { parseUnpaidFilter, unpaidRowMatches, UNPAID_WINDOW_DAYS, type UnpaidFilter } from '@/lib/staffOutreachCore'
+import {
+  parseTutorScope,
+  parseUnpaidFilter,
+  TUTOR_SCOPE_LABEL,
+  TUTOR_SCOPES,
+  unpaidRowMatches,
+  UNPAID_WINDOW_DAYS,
+  type TutorScope,
+  type UnpaidFilter,
+} from '@/lib/staffOutreachCore'
 import { loadFollowUpStates } from '@/lib/followUps'
 import { followUpLine } from '@/lib/followUpCore'
 import { loadAbandonedSignups } from '@/lib/abandonedSignups'
@@ -51,7 +60,7 @@ const SIGNED_UP: { key: UnpaidFilter; label: string }[] = [
 
 const SIGNUP_TEMPLATE_KEYS = ['signup_email_unconfirmed', 'signup_profile_unfinished'] as const
 
-export default async function FollowUpsPage({ searchParams }: { searchParams: Promise<{ tab?: string; filter?: string }> }) {
+export default async function FollowUpsPage({ searchParams }: { searchParams: Promise<{ tab?: string; filter?: string; scope?: string }> }) {
   const actor = await requireAdminRole(...SCREEN_ACCESS.unpaidSignups)
   const sp = await searchParams
   const tabs = followUpTabsFor(actor.adminRole)
@@ -75,7 +84,7 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
           ))}
         </nav>
       )}
-      {tab === 'tutors' && <TutorsTab filterParam={sp.filter} />}
+      {tab === 'tutors' && <TutorsTab filterParam={sp.filter} scope={parseTutorScope(sp.scope)} />}
       {tab === 'parents' && <ParentsTab />}
       {tab === 'orphans' && <OrphansTab />}
     </div>
@@ -84,9 +93,16 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
 
 // ------------------------------------------------------------------ Tutors
 
-async function TutorsTab({ filterParam }: { filterParam?: string }) {
+// Which tutors (owner, 16 Oct 2026): the last 30 days unpaid (the default, as
+// before), unpaid tutors who joined earlier, or tutors who paid the
+// Verification Fee and have not finished onboarding. The follow-up filters
+// below apply within the chosen group; the sign-up-day chips only to the
+// default group.
+async function TutorsTab({ filterParam, scope }: { filterParam?: string; scope: TutorScope }) {
   const filter = parseUnpaidFilter(filterParam)
-  const all = await loadUnpaidSignups()
+  const all = await loadUnpaidSignups(new Date(), scope)
+  const scopeHref = (s: TutorScope, extra: { filter?: string } = {}) =>
+    followUpsHref('tutors', { scope: s === 'recent' ? undefined : s, ...extra })
   // The shared follow-up record (owner, 9 Oct 2026): followed up in the last 7
   // days → the Follow-up sent tab; older → back, tagged "Followed up once".
   const now = nowMs()
@@ -109,16 +125,29 @@ async function TutorsTab({ filterParam }: { filterParam?: string }) {
       <header className="space-y-1">
         <h2 className="text-lg font-black text-tm-navy">Tutors</h2>
         <p className="text-xs text-gray-500">
-          Tutors who joined in the last {UNPAID_WINDOW_DAYS} days and have not paid the Verification Fee, newest
-          first. Paused, test and staff accounts are left out. Log every call so nobody is rung twice.
+          {scope === 'recent' &&
+            `Tutors who joined in the last ${UNPAID_WINDOW_DAYS} days and have not paid the Verification Fee, newest first.`}
+          {scope === 'older' &&
+            `Tutors who joined more than ${UNPAID_WINDOW_DAYS} days ago and have not paid the Verification Fee, newest first.`}
+          {scope === 'paid_unfinished' &&
+            'Tutors who paid the Verification Fee and have not finished their profile, newest first.'}{' '}
+          Paused, test and staff accounts are left out. Log every call so nobody is rung twice.
         </p>
       </header>
+
+      <nav aria-label="Which tutors" className="flex flex-wrap gap-2">
+        {TUTOR_SCOPES.map((s) => (
+          <Link key={s} href={scopeHref(s)} aria-current={s === scope ? 'page' : undefined} className={chip(s === scope)}>
+            {TUTOR_SCOPE_LABEL[s]}
+          </Link>
+        ))}
+      </nav>
 
       <nav aria-label="Filter" className="flex flex-wrap gap-2">
         {FILTERS.map((f) => (
           <Link
             key={f.key}
-            href={followUpsHref('tutors', { filter: f.key === 'all' ? undefined : f.key })}
+            href={scopeHref(scope, { filter: f.key === 'all' ? undefined : f.key })}
             aria-current={f.key === filter ? 'page' : undefined}
             className={chip(f.key === filter)}
           >
@@ -127,7 +156,7 @@ async function TutorsTab({ filterParam }: { filterParam?: string }) {
         ))}
       </nav>
 
-      <nav aria-label="Signed up" className="flex flex-wrap items-center gap-2">
+      {scope === 'recent' && <nav aria-label="Signed up" className="flex flex-wrap items-center gap-2">
         <span className="text-[11px] font-bold text-gray-600">Signed up:</span>
         {SIGNED_UP.map((f) => (
           <Link
@@ -139,7 +168,7 @@ async function TutorsTab({ filterParam }: { filterParam?: string }) {
             {f.label} <span className={f.key === filter ? 'text-white' : 'text-gray-500'}>{count(f.key)}</span>
           </Link>
         ))}
-      </nav>
+      </nav>}
 
       {rows.length === 0 ? (
         <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
@@ -151,6 +180,7 @@ async function TutorsTab({ filterParam }: { filterParam?: string }) {
             <UnpaidSignupRow
               key={r.id}
               row={r}
+              showMissing={scope === 'paid_unfinished'}
               followUp={{
                 tab: states.get(r.id)?.sent ? 'sent' : 'stuck',
                 line: states.get(r.id) ? followUpLine(states.get(r.id)!, now) : null,

@@ -106,7 +106,9 @@ test('paying or finishing onboarding removes the member from both tabs', () => {
   const tabs = splitFollowUpTabs([{ id: 'other' }], states)
   assert.equal([...tabs.stuck, ...tabs.sent].some((r) => r.id === 'paid'), false)
   const src = read('lib/staffOutreach.ts')
-  assert.match(src, /if \(!t \|\| t\.verified_fee_paid_at\) continue/)
+  // The paid rule moved into tutorInScope (owner, 16 Oct 2026).
+  assert.match(src, /feeStamped: !!t\.verified_fee_paid_at/)
+  assert.match(src, /if \(!inScope\) continue/)
   const ov = read('lib/overviewItems.ts')
   assert.match(ov, /all\.filter\(\(r\) => r\.stoppedAt && r\.stoppedAt !== PAYMENT_STEP_LABEL\)/)
 })

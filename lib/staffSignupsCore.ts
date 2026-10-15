@@ -236,6 +236,8 @@ export function currentStep(a: CreditedAccount): string {
   const steps = stepsFor(a.role)
   let label = 'Signed up'
   for (const s of steps) if (a.at[s.key]) label = s.label
+  // A parent who bought a plan has paid (owner, 16 Oct 2026).
+  if (a.role === 'parent' && a.at.paid) label = 'Paid'
   return label
 }
 
@@ -312,6 +314,40 @@ export function inProgressAt(accounts: CreditedAccount[], step: InProgressStep, 
     step,
     period,
     nowMs,
+  )
+}
+
+// Monthly targets (owner, 16 Oct 2026): the lists behind a card can be for any
+// date range (a calendar month), and "in progress" covers parents too —
+// Signed up and Posted a tuition, not paid yet (a parent plan purchase is a
+// parent's paid sign-up; lib/staffTargetsCore firstPaidAt).
+export type Range = { start: number; end: number }
+
+export const PARENT_IN_PROGRESS_STEPS: { key: ParentStep; label: string }[] = PARENT_STEPS.filter((s) => s.key !== 'mobile_verified')
+
+export function inProgressStepsFor(role: MemberRole): { key: Step; label: string }[] {
+  return role === 'tutor' ? IN_PROGRESS_STEPS : PARENT_IN_PROGRESS_STEPS
+}
+
+export function isInProgressStepFor(role: MemberRole, v: string | null | undefined): v is Step {
+  return inProgressStepsFor(role).some((s) => s.key === v)
+}
+
+/** A step a list may be opened for: the role's steps, and Paid for parents too. */
+export function isListStep(role: MemberRole, v: string | null | undefined): v is Step {
+  return isStep(role, v) || v === 'paid'
+}
+
+export function accountsInRange(accounts: CreditedAccount[], step: Step, r: Range): CreditedAccount[] {
+  return accounts.filter((a) => inRange(a.at[step], r))
+}
+
+/** Accounts of `role` that reached `step` in the range and have not paid. */
+export function inProgressIn(accounts: CreditedAccount[], role: MemberRole, step: Step, r: Range): CreditedAccount[] {
+  return accountsInRange(
+    accounts.filter((a) => a.role === role && !a.at.paid),
+    step,
+    r,
   )
 }
 

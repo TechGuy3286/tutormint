@@ -4,7 +4,8 @@ import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { formatDateTime } from '@/lib/datetime'
 import { loadSignupList } from '@/lib/staffSignups'
 import { maskMobile } from '@/lib/smsHealthCore'
-import { PERIODS, currentStep, isInProgressStep, isStep, parsePeriod, stepsFor, type MemberRole, type Step } from '@/lib/staffSignupsCore'
+import { PERIODS, currentStep, isInProgressStep, isInProgressStepFor, isListStep, parsePeriod, stepsFor, type MemberRole, type Step } from '@/lib/staffSignupsCore'
+import { isMonthKey, monthLabel, monthRange } from '@/lib/staffTargetsCore'
 import { teamActivityHref } from '@/lib/teamActivityCore'
 
 // The accounts behind one number on Team activity → Paid sign-ups (owner, 15
@@ -19,17 +20,23 @@ export const dynamic = 'force-dynamic'
 export default async function SignupListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ staff?: string; role?: string; step?: string; period?: string; inprogress?: string }>
+  searchParams: Promise<{ staff?: string; role?: string; step?: string; period?: string; month?: string; inprogress?: string }>
 }) {
   const actor = await requireAdminRole(...SCREEN_ACCESS.tuitionPosting)
   const sp = await searchParams
   const role: MemberRole = sp.role === 'parent' ? 'parent' : 'tutor'
-  const step: Step = isStep(role, sp.step) ? sp.step : 'signed_up'
+  const step: Step = isListStep(role, sp.step) ? sp.step : 'signed_up'
   const period = parsePeriod(sp.period)
+  // A calendar month (owner, 16 Oct 2026) — the Paid sign-ups board links here
+  // with ?month=YYYY-MM; the older ?period= links still work.
+  const month = isMonthKey(sp.month) ? sp.month : null
   const staff = sp.staff ?? actor.id
-  const inProgress = sp.inprogress === '1' && role === 'tutor' && isInProgressStep(step)
-  const back = teamActivityHref('paid', { period: period === 'today' ? null : period })
-  const result = await loadSignupList(actor, staff, role, step, period, undefined, { inProgress })
+  const inProgress = sp.inprogress === '1' && (month ? isInProgressStepFor(role, step) : role === 'tutor' && isInProgressStep(step))
+  const back = month ? teamActivityHref('paid', { month }) : teamActivityHref('paid')
+  const result = await loadSignupList(actor, staff, role, step, period, undefined, {
+    inProgress,
+    range: month ? monthRange(month) : undefined,
+  })
 
   if (!result.ok) {
     return (
@@ -42,8 +49,8 @@ export default async function SignupListPage({
     )
   }
 
-  const stepLabel = stepsFor(role).find((s) => s.key === step)?.label ?? ''
-  const periodLabel = PERIODS.find((p) => p.key === period)?.label ?? ''
+  const stepLabel = step === 'paid' ? 'Paid' : (stepsFor(role).find((s) => s.key === step)?.label ?? '')
+  const periodLabel = month ? monthLabel(month) : (PERIODS.find((p) => p.key === period)?.label ?? '')
   const n = result.accounts.length
   const noun = role === 'tutor' ? (n === 1 ? 'tutor' : 'tutors') : n === 1 ? 'parent' : 'parents'
 
