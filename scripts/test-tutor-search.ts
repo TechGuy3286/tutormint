@@ -126,7 +126,7 @@ test('Notify me: one message for a NEW matching tutor, then closed; lapses after
   assert.ok(sms.includes('only message') && !/rs\.?\s*\d|free|offer|discount/i.test(sms), 'no marketing, no price')
   // The sweep closes the request BEFORE it sends, so a retry cannot send twice.
   const sweep = readFileSync('lib/tutorAlerts.ts', 'utf8')
-  assert.ok(sweep.indexOf("close_reason: 'notified'") < sweep.indexOf('getSmsProvider().send('))
+  assert.ok(sweep.indexOf("close_reason: 'notified'") < sweep.indexOf('await sendSms('))
   const sql = readFileSync('supabase/migrations/167_search_synonyms_alerts_title_names.sql', 'utf8')
   assert.ok(sql.includes("interval '60 days'"))
 })

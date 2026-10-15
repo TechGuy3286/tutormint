@@ -44,6 +44,7 @@ export type TemplateId =
   | 'confirm_email'
   | 'switched_tutor_signin'
   | 'tuition_paused'
+  | 'sms_alert'
 
 export type RenderedEmail = {
   subject: string
@@ -274,6 +275,8 @@ export type TemplateInput =
   // sign in and were never told. Plain and short — no marketing, no prices.
   | { id: 'switched_tutor_signin'; name: string; supportWhatsapp: string }
   | { id: 'tuition_paused'; title: string }
+  // The hourly SMS health check (owner, 15 Oct 2026). Staff-facing, essential.
+  | { id: 'sms_alert'; message: string; reasons: string[] }
   // STAFF-facing alerts (PR106-H1 §2). English only (no member Urdu); essential.
   // NEVER a CNIC number, phone, card detail or document image — member name,
   // role, what was bought, amount, provider, PKT time and an admin link only.
@@ -641,6 +644,15 @@ export function render(input: TemplateInput): RenderedEmail {
         { label: 'Sign in', href: '/login' },
       )
     }
+
+    case 'sms_alert':
+      return build(
+        'SMS may not be sending',
+        'SMS may not be sending',
+        [input.message, ...input.reasons],
+        true,
+        { label: 'Open Admin → Settings → SMS', href: '/admin/settings/sms' },
+      )
 
     case 'tuition_paused':
       return build(

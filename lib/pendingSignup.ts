@@ -5,6 +5,7 @@ import { hash as bcryptHash } from 'bcryptjs'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { deliverCode, hashOtp, otpMatch, type DeliverResult } from '@/lib/otp'
+import { recordSms } from '@/lib/smsLog'
 import { devOtpCode, bridgeOtpCode } from '@/lib/sms'
 import { syntheticEmail } from '@/lib/phone'
 import { numberSavedElsewhere, NUMBER_TAKEN_MESSAGE } from '@/lib/phoneAccount'
@@ -104,6 +105,7 @@ export async function startPendingSignup(opts: {
     now,
   )
   if (decision.action === 'reuse' && existing) {
+    await recordSms({ purpose: 'signup', phone: opts.mobile, outcome: 'reused' })
     return { ok: true, alreadySent: true, token: existing.token as string }
   }
 
@@ -134,12 +136,15 @@ export async function startPendingSignup(opts: {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
-      if (live) return { ok: true, alreadySent: true, token: live.token as string }
+      if (live) {
+        await recordSms({ purpose: 'signup', phone: opts.mobile, outcome: 'reused' })
+        return { ok: true, alreadySent: true, token: live.token as string }
+      }
     }
     return { ok: false, status: 500, error: 'Could not start sign-up. Please try again.', detail: insertError.message }
   }
 
-  const delivered: DeliverResult = await deliverCode(opts.mobile, code, 'verify')
+  const delivered: DeliverResult = await deliverCode(opts.mobile, code, 'verify', 'signup')
   if (!delivered.ok) {
     // A pending row for a code that never went out would block the number for
     // ten minutes with nothing delivered. Remove it so the member can retry.

@@ -136,6 +136,37 @@ export function parseSendpkResponse(body: string): SendpkParsed {
   return { ok: false, message: text.slice(0, 200) || 'empty response' }
 }
 
+/**
+ * SendPK's balance body is "| Package# 1: 60.00 PKR (2026-10-10) |" — one PKR
+ * figure per package line, so the remaining credit is their sum (the "1" of
+ * "Package# 1" is not a balance). Pure; null when no figure is found.
+ */
+export function parseSendpkBalance(body: string): number | null {
+  const figs = [...String(body ?? '').matchAll(/(\d+(?:\.\d+)?)\s*PKR/gi)].map((m) => Number(m[1]))
+  if (!figs.length) return null
+  return Math.round(figs.reduce((a, b) => a + b, 0) * 100) / 100
+}
+
+/**
+ * The remaining SendPK credit in PKR (admin SMS screen). GET /api/balance.php
+ * with the key — the shape scripts/sendpk-probe.ts established. Costs nothing.
+ * The request URL carries the key, so it is never logged or returned.
+ */
+export async function sendpkBalance(): Promise<{ ok: true; pkr: number } | { ok: false; error: string }> {
+  const cfg = configFromEnv()
+  if (!cfg) return { ok: false, error: 'SendPK is not configured' }
+  try {
+    const url = `${cfg.baseUrl.replace(/\/+$/, '')}/api/balance.php?${new URLSearchParams({ api_key: cfg.apiKey }).toString()}`
+    const res = await fetch(url, { method: 'GET', signal: AbortSignal.timeout(6_000), cache: 'no-store' })
+    const text = (await res.text()).trim()
+    const pkr = parseSendpkBalance(text)
+    if (pkr === null) return { ok: false, error: text.replace(/\d{7,}/g, '•••').slice(0, 160) || `HTTP ${res.status}` }
+    return { ok: true, pkr }
+  } catch {
+    return { ok: false, error: 'SendPK did not answer' }
+  }
+}
+
 export const sendpkProvider: SmsProvider = {
   name: 'sendpk',
 

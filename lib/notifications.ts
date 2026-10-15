@@ -130,6 +130,8 @@ export type NotificationKind =
   // The Owner is told when someone else changes bank details, gateway
   // settings, plan prices or team roles (owner, 13 Oct 2026).
   | 'owner_alert'
+  // SMS may not be sending (owner, 15 Oct 2026) — the hourly SMS health check.
+  | 'sms_alert'
   // PR54 §B — a parent tried to send a hiring/demo request to a tutor who has
   // reached this month's free limit. No parent name or details.
   | 'incoming_request_capped'

@@ -6,6 +6,7 @@ import { rebuildContentQueue } from '@/lib/contentQueue/build'
 import { deliverContentDigest } from '@/lib/contentQueue/digest'
 import { runConversionSweep } from '@/lib/conversionSweep'
 import { expirePendingSignups } from '@/lib/pendingSignup'
+import { purgeOldSmsSends } from '@/lib/smsLog'
 import { sweepAbandonedVideos } from '@/lib/videoCleanup'
 import { pauseStaleTuitions } from '@/lib/tuitionPause'
 import { drainIndexingQueue, INDEXING_DAILY_LIMIT } from '@/lib/googleIndexing'
@@ -75,6 +76,9 @@ async function handle(request: Request) {
   // correctness; wrapped so a sweep error cannot fail the billing sweep.
   const pending = await expirePendingSignups().catch((e) => ({ deleted: 0, error: String(e) }))
 
+  // The SMS log keeps 90 days (owner, 15 Oct 2026). Wrapped like the others.
+  const smsLogPurged = await purgeOldSmsSends().catch(() => 0)
+
   // Abandoned YouTube introduction placeholders (owner PR13 §2.2): delete our
   // "processing" intro videos older than 24h that no tutor record points at.
   // Wrapped like the others; a YouTube error must not fail the billing sweep,
@@ -109,6 +113,7 @@ async function handle(request: Request) {
       digest,
       conversion,
       pending,
+      smsLogPurged,
       videos,
       tuitions,
       indexing,

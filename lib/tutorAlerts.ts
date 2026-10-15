@@ -14,7 +14,7 @@ import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { pageAll } from '@/lib/pageAll'
-import { getSmsProvider } from '@/lib/sms'
+import { sendSms } from '@/lib/smsLog'
 import { deliverEmail } from '@/lib/notify'
 import { normalisePkMobile, looksLikeEmail } from '@/lib/phone'
 import { resolveSmartQuery } from '@/lib/smartSearch'
@@ -161,7 +161,7 @@ export async function sweepTutorAlerts(now = new Date()): Promise<{ open: number
     const url = `${SITE_URL}/tutor/${tutor.slug}`
     let ok = false
     try {
-      if (r.channel === 'sms') ok = (await getSmsProvider().send(r.contact, alertSms(r.label, url))).ok
+      if (r.channel === 'sms') ok = (await sendSms({ to: r.contact, body: alertSms(r.label, url), purpose: 'alert' })).ok
       else ok = (await deliverEmail({ email: r.contact }, { id: 'tutor_alert', label: r.label, url })).ok
     } catch {
       ok = false

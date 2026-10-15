@@ -29,6 +29,8 @@
 import { createHash } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getSmsProvider, devOtpCode, bridgeOtpCode } from '@/lib/sms'
+import { recordSms, sendSms } from '@/lib/smsLog'
+import type { SmsPurpose } from '@/lib/smsHealthCore'
 
 export type OtpPurpose = 'verify' | 'reset'
 
@@ -168,7 +170,11 @@ export async function deliverCode(
   phone: string,
   code: string,
   purpose: OtpPurpose,
+  /** What the SMS log calls this send (owner, 15 Oct 2026): 'signup' for the
+   *  pre-auth signup code, else the purpose itself. */
+  recordAs?: SmsPurpose,
 ): Promise<DeliverResult> {
+  const logPurpose: SmsPurpose = recordAs ?? purpose
   // Dev bypass: nothing to deliver, and no bill run up.
   if (devOtpCode()) {
     reportSend({ purpose, phone, channel: 'dev-bypass', ok: true })
@@ -181,10 +187,12 @@ export async function deliverCode(
   // member enters the owner-distributed bridge code.
   if (bridgeOtpCode() && !provider.isConfigured()) {
     reportSend({ purpose, phone, channel: 'bridge', ok: true })
+    await recordSms({ purpose: logPurpose, phone, outcome: 'not_sent', provider: 'bridge' })
     return { ok: true, channel: 'bridge', devBypassActive: false }
   }
 
-  const sent = await provider.send(phone, otpMessage(code))
+  // Through sendSms(): the same adapter, plus a row in the SMS log.
+  const sent = await sendSms({ to: phone, body: otpMessage(code), purpose: logPurpose })
 
   reportSend({
     purpose,
@@ -327,6 +335,7 @@ export async function sendOtp(opts: {
 
   if (existing) {
     reportSend({ purpose: opts.purpose, phone: opts.phone, channel: 'existing', ok: true })
+    await recordSms({ purpose: opts.purpose, phone: opts.phone, outcome: 'reused' })
     // devBypassActive still surfaced so a dev environment shows the test-code
     // hint even when a live code is being reused.
     return { ok: true, channel: 'existing', devBypassActive: !!devOtpCode(), alreadySent: true }
@@ -352,6 +361,7 @@ export async function sendOtp(opts: {
     // violation and is treated as "already sent", so no second SMS goes out.
     if ((insertError as { code?: string }).code === '23505') {
       reportSend({ purpose: opts.purpose, phone: opts.phone, channel: 'existing', ok: true })
+      await recordSms({ purpose: opts.purpose, phone: opts.phone, outcome: 'reused' })
       return { ok: true, channel: 'existing', devBypassActive: !!devOtpCode(), alreadySent: true }
     }
     return { ok: false, status: 500, error: insertError.message }
