@@ -16,7 +16,7 @@ import type { AdminRole } from '@/lib/adminAccessCore'
 import { ensureJoinLinks, loadCreditedAccounts, type JoinLink } from '@/lib/staffSignups'
 import {
   inProgressIn,
-  pendingIn,
+  pendingSplit,
   signedUpIn,
   isParticipantRole,
   mayViewStaff,
@@ -31,6 +31,7 @@ import {
   defaultCountingStart,
   monthRange,
   monthTense,
+  cardFigures,
   paceFor,
   paidInMonth,
   pickerMonths,
@@ -59,6 +60,10 @@ export type TargetCard = {
   today: number
   yesterday: number
   change: Change
+  /** "Pending (unpaid)" this month — the status counts' rule; never in the pace. */
+  pending: { tutors: number; parents: number }
+  /** "All unpaid": every attributed person not paid, any month. */
+  allUnpaid: number
 }
 
 export type InProgressCounts = {
@@ -167,11 +172,12 @@ function inProgressCounts(staffId: string, name: string, mine: CreditedAccount[]
 
 function statusCounts(staffId: string, name: string, mine: CreditedAccount[], month: MonthKey): StatusCounts {
   const r = monthRange(month)
+  const pending = pendingSplit(mine, r)
   return {
     staffId,
     name,
-    tutor: { pending: pendingIn(mine, 'tutor', r).length, signed_up: signedUpIn(mine, 'tutor', r).length },
-    parent: { pending: pendingIn(mine, 'parent', r).length, signed_up: signedUpIn(mine, 'parent', r).length },
+    tutor: { pending: pending.tutors, signed_up: signedUpIn(mine, 'tutor', r).length },
+    parent: { pending: pending.parents, signed_up: signedUpIn(mine, 'parent', r).length },
   }
 }
 
@@ -212,20 +218,11 @@ export async function loadTargetBoard(viewer: Viewer, month: MonthKey, nowMs = D
 
   // Cards and the team: target-list staff only.
   const listIds = [...list].filter((id) => nameOf.has(id))
-  const cardFor = (id: string): TargetCard => {
-    const mine = mineOf(id)
-    const paid = paidInMonth(mine, month)
-    const ty = tense === 'current' ? todayYesterday(mine, nowMs) : { today: 0, yesterday: 0, change: null }
-    return {
-      staffId: id,
-      name: nameOf.get(id) ?? '—',
-      pace: paceFor(targets.get(id) ?? null, paid.length, month, nowMs, countingStarts),
-      ...split(paid),
-      today: ty.today,
-      yesterday: ty.yesterday,
-      change: ty.change,
-    }
-  }
+  const cardFor = (id: string): TargetCard => ({
+    staffId: id,
+    name: nameOf.get(id) ?? '—',
+    ...cardFigures(mineOf(id), month, targets.get(id) ?? null, nowMs, countingStarts, tense === 'current'),
+  })
   const allCards = sortCards(listIds.map(cardFor))
   const teamTarget = listIds.reduce((s, id) => s + (targets.get(id) ?? 0), 0)
   const teamPaid = allCards.reduce((s, c) => s + c.pace.paid, 0)

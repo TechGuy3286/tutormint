@@ -276,7 +276,34 @@ function Card({ card, current, month }: { card: TargetCard; current: boolean; mo
       <p className="text-[11px] text-gray-600">
         <NeededLine pace={p} />
       </p>
+      <PendingLine card={card} month={month} />
     </li>
+  )
+}
+
+/** Outstanding follow-up, not a result (owner, 17 Oct 2026): small and muted
+ *  under the paid figures, never part of the pace. The numbers are the status
+ *  counts' own Pending and open the same lists. */
+const PENDING_HELP = 'Signed up but has not paid — needs follow-up'
+
+function PendingLine({ card, month }: { card: TargetCard; month: MonthKey }) {
+  const n = (v: number, role: MemberRole) =>
+    v > 0 ? (
+      <Link href={statusHref(card.staffId, role, 'pending', month)} className="font-bold text-gray-600 hover:text-tm-red hover:underline">
+        {v}
+      </Link>
+    ) : (
+      <span className="text-gray-500">0</span>
+    )
+  return (
+    <div className="border-t border-gray-100 pt-2 text-[11px] text-gray-500" title={PENDING_HELP}>
+      <p>
+        Pending (unpaid): Tutors {n(card.pending.tutors, 'tutor')} · Parents {n(card.pending.parents, 'parent')}
+        <span aria-hidden="true"> | </span>
+        All unpaid <span className="tabular-nums">{card.allUnpaid}</span>
+      </p>
+      <p className="text-[10px]">{PENDING_HELP}</p>
+    </div>
   )
 }
 

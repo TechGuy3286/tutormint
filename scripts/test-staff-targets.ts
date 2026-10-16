@@ -272,7 +272,9 @@ test('chart target line: 0 before the counting start, then up to the target at m
 test('the loader and the Owner\'s save use the counting start', () => {
   const lib = read('lib/staffTargets.ts')
   assert.ok(lib.includes("from('staff_target_months')"))
-  assert.ok(lib.includes('paceFor(targets.get(id) ?? null, paid.length, month, nowMs, countingStarts)'))
+  // The card pace moved into cardFigures (owner, 17 Oct 2026); counting start still reaches it.
+  assert.ok(lib.includes("cardFigures(mineOf(id), month, targets.get(id) ?? null, nowMs, countingStarts, tense === 'current')"))
+  assert.ok(read('lib/staffTargetsCore.ts').includes('pace: paceFor(target, paid.length, m, nowMs, countingStart)'))
   assert.ok(lib.includes('targetLine(teamTarget, month, countingStarts)'))
   assert.ok(lib.includes('countingStarts: startChange'))
   const route = read('app/api/admin/team-activity/targets/route.ts')

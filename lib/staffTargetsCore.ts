@@ -20,7 +20,7 @@
 // not on the list are "No target": their paid count is shown, never added to
 // the team target or the team's paid number.
 
-import type { CreditedAccount, MemberRole } from './staffSignupsCore'
+import { allUnpaid, pendingSplit, type CreditedAccount, type MemberRole } from './staffSignupsCore'
 import { change, type Change } from './tuitionPostingCore'
 
 const DAY_MS = 86_400_000
@@ -271,6 +271,43 @@ function inRange(iso: string | null | undefined, r: { start: number; end: number
 export function paidInMonth(accounts: CreditedAccount[], m: MonthKey): CreditedAccount[] {
   const r = monthRange(m)
   return accounts.filter((a) => inRange(a.at.paid, r))
+}
+
+/**
+ * Everything one target card shows (owner, 17 Oct 2026, pure so it is tested).
+ * The pace — target, %, bar, status, needed per day — is built from PAID only;
+ * `pending` (this month, the status counts' own rule) and `allUnpaid` (any
+ * time) sit beside it and never feed it or any team total.
+ */
+export function cardFigures(
+  mine: CreditedAccount[],
+  m: MonthKey,
+  target: number | null,
+  nowMs: number,
+  countingStart: string | null | undefined,
+  current: boolean,
+): {
+  pace: Pace
+  tutors: number
+  parents: number
+  today: number
+  yesterday: number
+  change: Change
+  pending: { tutors: number; parents: number }
+  allUnpaid: number
+} {
+  const paid = paidInMonth(mine, m)
+  const ty = current ? todayYesterday(mine, nowMs) : { today: 0, yesterday: 0, change: null }
+  return {
+    pace: paceFor(target, paid.length, m, nowMs, countingStart),
+    tutors: paid.filter((a) => a.role === 'tutor').length,
+    parents: paid.filter((a) => a.role === 'parent').length,
+    today: ty.today,
+    yesterday: ty.yesterday,
+    change: ty.change,
+    pending: pendingSplit(mine, monthRange(m)),
+    allUnpaid: allUnpaid(mine).length,
+  }
 }
 
 /** Today so far, all of yesterday, and today against yesterday up to the same

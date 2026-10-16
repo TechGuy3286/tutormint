@@ -438,3 +438,16 @@ export function signedUpIn(accounts: CreditedAccount[], role: MemberRole, r: Ran
 export function statusIn(accounts: CreditedAccount[], role: MemberRole, status: StaffStatus, r: Range): CreditedAccount[] {
   return status === 'pending' ? pendingIn(accounts, role, r) : signedUpIn(accounts, role, r)
 }
+
+/** Pending per role for one range — the ONE count behind Team activity's
+ *  status counts AND the "Pending (unpaid)" line on each target card
+ *  (owner, 17 Oct 2026), so the two can never disagree. */
+export function pendingSplit(accounts: CreditedAccount[], r: Range): { tutors: number; parents: number } {
+  return { tutors: pendingIn(accounts, 'tutor', r).length, parents: pendingIn(accounts, 'parent', r).length }
+}
+
+/** Every attributed person who has not paid, whenever they were last active —
+ *  the follow-up backlog ("All unpaid" on a target card). */
+export function allUnpaid(accounts: CreditedAccount[]): CreditedAccount[] {
+  return accounts.filter((a) => !a.at.paid)
+}
