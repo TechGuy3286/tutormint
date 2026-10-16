@@ -248,6 +248,9 @@ export const SCREEN_ACCESS = {
   // Admin → Settings → SMS (owner, 15 Oct 2026): Owner only; the Partner views
   // (roleSatisfies admits them) but cannot send a test (roleMayWrite is false).
   smsHealth: [] as AdminRole[],
+  // Admin → Settings → Email (owner, 16 Oct 2026): the send log and failed
+  // emails. Owner and admin; the Partner views. Read only — no write route.
+  emailHealth: ['admin'] as AdminRole[],
   // Admin → Settings → Subjects (owner, 7 Oct 2026): which subjects are a
   // level's "Main subjects". Owner and admin only, enforced on the server.
   subjectsCore: ['admin'] as AdminRole[],

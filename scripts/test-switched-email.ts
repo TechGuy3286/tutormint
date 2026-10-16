@@ -61,7 +61,7 @@ test('idempotent: once sent, a second run plans nothing for that tutor', () => {
   // The record is written BEFORE the email leaves, and a refused record means "already sent".
   const lib = read('lib', 'switchedTutorEmail.ts')
   const claim = lib.indexOf(".from('one_off_emails').insert(")
-  const send = lib.indexOf('await deliverEmail(')
+  const send = lib.indexOf('await deliverEmailBulk(')
   assert.ok(claim > 0 && send > claim, 'recorded first, then sent')
   assert.ok(lib.includes('result.skipped.already_sent += 1'))
   assert.equal(SWITCHED_EMAIL_KEY, 'switched_tutor_signin_2026_10_13')
@@ -72,7 +72,7 @@ test('a dry run sends nothing and writes nothing', () => {
   const dry = lib.indexOf('if (opts.dryRun) return result')
   assert.ok(dry > 0)
   // Every write and the send come AFTER the dry-run return.
-  for (const needle of [".insert(", '.delete()', 'await deliverEmail(']) {
+  for (const needle of [".insert(", '.delete()', 'await deliverEmailBulk(']) {
     assert.ok(lib.indexOf(needle) > dry, `${needle} is after the dry-run return`)
   }
   // loadFacts (the only code before it) reads only.

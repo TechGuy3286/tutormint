@@ -11,7 +11,7 @@
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { deliverEmail } from '@/lib/notify'
+import { deliverEmailBulk } from '@/lib/notify'
 import { listSuggestions, postsDueForRefresh } from './feed'
 
 const LAST_SENT_KEY = 'content_digest_last_sent'
@@ -54,14 +54,15 @@ export async function deliverContentDigest(now = new Date(), force = false): Pro
     .in('admin_role', ['owner', 'admin', 'operations'])
     .limit(50)
 
-  let recipients = 0
-  for (const s of staff ?? []) {
-    const r = await deliverEmail(
-      { userId: s.id as string },
-      { id: 'content_digest', suggestions: top, refresh: refreshItems },
-    )
-    if (r.ok) recipients++
-  }
+  // One bulk run (owner, 16 Oct 2026): every list send goes through sendBulk.
+  const results = await deliverEmailBulk(
+    (staff ?? []).map((s) => ({
+      to: { userId: s.id as string },
+      input: { id: 'content_digest' as const, suggestions: top, refresh: refreshItems },
+    })),
+    'content_digest',
+  )
+  const recipients = results.filter((r) => r.ok).length
 
   // Stamp the marker even if a send failed: the point is not to retry-storm a
   // broken mailer at every cron tick. A missed digest is a smaller problem than

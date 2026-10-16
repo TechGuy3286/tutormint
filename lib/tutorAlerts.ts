@@ -14,7 +14,7 @@ import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { pageAll } from '@/lib/pageAll'
-import { deliverEmail } from '@/lib/notify'
+import { deliverEmailBulk, type TemplateInput } from '@/lib/notify'
 import { normalisePkMobile, looksLikeEmail } from '@/lib/phone'
 import { resolveSmartQuery } from '@/lib/smartSearch'
 import { loadTutorIndexFresh } from '@/lib/tutorFacets'
@@ -162,6 +162,9 @@ export async function sweepTutorAlerts(now = new Date()): Promise<{ open: number
   const index = await loadTutorIndexFresh().catch(() => [] as IndexedTutor[])
   if (index.length === 0) return out
 
+  // Claimed one by one, then sent as one bulk run (owner, 16 Oct 2026).
+  const claimedIds: string[] = []
+  const emails: { to: { email: string }; input: TemplateInput }[] = []
   for (const r of live) {
     // A request stored with a mobile (before 15 Oct 2026) is left alone: an
     // alert SMS cannot be delivered, so nothing is sent and it lapses at 60 days.
@@ -177,16 +180,15 @@ export async function sweepTutorAlerts(now = new Date()): Promise<{ open: number
       .select('id')
     if (!claimed || claimed.length === 0) continue
     const url = `${SITE_URL}/tutor/${tutor.slug}`
-    let ok = false
-    try {
-      ok = (await deliverEmail({ email: r.contact }, { id: 'tutor_alert', label: r.label, url })).ok
-    } catch {
-      ok = false
-    }
-    if (ok) out.sent++
+    claimedIds.push(r.id)
+    emails.push({ to: { email: r.contact }, input: { id: 'tutor_alert', label: r.label, url } })
+  }
+  const results = await deliverEmailBulk(emails, 'tutor_alert').catch(() => emails.map(() => ({ ok: false as const })))
+  for (let i = 0; i < claimedIds.length; i++) {
+    if (results[i]?.ok) out.sent++
     else {
       out.failed++
-      await admin.from('tutor_search_alerts').update({ close_reason: 'send_failed' }).eq('id', r.id)
+      await admin.from('tutor_search_alerts').update({ close_reason: 'send_failed' }).eq('id', claimedIds[i])
     }
   }
   return out

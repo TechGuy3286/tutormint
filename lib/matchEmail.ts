@@ -14,7 +14,7 @@
 
 import crypto from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { deliverEmail } from '@/lib/notify'
+import { deliverEmailBulk, type TemplateInput } from '@/lib/notify'
 import { absoluteUrl } from '@/lib/siteUrl'
 
 export type MatchEmailJob = {
@@ -70,23 +70,27 @@ export async function sendMatchEmails(job: MatchEmailJob, tutorIds: string[]): P
       .in('plan_code', ['premium', 'featured'])
     if (error) return
     const eligible = [...new Set((subs ?? []).map((s) => s.user_id as string))]
+    const items: { to: { userId: string }; input: TemplateInput }[] = []
     for (const tutorId of eligible) {
       try {
-        await sendOne(admin, job, tutorId)
+        const item = await matchEmailFor(admin, job, tutorId)
+        if (item) items.push(item)
       } catch {
         /* one tutor's email must never stop the others */
       }
     }
+    // One bulk run for the whole fan-out (owner, 16 Oct 2026).
+    await deliverEmailBulk(items, 'tuition_match')
   } catch {
     /* fail open — never block posting over a match email */
   }
 }
 
-async function sendOne(
+async function matchEmailFor(
   admin: NonNullable<ReturnType<typeof createAdminClient>>,
   job: MatchEmailJob,
   tutorId: string,
-): Promise<void> {
+): Promise<{ to: { userId: string }; input: TemplateInput } | null> {
   // Opt-out (global or match-specific) and a real address. The match_email_opt_out
   // column may not exist yet — the select then errors and we skip (no email
   // until the migration).
@@ -95,16 +99,16 @@ async function sendOne(
     .select('email, email_opt_out, match_email_opt_out, email_pending_confirm')
     .eq('id', tutorId)
     .maybeSingle()
-  if (error || !prof) return
+  if (error || !prof) return null
   const email = prof.email as string | null
-  if (!email || email.endsWith('@users.tutormint.org')) return // no real mailbox
-  if (prof.email_opt_out || prof.match_email_opt_out) return
+  if (!email || email.endsWith('@users.tutormint.org')) return null // no real mailbox
+  if (prof.email_opt_out || prof.match_email_opt_out) return null
   // Our own confirmation is still pending (owner, 13 Oct 2026): not verified.
-  if (prof.email_pending_confirm) return
+  if (prof.email_pending_confirm) return null
 
   // Verified email only — the address must be confirmed on the account.
   const { data: authUser } = await admin.auth.admin.getUserById(tutorId)
-  if (!authUser?.user?.email_confirmed_at) return
+  if (!authUser?.user?.email_confirmed_at) return null
 
   // Never twice for the same tuition. Record first (at-most-once): a send that
   // then fails is a lost courtesy email, which is far better than a duplicate.
@@ -113,12 +117,12 @@ async function sendOne(
     .from('match_email_sent')
     .upsert({ tutor_id: tutorId, job_id: job.jobId }, { onConflict: 'tutor_id,job_id', ignoreDuplicates: true })
     .select('tutor_id')
-  if (dupErr) return
-  if (!inserted || inserted.length === 0) return // already sent this tuition
+  if (dupErr) return null
+  if (!inserted || inserted.length === 0) return null // already sent this tuition
 
-  await deliverEmail(
-    { userId: tutorId },
-    {
+  return {
+    to: { userId: tutorId },
+    input: {
       id: 'tuition_match',
       subject: job.subject,
       city: job.city,
@@ -127,5 +131,5 @@ async function sendOne(
       href: job.href,
       unsubscribeHref: unsubscribeHref(tutorId),
     },
-  )
+  }
 }

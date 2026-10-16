@@ -7,6 +7,7 @@ import { deliverContentDigest } from '@/lib/contentQueue/digest'
 import { runConversionSweep } from '@/lib/conversionSweep'
 import { expirePendingSignups } from '@/lib/pendingSignup'
 import { purgeOldSmsSends } from '@/lib/smsLog'
+import { purgeOldEmailSends } from '@/lib/emailHealth'
 import { sweepAbandonedVideos } from '@/lib/videoCleanup'
 import { pauseStaleTuitions } from '@/lib/tuitionPause'
 import { drainIndexingQueue, INDEXING_DAILY_LIMIT } from '@/lib/googleIndexing'
@@ -78,6 +79,8 @@ async function handle(request: Request) {
 
   // The SMS log keeps 90 days (owner, 15 Oct 2026). Wrapped like the others.
   const smsLogPurged = await purgeOldSmsSends().catch(() => 0)
+  // The email log keeps 90 days too (migration 183).
+  const emailLogPurged = await purgeOldEmailSends().catch(() => 0)
 
   // Abandoned YouTube introduction placeholders (owner PR13 §2.2): delete our
   // "processing" intro videos older than 24h that no tutor record points at.
@@ -114,6 +117,7 @@ async function handle(request: Request) {
       conversion,
       pending,
       smsLogPurged,
+      emailLogPurged,
       videos,
       tuitions,
       indexing,

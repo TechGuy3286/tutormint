@@ -33,6 +33,7 @@ export const OVERVIEW_ITEM_KEYS = [
   'todo-pausing',
   'todo-featured',
   'todo-unmet',
+  'todo-email-failed',
   // signup to payment (each takes ?days=7|30)
   'funnel-signed-up',
   'funnel-mobile',
@@ -81,6 +82,9 @@ export const OVERVIEW_ITEMS: Record<OverviewItemKey, OverviewItemMeta> = {
   'todo-pausing': { title: 'Tuitions auto-pausing in the next 2 days', screen: 'jobs', noun: ['tuition', 'tuitions'] },
   'todo-featured': { title: 'Featured tutors with new matches', screen: 'featuredWhatsapp', noun: ['tutor', 'tutors'] },
   'todo-unmet': { title: 'Unmet searches this week', screen: 'unmetSearches', noun: ['search', 'searches'] },
+  // Every email send is recorded (owner, 16 Oct 2026, migration 183); this is
+  // the ones that permanently failed in the last 7 days.
+  'todo-email-failed': { title: 'Emails that failed in the last 7 days', screen: 'emailHealth', noun: ['email', 'emails'] },
   'funnel-signed-up': { title: 'Signed up', screen: 'users', noun: ['tutor', 'tutors'], funnel: true },
   'funnel-mobile': { title: 'Mobile verified', screen: 'users', noun: ['tutor', 'tutors'], funnel: true },
   'funnel-onboarded': { title: 'Onboarding done', screen: 'users', noun: ['tutor', 'tutors'], funnel: true },

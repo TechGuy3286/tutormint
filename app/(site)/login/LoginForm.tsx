@@ -15,6 +15,7 @@ import { whatsappHref, SUPPORT_WHATSAPP_FALLBACK } from '@/lib/supportContacts'
 import { GENERIC_ERROR, supportWhatsappHref } from '@/lib/errorMessages'
 import { useToast } from '@/components/ui/Toast'
 import { WELCOME_BACK, WELCOME_BACK_UR } from '@/lib/selfPauseCore'
+import { recipientProblem } from '@/lib/notify/recipient'
 
 // The support WhatsApp link shown under the form (§3.4). The number is the one
 // constant from lib/support(Contacts); a client component cannot read the
@@ -149,11 +150,16 @@ ${WELCOME_BACK_UR}`)
 
   const handleResend = async () => {
     setResendMsg('')
+    // Supabase Auth sends over Resend SMTP, which refuses a malformed address.
+    if (recipientProblem((needsConfirm ?? identifier).trim())) {
+      setResendMsg('Enter a valid email address, e.g. name@example.com.')
+      return
+    }
     try {
       const supabase = createClient()
       const { error } = await supabase.auth.resend({
         type: 'signup',
-        email: needsConfirm ?? identifier,
+        email: (needsConfirm ?? identifier).trim(),
       })
       setResendMsg(
         error ? `Could not resend: ${error.message}` : 'Confirmation email sent — check your inbox.',

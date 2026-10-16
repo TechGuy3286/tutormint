@@ -13,6 +13,7 @@ import { SIGNUPS_TODAY_HREF, payproFileNote, waitingOrderLine, type FileNote } f
 import { pkr } from '@/lib/reconciliationCore'
 import { missingSentence } from '@/lib/onboarding/missingItems'
 import { loadUnmetBoard } from '@/lib/unmetSearches'
+import { loadEmailFailures } from '@/lib/emailHealth'
 import { testAccountIds } from '@/lib/testAccounts'
 import { pageAll } from '@/lib/pageAll'
 import 'server-only'
@@ -506,6 +507,28 @@ export async function loadOverviewList(
         filter: 'open flagged messages and open reports',
         extra: `${(flags ?? []).length} flagged · ${(reports ?? []).length} reports`,
         workHref: (flags ?? []).length > 0 ? '/admin/reports?tab=flags' : '/admin/reports',
+      }
+    }
+
+    case 'todo-email-failed': {
+      // The SAME loader as Settings → Email's failure list (status failed, last
+      // 7 days), so this number is that list.
+      const fails = await loadEmailFailures(now)
+      return {
+        key,
+        rows: fails.map((f) => ({
+          id: f.id,
+          title: `${f.template ?? f.job} to ${f.recipient}`,
+          detail: [
+            new Date(f.at).toLocaleString('en-PK', { timeZone: 'Asia/Karachi', dateStyle: 'medium', timeStyle: 'short' }),
+            f.mode === 'bulk' ? `bulk: ${f.job}` : 'single',
+            `${f.attempts} attempt${f.attempts === 1 ? '' : 's'}`,
+            f.error,
+          ].filter(Boolean).join(' · '),
+          href: '/admin/settings/email',
+        })),
+        filter: 'emails that permanently failed in the last 7 days',
+        workHref: '/admin/settings/email',
       }
     }
 

@@ -31,6 +31,7 @@ export type AdminScreen =
   | 'paymentsSwitches'
   | 'paymentGateways'
   | 'smsHealth'
+  | 'emailHealth'
   | 'finance'
   | 'revenue'
   | 'paymentAmounts'
@@ -137,6 +138,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/payments/settings/gateways', label: 'Payment gateways', icon: 'card', screen: 'paymentGateways' },
       { href: '/admin/settings/subjects', label: 'Subjects', icon: 'listChecks', screen: 'subjectsCore' },
       { href: '/admin/settings/sms', label: 'SMS', icon: 'messageCircle', screen: 'smsHealth' },
+      { href: '/admin/settings/email', label: 'Email', icon: 'messageCircle', screen: 'emailHealth' },
       { href: '/admin/plans', label: 'Plans', icon: 'card', screen: 'plans' },
     ],
   },

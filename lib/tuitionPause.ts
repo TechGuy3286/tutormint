@@ -19,7 +19,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notify } from '@/lib/notifications'
-import { deliverEmail } from '@/lib/notify'
+import { deliverEmailBulk, type TemplateInput } from '@/lib/notify'
 import { TUITION_LIVE_DAYS, TUITION_LIVE_LABEL } from '@/lib/tuitionStatus'
 import { enqueueIndexing, tuitionUrl } from '@/lib/googleIndexing'
 import { PRIORITY_CHANGE } from '@/lib/googleIndexingCore'
@@ -68,6 +68,7 @@ export async function pauseStaleTuitions(now = new Date()): Promise<{
   const ids: string[] = []
   const urls: string[] = []
   let backlogPaused = 0
+  const emails: { to: { userId: string }; input: TemplateInput }[] = []
 
   const run = async (j: OpenRow, source: 'auto' | 'backlog') => {
     const { data, error } = await admin
@@ -91,8 +92,10 @@ export async function pauseStaleTuitions(now = new Date()): Promise<{
       href: '/parent/dashboard/jobs',
     })
     // Email is best-effort: a paused tuition must not be reported as failed
-    // because a mail send did not go out.
-    await deliverEmail({ userId: j.parent_id }, { id: 'tuition_paused', title }).catch(() => {})
+    // because a mail send did not go out. Collected and sent as one bulk run
+    // after the loop (owner, 16 Oct 2026): sent one by one, ten at a time, these
+    // reached 22–28 requests a second and Resend refused the excess.
+    emails.push({ to: { userId: j.parent_id }, input: { id: 'tuition_paused', title } })
   }
 
   // Ten at a time: each pause sends a notification and an email, and 150 of
@@ -104,6 +107,8 @@ export async function pauseStaleTuitions(now = new Date()): Promise<{
   for (let i = 0; i < work.length; i += 10) {
     await Promise.all(work.slice(i, i + 10).map(([j, src]) => run(j, src).catch(() => undefined)))
   }
+
+  await deliverEmailBulk(emails, 'tuition_paused').catch(() => {})
 
   // Google is told through the queue, which the 5-minute cron drains within
   // 200 a day (lib/googleIndexing.drainIndexingQueue).

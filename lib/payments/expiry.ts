@@ -22,7 +22,7 @@ import { pageAll } from '@/lib/pageAll'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
-import { deliverEmail } from '@/lib/notify'
+import { deliverEmailBulk, type TemplateInput } from '@/lib/notify'
 import { formatName } from '@/lib/formatName'
 
 export type SweepResult = {
@@ -44,27 +44,28 @@ const REMINDER_DAYS = 3
  * in-app notification and the expiry itself must not depend on an email
  * provider being up.
  */
-async function deliverExpiryReminder(params: {
+function expiryReminderEmail(params: {
   userId: string
   name: string | null
-  email: string | null
-  phone: string | null
   planName: string
-  expiresAt: string
-}): Promise<void> {
-  const result = await deliverEmail(
-    { userId: params.userId },
-    {
+}): { to: { userId: string }; input: TemplateInput } {
+  return {
+    to: { userId: params.userId },
+    input: {
       id: 'plan_expiring',
       name: params.name ?? 'there',
       planName: params.planName,
       daysLeft: REMINDER_DAYS,
     },
-  )
-
-  if (!result.ok) {
-    console.info('[expiry] reminder email not sent:', result.reason, params.userId)
   }
+}
+
+/** Sends a sweep's emails as one bulk run (owner, 16 Oct 2026) and logs each one not sent. */
+async function sendSweepEmails(items: { to: { userId: string }; input: TemplateInput }[], job: string, label: string): Promise<void> {
+  const results = await deliverEmailBulk(items, job).catch(() => [])
+  results.forEach((r, i) => {
+    if (!r.ok) console.info(`[expiry] ${label} email not sent:`, r.reason, items[i].to.userId)
+  })
 }
 
 export async function runSubscriptionSweep(now = new Date()): Promise<SweepResult> {
@@ -106,6 +107,8 @@ export async function runSubscriptionSweep(now = new Date()): Promise<SweepResul
       .range(from, to),
   )
 
+  const reminderEmails: { to: { userId: string }; input: TemplateInput }[] = []
+  const toStamp: string[] = []
   for (const sub of expiringSoon ?? []) {
     const plan = plans.get(sub.plan_code as string)
     const planName = plan?.name ?? (sub.plan_code as string)
@@ -126,14 +129,13 @@ export async function runSubscriptionSweep(now = new Date()): Promise<SweepResul
       href: profile?.role === 'tutor' ? '/membership-plans?for=tutors' : '/membership-plans?for=parents',
     })
 
-    await deliverExpiryReminder({
-      userId,
-      name: formatName(profile?.full_name as string | null) || null,
-      email: (profile?.email as string) ?? null,
-      phone: (profile?.phone_number as string) ?? null,
-      planName,
-      expiresAt,
-    })
+    reminderEmails.push(
+      expiryReminderEmail({
+        userId,
+        name: formatName(profile?.full_name as string | null) || null,
+        planName,
+      }),
+    )
 
     await logActivity({
       userId,
@@ -143,14 +145,21 @@ export async function runSubscriptionSweep(now = new Date()): Promise<SweepResul
       meta: { planCode: sub.plan_code, expiresAt },
     })
 
-    // Stamped after the work, so a crash mid-sweep re-sends rather than
-    // silently swallowing the only warning a member gets.
+    toStamp.push(sub.id as string)
+  }
+
+  await sendSweepEmails(reminderEmails, 'plan_expiring', 'reminder')
+
+  // Stamped after the work (the emails go out as one bulk run above), so a
+  // crash mid-sweep re-sends rather than silently swallowing the only warning a
+  // member gets.
+  for (const id of toStamp) {
     const { error } = await admin
       .from('subscriptions')
       .update({ reminded_at: now.toISOString() })
-      .eq('id', sub.id)
+      .eq('id', id)
 
-    if (error) result.errors.push(`reminder stamp ${sub.id}: ${error.message}`)
+    if (error) result.errors.push(`reminder stamp ${id}: ${error.message}`)
     else result.remindersSent += 1
   }
 
@@ -166,6 +175,7 @@ export async function runSubscriptionSweep(now = new Date()): Promise<SweepResul
       .range(from, to),
   )
 
+  const expiredEmails: { to: { userId: string }; input: TemplateInput }[] = []
   for (const sub of lapsed ?? []) {
     const userId = sub.user_id as string
     const planCode = sub.plan_code as string
@@ -221,11 +231,10 @@ export async function runSubscriptionSweep(now = new Date()): Promise<SweepResul
       href: profile?.role === 'tutor' ? '/membership-plans?for=tutors' : '/membership-plans?for=parents',
     })
 
-    const mailed = await deliverEmail(
-      { userId },
-      { id: 'plan_expired', name: formatName(profile?.full_name as string | null) || 'there', planName },
-    )
-    if (!mailed.ok) console.info('[expiry] expired email not sent:', mailed.reason, userId)
+    expiredEmails.push({
+      to: { userId },
+      input: { id: 'plan_expired', name: formatName(profile?.full_name as string | null) || 'there', planName },
+    })
 
     await logActivity({
       userId,
@@ -235,6 +244,8 @@ export async function runSubscriptionSweep(now = new Date()): Promise<SweepResul
       meta: { planCode, expiresAt: sub.expires_at },
     })
   }
+
+  await sendSweepEmails(expiredEmails, 'plan_expired', 'expired')
 
   return result
 }

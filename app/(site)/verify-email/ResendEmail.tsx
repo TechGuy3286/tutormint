@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Mail } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase/client'
+import { recipientProblem } from '@/lib/notify/recipient'
 
 // Resend the signup confirmation link (owner, Part 8). The account exists,
 // unconfirmed; this asks Supabase to send the link again.
@@ -29,9 +30,14 @@ export default function ResendEmail({ address }: { address: string }) {
   }, [cooldown])
 
   async function resend() {
-    setBusy(true)
     setError('')
     setNotice('')
+    // Supabase Auth sends over Resend SMTP, which refuses a malformed address.
+    if (recipientProblem(address)) {
+      setError('Enter a valid email address, e.g. name@example.com.')
+      return
+    }
+    setBusy(true)
     try {
       const supabase = createClient()
       const { error: err } = await supabase.auth.resend({

@@ -163,12 +163,14 @@ test('anon column set is identical for every status: jobByPublicSlug has no stat
 
 test('PR30 — a pause notifies the POSTER only: one notification, one email, zero admin-directed', () => {
   const sweep = readFileSync(join(root, 'lib/tuitionPause.ts'), 'utf8')
-  // Exactly one notify() and one deliverEmail() in the sweep, both keyed to the
-  // poster (parent_id) — not the acting admin, not a staff fan-out.
+  // Exactly one notify() and one email per pause, both keyed to the poster
+  // (parent_id) — not the acting admin, not a staff fan-out. The emails are
+  // collected and sent as one bulk run (owner, 16 Oct 2026).
   assert.equal((sweep.match(/\bnotify\(/g) ?? []).length, 1, 'one in-app notification')
-  assert.equal((sweep.match(/deliverEmail\(/g) ?? []).length, 1, 'one email')
+  assert.equal((sweep.match(/emails\.push\(/g) ?? []).length, 1, 'one email')
+  assert.equal((sweep.match(/deliverEmailBulk\(/g) ?? []).length, 1, 'sent as one bulk run')
   assert.ok(/notify\(\{\s*userId:\s*j\.parent_id/.test(sweep), 'the notification goes to the poster')
-  assert.ok(/deliverEmail\(\{\s*userId:\s*j\.parent_id/.test(sweep), 'the email goes to the poster')
+  assert.ok(/emails\.push\(\{\s*to:\s*\{\s*userId:\s*j\.parent_id/.test(sweep), 'the email goes to the poster')
   assert.ok(!/notifyMany|is_admin|adminMessage/.test(sweep), 'no admin-directed notification fires')
   // A team-posted tuition (poster = the team account) is emailed like any other
   // poster — never suppressed as "an admin email".

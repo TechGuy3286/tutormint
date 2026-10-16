@@ -19,6 +19,8 @@
 // a login identifier and an OTP destination.
 
 /** The domain imported accounts get. Never receives real mail. */
+import { recipientProblem } from '@/lib/notify/recipient'
+
 export const IMPORT_EMAIL_DOMAIN = 'users.tutormint.org'
 
 /**
@@ -56,6 +58,12 @@ export function isSyntheticEmail(email: string | null | undefined): boolean {
   return !!email && email.toLowerCase().endsWith(`@${IMPORT_EMAIL_DOMAIN}`)
 }
 
+/**
+ * Is this (trimmed) an address Resend will accept as a recipient? The one rule
+ * (lib/notify/recipient). It also guards every Supabase Auth call that sends
+ * mail over Resend SMTP, so an address Resend would refuse with 422 is caught
+ * here instead (owner, 16 Oct 2026). It was a looser pattern before.
+ */
 export function looksLikeEmail(value: string): boolean {
-  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value.trim())
+  return recipientProblem(value.trim()) === null
 }

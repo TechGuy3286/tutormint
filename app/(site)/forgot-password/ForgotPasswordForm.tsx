@@ -8,6 +8,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { recipientProblem } from '@/lib/notify/recipient'
 import PasswordInput from '@/components/ui/PasswordInput'
 import MobileNumberInput from '@/components/auth/MobileNumberInput'
 import OtpCodeEntry from '@/components/auth/OtpCodeEntry'
@@ -83,6 +84,15 @@ export default function ForgotPasswordForm() {
 
   async function submitEmail(e: React.FormEvent) {
     e.preventDefault()
+    // Supabase Auth sends this over Resend SMTP, which refuses a malformed
+    // address with 422; say so here instead (a format check reveals nothing
+    // about whether an account exists).
+    if (recipientProblem(email.trim())) {
+      setError('Enter a valid email address, e.g. name@example.com.')
+      setErrorUr(null)
+      return
+    }
+    setError('')
     setBusy(true)
     try {
       const supabase = createClient()
@@ -323,6 +333,7 @@ export default function ForgotPasswordForm() {
 
               {mode === 'email' ? (
                 <form onSubmit={submitEmail} className="space-y-4">
+                  {errorBlock}
                   <div className="space-y-1">
                     <label htmlFor="email" className="text-xs font-bold text-tm-navy">
                       Email address

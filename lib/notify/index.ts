@@ -2,8 +2,9 @@
 //
 // The one way an email leaves TutorMint.
 //
-// Everything routes through deliverEmail(), which decides three things in this
-// order and stops at the first "no":
+// Everything routes through deliverEmail() (one email) or deliverEmailBulk() (a
+// list — one batch request per 100, lib/email/send sendBulk), which decide three
+// things in this order and stop at the first "no":
 //
 //   1. Does the template respect the opt-out, and has this person opted out?
 //   2. Is there an address to send to at all?
@@ -17,6 +18,7 @@
 import { mayEmailAddress } from '@/lib/emailConfirmCore'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEmailChannel } from './email'
+import { sendBulk, type EmailMessage } from '@/lib/email/send'
 import { whatsappChannel } from './whatsapp'
 import { render, type TemplateInput } from './templates'
 import type { DeliveryResult } from './channel'
@@ -41,6 +43,64 @@ export async function deliverEmail(
   to: Recipient,
   input: TemplateInput,
 ): Promise<DeliveryResult | { ok: false; reason: string; channel: 'email' }> {
+  const prepared = await prepareEmail(to, input)
+  if (!prepared.ok) return prepared
+
+  const channel = getEmailChannel()
+  const result = await channel.send(prepared.message)
+
+  if (!result.ok) console.error(`[notify] ${input.id} to ${prepared.message.to} failed: ${result.reason}`)
+  return result
+}
+
+/**
+ * Send one templated email to each of many people (owner, 16 Oct 2026). Every
+ * cron and fan-out that emails a list goes through here, so the list becomes
+ * one batch request per 100 emails (lib/email/send sendBulk), paced and
+ * retried, instead of one request per person. The decisions per recipient
+ * (opt-out, unconfirmed address, no-mailbox address) are exactly deliverEmail's.
+ *
+ * Returns one result per item, in order. Never throws.
+ */
+export async function deliverEmailBulk(
+  items: readonly { to: Recipient; input: TemplateInput }[],
+  job: string,
+): Promise<(DeliveryResult | { ok: false; reason: string; channel: 'email' })[]> {
+  const out: (DeliveryResult | { ok: false; reason: string; channel: 'email' })[] = new Array(items.length)
+  const prepared: Awaited<ReturnType<typeof prepareEmail>>[] = new Array(items.length)
+  // Recipient lookups ten at a time (database reads, not email requests).
+  for (let i = 0; i < items.length; i += 10) {
+    const part = await Promise.all(
+      items.slice(i, i + 10).map((it) =>
+        prepareEmail(it.to, it.input).catch((e) => ({ ok: false as const, reason: String(e), channel: 'email' as const })),
+      ),
+    )
+    part.forEach((p, k) => (prepared[i + k] = p))
+  }
+  const sendIdx: number[] = []
+  prepared.forEach((p, i) => {
+    if (p.ok) sendIdx.push(i)
+    else out[i] = p
+  })
+  const { results } = await sendBulk(
+    sendIdx.map((i) => (prepared[i] as { ok: true; message: EmailMessage }).message),
+    { job },
+  )
+  sendIdx.forEach((i, k) => {
+    const r = results[k]
+    out[i] = r.ok ? { ok: true, id: r.id, channel: 'email' } : { ok: false, reason: r.reason, channel: 'email' }
+  })
+  return out
+}
+
+/**
+ * Who gets this email, and what it says — or why nobody does. The rules every
+ * send follows, single or bulk.
+ */
+async function prepareEmail(
+  to: Recipient,
+  input: TemplateInput,
+): Promise<{ ok: true; message: EmailMessage } | { ok: false; reason: string; channel: 'email' }> {
   const message = render(input)
 
   let address = to.email ?? null
@@ -84,16 +144,10 @@ export async function deliverEmail(
 
   if (!address) return { ok: false, reason: 'no email address on file', channel: 'email' }
 
-  const channel = getEmailChannel()
-  const result = await channel.send({
-    to: address,
-    subject: message.subject,
-    text: message.text,
-    html: message.html,
-  })
-
-  if (!result.ok) console.error(`[notify] ${input.id} to ${address} failed: ${result.reason}`)
-  return result
+  return {
+    ok: true,
+    message: { to: address, subject: message.subject, text: message.text, html: message.html, template: input.id },
+  }
 }
 
 /**

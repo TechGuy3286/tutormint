@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { deliverEmail } from '@/lib/notify'
+import { deliverEmailBulk, type TemplateInput } from '@/lib/notify'
 import { getSupportContact } from '@/lib/support'
 import { formatPkMobile } from '@/lib/phone'
 import { planSwitchedEmails, SWITCHED_EMAIL_KEY, type SkipReason, type SwitchedTutorFacts } from '@/lib/switchedTutorEmailCore'
@@ -75,6 +75,7 @@ export async function sendSwitchedTutorEmails(opts: { dryRun: boolean }): Promis
   const supportWhatsapp = (support.whatsapp && formatPkMobile(support.whatsapp)) || '0321 5872222'
   const byId = new Map(rows.map((r) => [r.id, r]))
 
+  const claimed: string[] = []
   for (const id of plan.send) {
     // The record FIRST: unique (user_id, email_key) refuses a second row, so two
     // runs at once — or a run repeated later — cannot both send.
@@ -83,7 +84,17 @@ export async function sendSwitchedTutorEmails(opts: { dryRun: boolean }): Promis
       result.skipped.already_sent += 1
       continue
     }
-    const res = await deliverEmail({ userId: id }, { id: 'switched_tutor_signin', name: byId.get(id)?.name ?? '', supportWhatsapp })
+    claimed.push(id)
+  }
+  // One bulk run for everyone claimed (owner, 16 Oct 2026).
+  const items: { to: { userId: string }; input: TemplateInput }[] = claimed.map((id) => ({
+    to: { userId: id },
+    input: { id: 'switched_tutor_signin', name: byId.get(id)?.name ?? '', supportWhatsapp },
+  }))
+  const sent = await deliverEmailBulk(items, 'switched_tutor_signin')
+  for (let i = 0; i < claimed.length; i++) {
+    const id = claimed[i]
+    const res = sent[i]
     if (!res.ok) {
       // Not accepted for sending: take the record back so a later run can try.
       await admin.from('one_off_emails').delete().eq('user_id', id).eq('email_key', SWITCHED_EMAIL_KEY)
