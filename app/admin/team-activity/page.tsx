@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadTuitionPosting } from '@/lib/tuitionPosting'
+import { loadDailyReport } from '@/lib/dailyReport'
 import { change, changeLabel, type Change, type PostingRow } from '@/lib/tuitionPostingCore'
 import { parseMonth } from '@/lib/staffTargetsCore'
 import { TEAM_TABS, isRemovedTab, pickTab, tabsFor, teamActivityHref } from '@/lib/teamActivityCore'
@@ -39,9 +40,22 @@ export default async function TeamActivityPage({
   // Managers and Admin.
   const detailLinks = roleSatisfies(actor.adminRole, SCREEN_ACCESS.staffActivity)
   const tab = pickTab(actor.adminRole, sp.tab)
+  // Today's report for WhatsApp (owner, 16 Oct 2026), built on the server from
+  // the same data as the tabs (lib/dailyReport).
+  const report = await loadDailyReport(actor)
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <a
+          href={report.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex min-h-[44px] items-center rounded-xl bg-tm-green-deep px-4 py-2 text-xs font-bold text-white hover:bg-tm-green-deep-hover"
+        >
+          Send today&rsquo;s report on WhatsApp
+        </a>
+      </div>
       <nav aria-label="Tabs" className="flex flex-wrap gap-1 border-b border-gray-200">
         {TEAM_TABS.filter((t) => tabs.includes(t.key)).map((t) => (
           <TabLink key={t.key} href={teamActivityHref(t.key)} active={tab === t.key}>

@@ -16,6 +16,8 @@ import type { AdminRole } from '@/lib/adminAccessCore'
 import { ensureJoinLinks, loadCreditedAccounts, type JoinLink } from '@/lib/staffSignups'
 import {
   inProgressIn,
+  pendingIn,
+  signedUpIn,
   isParticipantRole,
   mayViewStaff,
   type CreditedAccount,
@@ -66,6 +68,16 @@ export type InProgressCounts = {
   parent: { signed_up: number; posted: number }
 }
 
+/** Team activity's two statuses per staff member (owner, 16 Oct 2026):
+ *  Pending = attributed, not paid; Signed up = paid in the month
+ *  (lib/staffSignupsCore pendingIn / signedUpIn). */
+export type StatusCounts = {
+  staffId: string
+  name: string
+  tutor: { pending: number; signed_up: number }
+  parent: { pending: number; signed_up: number }
+}
+
 export type ChartLine = { staffId: string; name: string; values: (number | null)[]; target: number[] | null }
 
 export type TargetBoard = {
@@ -87,6 +99,8 @@ export type TargetBoard = {
   /** "self" scope: their own paid count. */
   ownPaid: { paid: number; tutors: number; parents: number } | null
   inProgress: InProgressCounts[]
+  /** The same people as `inProgress` (same scope cut), as Pending / Signed up. */
+  statusCounts: StatusCounts[]
   chart: { days: number; team: (number | null)[] | null; teamTarget: number[] | null; people: ChartLine[] } | null
   /** The Owner's "Set targets" panel; null for everyone else. */
   setPanel: { staffId: string; name: string; onList: boolean; target: number | null; lastMonth: number | null }[] | null
@@ -149,6 +163,20 @@ function inProgressCounts(staffId: string, name: string, mine: CreditedAccount[]
     tutor: { signed_up: n('tutor', 'signed_up'), mobile_verified: n('tutor', 'mobile_verified'), onboarded: n('tutor', 'onboarded') },
     parent: { signed_up: n('parent', 'signed_up'), posted: n('parent', 'posted') },
   }
+}
+
+function statusCounts(staffId: string, name: string, mine: CreditedAccount[], month: MonthKey): StatusCounts {
+  const r = monthRange(month)
+  return {
+    staffId,
+    name,
+    tutor: { pending: pendingIn(mine, 'tutor', r).length, signed_up: signedUpIn(mine, 'tutor', r).length },
+    parent: { pending: pendingIn(mine, 'parent', r).length, signed_up: signedUpIn(mine, 'parent', r).length },
+  }
+}
+
+function anyStatus(r: StatusCounts): boolean {
+  return [...Object.values(r.tutor), ...Object.values(r.parent)].some((v) => v > 0)
 }
 
 function anyInProgress(r: InProgressCounts): boolean {
@@ -220,6 +248,10 @@ export async function loadTargetBoard(viewer: Viewer, month: MonthKey, nowMs = D
     .map((id) => inProgressCounts(id, nameOf.get(id) ?? '—', mineOf(id), month))
     .filter((r) => r.staffId === viewer.id || anyInProgress(r) || isParticipantRole(staff.find((s) => s.id === r.staffId)?.adminRole))
     .sort((a, b) => a.name.localeCompare(b.name))
+  const allStatus = [...ipIds]
+    .map((id) => statusCounts(id, nameOf.get(id) ?? '—', mineOf(id), month))
+    .filter((r) => r.staffId === viewer.id || anyStatus(r) || isParticipantRole(staff.find((s) => s.id === r.staffId)?.adminRole))
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   const n = daysInMonth(month)
   const lineFor = (id: string): ChartLine => {
@@ -241,6 +273,7 @@ export async function loadTargetBoard(viewer: Viewer, month: MonthKey, nowMs = D
     noTarget: [],
     ownPaid: null,
     inProgress: [],
+    statusCounts: [],
     chart: null,
     setPanel: null,
     myLink: links.find((l) => l.staffId === viewer.id) ?? null,
@@ -252,6 +285,7 @@ export async function loadTargetBoard(viewer: Viewer, month: MonthKey, nowMs = D
     board.cards = allCards.filter((c) => keep(c.staffId))
     board.noTarget = noTarget.filter((r) => keep(r.staffId))
     board.inProgress = allInProgress.filter((r) => keep(r.staffId))
+    board.statusCounts = allStatus.filter((r) => keep(r.staffId))
     board.chart = {
       days: n,
       team: onlyStaff ? null : cumulativeByDay(teamAccounts, month, nowMs),
@@ -262,6 +296,7 @@ export async function loadTargetBoard(viewer: Viewer, month: MonthKey, nowMs = D
     board.team = null
     board.cards = allCards.filter((c) => c.staffId === viewer.id)
     board.inProgress = allInProgress.filter((r) => r.staffId === viewer.id)
+    board.statusCounts = allStatus.filter((r) => r.staffId === viewer.id)
     board.chart = { days: n, team: null, teamTarget: null, people: [lineFor(viewer.id)] }
   } else {
     board.teamStatus = null
@@ -269,6 +304,7 @@ export async function loadTargetBoard(viewer: Viewer, month: MonthKey, nowMs = D
     const paid = paidInMonth(mineOf(viewer.id), month)
     board.ownPaid = { paid: paid.length, ...split(paid) }
     board.inProgress = allInProgress.filter((r) => r.staffId === viewer.id)
+    board.statusCounts = allStatus.filter((r) => r.staffId === viewer.id)
   }
 
   if (viewer.adminRole === 'owner') {

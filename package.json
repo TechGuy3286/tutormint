@@ -148,6 +148,7 @@
     "test:staffsignups": "tsx --test scripts/test-staff-signups.ts",
     "test:teamactivity": "tsx --test scripts/test-team-activity.ts",
     "test:stafftargets": "tsx --test scripts/test-staff-targets.ts",
+    "test:staffstatus": "tsx --test scripts/test-staff-status.ts",
     "test:ownerapprovals": "tsx --test scripts/test-owner-approvals.ts",
     "test:staffsignups:live": "tsx --conditions=react-server --env-file=.env.local --test scripts/test-staff-signups-live.ts",
     "test:tuitionsgoogle": "tsx --test scripts/test-tuitions-google.ts",

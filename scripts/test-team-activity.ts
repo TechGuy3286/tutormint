@@ -117,7 +117,9 @@ test('Paid sign-ups sort by paid first; the Team total is the sum of paid', () =
   // targets too, so the footer and layout changed (scripts/test-staff-targets.ts).
   const tab = read('app/admin/team-activity/PaidTab.tsx')
   assert.ok(tab.includes('Only paid sign-ups count as results.'))
-  assert.ok(tab.includes('In progress (not counted)'))
+  // Pending / Signed up replaced the in-progress steps (owner, 16 Oct 2026).
+  assert.ok(tab.includes('Pending and signed up'))
+  assert.ok(!tab.includes('Mobile verified'))
   assert.ok(tab.includes('Claims to review ('))
   // The team strip comes before the cards.
   assert.ok(tab.indexOf('<TeamStrip') < tab.indexOf('<Card '))

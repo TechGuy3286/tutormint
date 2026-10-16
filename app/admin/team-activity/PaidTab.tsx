@@ -3,10 +3,10 @@ import Link from 'next/link'
 import JoinLinkCard from '@/components/admin/JoinLinkCard'
 import { formatDateTime } from '@/lib/datetime'
 import { loadClaims, pendingClaimCount } from '@/lib/staffSignups'
-import { loadTargetBoard, type InProgressCounts, type TargetCard } from '@/lib/staffTargets'
+import { loadTargetBoard, type StatusCounts, type TargetCard } from '@/lib/staffTargets'
 import { maskMobile } from '@/lib/smsHealthCore'
 import { changeLabel, type Change } from '@/lib/tuitionPostingCore'
-import { isParticipantRole, type MemberRole, type Step } from '@/lib/staffSignupsCore'
+import { isParticipantRole, type MemberRole, type StaffStatus, type Step } from '@/lib/staffSignupsCore'
 import { PACE_LABEL, monthLabel, perDayLabel, type MonthKey, type Pace, type PaceStatus } from '@/lib/staffTargetsCore'
 import type { AdminActor } from '@/lib/adminAuth'
 
@@ -21,7 +21,8 @@ import SetTargetsPanel from './SetTargetsPanel'
 //   b) one card per target-list staff member, highest % of target first;
 //   c) the running-total chart against the straight target line;
 //   d) "No target" (collapsed): others who still brought paid sign-ups;
-//   e) "In progress (not counted)" (collapsed): earlier steps, not paid yet.
+//   e) "Pending and signed up" (collapsed): per staff member, Pending (not
+//      paid, whatever the step) and Signed up (paid) — owner, 16 Oct 2026.
 // A paid sign-up is the first approved, not refunded Verification Fee (tutor)
 // or plan purchase (parent) — lib/staffTargetsCore. Counts only, never an
 // amount. What each viewer sees is cut on the SERVER (lib/staffTargets): staff
@@ -30,9 +31,13 @@ import SetTargetsPanel from './SetTargetsPanel'
 
 const LIST_PATH = '/admin/team-activity/accounts'
 
-function listHref(staffId: string, role: MemberRole, step: Step, month: MonthKey, inProgress = false): string {
+function listHref(staffId: string, role: MemberRole, step: Step, month: MonthKey): string {
   const q = new URLSearchParams({ staff: staffId, role, step, month })
-  if (inProgress) q.set('inprogress', '1')
+  return `${LIST_PATH}?${q.toString()}`
+}
+
+function statusHref(staffId: string, role: MemberRole, status: StaffStatus, month: MonthKey): string {
+  const q = new URLSearchParams({ staff: staffId, role, status, month })
   return `${LIST_PATH}?${q.toString()}`
 }
 
@@ -139,16 +144,17 @@ export default async function PaidTab({ actor, month }: { actor: AdminActor; mon
         </details>
       )}
 
-      {/* e) in progress */}
-      {board.inProgress.length > 0 && (
+      {/* e) pending and signed up */}
+      {board.statusCounts.length > 0 && (
         <details className="rounded-2xl border border-dashed border-gray-300 bg-tm-bg p-4">
-          <summary className="min-h-[44px] cursor-pointer text-sm font-black text-slate-700">In progress (not counted)</summary>
+          <summary className="min-h-[44px] cursor-pointer text-sm font-black text-slate-700">Pending and signed up</summary>
           <p className="mt-1 text-[11px] text-gray-600">
-            Sign-ups who reached a step in {label} and have not paid yet. Open a number to follow up.
+            Pending: not paid yet, whatever step they reached in {label} — not a result. Signed up: paid in {label}.
+            Open a number to see the people.
           </p>
           <ul className="mt-2 space-y-2">
-            {board.inProgress.map((r) => (
-              <InProgress key={r.staffId} row={r} month={month} />
+            {board.statusCounts.map((r) => (
+              <StatusRow key={r.staffId} row={r} month={month} />
             ))}
           </ul>
         </details>
@@ -291,12 +297,12 @@ function SplitLine({ staffId, tutors, parents, month }: { staffId: string; tutor
   )
 }
 
-function InProgress({ row, month }: { row: InProgressCounts; month: MonthKey }) {
-  const cell = (n: number, role: MemberRole, step: Step, label: string) => (
+function StatusRow({ row, month }: { row: StatusCounts; month: MonthKey }) {
+  const cell = (n: number, role: MemberRole, status: StaffStatus, label: string) => (
     <span className="whitespace-nowrap">
       {label}{' '}
       {n > 0 ? (
-        <Link href={listHref(row.staffId, role, step, month, true)} className="font-bold text-tm-navy hover:text-tm-red hover:underline">
+        <Link href={statusHref(row.staffId, role, status, month)} className="font-bold text-tm-navy hover:text-tm-red hover:underline">
           {n}
         </Link>
       ) : (
@@ -309,14 +315,13 @@ function InProgress({ row, month }: { row: InProgressCounts; month: MonthKey }) 
       <p className="text-xs font-bold text-slate-800">{row.name}</p>
       <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
         <span className="font-bold text-gray-600">Tutors:</span>
+        {cell(row.tutor.pending, 'tutor', 'pending', 'Pending')}
         {cell(row.tutor.signed_up, 'tutor', 'signed_up', 'Signed up')}
-        {cell(row.tutor.mobile_verified, 'tutor', 'mobile_verified', 'Mobile verified')}
-        {cell(row.tutor.onboarded, 'tutor', 'onboarded', 'Onboarded')}
       </p>
       <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
         <span className="font-bold text-gray-600">Parents:</span>
+        {cell(row.parent.pending, 'parent', 'pending', 'Pending')}
         {cell(row.parent.signed_up, 'parent', 'signed_up', 'Signed up')}
-        {cell(row.parent.posted, 'parent', 'posted', 'Posted a tuition')}
       </p>
     </li>
   )

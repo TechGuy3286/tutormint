@@ -407,3 +407,34 @@ export function mayViewStaff(viewer: { id: string; adminRole: string | null }, s
 export function fillJoinLink(body: string, joinLink: string | null | undefined, fallback: string): string {
   return body.replace(/\{join_link\}/g, joinLink || fallback)
 }
+
+// Team activity → "Pending / Signed up" (owner, 16 Oct 2026). On that page the
+// earlier steps collapse to two statuses, so an unpaid person never reads as a
+// result:
+//   Pending    attributed, NOT paid (at any time), and active in the range —
+//              signed up, or reached any later step, inside it;
+//   Signed up  attributed and PAID in the range (`at.paid`, the first approved,
+//              not refunded Verification Fee for a tutor / plan purchase for a
+//              parent — lib/staffTargetsCore firstPaidAt, the rule the
+//              dashboard's "Paid today" uses for tutors).
+// The step concepts (Mobile verified, Onboarded, Posted) are unchanged
+// everywhere else.
+export type StaffStatus = 'pending' | 'signed_up'
+
+export function isStaffStatus(v: string | null | undefined): v is StaffStatus {
+  return v === 'pending' || v === 'signed_up'
+}
+
+const PENDING_STEPS: Step[] = ['signed_up', 'mobile_verified', 'onboarded', 'posted']
+
+export function pendingIn(accounts: CreditedAccount[], role: MemberRole, r: Range): CreditedAccount[] {
+  return accounts.filter((a) => a.role === role && !a.at.paid && PENDING_STEPS.some((s) => inRange(a.at[s], r)))
+}
+
+export function signedUpIn(accounts: CreditedAccount[], role: MemberRole, r: Range): CreditedAccount[] {
+  return accounts.filter((a) => a.role === role && inRange(a.at.paid, r))
+}
+
+export function statusIn(accounts: CreditedAccount[], role: MemberRole, status: StaffStatus, r: Range): CreditedAccount[] {
+  return status === 'pending' ? pendingIn(accounts, role, r) : signedUpIn(accounts, role, r)
+}

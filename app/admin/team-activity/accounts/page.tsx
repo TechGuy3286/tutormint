@@ -4,7 +4,7 @@ import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadSignupList } from '@/lib/staffSignups'
 import { rowsForAccounts } from '@/lib/mySignups'
 import SignupRows from '@/components/admin/SignupRows'
-import { PERIODS, isInProgressStep, isInProgressStepFor, isListStep, parsePeriod, stepsFor, type MemberRole, type Step } from '@/lib/staffSignupsCore'
+import { PERIODS, isInProgressStep, isStaffStatus, isInProgressStepFor, isListStep, parsePeriod, stepsFor, type MemberRole, type Step } from '@/lib/staffSignupsCore'
 import { isMonthKey, monthLabel, monthRange } from '@/lib/staffTargetsCore'
 import { teamActivityHref } from '@/lib/teamActivityCore'
 
@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic'
 export default async function SignupListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ staff?: string; role?: string; step?: string; period?: string; month?: string; inprogress?: string }>
+  searchParams: Promise<{ staff?: string; role?: string; step?: string; period?: string; month?: string; inprogress?: string; status?: string }>
 }) {
   const actor = await requireAdminRole(...SCREEN_ACCESS.tuitionPosting)
   const sp = await searchParams
@@ -33,10 +33,14 @@ export default async function SignupListPage({
   const month = isMonthKey(sp.month) ? sp.month : null
   const staff = sp.staff ?? actor.id
   const inProgress = sp.inprogress === '1' && (month ? isInProgressStepFor(role, step) : role === 'tutor' && isInProgressStep(step))
+  // Pending / Signed up (owner, 16 Oct 2026) — the two statuses on Team
+  // activity; only with a month.
+  const status = month && isStaffStatus(sp.status) ? sp.status : null
   const back = month ? teamActivityHref('paid', { month }) : teamActivityHref('paid')
   const result = await loadSignupList(actor, staff, role, step, period, undefined, {
     inProgress,
     range: month ? monthRange(month) : undefined,
+    status: status ?? undefined,
   })
 
   if (!result.ok) {
@@ -50,7 +54,7 @@ export default async function SignupListPage({
     )
   }
 
-  const stepLabel = step === 'paid' ? 'Paid' : (stepsFor(role).find((s) => s.key === step)?.label ?? '')
+  const stepLabel = status === 'pending' ? 'Pending (not paid)' : status === 'signed_up' ? 'Signed up (paid)' : step === 'paid' ? 'Paid' : (stepsFor(role).find((s) => s.key === step)?.label ?? '')
   const periodLabel = month ? monthLabel(month) : (PERIODS.find((p) => p.key === period)?.label ?? '')
   const n = result.accounts.length
   // The same columns as My sign-ups (owner, 16 Oct 2026): full phone, email,
@@ -65,7 +69,7 @@ export default async function SignupListPage({
       </Link>
       <h1 className="text-base font-black text-tm-navy">
         {result.staffName}: {n} {noun} · {stepLabel}
-        {inProgress ? ' · not paid yet' : ''} · {periodLabel}
+        {inProgress && !status ? ' · not paid yet' : ''} · {periodLabel}
       </h1>
       {n === 0 ? (
         <p className="rounded-2xl border border-gray-200 bg-white p-4 text-xs text-gray-600">Nobody here for this period.</p>
