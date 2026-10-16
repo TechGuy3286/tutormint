@@ -21,7 +21,8 @@
 // The I/O half is lib/mySignups.ts; tests in scripts/test-my-signups.ts.
 
 import { followUpText, followUpWaLink } from './followUpCore'
-import type { MemberRole } from './staffSignupsCore'
+import { accountsInRange, inProgressIn, type CreditedAccount, type MemberRole } from './staffSignupsCore'
+import { monthRange, type MonthKey } from './staffTargetsCore'
 
 export const MY_SIGNUPS_PATH = '/admin/my-signups'
 
@@ -317,13 +318,16 @@ export function monthBounds(which: 'this' | 'last', nowMs: number): { start: num
 
 const digits = (s: string | null | undefined) => (s ?? '').replace(/\D/g, '')
 
-/** A row's own date for the month filter: when it signed up (a claim: never). */
+/** The month filter (owner, 16 Oct 2026): a person is in a month when they
+ *  signed up OR paid in it — exactly the people Team activity counts for the
+ *  month (In progress + Paid), so the two numbers match. A claim: never. */
 function inMonth(r: MySignupRow, which: 'this' | 'last', nowMs: number): boolean {
-  const iso = r.signedUpAt ?? r.paidAt
-  if (!iso) return false
-  const t = Date.parse(iso)
+  if (r.kind === 'claim') return false
   const b = monthBounds(which, nowMs)
-  return Number.isFinite(t) && t >= b.start && t < b.end
+  return [r.signedUpAt, r.paidAt].some((iso) => {
+    const t = iso ? Date.parse(iso) : NaN
+    return Number.isFinite(t) && t >= b.start && t < b.end
+  })
 }
 
 /** Filter, search and sort (newest first). */
@@ -369,3 +373,30 @@ export const HOW_CREDIT_WORKS = [
   'If someone signed up without your link, you can claim them within 30 days. The Owner approves claims.',
   'A sign-up is counted once they pay: a tutor’s Verification Fee or a parent’s plan, approved and not refunded.',
 ]
+
+// ---------------------------------------------------------------------------
+// "This month" (owner, 16 Oct 2026). The list itself is ALL TIME — everyone
+// ever credited to the staff member, plus their open claims. The "This month"
+// filter shows exactly the people Team activity counts for the month, so the
+// two numbers are the same by construction: In progress (signed up this month,
+// not paid yet — Team activity's "In progress" card) plus Paid this month (the
+// paid rule, dated by the payment). Built from the same functions Team
+// activity uses (lib/staffSignupsCore inProgressIn, lib/staffTargetsCore).
+
+export type MyMonthView = {
+  /** People in the month view (in progress + paid this month). */
+  count: number
+  inProgress: { tutors: number; parents: number }
+  paid: number
+  memberIds: string[]
+}
+
+export function myMonthView(accounts: CreditedAccount[], month: MonthKey): MyMonthView {
+  const r = monthRange(month)
+  const ip = (role: MemberRole) => inProgressIn(accounts, role, 'signed_up', r)
+  const tutors = ip('tutor')
+  const parents = ip('parent')
+  const paid = accountsInRange(accounts, 'paid', r)
+  const ids = [...new Set([...tutors, ...parents, ...paid].map((a) => a.memberId))]
+  return { count: ids.length, inProgress: { tutors: tutors.length, parents: parents.length }, paid: paid.length, memberIds: ids }
+}

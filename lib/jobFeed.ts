@@ -755,7 +755,22 @@ export async function browseJobs(
   const testIds = await testAccountIds()
   // The curated area plus every typed spelling staff approved as the same area
   // (owner, 13 Oct 2026) — "Liaqatabad" also finds "Liaqatbad".
-  const areaSpellingList = filters.area && !(filters.areas && filters.areas.length > 0) ? await spellingsForArea(filters.city ?? null, filters.area) : []
+  // …and (16 Oct 2026) every saved value its hub counts, so a merged area's
+  // tuitions are found by the main area's filter too.
+  const areaSpellingList =
+    filters.area && !(filters.areas && filters.areas.length > 0)
+      ? await (async () => {
+          const [own, hub] = await Promise.all([
+            spellingsForArea(filters.city ?? null, filters.area),
+            (await import('@/lib/cityJobs')).areaFilterSpellings(filters.city ?? null, filters.area),
+          ])
+          const seen = new Set<string>()
+          return [...own, ...hub].filter((v) => {
+            const k = v.trim().toLowerCase()
+            return k && !seen.has(k) ? (seen.add(k), true) : false
+          })
+        })()
+      : []
 
   const build = () => {
     let q = matchingIds

@@ -39,7 +39,6 @@ export default async function AdminLocationsPage() {
   ])
   const staffCities = await curatedAreasForCities(added.map((a) => a.city))
   const counts = first.counts
-  const waiting = counts.same + counts.notArea + counts.add
   const cities = unmapped.filter((r) => r.kind === 'city')
 
   return (
@@ -63,12 +62,8 @@ export default async function AdminLocationsPage() {
         suggestions={suggestions}
       />
 
+      {/* The heading and the counts live in the client: one fresh count for all. */}
       <section className="space-y-2">
-        <h2 className="text-sm font-black text-tm-navy">Typed by tutors and parents ({waiting})</h2>
-        <p className="text-[11px] text-gray-600">
-          Suggested: {counts.same} same as an area · {counts.notArea} not an area · {counts.add} new area. Already done: {counts.aliases} counted
-          as an existing area · {counts.ignored} marked not an area.
-        </p>
         <LocationsReviewClient initialCounts={counts} />
       </section>
 

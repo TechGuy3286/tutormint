@@ -17,7 +17,7 @@ import type { RunAliasRow, RunAreaRow, RunBoard, RunIgnoredRow } from '@/lib/loc
 // and the choices go in batches of 20. Only the Owner can apply (the server
 // refuses everyone else); other roles see the lists.
 
-type Tab = 'areas' | 'aliases' | 'ignored'
+type Tab = 'areas' | 'aliases' | 'ignored' | 'all'
 type Choice = { decision: string; into?: number; landmark?: string; reason?: string; name?: string }
 
 const BATCH = 20
@@ -57,6 +57,28 @@ export default function RunReviewClient({ board }: { board: RunBoard }) {
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState<string | null>(null)
   const [failed, setFailed] = useState<string[]>([])
+  // Search over ALL live areas, of any date (owner, 16 Oct 2026).
+  const [query, setQuery] = useState('')
+  const [found, setFound] = useState<RunBoard | null>(null)
+  const [searching, setSearching] = useState(false)
+
+  async function searchAll(q: string) {
+    const text = q.trim()
+    if (text.length < 2) {
+      setFound(null)
+      return
+    }
+    setSearching(true)
+    const r = await fetch(`/api/admin/locations/run-review?search=${encodeURIComponent(text)}`, { cache: 'no-store' })
+    const data = (await r.json().catch(() => null)) as (RunBoard & { error?: string }) | null
+    setSearching(false)
+    if (!r.ok || !data || data.error) {
+      toast.error(data?.error ?? 'That search did not go through.')
+      return
+    }
+    setFound(data)
+  }
+  const prefixOf = (t: Tab) => (t === 'areas' || t === 'all' ? 'area:' : t === 'aliases' ? 'alias:' : 'ignored:')
 
   const pick = (key: string, c: Partial<Choice>) => {
     setChoices((cur) => ({ ...cur, [key]: { ...cur[key], ...c, decision: c.decision ?? cur[key]?.decision ?? 'keep' } }))
@@ -94,7 +116,8 @@ export default function RunReviewClient({ board }: { board: RunBoard }) {
   }
 
   async function apply() {
-    const keys = [...ticked].filter((k) => k.startsWith(tab === 'areas' ? 'area:' : tab === 'aliases' ? 'alias:' : 'ignored:'))
+    const visible = tab === 'all' ? new Set((found?.areas ?? []).map((a) => `area:${a.id}`)) : tab === 'areas' ? new Set(board.areas.map((a) => `area:${a.id}`)) : null
+    const keys = [...ticked].filter((k) => k.startsWith(prefixOf(tab)) && (!visible || visible.has(k)))
     if (keys.length === 0) {
       toast.error('Tick at least one row first.')
       return
@@ -126,6 +149,7 @@ export default function RunReviewClient({ board }: { board: RunBoard }) {
     setProgress(null)
     setBusy(false)
     setTicked(new Set())
+    if (tab === 'all') void searchAll(query)
     if (res.failed.length) setFailed(res.failed.map((f) => `${f.item.kind} ${f.item.id}: ${f.error}`))
     if (res.done.length) toast.success(`${res.done.length} change${res.done.length === 1 ? '' : 's'} saved.`)
     else toast.error('Nothing was saved.')
@@ -136,6 +160,7 @@ export default function RunReviewClient({ board }: { board: RunBoard }) {
     { key: 'areas', label: `Added areas (${board.areas.length})` },
     { key: 'aliases', label: `“Same as” matches (${board.aliases.length})` },
     { key: 'ignored', label: `“Not an area” (${board.ignored.length})` },
+    { key: 'all', label: 'Search all areas' },
   ]
 
   return (
@@ -163,7 +188,7 @@ export default function RunReviewClient({ board }: { board: RunBoard }) {
         )}
         {canApply && (
           <button type="button" disabled={busy} onClick={apply} className="min-h-[40px] rounded-xl bg-tm-red px-4 text-xs font-bold text-white hover:bg-tm-red-hover disabled:opacity-60">
-            Apply ticked ({[...ticked].filter((k) => k.startsWith(tab === 'areas' ? 'area:' : tab === 'aliases' ? 'alias:' : 'ignored:')).length})
+            Apply ticked ({[...ticked].filter((k) => k.startsWith(prefixOf(tab))).length})
           </button>
         )}
         {progress && <span className="text-xs font-bold text-tm-navy">{progress}</span>}
@@ -185,6 +210,45 @@ export default function RunReviewClient({ board }: { board: RunBoard }) {
             <AreaCard key={a.id} a={a} list={listFor(a.city)} choice={choices[`area:${a.id}`]} ticked={ticked.has(`area:${a.id}`)} canApply={canApply} onPick={(c) => pick(`area:${a.id}`, c)} onTick={(on) => tick(`area:${a.id}`, on)} />
           ))}
         </ul>
+      )}
+      {tab === 'all' && (
+        <div className="space-y-3">
+          <form
+            className="flex flex-wrap items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void searchAll(query)
+            }}
+          >
+            <input
+              className="min-h-[40px] min-w-[240px] flex-1 rounded-xl border border-gray-200 bg-white px-3 text-sm text-slate-800"
+              placeholder="Search every area on the list, of any date (e.g. Gulshan)"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            <button type="submit" disabled={searching} className="min-h-[40px] rounded-xl bg-tm-navy px-4 text-xs font-bold text-white disabled:opacity-60">
+              {searching ? 'Searching…' : 'Find areas'}
+            </button>
+          </form>
+          <p className="text-[11px] text-gray-600">Every live area whose name contains the text, with the same choices as above. Older areas can be merged here too.</p>
+          {found && found.areas.length === 0 && <p className="text-xs text-slate-700">No live area matches that.</p>}
+          {found && found.areas.length > 0 && (
+            <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              {found.areas.map((a) => (
+                <AreaCard
+                  key={a.id}
+                  a={a}
+                  list={found.areasByCity[a.city.trim().toLowerCase()] ?? listFor(a.city)}
+                  choice={choices[`area:${a.id}`]}
+                  ticked={ticked.has(`area:${a.id}`)}
+                  canApply={canApply}
+                  onPick={(c) => pick(`area:${a.id}`, c)}
+                  onTick={(on) => tick(`area:${a.id}`, on)}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
       )}
       {tab === 'aliases' && (
         <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">

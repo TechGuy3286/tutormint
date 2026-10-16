@@ -37,6 +37,8 @@ export type AuditAction =
   | 'location.area_add'
   | 'location.alias'
   | 'location.not_area'
+  // "Keep as its own area" for an area staff added (owner, 16 Oct 2026).
+  | 'location.area_keep'
   | 'location.undo'
   | 'search.synonym'
   | 'search.synonym_remove'

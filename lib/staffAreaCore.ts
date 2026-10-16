@@ -124,8 +124,15 @@ export function splitAreaLandmark(
   // The curated area's words, without the city ("DHA Lahore" in Lahore → dha).
   const target = areaKey(hit.area, city).split(' ').filter(Boolean)
   if (target.length === 0) return null
-  // Pieces of the typed text, each with its normalised words.
-  const pieces = raw.split(/[\s,]+/).filter(Boolean)
+  // Pieces of the typed text, each with its normalised words, and whether a
+  // comma, bracket or dash stands between a piece and the next one.
+  const found = [...raw.matchAll(/[^\s,]+/g)]
+  const pieces = found.map((m) => m[0])
+  const sepAfter = found.map((m, i) => {
+    if (i === found.length - 1) return true
+    const gap = raw.slice(m.index! + m[0].length, found[i + 1].index)
+    return gap.includes(',') || /[)\-–—/]$/.test(m[0]) || /^[(\-–—/]/.test(found[i + 1][0])
+  })
   const flat: { piece: number; word: string }[] = []
   pieces.forEach((p, i) => normWords(p).forEach((w) => flat.push({ piece: i, word: w })))
   let start = -1
@@ -137,6 +144,20 @@ export function splitAreaLandmark(
   }
   if (start < 0) return null
   const used = new Set(flat.slice(start, start + target.length).map((f) => f.piece))
+  // Never cut a multi-word place name in half (owner, 16 Oct 2026): "North
+  // Town Residency, Gadap Town" is not North Town + "Residency Gadap Town".
+  // The words around the area must read as a block or landmark — set off by a
+  // comma, bracket or dash, or starting with a block / landmark word — else no
+  // suggestion at all.
+  const first = Math.min(...used)
+  const last = Math.max(...used)
+  const wordsOf = (i: number) => normWords(pieces[i] ?? '')
+  if (last < pieces.length - 1 && !sepAfter[last] && !startsLandmark(wordsOf(last + 1)[0])) return null
+  if (first > 0 && !sepAfter[first - 1]) {
+    const lead = wordsOf(0)[0]
+    const tail = wordsOf(first - 1).slice(-1)[0] ?? ''
+    if (!startsLandmark(lead) && !/^\d/.test(tail) && tail.length !== 1) return null
+  }
   // A trailing city name ("Clifton Block 1 Karachi") is not a landmark.
   const cityWords = new Set(normWords(city ?? ''))
   const rest = pieces
@@ -149,6 +170,32 @@ export function splitAreaLandmark(
     .trim()
   if (!rest) return null
   return { area: hit.area, landmark: rest.slice(0, 120) }
+}
+
+const LANDMARK_START = new Set([
+  'block', 'blk', 'phase', 'ph', 'sector', 'sec', 'street', 'st', 'road', 'rd', 'lane', 'gali',
+  'near', 'opp', 'opposite', 'behind', 'chowk', 'no', 'number', 'plot', 'house', 'flat', 'floor',
+  'stage', 'scheme', 'extension', 'ext', 'main',
+])
+
+/** The word opens a block / landmark ("Block 1", "Near Taj Complex", "11-A"). */
+export function startsLandmark(word: string | undefined): boolean {
+  if (!word) return false
+  return LANDMARK_START.has(word) || /^\d/.test(word)
+}
+
+/**
+ * "Keep as its own area" (owner, 16 Oct 2026): what is wrong with the optional
+ * cleaned-up name and landmark, or null. The name, when given, is the area's
+ * new name on the list ("Gurumandir"); the landmark goes on the tuitions saved
+ * with the old name ("Near Blue Ribbon").
+ */
+export function keepAreaProblem(name: string | null | undefined, landmark: string | null | undefined): string | null {
+  const n = (name ?? '').trim()
+  if (n && cleanAreaName(n).length < 2) return 'Enter the area name, or leave it as it is.'
+  if (n.length > 80) return 'Keep the area name under 80 characters.'
+  if ((landmark ?? '').trim().length > 120) return 'Keep the Block / landmark under 120 characters.'
+  return null
 }
 
 /** "Clifton (Block 1)" — the area with its block / landmark, for display. */

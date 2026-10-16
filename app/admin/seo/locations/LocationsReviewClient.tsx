@@ -11,6 +11,7 @@ import { useToast } from '@/components/ui/Toast'
 import { CONFIDENCE_LABEL, NOT_AREA_REASONS, suggestionLine } from '@/lib/locationCleanCore'
 import { runBatches, type BatchOutcome } from '@/lib/batchRunCore'
 import type { ReviewAction, ReviewRow } from '@/lib/locationReview'
+import { REVIEW_KIND_LABEL, reviewCountsView } from '@/lib/locationCountsCore'
 
 // Admin → Locations → "Typed by tutors and parents" (owner, 13 + 16 Oct 2026).
 //
@@ -40,11 +41,7 @@ type Kind = 'all' | 'same' | 'not_area' | 'add'
 type Counts = { same: number; notArea: number; add: number; aliases: number; ignored: number }
 type Page = { rows: ReviewRow[]; total: number; counts: Counts; areasByCity: Record<string, { id: number; name: string }[]> }
 
-const KIND_LABEL: Record<Exclude<Kind, 'all'>, string> = {
-  same: 'Same as an area',
-  not_area: 'Not an area',
-  add: 'New area',
-}
+const KIND_LABEL = REVIEW_KIND_LABEL
 const BATCH = 20
 
 type ItemResult = { value: string; ok: boolean; message: string }
@@ -65,6 +62,8 @@ export default function LocationsReviewClient({ initialCounts }: { initialCounts
   const [progress, setProgress] = useState<{ done: number; total: number; label: string } | null>(null)
   const [outcome, setOutcome] = useState<{ label: string; done: number; failed: { value: string; city: string; error: string }[] } | null>(null)
   const [gone, setGone] = useState<Set<string>>(new Set())
+  // A fresh page render (router.refresh) brings fresh counts too.
+  useEffect(() => setCounts(initialCounts), [initialCounts])
 
   const load = useCallback(
     async (offset: number) => {
@@ -118,6 +117,9 @@ export default function LocationsReviewClient({ initialCounts }: { initialCounts
         setGone((g) => new Set(g).add(keyOf(item)))
         toast.success('Saved.')
         router.refresh()
+        // Re-read the list AND its counts, so the heading, chips and bulk
+        // buttons all show the same fresh numbers.
+        void load(0)
       } else toast.error(r)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'That did not save. Please try again.')
@@ -167,20 +169,15 @@ export default function LocationsReviewClient({ initialCounts }: { initialCounts
     void load(0)
   }
 
-  const tabs: { id: Kind; label: string; n: number }[] = [
-    { id: 'all', label: 'All', n: counts.same + counts.notArea + counts.add },
-    { id: 'same', label: 'Same as an area', n: counts.same },
-    { id: 'not_area', label: 'Not an area', n: counts.notArea },
-    { id: 'add', label: 'New area', n: counts.add },
-  ]
-  const bulkButtons: { id: Exclude<Kind, 'all'>; n: number }[] = [
-    { id: 'same', n: counts.same },
-    { id: 'not_area', n: counts.notArea },
-    { id: 'add', n: counts.add },
-  ]
+  // ONE counts object drives the heading, summary, chips and bulk buttons.
+  const view = reviewCountsView(counts, busy)
+  const tabs = view.tabs
+  const bulkButtons = view.bulk
 
   return (
     <div className="space-y-3">
+      <h2 className="text-sm font-black text-tm-navy">{view.heading}</h2>
+      <p className="text-[11px] text-gray-600">{view.summary}</p>
       <div className="flex flex-wrap gap-2">
         {tabs.map((t) => (
           <button
@@ -211,11 +208,11 @@ export default function LocationsReviewClient({ initialCounts }: { initialCounts
             <button
               key={b.id}
               type="button"
-              disabled={busy || b.n === 0}
+              disabled={b.disabled}
               onClick={() => void bulk(b.id)}
               className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy disabled:opacity-60"
             >
-              Approve all “{KIND_LABEL[b.id]}” ({b.n})
+              {b.label}
             </button>
           ))}
         </div>

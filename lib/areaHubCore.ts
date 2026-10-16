@@ -88,15 +88,35 @@ export function resolveAreaHub(
   // A longer value that names a curated area as a whole run of words. The
   // longest name wins; two different areas of the same length is not a clear
   // match, unless one of them opens the value.
+  const curatedHit = containsHit(key, list)
+  if (curatedHit !== undefined) return curatedHit
+  // Owner, 16 Oct 2026: a value that names a MERGED area counts as the area it
+  // was merged into ("Lal Flats near Johar Morr" names Johar, merged into
+  // Gulistan-e-Johar). A merge saves the retired name as an approved spelling,
+  // so the approved spellings are searched the same way — but only after the
+  // live curated names, which always decide first.
+  if (!aliases) return null
+  const live = new Map(curated.map((c) => [c.toLowerCase(), c]))
+  const spelled = Object.entries(aliases)
+    .map(([k, target]) => ({ area: live.get(target.toLowerCase()) ?? '', key: k }))
+    .filter((c) => c.area && c.key)
+  return containsHit(key, spelled) ?? null
+}
+
+/** The longest name inside the value as a whole run of words. undefined = no
+ *  name inside; null = names inside but no clear winner. */
+function containsHit(key: string, list: { area: string; key: string }[]): AreaHubHit | null | undefined {
   const padded = ` ${key} `
   const inside = list.filter((c) => padded.includes(` ${c.key} `))
-  if (inside.length === 0) return null
+  if (inside.length === 0) return undefined
   const longest = Math.max(...inside.map((c) => c.key.split(' ').length))
   const top = inside.filter((c) => c.key.split(' ').length === longest)
-  const keys = new Set(top.map((c) => c.key))
-  if (keys.size === 1) return { area: top[0].area, how: 'contains' }
+  // One name (two list rows of it: the shorter stands, as sorted) or two
+  // spellings of ONE area are one answer.
+  const one = (rows: typeof top) => new Set(rows.map((c) => c.key)).size === 1 || new Set(rows.map((c) => c.area.toLowerCase())).size === 1
+  if (one(top)) return { area: top[0].area, how: 'contains' }
   const opening = top.filter((c) => key.startsWith(`${c.key} `))
-  return new Set(opening.map((c) => c.key)).size === 1 ? { area: opening[0].area, how: 'contains' } : null
+  return opening.length > 0 && one(opening) ? { area: opening[0].area, how: 'contains' } : null
 }
 
 const SCHOOL_WORD = /\b(school|schools|college|academy|institute|university|lyceum|campus|montessori|educators|grammar|kindergarten|coaching|centre|center)\b/i

@@ -114,18 +114,26 @@ async function reviewsOf(admin: Admin): Promise<Map<string, RunDecision>> {
   return new Map((data ?? []).map((r) => [`${r.kind}:${r.ref_id}`, { decision: r.decision as string, decidedAt: r.decided_at as string }]))
 }
 
-/** The whole review board. Reads only. */
-export async function loadRunReview(): Promise<RunBoard> {
+/** The whole review board. Reads only. With `search` (owner, 16 Oct 2026):
+ *  every LIVE area of any date whose name contains the text, as the same cards
+ *  with the same actions — so an area older than the 16 Oct run (Karachi
+ *  "Gulshan") can be merged from this screen too. */
+export async function loadRunReview(opts: { search?: string } = {}): Promise<RunBoard> {
+  const search = (opts.search ?? '').replace(/\s+/g, ' ').trim().slice(0, 60)
   const empty: RunBoard = { areas: [], aliases: [], ignored: [], areasByCity: {}, summary: { areas: 0, warned: 0, withHub: 0, aliases: 0, ignored: 0, reviewed: 0 } }
   const admin = createAdminClient()
   if (!admin) return empty
-  const ids = await runAreaIds(admin)
+  const ids = search ? [] : await runAreaIds(admin)
   const [{ data: cities }, curated, runAreas, aliasRows, ignoredRows, allAliases, jobs, tutors, profs, tutorAreas, reviews, pages] = await Promise.all([
     admin.from('location_cities').select('id, name'),
     pageAll((f, t) => admin.from('location_areas').select('id, name, city_id').is('removed_at', null).order('id').range(f, t)) as Promise<
       { id: number; name: string; city_id: number }[]
     >,
-    ids.length ? admin.from('location_areas').select('id, name, city_id, removed_at').in('id', ids) : Promise.resolve({ data: [] }),
+    search
+      ? admin.from('location_areas').select('id, name, city_id, removed_at').ilike('name', `%${esc(search)}%`).is('removed_at', null).order('name').limit(60)
+      : ids.length
+        ? admin.from('location_areas').select('id, name, city_id, removed_at').in('id', ids)
+        : Promise.resolve({ data: [] }),
     admin
       .from('location_area_aliases')
       .select('id, raw, city_id, area_id, removed_at, location_areas(name)')
@@ -197,9 +205,10 @@ export async function loadRunReview(): Promise<RunBoard> {
   for (const p of pages) for (const v of p.variants) if (v.kind === 'area' && v.count >= CITY_PAGE_THRESHOLD) hubs.add(`${p.citySlug}/${v.slug}`)
 
   const runRows = (runAreas.data ?? []) as { id: number; name: string; city_id: number; removed_at: string | null }[]
-  const runAliasRows = (aliasRows.data ?? []) as { id: number; raw: string; city_id: number; area_id: number; removed_at: string | null; location_areas: Named }[]
+  const runAliasRows = (search ? [] : (aliasRows.data ?? [])) as { id: number; raw: string; city_id: number; area_id: number; removed_at: string | null; location_areas: Named }[]
   const spellings = new Map<number, string[]>()
-  for (const a of runAliasRows) if (!a.removed_at) spellings.set(a.area_id, [...(spellings.get(a.area_id) ?? []), a.raw])
+  // Search: every live spelling of the area; the run board: the run's own.
+  for (const a of search ? allAliases : runAliasRows.filter((x) => !x.removed_at)) spellings.set(a.area_id, [...(spellings.get(a.area_id) ?? []), a.raw])
 
   const areas: RunAreaRow[] = runRows.map((r) => {
     const city = cityName.get(r.city_id) ?? ''
@@ -244,7 +253,7 @@ export async function loadRunReview(): Promise<RunBoard> {
       review: reviews.get(`alias:${a.id}`) ?? null,
     }
   })
-  const ignored: RunIgnoredRow[] = ((ignoredRows.data ?? []) as { id: number; city: string; raw: string; reason: string; removed_at: string | null }[]).map((i) => ({
+  const ignored: RunIgnoredRow[] = ((search ? [] : (ignoredRows.data ?? [])) as { id: number; city: string; raw: string; reason: string; removed_at: string | null }[]).map((i) => ({
     id: i.id,
     raw: i.raw,
     city: i.city,
@@ -274,7 +283,7 @@ export async function loadRunReview(): Promise<RunBoard> {
 
 export type RunResult = { kind: RunKind; id: number; ok: boolean; message: string }
 
-async function mark(admin: Admin, kind: RunKind, id: number, decision: string, actor: Actor, detail: Record<string, unknown>) {
+export async function mark(admin: Admin, kind: RunKind, id: number, decision: string, actor: Actor, detail: Record<string, unknown>) {
   await admin
     .from('location_run_reviews')
     .upsert({ kind, ref_id: id, decision, detail, decided_by: actor.id, decided_at: new Date().toISOString() }, { onConflict: 'kind,ref_id' })
@@ -289,10 +298,6 @@ async function mark(admin: Admin, kind: RunKind, id: number, decision: string, a
   })
 }
 
-async function runAreaIdSet(admin: Admin): Promise<Set<number>> {
-  return new Set(await runAreaIds(admin))
-}
-
 async function inWindow(admin: Admin, table: 'location_area_aliases' | 'location_ignored', id: number) {
   const { data } = await admin.from(table).select('*').eq('id', id).gte('created_at', RUN_START).lte('created_at', RUN_END).maybeSingle()
   return data as Record<string, unknown> | null
@@ -305,7 +310,13 @@ async function liveArea(admin: Admin, id: number) {
 
 /** Merge one run area into another area of the same city: its name becomes a
  *  spelling of that area, its spellings follow, and it is retired. */
-async function mergeArea(admin: Admin, from: { id: number; name: string; city_id: number }, into: { id: number; name: string }, actor: Actor) {
+export async function mergeArea(
+  admin: Admin,
+  from: { id: number; name: string; city_id: number },
+  into: { id: number; name: string },
+  actor: Actor,
+  extra: Record<string, unknown> = {},
+) {
   const { error } = await admin
     .from('location_area_aliases')
     .insert({ city_id: from.city_id, raw: from.name, area_id: into.id, created_by: actor.id, created_by_email: actor.email })
@@ -320,18 +331,19 @@ async function mergeArea(admin: Admin, from: { id: number; name: string; city_id
     action: 'location.alias',
     targetType: 'location',
     targetId: String(into.id),
-    detail: { value: from.name, before: `Area added 16 Oct (${from.name})`, after: into.name, from: 'run_review', retiredAreaId: from.id },
+    detail: { value: from.name, before: `Area (${from.name})`, after: into.name, from: 'run_review', retiredAreaId: from.id, ...extra },
   })
   return true
 }
 
-async function applyOne(admin: Admin, a: RunAction, actor: Actor, runIds: Set<number>): Promise<RunResult> {
+async function applyOne(admin: Admin, a: RunAction, actor: Actor): Promise<RunResult> {
   const res = (ok: boolean, message: string): RunResult => ({ kind: a.kind, id: a.id, ok, message })
   const problem = runActionProblem(a)
   if (problem) return res(false, problem)
 
   if (a.kind === 'area') {
-    if (!runIds.has(a.id)) return res(false, 'That area was not added by the 16 Oct run.')
+    // Any live area may be decided here (owner, 16 Oct 2026: the search over all
+    // areas), not only the ones the 16 Oct run added.
     const area = await liveArea(admin, a.id)
     if (a.decision === 'keep') {
       if (!area) return res(false, 'That area was already merged or marked not an area.')
@@ -357,7 +369,7 @@ async function applyOne(admin: Admin, a: RunAction, actor: Actor, runIds: Set<nu
             action: 'location.not_area',
             targetType: 'location',
             targetId: `${low(city)}|${low(raw)}`,
-            detail: { value: raw, city, before: `Area added 16 Oct (${area.name})`, after: `Not an area (${a.reason})`, retiredAreaId: area.id },
+            detail: { value: raw, city, before: `Area (${area.name})`, after: `Not an area (${a.reason})`, retiredAreaId: area.id },
           })
         }
       }
@@ -496,11 +508,10 @@ async function applyOne(admin: Admin, a: RunAction, actor: Actor, runIds: Set<nu
 export async function applyRunActions(actions: RunAction[], actor: Actor): Promise<RunResult[]> {
   const admin = createAdminClient()
   if (!admin) return actions.map((a) => ({ kind: a.kind, id: a.id, ok: false, message: 'This is not working right now. Please try again in a few minutes.' }))
-  const runIds = await runAreaIdSet(admin)
   const out: RunResult[] = []
   for (const a of actions) {
     try {
-      out.push(await applyOne(admin, a, actor, runIds))
+      out.push(await applyOne(admin, a, actor))
     } catch (e) {
       console.error('[location-run-review]', e instanceof Error ? e.message : e)
       out.push({ kind: a.kind, id: a.id, ok: false, message: 'That did not save. Please try again.' })

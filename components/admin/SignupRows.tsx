@@ -101,13 +101,13 @@ export default function SignupRows({ rows, showFilters = false }: { rows: MySign
             ]}
           />
           <Select<MonthFilter>
-            label="Signed up"
+            label="Month"
             value={f.month}
             onChange={(v) => set('month', v)}
             options={[
               { key: 'all', label: 'Any time' },
-              { key: 'this', label: 'This month' },
-              { key: 'last', label: 'Last month' },
+              { key: 'this', label: 'This month (signed up or paid)' },
+              { key: 'last', label: 'Last month (signed up or paid)' },
             ]}
           />
         </div>

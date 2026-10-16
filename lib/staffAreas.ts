@@ -19,7 +19,7 @@ import type { AdminRole } from '@/lib/adminAuth'
 import { AREA_ALIAS_TAG } from '@/lib/areaAliases'
 import { revalidateLanding } from '@/lib/landingRevalidate'
 import { cleanAreaName } from '@/lib/locationCleanCore'
-import { splitAreaLandmark } from '@/lib/staffAreaCore'
+import { keepAreaProblem, splitAreaLandmark } from '@/lib/staffAreaCore'
 import { formatName } from '@/lib/formatName'
 
 export type Actor = { id: string; adminRole: AdminRole; email?: string | null }
@@ -89,10 +89,14 @@ export async function addStaffArea(input: { city: string; name: string }, actor:
 
 export type StaffAddedArea = { id: number; name: string; city: string; cityId: number; addedBy: string | null; addedAt: string | null }
 
-/** Areas added by staff while posting, newest first — for Admin → Locations. */
+/** Areas added by staff while posting, newest first — for Admin → Locations.
+ *  An area the Owner kept as its own area ("Keep as its own area", or "Keep"
+ *  on Review added areas) has been decided and is no longer waiting. */
 export async function loadStaffAddedAreas(): Promise<StaffAddedArea[]> {
   const admin = createAdminClient()
   if (!admin) return []
+  const { data: kept } = await admin.from('location_run_reviews').select('ref_id').eq('kind', 'area').eq('decision', 'keep')
+  const keptIds = new Set((kept ?? []).map((k) => Number(k.ref_id)))
   const { data } = await admin
     .from('location_areas')
     .select('id, name, city_id, created_by, created_by_name, created_at, location_cities(name)')
@@ -100,7 +104,7 @@ export async function loadStaffAddedAreas(): Promise<StaffAddedArea[]> {
     .is('removed_at', null)
     .order('created_at', { ascending: false })
     .limit(500)
-  return ((data ?? []) as Record<string, unknown>[]).map((r) => {
+  return ((data ?? []) as Record<string, unknown>[]).filter((r) => !keptIds.has(r.id as number)).map((r) => {
     const c = Array.isArray(r.location_cities) ? r.location_cities[0] : r.location_cities
     return {
       id: r.id as number,
@@ -244,4 +248,74 @@ export async function approveAreaSuggestion(
     detail: { value: added.name, area: into.name as string, landmark, city: added.city, edited, tuitions: ids.length, jobIds: ids.slice(0, 200) },
   })
   return { ok: true, from: merged.from, into: merged.into, landmark, tuitions: ids.length }
+}
+
+/**
+ * "Keep as its own area" (owner, 16 Oct 2026): an area staff added that has no
+ * correct match is approved as a real area of its city. Optionally under a
+ * cleaned-up name ("Gurumandir Near Blue Ribbon" → area "Gurumandir") with a
+ * Block / landmark ("Near Blue Ribbon") put on the tuitions saved with the old
+ * name. The old name is kept as a spelling of the area, so those tuitions keep
+ * counting as it and the old hub address moves on. Nothing is deleted, no
+ * tuition's saved area text changes. OWNER ONLY (the route). Recorded in
+ * location_run_reviews ('keep'), which takes it off the waiting list, and in
+ * the Audit log (location.area_keep).
+ */
+export async function keepStaffArea(
+  input: { areaId: number; name?: string; landmark?: string },
+  actor: Actor,
+): Promise<{ ok: true; area: string; renamedFrom: string | null; landmark: string; tuitions: number } | { ok: false; status: 400 | 503; error: string }> {
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, status: 503, error: NOT_NOW }
+  const problem = keepAreaProblem(input.name, input.landmark)
+  if (problem) return { ok: false, status: 400, error: problem }
+  const added = (await loadStaffAddedAreas()).find((a) => a.id === input.areaId)
+  if (!added) return { ok: false, status: 400, error: 'That area is no longer waiting. Reload the page.' }
+
+  const wanted = (input.name ?? '').trim() ? cleanAreaName(input.name!).slice(0, 80) : added.name
+  const renamed = low(wanted) !== low(added.name)
+  if (renamed) {
+    const { data: same } = await admin.from('location_areas').select('id, name, removed_at').eq('city_id', added.cityId).ilike('name', wanted.replace(/[%_\\]/g, '\\$&'))
+    if ((same ?? []).some((r) => !r.removed_at && r.id !== added.id)) {
+      return { ok: false, status: 400, error: `“${wanted}” is already an area in ${added.city}. Use “Same as existing area” instead.` }
+    }
+    const { error } = await admin.from('location_areas').update({ name: wanted }).eq('id', added.id).is('removed_at', null)
+    if (error) return { ok: false, status: 400, error: 'That did not save. Please try again.' }
+    // The old name stays a spelling of the area: tuitions saved with it keep
+    // counting as it, and its old hub address moves to the new one.
+    const { error: ae } = await admin
+      .from('location_area_aliases')
+      .insert({ city_id: added.cityId, raw: added.name, area_id: added.id, created_by: actor.id, created_by_email: actor.email ?? null })
+    if (ae && ae.code !== '23505') {
+      await admin.from('location_areas').update({ name: added.name }).eq('id', added.id)
+      return { ok: false, status: 400, error: 'That did not save. Please try again.' }
+    }
+  }
+
+  const landmark = (input.landmark ?? '').replace(/\s+/g, ' ').trim()
+  let ids: string[] = []
+  if (landmark) {
+    const { data: jobs } = await admin.from('jobs').select('id, area_landmark').ilike('city', added.city).ilike('area', added.name.replace(/[%_\\]/g, '\\$&'))
+    ids = (jobs ?? []).filter((j) => !((j.area_landmark as string | null) ?? '').trim()).map((j) => j.id as string)
+    if (ids.length > 0) await admin.from('jobs').update({ area_landmark: landmark }).in('id', ids)
+  }
+
+  const now = new Date().toISOString()
+  const detail = { name: wanted, renamedFrom: renamed ? added.name : null, landmark: landmark || null, tuitions: ids.length, from: 'staff_added_area' }
+  const { error: re } = await admin
+    .from('location_run_reviews')
+    .upsert({ kind: 'area', ref_id: added.id, decision: 'keep', detail, decided_by: actor.id, decided_at: now }, { onConflict: 'kind,ref_id' })
+  if (re) return { ok: false, status: 400, error: 'That did not save. Please try again.' }
+  await logAdminAction({
+    actorId: actor.id,
+    actorRole: actor.adminRole,
+    actorEmail: actor.email ?? null,
+    action: 'location.area_keep',
+    targetType: 'location',
+    targetId: String(added.id),
+    detail: { city: added.city, before: added.name, after: wanted, ...detail, jobIds: ids.slice(0, 200) },
+  })
+  revalidateTag(AREA_ALIAS_TAG, 'max')
+  revalidateLanding()
+  return { ok: true, area: wanted, renamedFrom: renamed ? added.name : null, landmark, tuitions: ids.length }
 }

@@ -8,6 +8,7 @@ import { useCanApprove } from '@/components/admin/ReadOnly'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/Toast'
 import { runBatches } from '@/lib/batchRunCore'
+import { keepAreaProblem } from '@/lib/staffAreaCore'
 
 // Admin → Locations → "Staff-added areas" (owner, 13 + 16 Oct 2026): areas
 // staff added while posting a tuition, each with "Added by <name>, <date>".
@@ -22,6 +23,98 @@ import { runBatches } from '@/lib/batchRunCore'
 type AreaSuggestion = { areaId: number; name: string; city: string; intoAreaId: number; intoName: string; landmark: string }
 
 type Row = { id: number; name: string; city: string; line: string }
+
+/** "Keep as its own area" (owner, 16 Oct 2026): approve the added area as a
+ *  real area of its city, optionally under a cleaned-up name with a Block /
+ *  landmark — "Gurumandir Near Blue Ribbon" → "Gurumandir" + "Near Blue
+ *  Ribbon". Owner only (the route refuses everyone else). */
+function KeepOwnArea({ row, disabled, onKept }: { row: Row; disabled: boolean; onKept: () => void }) {
+  const router = useRouter()
+  const toast = useToast()
+  const confirm = useConfirm()
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState(row.name)
+  const [landmark, setLandmark] = useState('')
+  const [saving, setSaving] = useState(false)
+  const problem = keepAreaProblem(name, landmark)
+
+  const save = async () => {
+    if (problem) {
+      toast.error(problem)
+      return
+    }
+    const yes = await confirm({
+      title: 'Keep as its own area?',
+      body: `“${name.trim() || row.name}” stays an area of ${row.city}${landmark.trim() ? `, and “${landmark.trim()}” becomes the Block / landmark on tuitions saved as “${row.name}”` : ''}. Nothing is deleted and tuitions keep their saved text.`,
+      confirmLabel: 'Keep area',
+    })
+    if (!yes) return
+    setSaving(true)
+    const { ok, data } = await adminFetch<{ error?: string; area?: string }>('/api/admin/locations/area', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'keep', areaId: row.id, name: name.trim(), landmark: landmark.trim() }),
+    })
+    setSaving(false)
+    if (!ok) {
+      toast.error(data?.error ?? 'That did not save.')
+      return
+    }
+    toast.success(`“${data?.area ?? row.name}” kept as its own area.`)
+    onKept()
+    router.refresh()
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen(true)}
+        className="ml-2 inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-tm-navy hover:border-tm-navy disabled:opacity-60"
+      >
+        Keep as its own area
+      </button>
+    )
+  }
+  return (
+    <div className="space-y-2 rounded-xl border border-gray-200 bg-tm-bg p-2">
+      <label className="block">
+        <span className="text-[11px] font-bold text-slate-700">Area name (you can tidy it)</span>
+        <input
+          value={name}
+          maxLength={80}
+          onChange={(e) => setName(e.target.value)}
+          className="mt-1 min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-xs text-slate-800 focus:border-tm-navy focus:outline-none"
+        />
+      </label>
+      <label className="block">
+        <span className="text-[11px] font-bold text-slate-700">Block / landmark (optional)</span>
+        <input
+          value={landmark}
+          maxLength={120}
+          onChange={(e) => setLandmark(e.target.value)}
+          placeholder="e.g. Near Blue Ribbon"
+          className="mt-1 min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-xs text-slate-800 focus:border-tm-navy focus:outline-none"
+        />
+      </label>
+      {problem && <p className="text-[11px] text-tm-red">{problem}</p>}
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={disabled || saving || !!problem}
+          onClick={() => void save()}
+          className="inline-flex min-h-[44px] items-center rounded-xl bg-tm-green-deep px-4 text-xs font-bold text-white hover:bg-tm-green-deep-hover disabled:opacity-60"
+        >
+          {saving ? 'Saving…' : 'Keep area'}
+        </button>
+        <button type="button" onClick={() => setOpen(false)} className="inline-flex min-h-[44px] items-center rounded-xl px-3 text-xs font-bold text-slate-700">
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
 
 export default function StaffAddedAreas({
   areas,
@@ -211,6 +304,7 @@ export default function StaffAddedAreas({
                     >
                       {busy === a.id ? 'Approving…' : 'Approve'}
                     </button>
+                    <KeepOwnArea row={a} disabled={busy !== null} onKept={() => setDone((d) => new Set(d).add(a.id))} />
                   </div>
                 )}
               </li>

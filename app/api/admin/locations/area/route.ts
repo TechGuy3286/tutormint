@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
-import { addStaffArea, approveAreaSuggestion, mergeStaffArea } from '@/lib/staffAreas'
+import { addStaffArea, approveAreaSuggestion, keepStaffArea, mergeStaffArea } from '@/lib/staffAreas'
 import { refuseUnlessOwnerApproval } from '@/lib/ownerGuard'
 import { parseBody, z } from '@/lib/validate'
 
@@ -12,6 +12,8 @@ import { parseBody, z } from '@/lib/validate'
 //   merge  "Same as existing area" for an area staff added — OWNER ONLY
 //          (owner, 16 Oct 2026: Locations merges are the Owner's), the page
 //          itself is open to SCREEN_ACCESS.seo
+//   keep   "Keep as its own area": approve an added area as a real area,
+//          optionally renamed + a Block / landmark — OWNER ONLY (16 Oct 2026)
 //   approve_suggestion  the suggested merge + Block / landmark split (lib/
 //          staffAreas staffAreaSuggestions), or the Owner's edited version
 //          (intoAreaId / landmark) — OWNER ONLY. One area per request: the
@@ -33,6 +35,12 @@ const Body = z.discriminatedUnion('action', [
     intoAreaId: z.number().int().positive().optional(),
     landmark: z.string().max(120, 'Keep the Block / landmark under 120 characters.').optional(),
   }),
+  z.object({
+    action: z.literal('keep'),
+    areaId: z.number().int().positive(),
+    name: z.string().max(80, 'Keep the area name under 80 characters.').optional(),
+    landmark: z.string().max(120, 'Keep the Block / landmark under 120 characters.').optional(),
+  }),
 ])
 
 export async function POST(request: Request) {
@@ -45,9 +53,18 @@ export async function POST(request: Request) {
   if (!parsed.ok) return parsed.response
 
   const actor = { id: gate.actor.id, adminRole: gate.actor.adminRole, email: gate.actor.email }
-  if (parsed.data.action !== 'add') {
+  if (parsed.data.action === 'keep') {
+    const refused = await refuseUnlessOwnerApproval(actor, 'Locations: keep an area as its own area', String(parsed.data.areaId))
+    if (refused) return refused
+  } else if (parsed.data.action !== 'add') {
     const refused = await refuseUnlessOwnerApproval(actor, 'Locations: merge an area', String(parsed.data.areaId))
     if (refused) return refused
+  }
+  if (parsed.data.action === 'keep') {
+    const { areaId, name, landmark } = parsed.data
+    const out = await keepStaffArea({ areaId, name, landmark }, actor)
+    if (!out.ok) return NextResponse.json({ error: out.error }, { status: out.status })
+    return NextResponse.json({ ok: true, area: out.area, renamedFrom: out.renamedFrom, landmark: out.landmark, tuitions: out.tuitions })
   }
   if (parsed.data.action === 'approve_suggestion') {
     const { areaId, intoAreaId, landmark } = parsed.data

@@ -9,6 +9,7 @@ import { parseBody, z } from '@/lib/validate'
 // Admin → Locations → Review added areas (owner, 16 Oct 2026): the rows the
 // 16 Oct "Approve all suggestions" run wrote.
 //
+//   GET ?search=       every live area of any date matching the text
 //   GET                the board (open to the roles that open Locations)
 //   POST { items }     at most 25 decisions — OWNER ONLY on the server: every
 //                      other role gets 403 and the Owner is told of the attempt.
@@ -20,10 +21,14 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
-export async function GET() {
+export async function GET(request: Request) {
   const gate = await checkAdminRole(...SCREEN_ACCESS.seo)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
-  return NextResponse.json(await loadRunReview(), { headers: { 'Cache-Control': 'private, no-store' } })
+  // ?search=<text>: every live area of any date whose name contains it (owner,
+  // 16 Oct 2026), with the same actions as the 16 Oct rows.
+  const search = new URL(request.url).searchParams.get('search')?.trim() ?? ''
+  if (search && search.length < 2) return NextResponse.json({ error: 'Type at least 2 letters.' }, { status: 400 })
+  return NextResponse.json(await loadRunReview(search ? { search } : {}), { headers: { 'Cache-Control': 'private, no-store' } })
 }
 
 const id = z.number().int().positive()

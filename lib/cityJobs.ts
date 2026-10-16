@@ -127,6 +127,30 @@ export const indexableCityPagesCached = unstable_cache(
   { revalidate: 600, tags: [LANDING_TAG] },
 )
 
+/** Every city page with its variants, cached ten minutes and cleared with the
+ *  landing cache (a merge clears it at once). For search filters only — a
+ *  page's own index/noindex and the sitemap read the live list. */
+const cityPagesCached = unstable_cache(async (): Promise<CityPage[]> => cityPages(), ['city-job-pages-all'], {
+  revalidate: 600,
+  tags: [LANDING_TAG],
+})
+
+/**
+ * Every saved area spelling an AREA FILTER on a city should match (owner, 16 Oct
+ * 2026): the spellings of the hub the area belongs to — areas merged into it,
+ * longer values that name it, landmark splits — so a search filter counts the
+ * same tuitions as the hub page. [] when the area has no hub.
+ */
+export async function areaFilterSpellings(city: string | null | undefined, area: string | null | undefined): Promise<string[]> {
+  if (!city || !area) return []
+  const cityKey = city.trim().toLowerCase()
+  const hit = resolveAreaHub(city, area, (await curatedMap()).get(cityKey) ?? [], (await loadAreaAliases())[cityKey])
+  if (!hit) return []
+  const slug = areaHubSlug(hit.area, city)
+  const page = (await cityPagesCached()).find((p) => p.citySlug === citySegment(city))
+  return page?.variants.find((v) => v.kind === 'area' && v.slug === slug)?.areas ?? [hit.area]
+}
+
 /** The area hub for a tuition's own area, when that hub exists (3+ open posts). */
 export async function areaHubFor(city: string | null, area: string | null): Promise<{ href: string; label: string } | null> {
   if (!city || !area) return null

@@ -5,15 +5,17 @@
 // proxy.ts, because a page can only answer 308 and the owner asked for a 301.
 //
 // It reads ONE thing — the curated areas (Locations, world-readable) — through
-// PostgREST with the publishable key, and keeps the answer in memory for ten
-// minutes, so a hub request costs no query most of the time. The rule itself is
+// PostgREST with the publishable key, and keeps the answer in memory for one
+// minute, so a hub request costs no query most of the time. The rule itself is
 // lib/areaHubCore.hubSlugRedirect. Any failure answers null: the page renders
 // (or redirects) as it would have, never an error.
 
 import { areaKey, hubSlugRedirect, type CityAliases } from '@/lib/areaHubCore'
 import { cityFromSegment } from '@/lib/slugs'
 
-const TTL_MS = 10 * 60_000
+// One minute (was ten; owner, 16 Oct 2026): a merge on Locations should move
+// its old hub address on almost at once. The page itself never waits for this.
+const TTL_MS = 60_000
 let cache: { at: number; byCity: Map<string, string[]>; aliases: Map<string, CityAliases> } | null = null
 
 async function curated(): Promise<Map<string, string[]> | null> {

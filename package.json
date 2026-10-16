@@ -153,7 +153,8 @@
     "test:indexinglocations": "tsx --test scripts/test-indexing-locations.ts",
     "test:mysignups": "tsx --test scripts/test-my-signups.ts",
     "test:mysignups:live": "tsx --conditions=react-server --env-file=.env.local --test scripts/test-my-signups-live.ts",
-    "test:locationrunreview": "tsx --test scripts/test-location-run-review.ts"
+    "test:locationrunreview": "tsx --test scripts/test-location-run-review.ts",
+    "test:locationsfollowups": "tsx --test scripts/test-locations-followups.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",
