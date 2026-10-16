@@ -38,6 +38,7 @@ const EditBody = z.object({
   contactEmail: z.string().max(200).nullish(),
   contactAddress: z.string().max(300).nullish(),
   contactSocial: z.string().max(200).nullish(),
+  areaLandmark: z.string().max(120).nullish(),
 })
 
 function parseInput(body: z.infer<typeof EditBody>): JobInput {
@@ -67,6 +68,7 @@ function parseInput(body: z.infer<typeof EditBody>): JobInput {
     contactEmail: str(body.contactEmail),
     contactAddress: str(body.contactAddress),
     contactSocial: str(body.contactSocial),
+    areaLandmark: str(body.areaLandmark),
   }
 }
 

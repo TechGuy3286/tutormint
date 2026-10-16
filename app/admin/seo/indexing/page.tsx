@@ -2,15 +2,16 @@ import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { indexingQueueReport } from '@/lib/googleIndexing'
 import { SUPERSEDED_NOTE } from '@/lib/googleIndexingCore'
 import { formatDateTime } from '@/lib/datetime'
+import IndexingHealth from './IndexingHealth'
 
 // /admin/seo/indexing — what Google has been told (owner, 12 Oct 2026).
 // Read-only; same access as the other SEO screens.
 //
-// Every time a tuition is posted, resumed or refreshed Google is sent "updated";
-// every time one is paused, closed or hired it is sent "removed". Google allows
-// 200 notices a day, so they wait in a queue: new posts and resumes go first,
-// removals after, and what does not fit waits for the next day. This screen
-// shows today's use, what is waiting, and the newest notices with the result.
+// Google is sent "updated" when a tuition is posted, edited, resumed, refreshed
+// or paused (a paused page stays live and indexable for 60 days), and "removed"
+// when one is closed or hired (owner, 16 Oct 2026). Google allows 200 a day,
+// counted from midnight Pacific time; new posts go first, failures are retried.
+// The health box (sent today, the last 7 days, the last 10 errors) is on top.
 
 export const dynamic = 'force-dynamic'
 
@@ -31,9 +32,9 @@ export default async function AdminIndexingPage() {
       <header className="space-y-1">
         <h1 className="text-xl font-black text-tm-navy">Google indexing notices</h1>
         <p className="max-w-3xl text-xs text-gray-500">
-          Google is told when a tuition is posted or resumed (updated) and when it is paused, closed or hired
-          (removed). Google allows {r.limit} notices a day. New posts and resumes are sent first; anything over
-          the limit waits for the next day.
+          Google is told when a tuition is posted, edited, resumed or paused (updated) and when it is closed or
+          hired (removed). Google allows {r.limit} notices a day, counted from midnight Pacific time (next reset{' '}
+          {formatDateTime(r.resetsAt)}). New posts go first; failures are tried again later.
         </p>
       </header>
 
@@ -42,6 +43,8 @@ export default async function AdminIndexingPage() {
           The Google Indexing API is not connected, so no notices are being sent.
         </p>
       )}
+
+      <IndexingHealth sentToday={r.sentToday} limit={r.limit} days={r.days} errors={r.errors} />
 
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Sent today" value={`${r.sentToday} of ${r.limit}`} />

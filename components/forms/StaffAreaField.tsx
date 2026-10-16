@@ -9,7 +9,7 @@ import { useToast } from '@/components/ui/Toast'
 import { getBrowserClient } from '@/lib/supabase/clientLazy'
 import { addAreaToCache } from '@/lib/cityAreas'
 import { areaKey, type CityAliases } from '@/lib/areaHubCore'
-import { staffAreaAdvice } from '@/lib/staffAreaCore'
+import { splitAreaLandmark, staffAreaAdvice } from '@/lib/staffAreaCore'
 
 // The Area field of the STAFF "Post a tuition" form (owner, 13 Oct 2026).
 //
@@ -26,12 +26,15 @@ export default function StaffAreaField({
   area,
   onArea,
   curated,
+  onSplit,
 }: {
   city: string
   area: string
   onArea: (v: string) => void
   /** The curated areas of the chosen city. */
   curated: string[]
+  /** "Clifton Block 1" → Clifton + "Block 1" (owner, 16 Oct 2026). */
+  onSplit?: (area: string, landmark: string) => void
 }) {
   const toast = useToast()
   // Kept with the city they were loaded for, so a change of city never shows the last city's spellings.
@@ -76,6 +79,11 @@ export default function StaffAreaField({
   }, [aliasRows, city])
   const options = useMemo(() => [...new Set([...list, ...aliasRows.map((r) => r.raw)])], [list, aliasRows])
   const advice = staffAreaAdvice(city, area, list, aliases)
+  // A typed area that names a curated one, with a block or landmark around it.
+  const split = onSplit ? splitAreaLandmark(city, area, list, aliases) : null
+  const applySplit = () => {
+    if (split && onSplit) onSplit(split.area, split.landmark)
+  }
 
   const add = async (name: string) => {
     if (!city.trim()) {
@@ -103,10 +111,24 @@ export default function StaffAreaField({
   const CHIP = 'inline-flex min-h-[36px] items-center gap-1.5 rounded-full border px-3 text-[11px] font-bold disabled:opacity-60'
 
   return (
-    <div className="space-y-1.5">
+    <div
+      className="space-y-1.5"
+      // When staff leave the field, the main area is selected and the rest goes
+      // to Block / landmark (owner, 16 Oct 2026).
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) applySplit()
+      }}
+    >
       <LocationInput id="whw-area" label="Area" icon={<MapPin size={15} />} value={area} onChange={onArea} options={options} placeholder="Area" />
       {advice.kind === 'listed' && !advice.exact && <p className="text-[11px] text-gray-600">Counts as {advice.area}.</p>}
-      {advice.kind === 'new' && (
+      {split && (
+        <div role="status" className="flex flex-wrap items-center gap-1.5">
+          <button type="button" onClick={applySplit} className={`${CHIP} border-tm-navy bg-tm-tint-navy text-tm-navy`}>
+            Use {split.area} ({split.landmark})
+          </button>
+        </div>
+      )}
+      {!split && advice.kind === 'new' && (
         <div role="status" className="flex flex-wrap items-center gap-1.5">
           {advice.didYouMean && (
             <button type="button" onClick={() => onArea(advice.didYouMean!)} className={`${CHIP} border-tm-navy bg-tm-tint-navy text-tm-navy`}>

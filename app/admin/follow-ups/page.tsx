@@ -101,6 +101,10 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
 async function TutorsTab({ filterParam, scope }: { filterParam?: string; scope: TutorScope }) {
   const filter = parseUnpaidFilter(filterParam)
   const all = await loadUnpaidSignups(new Date(), scope)
+  // The "Started payment, didn't finish" chip opens its own group (every tutor
+  // with a checkout started and not finished, any join date).
+  const startedCount =
+    scope === 'started_payment' ? null : (await loadUnpaidSignups(new Date(), 'started_payment')).length
   const scopeHref = (s: TutorScope, extra: { filter?: string } = {}) =>
     followUpsHref('tutors', { scope: s === 'recent' ? undefined : s, ...extra })
   // The shared follow-up record (owner, 9 Oct 2026): followed up in the last 7
@@ -112,6 +116,7 @@ async function TutorsTab({ filterParam, scope }: { filterParam?: string; scope: 
     lastContactAt: r.lastContact?.at ?? null,
     followUpSent: !!states.get(r.id)?.sent,
     joinedAt: r.joinedAt,
+    startedPayment: !!r.startedPayment,
   })
   const rows = all.filter((r) => unpaidRowMatches(facts(r), filter, now))
   const count = (f: UnpaidFilter) => all.filter((r) => unpaidRowMatches(facts(r), f, now)).length
@@ -130,7 +135,9 @@ async function TutorsTab({ filterParam, scope }: { filterParam?: string; scope: 
           {scope === 'older' &&
             `Tutors who joined more than ${UNPAID_WINDOW_DAYS} days ago and have not paid the Verification Fee, newest first.`}
           {scope === 'paid_unfinished' &&
-            'Tutors who paid the Verification Fee and have not finished their profile, newest first.'}{' '}
+            'Tutors who paid the Verification Fee and have not finished their profile, newest first.'}
+          {scope === 'started_payment' &&
+            "Tutors who opened a checkout over an hour ago and did not pay. They leave this list 48 hours after the checkout started, or as soon as they pay."}{' '}
           Paused, test and staff accounts are left out. Log every call so nobody is rung twice.
         </p>
       </header>
@@ -144,7 +151,7 @@ async function TutorsTab({ filterParam, scope }: { filterParam?: string; scope: 
       </nav>
 
       <nav aria-label="Filter" className="flex flex-wrap gap-2">
-        {FILTERS.map((f) => (
+        {scope !== 'started_payment' && FILTERS.map((f) => (
           <Link
             key={f.key}
             href={scopeHref(scope, { filter: f.key === 'all' ? undefined : f.key })}
@@ -154,6 +161,14 @@ async function TutorsTab({ filterParam, scope }: { filterParam?: string; scope: 
             {f.label} <span className={f.key === filter ? 'text-white' : 'text-gray-500'}>{count(f.key)}</span>
           </Link>
         ))}
+        <Link
+          href={followUpsHref('tutors', { scope: 'started_payment', filter: 'started_payment' })}
+          aria-current={scope === 'started_payment' ? 'page' : undefined}
+          className={chip(scope === 'started_payment')}
+        >
+          Started payment, didn&apos;t finish{' '}
+          <span className={scope === 'started_payment' ? 'text-white' : 'text-gray-500'}>{startedCount ?? all.length}</span>
+        </Link>
       </nav>
 
       {scope === 'recent' && <nav aria-label="Signed up" className="flex flex-wrap items-center gap-2">

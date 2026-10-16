@@ -48,6 +48,7 @@ export default function AdminJobForm({ draftKey }: { draftKey?: string }) {
         contactEmail: payload.contactEmail,
         contactAddress: payload.contactAddress,
         contactSocial: payload.contactSocial,
+        areaLandmark: payload.areaLandmark,
         allowDuplicate: payload.allowDuplicate ?? false,
         duplicateReason: payload.duplicateReason ?? null,
       }),

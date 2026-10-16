@@ -22,8 +22,11 @@ import {
   type MemberRole,
 } from '@/lib/staffSignupsCore'
 import {
+  countingFromLabel,
+  countingStartDate,
   cumulativeByDay,
   daysInMonth,
+  defaultCountingStart,
   monthRange,
   monthTense,
   paceFor,
@@ -70,6 +73,10 @@ export type TargetBoard = {
   months: MonthKey[]
   tense: MonthTense
   scope: TargetScope
+  /** The month's "Counting starts" date, 'YYYY-MM-DD' (the 1st by default). */
+  countingStarts: string
+  /** "Counting from 15 Oct" — null when counting starts on the 1st. */
+  countingFrom: string | null
   /** The team strip (everyone scope only). */
   team: Pace | null
   /** The team status chip — everyone and target-list staff. */
@@ -115,6 +122,20 @@ async function loadTargets(month: MonthKey): Promise<Map<string, number>> {
   return new Map((data ?? []).map((r) => [r.staff_id as string, Number(r.target)]))
 }
 
+/** The month's "Counting starts" date (migration 179), clamped into the month.
+ *  Tolerant: no table, no row or a failed read → the 1st. */
+export async function loadCountingStart(month: MonthKey): Promise<string> {
+  const admin = createAdminClient()
+  if (!admin) return defaultCountingStart(month)
+  try {
+    const { data, error } = await admin.from('staff_target_months').select('counting_starts').eq('month', month).maybeSingle()
+    if (error || !data) return defaultCountingStart(month)
+    return countingStartDate(month, String(data.counting_starts ?? '').slice(0, 10))
+  } catch {
+    return defaultCountingStart(month)
+  }
+}
+
 function split(accounts: CreditedAccount[]): { tutors: number; parents: number } {
   return { tutors: accounts.filter((a) => a.role === 'tutor').length, parents: accounts.filter((a) => a.role === 'parent').length }
 }
@@ -140,13 +161,14 @@ function anyInProgress(r: InProgressCounts): boolean {
  * caller has already checked mayViewStaff.
  */
 export async function loadTargetBoard(viewer: Viewer, month: MonthKey, nowMs = Date.now(), onlyStaff?: string | null): Promise<TargetBoard> {
-  const [staff, accounts, stored, targets, lastTargets, links] = await Promise.all([
+  const [staff, accounts, stored, targets, lastTargets, links, countingStarts] = await Promise.all([
     loadStaff(),
     loadCreditedAccounts(),
     loadStoredList(),
     loadTargets(month),
     loadTargets(shiftMonth(month, -1)),
     ensureJoinLinks(),
+    loadCountingStart(month),
   ])
   const tense = monthTense(month, nowMs)
   const list = targetListFor(month, nowMs, stored, targets)
@@ -169,7 +191,7 @@ export async function loadTargetBoard(viewer: Viewer, month: MonthKey, nowMs = D
     return {
       staffId: id,
       name: nameOf.get(id) ?? '—',
-      pace: paceFor(targets.get(id) ?? null, paid.length, month, nowMs),
+      pace: paceFor(targets.get(id) ?? null, paid.length, month, nowMs, countingStarts),
       ...split(paid),
       today: ty.today,
       yesterday: ty.yesterday,
@@ -179,7 +201,7 @@ export async function loadTargetBoard(viewer: Viewer, month: MonthKey, nowMs = D
   const allCards = sortCards(listIds.map(cardFor))
   const teamTarget = listIds.reduce((s, id) => s + (targets.get(id) ?? 0), 0)
   const teamPaid = allCards.reduce((s, c) => s + c.pace.paid, 0)
-  const teamPace = paceFor(teamTarget > 0 ? teamTarget : null, teamPaid, month, nowMs)
+  const teamPace = paceFor(teamTarget > 0 ? teamTarget : null, teamPaid, month, nowMs, countingStarts)
   const teamAccounts = accounts.filter((a) => list.has(a.staffId))
 
   // No target: anyone else with paid sign-ups this month.
@@ -202,7 +224,7 @@ export async function loadTargetBoard(viewer: Viewer, month: MonthKey, nowMs = D
   const n = daysInMonth(month)
   const lineFor = (id: string): ChartLine => {
     const t = targets.get(id)
-    return { staffId: id, name: nameOf.get(id) ?? '—', values: cumulativeByDay(mineOf(id), month, nowMs), target: t ? targetLine(t, month) : null }
+    return { staffId: id, name: nameOf.get(id) ?? '—', values: cumulativeByDay(mineOf(id), month, nowMs), target: t ? targetLine(t, month, countingStarts) : null }
   }
 
   const board: TargetBoard = {
@@ -210,6 +232,8 @@ export async function loadTargetBoard(viewer: Viewer, month: MonthKey, nowMs = D
     months: pickerMonths(nowMs),
     tense,
     scope,
+    countingStarts,
+    countingFrom: countingFromLabel(month, countingStarts),
     team: null,
     teamStatus: teamPace.status,
     teamReached: teamPace.reached,
@@ -231,7 +255,7 @@ export async function loadTargetBoard(viewer: Viewer, month: MonthKey, nowMs = D
     board.chart = {
       days: n,
       team: onlyStaff ? null : cumulativeByDay(teamAccounts, month, nowMs),
-      teamTarget: onlyStaff || teamTarget <= 0 ? null : targetLine(teamTarget, month),
+      teamTarget: onlyStaff || teamTarget <= 0 ? null : targetLine(teamTarget, month, countingStarts),
       people: listIds.filter(keep).map(lineFor),
     }
   } else if (scope === 'target_self') {
@@ -270,12 +294,13 @@ export async function saveTargets(
   actor: Actor,
   month: MonthKey,
   entries: { staffId: string; target: number | null }[],
+  /** 'YYYY-MM-DD' inside the month (checked by the route), or null = leave as it is. */
+  countingStarts: string | null = null,
 ): Promise<{ ok: true; changed: number } | { ok: false; status: number; error: string }> {
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes.' }
-  const staff = await loadStaff()
+  const [staff, before, startBefore] = await Promise.all([loadStaff(), loadTargets(month), loadCountingStart(month)])
   const known = new Set(staff.map((s) => s.id))
-  const before = await loadTargets(month)
   const changes: { staffId: string; before: number | null; after: number }[] = []
   for (const e of entries) {
     if (e.target == null) continue // empty box: leave as it is
@@ -284,15 +309,25 @@ export async function saveTargets(
     if (prev === e.target) continue
     changes.push({ staffId: e.staffId, before: prev, after: e.target })
   }
-  if (changes.length === 0) return { ok: true, changed: 0 }
+  const startAfter = countingStarts == null ? null : countingStartDate(month, countingStarts)
+  const startChange = startAfter && startAfter !== startBefore ? { before: startBefore, after: startAfter } : null
+  if (changes.length === 0 && !startChange) return { ok: true, changed: 0 }
   const now = new Date().toISOString()
-  const { error } = await admin
-    .from('staff_monthly_targets')
-    .upsert(
-      changes.map((c) => ({ staff_id: c.staffId, month, target: c.after, set_by: actor.id, updated_at: now })),
-      { onConflict: 'staff_id,month' },
-    )
-  if (error) return { ok: false, status: 500, error: 'The targets did not save. Please try again.' }
+  if (changes.length > 0) {
+    const { error } = await admin
+      .from('staff_monthly_targets')
+      .upsert(
+        changes.map((c) => ({ staff_id: c.staffId, month, target: c.after, set_by: actor.id, updated_at: now })),
+        { onConflict: 'staff_id,month' },
+      )
+    if (error) return { ok: false, status: 500, error: 'The targets did not save. Please try again.' }
+  }
+  if (startChange) {
+    const { error } = await admin
+      .from('staff_target_months')
+      .upsert({ month, counting_starts: startChange.after, set_by: actor.id, updated_at: now }, { onConflict: 'month' })
+    if (error) return { ok: false, status: 500, error: 'The counting start date did not save. Please try again.' }
+  }
   await logAdminAction({
     actorId: actor.id,
     actorRole: actor.adminRole,
@@ -300,9 +335,9 @@ export async function saveTargets(
     action: 'staff.targets_set',
     targetType: 'staff_targets',
     targetId: month,
-    detail: { month, changes },
+    detail: startChange ? { month, changes, countingStarts: startChange } : { month, changes },
   })
-  return { ok: true, changed: changes.length }
+  return { ok: true, changed: changes.length + (startChange ? 1 : 0) }
 }
 
 export async function setOnTargetList(

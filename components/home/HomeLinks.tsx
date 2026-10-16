@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { indexableCityPages, cityPagePath } from '@/lib/cityJobs'
 import { liveLandingPages } from '@/lib/landing'
 import { HOME_MORE_LINKS } from '@/lib/siteIdentity'
+import NewestTuitions from '@/components/seo/NewestTuitions'
+import { newestTuitionLinks } from '@/lib/newestTuitions'
 
 // The homepage's link block (owner-approved, 13 Oct 2026): the city tuition-job
 // links it already had — each ONCE — and, beside them, the busiest tutor
@@ -20,7 +22,13 @@ const ROW = 'flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[11
 const LINK = 'inline-flex min-h-[32px] items-center font-semibold text-tm-navy hover:underline'
 
 export default async function HomeLinks() {
-  const [cities, landing] = await Promise.all([indexableCityPages().catch(() => []), liveLandingPages().catch(() => [])])
+  const [cities, landing, newest] = await Promise.all([
+    indexableCityPages().catch(() => []),
+    liveLandingPages().catch(() => []),
+    // The latest 10 live tuitions (owner, 16 Oct 2026 — inside this approved
+    // link block only; nothing else on the homepage changes).
+    newestTuitionLinks().catch(() => []),
+  ])
   const tutorPages = landing
     .filter((p) => p.kind === 'tutors')
     .sort((a, b) => b.count - a.count || a.subjectName.localeCompare(b.subjectName))
@@ -41,6 +49,7 @@ export default async function HomeLinks() {
           ))}
         </nav>
       )}
+      <NewestTuitions links={newest} variant="row" />
       {tutorPages.length > 0 && (
         <nav aria-label="Tutors by subject and city" className={ROW}>
           <span className="font-bold text-tm-navy">Tutors:</span>

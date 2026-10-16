@@ -36,10 +36,10 @@ export const OUTCOME_LABEL: Record<ContactOutcome, string> = {
 /** The onboarding step label the fee step carries (lib/onboardingStopCore). */
 export const PAYMENT_STEP_LABEL = 'Verification fee'
 
-export type UnpaidFilter = 'all' | 'payment' | 'onboarding' | 'uncontacted' | 'followed' | SignupWindow
+export type UnpaidFilter = 'all' | 'payment' | 'onboarding' | 'uncontacted' | 'followed' | 'started_payment' | SignupWindow
 
 export function parseUnpaidFilter(v: string | null | undefined): UnpaidFilter {
-  return v === 'payment' || v === 'onboarding' || v === 'uncontacted' || v === 'followed' || isSignupWindow(v) ? v : 'all'
+  return v === 'payment' || v === 'onboarding' || v === 'uncontacted' || v === 'followed' || v === 'started_payment' || isSignupWindow(v) ? v : 'all'
 }
 
 // "Signed up today, not paid" (owner, 12 Oct 2026) — the Overview card and the
@@ -81,7 +81,7 @@ export function signupCounts(rows: { joinedAt: string }[], nowMs: number): Recor
 /** Does a row pass the chosen filter? `stoppedAt` is null when every onboarding
  *  step is done (only the fee is left would read 'Verification fee'). */
 export function unpaidRowMatches(
-  row: { stoppedAt: string | null; lastContactAt: string | null; followUpSent?: boolean; joinedAt?: string | null },
+  row: { stoppedAt: string | null; lastContactAt: string | null; followUpSent?: boolean; joinedAt?: string | null; startedPayment?: boolean },
   filter: UnpaidFilter,
   nowMs: number = Date.now(),
 ): boolean {
@@ -92,6 +92,8 @@ export function unpaidRowMatches(
   // 9 Oct 2026, the shared lib/followUpCore rule).
   if (filter === 'followed') return !!row.followUpSent
   if (row.followUpSent) return false
+  // Opened a checkout and did not finish (owner, 16 Oct 2026, lib/startedPaymentCore).
+  if (filter === 'started_payment') return !!row.startedPayment
   if (filter === 'payment') return row.stoppedAt === PAYMENT_STEP_LABEL || row.stoppedAt === null
   if (filter === 'onboarding') return row.stoppedAt !== null && row.stoppedAt !== PAYMENT_STEP_LABEL
   if (filter === 'uncontacted') return row.lastContactAt === null
@@ -106,16 +108,20 @@ export function unpaidRowMatches(
 //                    not done, whenever they joined.
 // Paused, banned, test, seed, team and staff accounts are out of all three.
 export const TUTOR_SCOPES = ['recent', 'older', 'paid_unfinished'] as const
-export type TutorScope = (typeof TUTOR_SCOPES)[number]
+/** 'started_payment' (owner, 16 Oct 2026): every tutor with a checkout started
+ *  and not finished — reached from the "Started payment, didn't finish" chip,
+ *  not shown as a group of its own. */
+export type TutorScope = (typeof TUTOR_SCOPES)[number] | 'started_payment'
 
 export const TUTOR_SCOPE_LABEL: Record<TutorScope, string> = {
   recent: `Last ${UNPAID_WINDOW_DAYS} days (unpaid)`,
   older: `Older than ${UNPAID_WINDOW_DAYS} days (unpaid)`,
   paid_unfinished: 'Paid, profile not finished',
+  started_payment: "Started payment, didn't finish",
 }
 
 export function parseTutorScope(v: string | null | undefined): TutorScope {
-  return (TUTOR_SCOPES as readonly string[]).includes(v ?? '') ? (v as TutorScope) : 'recent'
+  return (TUTOR_SCOPES as readonly string[]).includes(v ?? '') || v === 'started_payment' ? (v as TutorScope) : 'recent'
 }
 
 /**
@@ -126,10 +132,11 @@ export function parseTutorScope(v: string | null | undefined): TutorScope {
  *   onboarded    onboarding done (tutor_profiles.onboarded_at).
  */
 export function tutorInScope(
-  t: { joinedAt: string; feeStamped: boolean; feeApproved: boolean; onboarded: boolean },
+  t: { joinedAt: string; feeStamped: boolean; feeApproved: boolean; onboarded: boolean; startedPayment?: boolean },
   scope: TutorScope,
   nowMs: number,
 ): boolean {
+  if (scope === 'started_payment') return !!t.startedPayment
   if (scope === 'paid_unfinished') return t.feeApproved && !t.onboarded
   const joined = Date.parse(t.joinedAt)
   if (!Number.isFinite(joined) || t.feeStamped) return false

@@ -31,7 +31,7 @@ import { tuitionPageTitle } from '@/lib/tuitionTitle'
 import { jobPostingJsonLd, jsonLdScript, pageDescription, pageTitle, seoTitle, seoDescription, tuitionDescription, socialMeta } from '@/lib/seo'
 import { liveOverlapNoindex, overlapKey } from '@/lib/landingOverlap'
 import { repeatOfOlderOpen, tuitionHref } from '@/lib/duplicates'
-import { cityPagePath, areaHubFor } from '@/lib/cityJobs'
+import { cityPagePath, areaHubFor, indexableCityPagesCached } from '@/lib/cityJobs'
 import { schoolOfJob, indexableSchoolHubsCached, schoolHubPath } from '@/lib/schoolJobs'
 import { employmentTypeFor, jobPostingDescription } from '@/lib/jobPostingCore'
 import { genderPrefWord } from '@/lib/genderPref'
@@ -44,6 +44,7 @@ import { isSubjectSlug, resolveLandingAny, landingIndexable, getLandingLinker } 
 import LandingView from '@/components/landing/LandingView'
 import ApplyPanel from './ApplyPanel'
 import { areaWithoutCity } from '@/lib/place'
+import { areaWithLandmark } from '@/lib/staffAreaCore'
 import { applyBlocksFor } from '@/lib/applyBlockServer'
 import { loadReceiptState } from '@/lib/payments/receipt'
 import type { ApplyBlock } from '@/lib/applyBlock'
@@ -190,6 +191,8 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     status: job.status,
     isFixture: fixture,
     descriptionLength: job.description?.trim().length ?? 0,
+    // Paused stays indexable for 60 days after it was paused (owner, 16 Oct 2026).
+    pausedAt: job.paused_at ?? null,
   })
 
   if (merged) return { title, robots: { index: false, follow: true } }
@@ -235,7 +238,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
   // The public state of the page: open accepts applications, is indexable, emits
   // JobPosting and sits in the sitemap; paused/closed/hired do none of those and
   // carry a plain banner. All render 200.
-  const state = tuitionPublicState(job.status)
+  const state = tuitionPublicState(job.status, job.paused_at ?? null)
 
   // The page's title/heading is the stored human headline (composed only as a
   // fallback) — the composed field list belongs on the card, not on the page or
@@ -321,6 +324,8 @@ export default async function TuitionPage({ params }: { params: Params }) {
   // tuitions matched by city (the immediate neighbours, always), then level,
   // then subject — neighbour linking, so every tuition page is linked from
   // another one. On a non-open page it doubles as the "no dead end" list.
+  // A paused/closed/hired page (owner, 16 Oct 2026): "Similar open tuitions" —
+  // same city AND the same subject or level first, then the same city; live only.
   const similar = await similarOpenTuitions(
     job.id,
     job.city,
@@ -328,7 +333,8 @@ export default async function TuitionPage({ params }: { params: Params }) {
     6,
     similarGender,
     job.class_levels ?? null,
-    job.bumped_at ?? job.created_at ?? null,
+    state.isOpen ? (job.bumped_at ?? job.created_at ?? null) : null,
+    state.isOpen ? 'neighbours' : 'match-first',
   )
 
   // §3 — an OPEN tuition is cross-linked too, so the page carries more unique,
@@ -337,7 +343,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
   let landingHref: string | null = null
   let landingLabel: string | null = null
   let relatedOpen: typeof similar = []
-  if (state.isOpen && job.city) {
+  if (job.city) {
     // The first of this tuition's subjects that HAS a landing page (a job lists
     // several subjects and the first is not always one that clears the
     // threshold). A real /tuitions/ path — not the /browse fallback — means the
@@ -360,10 +366,14 @@ export default async function TuitionPage({ params }: { params: Params }) {
   // "<School> teacher jobs" page — each linked ONLY when that hub exists (3+
   // open posts), so nothing here points at a noindex page.
   const school = await schoolOfJob({ title: job.headline ?? job.title, description: job.description, city: job.city, jobTitle: job.teaching_mode })
-  const [areaHub, schoolHubs] = await Promise.all([
+  const [areaHub, schoolHubs, cityPagesLive] = await Promise.all([
     areaHubFor(job.city, job.area).catch(() => null),
     school ? indexableSchoolHubsCached().catch(() => []) : Promise.resolve([]),
+    job.city ? indexableCityPagesCached().catch(() => []) : Promise.resolve([]),
   ])
+  // Its city hub, linked only when that page exists (3+ open tuitions) — every
+  // tuition page links to its city hub and its city × subject hub (owner, 16 Oct 2026).
+  const cityHub = job.city ? (cityPagesLive.find((p) => p.citySlug === citySegment(job.city)) ?? null) : null
   const schoolHub = school && schoolHubs.some((s) => s.slug === school.slug) ? school : null
 
   // The gender-preference sentence, shown plainly to everyone. And, for a
@@ -597,7 +607,9 @@ export default async function TuitionPage({ params }: { params: Params }) {
           <Fact icon={<MapPin size={14} aria-hidden />} label="Where">
             {job.city ? (
               <>
-                {areaWithoutCity(job.area, job.city) ? `${areaWithoutCity(job.area, job.city)}, ` : ''}
+                {areaWithoutCity(job.area, job.city)
+                  ? `${areaWithLandmark(areaWithoutCity(job.area, job.city), job.area_landmark)}, `
+                  : ''}
                 <Link
                   href={`/browse/tuitions?city=${encodeURIComponent(job.city)}`}
                   className="font-bold text-tm-navy hover:underline"
@@ -650,7 +662,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
             (a tutor SEES a number exists → drawn to verify). "View number" spends
             one pool unit on tap (once per tuition; a guest is asked to sign up);
             a tutor who already has access sees the full number instead. */}
-        {job.contactTeaser && (
+        {state.showContact && job.contactTeaser && (
           <p className="flex flex-wrap items-center gap-1.5 rounded-xl bg-tm-tint-navy px-3 py-2 text-sm font-semibold text-tm-navy">
             Contact:{' '}
             {revealedContact ? null : <span className="tabular-nums">{job.contactTeaser}</span>}
@@ -715,7 +727,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
               {/* PR91: a tuition reveal is per-TUITION (jobId), so it draws one
                   pool unit once per tuition and also surfaces any number in the
                   listing text — not a per-parent reveal. */}
-              {isTutor && <ContactReveal jobId={job.id} className="pt-1" />}
+              {isTutor && state.showContact && <ContactReveal jobId={job.id} className="pt-1" />}
             </div>
           </div>
 
@@ -731,9 +743,9 @@ export default async function TuitionPage({ params }: { params: Params }) {
       )}
 
       {/* Team tuition (PR72 §D): keep the contact reveal + Report, no identity. */}
-      {job.parent_id && job.posted_by_team && (isTutor || user) && (
+      {job.parent_id && job.posted_by_team && user && (
         <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
-          {isTutor && <ContactReveal jobId={job.id} />}
+          {isTutor && state.showContact && <ContactReveal jobId={job.id} />}
           {user && (
             <ReportButton
               reportedId={job.parent_id}
@@ -750,7 +762,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
           page it is also the way out (§3, no dead end). */}
       {similar.length > 0 && (
         <section className="space-y-3">
-          <h2 className="text-sm font-black text-tm-navy">Similar tuitions</h2>
+          <h2 className="text-sm font-black text-tm-navy">{state.isOpen ? 'Similar tuitions' : 'Similar open tuitions'}</h2>
           <div className="space-y-4">
             {similar.map((t) => (
               <JobCard
@@ -767,7 +779,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
 
       {/* §3 — an OPEN tuition points at more of the same: the matching landing
           page and a few live related tuitions, so it is not a dead-end single row. */}
-      {state.isOpen && (landingHref || areaHub || schoolHub || relatedOpen.length > 0) && (
+      {(landingHref || areaHub || schoolHub || cityHub || relatedOpen.length > 0) && (
         <section className="space-y-3">
           {schoolHub && (
             <Link
@@ -777,6 +789,18 @@ export default async function TuitionPage({ params }: { params: Params }) {
               <span className="inline-flex items-center gap-2">
                 <GraduationCap aria-hidden size={16} className="text-gray-500" />
                 See all {schoolHub.name} teacher jobs
+              </span>
+              <span aria-hidden className="text-tm-red">→</span>
+            </Link>
+          )}
+          {cityHub && (
+            <Link
+              href={cityPagePath(cityHub.citySlug)}
+              className="flex items-center justify-between gap-2 rounded-2xl border border-gray-200 bg-white p-4 text-sm font-bold text-tm-navy hover:border-tm-navy sm:p-5"
+            >
+              <span className="inline-flex items-center gap-2">
+                <Briefcase aria-hidden size={16} className="text-gray-500" />
+                See all tuition jobs in {cityHub.city}
               </span>
               <span aria-hidden className="text-tm-red">→</span>
             </Link>

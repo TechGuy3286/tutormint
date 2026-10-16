@@ -134,6 +134,80 @@ export function daysLeft(m: MonthKey, nowMs: number): number {
   return daysInMonth(m) - dayIndex
 }
 
+// ------------------------------------------------------------ counting start
+//
+// Each month may carry a "Counting starts" date (staff_target_months, migration
+// 179; the Owner sets it in Set targets). With no row it is the 1st. Pace,
+// status, "Needed per day" and the chart's target line count days from that
+// date: before it nothing is expected yet.
+//
+// Paid sign-ups BEFORE the counting start still count in the month's total —
+// only the pace maths uses the start date. (October 2026 counts from 15 Oct.)
+
+/** 'YYYY-MM-DD' — a real calendar date. */
+export function isDateKey(v: string | null | undefined): v is string {
+  if (!v || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(v)) return false
+  const t = Date.parse(`${v}T00:00:00Z`)
+  return Number.isFinite(t) && new Date(t).toISOString().slice(0, 10) === v
+}
+
+/** The month's own 1st, as 'YYYY-MM-DD' (the default counting start). */
+export function defaultCountingStart(m: MonthKey): string {
+  return `${m}-01`
+}
+
+/** Day of the month counting starts on (1…N). No / invalid value → the 1st; a
+ *  date before the month → the 1st; a date after it → the last day. */
+export function countingStartDay(m: MonthKey, start: string | null | undefined): number {
+  if (!isDateKey(start)) return 1
+  const key = start.slice(0, 7)
+  if (key < m) return 1
+  const n = daysInMonth(m)
+  if (key > m) return n
+  return Math.min(n, Math.max(1, Number(start.slice(8, 10))))
+}
+
+/** The counting start clamped into the month, as 'YYYY-MM-DD'. */
+export function countingStartDate(m: MonthKey, start: string | null | undefined): string {
+  return `${m}-${String(countingStartDay(m, start)).padStart(2, '0')}`
+}
+
+/** Days that count toward the target: the start day to the month's end. */
+export function countedDays(m: MonthKey, start: string | null | undefined): number {
+  return daysInMonth(m) - countingStartDay(m, start) + 1
+}
+
+/** Counted days gone, counting today's fraction (0 before the start). */
+export function countedElapsed(m: MonthKey, nowMs: number, start: string | null | undefined): number {
+  const { end } = monthRange(m)
+  const from = monthRange(m).start + (countingStartDay(m, start) - 1) * DAY_MS
+  if (nowMs <= from) return 0
+  if (nowMs >= end) return countedDays(m, start)
+  return (nowMs - from) / DAY_MS
+}
+
+/** Counted days left INCLUDING today; before the start, every counted day. */
+export function countedDaysLeft(m: MonthKey, nowMs: number, start: string | null | undefined): number {
+  return Math.min(daysLeft(m, nowMs), countedDays(m, start))
+}
+
+/** The Owner's form value: '' / null = leave as it is; otherwise a real date
+ *  inside the month. */
+export function parseCountingStart(v: unknown, m: MonthKey): { ok: true; value: string | null } | { ok: false } {
+  if (v === null || v === undefined || v === '') return { ok: true, value: null }
+  if (typeof v !== 'string' || !isDateKey(v) || v.slice(0, 7) !== m) return { ok: false }
+  return { ok: true, value: v }
+}
+
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** "Counting from 15 Oct" — null when counting starts on the 1st. */
+export function countingFromLabel(m: MonthKey, start: string | null | undefined): string | null {
+  const day = countingStartDay(m, start)
+  if (day === 1) return null
+  return `Counting from ${day} ${SHORT_MONTHS[Number(m.slice(5, 7)) - 1]}`
+}
+
 // ------------------------------------------------------------ pace
 
 export type PaceStatus = 'on_pace' | 'slightly_behind' | 'behind'
@@ -149,22 +223,31 @@ export type Pace = {
   paid: number
   /** paid ÷ target, as a whole percent; null with no target. */
   pct: number | null
-  /** target × elapsed ÷ days in month. */
+  /** target × counted days gone ÷ counted days (0 before the counting start). */
   expected: number | null
   status: PaceStatus | null
   reached: boolean
+  /** Counted days left including today (every counted day before the start). */
   daysLeft: number
   /** (target − paid) ÷ days left including today, one decimal, rounded up; 0
    *  when reached; null with no target or no days left. */
   neededPerDay: number | null
 }
 
-export function paceFor(target: number | null | undefined, paid: number, m: MonthKey, nowMs: number): Pace {
-  const left = daysLeft(m, nowMs)
+/** `countingStart` ('YYYY-MM-DD', default the 1st) moves where the pace maths
+ *  starts counting; `paid` is the whole month's paid count either way. */
+export function paceFor(
+  target: number | null | undefined,
+  paid: number,
+  m: MonthKey,
+  nowMs: number,
+  countingStart?: string | null,
+): Pace {
+  const left = countedDaysLeft(m, nowMs, countingStart)
   if (target == null || target <= 0) {
     return { target: target ?? null, paid, pct: null, expected: null, status: null, reached: false, daysLeft: left, neededPerDay: null }
   }
-  const expected = (target * elapsedDays(m, nowMs)) / daysInMonth(m)
+  const expected = (target * countedElapsed(m, nowMs, countingStart)) / countedDays(m, countingStart)
   const reached = paid >= target
   let status: PaceStatus
   if (reached || expected <= 0) status = 'on_pace'
@@ -224,10 +307,19 @@ export function cumulativeByDay(accounts: CreditedAccount[], m: MonthKey, nowMs:
   return out
 }
 
-/** The straight target line: target × day ÷ days in month, day 1…N. */
-export function targetLine(target: number, m: MonthKey): number[] {
+/** The straight target line, one end-of-day value per day 1…N: 0 on every day
+ *  before the counting start, then rising evenly over the counted days to the
+ *  full target on the month's last day. With the start on the 1st this is
+ *  target × day ÷ days in month. */
+export function targetLine(target: number, m: MonthKey, countingStart?: string | null): number[] {
   const n = daysInMonth(m)
-  return Array.from({ length: n }, (_, d) => Math.round(((target * (d + 1)) / n) * 10) / 10)
+  const s = countingStartDay(m, countingStart)
+  const counted = n - s + 1
+  return Array.from({ length: n }, (_, d) => {
+    const day = d + 1
+    if (day < s) return 0
+    return Math.round(((target * (day - s + 1)) / counted) * 10) / 10
+  })
 }
 
 // ------------------------------------------------------------ the list

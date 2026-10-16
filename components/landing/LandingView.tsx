@@ -71,6 +71,9 @@ function modeWords(raw: (string | null | undefined)[]): string[] {
   return [...s]
 }
 
+import NewestTuitions from '@/components/seo/NewestTuitions'
+import { newestTuitionLinks } from '@/lib/newestTuitions'
+
 export default async function LandingView({ combo }: { combo: LandingCombo }) {
   const { kind, city, citySlug, masterId, subjectSlug, subjectName } = combo
   const isTutors = kind === 'tutors'
@@ -92,6 +95,9 @@ export default async function LandingView({ combo }: { combo: LandingCombo }) {
   const otherKind = isTutors ? 'tuitions' : 'tutors'
   const counterpart = pages.find((p) => p.kind === otherKind && p.citySlug === citySlug && p.subjectSlug === subjectSlug) ?? null
   const cityHub = (await indexableCityPagesCached().catch(() => [])).find((p) => p.citySlug === citySlug) ?? null
+
+  // "Newest tuitions" in this city × subject (owner, 16 Oct 2026).
+  const newest = await newestTuitionLinks({ city, masterId })
 
   const params = { subject: String(masterId), city }
 
@@ -237,6 +243,8 @@ export default async function LandingView({ combo }: { combo: LandingCombo }) {
         {landingIndexable(combo) && total > 0 && (
           <HubFaq items={landingFaq(kind, subjectName, city, facts)} path={canonical} />
         )}
+
+        <NewestTuitions links={newest} heading={`Newest ${subjectName} tuitions in ${city}`} />
 
         <nav aria-label={isTutors ? 'Tuition jobs for tutors' : 'Tutors for parents'} className="space-y-1.5 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
           <p className="text-xs font-black text-tm-navy">

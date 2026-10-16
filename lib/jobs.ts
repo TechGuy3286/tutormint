@@ -59,6 +59,7 @@ import { tutorAtIncomingCap, refuseIncomingRequest, recordIncoming } from '@/lib
 import { sendMatchEmails } from '@/lib/matchEmail'
 import { revalidateLanding } from '@/lib/landingRevalidate'
 import { queueIndexingUpdate, queueIndexingDelete } from '@/lib/googleIndexing'
+import { matchCuratedCity } from '@/lib/staffAreaCore'
 import { teamParentId } from '@/lib/teamAccount'
 import { buildJobContact } from '@/lib/jobContactCore'
 import { matchVisibility, isOnlineType } from '@/lib/matchChip'
@@ -132,6 +133,9 @@ export type JobInput = {
   contactEmail?: string | null
   contactAddress?: string | null
   contactSocial?: string | null
+  /** Staff only (owner, 16 Oct 2026): the block / landmark split off a typed
+   *  area ("Clifton Block 1" → Clifton + "Block 1"). Stored as jobs.area_landmark. */
+  areaLandmark?: string | null
   /**
    * Duplicate prevention (owner, 6 Oct 2026, item 16). Before publishing, the
    * post is checked against open/paused tuitions that are the same requirement
@@ -405,7 +409,7 @@ export async function createJob(
   // A new open tuition can open a (city, subject) tuition landing page.
   revalidateLanding()
   // Google Indexing API (item 3): published. Never blocks; skipped without credentials.
-  queueIndexingUpdate({ public_slug: (job.public_slug as string) ?? null, city: input.city })
+  queueIndexingUpdate({ public_slug: (job.public_slug as string) ?? null, city: input.city }, { newPost: true })
 
   return { ok: true, id: job.id as string, jobTxId: job.job_tx_id as string }
 }
@@ -433,6 +437,16 @@ export type JobOrigin = 'support' | 'referral' | 'external'
  * It refuses — rather than inventing a recipient — if the team account has not
  * been provisioned (scripts/provision-team-parent.ts).
  */
+/** The curated city (location_cities) a value names — case, spaces and
+ *  punctuation ignored — or null. Staff tuitions use only these (owner, 16 Oct 2026). */
+export async function curatedCityName(raw: string | null | undefined): Promise<string | null> {
+  if (!(raw ?? '').trim()) return null
+  const admin = createAdminClient()
+  if (!admin) return null
+  const { data } = await admin.from('location_cities').select('name')
+  return matchCuratedCity((data ?? []).map((c) => c.name as string), raw)
+}
+
 export async function createTeamJob(
   rawInput: JobInput,
   actor: { id: string; adminRole: AdminRole; email: string | null },
@@ -461,6 +475,11 @@ export async function createTeamJob(
   // cannot forward applicants. Checked before anything is created.
   const number = parseContactNumber(input.contactPhone)
   if (!number.ok) return { ok: false, status: 400, error: number.error }
+  // Staff choose the city from the curated list only (owner, 16 Oct 2026): a
+  // typed or misspelt city is refused, and a curated one is saved as written there.
+  const curatedCity = await curatedCityName(input.city)
+  if (!curatedCity) return { ok: false, status: 400, error: 'Choose the city from the list.' }
+  input.city = curatedCity
 
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
@@ -521,6 +540,7 @@ export async function createTeamJob(
       job_tx_id: jobTxId,
       parent_id: teamId,
       bumped_at: new Date().toISOString(),
+      area_landmark: (input.areaLandmark ?? '').trim().slice(0, 120) || null,
       duplicate_of: existing && input.allowDuplicate ? existing.id : null,
       duplicate_reason: existing && input.allowDuplicate ? (input.duplicateReason ?? '').trim() : null,
       title: cleanTuitionTitle(input.title),
@@ -604,7 +624,7 @@ export async function createTeamJob(
 
   await notifyMatchingTutors(job.id as string, (job.public_slug as string) ?? null, input)
   revalidateLanding()
-  queueIndexingUpdate({ public_slug: (job.public_slug as string) ?? null, city: input.city })
+  queueIndexingUpdate({ public_slug: (job.public_slug as string) ?? null, city: input.city }, { newPost: true })
 
   return {
     ok: true,
@@ -650,6 +670,11 @@ export async function updateTeamJob(
   // without the parent contact number.
   const number = parseContactNumber(input.contactPhone)
   if (!number.ok) return { ok: false, status: 400, error: number.error }
+  // Staff choose the city from the curated list only (owner, 16 Oct 2026): a
+  // typed or misspelt city is refused, and a curated one is saved as written there.
+  const curatedCity = await curatedCityName(input.city)
+  if (!curatedCity) return { ok: false, status: 400, error: 'Choose the city from the list.' }
+  input.city = curatedCity
 
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
@@ -658,7 +683,7 @@ export async function updateTeamJob(
   const { data: existing } = await admin
     .from('jobs')
     .select(
-      'id, parent_id, status, public_slug, job_tx_id, ref_id, title, class_levels, city, area, teaching_mode, budget_min_pkr, budget_max_pkr, description, gender_preference, timings, subjects',
+      'id, parent_id, status, public_slug, job_tx_id, ref_id, title, class_levels, city, area, area_landmark, teaching_mode, budget_min_pkr, budget_max_pkr, description, gender_preference, timings, subjects',
     )
     .eq('id', jobId)
     .maybeSingle()
@@ -678,6 +703,7 @@ export async function updateTeamJob(
     class_level: levelDisplay(input),
     city: input.city,
     area: input.area ?? '',
+    area_landmark: (input.areaLandmark ?? '').trim().slice(0, 120) || null,
     teaching_mode: input.teachingMode || 'Home Tutor',
     budget_pkr: bandFigure(input),
     budget_min_pkr: input.budgetMin ?? null,
@@ -702,6 +728,7 @@ export async function updateTeamJob(
   diff('grades', existing.class_levels, next.class_levels)
   diff('city', existing.city, next.city)
   diff('area', existing.area, next.area)
+  diff('areaLandmark', existing.area_landmark, next.area_landmark)
   diff('jobType', existing.teaching_mode, next.teaching_mode)
   diff('budget', [existing.budget_min_pkr, existing.budget_max_pkr], [next.budget_min_pkr, next.budget_max_pkr])
   diff('genderPreference', existing.gender_preference, next.gender_preference)
@@ -751,6 +778,12 @@ export async function updateTeamJob(
     detail: { reason: reason.trim(), changed, jobTxId: existing.job_tx_id, refId: existing.ref_id },
   })
 
+  // An edit that changes what the page shows tells Google (owner, 16 Oct 2026):
+  // open, or paused (a paused page stays indexable for 60 days).
+  if (changed.some((k) => k !== 'contact') && (existing.status === 'open' || existing.status === 'paused')) {
+    queueIndexingUpdate({ public_slug: (existing.public_slug as string | null) ?? null, city: next.city })
+  }
+
   revalidateLanding()
   return { ok: true, publicSlug: (existing.public_slug as string) ?? null }
 }
@@ -770,7 +803,7 @@ export async function updateJob(
 
   const { data: existing } = await supabase
     .from('jobs')
-    .select('id, parent_id, status')
+    .select('id, parent_id, status, public_slug')
     .eq('id', jobId)
     .maybeSingle()
 
@@ -823,6 +856,9 @@ export async function updateJob(
     targetId: jobId,
     meta: { masterIds: input.masterIds },
   })
+
+  // The page's content changed: tell Google (owner, 16 Oct 2026).
+  queueIndexingUpdate({ public_slug: (existing.public_slug as string | null) ?? null, city: input.city })
 
   return { ok: true }
 }

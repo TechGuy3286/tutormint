@@ -82,7 +82,9 @@ test('approval queue: waiting conditions, order (paid first then oldest), chips'
 // --------------------------------------------- STEP 4: rejection alerts -----
 test('reject requires a reason and sends email + in-app + WhatsApp with NO CNIC data', () => {
   const doc = read('lib/tutorDocuments.ts')
-  assert.match(doc, /decision === 'reject' && reason\.trim\(\)\.length < 3[^]*A reason is required/, 'reason required to reject')
+  // Since Part F (16 Oct 2026) a reject without a reason gets the fallback
+  // "This is not the right document." instead of being refused.
+  assert.match(doc, /decision === 'reject' \? finalRejectReason\(params\.reason\)/, 'a reject always carries a reason')
   assert.match(doc, /id: 'verification_rejected'[^]*reason: reason\.trim\(\), href: reuploadHref/, 'rejection email with reason + re-upload link')
   assert.match(doc, /settings#identity/, 'in-app + email link straight to the re-upload step')
   // the WhatsApp message (admin UI) uses the item name + reason + link — never a CNIC number/image
@@ -95,8 +97,8 @@ test('reject requires a reason and sends email + in-app + WhatsApp with NO CNIC 
   const wa = ui.slice(ui.indexOf('const whatsappHref = (() => {'), ui.indexOf('})()', ui.indexOf('const whatsappHref = (() => {')))
   assert.ok(wa.length > 0 && !/cnic_number|cnicNumber|Masked/.test(wa), 'no CNIC number in the WhatsApp message')
   assert.match(read('app/admin/tutors/[id]/page.tsx'), /cnicNumberMasked=\{maskCnicHeavy\(/, 'the card only ever gets the heavily masked number')
-  assert.match(ui, /REJECT_PRESETS/, 'reason picker: short list')
-  assert.match(ui, /<textarea/, 'reason picker: Other free text')
+  assert.match(ui, /<RejectReasonPicker/, 'reason picker: quick reasons')
+  assert.match(read('components/admin/RejectReasonPicker.tsx'), /<textarea/, 'reason picker: optional free text')
 })
 
 test('a re-upload returns the member to the queue (the statuses it writes are the waiting ones)', () => {

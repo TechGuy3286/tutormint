@@ -6,6 +6,8 @@ import { Sparkles, Loader2, Info, ShieldCheck, Phone, UserRound, Clock, School }
 import { submitSignal } from '@/lib/submit'
 import TaxonomySelector from '@/components/TaxonomySelector'
 import WhereHowWhen from '@/components/forms/WhereHowWhen'
+import { checkTuitionTitle } from '@/lib/tuitionTitleCheck'
+import { knownSchools } from '@/lib/schoolJobsCore'
 import TimeSlotGrid from '@/components/forms/TimeSlotGrid'
 import { FormChecklist, ChecklistStatus } from '@/components/forms/FormChecklist'
 import { checklistReady, type ChecklistItem } from '@/lib/formChecklist'
@@ -21,6 +23,9 @@ import { loadFormDraft, saveFormDraft, clearFormDraft } from '@/lib/formDraft'
 import { TextLinesSkeleton } from '@/components/Skeletons'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { parseContactNumber } from '@/lib/tuitionContactCore'
+
+/** Known schools for the staff title check (the built-in chains). */
+const KNOWN_SCHOOLS = knownSchools()
 
 // THE ONE post-a-tuition form (owner, 11 Sep 2026). The parent's post-a-job form
 // and /admin/jobs/new were near-duplicate copies that had already drifted (two
@@ -53,6 +58,8 @@ export type PostTuitionValues = {
   classLevel: string
   city: string
   area: string
+  /** Staff only (owner, 16 Oct 2026): "Block 1", "Near Taj Complex". */
+  areaLandmark: string
   teachingMode: string
   budgetMin: string
   budgetMax: string
@@ -91,6 +98,7 @@ export type PostTuitionPayload = {
   classLevels: string[]
   city: string
   area: string
+  areaLandmark: string | null
   teachingMode: string
   budgetMin: string | null
   budgetMax: string | null
@@ -125,6 +133,7 @@ const EMPTY: PostTuitionValues = {
   classLevel: '',
   city: '',
   area: '',
+  areaLandmark: '',
   teachingMode: '',
   budgetMin: '',
   budgetMax: '',
@@ -318,6 +327,11 @@ export default function PostTuitionForm({
   ]
   const postReady = checklistReady(checklistItems)
 
+  // Staff title check (owner, 16 Oct 2026) — warnings, never a block.
+  const titleWarnings = adminExtras
+    ? checkTuitionTitle({ title: v.title, school: v.school, jobType: v.teachingMode, levels: v.levels, known: KNOWN_SCHOOLS })
+    : []
+
   // ------------------------------------------------------------ generate ---
   const write = async () => {
     setWriting(true)
@@ -392,6 +406,7 @@ export default function PostTuitionForm({
         classLevel: collapseLevels(v.levels) || v.classLevel,
         city: v.city,
         area: v.area,
+        areaLandmark: adminExtras ? v.areaLandmark.trim() || null : null,
         teachingMode: v.teachingMode,
         budgetMin: v.budgetMin || null,
         budgetMax: v.budgetMax || null,
@@ -546,8 +561,11 @@ export default function PostTuitionForm({
             area={v.area}
             band={band}
             staff={adminExtras}
-            onCity={(x) => setV((p) => ({ ...p, city: x, area: '' }))}
+            onCity={(x) => setV((p) => ({ ...p, city: x, area: '', areaLandmark: '' }))}
             onArea={(x) => set('area', x)}
+            landmark={v.areaLandmark}
+            onLandmark={(x) => set('areaLandmark', x)}
+            onSplit={(a, l) => setV((p) => ({ ...p, area: a, areaLandmark: p.areaLandmark.trim() ? p.areaLandmark : l }))}
             onBand={(x) => {
               const r = bandRange(x)
               setV((p) => ({ ...p, budgetMin: r.min, budgetMax: r.max }))
@@ -645,6 +663,27 @@ export default function PostTuitionForm({
               className={FIELD}
             />
           </label>
+          {/* Staff title check (owner, 16 Oct 2026): warnings only — fix with one
+              tap or post anyway. A fix changes the form's own field, so "Write
+              this for me" then builds the title from the corrected value. */}
+          {adminExtras && titleWarnings.length > 0 && (
+            <ul role="status" className="space-y-1.5 rounded-xl bg-tm-tint-gold p-3">
+              {titleWarnings.map((w) => (
+                <li key={w.kind + w.message} className="flex flex-wrap items-center gap-2 text-[11px] font-semibold text-tm-gold-ink">
+                  <span>{w.message}</span>
+                  {w.fix && (
+                    <button
+                      type="button"
+                      onClick={() => set(w.fix!.field, w.fix!.value)}
+                      className="inline-flex min-h-[32px] items-center rounded-full border border-tm-gold-ink/40 bg-white px-3 text-[11px] font-bold text-tm-gold-ink"
+                    >
+                      {w.fix.label}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
 
           <label className="block space-y-1">
             <span className={LABEL}>Description</span>

@@ -51,6 +51,7 @@ const TeamJobBody = z.object({
   contactEmail: z.string().max(200).nullish(),
   contactAddress: z.string().max(300).nullish(),
   contactSocial: z.string().max(200).nullish(),
+  areaLandmark: z.string().max(120).nullish(),
   // Duplicate prevention (item 16): "Post anyway" + the staff member's reason.
   allowDuplicate: z.boolean().optional(),
   duplicateReason: z.string().max(300).nullish(),
@@ -85,6 +86,7 @@ function parseInput(body: z.infer<typeof TeamJobBody>): JobInput {
     contactEmail: str(body.contactEmail),
     contactAddress: str(body.contactAddress),
     contactSocial: str(body.contactSocial),
+    areaLandmark: str(body.areaLandmark),
     allowDuplicate: !!body.allowDuplicate,
     duplicateReason: str(body.duplicateReason),
   }

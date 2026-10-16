@@ -91,18 +91,18 @@ export function classifyTokenError(message: string): string {
 // ---------------------------------------------------------------------------
 // The queue's rules (owner, 12 Oct 2026) — pure, unit-tested.
 //
-// WHICH NOTICE. Google is told a tuition page is GONE (URL_DELETED) when the
-// tuition stops taking applications — paused (the 15-day rule, no contact
-// number, staff, the member's own pause), closed, hired or merged — and that it
-// is NEW or BACK (URL_UPDATED) when it is posted, resumed or refreshed.
+// WHICH NOTICE (owner, 16 Oct 2026). URL_UPDATED when a tuition is posted,
+// edited, resumed, refreshed — and PAUSED: a paused page still exists, shows
+// "no longer accepting applications" and stays indexable for 60 days. GONE
+// (URL_DELETED) only when it is closed, hired or merged.
 //
-// THE DAILY ALLOWANCE. Google allows 200 notices a day. The queue never sends
-// more; what is left waits for the next day.
+// THE DAILY ALLOWANCE. Google allows 200 notices a day, counted from midnight
+// PACIFIC time. The queue never sends more; what is left waits for the next day.
 //
-// WHO GOES FIRST. New posts and resumes (URL_UPDATED) before removals
-// (URL_DELETED): a new job is worth nothing until Google knows about it, while a
-// paused one already carries noindex and no JobPosting. Within a kind, oldest
-// first.
+// WHO GOES FIRST. Priority (new posts, then status changes and edits, then
+// batch re-sends), then URL_UPDATED before URL_DELETED, then oldest first.
+// RETRIES. A failure is tried again with backoff (retryDelayMs); a quota
+// refusal waits for the next Pacific midnight.
 //
 // ONE NOTICE PER ADDRESS. When an address has several notices waiting, only the
 // NEWEST says what is true now (paused, then resumed: it is live). The older
@@ -112,12 +112,76 @@ export const INDEXING_DAILY_LIMIT = 200
 
 export type IndexingKind = 'URL_UPDATED' | 'URL_DELETED'
 
-/** The notice a tuition's status calls for. */
+/**
+ * The notice a tuition's status calls for. OPEN and PAUSED are URL_UPDATED
+ * (owner, 16 Oct 2026 — a paused page still exists and stays indexable for 60
+ * days, so Google is told it CHANGED, not that it is gone). Closed and hired
+ * are URL_DELETED. A merged repeat is sent URL_DELETED by its own caller.
+ */
 export function indexingKindForStatus(status: string | null | undefined): IndexingKind {
-  return (status ?? '').trim() === 'open' ? 'URL_UPDATED' : 'URL_DELETED'
+  const s = (status ?? '').trim() || 'open'
+  return s === 'closed' || s === 'hired' ? 'URL_DELETED' : 'URL_UPDATED'
 }
 
-export type QueuedNotice = { id: number; url: string; kind: IndexingKind; created_at: string }
+/**
+ * Queue priority (owner, 16 Oct 2026 — "newest posts prioritised"): a new post
+ * goes before everything else; a status change or an edit before a batch
+ * re-send; within a priority, oldest first.
+ */
+export const PRIORITY_NEW_POST = 2
+export const PRIORITY_CHANGE = 1
+export const PRIORITY_BATCH = 0
+
+/** Retries: a failure that is not Google's daily quota is tried again after
+ *  5 min, 10, 20, 40, 80 … (capped at a day), at most MAX_ATTEMPTS times. */
+export const MAX_ATTEMPTS = 6
+export function retryDelayMs(attempts: number): number {
+  const n = Math.max(1, attempts)
+  return Math.min(5 * 60_000 * 2 ** (n - 1), 24 * 3_600_000)
+}
+
+export function isQuotaError(message: string | null | undefined): boolean {
+  return /quota/i.test(message ?? '')
+}
+
+/**
+ * The start of Google's quota day. The Indexing API's "Publish requests per
+ * day" resets at midnight PACIFIC time, not UTC — counting a UTC day let a new
+ * UTC day start while Google's day still ran, which is where the "Quota
+ * exceeded" refusals came from. Computed with the runtime's time-zone data, so
+ * daylight saving is right without a table.
+ */
+export function pacificDayStart(now = new Date()): Date {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(now)
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0)
+  // Time elapsed since local midnight, taken off "now".
+  const sinceMidnight = (get('hour') * 3600 + get('minute') * 60 + get('second')) * 1000 + now.getMilliseconds()
+  return new Date(now.getTime() - sinceMidnight)
+}
+
+/** The next Pacific midnight — when a quota refusal is tried again. */
+export function nextPacificDayStart(now = new Date()): Date {
+  return pacificDayStart(new Date(pacificDayStart(now).getTime() + 26 * 3_600_000))
+}
+
+export type QueuedNotice = {
+  id: number
+  url: string
+  kind: IndexingKind
+  created_at: string
+  priority?: number | null
+  /** A retry waits until this instant. */
+  next_attempt_at?: string | null
+}
 
 /** sent_at written on a superseded notice: a fixed past instant, so it is
  *  never "sent today" and never "waiting". last_error says 'superseded'. */
@@ -125,10 +189,13 @@ export const SUPERSEDED_AT = '1970-01-01T00:00:00.000Z'
 export const SUPERSEDED_NOTE = 'superseded'
 
 export function planDrain(
-  pending: QueuedNotice[],
+  allPending: QueuedNotice[],
   sentToday: number,
   max = INDEXING_DAILY_LIMIT,
+  now = Date.now(),
 ): { send: QueuedNotice[]; superseded: number[]; room: number; waiting: number } {
+  // A retry that is not due yet is neither sent nor superseded this run.
+  const pending = allPending.filter((n) => !n.next_attempt_at || new Date(n.next_attempt_at).getTime() <= now)
   const newer = (a: QueuedNotice, b: QueuedNotice) =>
     a.created_at === b.created_at ? a.id > b.id : new Date(a.created_at).getTime() > new Date(b.created_at).getTime()
   const latest = new Map<string, QueuedNotice>()
@@ -143,10 +210,40 @@ export function planDrain(
   }
   const ordered = [...latest.values()].sort(
     (a, b) =>
+      (b.priority ?? 0) - (a.priority ?? 0) ||
       (a.kind === 'URL_UPDATED' ? 0 : 1) - (b.kind === 'URL_UPDATED' ? 0 : 1) ||
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime() ||
       a.id - b.id,
   )
   const room = Math.max(0, Math.min(max, INDEXING_DAILY_LIMIT - Math.max(0, sentToday)))
   return { send: ordered.slice(0, room), superseded, room, waiting: ordered.length }
+}
+
+/**
+ * The last `days` Google days (Pacific), oldest first, with the requests that
+ * worked and the ones that failed — the admin health box's chart (owner,
+ * 16 Oct 2026). A quota refusal counts as failed here (it is shown) although it
+ * does not count against the 200.
+ */
+export function indexingDays(
+  attempts: { attempted_at: string; ok: boolean }[],
+  now = new Date(),
+  days = 7,
+): { day: string; ok: number; failed: number }[] {
+  const label = (d: Date) =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d)
+  const out: { day: string; ok: number; failed: number }[] = []
+  let start = pacificDayStart(now)
+  for (let i = 0; i < days; i++) {
+    out.unshift({ day: label(start), ok: 0, failed: 0 })
+    start = pacificDayStart(new Date(start.getTime() - 2 * 3_600_000))
+  }
+  const byDay = new Map(out.map((d) => [d.day, d]))
+  for (const a of attempts) {
+    const d = byDay.get(label(new Date(a.attempted_at)))
+    if (!d) continue
+    if (a.ok) d.ok++
+    else d.failed++
+  }
+  return out
 }

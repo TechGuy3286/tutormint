@@ -18,6 +18,7 @@ import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
 import { formatName } from '@/lib/formatName'
+import { finalRejectReason, rejectionNoticeBody } from '@/lib/rejectReasonsCore'
 import { closeOpenUnlocks, promoteReview, rejectReview } from '@/lib/docLocks'
 import {
   type ParentDocFacts,
@@ -166,7 +167,10 @@ export async function reviewParentDocument(params: {
   reason: string
 }): Promise<{ ok: true; verified: boolean } | { ok: false; status: number; error: string }> {
   const { actor, parentId, item, decision } = params
-  const reason = params.reason.trim()
+  // A CNIC reject always carries a reason: the quick reason / note staff gave,
+  // else the fallback "This is not the right document." (owner, Part F). The
+  // typed address still needs a written reason.
+  const reason = decision === 'reject' && item === 'cnic' ? finalRejectReason(params.reason) : params.reason.trim()
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes.' }
   if (decision === 'reject' && reason.length < 3) {
@@ -241,7 +245,7 @@ export async function reviewParentDocument(params: {
       userId: parentId,
       kind: 'verification_rejected',
       title: `Your ${label} needs another look`,
-      body: `Your ${label} was not approved: ${reason} Please correct it on your verification page.`,
+      body: rejectionNoticeBody(label, reason, 'Please correct it on your verification page.'),
       href: verifyHref,
     })
     const mailed = await deliverEmail(
@@ -344,7 +348,7 @@ async function decideParentCnicRereview(params: {
     title: approved ? 'Your new CNIC is approved' : 'Your new CNIC was not approved',
     body: approved
       ? 'Your new CNIC photos are approved and are now the ones on record.'
-      : `Your new CNIC photos were not approved: ${reason} Your earlier approved CNIC stays on record.`,
+      : rejectionNoticeBody('new CNIC photos', reason, 'Your earlier approved CNIC stays on record.'),
     href: '/parent/verify',
   })
   // Email partners for the in-app notice (owner, 15 Oct 2026).

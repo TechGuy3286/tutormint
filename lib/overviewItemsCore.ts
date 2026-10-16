@@ -71,7 +71,9 @@ export const OVERVIEW_ITEMS: Record<OverviewItemKey, OverviewItemMeta> = {
   'todo-uncontacted': { title: 'Unpaid signups not yet contacted', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
   'todo-stuck': { title: 'Stuck in onboarding', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
   'todo-stuck-sent': { title: 'Follow-up sent', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
-  'todo-payments': { title: 'Payments waiting over 1 hour', screen: 'payments', noun: ['payment', 'payments'] },
+  // Checkouts a member opened and never completed (owner, 16 Oct 2026) — not
+  // payments to approve. Rules: lib/startedPaymentCore.
+  'todo-payments': { title: "Started payment, didn't finish", screen: 'payments', noun: ['checkout', 'checkouts'] },
   // Renamed from "Due from PayPro" (owner, 13 Oct 2026): the money is paid by
   // customers and PayPro has not yet paid it out to our bank.
   'todo-due': { title: 'Paid by customers, waiting for PayPro payout', screen: 'finance', noun: ['order', 'orders'] },

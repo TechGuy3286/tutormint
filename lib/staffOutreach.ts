@@ -33,6 +33,8 @@ import {
   type TutorScope,
 } from '@/lib/staffOutreachCore'
 import { isQualifyingPayment } from '@/lib/staffTargetsCore'
+import { loadStartedNotFinished } from '@/lib/startedPayment'
+import { fillPaymentNotFinished, payAgainLink, PAYMENT_NOT_FINISHED_FALLBACK, PAYMENT_NOT_FINISHED_KEY } from '@/lib/startedPaymentCore'
 
 type Actor = { id: string; adminRole: AdminRole; email?: string | null }
 
@@ -51,6 +53,9 @@ export type UnpaidRow = {
   waHref: string | null
   telHref: string | null
   lastContact: { outcome: ContactOutcome; note: string | null; staffEmail: string | null; at: string } | null
+  /** A checkout started and not finished (owner, 16 Oct 2026): its package and
+   *  when; the WhatsApp then carries the payment_not_finished message. */
+  startedPayment: { planCode: string | null; startedAt: string } | null
 }
 
 /** Tutors who signed up in the last 30 days and have not paid the
@@ -92,11 +97,21 @@ export async function loadUnpaidSignups(now = new Date(), scope: TutorScope = 'r
     }
     if (approvedFee.size === 0) return []
   }
+  // Checkouts started and not finished — the chip, and the WhatsApp text for those rows.
+  const started = await loadStartedNotFinished(now).catch(() => [])
+  const startedBy = new Map<string, { planCode: string | null; startedAt: string }>()
+  for (const s of started) if (s.userId && !startedBy.has(s.userId)) startedBy.set(s.userId, { planCode: s.planCode, startedAt: s.createdAt })
+  if (scope === 'started_payment' && startedBy.size === 0) return []
+  let notFinishedBody = PAYMENT_NOT_FINISHED_FALLBACK
+  if (startedBy.size > 0) {
+    const { data: tpl } = await admin.from('admin_message_templates').select('body').eq('key', PAYMENT_NOT_FINISHED_KEY).maybeSingle()
+    if ((tpl?.body as string | undefined)?.trim()) notFinishedBody = tpl!.body as string
+  }
   const cols = 'id, full_name, city, created_at, profile_completion, phone_number, whatsapp, is_suspended, is_banned, is_seed, is_team_account, admin_role'
   const profiles =
-    scope === 'paid_unfinished'
+    scope === 'paid_unfinished' || scope === 'started_payment'
       ? (
-          await pageAllIn([...approvedFee], (part, from, to) =>
+          await pageAllIn([...(scope === 'started_payment' ? startedBy.keys() : approvedFee)], (part, from, to) =>
             admin.from('profiles').select(cols).eq('role', 'tutor').in('id', part).order('id').range(from, to),
           )
         ).sort((a, b) => Date.parse(b.created_at as string) - Date.parse(a.created_at as string))
@@ -151,6 +166,7 @@ export async function loadUnpaidSignups(now = new Date(), scope: TutorScope = 'r
         feeStamped: !!t.verified_fee_paid_at,
         feeApproved: approvedFee.has(p.id as string),
         onboarded: !!t.onboarded_at,
+        startedPayment: startedBy.has(p.id as string),
       },
       scope,
       now.getTime(),
@@ -169,9 +185,17 @@ export async function loadUnpaidSignups(now = new Date(), scope: TutorScope = 'r
       missing,
       completion: (p.profile_completion as number | null) ?? 0,
       msisdn,
-      waHref: msisdn ? waLink(msisdn, unpaidHelpMessage(firstNameOf(name), stoppedAt)) : null,
+      waHref: msisdn
+        ? waLink(
+            msisdn,
+            startedBy.has(p.id as string)
+              ? fillPaymentNotFinished(notFinishedBody, { name, payLink: payAgainLink(startedBy.get(p.id as string)!.planCode) })
+              : unpaidHelpMessage(firstNameOf(name), stoppedAt),
+          )
+        : null,
       telHref: msisdn ? `tel:+${msisdn}` : null,
       lastContact: last.get(p.id as string) ?? null,
+      startedPayment: startedBy.get(p.id as string) ?? null,
     })
   }
   return out

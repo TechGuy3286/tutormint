@@ -4,7 +4,7 @@ import { loadLocationReview } from '@/lib/locationReview'
 
 import LocationsReviewClient from './LocationsReviewClient'
 import StaffAddedAreas from './StaffAddedAreas'
-import { loadStaffAddedAreas } from '@/lib/staffAreas'
+import { loadStaffAddedAreas, staffAreaSuggestions } from '@/lib/staffAreas'
 import { addedByLine } from '@/lib/staffAreaCore'
 import { formatDate } from '@/lib/datetime'
 
@@ -25,7 +25,7 @@ export const dynamic = 'force-dynamic'
 export default async function AdminLocationsPage() {
   await requireAdminRole(...SCREEN_ACCESS.seo)
 
-  const [board, unmapped, added] = await Promise.all([loadLocationReview(), unmappedLocations(), loadStaffAddedAreas()])
+  const [board, unmapped, added, suggestions] = await Promise.all([loadLocationReview(), unmappedLocations(), loadStaffAddedAreas(), staffAreaSuggestions()])
   const cities = unmapped.filter((r) => r.kind === 'city')
 
   return (
@@ -48,6 +48,7 @@ export default async function AdminLocationsPage() {
       <StaffAddedAreas
         areas={added.map((a) => ({ id: a.id, name: a.name, city: a.city, line: addedByLine(a.addedBy, a.addedAt ? formatDate(a.addedAt) : null) }))}
         areasByCity={board.areasByCity}
+        suggestions={suggestions}
       />
 
       <section className="space-y-2">

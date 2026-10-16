@@ -110,6 +110,10 @@ export type TuitionIndexFacts = {
   isFixture: boolean
   /** Trimmed length of the parent's description; a very short one is too thin. */
   descriptionLength?: number | null
+  /** jobs.paused_at — a paused tuition is indexable for 60 days after it. */
+  pausedAt?: string | null
+  /** For tests; defaults to Date.now(). */
+  now?: number
 }
 
 /**
@@ -123,7 +127,13 @@ export type TuitionIndexFacts = {
  */
 export function tuitionIndexable(f: TuitionIndexFacts): boolean {
   if (f.isFixture) return false
-  if ((f.status ?? '') !== 'open') return false
+  const status = (f.status ?? '').trim()
+  // Paused stays indexable for 60 days after it was paused (owner, 16 Oct 2026;
+  // lib/tuitionStatus PAUSED_INDEXABLE_DAYS — kept here as a literal because
+  // this module has no imports).
+  const pausedRecently =
+    status === 'paused' && !!f.pausedAt && (f.now ?? Date.now()) - new Date(f.pausedAt).getTime() < 60 * 86_400_000
+  if (status !== 'open' && !pausedRecently) return false
   if (f.descriptionLength != null && f.descriptionLength < MIN_TUITION_DESC) return false
   return true
 }

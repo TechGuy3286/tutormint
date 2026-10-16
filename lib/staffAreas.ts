@@ -19,6 +19,7 @@ import type { AdminRole } from '@/lib/adminAuth'
 import { AREA_ALIAS_TAG } from '@/lib/areaAliases'
 import { revalidateLanding } from '@/lib/landingRevalidate'
 import { cleanAreaName } from '@/lib/locationCleanCore'
+import { splitAreaLandmark } from '@/lib/staffAreaCore'
 import { formatName } from '@/lib/formatName'
 
 export type Actor = { id: string; adminRole: AdminRole; email?: string | null }
@@ -150,4 +151,75 @@ export async function mergeStaffArea(input: { areaId: number; intoAreaId: number
   revalidateTag(AREA_ALIAS_TAG, 'max')
   revalidateLanding()
   return { ok: true, from: from.name as string, into: into.name as string }
+}
+
+// ---------------------------------------------------------------------------
+// Suggestions for staff-added areas (owner, 16 Oct 2026).
+//
+// Many areas staff added while posting are a curated area with a block or
+// landmark around it ("Clifton Block 1"). For each, Admin → Locations suggests
+// "Same as <area>" and the landmark ("Block 1"); the Owner approves with one
+// click, or approves all. Approving = the existing merge (the added name
+// becomes a spelling of the area, the added row is retired, never deleted)
+// PLUS jobs.area_landmark on the tuitions saved with that name in that city.
+// Tuitions keep their URLs and their saved area text; only the area link (via
+// the spelling) and the landmark change.
+
+export type AreaSuggestion = { areaId: number; name: string; city: string; intoAreaId: number; intoName: string; landmark: string }
+
+/** The suggestion for each staff-added area that names a curated (owner-list) area. */
+export async function staffAreaSuggestions(): Promise<AreaSuggestion[]> {
+  const admin = createAdminClient()
+  if (!admin) return []
+  const added = await loadStaffAddedAreas()
+  if (added.length === 0) return []
+  const cityIds = [...new Set(added.map((a) => a.cityId))]
+  const { data: curated } = await admin
+    .from('location_areas')
+    .select('id, name, city_id, created_by')
+    .in('city_id', cityIds)
+    .is('removed_at', null)
+    .is('created_by', null)
+  const byCity = new Map<number, { id: number; name: string }[]>()
+  for (const c of curated ?? []) {
+    const list = byCity.get(c.city_id as number) ?? []
+    list.push({ id: c.id as number, name: c.name as string })
+    byCity.set(c.city_id as number, list)
+  }
+  const out: AreaSuggestion[] = []
+  for (const a of added) {
+    const list = byCity.get(a.cityId) ?? []
+    const split = splitAreaLandmark(a.city, a.name, list.map((l) => l.name))
+    if (!split) continue
+    const into = list.find((l) => l.name === split.area)
+    if (!into) continue
+    out.push({ areaId: a.id, name: a.name, city: a.city, intoAreaId: into.id, intoName: into.name, landmark: split.landmark })
+  }
+  return out
+}
+
+/** Approve one suggestion: merge, then the landmark on that city's tuitions saved
+ *  with the added name. Audited (location.alias by the merge, location.landmark here). */
+export async function approveAreaSuggestion(areaId: number, actor: Actor): Promise<{ ok: true; from: string; into: string; landmark: string; tuitions: number } | { ok: false; status: 400 | 503; error: string }> {
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, status: 503, error: NOT_NOW }
+  const s = (await staffAreaSuggestions()).find((x) => x.areaId === areaId)
+  if (!s) return { ok: false, status: 400, error: 'There is no suggestion for that area any more. Reload the page.' }
+  const merged = await mergeStaffArea({ areaId: s.areaId, intoAreaId: s.intoAreaId }, actor)
+  if (!merged.ok) return merged
+  // The tuitions saved with exactly this text in this city (case ignored) that
+  // have no landmark yet. jobs.area itself is not rewritten.
+  const { data: jobs } = await admin.from('jobs').select('id, area, area_landmark').ilike('city', s.city).ilike('area', s.name.replace(/[%_\\]/g, '\\$&'))
+  const ids = (jobs ?? []).filter((j) => !((j.area_landmark as string | null) ?? '').trim()).map((j) => j.id as string)
+  if (ids.length > 0) await admin.from('jobs').update({ area_landmark: s.landmark }).in('id', ids)
+  await logAdminAction({
+    actorId: actor.id,
+    actorRole: actor.adminRole,
+    actorEmail: actor.email ?? null,
+    action: 'location.landmark',
+    targetType: 'location',
+    targetId: String(s.intoAreaId),
+    detail: { value: s.name, area: s.intoName, landmark: s.landmark, city: s.city, tuitions: ids.length, jobIds: ids.slice(0, 200) },
+  })
+  return { ok: true, from: merged.from, into: merged.into, landmark: s.landmark, tuitions: ids.length }
 }

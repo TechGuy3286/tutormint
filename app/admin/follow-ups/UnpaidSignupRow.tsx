@@ -82,6 +82,12 @@ export default function UnpaidSignupRow({
         {row.stoppedAt && <span className="font-bold text-tm-red"> · Stopped at: {row.stoppedAt}</span>}
       </p>
 
+      {row.startedPayment && (
+        <p className="text-xs font-bold text-tm-red">
+          Started payment, didn&apos;t finish · {formatDateTime(row.startedPayment.startedAt)}
+        </p>
+      )}
+
       {showMissing && row.missing.length > 0 && (
         <p className="text-xs text-slate-700">
           <span className="font-bold">Still to do:</span> {row.missing.join(', ')}
@@ -99,7 +105,7 @@ export default function UnpaidSignupRow({
         <FollowUpActions
           memberId={row.id}
           source="unpaid"
-          templateKey="unpaid_help_message"
+          templateKey={row.startedPayment ? 'payment_not_finished' : 'unpaid_help_message'}
           waHref={row.waHref}
           telHref={row.telHref}
           tab={followUp.tab}

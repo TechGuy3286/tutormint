@@ -22,6 +22,7 @@ import { notify } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
 import { TUITION_LIVE_DAYS, TUITION_LIVE_LABEL } from '@/lib/tuitionStatus'
 import { enqueueIndexing, tuitionUrl } from '@/lib/googleIndexing'
+import { PRIORITY_CHANGE } from '@/lib/googleIndexingCore'
 import { pageAll } from '@/lib/pageAll'
 import { planPauseBatch, nextBatchAt } from '@/lib/tuitionPauseCore'
 
@@ -106,8 +107,9 @@ export async function pauseStaleTuitions(now = new Date()): Promise<{
 
   // Google is told through the queue, which the 5-minute cron drains within
   // 200 a day (lib/googleIndexing.drainIndexingQueue).
-  // Paused: URL_DELETED (owner, 12 Oct 2026) — resuming sends URL_UPDATED.
-  await enqueueIndexing(urls, 'URL_DELETED')
+  // Paused: URL_UPDATED (owner, 16 Oct 2026) — the page still exists, shows
+  // "no longer accepting applications" and stays indexable for 60 days.
+  await enqueueIndexing(urls, 'URL_UPDATED', PRIORITY_CHANGE)
 
   return { paused: ids.length, backlogPaused, backlogLeft: plan.backlogLeft, ids, queuedForGoogle: urls.length }
 }

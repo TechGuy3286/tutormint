@@ -55,6 +55,7 @@ export default function AdminJobEditForm({
         contactEmail: payload.contactEmail,
         contactAddress: payload.contactAddress,
         contactSocial: payload.contactSocial,
+        areaLandmark: payload.areaLandmark,
       }),
     })
     const json = (await res.json().catch(() => ({}))) as { error?: string }

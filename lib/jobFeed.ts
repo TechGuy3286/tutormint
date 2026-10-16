@@ -340,6 +340,8 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       class_level: levelDisplay,
       city: (j.city as string) ?? null,
       area: canonArea(areaAliases, j.city as string | null, j.area as string | null) || null,
+      // "Block 1" — staff-split off the typed area (owner, 16 Oct 2026).
+      area_landmark: (j.area_landmark as string | null) ?? null,
       teaching_mode: (j.teaching_mode as string) ?? null,
       budget_pkr: (j.budget_pkr as number) ?? null,
       budget_min_pkr: (j.budget_min_pkr as number) ?? null,
@@ -349,6 +351,8 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       // The auto-pause clock base for JobPosting validThrough (PR89 Part C):
       // coalesce(resumed_at, created_at) + 15 days is when the tuition auto-pauses.
       resumed_at: (j.resumed_at as string | null) ?? null,
+      // When it was paused: a paused tuition stays indexable for 60 days after.
+      paused_at: (j.paused_at as string | null) ?? null,
       bumped_at: (j.bumped_at as string | null) ?? null,
       refreshed_at: (j.refreshed_at as string | null) ?? null,
       merged_into: (j.merged_into as string | null) ?? null,
@@ -373,7 +377,7 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
 const SUBJECT_MATCH = 'js_match:job_subjects!inner(master_id)'
 
 const JOB_COLUMNS =
-  'id, job_tx_id, ref_id, public_slug, title, subjects, class_level, class_levels, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, description, created_at, resumed_at, bumped_at, refreshed_at, merged_into, grade_subjects, is_featured, under_review, parent_id, status, gender_preference, timings'
+  'id, job_tx_id, ref_id, public_slug, title, subjects, class_level, class_levels, city, area, area_landmark, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, description, created_at, resumed_at, paused_at, bumped_at, refreshed_at, merged_into, grade_subjects, is_featured, under_review, parent_id, status, gender_preference, timings'
 
 /**
  * Open jobs that match a tutor's subjects, their city first.
@@ -1001,6 +1005,10 @@ export async function similarOpenTuitions(
    *  from another tuition page (item 12's "0 pages with 0 inbound links").
    *  Without it (older callers) the tiers fall back to newest-first. */
   bumpedAt: string | null = null,
+  /** 'match-first' (a paused/closed/hired page, owner 16 Oct 2026): the same
+   *  city AND the same subject or level first, then the rest of the city —
+   *  newest first, live only. 'neighbours' (default): the open page's order. */
+  order: 'neighbours' | 'match-first' = 'neighbours',
 ): Promise<JobCardData[]> {
   const supabase = await createClient()
   const collected = new Map<string, Record<string, unknown>>()
@@ -1039,7 +1047,37 @@ export async function similarOpenTuitions(
   }
 
   const levels = (classLevels ?? []).filter(Boolean)
-  if (city) {
+  if (city && order === 'match-first') {
+    const [bySubject, byLevel] = await Promise.all([
+      masterIds.length > 0
+        ? supabase
+            .from('jobs')
+            .select(`${JOB_COLUMNS}, ${SUBJECT_MATCH}`)
+            .eq('status', 'open')
+            .neq('id', jobId)
+            .ilike('city', city)
+            .in('js_match.master_id', masterIds)
+            .order('bumped_at', { ascending: false })
+            .limit(limit + 1)
+        : Promise.resolve({ data: [] as unknown[] }),
+      levels.length > 0
+        ? openInCity().overlaps('class_levels', levels).order('bumped_at', { ascending: false }).limit(limit + 1)
+        : Promise.resolve({ data: [] as unknown[] }),
+    ])
+    // Interleave the two matches so a subject match and a level match both show.
+    const a = (bySubject.data ?? []) as unknown as Record<string, unknown>[]
+    const b = (byLevel.data ?? []) as unknown as Record<string, unknown>[]
+    const mixed: Record<string, unknown>[] = []
+    for (let i = 0; i < Math.max(a.length, b.length); i++) {
+      if (a[i]) mixed.push(a[i])
+      if (b[i]) mixed.push(b[i])
+    }
+    add(mixed)
+    if (collected.size < limit) {
+      const { data } = await openInCity().order('bumped_at', { ascending: false }).limit(limit + 1)
+      add(data as unknown as Record<string, unknown>[])
+    }
+  } else if (city) {
     // City first (item 12): the immediate neighbours in the city are ALWAYS in,
     // which is what guarantees every tuition page is linked from another one.
     add(await neighbours(1, (q) => q))

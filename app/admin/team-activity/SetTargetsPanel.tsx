@@ -14,12 +14,26 @@ import { useToast } from '@/components/ui/Toast'
 
 type Row = { staffId: string; name: string; onList: boolean; target: number | null; lastMonth: number | null }
 
-export default function SetTargetsPanel({ month, monthLabel, rows }: { month: string; monthLabel: string; rows: Row[] }) {
+export default function SetTargetsPanel({
+  month,
+  monthLabel,
+  rows,
+  countingStarts,
+}: {
+  month: string
+  monthLabel: string
+  rows: Row[]
+  /** The month's "Counting starts" date, 'YYYY-MM-DD' (the 1st by default). */
+  countingStarts: string
+}) {
   const router = useRouter()
   const toast = useToast()
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(rows.map((r) => [r.staffId, r.target == null ? '' : String(r.target)])),
   )
+  const [start, setStart] = useState(countingStarts)
+  const firstDay = `${month}-01`
+  const lastDay = `${month}-${String(new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate()).padStart(2, '0')}`
   const [same, setSame] = useState('')
   const [busy, setBusy] = useState(false)
   const listed = rows.filter((r) => r.onList)
@@ -40,6 +54,7 @@ export default function SetTargetsPanel({ month, monthLabel, rows }: { month: st
         action: 'set',
         month,
         targets: rows.filter((r) => r.onList).map((r) => ({ staffId: r.staffId, target: values[r.staffId] ?? '' })),
+        countingStarts: start || null,
       }),
     })
     setBusy(false)
@@ -73,6 +88,21 @@ export default function SetTargetsPanel({ month, monthLabel, rows }: { month: st
     <details className="rounded-2xl border border-gray-200 bg-white p-4">
       <summary className="min-h-[44px] cursor-pointer text-sm font-black text-tm-navy">Set targets — {monthLabel}</summary>
       <div className="mt-3 space-y-4">
+        <label className="block text-[11px] font-bold text-gray-600">
+          <span className="mb-1 block">Counting starts</span>
+          <input
+            type="date"
+            value={start}
+            min={firstDay}
+            max={lastDay}
+            onChange={(e) => setStart(e.target.value)}
+            className="min-h-[44px] rounded-xl border border-gray-200 px-3 text-sm"
+          />
+          <span className="mt-1 block font-normal text-gray-500">
+            Pace and &ldquo;Needed per day&rdquo; count from this date. Paid sign-ups before it still count in the month.
+          </span>
+        </label>
+
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-[11px] font-bold text-gray-600">
             <span className="mb-1 block">Set the same for all</span>

@@ -8,6 +8,7 @@ import LocationInput from '@/components/forms/LocationInput'
 import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
 import StaffAreaField from '@/components/forms/StaffAreaField'
+import { matchCuratedCity } from '@/lib/staffAreaCore'
 
 // The "Where and how" row of the job form — city, area and budget. "When" is now
 // the shared TimeSlotGrid, rendered by the form beside this (PR73 §A).
@@ -66,6 +67,9 @@ export default function WhereHowWhen({
   onArea,
   onBand,
   staff = false,
+  landmark = '',
+  onLandmark,
+  onSplit,
 }: {
   city: string
   area: string
@@ -76,6 +80,11 @@ export default function WhereHowWhen({
   onBand: (v: string) => void
   /** Staff see what an area that is not in Locations means (owner, 13 Oct 2026). */
   staff?: boolean
+  /** Staff only (owner, 16 Oct 2026): the Block / landmark field. */
+  landmark?: string
+  onLandmark?: (v: string) => void
+  /** A typed area that names a curated one: take that area + the rest as landmark. */
+  onSplit?: (area: string, landmark: string) => void
 }) {
   // The curated lists, from the DB (migration 73), fetched once and cached.
   // City and Area are datalist inputs: they suggest the curated names but accept
@@ -86,21 +95,40 @@ export default function WhereHowWhen({
   return (
     <>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <LocationInput
-          id="whw-city"
-          label="City"
-          icon={<Building2 size={15} />}
-          value={city}
-          onChange={onCity}
-          options={map.cities}
-          placeholder="City"
-        />
+        {/* Staff choose the city from the curated list only (owner, 16 Oct
+            2026) — no free text; the server refuses anything else. Parents keep
+            the free-text field. */}
+        {staff ? (
+          <IconSelect icon={<Building2 size={15} />} label="City" value={staffCityValue(map.cities, city)} onChange={onCity}>
+            <option value="">City</option>
+            {city && !staffCityValue(map.cities, city) && (
+              <option value={city} disabled>
+                {city} (not in the list — choose a city)
+              </option>
+            )}
+            {map.cities.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </IconSelect>
+        ) : (
+          <LocationInput
+            id="whw-city"
+            label="City"
+            icon={<Building2 size={15} />}
+            value={city}
+            onChange={onCity}
+            options={map.cities}
+            placeholder="City"
+          />
+        )}
 
         {/* Staff may add a new area while posting (owner, 13 Oct 2026); parents
             keep the plain field, and their free text goes to the Locations
             review list as before. */}
         {staff ? (
-          <StaffAreaField city={city} area={area} onArea={onArea} curated={areas} />
+          <StaffAreaField city={city} area={area} onArea={onArea} curated={areas} onSplit={onSplit} />
         ) : (
           <LocationInput
             id="whw-area"
@@ -121,6 +149,24 @@ export default function WhereHowWhen({
           ))}
         </IconSelect>
       </div>
+      {staff && onLandmark && (
+        <label className="block space-y-1">
+          <span className="text-[11px] font-bold text-gray-600">Block / landmark (optional)</span>
+          <input
+            type="text"
+            value={landmark}
+            maxLength={120}
+            onChange={(e) => onLandmark(e.target.value)}
+            placeholder="e.g. Block 1, Near Taj Complex"
+            className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-tm-navy outline-none focus:border-tm-red"
+          />
+        </label>
+      )}
     </>
   )
+}
+
+/** The curated city a stored value names (case and spacing ignored), or ''. */
+function staffCityValue(cities: string[], city: string): string {
+  return matchCuratedCity(cities, city) ?? ''
 }

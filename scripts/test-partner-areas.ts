@@ -199,7 +199,8 @@ test('the mixed routes refuse their view-only half inside the route', () => {
   assert.equal(roleMayWrite('partner', ['admin']), false)
   // Areas: adding one while posting is allowed; merging is Locations.
   const area = read('app', 'api', 'admin', 'locations', 'area', 'route.ts')
-  assert.ok(area.includes("action === 'merge' ? SCREEN_ACCESS.seo : SCREEN_ACCESS.jobsPost"))
+  assert.ok(area.includes("action === 'add' ? SCREEN_ACCESS.jobsPost : SCREEN_ACCESS.seo"))
+  assert.ok(area.includes('refuseUnlessOwnerApproval('), 'merges are Owner-only')
   assert.equal(roleMayWrite('partner', SCREEN_ACCESS.seo), false)
   assert.equal(roleMayWrite('partner', SCREEN_ACCESS.jobsPost), true)
   // A Partner may ban AND lift a ban (owner, 14 Oct 2026), verify or change a

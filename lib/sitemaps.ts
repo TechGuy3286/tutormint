@@ -36,35 +36,40 @@ const BASE = SITE_URL
 // Bump it when that content changes.
 const STATIC_LASTMOD = new Date('2026-10-13T00:00:00.000Z')
 
-/** Open tuitions only; lastmod = the tuition's last change (posted, resumed, refreshed). */
+/** Open tuitions, and paused ones paused in the last 60 days (owner, 16 Oct
+ *  2026); lastmod = the tuition's last change (posted, resumed, refreshed, paused). */
 export async function tuitionSitemap(): Promise<SitemapEntry[]> {
   const db = createPublicClient()
-  // indexable_job_slugs() = open + a real slug + not a fixture/test + not a
-  // one-line post — the SQL mirror of tuitionIndexable.
-  const [rows, clocks, repeats] = await Promise.all([
-    pageAll((from, to) => db.rpc('indexable_job_slugs').order('public_slug').range(from, to)) as Promise<
-      { public_slug: string; city: string | null; created_at: string }[]
+  // indexable_tuitions() (migration 178) = open, or paused within 60 days + a
+  // real slug + not merged + not a fixture/test + not a one-line post — the SQL
+  // mirror of tuitionIndexable.
+  const [rows, repeats] = await Promise.all([
+    pageAll((from, to) => db.rpc('indexable_tuitions').order('public_slug').range(from, to)) as Promise<
+      {
+        public_slug: string
+        city: string | null
+        status: string
+        created_at: string
+        resumed_at: string | null
+        refreshed_at: string | null
+        bumped_at: string | null
+        paused_at: string | null
+      }[]
     >,
-    pageAll((from, to) =>
-      db.from('jobs').select('public_slug, resumed_at, refreshed_at, bumped_at').eq('status', 'open').order('id').range(from, to),
-    ) as Promise<{ public_slug: string | null; resumed_at: string | null; refreshed_at: string | null; bumped_at: string | null }[]>,
     // A real repeat of an older open tuition points its canonical at the
     // original (lib/duplicates), so it is never listed (owner, 13 Oct 2026).
     openRepeatSlugs().catch(() => new Map<string, unknown>()),
   ])
-  const clock = new Map(clocks.filter((c) => c.public_slug).map((c) => [c.public_slug as string, c]))
   return tuitionSitemapEntries(
     BASE,
-    rows.filter((r) => !repeats.has(r.public_slug)).map((r) => {
-      const c = clock.get(r.public_slug)
-      return {
-        path: `/tuitions/${citySegment(r.city)}/${r.public_slug}`,
-        status: 'open',
-        isFixture: false,
-        descriptionLength: 40,
-        lastmod: newestOf([r.created_at, c?.resumed_at, c?.refreshed_at, c?.bumped_at])?.toISOString() ?? r.created_at,
-      }
-    }),
+    rows.filter((r) => !repeats.has(r.public_slug)).map((r) => ({
+      path: `/tuitions/${citySegment(r.city)}/${r.public_slug}`,
+      status: r.status,
+      pausedAt: r.paused_at,
+      isFixture: false,
+      descriptionLength: 40,
+      lastmod: newestOf([r.created_at, r.resumed_at, r.refreshed_at, r.bumped_at, r.paused_at])?.toISOString() ?? r.created_at,
+    })),
   )
 }
 

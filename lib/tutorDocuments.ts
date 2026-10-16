@@ -20,6 +20,7 @@ import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
+import { finalRejectReason, rejectionNoticeBody } from '@/lib/rejectReasonsCore'
 import { tutorCardStatuses, type CardDocState } from '@/lib/tutorDocQueueCore'
 import { closeOpenUnlocks, promoteReview, rejectReview, reviewDocs } from '@/lib/docLocks'
 import { cnicApprovalProblem } from '@/lib/docLockCore'
@@ -133,12 +134,12 @@ export async function reviewTutorDocument(params: {
   decision: ReviewDecision
   reason: string
 }): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
-  const { actor, tutorId, item, decision, reason } = params
+  const { actor, tutorId, item, decision } = params
+  // Quick rejection reasons (owner, Part F): a reject always carries a reason —
+  // the one staff chose/typed, else the fallback "This is not the right document."
+  const reason = decision === 'reject' ? finalRejectReason(params.reason) : ''
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
-  if (decision === 'reject' && reason.trim().length < 3) {
-    return { ok: false, status: 400, error: 'A reason is required to reject.' }
-  }
 
   // IDEMPOTENCY (PR99 §3). Approving an item that is ALREADY approved must do
   // nothing and log nothing — otherwise a second click writes another
@@ -256,7 +257,7 @@ export async function reviewTutorDocument(params: {
     title: approved ? `Your ${label} is approved` : `Your ${whatLabel} needs another look`,
     body: approved
       ? `Your ${label} has been approved.`
-      : `Your ${whatLabel} was not approved: ${reason.trim()} Please upload a clear one here.`,
+      : rejectionNoticeBody(whatLabel, reason, 'Please upload a clear one here.'),
     href: approved ? '/tutor/dashboard/settings' : reuploadHref,
   })
 
@@ -303,8 +304,8 @@ async function decideRereview(params: {
   admin: NonNullable<ReturnType<typeof createAdminClient>>
 }): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
   const { actor, tutorId, item, decision, admin } = params
-  const reason = params.reason.trim()
   const approved = decision === 'approve'
+  const reason = approved ? '' : finalRejectReason(params.reason)
   const now = new Date().toISOString()
   const patch: Record<string, unknown> = {}
 
@@ -364,8 +365,8 @@ async function decideRereview(params: {
     body: approved
       ? `Your new ${label} has been approved and is now the one on record.`
       : keepsOld
-        ? `Your new ${label} was not approved: ${reason} Your earlier approved ${label} stays on record.`
-        : `Your new ${label} was not approved: ${reason} Please upload a clear one here.`,
+        ? rejectionNoticeBody(`new ${label}`, reason, `Your earlier approved ${label} stays on record.`)
+        : rejectionNoticeBody(`new ${label}`, reason, 'Please upload a clear one here.'),
     href: '/tutor/dashboard/settings#identity',
   })
   // Email partners for the in-app notice (owner, 15 Oct 2026).

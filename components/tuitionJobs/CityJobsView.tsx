@@ -18,6 +18,8 @@ import HubFaq from '@/components/seo/HubFaq'
 import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
 import { uniqueById } from '@/lib/infiniteMerge'
+import NewestTuitions from '@/components/seo/NewestTuitions'
+import { newestTuitionLinks, allLiveTuitionLinksInCity } from '@/lib/newestTuitions'
 
 // "Tuition jobs in [City]" (owner, 6 Oct 2026, item 6) — the city page and its
 // variants (female / online / an area), one server-rendered component.
@@ -124,6 +126,13 @@ export default async function CityJobsView({
     .filter((p) => p.kind === 'tutors' && p.citySlug === page.citySlug)
     .slice(0, 8)
 
+  // "Newest tuitions" in this city (owner, 16 Oct 2026), and — on the city
+  // page itself — every other live tuition in the city as a plain link, so no
+  // live tuition is linked from nowhere (the cards above show the first window).
+  const newest = await newestTuitionLinks({ city: page.city })
+  const shown = new Set(jobs.map((j) => j.id))
+  const restOfCity = !variant && pageNo === 1 ? (await allLiveTuitionLinksInCity(page.city)).filter((l) => !shown.has(l.id)) : []
+
   const crumbs = [
     { label: 'Tuition jobs', href: '/browse/tuitions' },
     ...(variant ? [{ label: page.city, href: cityPagePath(page.citySlug) }, { label: variant.kind === 'area' ? (variant.area ?? variant.label) : variant.label }] : [{ label: page.city }]),
@@ -207,6 +216,9 @@ export default async function CityJobsView({
             />
           </>
         )}
+
+        <NewestTuitions links={newest} heading={`Newest tuitions in ${page.city}`} />
+        {restOfCity.length > 0 && <NewestTuitions links={restOfCity} heading={`All open tuitions in ${page.city}`} />}
 
         {indexable && jobs.length > 0 && <HubFaq items={hubFaq(hub.kind, hub.name, facts)} path={path} />}
 

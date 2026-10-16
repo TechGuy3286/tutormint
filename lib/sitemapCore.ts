@@ -4,7 +4,7 @@
 // 2026). PURE — the routes, the loaders and the tests share it.
 //
 // /sitemap.xml is an INDEX of four files:
-//   /sitemap-tuitions.xml  open tuitions only
+//   /sitemap-tuitions.xml  open tuitions, and paused ones for 60 days after pausing
 //   /sitemap-tutors.xml    indexable tutor profiles only (fee paid + CNIC,
 //                          photo and selfie approved)
 //   /sitemap-pages.xml     the static pages and the hubs that clear their rule
@@ -56,14 +56,16 @@ export type TuitionCandidate = {
   descriptionLength: number
   /** Merged into another tuition: its address redirects. */
   merged?: boolean
+  /** jobs.paused_at — a paused tuition is listed for 60 days after it. */
+  pausedAt?: string | null
   lastmod?: string | null
 }
 
-/** Open, not a fixture, not a thin one-liner, not a redirect. */
+/** Open (or paused within 60 days), not a fixture, not a thin one-liner, not a redirect. */
 export function tuitionSitemapEntries(base: string, cands: TuitionCandidate[]): SitemapEntry[] {
   return cleanEntries(
     cands
-      .filter((c) => !c.merged && tuitionIndexable({ status: c.status, isFixture: c.isFixture, descriptionLength: c.descriptionLength }))
+      .filter((c) => !c.merged && tuitionIndexable({ status: c.status, isFixture: c.isFixture, descriptionLength: c.descriptionLength, pausedAt: c.pausedAt ?? null }))
       .map((c) => ({ url: base + c.path, lastmod: c.lastmod ?? null, changefreq: 'daily' as const, priority: 0.6 })),
     base,
   )

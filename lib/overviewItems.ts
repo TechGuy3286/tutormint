@@ -23,6 +23,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { approvalNeeded } from '@/lib/approvalQueue'
 import { loadUnpaidSignups, loadFeaturedWhatsapp } from '@/lib/staffOutreach'
+import { loadStartedNotFinished } from '@/lib/startedPayment'
 import { isTestName, PAYMENT_STEP_LABEL, stuckBreakdown, firstNameOf } from '@/lib/staffOutreachCore'
 import { continueLink, loadFollowUpStates, loadStuckTemplate } from '@/lib/followUps'
 import { followUpLine, followUpText, followUpWaLink, splitFollowUpTabs, STUCK_TEMPLATE_KEY, type FollowUpSource } from '@/lib/followUpCore'
@@ -44,7 +45,6 @@ import {
   PAYER_PERIODS,
   type PayerPeriod,
   funnelSets,
-  isWaitingPayment,
   nounFor,
   type FunnelTutor,
   type OverviewItemKey,
@@ -402,29 +402,28 @@ export async function loadOverviewList(
     }
 
     case 'todo-payments': {
-      const since = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()
-      const data = await pageAll((from, to) =>
-        admin
-          .from('payments')
-          .select('id, provider_ref, plan_code, provider, status, created_at')
-          .eq('status', 'pending')
-          .gte('created_at', since)
-          .order('created_at', { ascending: false })
-          .order('id')
-          .range(from, to),
-      )
-      const rows = (data ?? []).filter((p) => isWaitingPayment({ status: p.status as string, createdAt: p.created_at as string }, now.getTime()))
+      // "Started payment, didn't finish" (owner, 16 Oct 2026): checkouts opened
+      // and never completed — gone 48 h after they started, or as soon as the
+      // member pays. One loader for the row, this list and the Follow-ups chip.
+      const started = await loadStartedNotFinished(now)
+      const names = new Map<string, string>()
+      const ids = [...new Set(started.map((r) => r.userId).filter((v): v is string => !!v))]
+      if (ids.length > 0) {
+        const { data: ps } = await admin.from('profiles').select('id, full_name').in('id', ids.slice(0, 1000))
+        for (const p of ps ?? []) names.set(p.id as string, formatName(p.full_name as string | null) || '—')
+      }
       return {
         key,
         // No amounts: staff see the status, never rupees (item 3).
-        rows: rows.map((p) => ({
-          id: p.id as string,
-          title: (p.provider_ref as string | null) ?? (p.id as string),
-          detail: `Started ${formatDateTime(p.created_at as string)} · ${p.plan_code === 'verified' ? FEE_LABEL : (p.plan_code ?? 'plan')} · ${p.provider === 'manual' ? 'transfer' : p.provider}`,
-          href: `/admin/payments?filter=pending&q=${encodeURIComponent((p.provider_ref as string | null) ?? '')}`,
+        rows: started.map((p) => ({
+          id: p.id,
+          memberId: p.userId ?? undefined,
+          title: names.get(p.userId ?? '') ?? p.providerRef ?? p.id,
+          detail: `Started ${formatDateTime(p.createdAt)} · ${p.planCode === 'verified' ? FEE_LABEL : (p.planCode ?? 'plan')} · ${p.provider === 'manual' ? 'bank transfer page' : p.provider}${p.providerRef ? ` · ${p.providerRef}` : ''}`,
+          href: p.userId ? `/admin/users/${p.userId}` : `/admin/payments?filter=pending&q=${encodeURIComponent(p.providerRef ?? '')}`,
         })),
-        filter: 'started in the last 24 hours and still waiting after 1 hour',
-        workHref: '/admin/payments?filter=pending',
+        filter: 'checkout opened over an hour ago and not paid; leaves the list 48 hours after it started or when the member pays',
+        workHref: '/admin/follow-ups?filter=started_payment&scope=started_payment',
       }
     }
 

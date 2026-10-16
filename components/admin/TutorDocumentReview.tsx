@@ -15,6 +15,8 @@ import UnlockDocButton from '@/components/admin/UnlockDocButton'
 import AdminCnicNumberBox, { CNIC_NUMBER_BOX_ID } from '@/components/admin/AdminCnicNumberBox'
 import DocumentsApprovedWhatsApp from '@/components/admin/DocumentsApprovedWhatsApp'
 import { allDocumentsApproved } from '@/lib/documentsApprovedCore'
+import RejectReasonPicker from '@/components/admin/RejectReasonPicker'
+import { buildRejectReason, rejectionWhatsAppText, type RejectTarget } from '@/lib/rejectReasonsCore'
 
 /** The admin lock facts for the card (lib/docLocks loadAdminLockInfo). */
 export type ReviewLockInfo = {
@@ -24,15 +26,12 @@ export type ReviewLockInfo = {
 }
 
 // Per-item identity review (PR60): CNIC front/back, profile picture and selfie
-// side by side, each approved or rejected on its own. A reject needs a reason
-// (a short preset or free text). This changes NO listing rule.
+// side by side, each approved or rejected on its own. A reject carries a reason:
+// one of the quick reasons (lib/rejectReasonsCore REJECT_REASONS) and/or free
+// text; with neither, the fallback "This is not the right document." This
+// changes NO listing rule.
 
-const REJECT_PRESETS = [
-  'The photo is blurry — please retake it clearly.',
-  'The details do not match.',
-  'The face is not clearly visible.',
-  'This is not the right document.',
-]
+const REJECT_TARGET: Record<DocItem, RejectTarget> = { cnic: 'cnic', profile_pic: 'photo', selfie: 'selfie' }
 
 const STATUS_LABEL: Record<DocState['status'], { text: string; cls: string }> = {
   none: { text: 'Not uploaded', cls: 'bg-gray-100 text-gray-500' },
@@ -270,7 +269,13 @@ function ReviewItem({
   const canReview = canReviewProp && !readOnly && ownerApproves
   const viewOnlyNote = canReviewProp && !ownerApproves && state.hasUpload
   const [status, setStatus] = useState(state.status)
-  const [reason, setReason] = useState('')
+  const [shownReason, setShownReason] = useState(state.reason)
+  const [chosen, setChosen] = useState<string | null>(null)
+  const [note, setNote] = useState('')
+  // The text the tutor will see (in-app, email, WhatsApp): the tapped reason
+  // and/or the note, else the fallback.
+  const reason = buildRejectReason(chosen, note)
+  const clearReason = () => { setChosen(null); setNote('') }
   const [rejecting, setRejecting] = useState(false)
   const [busy, setBusy] = useState<'approve' | 'reject' | null>(null)
   // PR106-C §7: once a decision is made, the active buttons are hidden behind a
@@ -288,32 +293,27 @@ function ReviewItem({
   const whatName = item === 'cnic' ? 'CNIC photo' : item === 'profile_pic' ? 'profile picture' : 'selfie'
   const waMsisdn = normalisePkMobile(memberWhatsapp)
   const whatsappHref = (() => {
-    if (!waMsisdn || reason.trim().length < 3) return null
+    if (!waMsisdn) return null
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.tutormint.org'
     const link = `${origin}/tutor/dashboard/settings#identity`
-    const en = `Hi, your ${whatName} on TutorMint was not approved: ${reason.trim()} Please upload a clear one here: ${link}`
-    const ur = `السلام علیکم، آپ کی ${whatName} منظور نہیں ہوئی: ${reason.trim()} براہِ کرم واضح تصویر یہاں اپلوڈ کریں: ${link}`
-    return `https://wa.me/${waMsisdn}?text=${encodeURIComponent(`${en}\n\n${ur}`)}`
+    const text = rejectionWhatsAppText({ what: whatName, reason, link, audience: 'tutor' })
+    return `https://wa.me/${waMsisdn}?text=${encodeURIComponent(text)}`
   })()
 
   const act = async (decision: 'approve' | 'reject') => {
-    if (decision === 'reject' && reason.trim().length < 3) {
-      setRejecting(true)
-      toast.error('Give a reason to reject.')
-      return
-    }
     setBusy(decision)
     const { ok, data } = await adminFetch<{ error?: string }>('/api/admin/tutors/document-review', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tutorId, item, decision, reason: reason.trim() || null }),
+      body: JSON.stringify({ tutorId, item, decision, reason: decision === 'reject' ? reason : null }),
     })
     setBusy(null)
     if (ok) {
       setStatus(decision === 'approve' ? 'approved' : 'rejected')
       onStatus?.(decision === 'approve' ? 'approved' : 'rejected')
+      setShownReason(decision === 'reject' ? reason : null)
       setRejecting(false)
-      setReason('')
+      clearReason()
       setChanging(false)
       toast.success(decision === 'approve' ? 'Approved. The tutor was notified.' : 'Rejected. The tutor was notified.')
     } else {
@@ -331,8 +331,8 @@ function ReviewItem({
         </span>
       </div>
       {children}
-      {state.reason && status === 'rejected' && (
-        <p className="text-[11px] text-tm-red">{state.reason}</p>
+      {shownReason && status === 'rejected' && (
+        <p className="text-[11px] text-tm-red">{shownReason}</p>
       )}
 
       {viewOnlyNote && <OwnerOnlyNote />}
@@ -357,24 +357,12 @@ function ReviewItem({
         <div className="space-y-2">
           {rejecting && (
             <div className="space-y-1">
-              <div className="flex flex-wrap gap-1">
-                {REJECT_PRESETS.map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setReason(p)}
-                    className="rounded-lg border border-gray-200 px-2 py-1 text-[10px] text-slate-700 hover:border-tm-navy"
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
-              <textarea
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                rows={2}
-                placeholder="Reason shown to the tutor"
-                className="w-full rounded-lg border border-gray-200 p-2 text-[11px] outline-none focus:border-tm-red"
+              <RejectReasonPicker
+                target={REJECT_TARGET[item]}
+                chosen={chosen}
+                onChoose={setChosen}
+                freeText={note}
+                onFreeText={setNote}
               />
               {whatsappHref && (
                 <a
@@ -405,13 +393,13 @@ function ReviewItem({
               className="inline-flex min-h-[36px] flex-1 items-center justify-center gap-1 rounded-lg border border-tm-red px-3 text-[11px] font-bold text-tm-red disabled:opacity-50"
             >
               {busy === 'reject' ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
-              Reject
+              {rejecting ? 'Confirm reject' : 'Reject'}
             </button>
           </div>
           {decided && changing && (
             <button
               type="button"
-              onClick={() => { setChanging(false); setRejecting(false); setReason('') }}
+              onClick={() => { setChanging(false); setRejecting(false); clearReason() }}
               className="min-h-[28px] text-[11px] font-semibold text-gray-500 underline-offset-2 hover:underline"
             >
               Keep current decision

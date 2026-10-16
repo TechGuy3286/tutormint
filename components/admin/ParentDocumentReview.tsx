@@ -11,6 +11,8 @@ import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { OwnerOnlyNote, useAdminReadOnly, useCanApprove } from '@/components/admin/ReadOnly'
 import { PARENT_REJECT_PRESETS, type ParentDocItem, type ParentItemState } from '@/lib/parentDocsCore'
+import { buildRejectReason, rejectionWhatsAppText } from '@/lib/rejectReasonsCore'
+import RejectReasonPicker from '@/components/admin/RejectReasonPicker'
 import { cnicSideNote } from '@/lib/tutorDocQueueCore'
 import UnlockDocButton from '@/components/admin/UnlockDocButton'
 
@@ -166,9 +168,16 @@ function ReviewItem({
   const viewOnlyNote = canReviewProp && !ownerApproves && state.hasUpload
   const [status, setStatus] = useState(state.status)
   const [shownReason, setShownReason] = useState(state.reason)
-  const [reason, setReason] = useState('')
+  // The CNIC uses the quick reasons (lib/rejectReasonsCore, owner Part F) and
+  // falls back to "This is not the right document."; the typed address keeps
+  // its own short list + Other and still needs a reason.
+  const quick = item === 'cnic'
+  const [chosen, setChosen] = useState<string | null>(null)
+  const [note, setNote] = useState('')
   const [rejecting, setRejecting] = useState(false)
   const [other, setOther] = useState(false)
+  const reason = quick ? buildRejectReason(chosen, note) : (chosen ?? note).trim()
+  const setReason = (v: string) => { setChosen(null); setNote(v) }
   const [busy, setBusy] = useState<'approve' | 'reject' | null>(null)
   const [changing, setChanging] = useState(false)
 
@@ -180,16 +189,15 @@ function ReviewItem({
   // English + Urdu, with the link to the verification page. Never a CNIC number.
   const waMsisdn = normalisePkMobile(whatsapp)
   const whatsappHref = (() => {
-    if (!waMsisdn || reason.trim().length < 3) return null
+    if (!waMsisdn || reason.length < 3) return null
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.tutormint.org'
     const link = `${origin}/parent/verify`
-    const en = `Hi, your ${what} on TutorMint was not approved: ${reason.trim()} Please correct it here: ${link}`
-    const ur = `السلام علیکم، آپ کی ${what} منظور نہیں ہوئی: ${reason.trim()} براہِ کرم یہاں درست کریں: ${link}`
-    return `https://wa.me/${waMsisdn}?text=${encodeURIComponent(`${en}\n\n${ur}`)}`
+    const text = rejectionWhatsAppText({ what, reason, link, audience: 'parent' })
+    return `https://wa.me/${waMsisdn}?text=${encodeURIComponent(text)}`
   })()
 
   const act = async (decision: 'approve' | 'reject') => {
-    if (decision === 'reject' && reason.trim().length < 3) {
+    if (decision === 'reject' && !quick && reason.length < 3) {
       setRejecting(true)
       toast.error('Choose or write a reason to reject.')
       return
@@ -198,12 +206,12 @@ function ReviewItem({
     const { ok, data } = await adminFetch<{ error?: string; verified?: boolean }>('/api/admin/parents/document-review', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ parentId, item, decision, reason: reason.trim() || null }),
+      body: JSON.stringify({ parentId, item, decision, reason: decision === 'reject' ? reason || null : null }),
     })
     setBusy(null)
     if (ok) {
       setStatus(decision === 'approve' ? 'approved' : 'rejected')
-      setShownReason(decision === 'reject' ? reason.trim() : null)
+      setShownReason(decision === 'reject' ? reason : null)
       onVerified(!!data?.verified)
       setRejecting(false)
       setOther(false)
@@ -249,8 +257,19 @@ function ReviewItem({
         <div className="space-y-2">
           {rejecting && (
             <div className="space-y-1">
+              {quick ? (
+                <RejectReasonPicker
+                  target="cnic"
+                  chosen={chosen}
+                  onChoose={setChosen}
+                  freeText={note}
+                  onFreeText={setNote}
+                  audience="parent"
+                />
+              ) : (
+              <>
               <div className="flex flex-wrap gap-1">
-                {PARENT_REJECT_PRESETS[item].map((p) => (
+                {PARENT_REJECT_PRESETS.address.map((p) => (
                   <button
                     key={p}
                     type="button"
@@ -270,13 +289,15 @@ function ReviewItem({
               </div>
               {other && (
                 <textarea
-                  value={reason}
+                  value={note}
                   onChange={(e) => setReason(e.target.value)}
                   rows={2}
                   autoFocus
                   placeholder="Reason shown to the parent"
                   className="w-full rounded-lg border border-gray-200 p-2 text-[11px] outline-none focus:border-tm-red"
                 />
+              )}
+              </>
               )}
               {whatsappHref && (
                 <a
@@ -313,7 +334,7 @@ function ReviewItem({
           {decided && changing && (
             <button
               type="button"
-              onClick={() => { setChanging(false); setRejecting(false); setOther(false); setReason('') }}
+              onClick={() => { setChanging(false); setRejecting(false); setOther(false); setChosen(null); setNote('') }}
               className="min-h-[28px] text-[11px] font-semibold text-gray-500 underline-offset-2 hover:underline"
             >
               Keep current decision

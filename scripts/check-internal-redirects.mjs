@@ -128,7 +128,11 @@ async function main() {
         const self = new URL(page).pathname
         const canon = i.canonical ? new URL(i.canonical, BASE).pathname : ''
         if (canon !== self) sitemapProblems.push({ url: page, problem: `canonical is ${i.canonical || 'missing'}` })
-        if (!i.types.includes('JobPosting')) sitemapProblems.push({ url: page, problem: 'no JobPosting' })
+        // A paused tuition is listed for 60 days with no JobPosting (owner,
+        // 16 Oct 2026) — it shows the "no longer accepting applications" banner.
+        const paused = /no longer accepting applications/i.test(r.text)
+        if (!paused && !i.types.includes('JobPosting')) sitemapProblems.push({ url: page, problem: 'no JobPosting' })
+        if (paused && i.types.includes('JobPosting')) sitemapProblems.push({ url: page, problem: 'paused but carries JobPosting' })
       }
     }
     for (const t of internalLinks(r.text, page)) (linkedFrom.get(t) ?? linkedFrom.set(t, []).get(t)).push(page)

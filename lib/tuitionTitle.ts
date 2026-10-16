@@ -27,7 +27,12 @@ export const TUITION_TITLE_MAX = 60
 const BRAND = 'TutorMint'
 const SEP = ' | '
 
-const clean = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim()
+// Stray commas at either end of a part go too (owner, 16 Oct 2026): "Gulshan," → "Gulshan".
+const clean = (s: string | null | undefined) =>
+  (s ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^[\s,]+|[\s,]+$/g, '')
 
 /** "female" → "Female"; null for no preference. */
 function genderAdjective(gender: string | null | undefined): string | null {

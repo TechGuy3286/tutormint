@@ -88,6 +88,8 @@ export type JobCardData = {
    *  tuition auto-pauses at coalesce(resumed_at, created_at) + 15 days, which is
    *  the JobPosting validThrough. Absent for a never-resumed tuition. */
   resumed_at?: string | null
+  paused_at?: string | null
+  area_landmark?: string | null
   /** Browse order key: posted time, moved forward by a Refresh (migration 141). */
   bumped_at?: string | null
   refreshed_at?: string | null

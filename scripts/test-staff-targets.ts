@@ -9,8 +9,13 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 import {
+  countedDays,
+  countingFromLabel,
+  countingStartDate,
+  countingStartDay,
   cumulativeByDay,
   daysInMonth,
+  parseCountingStart,
   daysLeft,
   elapsedDays,
   firstPaidAt,
@@ -193,6 +198,91 @@ test('cumulative chart and target line', () => {
   const line = targetLine(31, '2026-10')
   assert.equal(line[0], 1)
   assert.equal(line[30], 31)
+})
+
+// ------------------------------------------------------------ counting start
+
+test('counting start defaults to the 1st and is clamped into the month', () => {
+  assert.equal(countingStartDay('2026-10', null), 1)
+  assert.equal(countingStartDay('2026-10', ''), 1)
+  assert.equal(countingStartDay('2026-10', 'nonsense'), 1)
+  assert.equal(countingStartDay('2026-10', '2026-10-15'), 15)
+  assert.equal(countingStartDay('2026-10', '2026-09-20'), 1)
+  assert.equal(countingStartDay('2026-10', '2026-11-03'), 31)
+  assert.equal(countingStartDate('2026-10', null), '2026-10-01')
+  assert.equal(countingStartDate('2026-11', '2026-12-09'), '2026-11-30')
+  assert.equal(countedDays('2026-10', '2026-10-15'), 17)
+  assert.equal(countingFromLabel('2026-10', '2026-10-15'), 'Counting from 15 Oct')
+  assert.equal(countingFromLabel('2026-10', '2026-10-01'), null)
+  // With no start (or the 1st) pace is exactly what it was.
+  const now = pkt('2026-10-16T09:00:00')
+  assert.deepEqual(paceFor(40, 18, '2026-10', now, null), paceFor(40, 18, '2026-10', now))
+  assert.deepEqual(paceFor(40, 18, '2026-10', now, '2026-10-01'), paceFor(40, 18, '2026-10', now))
+  assert.deepEqual(targetLine(31, '2026-10', null), targetLine(31, '2026-10'))
+})
+
+test('the Owner\'s counting start value must be a real day in that month', () => {
+  assert.deepEqual(parseCountingStart('', '2026-10'), { ok: true, value: null })
+  assert.deepEqual(parseCountingStart(null, '2026-10'), { ok: true, value: null })
+  assert.deepEqual(parseCountingStart('2026-10-15', '2026-10'), { ok: true, value: '2026-10-15' })
+  assert.equal(parseCountingStart('2026-11-01', '2026-10').ok, false)
+  assert.equal(parseCountingStart('2026-02-30', '2026-02').ok, false)
+  assert.equal(parseCountingStart('15/10/2026', '2026-10').ok, false)
+})
+
+test('pace from a 15 Oct start: 20 Oct noon, target 30', () => {
+  const now = pkt('2026-10-20T12:00:00')
+  const start = '2026-10-15'
+  // 17 counted days (15th…31st); 5.5 gone → expected 30 × 5.5 ÷ 17 ≈ 9.7.
+  const p = paceFor(30, 10, '2026-10', now, start)
+  assert.equal(Math.round(p.expected! * 100) / 100, 9.71)
+  assert.equal(p.status, 'on_pace')
+  assert.equal(p.daysLeft, 12) // 20th…31st
+  assert.equal(p.neededPerDay, 1.7) // 20 / 12 = 1.67 → rounded up
+  assert.equal(p.pct, 33)
+  assert.equal(paceFor(30, 8, '2026-10', now, start).status, 'slightly_behind') // 82%
+  assert.equal(paceFor(30, 7, '2026-10', now, start).status, 'behind') // 72%
+  // From the 1st the same numbers would read "behind" (expected ≈ 18.4).
+  assert.equal(paceFor(30, 10, '2026-10', now).status, 'behind')
+})
+
+test('before the counting start: nothing expected, on pace, target ÷ counted days per day', () => {
+  const now = pkt('2026-10-10T12:00:00')
+  const p = paceFor(30, 0, '2026-10', now, '2026-10-15')
+  assert.equal(p.expected, 0)
+  assert.equal(p.status, 'on_pace')
+  assert.equal(p.daysLeft, 17)
+  assert.equal(p.neededPerDay, 1.8) // 30 / 17 = 1.76 → rounded up
+  // A paid sign-up before the start still counts in the total.
+  const early = paceFor(30, 3, '2026-10', now, '2026-10-15')
+  assert.equal(early.paid, 3)
+  assert.equal(early.pct, 10)
+  assert.equal(early.neededPerDay, 1.6) // 27 / 17
+})
+
+test('chart target line: 0 before the counting start, then up to the target at month end', () => {
+  const line = targetLine(34, '2026-10', '2026-10-15')
+  assert.equal(line.length, 31)
+  assert.ok(line.slice(0, 14).every((v) => v === 0)) // 1st…14th
+  assert.equal(line[14], 2) // end of the 15th: 34 ÷ 17
+  assert.equal(line[30], 34)
+  for (let d = 15; d < 31; d++) assert.ok(line[d] >= line[d - 1])
+})
+
+test('the loader and the Owner\'s save use the counting start', () => {
+  const lib = read('lib/staffTargets.ts')
+  assert.ok(lib.includes("from('staff_target_months')"))
+  assert.ok(lib.includes('paceFor(targets.get(id) ?? null, paid.length, month, nowMs, countingStarts)'))
+  assert.ok(lib.includes('targetLine(teamTarget, month, countingStarts)'))
+  assert.ok(lib.includes('countingStarts: startChange'))
+  const route = read('app/api/admin/team-activity/targets/route.ts')
+  const post = route.slice(route.indexOf('export async function POST'))
+  assert.ok(post.indexOf('refuseUnlessOwnerTargets(') < post.indexOf('parseCountingStart('))
+  const mig = read('supabase/migrations/179_target_counting_start.sql')
+  assert.match(mig, /create table if not exists public\.staff_target_months/)
+  assert.match(mig, /\('2026-10', date '2026-10-15'\)/)
+  assert.ok(!/\bbegin\b|\bcommit\b/i.test(mig.replace(/--.*$/gm, '')))
+  assert.ok(read('app/admin/team-activity/SetTargetsPanel.tsx').includes('Counting starts'))
 })
 
 test('cards sort by % of target, highest first; no target last', () => {

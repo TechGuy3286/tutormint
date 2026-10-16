@@ -71,10 +71,12 @@ export default async function PaidTab({ actor, month }: { actor: AdminActor; mon
         )}
       </div>
 
-      {board.setPanel && <SetTargetsPanel key={month} month={month} monthLabel={label} rows={board.setPanel} />}
+      {board.setPanel && (
+        <SetTargetsPanel key={month} month={month} monthLabel={label} rows={board.setPanel} countingStarts={board.countingStarts} />
+      )}
 
       {/* a) team strip */}
-      {everyone && board.team && <TeamStrip pace={board.team} />}
+      {everyone && board.team && <TeamStrip pace={board.team} countingFrom={board.countingFrom} />}
       {!everyone && board.scope === 'target_self' && board.teamStatus && (
         <p className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-700">
           Team: <StatusChip status={board.teamStatus} />
@@ -197,9 +199,14 @@ function NeededLine({ pace }: { pace: Pace }) {
   )
 }
 
-function TeamStrip({ pace }: { pace: Pace }) {
+function TeamStrip({ pace, countingFrom }: { pace: Pace; countingFrom: string | null }) {
   return (
     <section className="grid grid-cols-2 gap-3 rounded-2xl border border-gray-200 bg-white p-4 sm:grid-cols-3 lg:grid-cols-6">
+      {countingFrom && (
+        <p className="col-span-full text-[11px] font-bold text-gray-600">
+          {countingFrom}. Pace and &ldquo;Needed per day&rdquo; count from this date; earlier paid sign-ups still count in the total.
+        </p>
+      )}
       <Stat label="Paid this month" value={String(pace.paid)} />
       <Stat label="Team target" value={pace.target ? String(pace.target) : '—'} />
       <Stat label="% done" value={pace.pct == null ? '—' : `${pace.pct}%`} />

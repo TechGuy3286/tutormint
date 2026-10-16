@@ -259,7 +259,7 @@ test('sitemap: the loaders only list through the shared rules, and parent cards 
   assert.match(src, /tuitionSitemapEntries\(/)
   assert.match(src, /tutorSitemapEntries\(/)
   assert.match(src, /hubSitemapEntries\(/)
-  assert.match(src, /rpc\('indexable_job_slugs'\)/)
+  assert.match(src, /rpc\('indexable_tuitions'\)/)
   assert.match(src, /rpc\('listed_tutor_slugs'\)/)
   assert.ok(!/\/parent\//.test(src), 'no /parent/<id> address is ever built')
   assert.ok(!/\/login|\/register|\/pay\//.test(src))
@@ -450,11 +450,11 @@ const notice = (id: number, url: string, kind: QueuedNotice['kind'], minute: num
   created_at: new Date(Date.UTC(2026, 9, 12, 0, minute)).toISOString(),
 })
 
-test('indexing: paused, closed and hired are URL_DELETED; open is URL_UPDATED', () => {
-  assert.equal(indexingKindForStatus('open'), 'URL_UPDATED')
-  for (const s of ['paused', 'closed', 'hired']) assert.equal(indexingKindForStatus(s), 'URL_DELETED')
-  assert.match(read('lib/tuitionPause.ts'), /enqueueIndexing\(urls, 'URL_DELETED'\)/, 'the 7-day sweep')
-  assert.match(read('lib/selfPause.ts'), /queueIndexingDelete\(j\)/, "the member's own pause")
+test('indexing: closed and hired are URL_DELETED; open and paused are URL_UPDATED (owner, 16 Oct 2026)', () => {
+  for (const s of ['open', 'paused']) assert.equal(indexingKindForStatus(s), 'URL_UPDATED')
+  for (const s of ['closed', 'hired']) assert.equal(indexingKindForStatus(s), 'URL_DELETED')
+  assert.match(read('lib/tuitionPause.ts'), /enqueueIndexing\(urls, 'URL_UPDATED', PRIORITY_CHANGE\)/, 'the 15-day sweep')
+  assert.match(read('lib/selfPause.ts'), /queueIndexingUpdate\(j\)/, "the member's own pause")
   const jobs = read('lib/jobs.ts')
   assert.equal((jobs.match(/queueIndexingDelete\(/g) ?? []).length, 2, 'close and hire')
   assert.match(read('app/api/admin/jobs/action/route.ts'), /queueIndexingForStatus\(/)
@@ -488,5 +488,7 @@ test('indexing: one notice per address — only the newest is sent', () => {
   assert.deepEqual(plan.superseded.sort(), [1, 3])
   const src = read('lib/googleIndexing.ts')
   assert.match(src, /planDrain\(pending, sentToday, max\)/, 'the drain sends only what the plan allows')
-  assert.match(src, /\.gte\('sent_at', utcDayStart\(\)\)/, 'a superseded notice (1970) is never counted as sent today')
+  // "Sent today" counts the requests made since Google's (Pacific) day began —
+  // indexing_attempts, so a superseded notice (1970) is never counted.
+  assert.match(src, /\.gte\('attempted_at', pacificDayStart\(now\)\.toISOString\(\)\)/)
 })

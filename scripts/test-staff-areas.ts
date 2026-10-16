@@ -72,7 +72,9 @@ test('adding saves to the curated list, needs a city, records who and when, and 
   assert.ok(!/enqueueIndexing|queueIndexingUpdate|indexing_queue/.test(lib))
   // The route: only roles that post a tuition; signed out and other roles are refused.
   const route = read('app/api/admin/locations/area/route.ts')
-  assert.ok(route.includes("checkAdminRole(...(action === 'merge' ? SCREEN_ACCESS.seo : SCREEN_ACCESS.jobsPost))"))
+  assert.ok(route.includes("checkAdminRole(...(action === 'add' ? SCREEN_ACCESS.jobsPost : SCREEN_ACCESS.seo))"))
+  // Merges are the Owner's (owner, 16 Oct 2026).
+  assert.ok(route.includes("refuseUnlessOwnerApproval(actor, 'Locations: merge an area'"))
   // The new columns exist.
   const sql = read('supabase/migrations/169_onboarding_email_staff_areas.sql')
   for (const col of ['created_by uuid', 'created_by_name text', 'created_at timestamptz', 'removed_at timestamptz']) assert.ok(sql.includes(`add column if not exists ${col}`), col)
@@ -84,7 +86,7 @@ test('it never blocks posting, and only the STAFF form has it', () => {
   assert.ok(field.includes('<LocationInput id="whw-area"'), 'any text is accepted')
   assert.ok(field.includes('Did you mean {advice.didYouMean}?') && field.includes('as new area'))
   const row = read('components/forms/WhereHowWhen.tsx')
-  assert.ok(row.includes('{staff ? (\n          <StaffAreaField city={city} area={area} onArea={onArea} curated={areas} />\n        ) : (\n          <LocationInput'))
+  assert.ok(row.includes('{staff ? (\n          <StaffAreaField city={city} area={area} onArea={onArea} curated={areas} onSplit={onSplit} />\n        ) : (\n          <LocationInput'))
   // The shared form turns it on for staff only (post and edit use the same form).
   assert.ok(read('components/forms/PostTuitionForm.tsx').includes('staff={adminExtras}'))
   // The tuition routes do not validate the area against the curated list.
