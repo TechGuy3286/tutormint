@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { formatDate } from '@/lib/datetime'
 import {
@@ -9,6 +9,8 @@ import {
   PARENT_PATH,
   TUTOR_PATH,
   filterRows,
+  isCountedFilter,
+  isMonthFilter,
   type CountedFilter,
   type Filters,
   type MonthFilter,
@@ -60,8 +62,27 @@ function Select<T extends string>({ label, value, onChange, options }: { label: 
   )
 }
 
-export default function SignupRows({ rows, showFilters = false }: { rows: MySignupRow[]; showFilters?: boolean }) {
+export default function SignupRows({
+  rows,
+  showFilters = false,
+  filtersFromUrl = false,
+}: {
+  rows: MySignupRow[]
+  showFilters?: boolean
+  /** Open with ?counted= / ?month= from the page address (filters only —
+   *  the rows are already cut on the server). */
+  filtersFromUrl?: boolean
+}) {
   const [f, setF] = useState<Filters>(EMPTY_FILTERS)
+  useEffect(() => {
+    if (!filtersFromUrl) return
+    const sp = new URLSearchParams(window.location.search)
+    const counted = sp.get('counted')
+    const month = sp.get('month')
+    if (isCountedFilter(counted) || isMonthFilter(month)) {
+      setF((cur) => ({ ...cur, ...(isCountedFilter(counted) ? { counted } : {}), ...(isMonthFilter(month) ? { month } : {}) }))
+    }
+  }, [filtersFromUrl])
   const shown = useMemo(() => filterRows(rows, f, Date.now()), [rows, f])
   const set = <K extends keyof Filters>(k: K, v: Filters[K]) => setF((cur) => ({ ...cur, [k]: v }))
 
@@ -98,6 +119,7 @@ export default function SignupRows({ rows, showFilters = false }: { rows: MySign
               { key: 'all', label: 'All' },
               { key: 'counted', label: 'Counted' },
               { key: 'not_counted', label: 'Not counted' },
+              { key: 'not_paid', label: 'Not paid' },
             ]}
           />
           <Select<MonthFilter>

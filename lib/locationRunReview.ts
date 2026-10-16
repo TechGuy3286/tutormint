@@ -180,13 +180,15 @@ export async function loadRunReview(opts: { search?: string } = {}): Promise<Run
   const usesByArea = new Map<string, { tuitions: number; open: number; profiles: number }>()
   const usesByValue = new Map<string, number>()
   const resolved = new Map<string, string | null>()
+  // Every curated name, all cities — the hub rule's whole-name check (lib/areaHubCore).
+  const known = [...curatedByCity.values()].flat()
   const take = (city: string | null, area: string | null, isJob: boolean, open: boolean) => {
     const c = (city ?? '').trim()
     const a = (area ?? '').trim()
     if (!c || !a) return
     const vk = `${low(c)}|${low(a)}`
     usesByValue.set(vk, (usesByValue.get(vk) ?? 0) + 1)
-    if (!resolved.has(vk)) resolved.set(vk, resolveAreaHub(c, a, curatedByCity.get(low(c)) ?? [], aliasIndex.get(low(c)))?.area ?? null)
+    if (!resolved.has(vk)) resolved.set(vk, resolveAreaHub(c, a, curatedByCity.get(low(c)) ?? [], aliasIndex.get(low(c)), known)?.area ?? null)
     const hit = resolved.get(vk)
     if (!hit) return
     const k = `${low(c)}|${low(hit)}`

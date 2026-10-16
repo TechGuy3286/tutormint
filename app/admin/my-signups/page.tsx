@@ -99,10 +99,14 @@ export default async function MySignupsPage() {
         </ul>
       </details>
 
+      {/* Filters may open from the link (?counted=not_paid&month=all — "All
+          unpaid" on a Team activity card, owner 17 Oct 2026). Read in the
+          browser, so this page still takes nothing from the request: the rows
+          are always the signed-in staff member's own. */}
       {page.rows.length === 0 ? (
         <p className="rounded-2xl border border-gray-200 bg-white p-4 text-sm text-slate-700">{EMPTY_STATE}</p>
       ) : (
-        <SignupRows rows={page.rows} showFilters />
+        <SignupRows rows={page.rows} showFilters filtersFromUrl />
       )}
     </div>
   )

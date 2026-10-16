@@ -23,15 +23,21 @@
 import { areaWithoutCity } from './place'
 import { slugify } from './slugs'
 
-const words = (s: string): string[] =>
+/** Every word, the joining "e" of "Gulshan-e-Iqbal" KEPT (positions matter
+ *  for the whole-name rule below). */
+const rawWords = (s: string): string[] =>
   s
     .toLowerCase()
     .replace(/[’'`.]/g, '')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
     .split(' ')
+    .filter(Boolean)
+
+const words = (s: string): string[] =>
+  rawWords(s)
     // "gulshan-e-iqbal" and "gulshan iqbal" are one area.
-    .filter((w) => w && w !== 'e')
+    .filter((w) => w !== 'e')
 
 /** The comparison key of an area inside a city: its words, the trailing city dropped. */
 export function areaKey(area: string | null | undefined, city: string | null | undefined): string {
@@ -69,9 +75,15 @@ export function resolveAreaHub(
   raw: string | null | undefined,
   curated: string[],
   aliases?: CityAliases | null,
+  /** Every curated area name in EVERY city (owner, 17 Oct 2026): a merged
+   *  short name never matches inside one of these longer names — "Johar"
+   *  (Karachi) is not "Johar Town". Optional; without it only the
+   *  "X-e-Y" rule applies. */
+  knownAreas?: string[] | null,
 ): AreaHubHit | null {
   const key = areaKey(raw, city)
   if (!key) return null
+  const text = valueText(raw ?? '', city)
   // An approved alias decides before anything else — but only for an area that
   // is still in the curated list.
   const aliased = aliases?.[key]
@@ -88,7 +100,7 @@ export function resolveAreaHub(
   // A longer value that names a curated area as a whole run of words. The
   // longest name wins; two different areas of the same length is not a clear
   // match, unless one of them opens the value.
-  const curatedHit = containsHit(key, list)
+  const curatedHit = containsHit(text, list)
   if (curatedHit !== undefined) return curatedHit
   // Owner, 16 Oct 2026: a value that names a MERGED area counts as the area it
   // was merged into ("Lal Flats near Johar Morr" names Johar, merged into
@@ -100,14 +112,65 @@ export function resolveAreaHub(
   const spelled = Object.entries(aliases)
     .map(([k, target]) => ({ area: live.get(target.toLowerCase()) ?? '', key: k }))
     .filter((c) => c.area && c.key)
-  return containsHit(key, spelled) ?? null
+  // A merged short name must also not sit inside a longer area name that this
+  // city's list does not have (another city's "Johar Town").
+  const longer = (knownAreas ?? []).map((n) => words(n)).filter((w) => w.length > 0)
+  const listKeys = new Set(list.map((c) => c.key))
+  return containsHit(text, spelled, longer.filter((w) => !listKeys.has(w.join(' ')))) ?? null
+}
+
+/** The value's words twice: with the joining "e" (`full`) and without it
+ *  (`key`), and where each `key` word sits in `full`. */
+type ValueText = { full: string[]; key: string[]; at: number[] }
+
+function valueText(raw: string, city: string | null | undefined): ValueText {
+  const a = raw.trim()
+  const full = rawWords(areaWithoutCity(a, city) || a)
+  const key: string[] = []
+  const at: number[] = []
+  full.forEach((w, i) => {
+    if (w !== 'e') {
+      key.push(w)
+      at.push(i)
+    }
+  })
+  return { full, key, at }
+}
+
+/** Every [start, end] (in `key` words) where `seq` appears as whole words. */
+function occurrences(key: string[], seq: string[]): [number, number][] {
+  const out: [number, number][] = []
+  if (seq.length === 0) return out
+  for (let i = 0; i + seq.length <= key.length; i++) {
+    if (seq.every((w, k) => key[i + k] === w)) out.push([i, i + seq.length - 1])
+  }
+  return out
+}
+
+/**
+ * Is this occurrence a WHOLE area name in the value (owner, 17 Oct 2026)?
+ *   • not one half of an "X-e-Y" name: "Gulshan" in "Gulshan-e-Hadeed" or
+ *     "Gulshan-e-Maymar Block 3", "Johar" in "Gulistan-e-Johar";
+ *   • not inside a longer known area name (another city's "Johar Town").
+ */
+function wholeName(t: ValueText, [i, j]: [number, number], longer: string[][]): boolean {
+  const pi = t.at[i]
+  const pj = t.at[j]
+  if (t.full[pj + 1] === 'e' && pj + 2 < t.full.length) return false
+  if (t.full[pi - 1] === 'e' && pi - 2 >= 0) return false
+  for (const l of longer) {
+    if (l.length <= j - i + 1) continue
+    if (occurrences(t.key, l).some(([a, b]) => a <= i && j <= b)) return false
+  }
+  return true
 }
 
 /** The longest name inside the value as a whole run of words. undefined = no
  *  name inside; null = names inside but no clear winner. */
-function containsHit(key: string, list: { area: string; key: string }[]): AreaHubHit | null | undefined {
-  const padded = ` ${key} `
-  const inside = list.filter((c) => padded.includes(` ${c.key} `))
+function containsHit(t: ValueText, list: { area: string; key: string }[], longer: string[][] = []): AreaHubHit | null | undefined {
+  const key = t.key.join(' ')
+  // Whole words, and only where the name stands as a whole area name.
+  const inside = list.filter((c) => occurrences(t.key, c.key.split(' ')).some((o) => wholeName(t, o, longer)))
   if (inside.length === 0) return undefined
   const longest = Math.max(...inside.map((c) => c.key.split(' ').length))
   const top = inside.filter((c) => c.key.split(' ').length === longest)
@@ -158,12 +221,13 @@ export function areaHubsFor(
   savedAreas: (string | null | undefined)[],
   curated: string[],
   aliases?: CityAliases | null,
+  knownAreas?: string[] | null,
 ): AreaHub[] {
   const hubs = new Map<string, AreaHub>()
   const seen = new Map<string, AreaHubHit | null>()
   for (const saved of savedAreas) {
     if (!saved || !saved.trim()) continue
-    if (!seen.has(saved)) seen.set(saved, resolveAreaHub(city, saved, curated, aliases))
+    if (!seen.has(saved)) seen.set(saved, resolveAreaHub(city, saved, curated, aliases, knownAreas))
     const hit = seen.get(saved)
     if (!hit) continue
     const slug = areaHubSlug(hit.area, city)

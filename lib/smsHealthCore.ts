@@ -21,6 +21,40 @@ export const QUIET_WINDOW_MS = 12 * 60 * 60 * 1000
 /** Signups that reached the mobile step in the quiet window before it is an alert. */
 export const QUIET_MIN_REQUESTS = 2
 export const SMS_TEST_PER_HOUR = 5
+/** A sharp drop (owner, 17 Oct 2026): at least this many numbers asked for a
+ *  code in 12 h and fewer than a quarter of them got an SMS sent. */
+export const SHARP_DROP_MIN_REQUESTS = 6
+
+// ---------------------------------------------------------------- networks
+// Ufone and Zong do not send delivery receipts back to SendPK, so SendPK shows
+// their messages as unconfirmed. The Owner's test on 16–17 Oct 2026: real codes
+// on a Ufone and a Zong phone arrived within seconds. "No receipt" is NOT a
+// failure — the log records a send as sent or failed from SendPK's own answer,
+// and nothing about receipts ever reaches the alert (smsAlertDecision).
+export type SmsNetwork = 'Jazz' | 'Zong' | 'Ufone' | 'Telenor' | 'SCO'
+
+/** The network of a Pakistani mobile from its prefix (works on the masked
+ *  form, 0321•••••22, which keeps the first four digits). */
+export function networkOf(masked: string | null | undefined): SmsNetwork | null {
+  const m = /^0(3\d)\d/.exec(String(masked ?? '').trim())
+  if (!m) return null
+  const p = Number(m[1])
+  if (p === 30 || p === 32) return 'Jazz'
+  if (p === 31) return 'Zong'
+  if (p === 33) return 'Ufone'
+  if (p === 34) return 'Telenor'
+  if (p === 35) return 'SCO'
+  return null
+}
+
+/** A sent message on a network that sends no receipts back. */
+export function noReceiptNetwork(masked: string | null | undefined): boolean {
+  const n = networkOf(masked)
+  return n === 'Ufone' || n === 'Zong'
+}
+
+export const NO_RECEIPT_LABEL = 'Sent — no receipt from network (normal for Ufone/Zong)'
+export const OWNER_TEST_NOTE = 'Owner test 17 Oct 2026: Ufone and Zong codes delivered.'
 
 const DOTS = '•••••'
 
@@ -136,8 +170,10 @@ export type AlertFacts = {
 
 export type AlertDecision = { fire: boolean; reasons: string[]; heldByCooldown: boolean }
 
-/** Fire when a send failed, OR 2+ numbers asked for a code in 12 h and none was
- *  sent — but never within 6 hours of the last alert. */
+/** Fire when a send failed (a SendPK error or a rejected send), OR 2+ numbers
+ *  asked for a code in 12 h and none was sent, OR a sharp drop: 6+ asked and
+ *  fewer than a quarter got an SMS — but never within 6 hours of the last
+ *  alert. A missing delivery receipt is never a reason: nothing here reads one. */
 export function smsAlertDecision(f: AlertFacts): AlertDecision {
   const reasons: string[] = []
   if (f.newFailures > 0) {
@@ -146,6 +182,8 @@ export function smsAlertDecision(f: AlertFacts): AlertDecision {
   }
   if (f.codeRequests12h >= QUIET_MIN_REQUESTS && f.successes12h === 0) {
     reasons.push(`${f.codeRequests12h} signups reached the mobile step in the last 12 hours and no SMS was sent.`)
+  } else if (f.codeRequests12h >= SHARP_DROP_MIN_REQUESTS && f.successes12h * 4 < f.codeRequests12h) {
+    reasons.push(`${f.codeRequests12h} numbers asked for a code in the last 12 hours and only ${f.successes12h} SMS ${f.successes12h === 1 ? 'was' : 'were'} sent.`)
   }
   if (reasons.length === 0) return { fire: false, reasons, heldByCooldown: false }
   const held = f.lastAlertAt !== null && f.now - f.lastAlertAt < ALERT_COOLDOWN_MS

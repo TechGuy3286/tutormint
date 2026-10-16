@@ -5,6 +5,7 @@ import type { ComponentType } from 'react'
 import AccessDeniedNotice from '@/components/admin/AccessDeniedNotice'
 import { requireAdminRole, roleBadge, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadOverviewList, type OverviewList } from '@/lib/overviewItems'
+import type { CardTrend, Trend } from '@/lib/overviewTrendCore'
 import { OVERVIEW_ITEMS, SIGNUPS_TODAY_HREF, type OverviewItemKey } from '@/lib/overviewItemsCore'
 import { funnelSteps } from '@/lib/staffOutreachCore'
 import { TILE_TONE, type TileTone } from '@/lib/tileTones'
@@ -77,7 +78,10 @@ export default async function AdminHome({
       key: k,
       label: OVERVIEW_ITEMS[k].title,
       value: k === 'revenue' ? pkr(l.amount ?? 0) : String(l.rows.length),
-      meaning: l.extra ?? TILE_STYLE[k]?.meaning ?? '',
+      // A card with a trend line (owner, 17 Oct 2026) shows its fixed meaning
+      // plus the line; the line carries what `extra` used to.
+      meaning: l.trend ? (TILE_STYLE[k]?.meaning ?? '') : (l.extra ?? TILE_STYLE[k]?.meaning ?? ''),
+      trend: l.trend ?? null,
     }
   })
   const todo = TODO_KEYS.filter((k) => lists.has(k))
@@ -139,7 +143,10 @@ export default async function AdminHome({
                 </span>
                 <p className={`text-2xl font-black ${tone.ink}`}>{t.value}</p>
                 <p className={`text-[11px] font-bold uppercase tracking-wide ${tone.ink}`}>{t.label}</p>
-                <p className={`mt-auto text-[10px] leading-snug opacity-80 ${tone.ink}`}>{t.meaning}</p>
+                <div className="mt-auto space-y-1">
+                  {t.meaning && <p className={`text-[10px] leading-snug opacity-80 ${tone.ink}`}>{t.meaning}</p>}
+                  {t.trend && <TrendLine trend={t.trend} ink={tone.ink} />}
+                </div>
               </Link>
             )
           })}
@@ -286,5 +293,29 @@ function DailySignupFunnel({ windows }: { windows: FunnelWindowResult[] }) {
         ))}
       </div>
     </section>
+  )
+}
+
+// ▲ green / ▼ red / — grey, always with the arrow and the sign so colour is
+// never the only signal. On a white pill: the pairs are the existing
+// green-deep / red / gray-600 on white (check:contrast).
+const TREND_TONE: Record<Trend['tone'], string> = {
+  up: 'text-tm-green-deep',
+  down: 'text-tm-red',
+  flat: 'text-gray-600',
+}
+
+function TrendLine({ trend, ink }: { trend: CardTrend; ink: string }) {
+  return (
+    <p className={`flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[10px] leading-snug ${ink}`}>
+      <span className="opacity-80">{trend.parts.join(' · ')}</span>
+      <span
+        title={trend.trend.title}
+        aria-label={`${trend.trend.text}. ${trend.trend.title}`}
+        className={`whitespace-nowrap rounded-full bg-white px-1.5 py-0.5 font-bold ${TREND_TONE[trend.trend.tone]}`}
+      >
+        {trend.trend.text}
+      </span>
+    </p>
   )
 }

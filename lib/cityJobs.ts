@@ -90,6 +90,9 @@ export async function cityPages(): Promise<CityPage[]> {
     const key = c.toLowerCase()
     ;(byCity.get(key) ?? byCity.set(key, []).get(key)!).push(r)
   }
+  // Every curated area name, all cities: a merged short name never matches
+  // inside a longer area name (lib/areaHubCore, owner 17 Oct 2026).
+  const known = [...curated.values()].flat()
   const pages: CityPage[] = []
   for (const list of byCity.values()) {
     // The most common spelling wins the display name ("Lahore" over "lahore").
@@ -102,7 +105,7 @@ export async function cityPages(): Promise<CityPage[]> {
     const online = list.filter((r) => r.teaching_mode === ONLINE_JOB_TITLE).length
     if (online > 0) variants.push({ kind: 'online', slug: 'online', label: `Online tuitions`, count: online })
     // Area hubs: curated areas only, every saved spelling of one area in one hub.
-    for (const hub of areaHubsFor(city, list.map((r) => r.area), curated.get(city.toLowerCase()) ?? [], aliases[city.toLowerCase()])) {
+    for (const hub of areaHubsFor(city, list.map((r) => r.area), curated.get(city.toLowerCase()) ?? [], aliases[city.toLowerCase()], known)) {
       variants.push({ kind: 'area', slug: hub.slug, label: hub.label, count: hub.count, area: hub.label, areas: hub.areas })
     }
     pages.push({ city, citySlug: citySegment(city), count: list.length, variants })
@@ -144,7 +147,8 @@ const cityPagesCached = unstable_cache(async (): Promise<CityPage[]> => cityPage
 export async function areaFilterSpellings(city: string | null | undefined, area: string | null | undefined): Promise<string[]> {
   if (!city || !area) return []
   const cityKey = city.trim().toLowerCase()
-  const hit = resolveAreaHub(city, area, (await curatedMap()).get(cityKey) ?? [], (await loadAreaAliases())[cityKey])
+  const cm = await curatedMap()
+  const hit = resolveAreaHub(city, area, cm.get(cityKey) ?? [], (await loadAreaAliases())[cityKey], [...cm.values()].flat())
   if (!hit) return []
   const slug = areaHubSlug(hit.area, city)
   const page = (await cityPagesCached()).find((p) => p.citySlug === citySegment(city))
@@ -155,7 +159,8 @@ export async function areaFilterSpellings(city: string | null | undefined, area:
 export async function areaHubFor(city: string | null, area: string | null): Promise<{ href: string; label: string } | null> {
   if (!city || !area) return null
   const cityKey = city.trim().toLowerCase()
-  const hit = resolveAreaHub(city, area, (await curatedMap()).get(cityKey) ?? [], (await loadAreaAliases())[cityKey])
+  const cm = await curatedMap()
+  const hit = resolveAreaHub(city, area, cm.get(cityKey) ?? [], (await loadAreaAliases())[cityKey], [...cm.values()].flat())
   if (!hit) return null
   const slug = areaHubSlug(hit.area, city)
   const page = (await indexableCityPagesCached()).find((p) => p.citySlug === citySegment(city))

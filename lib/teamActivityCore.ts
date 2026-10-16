@@ -92,3 +92,14 @@ export function withQuery(path: string, sp: Query): string {
   const s = q.toString()
   return s ? `${path}?${s}` : path
 }
+
+/** "All unpaid" on a Paid sign-ups card (owner, 17 Oct 2026): the staff
+ *  member's own My sign-ups on Not paid · Any time; for anyone else who sees
+ *  the card (Owner, Project Managers, Admin), that staff member's list —
+ *  tutors and parents, any month. Same people as the card's figure
+ *  (lib/staffSignupsCore allUnpaid). */
+export function allUnpaidHref(staffId: string, viewerId: string): string {
+  return staffId === viewerId
+    ? '/admin/my-signups?counted=not_paid&month=all'
+    : `/admin/team-activity/accounts?${new URLSearchParams({ staff: staffId, unpaid: 'all' }).toString()}`
+}

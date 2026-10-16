@@ -299,7 +299,25 @@ export function claimRow(input: {
 // ----------------------------------------------------------------- filters
 
 export type MonthFilter = 'all' | 'this' | 'last'
-export type CountedFilter = 'all' | 'counted' | 'not_counted'
+/** 'not_paid' (owner, 17 Oct 2026): every credited person who has not paid —
+ *  the "All unpaid" figure on a Team activity card (lib/staffSignupsCore
+ *  allUnpaid). Claims not credited are not people the staff member brought in,
+ *  so they are left out of it. */
+export type CountedFilter = 'all' | 'counted' | 'not_counted' | 'not_paid'
+
+export function isCountedFilter(v: string | null | undefined): v is CountedFilter {
+  return v === 'all' || v === 'counted' || v === 'not_counted' || v === 'not_paid'
+}
+
+export function isMonthFilter(v: string | null | undefined): v is MonthFilter {
+  return v === 'all' || v === 'this' || v === 'last'
+}
+
+function countedMatches(r: MySignupRow, f: CountedFilter): boolean {
+  if (f === 'all') return true
+  if (f === 'not_paid') return r.kind === 'credit' && !r.paid
+  return f === 'counted' ? r.counted : !r.counted
+}
 export type RoleFilter = 'all' | MemberRole
 
 export type Filters = { role: RoleFilter; step: MyStep | 'all'; counted: CountedFilter; month: MonthFilter; q: string }
@@ -337,7 +355,7 @@ export function filterRows(rows: MySignupRow[], f: Filters, nowMs: number): MySi
   return rows
     .filter((r) => f.role === 'all' || r.role === f.role)
     .filter((r) => f.step === 'all' || r.step === f.step)
-    .filter((r) => f.counted === 'all' || (f.counted === 'counted' ? r.counted : !r.counted))
+    .filter((r) => countedMatches(r, f.counted))
     .filter((r) => f.month === 'all' || inMonth(r, f.month, nowMs))
     .filter((r) => {
       if (!q) return true

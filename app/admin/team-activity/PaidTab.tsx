@@ -6,6 +6,7 @@ import { loadClaims, pendingClaimCount } from '@/lib/staffSignups'
 import { loadTargetBoard, type StatusCounts, type TargetCard } from '@/lib/staffTargets'
 import { maskMobile } from '@/lib/smsHealthCore'
 import { changeLabel, type Change } from '@/lib/tuitionPostingCore'
+import { allUnpaidHref } from '@/lib/teamActivityCore'
 import { isParticipantRole, type MemberRole, type StaffStatus, type Step } from '@/lib/staffSignupsCore'
 import { PACE_LABEL, monthLabel, perDayLabel, type MonthKey, type Pace, type PaceStatus } from '@/lib/staffTargetsCore'
 import type { AdminActor } from '@/lib/adminAuth'
@@ -93,7 +94,7 @@ export default async function PaidTab({ actor, month }: { actor: AdminActor; mon
       {board.cards.length > 0 && (
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {board.cards.map((c) => (
-            <Card key={c.staffId} card={c} current={current} month={month} />
+            <Card key={c.staffId} card={c} current={current} month={month} viewerId={actor.id} />
           ))}
         </ul>
       )}
@@ -246,7 +247,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   )
 }
 
-function Card({ card, current, month }: { card: TargetCard; current: boolean; month: MonthKey }) {
+function Card({ card, current, month, viewerId }: { card: TargetCard; current: boolean; month: MonthKey; viewerId: string }) {
   const p = card.pace
   const width = p.pct == null ? 0 : Math.min(100, p.pct)
   return (
@@ -276,7 +277,7 @@ function Card({ card, current, month }: { card: TargetCard; current: boolean; mo
       <p className="text-[11px] text-gray-600">
         <NeededLine pace={p} />
       </p>
-      <PendingLine card={card} month={month} />
+      <PendingLine card={card} month={month} viewerId={viewerId} />
     </li>
   )
 }
@@ -286,7 +287,7 @@ function Card({ card, current, month }: { card: TargetCard; current: boolean; mo
  *  counts' own Pending and open the same lists. */
 const PENDING_HELP = 'Signed up but has not paid — needs follow-up'
 
-function PendingLine({ card, month }: { card: TargetCard; month: MonthKey }) {
+function PendingLine({ card, month, viewerId }: { card: TargetCard; month: MonthKey; viewerId: string }) {
   const n = (v: number, role: MemberRole) =>
     v > 0 ? (
       <Link href={statusHref(card.staffId, role, 'pending', month)} className="font-bold text-gray-600 hover:text-tm-red hover:underline">
@@ -300,7 +301,9 @@ function PendingLine({ card, month }: { card: TargetCard; month: MonthKey }) {
       <p>
         Pending (unpaid): Tutors {n(card.pending.tutors, 'tutor')} · Parents {n(card.pending.parents, 'parent')}
         <span aria-hidden="true"> | </span>
-        All unpaid <span className="tabular-nums">{card.allUnpaid}</span>
+        <Link href={allUnpaidHref(card.staffId, viewerId)} className="font-bold text-gray-600 hover:text-tm-red hover:underline">
+          All unpaid <span className="tabular-nums">{card.allUnpaid}</span>
+        </Link>
       </p>
       <p className="text-[10px]">{PENDING_HELP}</p>
     </div>

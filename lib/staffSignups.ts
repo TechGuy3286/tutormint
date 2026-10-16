@@ -54,7 +54,7 @@ import {
   type Step,
   type Visit,
 } from '@/lib/staffSignupsCore'
-import { accountsInRange, inProgressIn, isInProgressStepFor, statusIn, type Range, type StaffStatus } from '@/lib/staffSignupsCore'
+import { accountsInRange, allUnpaid, inProgressIn, isInProgressStepFor, statusIn, type Range, type StaffStatus } from '@/lib/staffSignupsCore'
 import { firstPaidAt, type PaymentFacts } from '@/lib/staffTargetsCore'
 import { notify } from '@/lib/notifications'
 import { MY_SIGNUPS_PATH, newSignupNoticeTitle } from '@/lib/mySignupsCore'
@@ -655,7 +655,7 @@ export async function loadSignupList(
    *  `inProgress` then covers parents too (Signed up / Posted, not paid). */
   /** `status` (Team activity's Pending / Signed up, owner 16 Oct 2026) with a
    *  `range` lists by status instead of step. */
-  opts: { inProgress?: boolean; range?: Range; status?: StaffStatus } = {},
+  opts: { inProgress?: boolean; range?: Range; status?: StaffStatus; unpaidAll?: boolean } = {},
 ): Promise<SignupListResult> {
   if (staffId === 'team' ? !seesEveryone(viewer.adminRole) : !mayViewStaff(viewer, staffId)) {
     return { ok: false, status: 403, error: 'You can only see your own sign-ups.' }
@@ -669,6 +669,12 @@ export async function loadSignupList(
     staffName = formatName((data.full_name as string | null) ?? '') || '—'
   }
   const all = await loadCreditedAccounts()
+  // "All unpaid" (owner, 17 Oct 2026): tutors AND parents, any month — the
+  // card's allUnpaid figure, from the same function.
+  if (opts.unpaidAll) {
+    const people = allUnpaid(all.filter((a) => (staffId === 'team' ? true : a.staffId === staffId)))
+    return { ok: true, staffName, accounts: people.sort((a, b) => Date.parse(b.at.signed_up ?? '') - Date.parse(a.at.signed_up ?? '')) }
+  }
   const mine = all.filter((a) => a.role === role && (staffId === 'team' ? true : a.staffId === staffId))
   // "In progress": the same step, tutors who have not paid (inProgressAt) — the
   // rule the board's in-progress numbers use.

@@ -1,6 +1,6 @@
 import { requireAdminRole, roleMayWrite, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadSmsHealth } from '@/lib/smsLog'
-import { pkTime } from '@/lib/smsHealthCore'
+import { NO_RECEIPT_LABEL, OWNER_TEST_NOTE, noReceiptNetwork, pkTime } from '@/lib/smsHealthCore'
 import SmsTestForm from './SmsTestForm'
 
 // Admin → Settings → SMS (owner, 15 Oct 2026). The Owner, and the Partner view
@@ -85,6 +85,10 @@ export default async function SmsSettingsPage() {
 
       <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
         <h2 className="text-sm font-black text-tm-navy">Recent code requests and sends</h2>
+        <p className="text-[11px] text-gray-600">
+          Ufone and Zong do not send delivery receipts, so SendPK shows their messages as unconfirmed. That is not a failure.{' '}
+          {OWNER_TEST_NOTE}
+        </p>
         {h.recent.length === 0 ? (
           <p className="text-xs text-gray-500">Nothing recorded yet. Rows appear here from the first code request after this screen went live.</p>
         ) : (
@@ -105,9 +109,15 @@ export default async function SmsSettingsPage() {
                     <td className="py-1 pr-2 whitespace-nowrap">{pkTime(r.createdAt)}</td>
                     <td className="py-1 pr-2">{PURPOSE[r.purpose] ?? r.purpose}</td>
                     <td className="py-1 pr-2 whitespace-nowrap">{r.toMasked}</td>
-                    <td className={`py-1 pr-2 font-bold ${r.outcome === 'failed' ? 'text-tm-red' : r.outcome === 'sent' ? 'text-tm-green-deep' : 'text-gray-600'}`}>
-                      {OUTCOME[r.outcome] ?? r.outcome}
-                    </td>
+                    {r.outcome === 'sent' && noReceiptNetwork(r.toMasked) ? (
+                      // Ufone / Zong: sent, and those networks send no receipt
+                      // back — grey, not a warning (owner, 17 Oct 2026).
+                      <td className="py-1 pr-2 text-gray-600">{NO_RECEIPT_LABEL}</td>
+                    ) : (
+                      <td className={`py-1 pr-2 font-bold ${r.outcome === 'failed' ? 'text-tm-red' : r.outcome === 'sent' ? 'text-tm-green-deep' : 'text-gray-600'}`}>
+                        {OUTCOME[r.outcome] ?? r.outcome}
+                      </td>
+                    )}
                     <td className="py-1 break-all text-gray-600">{r.outcome === 'failed' ? r.error : r.messageId ?? ''}</td>
                   </tr>
                 ))}
@@ -120,8 +130,10 @@ export default async function SmsSettingsPage() {
       <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
         <h2 className="text-sm font-black text-tm-navy">Alert history</h2>
         <p className="text-xs text-gray-500">
-          Checked every hour. The Owner is emailed and notified when an SMS fails to send, or when 2 or more signups reach the
-          mobile step in 12 hours and no SMS is sent — at most once every 6 hours.
+          Checked every hour. The Owner is emailed and notified when an SMS fails to send (a SendPK error or a rejected send),
+          when 2 or more signups reach the mobile step in 12 hours and no SMS is sent, or when 6 or more numbers ask for a code
+          in 12 hours and fewer than a quarter get one — at most once every 6 hours. A missing delivery receipt never raises
+          an alert.
         </p>
         {h.alerts.length === 0 ? (
           <p className="text-xs text-gray-500">No alerts yet.</p>
