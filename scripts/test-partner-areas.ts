@@ -47,7 +47,7 @@ test('every view-only area refuses a Partner write; the Owner is unaffected', ()
     'finance', 'revenue', 'paymentAmounts', 'payments', 'paymentsApprove', 'paymentsRefund', 'paymentsSettings', 'paymentsSwitches',
     'paymentGateways', 'smsHealth', 'reconciliation', 'plans', 'plansMutate', 'subjectsCore', 'secondRole', 'team', 'audit', 'seo', 'unmetSearches',
     'ads', 'social', 'import', 'cleanup', 'blog', 'blogPublish', 'blogApprove', 'blogQueue', 'blogGenerate', 'staffActivity', 'signupFunnel', 'usersExport', 'overview',
-    'staffSignupsAll', 'staffSignupClaim', 'staffClaimsReview',
+    'staffSignupsAll', 'staffSignupClaim', 'staffClaimsReview', 'mySignups',
   ]
   for (const key of VIEW) {
     assert.equal(roleMayWrite('partner', SCREEN_ACCESS[key]), false, key)
@@ -108,6 +108,10 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   // "Add as new area" while posting is an edit; merging areas is Locations (view).
   'locations/area': 'mixed',
   'locations': 'view',
+  // Review added areas (owner, 16 Oct 2026): Owner-only decisions.
+  'locations/run-review': 'view',
+  // A WhatsApp tap on My sign-ups / Team activity lists only writes the log.
+  'my-signups/whatsapp': 'edit',
   'members': 'edit',
   'mfa/backup-codes': 'self',
   'mfa/backup': 'self',

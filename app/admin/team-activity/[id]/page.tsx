@@ -11,6 +11,8 @@ import { joinLinkFor } from '@/lib/staffSignups'
 import { isParticipantRole } from '@/lib/staffSignupsCore'
 import { teamActivityHref } from '@/lib/teamActivityCore'
 import JoinLinkCard from '@/components/admin/JoinLinkCard'
+import { loadMySignupsLog } from '@/lib/mySignups'
+import { NEXT_STEP_LABEL, type NextStep } from '@/lib/mySignupsCore'
 
 // One staff member under Team activity (PR40 §4; owner, 15 Oct 2026): their
 // join link, the tuitions they posted — today / 7 days / total, by city, how
@@ -63,6 +65,8 @@ export default async function StaffDetailPage({
   // Their personal join link and code (owner, 15 Oct 2026).
   const joinLink = isParticipantRole(staff.admin_role as string | null) ? await joinLinkFor(id) : null
   const name = formatName(staff.full_name as string | null) || '—'
+  // Their My sign-ups activity (owner, 16 Oct 2026): page opens and WhatsApp taps.
+  const myLog = joinLink ? await loadMySignupsLog(id) : []
 
   const card = 'space-y-2 rounded-2xl border border-gray-200 bg-white p-4'
 
@@ -81,6 +85,38 @@ export default async function StaffDetailPage({
       </div>
 
       {joinLink && <JoinLinkCard url={joinLink.url} code={joinLink.code} title={actor.id === id ? 'Your join link' : `${name}'s join link`} />}
+
+      {joinLink && (
+        <div className={card}>
+          <p className="text-xs font-black text-tm-navy">
+            My sign-ups activity <span className="ml-1 font-semibold text-gray-500">(latest {myLog.length})</span>
+          </p>
+          {myLog.length === 0 ? (
+            <p className="text-[11px] text-gray-500">They have not opened My sign-ups yet.</p>
+          ) : (
+            <ul className="divide-y divide-gray-100 text-[11px]">
+              {myLog.map((e, i) => (
+                <li key={i} className="flex items-baseline justify-between gap-3 py-1.5">
+                  <span className="text-slate-800">
+                    {e.action === 'open' ? (
+                      'Opened My sign-ups'
+                    ) : (
+                      <>
+                        WhatsApp to{' '}
+                        <Link href={`/admin/users/${e.memberId}`} className="font-bold text-tm-navy hover:underline">
+                          {e.memberName}
+                        </Link>
+                        {e.nextStep && e.nextStep in NEXT_STEP_LABEL ? ` · ${NEXT_STEP_LABEL[e.nextStep as NextStep]}` : ''}
+                      </>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-gray-500">{formatDateTime(e.at)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* Tuitions posted: today / 7 days / total — each number re-filters the list. */}
       <div className={card}>

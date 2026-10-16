@@ -1,16 +1,17 @@
 import Link from 'next/link'
 
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
-import { formatDateTime } from '@/lib/datetime'
 import { loadSignupList } from '@/lib/staffSignups'
-import { maskMobile } from '@/lib/smsHealthCore'
-import { PERIODS, currentStep, isInProgressStep, isInProgressStepFor, isListStep, parsePeriod, stepsFor, type MemberRole, type Step } from '@/lib/staffSignupsCore'
+import { rowsForAccounts } from '@/lib/mySignups'
+import SignupRows from '@/components/admin/SignupRows'
+import { PERIODS, isInProgressStep, isInProgressStepFor, isListStep, parsePeriod, stepsFor, type MemberRole, type Step } from '@/lib/staffSignupsCore'
 import { isMonthKey, monthLabel, monthRange } from '@/lib/staffTargetsCore'
 import { teamActivityHref } from '@/lib/teamActivityCore'
 
 // The accounts behind one number on Team activity → Paid sign-ups (owner, 15
-// Oct 2026): name, masked mobile, the date of that step and where the account
-// is now, so staff can follow up. `inprogress=1` lists only tutors who have NOT
+// Oct 2026), with the same columns as My sign-ups (owner, 16 Oct 2026): name,
+// full phone, email, city, step, next step, Counted / Not counted and a
+// WhatsApp button, so staff can follow up. `inprogress=1` lists only tutors who have NOT
 // paid (the "In progress (not counted)" block). A participant may open only
 // their own lists — another person's id or the Team total is refused on the
 // server (lib/staffSignups loadSignupList; the JSON route answers 403).
@@ -52,6 +53,9 @@ export default async function SignupListPage({
   const stepLabel = step === 'paid' ? 'Paid' : (stepsFor(role).find((s) => s.key === step)?.label ?? '')
   const periodLabel = month ? monthLabel(month) : (PERIODS.find((p) => p.key === period)?.label ?? '')
   const n = result.accounts.length
+  // The same columns as My sign-ups (owner, 16 Oct 2026): full phone, email,
+  // city, step, next step, counted — the viewer may open this list.
+  const rows = await rowsForAccounts(result.accounts)
   const noun = role === 'tutor' ? (n === 1 ? 'tutor' : 'tutors') : n === 1 ? 'parent' : 'parents'
 
   return (
@@ -63,35 +67,11 @@ export default async function SignupListPage({
         {result.staffName}: {n} {noun} · {stepLabel}
         {inProgress ? ' · not paid yet' : ''} · {periodLabel}
       </h1>
-      <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
-        <table className="w-full min-w-[520px] text-left text-xs">
-          <thead className="bg-tm-bg text-[11px] font-bold text-gray-600">
-            <tr>
-              <th className="px-3 py-2">Name</th>
-              <th className="px-3 py-2">Mobile</th>
-              <th className="px-3 py-2">{stepLabel}</th>
-              <th className="px-3 py-2">Now at</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {n === 0 && (
-              <tr>
-                <td colSpan={4} className="px-3 py-4 text-gray-500">
-                  Nobody here for this period.
-                </td>
-              </tr>
-            )}
-            {result.accounts.map((a) => (
-              <tr key={a.memberId} className="text-slate-800">
-                <td className="px-3 py-2 font-bold">{a.name}</td>
-                <td className="px-3 py-2 tabular-nums">{maskMobile(a.mobile)}</td>
-                <td className="px-3 py-2">{a.at[step] ? formatDateTime(a.at[step] as string) : '—'}</td>
-                <td className="px-3 py-2">{currentStep(a)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {n === 0 ? (
+        <p className="rounded-2xl border border-gray-200 bg-white p-4 text-xs text-gray-600">Nobody here for this period.</p>
+      ) : (
+        <SignupRows rows={rows} showFilters />
+      )}
     </div>
   )
 }

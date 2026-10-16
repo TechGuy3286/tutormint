@@ -54,6 +54,7 @@ export type AdminScreen =
   | 'applicantForwards'
   | 'jobsPost'
   | 'tuitionPosting'
+  | 'mySignups'
 
 export type NavItem = {
   href: string
@@ -120,6 +121,8 @@ export const NAV_GROUPS: NavGroup[] = [
       // activity (People) and Tuition posting activity. Paid sign-ups first; the
       // Verifications & messages tab is checked separately (staffActivity).
       { href: '/admin/team-activity', label: 'Team activity', icon: 'activity', screen: 'tuitionPosting' },
+      // Each staff member's own sign-ups (owner, 16 Oct 2026).
+      { href: '/admin/my-signups', label: 'My sign-ups', icon: 'userPlus', screen: 'mySignups' },
     ],
   },
   {
@@ -194,7 +197,9 @@ export const SECTION_LABELS: Record<string, string> = {
   // Old addresses, now redirects to Team activity (owner, 15 Oct 2026).
   'posting-activity': 'Team activity',
   'team-activity': 'Team activity',
+  'my-signups': 'My sign-ups',
   accounts: 'Accounts',
+  added: 'Review added areas',
   claims: 'Claims to review',
   plans: 'Plans',
   reports: 'Reports & flags',

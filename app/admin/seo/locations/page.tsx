@@ -7,6 +7,7 @@ import StaffAddedAreas from './StaffAddedAreas'
 import { loadStaffAddedAreas, staffAreaSuggestions } from '@/lib/staffAreas'
 import { addedByLine } from '@/lib/staffAreaCore'
 import { formatDate } from '@/lib/datetime'
+import Link from 'next/link'
 
 // /admin/seo/locations — the free-text location review.
 //
@@ -47,6 +48,11 @@ export default async function AdminLocationsPage() {
         <h1 className="text-xl font-black text-tm-navy">Free-text locations in use</h1>
         <p className="text-xs text-gray-600">
           Check each suggestion, then approve it or change it. The text on tuitions and profiles is never changed, and nothing is deleted.
+        </p>
+        <p className="text-xs">
+          <Link href="/admin/seo/locations/added" className="font-bold text-tm-red hover:underline">
+            Review added areas (the 16 Oct bulk approval) →
+          </Link>
         </p>
       </header>
 

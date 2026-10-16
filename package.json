@@ -150,7 +150,10 @@
     "test:ownerapprovals": "tsx --test scripts/test-owner-approvals.ts",
     "test:staffsignups:live": "tsx --conditions=react-server --env-file=.env.local --test scripts/test-staff-signups-live.ts",
     "test:tuitionsgoogle": "tsx --test scripts/test-tuitions-google.ts",
-    "test:indexinglocations": "tsx --test scripts/test-indexing-locations.ts"
+    "test:indexinglocations": "tsx --test scripts/test-indexing-locations.ts",
+    "test:mysignups": "tsx --test scripts/test-my-signups.ts",
+    "test:mysignups:live": "tsx --conditions=react-server --env-file=.env.local --test scripts/test-my-signups-live.ts",
+    "test:locationrunreview": "tsx --test scripts/test-location-run-review.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

@@ -56,6 +56,8 @@ import {
 } from '@/lib/staffSignupsCore'
 import { accountsInRange, inProgressIn, isInProgressStepFor, type Range } from '@/lib/staffSignupsCore'
 import { firstPaidAt, type PaymentFacts } from '@/lib/staffTargetsCore'
+import { notify } from '@/lib/notifications'
+import { MY_SIGNUPS_PATH, newSignupNoticeTitle } from '@/lib/mySignupsCore'
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>
 
@@ -298,6 +300,18 @@ export async function creditNewAccount(
       targetId: memberId,
       detail: { source, role: facts.role, automatic: true, visitId: visit.id },
     })
+    // Tell the staff member (owner, 16 Oct 2026). Never blocks the sign-up.
+    try {
+      const { data: who } = await admin.from('profiles').select('full_name').eq('id', memberId).maybeSingle()
+      await notify({
+        userId: visit.staffId,
+        kind: 'staff_signup',
+        title: newSignupNoticeTitle(formatName((who?.full_name as string | null) ?? ''), facts.role as MemberRole),
+        href: MY_SIGNUPS_PATH,
+      })
+    } catch (e) {
+      console.error('[staff-signups] notice failed:', e instanceof Error ? e.message : e)
+    }
     return { credited: true }
   } catch (e) {
     console.error('[staff-signups] credit failed:', e instanceof Error ? e.message : e)

@@ -132,6 +132,9 @@ export type NotificationKind =
   | 'owner_alert'
   // SMS may not be sending (owner, 15 Oct 2026) — the hourly SMS health check.
   | 'sms_alert'
+  // My sign-ups (owner, 16 Oct 2026): someone signed up through this staff
+  // member's join link or code.
+  | 'staff_signup'
   // PR54 §B — a parent tried to send a hiring/demo request to a tutor who has
   // reached this month's free limit. No parent name or details.
   | 'incoming_request_capped'

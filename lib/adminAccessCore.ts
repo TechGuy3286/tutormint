@@ -286,6 +286,10 @@ export const SCREEN_ACCESS = {
   // staff, Operations, Admin). The Owner passes this list but carries no link,
   // so the server refuses; the Partner is refused by roleMayWrite.
   staffSignupClaim: ['admin', 'operations', 'tuitions_staff'] as AdminRole[],
+  // Tuitions → My sign-ups (owner, 16 Oct 2026): every staff member with a join
+  // link sees ONLY the people credited to them (lib/mySignups). The Owner and
+  // the Project Managers pass this list but carry no link; the page says so.
+  mySignups: ['admin', 'operations', 'tuitions_staff'] as AdminRole[],
   // Claims to review: the Owner and Admin approve or reject; the Project
   // Managers view (roleMayWrite refuses their POST).
   staffClaimsReview: ['admin'] as AdminRole[],

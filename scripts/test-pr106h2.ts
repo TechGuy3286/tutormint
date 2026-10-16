@@ -27,7 +27,7 @@ const satisfiedKeys = (role: AdminRole) => KEYS.filter((k) => roleSatisfies(role
 test('tuitions_staff may open ONLY the Tuitions group and the two outreach tabs', () => {
   // Paused tuitions (owner, 8 Oct 2026): every role that can post tuitions.
   // Applicants to forward (owner, 10 Oct 2026): tuitions staff act there too.
-  assert.deepEqual(satisfiedKeys('tuitions_staff'), ['applicantForwards', 'duplicates', 'featuredWhatsapp', 'jobs', 'jobsMutate', 'jobsPost', 'pausedTuitions', 'staffSignupClaim', 'tuitionPosting', 'unpaidSignups'])
+  assert.deepEqual(satisfiedKeys('tuitions_staff'), ['applicantForwards', 'duplicates', 'featuredWhatsapp', 'jobs', 'jobsMutate', 'jobsPost', 'mySignups', 'pausedTuitions', 'staffSignupClaim', 'tuitionPosting', 'unpaidSignups'])
 })
 
 test('every other screen is refused for tuitions_staff', () => {

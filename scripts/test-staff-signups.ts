@@ -240,6 +240,8 @@ test('no prices or amounts on the board; mobiles masked', () => {
     const s = read(f)
     assert.equal(/Rs\.?\s|PKR|amount_pkr|price_pkr/.test(s), false, f)
   }
-  assert.ok(read('app/admin/team-activity/accounts/page.tsx').includes('maskMobile(a.mobile)'))
+  // The lists behind the numbers show the same columns as My sign-ups (owner,
+  // 16 Oct 2026) — the full phone, never a CNIC, document or payment detail.
+  assert.ok(read('app/admin/team-activity/accounts/page.tsx').includes('rowsForAccounts(result.accounts)'))
   assert.ok(read('app/admin/team-activity/claims/page.tsx').includes('maskMobile(c.memberMobile)'))
 })
