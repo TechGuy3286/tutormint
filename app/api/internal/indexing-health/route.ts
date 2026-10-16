@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { timingSafeEqual } from 'node:crypto'
 
 import { createPublicClient } from '@/lib/supabase/public'
-import { indexingConfigured, indexingClient, indexingClientEmail, tuitionUrl } from '@/lib/googleIndexing'
+import { indexingConfigured, indexingClient, indexingClientEmail, recordIndexingAttempt, tuitionUrl } from '@/lib/googleIndexing'
 import { classifyTokenError, describeKeyShape } from '@/lib/googleIndexingCore'
 
 // GET /api/internal/indexing-health — is the Google Indexing API set up?
@@ -122,10 +122,13 @@ export async function GET(request: Request) {
     try {
       const r = await client.indexing.urlNotifications.publish({ requestBody: { url, type: 'URL_UPDATED' } })
       out.publish = r.status
+      // Counted in "Sent today" like a queued send (owner, 16 Oct 2026).
+      await recordIndexingAttempt(url, 'URL_UPDATED', true, null).catch(() => undefined)
     } catch (e) {
       const d = describe(e)
       out.publish = d.status
       out.error = d.message
+      await recordIndexingAttempt(url, 'URL_UPDATED', false, String(d.message ?? d.status)).catch(() => undefined)
     }
   }
 

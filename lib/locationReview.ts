@@ -11,9 +11,9 @@ import 'server-only'
 //   not_area "Not an area"            → a row in location_ignored (hidden)
 //
 // The text on tuitions and profiles is never rewritten; only what it MEANS
-// changes. Nothing is deleted. Every action is in the Audit log. Approving an
-// area or an alias re-evaluates its hub at once and tells Google about the hub
-// when it has 3 or more open tuitions.
+// changes. Nothing is deleted. Every action is in the Audit log. Hubs are never
+// sent to the Indexing API (single tuition pages only, 16 Oct 2026); the live
+// sitemap lists a hub once it clears its rule.
 //
 // The loader only reads and suggests — it writes nothing. Suggestions are never
 // saved until staff approve them here.
@@ -23,13 +23,9 @@ import { revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { pageAll } from '@/lib/pageAll'
 import { logAdminAction } from '@/lib/auditLog'
-import { enqueueIndexing } from '@/lib/googleIndexing'
 import { revalidateLanding } from '@/lib/landingRevalidate'
 import { AREA_ALIAS_TAG } from '@/lib/areaAliases'
-import { areaHubSlug, areaKey, resolveAreaHub } from '@/lib/areaHubCore'
 import { cleanAreaName, suggestFor, type NotAreaReason, type Suggestion } from '@/lib/locationCleanCore'
-import { citySegment } from '@/lib/slugs'
-import { SITE_URL } from '@/lib/siteUrl'
 import type { AdminRole } from '@/lib/adminAccessCore'
 
 export type ReviewRow = {
@@ -155,29 +151,6 @@ export type ReviewAction =
 
 export type ActionResult = { value: string; city: string; ok: boolean; message: string; hub?: string | null }
 
-/** How many OPEN tuitions the area's hub would hold now, every spelling counted. */
-async function hubCount(admin: Admin, city: string, area: string, curatedNames: string[]): Promise<number> {
-  const [open, aliasRows] = await Promise.all([
-    pageAll((from, to) => admin.from('jobs').select('id, area').eq('status', 'open').ilike('city', city).not('area', 'is', null).order('id').range(from, to)),
-    pageAll((from, to) =>
-      admin.from('location_area_aliases').select('id, raw, location_cities!inner(name), location_areas(name)').is('removed_at', null).order('id').range(from, to),
-    ).catch(() => []),
-  ])
-  const aliases: Record<string, string> = {}
-  for (const r of aliasRows as { raw: string; location_cities: unknown; location_areas: unknown }[]) {
-    const c = Array.isArray(r.location_cities) ? r.location_cities[0] : r.location_cities
-    const a = Array.isArray(r.location_areas) ? r.location_areas[0] : r.location_areas
-    if (low((c as { name?: string } | null)?.name) !== low(city)) continue
-    const k = areaKey(r.raw, city)
-    if (k && (a as { name?: string } | null)?.name) aliases[k] = (a as { name: string }).name
-  }
-  const slug = areaHubSlug(area, city)
-  return (open as { area: string | null }[]).filter((j) => {
-    const hit = resolveAreaHub(city, j.area, curatedNames, aliases)
-    return hit ? areaHubSlug(hit.area, city) === slug : false
-  }).length
-}
-
 /**
  * Apply the approved actions, one by one (a refused row never stops the rest).
  * Each writes its own Audit log row with before → after.
@@ -266,22 +239,100 @@ export async function applyLocationActions(actions: ReviewAction[], actor: Actor
   revalidateTag(AREA_ALIAS_TAG, 'max')
   revalidateLanding()
 
-  // Re-evaluate each touched hub: with 3+ open tuitions it is indexable, so
-  // Google is told about it (through the queue, within 200 a day).
+  // Hubs are NOT sent to the Indexing API (owner, 16 Oct 2026): it is for single
+  // tuition pages only. A hub that now clears 3 open tuitions is in the sitemap
+  // (read live) and Google finds it there.
   const hubsQueued: string[] = []
-  for (const h of hubs.values()) {
-    try {
-      const names = (areasByCity[low(h.city)] ?? []).map((x) => x.name)
-      const n = await hubCount(admin, h.city, h.area, names)
-      if (n < 3) continue
-      const url = `${SITE_URL}/tuition-jobs/${citySegment(h.city)}/${areaHubSlug(h.area, h.city)}`
-      await enqueueIndexing([url], 'URL_UPDATED')
-      hubsQueued.push(url)
-      for (const r of results) if (low(r.city) === low(h.city) && r.ok && r.hub === undefined && r.message.includes(h.area)) r.hub = url
-    } catch {
-      /* the hub still re-evaluates on its next request */
-    }
-  }
 
   return { ok: results.some((r) => r.ok), results, hubsQueued }
+}
+
+// ---------------------------------------------------------------------------
+// Paged loading and per-kind bulk approval (owner, 16 Oct 2026). The screen
+// asks for one page of rows at a time; the suggestions are computed here on the
+// server. A bulk approval is ONE KIND at a time ("Same as an area", "Not an
+// area", "New area"), confirmed first, and sent in small batches.
+
+export type ReviewKind = 'all' | 'same' | 'not_area' | 'add'
+
+export const REVIEW_PAGE_SIZE = 40
+/** Items one POST may carry: small enough to finish in a couple of seconds. */
+export const REVIEW_BATCH_MAX = 25
+
+function rowMatches(r: ReviewRow, kind: ReviewKind, q: string): boolean {
+  if (kind !== 'all' && r.suggestion.action !== kind) return false
+  if (!q) return true
+  return r.value.toLowerCase().includes(q) || r.city.toLowerCase().includes(q)
+}
+
+/** One page of review rows, plus the counts per kind. */
+export async function loadLocationReviewPage(opts: { kind: ReviewKind; q?: string; offset?: number; limit?: number }): Promise<{
+  rows: ReviewRow[]
+  total: number
+  counts: ReviewBoard['counts']
+  areasByCity: ReviewBoard['areasByCity']
+}> {
+  const board = await loadLocationReview()
+  const q = (opts.q ?? '').trim().toLowerCase()
+  const list = board.rows.filter((r) => rowMatches(r, opts.kind, q))
+  const offset = Math.max(0, opts.offset ?? 0)
+  const limit = Math.min(100, Math.max(1, opts.limit ?? REVIEW_PAGE_SIZE))
+  const page = list.slice(offset, offset + limit)
+  // Only the cities on this page, so the picker data stays small.
+  const cities = new Set(page.map((r) => low(r.city)))
+  const areasByCity: ReviewBoard['areasByCity'] = {}
+  for (const c of cities) if (board.areasByCity[c]) areasByCity[c] = board.areasByCity[c]
+  return { rows: page, total: list.length, counts: board.counts, areasByCity }
+}
+
+/** The suggested action of a row, ready to send — or null when it cannot be
+ *  saved as it is (an unlisted city, a "same" area that no longer exists). */
+export function reviewActionFor(r: ReviewRow, areas: { id: number; name: string }[]): ReviewAction | null {
+  const s = r.suggestion
+  if (s.action === 'not_area') return { action: 'not_area', value: r.value, city: r.city, reason: s.reason }
+  if (!r.cityListed) return null
+  if (s.action === 'same') {
+    const area = areas.find((a) => a.name.toLowerCase() === s.area.toLowerCase())
+    return area ? { action: 'same', value: r.value, city: r.city, areaId: area.id } : null
+  }
+  return { action: 'add', value: r.value, city: r.city, name: s.name }
+}
+
+/** Every row of one kind as its suggested action (for "Approve all <kind>"),
+ *  with a sample of 5 for the confirm box. */
+export async function bulkReviewActions(kind: Exclude<ReviewKind, 'all'>): Promise<{
+  items: ReviewAction[]
+  sample: { value: string; city: string; line: string }[]
+  skipped: number
+}> {
+  const board = await loadLocationReview()
+  const rows = board.rows.filter((r) => r.suggestion.action === kind)
+  const items: ReviewAction[] = []
+  const sample: { value: string; city: string; line: string }[] = []
+  let skipped = 0
+  for (const r of rows) {
+    const a = reviewActionFor(r, board.areasByCity[low(r.city)] ?? [])
+    if (!a) {
+      skipped++
+      continue
+    }
+    items.push(a)
+    if (sample.length < 5) {
+      const line = a.action === 'not_area' ? `Not an area (${a.reason})` : a.action === 'add' ? `New area “${a.name}”` : `Same as ${r.suggestion.action === 'same' ? r.suggestion.area : ''}`
+      sample.push({ value: r.value, city: r.city, line })
+    }
+  }
+  return { items, sample, skipped }
+}
+
+/** The curated areas of the given cities only (Admin → Locations, staff-added
+ *  areas), so the page never loads every city's list. Retired areas left out. */
+export async function curatedAreasForCities(cities: string[]): Promise<ReviewBoard['areasByCity']> {
+  const admin = createAdminClient()
+  const wanted = [...new Set(cities.map(low).filter(Boolean))]
+  if (!admin || wanted.length === 0) return {}
+  const { areasByCity } = await curated(admin)
+  const out: ReviewBoard['areasByCity'] = {}
+  for (const c of wanted) if (areasByCity[c]) out[c] = areasByCity[c]
+  return out
 }

@@ -198,28 +198,50 @@ export async function staffAreaSuggestions(): Promise<AreaSuggestion[]> {
   return out
 }
 
-/** Approve one suggestion: merge, then the landmark on that city's tuitions saved
- *  with the added name. Audited (location.alias by the merge, location.landmark here). */
-export async function approveAreaSuggestion(areaId: number, actor: Actor): Promise<{ ok: true; from: string; into: string; landmark: string; tuitions: number } | { ok: false; status: 400 | 503; error: string }> {
+/** Approve one staff-added area: merge it into a curated area, then put the
+ *  Block / landmark on that city's tuitions saved with the added name. With no
+ *  override the suggestion is used; the Owner may edit it first (owner, 16 Oct
+ *  2026) — another area in the same city and/or another landmark, which also
+ *  works for an added area with no suggestion. Audited (location.alias by the
+ *  merge, location.landmark here). The tuitions' saved area text is unchanged. */
+export async function approveAreaSuggestion(
+  areaId: number,
+  actor: Actor,
+  override?: { intoAreaId?: number; landmark?: string },
+): Promise<{ ok: true; from: string; into: string; landmark: string; tuitions: number } | { ok: false; status: 400 | 503; error: string }> {
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: NOT_NOW }
+  const added = (await loadStaffAddedAreas()).find((a) => a.id === areaId)
+  if (!added) return { ok: false, status: 400, error: 'That area is no longer waiting. Reload the page.' }
   const s = (await staffAreaSuggestions()).find((x) => x.areaId === areaId)
-  if (!s) return { ok: false, status: 400, error: 'There is no suggestion for that area any more. Reload the page.' }
-  const merged = await mergeStaffArea({ areaId: s.areaId, intoAreaId: s.intoAreaId }, actor)
+  const intoAreaId = override?.intoAreaId ?? s?.intoAreaId
+  if (!intoAreaId) return { ok: false, status: 400, error: 'Choose the area it is the same as.' }
+  if (intoAreaId === areaId) return { ok: false, status: 400, error: 'Choose a different area.' }
+  const { data: into } = await admin.from('location_areas').select('id, name, city_id, removed_at').eq('id', intoAreaId).maybeSingle()
+  if (!into || into.removed_at || (into.city_id as number) !== added.cityId) {
+    return { ok: false, status: 400, error: 'Choose an area in the same city.' }
+  }
+  const landmark = (override?.landmark ?? s?.landmark ?? '').replace(/\s+/g, ' ').trim()
+  if (landmark.length > 120) return { ok: false, status: 400, error: 'Keep the Block / landmark under 120 characters.' }
+  const edited = Boolean(override) && (intoAreaId !== s?.intoAreaId || landmark !== (s?.landmark ?? ''))
+  const merged = await mergeStaffArea({ areaId, intoAreaId }, actor)
   if (!merged.ok) return merged
-  // The tuitions saved with exactly this text in this city (case ignored) that
-  // have no landmark yet. jobs.area itself is not rewritten.
-  const { data: jobs } = await admin.from('jobs').select('id, area, area_landmark').ilike('city', s.city).ilike('area', s.name.replace(/[%_\\]/g, '\\$&'))
-  const ids = (jobs ?? []).filter((j) => !((j.area_landmark as string | null) ?? '').trim()).map((j) => j.id as string)
-  if (ids.length > 0) await admin.from('jobs').update({ area_landmark: s.landmark }).in('id', ids)
+  let ids: string[] = []
+  if (landmark) {
+    // The tuitions saved with exactly this text in this city (case ignored) that
+    // have no landmark yet. jobs.area itself is not rewritten.
+    const { data: jobs } = await admin.from('jobs').select('id, area, area_landmark').ilike('city', added.city).ilike('area', added.name.replace(/[%_\\]/g, '\\$&'))
+    ids = (jobs ?? []).filter((j) => !((j.area_landmark as string | null) ?? '').trim()).map((j) => j.id as string)
+    if (ids.length > 0) await admin.from('jobs').update({ area_landmark: landmark }).in('id', ids)
+  }
   await logAdminAction({
     actorId: actor.id,
     actorRole: actor.adminRole,
     actorEmail: actor.email ?? null,
     action: 'location.landmark',
     targetType: 'location',
-    targetId: String(s.intoAreaId),
-    detail: { value: s.name, area: s.intoName, landmark: s.landmark, city: s.city, tuitions: ids.length, jobIds: ids.slice(0, 200) },
+    targetId: String(intoAreaId),
+    detail: { value: added.name, area: into.name as string, landmark, city: added.city, edited, tuitions: ids.length, jobIds: ids.slice(0, 200) },
   })
-  return { ok: true, from: merged.from, into: merged.into, landmark: s.landmark, tuitions: ids.length }
+  return { ok: true, from: merged.from, into: merged.into, landmark, tuitions: ids.length }
 }

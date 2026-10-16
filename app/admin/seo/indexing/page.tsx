@@ -1,6 +1,6 @@
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { indexingQueueReport } from '@/lib/googleIndexing'
-import { SUPERSEDED_NOTE } from '@/lib/googleIndexingCore'
+import { SKIP_NOTE, SUPERSEDED_NOTE } from '@/lib/googleIndexingCore'
 import { formatDateTime } from '@/lib/datetime'
 import IndexingHealth from './IndexingHealth'
 
@@ -15,8 +15,10 @@ import IndexingHealth from './IndexingHealth'
 
 export const dynamic = 'force-dynamic'
 
-function result(row: { sent_at: string | null; last_error: string | null }): { text: string; cls: string } {
-  if (!row.sent_at) return { text: row.last_error ? 'Waiting (Google daily limit reached)' : 'Waiting', cls: 'bg-tm-tint-gold text-tm-gold-ink' }
+function result(row: { sent_at: string | null; last_error: string | null; skip_reason: string | null }): { text: string; cls: string } {
+  if (!row.sent_at) return { text: row.last_error ? 'Waiting (tried before; will try again)' : 'Waiting', cls: 'bg-tm-tint-gold text-tm-gold-ink' }
+  if (row.skip_reason === 'not_tuition') return { text: SKIP_NOTE.not_tuition, cls: 'bg-tm-bg text-gray-600' }
+  if (row.skip_reason === 'old_address') return { text: SKIP_NOTE.old_address, cls: 'bg-tm-bg text-gray-600' }
   if (row.last_error === SUPERSEDED_NOTE) return { text: 'Not sent — a newer notice replaced it', cls: 'bg-tm-bg text-gray-600' }
   if (row.last_error) return { text: 'Failed', cls: 'bg-tm-tint-red text-tm-red' }
   return { text: 'Accepted by Google', cls: 'bg-tm-tint-green text-tm-green-deep' }
@@ -32,8 +34,9 @@ export default async function AdminIndexingPage() {
       <header className="space-y-1">
         <h1 className="text-xl font-black text-tm-navy">Google indexing notices</h1>
         <p className="max-w-3xl text-xs text-gray-500">
-          Google is told when a tuition is posted, edited, resumed or paused (updated) and when it is closed or
-          hired (removed). Google allows {r.limit} notices a day, counted from midnight Pacific time (next reset{' '}
+          Only single tuition pages are sent: Google is told when a tuition is posted, edited, resumed or paused
+          (updated) and when it is closed or hired (removed). Hubs, tutor profiles, blog posts and other pages are
+          found through the sitemap. Google allows {r.limit} notices a day, counted from midnight Pacific time (next reset{' '}
           {formatDateTime(r.resetsAt)}). New posts go first; failures are tried again later.
         </p>
       </header>
@@ -44,7 +47,15 @@ export default async function AdminIndexingPage() {
         </p>
       )}
 
-      <IndexingHealth sentToday={r.sentToday} limit={r.limit} days={r.days} errors={r.errors} />
+      <IndexingHealth
+        sentToday={r.sentToday}
+        limit={r.limit}
+        days={r.days}
+        errors={r.errors}
+        skips={r.skipsToday}
+        quotaStopped={r.quotaStopped}
+        resetsAt={r.resetsAt}
+      />
 
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Sent today" value={`${r.sentToday} of ${r.limit}`} />

@@ -12,6 +12,13 @@ import {
   indexingKindForStatus,
   indexingDays,
   isQuotaError,
+  isTuitionPageUrl,
+  newestFirst,
+  pageCheckVerdict,
+  quotaReachedToday,
+  tuitionSlugOf,
+  SKIP_NOTE,
+  type SkipReason,
   nextPacificDayStart,
   pacificDayStart,
   planDrain,
@@ -22,7 +29,6 @@ import {
   PRIORITY_CHANGE,
   PRIORITY_NEW_POST,
   SUPERSEDED_AT,
-  SUPERSEDED_NOTE,
   type QueuedNotice,
 } from '@/lib/googleIndexingCore'
 
@@ -142,16 +148,36 @@ export function tuitionUrl(job: { public_slug?: string | null; city?: string | n
 // Google's Indexing API quota we keep to: 200 a day, counted from midnight
 // PACIFIC time (INDEXING_DAILY_LIMIT and pacificDayStart, in
 // lib/googleIndexingCore with the rest of the queue's rules).
+//
+// ONLY SINGLE TUITION PAGES (owner, 16 Oct 2026): a hub, a city page, a tutor
+// profile, a blog post or a static page is never queued or sent — Google finds
+// those through the sitemap. Before each send the tuition's address is checked
+// (current address, 200, self-canonical); anything else is MARKED and kept.
 
-/** Requests made to Google since its quota day began — what Google counts.
- *  A quota refusal is not a request Google counted, so it is left out. */
-async function attemptsToday(admin: NonNullable<ReturnType<typeof createAdminClient>>, now = new Date()): Promise<number> {
+type Admin = NonNullable<ReturnType<typeof createAdminClient>>
+
+/** Requests made to Google since its quota day began that Google charged for:
+ *  every accepted request and every failure that was not a quota refusal. A
+ *  request Google refused for its quota was not served, so it is left out. */
+async function attemptsToday(admin: Admin, now = new Date()): Promise<number> {
   const { count } = await admin
     .from('indexing_attempts')
     .select('id', { count: 'exact', head: true })
     .gte('attempted_at', pacificDayStart(now).toISOString())
     .or('ok.eq.true,error.not.ilike.%quota%')
   return count ?? 0
+}
+
+/** Has Google refused on its quota since its day began? */
+async function quotaRefusedToday(admin: Admin, now = new Date()): Promise<boolean> {
+  const { data } = await admin
+    .from('indexing_attempts')
+    .select('ok, error, attempted_at')
+    .gte('attempted_at', pacificDayStart(now).toISOString())
+    .eq('ok', false)
+    .ilike('error', '%quota%')
+    .limit(1)
+  return quotaReachedToday((data ?? []) as { ok: boolean; error: string | null; attempted_at: string }[], now)
 }
 
 /** How many notifications went out in Google's day, and how many are waiting. */
@@ -165,6 +191,48 @@ export async function indexingQueueStatus(): Promise<{ sentToday: number; pendin
   return { sentToday, pending: pending ?? 0 }
 }
 
+/** Mark queue rows as not sent, with the reason; the rows are kept. */
+async function markSkipped(admin: Admin, ids: number[], reason: SkipReason): Promise<void> {
+  for (let i = 0; i < ids.length; i += 200) {
+    await admin
+      .from('indexing_queue')
+      .update({ sent_at: SUPERSEDED_AT, last_error: SKIP_NOTE[reason], skip_reason: reason, skipped_at: new Date().toISOString() })
+      .in('id', ids.slice(i, i + 200))
+      .is('sent_at', null)
+  }
+}
+
+/** The page as a visitor would get it: status (no redirect followed) and the
+ *  canonical link. Null on a network failure or timeout. */
+async function fetchPageCheck(url: string): Promise<{ status: number; canonical: string | null } | null> {
+  try {
+    const res = await fetch(url, {
+      redirect: 'manual',
+      headers: { 'user-agent': 'Mozilla/5.0 TutorMint-indexing-check' },
+      signal: AbortSignal.timeout(6000),
+      cache: 'no-store',
+    })
+    if (res.status !== 200) return { status: res.status, canonical: null }
+    const html = await res.text()
+    const m = html.match(/<link rel="canonical" href="([^"]*)"/)
+    return { status: 200, canonical: m ? m[1] : null }
+  } catch {
+    return null
+  }
+}
+
+/** The current address of each tuition, by public slug (merged repeats have none). */
+async function currentAddresses(admin: Admin, slugs: string[]): Promise<Map<string, string | null>> {
+  const out = new Map<string, string | null>()
+  for (let i = 0; i < slugs.length; i += 200) {
+    const { data } = await admin.from('jobs').select('public_slug, city, merged_into').in('public_slug', slugs.slice(i, i + 200))
+    for (const j of data ?? []) {
+      out.set(j.public_slug as string, j.merged_into ? null : tuitionUrl({ public_slug: j.public_slug as string, city: j.city as string | null }))
+    }
+  }
+  return out
+}
+
 /**
  * Send waiting notices, never past INDEXING_DAILY_LIMIT in Google's day — the
  * rest wait for the next run. Order: priority (new posts first), then
@@ -173,14 +241,16 @@ export async function indexingQueueStatus(): Promise<{ sentToday: number; pendin
  * CLAIMED (sent_at set where it was null) before the call, so two drains never
  * send one twice; every request made is written to indexing_attempts.
  *
- * A failure is retried with backoff (retryDelayMs, at most MAX_ATTEMPTS); a
- * quota refusal puts the row back until the next Pacific midnight and stops.
+ * Not sent and MARKED: a URL that is not a single tuition page; a tuition
+ * address that is not the tuition's current one, redirects, or names another
+ * page as canonical. Once Google refuses on its quota, nothing more is sent
+ * until the next Pacific midnight. Any other failure is retried with backoff
+ * (retryDelayMs, at most MAX_ATTEMPTS).
  */
-export async function drainIndexingQueue(max = INDEXING_DAILY_LIMIT, budgetMs = 40_000): Promise<{ sent: number; failed: number; left: number }> {
+export async function drainIndexingQueue(max = INDEXING_DAILY_LIMIT, budgetMs = 40_000): Promise<{ sent: number; failed: number; skipped: number; left: number }> {
   const started = Date.now()
   const admin = createAdminClient()
-  if (!admin || !indexingConfigured()) return { sent: 0, failed: 0, left: 0 }
-  const sentToday = await attemptsToday(admin)
+  if (!admin || !indexingConfigured()) return { sent: 0, failed: 0, skipped: 0, left: 0 }
   const pending = (await pageAll((from, to) =>
     admin
       .from('indexing_queue')
@@ -189,21 +259,51 @@ export async function drainIndexingQueue(max = INDEXING_DAILY_LIMIT, budgetMs = 
       .order('id')
       .range(from, to),
   )) as (QueuedNotice & { attempts: number | null })[]
-  const plan = planDrain(pending, sentToday, max)
-  // Older notices for an address that has a newer one: marked, never sent.
-  for (let i = 0; i < plan.superseded.length; i += 200) {
-    await admin
-      .from('indexing_queue')
-      .update({ sent_at: SUPERSEDED_AT, last_error: SUPERSEDED_NOTE })
-      .in('id', plan.superseded.slice(i, i + 200))
-      .is('sent_at', null)
+
+  // Anything that is not a single tuition page: marked, never sent.
+  const notTuition = pending.filter((p) => !isTuitionPageUrl(p.url, SITE_URL)).map((p) => p.id)
+  await markSkipped(admin, notTuition, 'not_tuition')
+  const tuitionRows = pending.filter((p) => isTuitionPageUrl(p.url, SITE_URL))
+
+  // Google said its quota is used up today: send nothing until its day resets.
+  if (await quotaRefusedToday(admin)) {
+    const { pending: left } = await indexingQueueStatus()
+    return { sent: 0, failed: 0, skipped: notTuition.length, left }
   }
+
+  const sentToday = await attemptsToday(admin)
+  const plan = planDrain(tuitionRows, sentToday, max)
+  // Older notices for an address that has a newer one: marked, never sent.
+  await markSkipped(admin, plan.superseded, 'superseded')
+
+  const current = await currentAddresses(admin, [...new Set(plan.send.map((r) => tuitionSlugOf(r.url, SITE_URL)).filter((s): s is string => !!s))])
   const attemptsOf = new Map(pending.map((p) => [p.id, p.attempts ?? 0]))
   let sent = 0
   let failed = 0
+  let skipped = notTuition.length
   for (const r of plan.send) {
     // Stop before the function's time limit; the next run picks up the rest.
     if (Date.now() - started > budgetMs) break
+    // Not the tuition's current address (an old city segment, a merged repeat,
+    // a slug that no longer exists): marked, never sent.
+    const slug = tuitionSlugOf(r.url, SITE_URL)
+    if (!slug || current.get(slug) !== r.url) {
+      await markSkipped(admin, [r.id], 'old_address')
+      skipped++
+      continue
+    }
+    // The live page: 200, no redirect, self-canonical.
+    const verdict = pageCheckVerdict(r.url, await fetchPageCheck(r.url))
+    if (verdict === 'old_address') {
+      await markSkipped(admin, [r.id], 'old_address')
+      skipped++
+      continue
+    }
+    if (verdict === 'transient') {
+      // Our own page did not answer: try again in a few minutes, not counted.
+      await admin.from('indexing_queue').update({ next_attempt_at: new Date(Date.now() + retryDelayMs(1)).toISOString() }).eq('id', r.id).is('sent_at', null)
+      continue
+    }
     const attempts = (attemptsOf.get(r.id) ?? 0) + 1
     const { data: claimed } = await admin
       .from('indexing_queue')
@@ -220,7 +320,8 @@ export async function drainIndexingQueue(max = INDEXING_DAILY_LIMIT, budgetMs = 
       await admin.from('indexing_queue').update({ last_error: null, next_attempt_at: null }).eq('id', r.id)
       continue
     }
-    // Google's own daily quota: put the row back until its day resets, stop.
+    // Google's own daily quota: put the row back until its day resets, and
+    // send nothing more today (quotaRefusedToday holds every later run).
     if (isQuotaError(err)) {
       await admin
         .from('indexing_queue')
@@ -239,11 +340,13 @@ export async function drainIndexingQueue(max = INDEXING_DAILY_LIMIT, budgetMs = 
     }
   }
   const { pending: left } = await indexingQueueStatus()
-  return { sent, failed, left }
+  return { sent, failed, skipped, left }
 }
 
-/** Put a URL on the queue, then send what today's allowance still covers. */
+/** Put a tuition URL on the queue, then send what today's allowance still
+ *  covers. Anything that is not a single tuition page is refused here. */
 async function enqueueAndDrain(url: string, kind: 'URL_UPDATED' | 'URL_DELETED', priority: number): Promise<void> {
+  if (!isTuitionPageUrl(url, SITE_URL)) return
   const admin = createAdminClient()
   if (!admin) return
   if (!indexingConfigured()) {
@@ -267,10 +370,10 @@ function runAfter(fn: () => Promise<void>): void {
 
 /**
  * Queue a URL_UPDATED notification for a tuition without ever blocking the
- * caller: through `after()` when inside a request, else detached. A tuition
- * with no public slug has no URL to notify. Sent within 200 a day; the rest wait
- * in indexing_queue for the next run. `newPost` puts it ahead of everything else
- * waiting (owner, 16 Oct 2026).
+ * caller: through `after()` when inside a request, else detached. The URL is
+ * always the tuition's CURRENT address (built from its slug and current city).
+ * A tuition with no public slug has no URL to notify. `newPost` puts it ahead
+ * of everything else waiting (owner, 16 Oct 2026).
  */
 export function queueIndexingUpdate(job: { public_slug?: string | null; city?: string | null }, opts: { newPost?: boolean } = {}): void {
   const url = tuitionUrl(job)
@@ -288,33 +391,45 @@ export function queueIndexingForStatus(job: { public_slug?: string | null; city?
   else queueIndexingDelete(job)
 }
 
-/** Queue a URL_DELETED: the tuition is closed or hired, or it is a merged
- *  repeat whose address now redirects. */
+/** Queue a URL_DELETED: the tuition is closed or hired. */
 export function queueIndexingDelete(job: { public_slug?: string | null; city?: string | null }): void {
   const url = tuitionUrl(job)
   if (!url) return
   runAfter(() => enqueueAndDrain(url, 'URL_DELETED', PRIORITY_CHANGE))
 }
 
-/** Enqueue for a batch job (the nightly sweep) — no drain per row. */
+/** Enqueue for a batch job (the nightly sweep) — no drain per row. Only single
+ *  tuition pages are accepted; anything else is dropped here. */
 export async function enqueueIndexing(
   urls: string[],
   kind: 'URL_UPDATED' | 'URL_DELETED' = 'URL_UPDATED',
   priority: number = PRIORITY_BATCH,
 ): Promise<void> {
   const admin = createAdminClient()
-  if (!admin || urls.length === 0 || !indexingConfigured()) return
-  await admin.from('indexing_queue').insert(urls.map((url) => ({ url, kind, priority })))
+  const ok = urls.filter((u) => isTuitionPageUrl(u, SITE_URL))
+  if (!admin || ok.length === 0 || !indexingConfigured()) return
+  await admin.from('indexing_queue').insert(ok.map((url) => ({ url, kind, priority })))
 }
 
-export type IndexingLogRow = { id: number; url: string; kind: string; created_at: string; sent_at: string | null; last_error: string | null }
+/** Record a request made outside the queue (the health check's ?publish=1), so
+ *  "Sent today" matches what Google counted. */
+export async function recordIndexingAttempt(url: string, kind: 'URL_UPDATED' | 'URL_DELETED', ok: boolean, error: string | null): Promise<void> {
+  const admin = createAdminClient()
+  if (!admin) return
+  await admin.from('indexing_attempts').insert({ queue_id: null, url, kind, ok, error })
+}
+
+export type IndexingLogRow = { id: number; url: string; kind: string; created_at: string; sent_at: string | null; last_error: string | null; skip_reason: string | null }
 export type IndexingDay = { day: string; ok: number; failed: number }
 export type IndexingError = { url: string; kind: string; attempted_at: string; error: string }
+export type IndexingSkips = { notTuition: number; oldAddress: number; superseded: number }
 
 /**
  * The admin Indexing screen's data (owner, 12 + 16 Oct 2026): Google's-day use
  * of the 200 allowance, the last 7 days (requests that worked / failed), the
- * last 10 errors, what is waiting (by kind) and the newest notices. Read-only.
+ * last 10 errors (newest first), today's skips by reason, whether Google's
+ * quota stopped sending today, what is waiting (by kind) and the newest
+ * notices. Read-only.
  */
 export async function indexingQueueReport(limit = 150, now = new Date()): Promise<{
   configured: boolean
@@ -323,9 +438,11 @@ export async function indexingQueueReport(limit = 150, now = new Date()): Promis
   waitingUpdated: number
   waitingDeleted: number
   failedToday: number
+  quotaStopped: boolean
   resetsAt: string
   days: IndexingDay[]
   errors: IndexingError[]
+  skipsToday: IndexingSkips
   rows: IndexingLogRow[]
 }> {
   const admin = createAdminClient()
@@ -337,24 +454,33 @@ export async function indexingQueueReport(limit = 150, now = new Date()): Promis
     waitingUpdated: 0,
     waitingDeleted: 0,
     failedToday: 0,
+    quotaStopped: false,
     resetsAt: nextPacificDayStart(now).toISOString(),
     days: [] as IndexingDay[],
     errors: [] as IndexingError[],
+    skipsToday: { notTuition: 0, oldAddress: 0, superseded: 0 },
     rows: [] as IndexingLogRow[],
   }
   if (!admin) return empty
   const weekStart = new Date(dayStart.getTime() - 6 * 86_400_000 - 2 * 3_600_000)
   const count = (q: PromiseLike<{ count: number | null }>) => Promise.resolve(q).then((r) => r.count ?? 0)
-  const [sentToday, waitingUpdated, waitingDeleted, failedToday, attempts, errs, { data }] = await Promise.all([
+  const skipCount = (reason: SkipReason) =>
+    count(admin.from('indexing_queue').select('id', { count: 'exact', head: true }).eq('skip_reason', reason).gte('skipped_at', dayStart.toISOString()))
+  const [sentToday, waitingUpdated, waitingDeleted, failedToday, quotaStopped, attempts, errs, notTuition, oldAddress, superseded, { data }] = await Promise.all([
     attemptsToday(admin, now),
     count(admin.from('indexing_queue').select('id', { count: 'exact', head: true }).is('sent_at', null).eq('kind', 'URL_UPDATED')),
     count(admin.from('indexing_queue').select('id', { count: 'exact', head: true }).is('sent_at', null).eq('kind', 'URL_DELETED')),
     count(admin.from('indexing_attempts').select('id', { count: 'exact', head: true }).gte('attempted_at', dayStart.toISOString()).eq('ok', false)),
+    quotaRefusedToday(admin, now),
     pageAll((from, to) =>
       admin.from('indexing_attempts').select('attempted_at, ok').gte('attempted_at', weekStart.toISOString()).order('id').range(from, to),
     ) as Promise<{ attempted_at: string; ok: boolean }[]>,
-    admin.from('indexing_attempts').select('url, kind, attempted_at, error').eq('ok', false).order('id', { ascending: false }).limit(10),
-    admin.from('indexing_queue').select('id, url, kind, created_at, sent_at, last_error').order('id', { ascending: false }).limit(limit),
+    // Newest first by WHEN it happened (the backfilled rows' ids are not in time order).
+    admin.from('indexing_attempts').select('url, kind, attempted_at, error').eq('ok', false).order('attempted_at', { ascending: false }).limit(10),
+    skipCount('not_tuition'),
+    skipCount('old_address'),
+    skipCount('superseded'),
+    admin.from('indexing_queue').select('id, url, kind, created_at, sent_at, last_error, skip_reason').order('id', { ascending: false }).limit(limit),
   ])
   return {
     ...empty,
@@ -362,8 +488,10 @@ export async function indexingQueueReport(limit = 150, now = new Date()): Promis
     waitingUpdated,
     waitingDeleted,
     failedToday,
+    quotaStopped,
     days: indexingDays(attempts, now),
-    errors: ((errs.data ?? []) as IndexingError[]).map((e) => ({ ...e, error: (e.error ?? '').slice(0, 300) })),
+    errors: newestFirst((errs.data ?? []) as IndexingError[]).map((e) => ({ ...e, error: (e.error ?? '').slice(0, 300) })),
+    skipsToday: { notTuition, oldAddress, superseded },
     rows: (data ?? []) as IndexingLogRow[],
   }
 }

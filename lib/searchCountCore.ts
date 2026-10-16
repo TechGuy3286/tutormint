@@ -21,7 +21,7 @@
 // everyone. Only the counting differs.
 
 /** Our own crawlers say who they are (scripts/check-internal-redirects.mjs, scripts/audit-seo-live.mjs). */
-export const OWN_CRAWLER_TOKENS = ['TutorMint-link-check', 'TutorMint-SEO-audit']
+export const OWN_CRAWLER_TOKENS = ['TutorMint-link-check', 'TutorMint-SEO-audit', 'TutorMint-indexing-check']
 
 /** proxy.ts stamps this on every request: '1' when the browser sent no visitor
  *  cookie. Overwritten by the proxy, so a client cannot fake it. */

@@ -487,7 +487,7 @@ test('indexing: one notice per address — only the newest is sent', () => {
   assert.deepEqual(plan.send.map((n) => n.id), [2, 4], 'paused then resumed → it is live; the repeat removal is sent once')
   assert.deepEqual(plan.superseded.sort(), [1, 3])
   const src = read('lib/googleIndexing.ts')
-  assert.match(src, /planDrain\(pending, sentToday, max\)/, 'the drain sends only what the plan allows')
+  assert.match(src, /planDrain\(tuitionRows, sentToday, max\)/,'the drain sends only what the plan allows')
   // "Sent today" counts the requests made since Google's (Pacific) day began —
   // indexing_attempts, so a superseded notice (1970) is never counted.
   assert.match(src, /\.gte\('attempted_at', pacificDayStart\(now\)\.toISOString\(\)\)/)

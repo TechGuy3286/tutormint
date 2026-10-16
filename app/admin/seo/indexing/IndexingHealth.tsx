@@ -1,5 +1,5 @@
 import { formatDateTime } from '@/lib/datetime'
-import type { IndexingDay, IndexingError } from '@/lib/googleIndexing'
+import type { IndexingDay, IndexingError, IndexingSkips } from '@/lib/googleIndexing'
 
 // "Indexing API health" (owner, 16 Oct 2026): requests sent in Google's day
 // against the 200 allowance, the last 7 days (worked / failed) as a small bar
@@ -10,11 +10,19 @@ export default function IndexingHealth({
   limit,
   days,
   errors,
+  skips,
+  quotaStopped,
+  resetsAt,
 }: {
   sentToday: number
   limit: number
   days: IndexingDay[]
   errors: IndexingError[]
+  /** Notices not sent today, by reason (owner, 16 Oct 2026). */
+  skips: IndexingSkips
+  /** Google refused on its quota today: nothing more is sent until resetsAt. */
+  quotaStopped: boolean
+  resetsAt: string
 }) {
   const peak = Math.max(limit, ...days.map((d) => d.ok + d.failed))
   const pct = Math.min(100, Math.round((sentToday / limit) * 100))
@@ -31,6 +39,22 @@ export default function IndexingHealth({
         <div className="h-2 w-full overflow-hidden rounded-full bg-tm-bg" aria-hidden>
           <div className={`h-full rounded-full ${pct >= 100 ? 'bg-tm-red' : 'bg-tm-navy'}`} style={{ width: `${pct}%` }} />
         </div>
+      </div>
+
+      {quotaStopped && (
+        <p className="rounded-xl bg-tm-tint-gold p-3 text-xs font-bold text-tm-gold-ink">
+          Google refused a notice today because its daily limit is used up. Nothing more is sent until{' '}
+          {formatDateTime(resetsAt)}.
+        </p>
+      )}
+
+      <div className="space-y-1">
+        <p className="text-xs font-bold text-slate-700">Not sent today</p>
+        <ul className="space-y-0.5 text-xs text-slate-700">
+          <li>Not a tuition page: {skips.notTuition}</li>
+          <li>Old address (redirects or not canonical): {skips.oldAddress}</li>
+          <li>Replaced by a newer notice: {skips.superseded}</li>
+        </ul>
       </div>
 
       <figure className="space-y-2">
@@ -75,7 +99,7 @@ export default function IndexingHealth({
       </figure>
 
       <div className="space-y-2">
-        <h3 className="text-xs font-bold text-slate-700">Last 10 errors</h3>
+        <h3 className="text-xs font-bold text-slate-700">Last 10 errors (newest first)</h3>
         {errors.length === 0 ? (
           <p className="text-xs text-gray-500">No errors.</p>
         ) : (

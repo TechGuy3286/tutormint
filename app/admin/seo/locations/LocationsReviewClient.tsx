@@ -1,20 +1,26 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CheckCheck } from 'lucide-react'
 
 import { adminFetch } from '@/components/admin/adminFetch'
-import { useAdminReadOnly } from '@/components/admin/ReadOnly'
+import { useCanApprove } from '@/components/admin/ReadOnly'
 import ThreeWayReview, { type ReviewLabels } from '@/components/admin/ThreeWayReview'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/Toast'
-import { CONFIDENCE_LABEL, NOT_AREA_REASONS, suggestionLine, type Suggestion } from '@/lib/locationCleanCore'
+import { CONFIDENCE_LABEL, NOT_AREA_REASONS, suggestionLine } from '@/lib/locationCleanCore'
+import { runBatches, type BatchOutcome } from '@/lib/batchRunCore'
 import type { ReviewAction, ReviewRow } from '@/lib/locationReview'
 
-// Admin → Locations → the review list (owner, 13 Oct 2026). Each typed area has
-// a suggested action and three buttons; rows can be ticked and approved
-// together. Nothing is saved until staff approve it.
+// Admin → Locations → "Typed by tutors and parents" (owner, 13 + 16 Oct 2026).
+//
+// One page of rows at a time from GET /api/admin/locations — the suggestions
+// are computed on the server, so the screen never waits on the whole list.
+// Each row can be approved as suggested or edited first (another area, another
+// name, another reason). Bulk approval is ONE KIND at a time, always confirmed
+// with the count and a sample of 5, and sent in batches of 20 with a progress
+// bar; a failed batch never stops the rest. Approving is the Owner's: other
+// roles see the rows and no buttons, and the server refuses them (403).
 
 const LABELS: ReviewLabels = {
   add: 'Add as new area',
@@ -30,102 +36,148 @@ const CHIP: Record<string, string> = {
   low: 'bg-tm-tint-navy text-tm-navy',
 }
 
-type Filter = 'all' | 'same' | 'not_area' | 'add'
+type Kind = 'all' | 'same' | 'not_area' | 'add'
+type Counts = { same: number; notArea: number; add: number; aliases: number; ignored: number }
+type Page = { rows: ReviewRow[]; total: number; counts: Counts; areasByCity: Record<string, { id: number; name: string }[]> }
 
-function toAction(r: ReviewRow, areas: { id: number; name: string }[]): ReviewAction | null {
-  const s: Suggestion = r.suggestion
-  if (s.action === 'not_area') return { action: 'not_area', value: r.value, city: r.city, reason: s.reason }
-  if (!r.cityListed) return null
-  if (s.action === 'same') {
-    const area = areas.find((a) => a.name.toLowerCase() === s.area.toLowerCase())
-    return area ? { action: 'same', value: r.value, city: r.city, areaId: area.id } : null
-  }
-  return { action: 'add', value: r.value, city: r.city, name: s.name }
+const KIND_LABEL: Record<Exclude<Kind, 'all'>, string> = {
+  same: 'Same as an area',
+  not_area: 'Not an area',
+  add: 'New area',
 }
+const BATCH = 20
 
-export default function LocationsReviewClient({
-  rows,
-  areasByCity,
-}: {
-  rows: ReviewRow[]
-  areasByCity: Record<string, { id: number; name: string }[]>
-}) {
+type ItemResult = { value: string; ok: boolean; message: string }
+
+export default function LocationsReviewClient({ initialCounts }: { initialCounts: Counts }) {
   const router = useRouter()
   const toast = useToast()
   const confirm = useConfirm()
-  const readOnly = useAdminReadOnly()
+  const canApprove = useCanApprove()
+  const [kind, setKind] = useState<Kind>('all')
+  const [q, setQ] = useState('')
+  const [page, setPage] = useState<Page | null>(null)
+  const [extra, setExtra] = useState<ReviewRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [counts, setCounts] = useState<Counts>(initialCounts)
   const [busy, setBusy] = useState(false)
-  const [ticked, setTicked] = useState<Set<string>>(new Set())
+  const [progress, setProgress] = useState<{ done: number; total: number; label: string } | null>(null)
+  const [outcome, setOutcome] = useState<{ label: string; done: number; failed: { value: string; city: string; error: string }[] } | null>(null)
   const [gone, setGone] = useState<Set<string>>(new Set())
-  const [filter, setFilter] = useState<Filter>('all')
-  const [find, setFind] = useState('')
-  const [shown, setShown] = useState(60)
 
-  const areasOf = (city: string) => areasByCity[city.trim().toLowerCase()] ?? []
+  const load = useCallback(
+    async (offset: number) => {
+      setLoading(true)
+      setError(null)
+      const params = new URLSearchParams({ kind, q: q.trim(), offset: String(offset) })
+      const { ok, data } = await adminFetch<Page & { error?: string }>(`/api/admin/locations?${params}`)
+      setLoading(false)
+      if (!ok || !data?.rows) {
+        setError(data?.error ?? 'The list did not load. Please try again.')
+        return
+      }
+      setCounts(data.counts)
+      if (offset === 0) {
+        setPage(data)
+        setExtra([])
+      } else {
+        setExtra((cur) => [...cur, ...data.rows])
+        setPage((p) => (p ? { ...p, areasByCity: { ...p.areasByCity, ...data.areasByCity } } : data))
+      }
+    },
+    [kind, q],
+  )
 
-  const list = useMemo(() => {
-    const q = find.trim().toLowerCase()
-    return rows.filter(
-      (r) =>
-        !gone.has(r.key) &&
-        (filter === 'all' || r.suggestion.action === filter) &&
-        (!q || r.value.toLowerCase().includes(q) || r.city.toLowerCase().includes(q)),
-    )
-  }, [rows, gone, filter, find])
+  useEffect(() => {
+    const t = setTimeout(() => void load(0), q ? 300 : 0)
+    return () => clearTimeout(t)
+  }, [load, q])
 
-  const send = async (items: ReviewAction[], keys: string[]) => {
-    if (items.length === 0) return
+  const rows = [...(page?.rows ?? []), ...extra].filter((r) => !gone.has(r.key))
+  const areasOf = (city: string) => page?.areasByCity[city.trim().toLowerCase()] ?? []
+
+  /** POST one batch; per item, true or the reason it did not save. */
+  const postBatch = async (items: ReviewAction[]): Promise<(true | string)[]> => {
+    const { ok, data } = await adminFetch<{ error?: string; results?: ItemResult[] }>('/api/admin/locations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items }),
+    })
+    if (data?.results && data.results.length === items.length) return data.results.map((r) => (r.ok ? true : r.message))
+    throw new Error(data?.error ?? (ok ? 'Not saved.' : 'That batch did not go through.'))
+  }
+
+  const keyOf = (a: ReviewAction) => `${a.city.trim().toLowerCase()}|${a.value.trim().toLowerCase()}`
+
+  const one = async (item: ReviewAction) => {
     setBusy(true)
-    const { ok, data } = await adminFetch<{ error?: string; saved?: number; failed?: number; results?: { value: string; ok: boolean; message: string }[]; hubsQueued?: string[] }>(
-      '/api/admin/locations',
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items }) },
+    try {
+      const [r] = await postBatch([item])
+      if (r === true) {
+        setGone((g) => new Set(g).add(keyOf(item)))
+        toast.success('Saved.')
+        router.refresh()
+      } else toast.error(r)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'That did not save. Please try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const bulk = async (k: Exclude<Kind, 'all'>) => {
+    setBusy(true)
+    const { ok, data } = await adminFetch<{ items?: ReviewAction[]; sample?: { value: string; city: string; line: string }[]; skipped?: number; error?: string }>(
+      `/api/admin/locations?kind=${k}&bulk=1`,
     )
     setBusy(false)
-    if (!ok || !data?.saved) {
-      toast.error(data?.error ?? 'That did not save. Please try again.')
+    if (!ok || !data?.items) {
+      toast.error(data?.error ?? 'The list did not load. Please try again.')
       return
     }
-    const okValues = new Set((data.results ?? []).filter((r) => r.ok).map((r) => r.value.toLowerCase()))
-    setGone((g) => {
-      const next = new Set(g)
-      for (const k of keys) if (okValues.has(k.split('|').slice(1).join('|'))) next.add(k)
-      return next
-    })
-    setTicked(new Set())
-    const hubs = data.hubsQueued?.length ?? 0
-    const first = data.results?.find((r) => r.ok)?.message
-    toast.success(
-      items.length === 1 && first
-        ? `${first}${hubs ? ' Its area page has 3 or more open tuitions and was sent to Google.' : ''}`
-        : `${data.saved} saved${data.failed ? `, ${data.failed} not saved` : ''}.${hubs ? ` ${hubs} area page${hubs === 1 ? '' : 's'} sent to Google.` : ''}`,
-    )
-    router.refresh()
-  }
-
-  const approve = async (targets: ReviewRow[], word: string) => {
-    const pairs = targets.map((r) => ({ r, a: toAction(r, areasOf(r.city)) })).filter((p): p is { r: ReviewRow; a: ReviewAction } => p.a !== null)
-    if (pairs.length === 0) {
-      toast.error('None of these rows has a suggestion that can be saved as it is. Use the buttons on the row.')
+    const items = data.items
+    if (items.length === 0) {
+      toast.error('Nothing of this kind can be approved as it is. Use the buttons on each row.')
       return
     }
-    const n = pairs.length
+    const sample = (data.sample ?? []).map((s) => `• “${s.value}” (${s.city || 'no city'}) → ${s.line}`).join('\n')
+    const warn = k === 'add' ? '\n\nEach row ADDS A NEW AREA to the list. Check the sample carefully.' : ''
     const yes = await confirm({
-      title: `Approve ${n} suggestion${n === 1 ? '' : 's'}?`,
-      body: `${word} Each row is saved as its suggestion shows. The text on tuitions and profiles is not changed, and nothing is deleted.`,
-      confirmLabel: `Approve ${n}`,
+      title: `Approve all “${KIND_LABEL[k]}” (${items.length})?`,
+      body: `This changes ${items.length} row${items.length === 1 ? '' : 's'}${data.skipped ? ` (${data.skipped} more cannot be saved as suggested and are left)` : ''}. A sample:\n${sample}${warn}\n\nThe text on tuitions and profiles is not changed, and nothing is deleted.`,
+      confirmLabel: `Approve ${items.length}`,
     })
     if (!yes) return
-    await send(pairs.map((p) => p.a), pairs.map((p) => p.r.key))
+    setBusy(true)
+    setOutcome(null)
+    setProgress({ done: 0, total: items.length, label: KIND_LABEL[k] })
+    const res: BatchOutcome<ReviewAction> = await runBatches(items, BATCH, postBatch, (done, total) => setProgress({ done, total, label: KIND_LABEL[k] }))
+    setProgress(null)
+    setBusy(false)
+    setGone((g) => {
+      const next = new Set(g)
+      for (const a of res.done) next.add(keyOf(a))
+      return next
+    })
+    setOutcome({ label: KIND_LABEL[k], done: res.done.length, failed: res.failed.map((f) => ({ value: f.item.value, city: f.item.city, error: f.error })) })
+    if (res.failed.length === 0) toast.success(`${res.done.length} approved.`)
+    else toast.error(`${res.done.length} approved, ${res.failed.length} not saved. See the list below.`)
+    router.refresh()
+    void load(0)
   }
 
-  const tabs: { id: Filter; label: string; n: number }[] = [
-    { id: 'all', label: 'All', n: rows.filter((r) => !gone.has(r.key)).length },
-    { id: 'same', label: 'Same as an area', n: rows.filter((r) => !gone.has(r.key) && r.suggestion.action === 'same').length },
-    { id: 'not_area', label: 'Not an area', n: rows.filter((r) => !gone.has(r.key) && r.suggestion.action === 'not_area').length },
-    { id: 'add', label: 'New area', n: rows.filter((r) => !gone.has(r.key) && r.suggestion.action === 'add').length },
+  const tabs: { id: Kind; label: string; n: number }[] = [
+    { id: 'all', label: 'All', n: counts.same + counts.notArea + counts.add },
+    { id: 'same', label: 'Same as an area', n: counts.same },
+    { id: 'not_area', label: 'Not an area', n: counts.notArea },
+    { id: 'add', label: 'New area', n: counts.add },
   ]
-  const visible = list.slice(0, shown)
-  const tickedRows = list.filter((r) => ticked.has(r.key))
+  const bulkButtons: { id: Exclude<Kind, 'all'>; n: number }[] = [
+    { id: 'same', n: counts.same },
+    { id: 'not_area', n: counts.notArea },
+    { id: 'add', n: counts.add },
+  ]
 
   return (
     <div className="space-y-3">
@@ -134,13 +186,10 @@ export default function LocationsReviewClient({
           <button
             key={t.id}
             type="button"
-            onClick={() => {
-              setFilter(t.id)
-              setShown(60)
-            }}
-            aria-pressed={filter === t.id}
+            onClick={() => setKind(t.id)}
+            aria-pressed={kind === t.id}
             className={`min-h-[44px] rounded-xl border px-3 text-xs font-bold ${
-              filter === t.id ? 'border-tm-navy bg-tm-navy text-white' : 'border-gray-200 bg-white text-slate-700'
+              kind === t.id ? 'border-tm-navy bg-tm-navy text-white' : 'border-gray-200 bg-white text-slate-700'
             }`}
           >
             {t.label} ({t.n})
@@ -149,80 +198,79 @@ export default function LocationsReviewClient({
       </div>
 
       <input
-        value={find}
-        onChange={(e) => {
-          setFind(e.target.value)
-          setShown(60)
-        }}
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
         placeholder="Find a typed area or city"
         aria-label="Find a typed area or city"
         className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-slate-800 focus:border-tm-navy focus:outline-none"
       />
 
-      {!readOnly && list.length > 0 && (
+      {canApprove ? (
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            disabled={busy || tickedRows.length === 0}
-            onClick={() => approve(tickedRows, 'Only the ticked rows.')}
-            className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-navy px-4 text-xs font-bold text-white hover:bg-tm-navy-hover disabled:opacity-60"
-          >
-            <CheckCheck aria-hidden size={14} />
-            Approve selected ({tickedRows.length})
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => approve(list, `Every row in this list (${list.length}).`)}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy disabled:opacity-60"
-          >
-            Approve all suggestions ({list.length})
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => setTicked((t) => (t.size > 0 ? new Set() : new Set(visible.map((r) => r.key))))}
-            className="min-h-[44px] px-2 text-xs font-bold text-tm-navy underline"
-          >
-            {ticked.size > 0 ? 'Untick all' : 'Tick the rows shown'}
-          </button>
+          {bulkButtons.map((b) => (
+            <button
+              key={b.id}
+              type="button"
+              disabled={busy || b.n === 0}
+              onClick={() => void bulk(b.id)}
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy disabled:opacity-60"
+            >
+              Approve all “{KIND_LABEL[b.id]}” ({b.n})
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="text-[11px] text-gray-600">View only — approvals are made by the Owner.</p>
+      )}
+
+      {progress && (
+        <div role="status" className="space-y-1 rounded-xl border border-gray-200 bg-white p-3">
+          <p className="text-xs font-bold text-slate-700">
+            Approving “{progress.label}”: {progress.done} of {progress.total}
+          </p>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-tm-bg" aria-hidden>
+            <div className="h-full rounded-full bg-tm-navy" style={{ width: `${Math.round((progress.done / Math.max(1, progress.total)) * 100)}%` }} />
+          </div>
         </div>
       )}
 
-      {list.length === 0 ? (
+      {outcome && (
+        <div role="status" className="space-y-1 rounded-xl border border-gray-200 bg-white p-3 text-xs text-slate-700">
+          <p className="font-bold">
+            “{outcome.label}”: {outcome.done} approved{outcome.failed.length ? `, ${outcome.failed.length} not saved` : ''}.
+          </p>
+          {outcome.failed.length > 0 && (
+            <ul className="space-y-0.5">
+              {outcome.failed.slice(0, 50).map((f, i) => (
+                <li key={`${f.city}|${f.value}|${i}`} className="text-tm-red">
+                  “{f.value}” ({f.city || 'no city'}) — {f.error}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {error && <p className="rounded-xl bg-tm-tint-red p-3 text-xs font-bold text-tm-red">{error}</p>}
+
+      {!page && loading ? (
+        <p className="rounded-2xl border border-gray-200 bg-white p-4 text-xs text-gray-600">Getting the list…</p>
+      ) : rows.length === 0 && !loading ? (
         <p className="rounded-2xl border border-gray-200 bg-white p-4 text-xs text-gray-600">Nothing to review here.</p>
       ) : (
         <ul className="grid gap-2 lg:grid-cols-2">
-          {visible.map((r) => {
+          {rows.map((r) => {
             const areas = areasOf(r.city)
             const s = r.suggestion
             const suggestedArea = s.action === 'same' ? areas.find((a) => a.name.toLowerCase() === s.area.toLowerCase()) : undefined
             return (
               <li key={r.key} className="space-y-2 rounded-2xl border border-gray-200 bg-white p-3">
-                <div className="flex items-start gap-2">
-                  {!readOnly && (
-                    <input
-                      type="checkbox"
-                      checked={ticked.has(r.key)}
-                      onChange={(e) =>
-                        setTicked((t) => {
-                          const next = new Set(t)
-                          if (e.target.checked) next.add(r.key)
-                          else next.delete(r.key)
-                          return next
-                        })
-                      }
-                      aria-label={`Select ${r.value}`}
-                      className="mt-1 h-5 w-5 shrink-0 accent-tm-navy"
-                    />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="break-words text-sm font-black text-tm-navy">{r.value}</p>
-                    <p className="text-[11px] text-slate-700">
-                      {r.city || 'No city'} · used {r.count} time{r.count === 1 ? '' : 's'}
-                      {r.openTuitions > 0 ? ` · ${r.openTuitions} open tuition${r.openTuitions === 1 ? '' : 's'}` : ''}
-                    </p>
-                  </div>
+                <div className="min-w-0">
+                  <p className="break-words text-sm font-black text-tm-navy">{r.value}</p>
+                  <p className="text-[11px] text-slate-700">
+                    {r.city || 'No city'} · used {r.count} time{r.count === 1 ? '' : 's'}
+                    {r.openTuitions > 0 ? ` · ${r.openTuitions} open tuition${r.openTuitions === 1 ? '' : 's'}` : ''}
+                  </p>
                 </div>
                 <p className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-700">
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${CHIP[s.confidence]}`}>{CONFIDENCE_LABEL[s.confidence]}</span>
@@ -232,7 +280,7 @@ export default function LocationsReviewClient({
                 {!r.cityListed && (
                   <p className="text-[11px] text-gray-600">This city is not in the list, so an area cannot be saved under it. It can still be marked “Not an area”.</p>
                 )}
-                {!readOnly && (
+                {canApprove && (
                   <ThreeWayReview
                     labels={LABELS}
                     options={r.cityListed ? areas.map((a) => ({ id: String(a.id), label: a.name })) : []}
@@ -245,10 +293,10 @@ export default function LocationsReviewClient({
                           : { action: 'add', name: s.name }
                     }
                     busy={busy}
-                    onAdd={r.cityListed ? (name) => send([{ action: 'add', value: r.value, city: r.city, name }], [r.key]) : undefined}
-                    onSame={(id) => send([{ action: 'same', value: r.value, city: r.city, areaId: Number(id) }], [r.key])}
+                    onAdd={r.cityListed ? (name) => void one({ action: 'add', value: r.value, city: r.city, name }) : undefined}
+                    onSame={(id) => void one({ action: 'same', value: r.value, city: r.city, areaId: Number(id) })}
                     onIgnore={(reason) =>
-                      send([{ action: 'not_area', value: r.value, city: r.city, reason: (reason ?? 'junk') as 'school' | 'address' | 'online' | 'junk' }], [r.key])
+                      void one({ action: 'not_area', value: r.value, city: r.city, reason: (reason ?? 'junk') as 'school' | 'address' | 'online' | 'junk' })
                     }
                   />
                 )}
@@ -258,13 +306,14 @@ export default function LocationsReviewClient({
         </ul>
       )}
 
-      {list.length > shown && (
+      {page && rows.length + gone.size < page.total && (
         <button
           type="button"
-          onClick={() => setShown((n) => n + 60)}
-          className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white text-xs font-bold text-slate-700 hover:border-tm-navy"
+          disabled={loading}
+          onClick={() => void load((page.rows.length ?? 0) + extra.length)}
+          className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white text-xs font-bold text-slate-700 hover:border-tm-navy disabled:opacity-60"
         >
-          Show more ({list.length - shown} left)
+          {loading ? 'Getting more…' : `Show more (${page.total - (page.rows.length + extra.length)} left)`}
         </button>
       )}
     </div>

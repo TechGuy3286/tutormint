@@ -149,7 +149,8 @@
     "test:stafftargets": "tsx --test scripts/test-staff-targets.ts",
     "test:ownerapprovals": "tsx --test scripts/test-owner-approvals.ts",
     "test:staffsignups:live": "tsx --conditions=react-server --env-file=.env.local --test scripts/test-staff-signups-live.ts",
-    "test:tuitionsgoogle": "tsx --test scripts/test-tuitions-google.ts"
+    "test:tuitionsgoogle": "tsx --test scripts/test-tuitions-google.ts",
+    "test:indexinglocations": "tsx --test scripts/test-indexing-locations.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

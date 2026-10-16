@@ -110,10 +110,13 @@ export function hubSitemapEntries(base: string, cands: HubCandidate[]): SitemapE
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;')
 
-function iso(d: string | Date | null | undefined): string | null {
+/** A lastmod as ISO, never later than now (owner, 16 Oct 2026 — a future
+ *  lastmod is not accurate and search engines may distrust the whole file). */
+export function iso(d: string | Date | null | undefined, now = Date.now()): string | null {
   if (!d) return null
   const t = d instanceof Date ? d : new Date(d)
-  return Number.isNaN(t.getTime()) ? null : t.toISOString()
+  if (Number.isNaN(t.getTime())) return null
+  return new Date(Math.min(t.getTime(), now)).toISOString()
 }
 
 export function urlsetXml(entries: SitemapEntry[]): string {

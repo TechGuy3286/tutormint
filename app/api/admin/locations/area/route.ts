@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
-import { addStaffArea, approveAreaSuggestion, mergeStaffArea, staffAreaSuggestions } from '@/lib/staffAreas'
+import { addStaffArea, approveAreaSuggestion, mergeStaffArea } from '@/lib/staffAreas'
 import { refuseUnlessOwnerApproval } from '@/lib/ownerGuard'
 import { parseBody, z } from '@/lib/validate'
 
@@ -12,8 +12,11 @@ import { parseBody, z } from '@/lib/validate'
 //   merge  "Same as existing area" for an area staff added — OWNER ONLY
 //          (owner, 16 Oct 2026: Locations merges are the Owner's), the page
 //          itself is open to SCREEN_ACCESS.seo
-//   approve_suggestion / approve_all  the suggested merge + Block / landmark
-//          split (lib/staffAreas staffAreaSuggestions) — OWNER ONLY
+//   approve_suggestion  the suggested merge + Block / landmark split (lib/
+//          staffAreas staffAreaSuggestions), or the Owner's edited version
+//          (intoAreaId / landmark) — OWNER ONLY. One area per request: the
+//          screen approves "all" one request at a time with a progress bar
+//          (owner, 16 Oct 2026), so no request runs long.
 //
 // Signed out 401, the wrong role 403. Both are written to the Audit log by
 // lib/staffAreas. Nothing is deleted.
@@ -24,8 +27,12 @@ export const dynamic = 'force-dynamic'
 const Body = z.discriminatedUnion('action', [
   z.object({ action: z.literal('add'), city: z.string().trim().min(1, 'Choose the city first, then add the area.').max(120), name: z.string().trim().min(2, 'Enter the area name.').max(120) }),
   z.object({ action: z.literal('merge'), areaId: z.number().int().positive(), intoAreaId: z.number().int().positive() }),
-  z.object({ action: z.literal('approve_suggestion'), areaId: z.number().int().positive() }),
-  z.object({ action: z.literal('approve_all') }),
+  z.object({
+    action: z.literal('approve_suggestion'),
+    areaId: z.number().int().positive(),
+    intoAreaId: z.number().int().positive().optional(),
+    landmark: z.string().max(120, 'Keep the Block / landmark under 120 characters.').optional(),
+  }),
 ])
 
 export async function POST(request: Request) {
@@ -39,21 +46,15 @@ export async function POST(request: Request) {
 
   const actor = { id: gate.actor.id, adminRole: gate.actor.adminRole, email: gate.actor.email }
   if (parsed.data.action !== 'add') {
-    const refused = await refuseUnlessOwnerApproval(actor, 'Locations: merge an area', parsed.data.action === 'approve_all' ? null : String(parsed.data.areaId))
+    const refused = await refuseUnlessOwnerApproval(actor, 'Locations: merge an area', String(parsed.data.areaId))
     if (refused) return refused
   }
   if (parsed.data.action === 'approve_suggestion') {
-    const out = await approveAreaSuggestion(parsed.data.areaId, actor)
+    const { areaId, intoAreaId, landmark } = parsed.data
+    const override = intoAreaId !== undefined || landmark !== undefined ? { intoAreaId, landmark } : undefined
+    const out = await approveAreaSuggestion(areaId, actor, override)
     if (!out.ok) return NextResponse.json({ error: out.error }, { status: out.status })
     return NextResponse.json({ ok: true, from: out.from, into: out.into, landmark: out.landmark, tuitions: out.tuitions })
-  }
-  if (parsed.data.action === 'approve_all') {
-    const done: { from: string; into: string; landmark: string; tuitions: number }[] = []
-    for (const s of await staffAreaSuggestions()) {
-      const out = await approveAreaSuggestion(s.areaId, actor)
-      if (out.ok) done.push({ from: out.from, into: out.into, landmark: out.landmark, tuitions: out.tuitions })
-    }
-    return NextResponse.json({ ok: true, approved: done.length, done })
   }
   if (parsed.data.action === 'merge') {
     const out = await mergeStaffArea({ areaId: parsed.data.areaId, intoAreaId: parsed.data.intoAreaId }, actor)

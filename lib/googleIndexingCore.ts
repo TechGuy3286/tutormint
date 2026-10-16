@@ -188,6 +188,72 @@ export type QueuedNotice = {
 export const SUPERSEDED_AT = '1970-01-01T00:00:00.000Z'
 export const SUPERSEDED_NOTE = 'superseded'
 
+// ---------------------------------------------------------------------------
+// ONLY SINGLE TUITION PAGES (owner, 16 Oct 2026). The Indexing API is for job
+// pages. Hubs (/tuition-jobs/…), city × subject pages, tutor profiles, blog
+// posts and static pages are found through the sitemap and are never queued or
+// sent. A notice that is not sent is MARKED (skipped_at + skip_reason, sent_at
+// = SUPERSEDED_AT so it is never "waiting"), never deleted.
+
+export type SkipReason = 'not_tuition' | 'old_address' | 'superseded'
+
+/** What the admin screen shows for a skipped notice. */
+export const SKIP_NOTE: Record<SkipReason, string> = {
+  not_tuition: 'Not sent — not a tuition page',
+  old_address: 'Not sent — old address',
+  superseded: SUPERSEDED_NOTE,
+}
+
+/**
+ * A single tuition page: /tuitions/<city>/<public slug>, on our own host, no
+ * query or fragment. A tuition's public slug always ends in a hash suffix
+ * (-xxxxxx), which is what tells it apart from a city × subject page
+ * (/tuitions/lahore/grade-4-mathematics) on the same route.
+ */
+export function isTuitionPageUrl(url: string | null | undefined, base = 'https://www.tutormint.org'): boolean {
+  const u = (url ?? '').trim()
+  if (!u.startsWith(`${base}/`)) return false
+  const path = u.slice(base.length)
+  return /^\/tuitions\/[a-z0-9-]+\/[a-z0-9-]+-[0-9a-f]{6,}$/.test(path)
+}
+
+/** The public slug of a tuition page URL (the last segment), or null. */
+export function tuitionSlugOf(url: string, base = 'https://www.tutormint.org'): string | null {
+  if (!isTuitionPageUrl(url, base)) return null
+  return url.slice(base.length).split('/')[3] ?? null
+}
+
+/**
+ * The live check made just before a send: the page must answer 200 on that
+ * exact address (no redirect) and name itself as canonical. A redirect or a
+ * canonical that points elsewhere is an OLD ADDRESS (never sent); a network
+ * error or a 5xx is TRANSIENT (tried again later, not counted); anything else
+ * is sendable.
+ */
+export function pageCheckVerdict(
+  url: string,
+  res: { status: number; canonical: string | null } | null,
+): 'send' | 'old_address' | 'transient' {
+  if (!res || res.status === 0 || res.status >= 500) return 'transient'
+  if (res.status >= 300 && res.status < 400) return 'old_address'
+  if (res.status !== 200) return 'old_address'
+  const canon = (res.canonical ?? '').trim()
+  if (canon && canon.replace(/\/$/, '') !== url.replace(/\/$/, '')) return 'old_address'
+  return 'send'
+}
+
+/** Did Google refuse on its daily quota since its day began? Then nothing more
+ *  is sent until the next Pacific midnight. */
+export function quotaReachedToday(attempts: { ok: boolean; error: string | null; attempted_at: string }[], now = new Date()): boolean {
+  const start = pacificDayStart(now).getTime()
+  return attempts.some((a) => !a.ok && isQuotaError(a.error) && new Date(a.attempted_at).getTime() >= start)
+}
+
+/** Newest first — the "Last 10 errors" order. */
+export function newestFirst<T extends { attempted_at: string }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => new Date(b.attempted_at).getTime() - new Date(a.attempted_at).getTime())
+}
+
 export function planDrain(
   allPending: QueuedNotice[],
   sentToday: number,
