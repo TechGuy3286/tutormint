@@ -32,7 +32,7 @@ export type Province =
   | 'Gilgit-Baltistan'
 
 // Every city in location_cities (the platform's city list) → its province.
-// All 23 are mapped; there is no unmapped city.
+// All 26 are mapped; there is no unmapped city.
 const CITY_PROVINCE: Record<string, Province> = {
   lahore: 'Punjab',
   karachi: 'Sindh',
@@ -45,6 +45,7 @@ const CITY_PROVINCE: Record<string, Province> = {
   gujranwala: 'Punjab',
   gujrat: 'Punjab',
   hyderabad: 'Sindh',
+  jhang: 'Punjab',
   jhelum: 'Punjab',
   larkana: 'Sindh',
   mardan: 'Khyber Pakhtunkhwa',
@@ -52,17 +53,19 @@ const CITY_PROVINCE: Record<string, Province> = {
   multan: 'Punjab',
   peshawar: 'Khyber Pakhtunkhwa',
   quetta: 'Balochistan',
+  'rahim yar khan': 'Punjab',
   sahiwal: 'Punjab',
   sargodha: 'Punjab',
+  sheikhupura: 'Punjab',
   sialkot: 'Punjab',
   sukkur: 'Sindh',
   'wah cantt': 'Punjab',
 }
 
 // City → main postcode. ONLY the codes I am confident are official Pakistan Post
-// GPO codes. The 14 cities not listed here (Abbottabad, Bahawalpur, Dera Ghazi
-// Khan, Gujranwala, Gujrat, Jhelum, Larkana, Mardan, Mingora, Sahiwal, Sargodha,
-// Sialkot, Sukkur, Wah Cantt) are omitted on purpose — see rule 1 — and are for
+// GPO codes. The 17 cities not listed here (Abbottabad, Bahawalpur, Dera Ghazi
+// Khan, Gujranwala, Gujrat, Jhang, Jhelum, Larkana, Mardan, Mingora, Sahiwal, Sargodha,
+// Sialkot, Sukkur, Wah Cantt, Sheikhupura, Rahim Yar Khan) are omitted on purpose — see rule 1 — and are for
 // the owner to supply. Every city currently used on live tuitions is here.
 const CITY_POSTCODE: Record<string, string> = {
   lahore: '54000',

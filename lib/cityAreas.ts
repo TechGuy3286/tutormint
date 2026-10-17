@@ -3,7 +3,7 @@
 // lib/cityAreas.ts
 //
 // The client fetch of the curated city/area lists, mirroring lib/taxonomy.ts:
-// the whole set (23 cities, 249 areas — small) is read ONCE through the browser
+// the whole set (26 cities, 249 areas — small) is read ONCE through the browser
 // client, deduped in-flight, and cached for the page lifetime. Every city/area
 // picker on the platform reads from here, so there is one source and no second
 // list.

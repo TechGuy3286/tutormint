@@ -4,7 +4,7 @@ import 'server-only'
 //
 // The free-text locations in use that are NOT in the curated list (owner,
 // 11 Sep 2026). city/area on jobs, profiles and tutor_profiles are plain
-// strings; a member whose locality is not one of the 23 cities types their own,
+// strings; a member whose locality is not one of the 26 cities types their own,
 // and it is preserved verbatim. This surfaces those free-text values so they can
 // be REVIEWED and PROMOTED later — promoting one is a plain insert into
 // location_cities / location_areas (migration 73), after which it stops

@@ -4,7 +4,7 @@
 // tuitions. A code constant is fine (the owner) — location_cities carries no
 // geo. Pure, so it is unit-tested and shared by the feed and its tests.
 //
-// A few common free-text cities members actually use (not in the curated 23,
+// A few common free-text cities members actually use (not in the curated 26,
 // e.g. Nankana Sahib) are included too; an unknown city has no coordinate and
 // sorts last rather than being dropped.
 
@@ -22,6 +22,7 @@ export const CITY_COORDS: Record<string, LatLng> = {
   Gujranwala: { lat: 32.1877, lng: 74.1945 },
   Gujrat: { lat: 32.5731, lng: 74.0789 },
   Hyderabad: { lat: 25.396, lng: 68.3578 },
+  Jhang: { lat: 31.2681, lng: 72.3181 },
   Jhelum: { lat: 32.9425, lng: 73.7257 },
   Larkana: { lat: 27.559, lng: 68.2123 },
   Mardan: { lat: 34.1989, lng: 72.0231 },
@@ -29,12 +30,14 @@ export const CITY_COORDS: Record<string, LatLng> = {
   Multan: { lat: 30.1575, lng: 71.5249 },
   Peshawar: { lat: 34.0151, lng: 71.5249 },
   Quetta: { lat: 30.1798, lng: 66.975 },
+  'Rahim Yar Khan': { lat: 28.4202, lng: 70.2952 },
   Sahiwal: { lat: 30.6682, lng: 73.1114 },
   Sargodha: { lat: 32.0836, lng: 72.6711 },
+  Sheikhupura: { lat: 31.7167, lng: 73.985 },
   Sialkot: { lat: 32.4945, lng: 74.5229 },
   Sukkur: { lat: 27.7052, lng: 68.8574 },
   'Wah Cantt': { lat: 33.7973, lng: 72.7574 },
-  // Common free-text cities members use that are not in the curated 23.
+  // Common free-text cities members use that are not in the curated 26.
   'Nankana Sahib': { lat: 31.4492, lng: 73.7126 },
 }
 
