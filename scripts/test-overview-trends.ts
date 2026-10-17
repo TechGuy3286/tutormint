@@ -1,10 +1,10 @@
-// npm run test:overviewtrends — Overview trend arrows, the "All unpaid" link,
+// npm run test:overviewtrends — Overview square cards (one time-window helper), the "All unpaid" link,
 // SMS "no receipt" networks and whole-name area matching (owner, 17 Oct 2026).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-import { dayTrend, monthTrend, pkClock, trendOf, trendWindows, windowFigures } from '../lib/overviewTrendCore'
+import { cardFigures, rupees, trendWindows, windowFigures } from '../lib/overviewTrendCore'
 import { allUnpaid, type CreditedAccount } from '../lib/staffSignupsCore'
 import { claimRow, creditRow, filterRows, EMPTY_FILTERS, type MemberFacts } from '../lib/mySignupsCore'
 import { allUnpaidHref } from '../lib/teamActivityCore'
@@ -14,77 +14,39 @@ import { areaHubsFor, resolveAreaHub } from '../lib/areaHubCore'
 // Pakistan time = UTC+5. "PKT 17 Oct 2026, hh:mm" → ms.
 const pk = (d: number, h: number, m = 0) => Date.UTC(2026, 9, d, h - 5, m)
 
-// ------------------------------------------------------------ A: trends
+// ------------------------------------------------------------ A: card windows
 
 for (const [label, h, m] of [
   ['1 am', 1, 0],
   ['noon', 12, 0],
   ['11:59 pm', 23, 59],
 ] as const) {
-  test(`same-time-yesterday comparison at ${label}`, () => {
+  test(`today, yesterday and last 7 days are Pakistan calendar days at ${label}`, () => {
     const now = pk(17, h, m)
     const w = trendWindows(now)
     assert.equal(w.today.start, pk(17, 0))
-    assert.equal(w.yesterdaySameTime.start, pk(16, 0))
-    // Yesterday up to the same minute (inclusive), never the whole day.
-    assert.equal(w.yesterdaySameTime.end, now + 1 - 86_400_000)
+    assert.equal(w.yesterday.start, pk(16, 0))
+    assert.equal(w.yesterday.end, pk(17, 0))
+    // Last 7 days = today and the six full days before it, from 00:00.
+    assert.equal(w.last7.start, pk(11, 0))
     const events = [
-      { at: pk(16, h, m) }, // yesterday at exactly this time — counts
-      { at: pk(16, h, m) + 30_000 }, // yesterday, 30 s later — does not
+      { at: pk(10, 23, 59) }, // 10 Oct, before the 7-day window
+      { at: pk(11, 0, 0) }, // 11 Oct 00:00 — counts in last 7 days
+      { at: pk(16, 23, 59) }, // yesterday, last minute
       { at: pk(17, 0, 0) }, // today
     ]
     const f = windowFigures(events, now)
-    assert.equal(f.yesterdaySameTime, 1)
-    assert.equal(f.yesterday, 2)
     assert.equal(f.today, 1)
-    const t = dayTrend(f, now)
-    assert.equal(t.text, '— 0% vs yesterday')
-    assert.equal(t.title, `Compared with yesterday up to ${pkClock(now)}`)
+    assert.equal(f.yesterday, 1)
+    assert.equal(f.last7, 3)
   })
 }
 
-test('the clock reads in Pakistan time', () => {
-  assert.equal(pkClock(pk(17, 1, 5)), '1:05 am')
-  assert.equal(pkClock(pk(17, 12, 0)), '12:00 pm')
-  assert.equal(pkClock(pk(17, 23, 59)), '11:59 pm')
-  assert.equal(pkClock(pk(17, 0, 30)), '12:30 am')
-})
-
-test('"— vs 0" when the comparison is 0, never ▲ ∞%', () => {
-  const t = trendOf(5, 0, 'yesterday', 'x')
-  assert.equal(t.text, '— vs 0')
-  assert.equal(t.tone, 'flat')
-  assert.ok(!trendOf(0, 0, 'yesterday', 'x').text.includes('∞'))
-})
-
-test('arrows carry the sign and round to whole percent', () => {
-  assert.deepEqual([trendOf(3, 2, 'yesterday', '').text, trendOf(3, 2, 'y', '').tone], ['▲ +50% vs yesterday', 'up'])
-  assert.deepEqual([trendOf(1, 3, 'yesterday', '').text, trendOf(1, 3, 'y', '').tone], ['▼ −67% vs yesterday', 'down'])
-})
-
-test('revenue compares the month so far with the same point last month', () => {
+test('the month starts on the 1st, Pakistan time', () => {
   const now = pk(17, 10)
-  const f = windowFigures(
-    [
-      { at: pk(3, 10), amount: 199 },
-      { at: Date.UTC(2026, 8, 10, 5), amount: 199 }, // 10 Sep — counts for 1–17 Sep
-      { at: Date.UTC(2026, 8, 25, 5), amount: 999 }, // 25 Sep — after the same point
-    ],
-    now,
-    { amounts: true },
-  )
-  assert.equal(f.month, 199)
-  assert.equal(f.lastMonthSamePoint, 199)
-  const t = monthTrend(f, now)
-  assert.equal(t.text, '— 0% vs 1–17 Sep')
-  assert.ok(t.title.startsWith('Compared with 1–17 Sep up to'))
-})
-
-test('a 31st compares with all of a 30-day month', () => {
-  const now = Date.UTC(2026, 9, 31, 5) // 31 Oct, 10 am PKT
-  const w = trendWindows(now)
-  assert.equal(w.lastMonthSamePoint.end, Date.UTC(2026, 9, 1) - 5 * 3600_000)
-  assert.ok(monthTrend(windowFigures([], now), now).title.includes('1–30 Sep'))
+  assert.equal(trendWindows(now).month.start, Date.UTC(2026, 9, 1) - 5 * 3600_000)
+  const f = windowFigures([{ at: pk(1, 0), amount: 199 }, { at: Date.UTC(2026, 8, 30, 18, 59), amount: 999 }], now, { amounts: true })
+  assert.equal(f.month, 199) // 30 Sep 23:59 PKT is last month
 })
 
 test('each tutor counts once per window (two fee payments on one day)', () => {
@@ -93,15 +55,32 @@ test('each tutor counts once per window (two fee payments on one day)', () => {
   assert.equal(f.today, 2)
 })
 
-test('every Overview card uses the one helper and the arrow is on a white pill', () => {
+test('card figures: thousands separators, Rs on amounts, no bottom line unless given', () => {
+  assert.equal(rupees(125000), 'Rs 125,000')
+  assert.equal(rupees(199.4), 'Rs 199')
+  const c = cardFigures({ today: 1234, yesterday: 5, last7: 0, month: 0 })
+  assert.deepEqual(c, { today: '1,234', yesterday: '5', last7: '0', bottom: null })
+  const r = cardFigures({ today: 1194, yesterday: 0, last7: 2388, month: 0 }, { rupees: true, bottom: { label: 'This month', value: 'Rs 4,000' } })
+  assert.deepEqual(r, { today: 'Rs 1,194', yesterday: 'Rs 0', last7: 'Rs 2,388', bottom: { label: 'This month', value: 'Rs 4,000' } })
+})
+
+test('the six cards: short titles, one helper, no pills or explanations', () => {
   const items = readFileSync('lib/overviewItems.ts', 'utf8')
   for (const k of ["case 'revenue'", "case 'paid-today'", "case 'signups-today'", "case 'tutors'", "case 'parents'", "case 'open-tuitions'"]) {
     assert.ok(items.includes(k))
   }
-  assert.ok((items.match(/windowFigures\(/g) ?? []).length >= 5)
+  assert.ok((items.match(/cardFigures\(/g) ?? []).length >= 5)
+  for (const b of ["label: 'This month', value: rupees(amount)", "label: 'Total'", "label: 'Open now'"]) assert.ok(items.includes(b), b)
   const page = readFileSync('app/admin/page.tsx', 'utf8')
-  assert.ok(page.includes('rounded-full bg-white'))
-  assert.ok(page.includes('flex flex-wrap'))
+  for (const t of ["title: 'Revenue'", "title: 'Paid'", "title: 'New tutors'", "title: 'New parents'", "title: 'Tuitions posted'", "title: 'Signed up, not paid'"]) {
+    assert.ok(page.includes(t), t)
+  }
+  assert.ok(page.includes('aspect-square'))
+  assert.ok(page.includes('grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6'))
+  for (const gone of ['vs yesterday', '▲', '▼', 'Registered accounts', 'Approved this month, not refunded', 'Live on the board', 'TrendLine']) {
+    assert.ok(!page.includes(gone), `page still has "${gone}"`)
+  }
+  assert.ok(!readFileSync('lib/overviewTrendCore.ts', 'utf8').includes('vs yesterday'))
 })
 
 // ------------------------------------------------------------ B: All unpaid

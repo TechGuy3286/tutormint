@@ -5,7 +5,6 @@ import type { ComponentType } from 'react'
 import AccessDeniedNotice from '@/components/admin/AccessDeniedNotice'
 import { requireAdminRole, roleBadge, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadOverviewList, type OverviewList } from '@/lib/overviewItems'
-import type { CardTrend, Trend } from '@/lib/overviewTrendCore'
 import { OVERVIEW_ITEMS, SIGNUPS_TODAY_HREF, type OverviewItemKey } from '@/lib/overviewItemsCore'
 import { funnelSteps } from '@/lib/staffOutreachCore'
 import { TILE_TONE, type TileTone } from '@/lib/tileTones'
@@ -14,14 +13,23 @@ import { pkr } from '@/lib/reconciliationCore'
 import { loadSignupFunnel, type FunnelWindowResult } from '@/lib/siteVisits'
 
 // Each Overview card a distinct colour (PR32 §2), keyed on the item key.
-const TILE_STYLE: Record<string, { tone: TileTone; icon: ComponentType<{ size?: number; 'aria-hidden'?: boolean }>; meaning: string }> = {
-  revenue: { tone: 'green', icon: Wallet, meaning: 'Approved this month, not refunded' },
-  'paid-today': { tone: 'teal', icon: BadgeCheck, meaning: '' },
+// Short card titles (owner, 17 Oct 2026). The list pages keep their own titles.
+const TILE_STYLE: Record<string, { tone: TileTone; icon: ComponentType<{ size?: number; 'aria-hidden'?: boolean }>; title: string }> = {
+  revenue: { tone: 'green', icon: Wallet, title: 'Revenue' },
+  'paid-today': { tone: 'teal', icon: BadgeCheck, title: 'Paid' },
   // Signed up today, not paid (owner, 12 Oct 2026): pink — a tone no other card uses.
-  'signups-today': { tone: 'pink', icon: UserPlus, meaning: '' },
-  tutors: { tone: 'navy', icon: GraduationCap, meaning: 'Registered accounts' },
-  parents: { tone: 'violet', icon: Users, meaning: 'Registered accounts' },
-  'open-tuitions': { tone: 'gold', icon: Briefcase, meaning: 'Live on the board for tutors to apply to' },
+  'signups-today': { tone: 'pink', icon: UserPlus, title: 'Signed up, not paid' },
+  tutors: { tone: 'navy', icon: GraduationCap, title: 'New tutors' },
+  parents: { tone: 'violet', icon: Users, title: 'New parents' },
+  'open-tuitions': { tone: 'gold', icon: Briefcase, title: 'Tuitions posted' },
+}
+
+/** The big number's size: a long figure ("Rs 125,000") steps down so it never
+ *  wraps or spills out of a narrow desktop card. */
+function bigNumberSize(text: string): string {
+  if (text.length > 9) return 'text-lg lg:text-base xl:text-lg'
+  if (text.length > 6) return 'text-xl lg:text-lg xl:text-xl'
+  return 'text-2xl lg:text-xl xl:text-2xl'
 }
 
 const CARD_KEYS: OverviewItemKey[] = ['revenue', 'paid-today', 'tutors', 'parents', 'open-tuitions', 'signups-today']
@@ -76,12 +84,18 @@ export default async function AdminHome({
     const l = lists.get(k)!
     return {
       key: k,
-      label: OVERVIEW_ITEMS[k].title,
-      value: k === 'revenue' ? pkr(l.amount ?? 0) : String(l.rows.length),
-      // A card with a trend line (owner, 17 Oct 2026) shows its fixed meaning
-      // plus the line; the line carries what `extra` used to.
-      meaning: l.trend ? (TILE_STYLE[k]?.meaning ?? '') : (l.extra ?? TILE_STYLE[k]?.meaning ?? ''),
-      trend: l.trend ?? null,
+      label: TILE_STYLE[k]?.title ?? OVERVIEW_ITEMS[k].title,
+      // Square cards (owner, 17 Oct 2026): Today big, then Yesterday, Last 7
+      // days and one grey bottom line — no explanations, no arrows. The
+      // figures come from the rows the item's loader already reads (one
+      // helper, lib/overviewTrendCore); a card without them falls back to its
+      // list length.
+      card: l.card ?? {
+        today: k === 'revenue' ? pkr(l.amount ?? 0) : String(l.rows.length),
+        yesterday: '—',
+        last7: '—',
+        bottom: null,
+      },
     }
   })
   const todo = TODO_KEYS.filter((k) => lists.has(k))
@@ -130,23 +144,41 @@ export default async function AdminHome({
             const tone = TILE_TONE[style.tone]
             const Icon = style.icon
             return (
-              // The whole card is washed in the tone's tint (PR34 §2): a white
-              // glyph on the brand-hue chip, and the number, label and meaning
-              // in the tone's dark ink shade.
+              // A square card washed in the tone's tint (PR34 §2): icon and
+              // title, Today big, Yesterday and Last 7 days smaller, and one
+              // tiny grey bottom line. Nothing wraps: labels truncate, figures
+              // never do.
               <Link
                 key={t.key}
                 href={href(t.key)}
-                className={`flex h-full min-h-[104px] flex-col gap-0.5 rounded-2xl border border-black/5 p-4 transition-shadow hover:shadow-md [color-scheme:light] ${tone.card}`}
+                className={`flex aspect-square min-w-0 flex-col rounded-2xl border border-black/5 p-3 transition-shadow hover:shadow-md [color-scheme:light] ${tone.card}`}
               >
-                <span className={`mb-1 grid h-9 w-9 place-items-center rounded-xl ${tone.chip}`}>
-                  <Icon aria-hidden size={18} />
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg ${tone.chip}`}>
+                    <Icon aria-hidden size={15} />
+                  </span>
+                  <span className={`min-w-0 text-[10px] font-bold uppercase leading-tight tracking-wide ${tone.ink}`}>{t.label}</span>
                 </span>
-                <p className={`text-2xl font-black ${tone.ink}`}>{t.value}</p>
-                <p className={`text-[11px] font-bold uppercase tracking-wide ${tone.ink}`}>{t.label}</p>
-                <div className="mt-auto space-y-1">
-                  {t.meaning && <p className={`text-[10px] leading-snug opacity-80 ${tone.ink}`}>{t.meaning}</p>}
-                  {t.trend && <TrendLine trend={t.trend} ink={tone.ink} />}
-                </div>
+                <span className="mt-auto block">
+                  <span className="sr-only">Today: </span>
+                  <span className={`block whitespace-nowrap font-black tabular-nums leading-tight ${bigNumberSize(t.card.today)} ${tone.ink}`}>
+                    {t.card.today}
+                  </span>
+                </span>
+                <span className={`mt-1 flex items-baseline justify-between gap-1 text-[11px] ${tone.ink}`}>
+                  <span className="min-w-0 truncate">Yesterday</span>
+                  <span className="shrink-0 whitespace-nowrap font-bold tabular-nums">{t.card.yesterday}</span>
+                </span>
+                <span className={`flex items-baseline justify-between gap-1 text-[10px] ${tone.ink}`}>
+                  <span className="min-w-0 truncate">Last 7 days</span>
+                  <span className="shrink-0 whitespace-nowrap font-bold tabular-nums">{t.card.last7}</span>
+                </span>
+                {t.card.bottom && (
+                  <span className="mt-1 flex items-baseline justify-between gap-1 text-[9px] text-gray-700">
+                    <span className="min-w-0 truncate">{t.card.bottom.label}</span>
+                    <span className="shrink-0 whitespace-nowrap font-bold tabular-nums">{t.card.bottom.value}</span>
+                  </span>
+                )}
               </Link>
             )
           })}
@@ -293,29 +325,5 @@ function DailySignupFunnel({ windows }: { windows: FunnelWindowResult[] }) {
         ))}
       </div>
     </section>
-  )
-}
-
-// ▲ green / ▼ red / — grey, always with the arrow and the sign so colour is
-// never the only signal. On a white pill: the pairs are the existing
-// green-deep / red / gray-600 on white (check:contrast).
-const TREND_TONE: Record<Trend['tone'], string> = {
-  up: 'text-tm-green-deep',
-  down: 'text-tm-red',
-  flat: 'text-gray-600',
-}
-
-function TrendLine({ trend, ink }: { trend: CardTrend; ink: string }) {
-  return (
-    <p className={`flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[10px] leading-snug ${ink}`}>
-      <span className="opacity-80">{trend.parts.join(' · ')}</span>
-      <span
-        title={trend.trend.title}
-        aria-label={`${trend.trend.text}. ${trend.trend.title}`}
-        className={`whitespace-nowrap rounded-full bg-white px-1.5 py-0.5 font-bold ${TREND_TONE[trend.trend.tone]}`}
-      >
-        {trend.trend.text}
-      </span>
-    </p>
   )
 }

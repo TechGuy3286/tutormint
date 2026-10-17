@@ -103,8 +103,11 @@ test('Paid today: since 00:00 Pakistan time, once per tutor, no refunds or delet
 test('the Overview shows Paid today (never hidden at 0) from the list it opens', () => {
   const page = readFileSync('app/admin/page.tsx', 'utf8')
   assert.ok(page.includes("'paid-today'") && !page.includes('paid-this-month'))
-  assert.ok(page.includes("value: k === 'revenue' ? pkr(l.amount ?? 0) : String(l.rows.length)"))
+  // Square cards (owner, 17 Oct 2026): the card reads its loader's figures;
+  // Paid's Today is the same rule as its Today list.
+  assert.ok(page.includes('card: l.card ?? {'))
   const items = readFileSync('lib/overviewItems.ts', 'utf8')
+  assert.ok(items.includes('card: paidCard'))
   assert.ok(items.includes("extra: `${month} this month · ${week} in the last 7 days`"))
   assert.ok(items.includes("{ label: 'Review documents', href: `/admin/tutors/${r.userId}` }"))
 })

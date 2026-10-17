@@ -33,7 +33,7 @@ import { settleByDate } from '@/lib/settlementCore'
 import type { PayproRow } from '@/lib/reconciliationCore'
 import { loadFinancePayments } from '@/lib/finance'
 import { classify, countedInMonth, monthRangeLabel, pkMonth } from '@/lib/financeCore'
-import { dayTrend, monthTrend, windowFigures, type CardTrend } from '@/lib/overviewTrendCore'
+import { cardFigures, rupees, trendWindows, windowFigures, type CardFigures } from '@/lib/overviewTrendCore'
 import { docOverall, pkMonthStartMs, type DocOverall } from '@/lib/feePayersCore'
 import { tutorDocStatusesFromProfile } from '@/lib/tutorDocStatus'
 import { formatName } from '@/lib/formatName'
@@ -97,9 +97,9 @@ export type OverviewList = {
   workHref?: string | null
   /** A dated line under the title, with a link (the PayPro file's age). */
   note?: FileNote | null
-  /** Overview cards only (owner, 17 Oct 2026): the small line under the
-   *  number and its ▲/▼ arrow — lib/overviewTrendCore, one helper for all. */
-  trend?: CardTrend | null
+  /** Overview cards only (owner, 17 Oct 2026): Today (big), Yesterday, Last
+   *  7 days and one bottom line — lib/overviewTrendCore, one helper for all. */
+  card?: CardFigures | null
 }
 
 const PK_DATE = (iso: string) => formatDate(iso)
@@ -216,11 +216,11 @@ async function profilesByRole(admin: SupabaseClient, roles: string[]): Promise<O
   }))
 }
 
-/** "new today · yesterday · 7 days" for the Tutors / Parents cards, from the
- *  same rows the card counts. */
-function joinedTrend(rows: OverviewRow[], nowMs: number): CardTrend {
+/** New accounts today / yesterday / last 7 days for the New tutors / New
+ *  parents cards, from the same rows the list shows; bottom line "Total N". */
+function joinedCard(rows: OverviewRow[], nowMs: number): CardFigures {
   const f = windowFigures(rows.map((r) => ({ at: r.createdAt ?? null })), nowMs)
-  return { parts: [`${f.today} new today`, `${f.yesterday} yesterday`, `${f.last7} in 7 days`], trend: dayTrend(f, nowMs) }
+  return cardFigures(f, { bottom: { label: 'Total', value: rows.length.toLocaleString('en-US') } })
 }
 
 // ---------------------------------------------------------------- loaders
@@ -248,10 +248,7 @@ export async function loadOverviewList(
         nowMs,
         { amounts: true },
       )
-      const trend: CardTrend = {
-        parts: [`today ${pkr(f.today)}`, `yesterday ${pkr(f.yesterday)}`, `7 days ${pkr(f.last7)}`],
-        trend: monthTrend(f, nowMs),
-      }
+      const card = cardFigures(f, { rupees: true, bottom: { label: 'This month', value: rupees(amount) } })
       return {
         key,
         rows: rows.map((p) => ({
@@ -261,7 +258,7 @@ export async function loadOverviewList(
           amount: p.amountPkr,
         })),
         amount,
-        trend,
+        card,
         filter: `approved this month (${monthRangeLabel(month)}), not refunded, account not deleted`,
         workHref: '/admin/finance',
       }
@@ -294,10 +291,7 @@ export async function loadOverviewList(
         fee.filter((r) => r.userId && r.approvedAt && !((r.refundedAmountPkr ?? 0) > 0 || r.refundedAt)).map((r) => ({ at: r.approvedAt, key: r.userId })),
         nowMs,
       )
-      const paidTrend: CardTrend = {
-        parts: [`${pf.yesterday} yesterday`, `${pf.last7} in 7 days`, `${pf.month} this month`],
-        trend: dayTrend(pf, nowMs),
-      }
+      const paidCard = cardFigures(pf, { bottom: { label: 'This month', value: pf.month.toLocaleString('en-US') } })
       // The period switch (owner, 15 Oct 2026; it replaced Payments → Recent
       // payers). The card counts today; the list may show another period,
       // with the same rule (feePayersInRange).
@@ -339,7 +333,7 @@ export async function loadOverviewList(
             ? `paid the ${FEE_LABEL} today (since 00:00 Pakistan time)`
             : `paid the ${FEE_LABEL} — ${periodWords} (Pakistan time), not refunded, account not deleted`,
         extra: `${month} this month · ${week} in the last 7 days`,
-        trend: paidTrend,
+        card: paidCard,
       }
     }
 
@@ -357,18 +351,15 @@ export async function loadOverviewList(
         rows: rows.map((r) => ({ id: r.id, title: r.name, detail: `Joined ${formatDateTime(r.joinedAt)} · stopped at ${r.stoppedAt ?? 'payment'}`, href: `/admin/users/${r.id}`, memberId: r.id })),
         filter: `who signed up today (since 00:00 Pakistan time) and have not paid the ${FEE_LABEL}`,
         extra: `${counts.yesterday} yesterday · ${counts.week} in the last 7 days`,
-        // The line stays exactly as it was; only the arrow is added.
-        trend: {
-          parts: [`${counts.yesterday} yesterday`, `${counts.week} in the last 7 days`],
-          trend: dayTrend(windowFigures(all.map((r) => ({ at: r.joinedAt })), nowMs), nowMs),
-        },
+        // Today = this list's rows; no bottom line.
+        card: cardFigures(windowFigures(all.map((r) => ({ at: r.joinedAt })), nowMs)),
         workHref: SIGNUPS_TODAY_HREF,
       }
     }
 
     case 'tutors': {
       const rows = await profilesByRole(admin, ['tutor'])
-      return { key, rows, trend: joinedTrend(rows, now.getTime()), filter: 'registered as tutors', workHref: '/admin/users?role=tutor' }
+      return { key, rows, card: joinedCard(rows, now.getTime()), filter: 'registered as tutors', workHref: '/admin/users?role=tutor' }
     }
 
     case 'parents': {
@@ -376,7 +367,7 @@ export async function loadOverviewList(
       return {
         key,
         rows,
-        trend: joinedTrend(rows, now.getTime()),
+        card: joinedCard(rows, now.getTime()),
         filter: 'registered as parents or institutions',
         workHref: '/admin/users?role=parent',
       }
@@ -390,12 +381,25 @@ export async function loadOverviewList(
           admin.from('jobs').select('id, ref_id, title, city, created_at, parent_id').eq('status', 'open').order('created_at', { ascending: false }).order('id').range(a, b),
         )
       ).filter((j) => !testIds.has(j.parent_id as string))
-      // Posted today / yesterday / 7 days, among the tuitions the card counts.
+      // The card (owner, 17 Oct 2026): tuitions POSTED today / yesterday / last
+      // 7 days, whatever their status now (test accounts left out); the list
+      // stays the open ones, which is the bottom line "Open now N".
       const nowMs = now.getTime()
-      const of = windowFigures(jobs.map((j) => ({ at: j.created_at as string })), nowMs)
+      const posted = (
+        await pageAll((a, b) =>
+          admin
+            .from('jobs')
+            .select('id, created_at, parent_id')
+            .gte('created_at', new Date(trendWindows(nowMs).last7.start).toISOString())
+            .order('created_at', { ascending: false })
+            .order('id')
+            .range(a, b),
+        )
+      ).filter((j) => !testIds.has(j.parent_id as string))
+      const of = windowFigures(posted.map((j) => ({ at: j.created_at as string })), nowMs)
       return {
         key,
-        trend: { parts: [`${of.today} posted today`, `${of.yesterday} yesterday`, `${of.last7} in 7 days`], trend: dayTrend(of, nowMs) },
+        card: cardFigures(of, { bottom: { label: 'Open now', value: jobs.length.toLocaleString('en-US') } }),
         rows: jobs.map((j) => ({
           id: j.id as string,
           title: `${(j.ref_id as string | null) ?? ''} ${(j.title as string | null) ?? ''}`.trim() || 'Tuition',

@@ -267,6 +267,14 @@ const PAIRS: Pair[] = [
   { fg: 'tileMintInk', bg: 'tileMintBg', where: 'tinted tile text, mint — light' },
   { fg: 'tileSkyInk', bg: 'tileSkyBg', where: 'tinted tile text, sky — light' },
   { fg: 'tilePinkInk', bg: 'tilePinkBg', where: 'tinted tile text, pink — light' },
+  // The admin Overview square cards' tiny grey bottom line (owner, 17 Oct
+  // 2026): gray-700 on each of the six card tints.
+  { fg: 'gray700', bg: 'tileGreenBg', where: 'Overview card bottom line, green (Revenue)' },
+  { fg: 'gray700', bg: 'tileTealBg', where: 'Overview card bottom line, teal (Paid)' },
+  { fg: 'gray700', bg: 'tileNavyBg', where: 'Overview card bottom line, navy (New tutors)' },
+  { fg: 'gray700', bg: 'tileVioletBg', where: 'Overview card bottom line, violet (New parents)' },
+  { fg: 'gray700', bg: 'tileGoldBg', where: 'Overview card bottom line, gold (Tuitions posted)' },
+  { fg: 'gray700', bg: 'tilePinkBg', where: 'Overview card bottom line, pink' },
   // chip glyphs (white on the solid hue) — symmetric with ink-on-white, listed
   // explicitly since these two hues are new (PR88).
   { fg: 'white', bg: 'skyInk', where: 'count tile chip glyph, sky tone' },
