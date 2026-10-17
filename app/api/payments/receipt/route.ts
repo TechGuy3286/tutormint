@@ -173,6 +173,11 @@ export async function POST(request: Request) {
       reference: transactionId || null,
       screenshot_path: path,
       ...(returnTo ? { return_to: returnTo } : {}),
+      // A receipt on a checkout that had been cancelled or expired opens it
+      // again: it is now a payment waiting for approval (17 Oct 2026).
+      checkout_closed_at: null,
+      checkout_close_reason: null,
+      checkout_closed_by: null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', paymentId)

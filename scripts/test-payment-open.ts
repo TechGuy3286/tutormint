@@ -95,5 +95,5 @@ test('the verify/fee step opens the choice screen, where bank transfer is the se
   // The choice screen for the fee, carrying the tuition to come back to (15 Oct 2026).
   assert.ok(src.includes("router.push(payChoiceHref('verified',"), 'Verify opens the choice screen')
   assert.equal(payChoiceHrefForTest('verified', null), '/pay/choose?plan=verified', 'for the fee')
-  assert.ok(read('app/(site)/pay/choose/PayChoice.tsx').includes('Other method: bank transfer'), 'bank transfer is offered as the second option')
+  assert.ok(read('app/(site)/pay/choose/PayChoice.tsx').includes("OTHER_METHODS_TITLE = 'Other methods'"), 'bank transfer is offered as the second option')
 })

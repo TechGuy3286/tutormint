@@ -11,6 +11,9 @@ import PackagesTabs from '@/components/membership-plans/PackagesTabs'
 import VerifiedPreview from '@/components/membership-plans/VerifiedPreview'
 import { hiresThisMonth } from '@/lib/funnel'
 import { formatName } from '@/lib/formatName'
+import PaymentBanner from '@/components/membership-plans/PaymentBanner'
+import { loadPaymentBanner } from '@/lib/paymentBanner'
+import type { Banner } from '@/lib/paymentBannerCore'
 
 // The ONE packages page (owner PR13 §1). A Tutors tab and a Parents tab, each
 // rendering its cards from the plans table — one source, no prices or features
@@ -55,9 +58,9 @@ export default async function PackagesPage({
   // PR106-C0 §1/§4: the Buy buttons use the ONE shared open check — the PayPro
   // gateway being LIVE. When live, Buy is open to everyone (a signed-out visitor
   // sees Buy → sign-in via BuyButton); in sandbox, only owner/staff/seed/test
-  // accounts can check out. Also surface a resumable pending order (Pay later).
+  // accounts can check out.
   let checkoutOpen = onlinePaymentOpen()
-  let resumeHref: string | null = null
+  let paymentBanner: Banner | null = null
   if (ent) {
     const { data: me } = await supabase
       .from('profiles')
@@ -65,20 +68,10 @@ export default async function PackagesPage({
       .eq('id', ent.userId)
       .maybeSingle()
     checkoutOpen = checkoutOpen || (!!me && checkoutVisibleFor(me))
-    const { data: pending } = await supabase
-      .from('payments')
-      .select('provider_ref, provider, plan_code')
-      .eq('user_id', ent.userId)
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (pending?.provider_ref) {
-      resumeHref =
-        pending.provider === 'manual'
-          ? `/pay/choose?plan=${encodeURIComponent((pending.plan_code as string) ?? '')}`
-          : `/pay/return?ref=${encodeURIComponent(pending.provider_ref as string)}`
-    }
+    // The "payment started, not finished" banner (owner, 17 Oct 2026): only a
+    // checkout that can still be paid, or a receipt waiting for approval.
+    // Rules in lib/paymentBannerCore.
+    if (ent.audience) paymentBanner = await loadPaymentBanner(ent.userId, ent.audience)
   }
 
   // §1.1: a signed-in tutor opens on Tutors, a parent on Parents, a logged-out
@@ -296,18 +289,7 @@ export default async function PackagesPage({
           <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Membership Plans</h1>
         </header>
 
-        {/* Resume an order left pending (PR98 §3 "Pay later"). */}
-        {resumeHref && (
-          <Link
-            href={resumeHref}
-            className="block rounded-2xl border border-tm-navy/20 bg-tm-tint-navy p-4 text-xs font-bold text-tm-navy"
-          >
-            You have a payment in progress — tap to continue.
-            <span lang="ur" dir="rtl" className="mt-0.5 block font-semibold text-tm-navy">
-              آپ کی ایک ادائیگی ابھی باقی ہے — جاری رکھنے کے لیے دبائیں۔
-            </span>
-          </Link>
-        )}
+        {paymentBanner && <PaymentBanner banner={paymentBanner} />}
 
         <PackagesTabs initialTab={initialTab} tutorPanel={tutorPanel} parentPanel={parentPanel} />
       </div>

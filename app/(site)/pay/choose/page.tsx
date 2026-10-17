@@ -15,6 +15,7 @@ import { formatPkMobile } from '@/lib/phone'
 import OrderPageNav from '../manual/[ref]/OrderPageNav'
 import PayChoice from './PayChoice'
 import { afterFeeReturnPath, safeReturnTo } from '@/lib/returnTo'
+import { defaultPayChoose, payChooseHref } from '@/lib/payChooseDefault'
 
 // The payment choice screen (owner, 11 Oct 2026).
 //
@@ -25,10 +26,10 @@ import { afterFeeReturnPath, safeReturnTo } from '@/lib/returnTo'
 //
 //   • JazzCash (PayPro): exactly the checkout that ran before this screen
 //     existed (same order creation, same callbacks, activates automatically);
-//   • Other method — bank transfer: the owner's bank details, a receipt upload,
+//   • Other methods (bank transfer from any bank app, Easypaisa or ATM): the owner's bank details, a receipt upload,
 //     and activation only after staff approve the receipt.
 //
-// "Other method" is absent when the owner's switch is off or the bank details
+// "Other methods" is absent when the owner's switch is off or the bank details
 // are not filled in (lib/payments/receipt loadBankPanel). While a receipt is
 // under review the screen shows that status and nothing to pay with, so nobody
 // pays twice.
@@ -67,11 +68,29 @@ export default async function PayChoosePage({ searchParams }: { searchParams: Pr
   // The page to go back to after paying (the tuition the tutor tapped Apply on,
   // owner 15 Oct 2026). Same-site paths only.
   const returnTo = safeReturnTo(next)
-  const here = `/pay/choose?plan=${encodeURIComponent(planCode)}${returnTo ? `&next=${encodeURIComponent(returnTo)}` : ''}`
+  const here = payChooseHref(planCode, returnTo)
 
   const session = await getSessionUser()
   if (!session) redirect(`/login?next=${encodeURIComponent(here)}`)
   const userId = session.user.id
+
+  // No plan named (owner, 17 Oct 2026): a tutor who has not paid the
+  // Verification Fee gets the fee checkout straight away; everyone else goes
+  // to Membership Plans as before (lib/payChooseDefault).
+  if (!planCode) {
+    const supa = await createClient()
+    const [{ data: me }, { data: tpRow }] = await Promise.all([
+      supa.from('profiles').select('role').eq('id', userId).maybeSingle(),
+      supa.from('tutor_profiles').select('verified_fee_paid_at').eq('id', userId).maybeSingle(),
+    ])
+    redirect(
+      defaultPayChoose({
+        role: (me?.role as string | null) ?? null,
+        feePaid: !!tpRow?.verified_fee_paid_at,
+        returnTo,
+      }),
+    )
+  }
 
   const supabase = await createClient()
   const [{ data: plan }, { data: profile }] = await Promise.all([
@@ -149,7 +168,7 @@ export default async function PayChoosePage({ searchParams }: { searchParams: Pr
             name: formatName(profile.full_name as string | null),
             mobile,
           })}
-          logos={{ jazzcash: payLogoSrc('jazzcash'), bank: payLogoSrc('faysal-bank') }}
+          logos={{ jazzcash: payLogoSrc('jazzcash') }}
         />
 
         <OrderPageNav dashboard={dashboard} payLater={settings.payLater} />

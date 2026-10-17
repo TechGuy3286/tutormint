@@ -89,7 +89,7 @@ export default async function PaymentGatewaysPage({
       <section id="bank-details" className="scroll-mt-24 space-y-2">
         <h2 className="text-sm font-black text-tm-navy">Bank transfer details</h2>
         <p className="text-[11px] text-gray-500">
-          Members see these on the payment choice screen under &ldquo;Other method: bank transfer&rdquo;, each with a Copy
+          Members see these on the payment choice screen under &ldquo;Other methods&rdquo;, each with a Copy
           button. Saving needs your password.
         </p>
         <p

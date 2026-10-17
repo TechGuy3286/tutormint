@@ -441,7 +441,14 @@ export async function startPayproCheckout(params: {
     const ageMs = Date.now() - new Date(p.created_at as string).getTime()
     const click2pay = (p.raw as { paypro?: { click2pay?: string } } | null)?.paypro?.click2pay ?? ''
     if (ageMs < DAY_MS && click2pay) {
-      // Reuse the most recent still-fresh order.
+      // Reuse the most recent still-fresh order. A checkout the member cancelled
+      // from the banner is reopened by starting it again (17 Oct 2026).
+      await admin
+        .from('payments')
+        .update({ checkout_closed_at: null, checkout_close_reason: null, checkout_closed_by: null })
+        .eq('id', p.id as string)
+        .eq('status', 'pending')
+        .not('checkout_closed_at', 'is', null)
       return { ok: true, url: click2pay, reference: p.provider_ref as string, paymentId: p.id as string }
     }
     // Stale (or no link): block it at PayPro and mark it rejected so it cannot be

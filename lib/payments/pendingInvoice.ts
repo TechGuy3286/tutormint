@@ -24,6 +24,8 @@ export async function pendingPayproInvoice(userId: string): Promise<PendingInvoi
     .eq('user_id', userId)
     .eq('provider', 'paypro')
     .eq('status', 'pending')
+    // A checkout the member cancelled or the clean-up closed is not offered (17 Oct 2026).
+    .is('checkout_closed_at', null)
     .order('created_at', { ascending: false })
     .limit(10)
   for (const p of data ?? []) {

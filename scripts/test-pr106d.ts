@@ -116,7 +116,7 @@ test('the payment screens have Back / Pay later and a manual option', () => {
   const gate = read('components/upgrade/TutorVerifyGate.tsx')
   assert.ok(gate.includes('/pay/choose?plan=verified'), 'the fee screen opens the choice screen')
   const choice = read('app/(site)/pay/choose/PayChoice.tsx')
-  assert.ok(choice.includes('Other method: bank transfer'), 'the choice screen offers the manual option')
+  assert.ok(choice.includes("OTHER_METHODS_TITLE = 'Other methods'"), 'the choice screen offers the manual option')
   assert.ok(choice.includes('activated after we check your receipt'), 'the plain manual line (EN)')
   assert.ok(read('app/(site)/pay/choose/page.tsx').includes('<OrderPageNav'), 'the choice screen has Back + Pay later')
 })

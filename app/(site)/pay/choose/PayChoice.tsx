@@ -19,7 +19,7 @@ import {
 // The two ways to pay on the payment choice screen (owner, 11 Oct 2026).
 //
 // JazzCash (PayPro) posts to the same /api/payments/checkout as before and
-// follows its redirect. "Other method" opens the bank panel: the owner's
+// follows its redirect. "Other methods" opens the bank panel: the owner's
 // account details (each with Copy), three short steps, and the receipt upload
 // to /api/payments/receipt. Once a receipt is in, this renders the "received"
 // status and nothing to pay with — the server refuses a second one too.
@@ -84,6 +84,11 @@ function Logo({ src, alt }: { src: string | null; alt: string }) {
 
 type Method = 'jazzcash' | 'bank'
 
+// The second way to pay (owner, 17 Oct 2026). Exported so the test can check them.
+export const OTHER_METHODS_TITLE = 'Other methods'
+export const OTHER_METHODS_SUB = 'Any bank app, Easypaisa or ATM transfer — activated after we check your receipt'
+export const ANY_BANK_LINE = 'You can pay from any bank or wallet app. You don’t need a Faysal Bank account.'
+
 export default function PayChoice({
   planCode,
   isFee,
@@ -100,13 +105,13 @@ export default function PayChoice({
   /** The package price as text, from the plans row, passed by the page. Never typed here. */
   amount: string
   online: boolean
-  /** null = "Other method" is not offered (switch off or details empty). */
+  /** null = "Other methods" is not offered (switch off or details empty). */
   bank: BankDetails | null
   receipt: ReceiptState
   /** The tuition to go back to after paying the fee (owner, 15 Oct 2026). */
   returnTo?: string | null
   waHref: string
-  logos: { jazzcash: string | null; bank: string | null }
+  logos: { jazzcash: string | null }
 }) {
   const toast = useToast()
   const { start, busy, reason } = useVerifyCheckout(planCode, returnTo)
@@ -248,10 +253,12 @@ export default function PayChoice({
         {bank && (
           <label className={option(method === 'bank')}>
             <input type="radio" name="pay-via" className="h-5 w-5 accent-tm-navy" checked={method === 'bank'} onChange={() => setMethod('bank')} />
-            <Logo src={logos.bank} alt={bank.bankName ?? 'Bank'} />
+            {/* No bank logo or bank name here (owner, 17 Oct 2026): tutors read
+                them as "you need an account at that bank". The bank details show
+                only once this option is chosen. */}
             <span className="min-w-0 text-sm font-bold text-tm-navy">
-              Other method: bank transfer
-              <span className="block text-[11px] font-semibold text-gray-500">{bank.bankName} · activated after we check your receipt</span>
+              {OTHER_METHODS_TITLE}
+              <span className="block text-[11px] font-semibold text-gray-500">{OTHER_METHODS_SUB}</span>
             </span>
           </label>
         )}
@@ -278,6 +285,7 @@ export default function PayChoice({
 
       {method === 'bank' && bank && (
         <section className="space-y-4 rounded-2xl border border-gray-200 bg-white p-4" data-bank-panel="">
+          <p className="text-xs font-bold leading-relaxed text-tm-navy">{ANY_BANK_LINE}</p>
           <dl>
             {bank.bankName && <CopyValue label="Bank" value={bank.bankName} />}
             {bank.accountTitle && <CopyValue label="Account title" value={bank.accountTitle} />}

@@ -106,7 +106,9 @@ test('"Other method" is hidden when the bank details are empty or the switch is 
   // The details come from the owner's settings, not from the code.
   for (const src of [PAGE, CHOICE]) {
     assert.ok(!/PK\d{2}[A-Z0-9]{4}/.test(src), 'no IBAN in the code')
-    assert.ok(!/Faysal/.test(src), 'no bank name in the code')
+    // The one sentence that names the bank does so to say no account there is
+    // needed (owner, 17 Oct 2026); the details themselves come from settings.
+    assert.ok(!/Faysal/.test(src.replace(/You don’t need a Faysal Bank account./g, '')), 'no bank name in the code')
   }
 })
 

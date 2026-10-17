@@ -62,6 +62,8 @@ export type ActivityEvent =
   | 'reported_by'
   | 'payment_submitted'
   | 'payment_rejected'
+  // The member cancelled a checkout they started (owner, 17 Oct 2026).
+  | 'checkout_cancelled'
   // The one-time Rs 199 verification fee — recorded DISTINCTLY from a plan
   // purchase so revenue counts it but the re-subscription metric never does.
   | 'verification_fee_paid'

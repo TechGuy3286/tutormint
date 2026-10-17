@@ -23,7 +23,7 @@ const METHOD_ROWS: { key: MethodKey; title: string; sub: string }[] = [
   {
     key: 'bank_transfer',
     title: 'Show bank transfer to members',
-    sub: 'Adds “Other method: bank transfer” to the payment choice screen, with the bank details below. The member uploads a receipt and staff approve it before anything activates. Hidden automatically while the bank details are empty.',
+    sub: 'Adds “Other methods” to the payment choice screen, with the bank details below. The member uploads a receipt and staff approve it before anything activates. Hidden automatically while the bank details are empty.',
   },
 ]
 

@@ -26,6 +26,8 @@ export async function loadStartedNotFinished(now = new Date()): Promise<StartedR
       .from('payments')
       .select('id, user_id, plan_code, status, created_at, provider, provider_ref, screenshot_path, reference')
       .eq('status', 'pending')
+      // A checkout the member cancelled (or the clean-up closed) is not chased (17 Oct 2026).
+      .is('checkout_closed_at', null)
       .gte('created_at', since)
       .order('created_at', { ascending: false })
       .order('id')
