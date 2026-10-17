@@ -118,5 +118,5 @@ test('the payment screens have Back / Pay later and a manual option', () => {
   const choice = read('app/(site)/pay/choose/PayChoice.tsx')
   assert.ok(choice.includes("OTHER_METHODS_TITLE = 'Other methods'"), 'the choice screen offers the manual option')
   assert.ok(choice.includes('activated after we check your receipt'), 'the plain manual line (EN)')
-  assert.ok(read('app/(site)/pay/choose/page.tsx').includes('<OrderPageNav'), 'the choice screen has Back + Pay later')
+  assert.ok(read('app/(site)/pay/choose/page.tsx').includes('<OrderPageNav'), 'the choice screen has Back (Pay later removed 17 Oct 2026)')
 })

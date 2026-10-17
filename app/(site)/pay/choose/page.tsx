@@ -171,7 +171,9 @@ export default async function PayChoosePage({ searchParams }: { searchParams: Pr
           logos={{ jazzcash: payLogoSrc('jazzcash') }}
         />
 
-        <OrderPageNav dashboard={dashboard} payLater={settings.payLater} />
+        {/* No "Pay later" on the payment screen (owner, 17 Oct 2026): Back alone,
+            full width. The dashboard's "Complete your payment" reminder stays. */}
+        <OrderPageNav dashboard={dashboard} payLater={false} />
       </div>
     </main>
   )

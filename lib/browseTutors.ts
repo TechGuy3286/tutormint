@@ -10,6 +10,7 @@ import type { TutorCardData } from '@/components/TutorCard'
 import { formatName } from '@/lib/formatName'
 import { withAreaCities } from '@/lib/tutorAreaCities'
 import { withCanonAreas } from '@/lib/areaAliases'
+import { subjectDisplayKey } from '@/lib/subjectDisplay'
 
 // The one place /browse/tutors is queried, shared by the page and the
 // load-more route.
@@ -243,7 +244,7 @@ async function withSubjectLinks(
 
   const { data: master } = await supabase
     .from('taxonomy_master')
-    .select('id, level_slug, subject_slug')
+    .select('id, category_slug, level_slug, subject_slug')
     .in('id', masterIds)
 
   const levelSlugs = Array.from(new Set((master ?? []).map((m) => m.level_slug as string)))
@@ -251,19 +252,28 @@ async function withSubjectLinks(
     new Set((master ?? []).map((m) => m.subject_slug as string | null).filter(Boolean) as string[]),
   )
 
-  const [{ data: levels }, { data: subjects }] = await Promise.all([
+  const catSlugs = Array.from(new Set((master ?? []).map((m) => m.category_slug as string).filter(Boolean)))
+  const [{ data: levels }, { data: subjects }, { data: cats }] = await Promise.all([
     supabase.from('taxonomy_levels').select('slug, name').in('slug', levelSlugs),
     subjectSlugs.length > 0
       ? supabase.from('taxonomy_subjects').select('slug, name').in('slug', subjectSlugs)
       : Promise.resolve({ data: [] as { slug: string; name: string }[] }),
+    catSlugs.length > 0
+      ? supabase.from('taxonomy_categories').select('slug, no_grade').in('slug', catSlugs)
+      : Promise.resolve({ data: [] as { slug: string; no_grade: boolean }[] }),
   ])
+  // A level with no grade (Admission Test Prep) lists SCHOOLS as its choices.
+  // A school's name is not a subject (owner, 17 Oct 2026): the card shows the
+  // level's name instead, once. Nothing stored changes.
+  const schoolCats = new Set((cats ?? []).filter((c) => c.no_grade).map((c) => c.slug as string))
 
   const levelName = new Map((levels ?? []).map((l) => [l.slug as string, l.name as string]))
   const subjectName = new Map((subjects ?? []).map((x) => [x.slug as string, x.name as string]))
 
   const labelByMaster = new Map<number, string>()
   for (const m of master ?? []) {
-    const subject = m.subject_slug ? subjectName.get(m.subject_slug as string) : null
+    const school = schoolCats.has(m.category_slug as string)
+    const subject = m.subject_slug && !school ? subjectName.get(m.subject_slug as string) : null
     labelByMaster.set(m.id as number, subject ?? levelName.get(m.level_slug as string) ?? '')
   }
 
@@ -272,7 +282,7 @@ async function withSubjectLinks(
     const label = labelByMaster.get(l.master_id as number)
     if (!label) continue
     const list = byTutor.get(l.tutor_id as string) ?? []
-    if (!list.some((x) => x.label === label)) list.push({ label, masterId: l.master_id as number })
+    if (!list.some((x) => subjectDisplayKey(x.label) === subjectDisplayKey(label))) list.push({ label, masterId: l.master_id as number })
     byTutor.set(l.tutor_id as string, list)
   }
 

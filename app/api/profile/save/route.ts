@@ -16,6 +16,8 @@ import { normalisePkMobile } from '@/lib/phone'
 import { labelsForMasterIdsServer } from '@/lib/taxonomyServer'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { alertIfReupload } from '@/lib/docReupload'
+import { unknownMasterIds } from '@/lib/masterSubjectCheck'
+import { NOT_A_MASTER_SUBJECT } from '@/lib/subjectDisplay'
 import { formatName } from '@/lib/formatName'
 
 // Per-step save for the profile forms. Writes only the fields the step owns,
@@ -98,6 +100,15 @@ export async function POST(request: Request) {
   const { data: me } = await supabase.from('profiles').select('role, email').eq('id', user.id).maybeSingle()
   const role = me?.role
   const myEmail = (me?.email as string | null) ?? null
+
+  // Master-list subjects only (owner, 17 Oct 2026): checked before anything is
+  // written, so a refused save changes nothing.
+  if (Array.isArray(body.subjectMasterIds)) {
+    const ids = body.subjectMasterIds.filter((n) => Number.isInteger(n))
+    if ((await unknownMasterIds(supabase, ids)).length > 0) {
+      return NextResponse.json({ error: NOT_A_MASTER_SUBJECT }, { status: 400 })
+    }
+  }
 
   // PR41 §2 — check the PUBLIC text fields BEFORE writing, and do NOT publish
   // anything abusive: a banned display name, headline or bio is withheld (not

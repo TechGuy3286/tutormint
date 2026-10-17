@@ -1,7 +1,6 @@
 'use client'
 
 import { postGated } from '@/lib/gatedFetch'
-import { experienceLabel } from '@/lib/experienceLabel'
 import { armEscape, submitSignal } from '@/lib/submit'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import { useToast } from '@/components/ui/Toast'
@@ -9,21 +8,21 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Icon from '@/components/Icon'
-import JobTypesChip from '@/components/JobTypesChip'
+import { jobType } from '@/lib/display'
 import CardActions, { type CardAction } from '@/components/CardActions'
-import { feeLabelOf } from '@/lib/fee'
+import { cardSummary } from '@/lib/tutorCardCore'
 import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
 import NotVerifiedBadge from '@/components/badges/NotVerifiedBadge'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import AuthGateModal, { clearDraft, peekDraft, FOCUS_COMPOSER_KEY, type AuthIntent } from '@/components/AuthGateModal'
 import { badgesForPlan, isFeaturedPlan } from '@/lib/planBadges'
-import { distinctAreaLabels } from '@/lib/place'
 
 // The tutor card, rebuilt against design/reference/tutor-card.jpeg.
 //
 // Mobile (360px up): 72px avatar with the name and stars beside it, badges
-// below, then the four detail lines, then buttons two-up. Desktop: 140px
+// below, then roles (2 + "+N"), one line of subjects (4 + "+N more") and one
+// info line (city · experience · fee) — owner, 17 Oct 2026 — then buttons two-up. Desktop: 140px
 // avatar on the left, everything else in a column on the right, buttons in a
 // single row -- exactly the reference.
 //
@@ -148,29 +147,6 @@ function Stars({ rating, count }: { rating: number; count: number }) {
   )
 }
 
-function DetailLine({
-  icon,
-  label,
-  value,
-  children,
-}: {
-  icon: React.ReactNode
-  label: string
-  value?: string
-  /** Linked content, when the value names something with a page of its own. */
-  children?: React.ReactNode
-}) {
-  return (
-    <p className="flex items-start gap-2 text-xs leading-snug text-slate-700">
-      <span className="mt-px shrink-0 text-gray-500">{icon}</span>
-      <span className="min-w-0">
-        <span className="font-bold text-tm-navy">{label}:</span>{' '}
-        {children ?? value}
-      </span>
-    </p>
-  )
-}
-
 /**
  * A link that must survive the card's own stretched link.
  *
@@ -256,14 +232,9 @@ export default function TutorCard({
   const rating = Number(tutor.rating_avg ?? 0)
   const reviews = tutor.rating_count ?? 0
 
-  const links = tutor.subject_links ?? []
-  const subjects =
-    tutor.subject_labels && tutor.subject_labels.length > 0
-      ? tutor.subject_labels.join(', ')
-      : 'Subjects being added'
-
-  // Real teaching experience from onboarding step 9, not account age (PR94 Part 1).
-  const experience = experienceLabel(tutor.experience_years)
+  // What the listing card shows: roles, subjects and one info line (owner,
+  // 17 Oct 2026). The full profile page keeps every role, subject and area.
+  const summary = cardSummary(tutor)
 
   const gate = (intent: AuthIntent) => {
     setGateIntent(intent)
@@ -489,137 +460,111 @@ export default function TutorCard({
                 than wrapping the card in an <a> (a link may not contain buttons).
                 The badges are non-interactive, so the overlay sitting over them is
                 fine. */}
-            <Heading className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-black text-tm-navy sm:text-lg">
+            {/* One line, never wrapping (owner, 17 Oct 2026): a long name ends in
+                an ellipsis and the badges stay beside it, so every card in a
+                list has the same height. */}
+            <Heading className="flex min-w-0 items-center gap-x-2 text-base font-black text-tm-navy sm:text-lg">
               <Link
                 prefetch={false}
                 href={profileHref}
-                className="inline-flex min-h-[44px] items-center py-0.5 after:absolute after:inset-0 after:rounded-2xl after:content-[''] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-navy"
+                title={tutor.full_name}
+                className="inline-flex min-h-[44px] min-w-0 items-center py-0.5 after:absolute after:inset-0 after:rounded-2xl after:content-[''] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-navy"
               >
-                {tutor.full_name}
+                <span className="truncate">{tutor.full_name}</span>
               </Link>
-              {badges.length > 0 && <BadgeRow badges={badges} size="sm" />}
+              {badges.length > 0 && <BadgeRow badges={badges} size="sm" className="shrink-0 flex-nowrap" />}
               {!isVerified && <NotVerifiedBadge />}
             </Heading>
             {/* Stars / "New tutor" on their own line below the name. */}
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <Stars rating={rating} count={reviews} />
             </div>
-            {tutor.headline && (
-              <p className="line-clamp-2 text-xs font-semibold text-tm-green-deep">{tutor.headline}</p>
-            )}
+            {/* Two lines are always reserved, filled or not, so cards align. */}
+            <p className="line-clamp-2 min-h-[2lh] text-xs font-semibold leading-snug text-tm-green-deep">
+              {tutor.headline ?? ''}
+            </p>
           </div>
 
           <div className="col-span-2 space-y-2 sm:col-span-1 sm:col-start-2 sm:row-start-2">
-            {/* Job type on its own line (§2.2). */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              <JobTypesChip types={tutor.job_types} />
+            {/* Roles: at most 2 chips, then "+N" (owner, 17 Oct 2026). One row
+                of fixed height; the full list is on the profile page. */}
+            <div className="flex h-6 min-w-0 items-center gap-1.5 overflow-hidden">
+              {summary.roles.map((r) => (
+                <span
+                  key={r}
+                  className="inline-flex min-w-0 max-w-[45%] shrink items-center rounded-full border border-gray-200 px-2 py-0.5 text-[11px] font-bold text-slate-700"
+                >
+                  <span className="truncate">{jobType(r) ?? r}</span>
+                </span>
+              ))}
+              {summary.rolesExtra > 0 && (
+                <span
+                  className="inline-flex shrink-0 items-center rounded-full border border-gray-200 px-2 py-0.5 text-[11px] font-bold text-gray-500"
+                  title={`${summary.rolesExtra} more on the profile`}
+                >
+                  +{summary.rolesExtra}
+                </span>
+              )}
               {tutor.distance_note && (
-                <span className="inline-flex items-center rounded-full bg-tm-tint-navy px-2 py-0.5 text-[11px] font-bold text-tm-navy">
+                <span className="inline-flex shrink-0 items-center rounded-full bg-tm-tint-navy px-2 py-0.5 text-[11px] font-bold text-tm-navy">
                   {tutor.distance_note}
                 </span>
               )}
             </div>
 
-            <div className="space-y-1.5 pt-0.5">
-              {/* Every mention of a thing links to the thing: each subject to
-                  the tutors who teach it, the area and the city to that slice
-                  of the directory. Falls back to plain text when there is no
-                  id to link with -- a profile whose subjects predate the join
-                  table, or a tutor teaching online with no city. */}
-              <DetailLine icon={<Icon name="book-open" size={14} />} label="Subjects" value={subjects}>
-                {links.length > 0
-                  ? links.map((l, i) => (
-                      <span key={l.masterId}>
+            {/* Subjects: one line, at most 4, each once, then "+N more". Each
+                still links to the tutors who teach it. */}
+            <p className="flex min-w-0 items-center gap-2 text-xs leading-snug text-slate-700">
+              <span className="shrink-0 text-gray-500">
+                <Icon name="book-open" size={14} />
+              </span>
+              <span className="min-w-0 truncate">
+                {summary.subjects.length === 0
+                  ? 'Subjects being added'
+                  : summary.subjects.map((s, i) => (
+                      <span key={s.masterId ?? s.label}>
                         {i > 0 && ', '}
-                        <InlineLink
-                          href={
-                            l.href ??
-                            `/browse/tutors?subject=${l.masterId}${
-                              tutor.city ? `&city=${encodeURIComponent(tutor.city)}` : ''
-                            }`
-                          }
-                        >
-                          {l.label}
-                        </InlineLink>
+                        {s.masterId ? (
+                          <InlineLink
+                            href={
+                              s.href ??
+                              `/browse/tutors?subject=${s.masterId}${
+                                tutor.city ? `&city=${encodeURIComponent(tutor.city)}` : ''
+                              }`
+                            }
+                          >
+                            {s.label}
+                          </InlineLink>
+                        ) : (
+                          s.label
+                        )}
                       </span>
-                    ))
-                  : subjects}
-              </DetailLine>
-              <DetailLine icon={<Icon name="briefcase" size={14} />} label="Experience" value={experience.en} />
-              {(() => {
-                // Up to 2 areas, then "+N more" (PR68). Falls back to the single area.
-                // DISTINCT labels only (owner, 10 Oct 2026): "DHA" and "DHA Lahore"
-                // are one area on the card, and "+N more" counts distinct areas.
-                const hasList = !!tutor.areas && tutor.areas.length > 0
-                const list = distinctAreaLabels(hasList ? tutor.areas : tutor.area ? [tutor.area] : [], tutor.city, {
-                  cities: tutor.cities,
-                  areaCities: hasList ? tutor.area_cities : null,
-                })
-                const shown = list.slice(0, 2)
-                const extra = list.length - shown.length
-                return (
-                  <DetailLine
-                    icon={<Icon name="map-pin" size={14} />}
-                    label="Area"
-                    value={list.length ? list.map((a) => a.label).join(', ') : 'Flexible'}
-                  >
-                    {list.length === 0 ? (
-                      'Flexible'
-                    ) : (
-                      <>
-                        {shown.map((a, i) => (
-                          <span key={a.label}>
-                            {i > 0 && ', '}
-                            {a.city ? (
-                              <InlineLink
-                                href={`/browse/tutors?city=${encodeURIComponent(a.city)}&area=${encodeURIComponent(a.area)}`}
-                              >
-                                {a.label}
-                              </InlineLink>
-                            ) : (
-                              a.label
-                            )}
-                          </span>
-                        ))}
-                        {extra > 0 && <span className="text-gray-500"> +{extra} more</span>}
-                      </>
-                    )}
-                  </DetailLine>
-                )
-              })()}
-              {(() => {
-                // PR85: up to 2 cities, each linking to its browse filter.
-                const cityList = (tutor.cities && tutor.cities.length > 0
-                  ? tutor.cities
-                  : tutor.city
-                    ? [tutor.city]
-                    : []
-                ).slice(0, 2)
-                return (
-                  <DetailLine
-                    icon={<Icon name="building-2" size={14} />}
-                    label={cityList.length > 1 ? 'Cities' : 'City'}
-                    value={cityList.join(', ') || 'Online'}
-                  >
-                    {cityList.length > 0
-                      ? cityList.map((c, i) => (
-                          <span key={c}>
-                            {i > 0 && ', '}
-                            <InlineLink href={`/browse/tutors?city=${encodeURIComponent(c)}`}>{c}</InlineLink>
-                          </span>
-                        ))
-                      : 'Online'}
-                  </DetailLine>
-                )
-              })()}
-            </div>
+                    ))}
+                {summary.subjectsExtra > 0 && <span className="text-gray-500"> +{summary.subjectsExtra} more</span>}
+              </span>
+            </p>
 
-            {feeLabelOf(tutor) ? (
-              <p className="pt-0.5 text-xs font-black text-tm-navy">
-                {feeLabelOf(tutor)!.replace(/ \/ month$/, '')}
-                <span className="font-semibold text-gray-500"> / month</span>
-              </p>
-            ) : null}
+            {/* One info line: city · experience · fee per month. */}
+            <p className="flex min-w-0 items-center gap-2 text-xs leading-snug text-slate-700">
+              <span className="shrink-0 text-gray-500">
+                <Icon name="map-pin" size={14} />
+              </span>
+              <span className="min-w-0 truncate">
+                {summary.city ? (
+                  <InlineLink href={`/browse/tutors?city=${encodeURIComponent(summary.city)}`}>{summary.city}</InlineLink>
+                ) : (
+                  'Online'
+                )}
+                {' · '}
+                {summary.experience}
+                {summary.fee && (
+                  <>
+                    {' · '}
+                    <span className="font-black text-tm-navy">{summary.fee}</span>
+                  </>
+                )}
+              </span>
+            </p>
           </div>
 
           <div className="col-span-2 sm:col-span-1 sm:col-start-2 sm:row-start-3">

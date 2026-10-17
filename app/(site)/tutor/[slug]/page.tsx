@@ -37,6 +37,7 @@ import { distinctAreaLabels } from '@/lib/place'
 import { withAreaCities } from '@/lib/tutorAreaCities'
 import { withCanonAreas } from '@/lib/areaAliases'
 import { authHref } from '@/lib/returnTo'
+import { dedupeSubjects } from '@/lib/subjectDisplay'
 
 // The public tutor profile. Server component, results in the HTML.
 //
@@ -82,7 +83,7 @@ type PublicTutor = {
   rating_count: number | null
   created_at: string
   plan_code: string | null
-  subjects: { master_id: number; category: string; level: string; subject: string | null }[]
+  subjects: { master_id: number; category: string; level: string; subject: string | null; school?: boolean }[]
   slots: { id: string; text: string; booked: boolean }[]
   availabilityText: string
   reviews: { id: string; rating: number; comment: string | null; created_at: string; reviewer: string }[]
@@ -162,7 +163,7 @@ async function loadTutorPreview(userId: string): Promise<PublicTutor | null> {
     const lvlSlugs = [...new Set((masters ?? []).map((m) => m.level_slug as string))]
     const subSlugs = [...new Set((masters ?? []).map((m) => m.subject_slug as string).filter(Boolean))]
     const [{ data: cats }, { data: lvls }, subjectsTax] = await Promise.all([
-      admin.from('taxonomy_categories').select('slug, name, sort_order').in('slug', catSlugs.length ? catSlugs : ['x']),
+      admin.from('taxonomy_categories').select('slug, name, sort_order, no_grade').in('slug', catSlugs.length ? catSlugs : ['x']),
       admin.from('taxonomy_levels').select('slug, name, sort_order').in('slug', lvlSlugs.length ? lvlSlugs : ['x']),
       subSlugs.length
         ? admin.from('taxonomy_subjects').select('slug, name').in('slug', subSlugs)
@@ -180,12 +181,14 @@ async function loadTutorPreview(userId: string): Promise<PublicTutor | null> {
           category: (cat?.name as string) ?? '',
           level: (lvl?.name as string) ?? '',
           subject: m.subject_slug ? (subBy.get(m.subject_slug as string) ?? null) : null,
+          // A no-grade level (Admission Test Prep) lists schools as its choices.
+          school: !!cat?.no_grade,
           _cs: (cat?.sort_order as number) ?? 0,
           _ls: (lvl?.sort_order as number) ?? 0,
         }
       })
       .sort((a, b) => a._cs - b._cs || a._ls - b._ls || (a.subject ?? '').localeCompare(b.subject ?? ''))
-      .map(({ master_id, category, level, subject }) => ({ master_id, category, level, subject }))
+      .map(({ master_id, category, level, subject, school }) => ({ master_id, category, level, subject, school }))
   }
 
   const { data: slotRows } = await admin
@@ -841,8 +844,11 @@ export default async function TutorPublicProfile({ params }: { params: Params })
     const key = `${s.category} — ${s.level}`
     if (!byLevel.has(key)) byLevel.set(key, [])
     if (!levelMaster.has(key)) levelMaster.set(key, s.master_id)
-    if (s.subject) byLevel.get(key)!.push({ label: s.subject, masterId: s.master_id })
+    // A school's name is not shown as a subject (owner, 17 Oct 2026): its level
+    // shows as the one chip instead. Each subject once per level (lib/subjectDisplay).
+    if (s.subject && !s.school) byLevel.get(key)!.push({ label: s.subject, masterId: s.master_id })
   }
+  for (const [key, list] of byLevel) byLevel.set(key, dedupeSubjects(list))
 
   /**
    * The landing page for this subject in this tutor's city when one exists,

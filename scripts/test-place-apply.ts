@@ -90,10 +90,11 @@ test('the city lookup runs only for a list that repeats a name; the card and pro
   assert.equal(repeatsAreaName(['DHA', 'dha ']), true)
   assert.equal(repeatsAreaName(['DHA', 'DHA Lahore', 'Cantt']), false)
   assert.equal(repeatsAreaName(null), false)
-  for (const p of ['components/TutorCard.tsx', 'app/(site)/tutor/[slug]/page.tsx']) {
+  // The listing card shows no areas since 17 Oct 2026; the profile keeps the rule.
+  for (const p of ['app/(site)/tutor/[slug]/page.tsx']) {
     const src = readFileSync(p, 'utf8')
     assert.match(src, /distinctAreaLabels\(/, p + ' uses distinctAreaLabels')
     assert.doesNotMatch(src, /areaWithoutCity/, p + ' builds no area label of its own')
   }
-  assert.match(readFileSync('components/TutorCard.tsx', 'utf8'), /const extra = list\.length - shown\.length/)
+  assert.doesNotMatch(readFileSync('components/TutorCard.tsx', 'utf8'), /distinctAreaLabels|label="Area"/)
 })
