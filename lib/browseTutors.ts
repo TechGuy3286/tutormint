@@ -5,7 +5,8 @@ import { encodeCursor, decodeCursor } from '@/lib/cursor'
 import { getLandingLinker } from '@/lib/landing'
 import { resolveSmartQuery } from '@/lib/smartSearch'
 import type { Parsed } from '@/lib/smartSearchCore'
-import { loadVerifiedBadgeOk } from '@/lib/badgeFacts'
+import { loadCardTrustFacts, type CardTrustFacts } from '@/lib/badgeFacts'
+import { publicPhoto } from '@/lib/photoPrivacyCore'
 import type { TutorCardData } from '@/components/TutorCard'
 import { formatName } from '@/lib/formatName'
 import { withAreaCities } from '@/lib/tutorAreaCities'
@@ -197,8 +198,9 @@ const rankedTutorsCached = cache(async (key: string): Promise<RankResult> => {
   const linked = await withAreaCities(await withCanonAreas(await withSubjectLinks(supabase, raw)))
   // PR105-B §1 — the VERIFIED badge needs staff-approved CNIC+photo+selfie, in ONE
   // batched query for the whole window (no per-card read).
-  const okSet = await loadVerifiedBadgeOk(linked.map((t) => t.id))
-  const tutors = linked.map((t) => ({ ...t, verified_ok: okSet.has(t.id) }))
+  // + the CNIC-verified chip and "Hide my photo" (owner, 17 Oct 2026), same batch.
+  const trust = await loadCardTrustFacts(linked.map((t) => t.id))
+  const tutors = linked.map((t) => withTrust(t, trust))
   const total = tutors[0]?.total_count ?? 0
   const seen = (after ? 0 : offset) + tutors.length
 
@@ -371,7 +373,7 @@ export async function tutorCardBySlug(slug: string): Promise<TutorCardData | nul
     subject_links: links,
     plan_code: planCode,
     verified: !!((data as { verified_fee_paid_at?: string | null }).verified_fee_paid_at),
-    verified_ok: (await loadVerifiedBadgeOk([base.id])).has(base.id),
+    ...trustFields(base.id, await loadCardTrustFacts([base.id]), withLinks.avatar_url),
   }
 }
 
@@ -435,12 +437,32 @@ export async function tutorCardsByIds(ids: string[]): Promise<TutorCardData[]> {
     }
   }
 
-  const okSet = await loadVerifiedBadgeOk(ids)
+  const trust = await loadCardTrustFacts(ids)
   return withLinks.map((t) => ({
     ...t,
     subject_labels: (t.subject_links ?? []).map((l) => l.label),
     plan_code: planByUser.get(t.id) ?? null,
     verified: feePaidBy.get(t.id) ?? false,
-    verified_ok: okSet.has(t.id),
+    ...trustFields(t.id, trust, t.avatar_url),
   }))
+}
+
+/**
+ * The Verified badge, the "CNIC verified" chip and the photo a parent may see
+ * (owner, 17 Oct 2026). A tutor who hid their photo gets avatar_url = null and
+ * photo_hidden = true, so the card draws their initials. The public views
+ * already return a null photo for them; this holds the line for any reader.
+ */
+function trustFields(id: string, trust: CardTrustFacts, avatarUrl: string | null) {
+  const hidden = trust.photoHidden.has(id)
+  return {
+    verified_ok: trust.verifiedOk.has(id),
+    cnic_verified: trust.cnicApproved.has(id),
+    photo_hidden: hidden,
+    avatar_url: publicPhoto(avatarUrl, { hidden }),
+  }
+}
+
+function withTrust<T extends { id: string; avatar_url: string | null }>(t: T, trust: CardTrustFacts): T & ReturnType<typeof trustFields> {
+  return { ...t, ...trustFields(t.id, trust, t.avatar_url) }
 }

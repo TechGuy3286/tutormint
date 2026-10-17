@@ -165,6 +165,9 @@ const nextConfig: NextConfig = {
       // query-string addresses Search Console listed.
       // /signup is the sign-up page (owner PR15 §3); the form lives at /register.
       { source: '/signup', destination: '/register', permanent: true },
+      // /how-it-works never existed (owner, 17 Oct 2026). How TutorMint works,
+      // for both sides, is on /about, so the address points there.
+      { source: '/how-it-works', destination: '/about', permanent: true },
     ]
   },
 

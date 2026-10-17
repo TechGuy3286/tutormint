@@ -159,7 +159,8 @@
     "test:mysignups:live": "tsx --conditions=react-server --env-file=.env.local --test scripts/test-my-signups-live.ts",
     "test:locationrunreview": "tsx --test scripts/test-location-run-review.ts",
     "test:locationsfollowups": "tsx --test scripts/test-locations-followups.ts",
-    "test:paymentbanner": "tsx --test scripts/test-payment-banner.ts"
+    "test:paymentbanner": "tsx --test scripts/test-payment-banner.ts",
+    "test:privacylocks": "tsx --test scripts/test-privacy-locks.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

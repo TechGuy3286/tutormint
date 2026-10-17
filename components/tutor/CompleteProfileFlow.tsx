@@ -1374,7 +1374,7 @@ function SelfieStep({ done, onDone }: { done: boolean; onDone: () => void }) {
   const [showWhy, setShowWhy] = useState(false)
   return (
     <div className="space-y-4">
-      {selfieView !== 'open' && <DocLockNotice view={selfieView} />}
+      {selfieView !== 'open' && <DocLockNotice view={selfieView} doc="selfie" />}
       {canPick(selfieView) && (
       <div className="mx-auto w-40">
         <PhotoCaptureTile

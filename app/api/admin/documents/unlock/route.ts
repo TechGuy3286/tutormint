@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic'
 
 const Body = z.object({
   memberId: uuid,
-  item: z.enum(['cnic', 'selfie']),
+  item: z.enum(['cnic', 'selfie', 'photo']),
 })
 
 export async function POST(request: Request) {
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   if (!parsed.ok) return parsed.response
 
   // Owner-only approvals (owner, 15 Oct 2026): every other role views only.
-  const notOwner = await refuseUnlessOwnerApproval(gate.actor, `unlock an approved ${parsed.data.item === 'cnic' ? 'CNIC' : 'selfie'}`, parsed.data.memberId)
+  const notOwner = await refuseUnlessOwnerApproval(gate.actor, `unlock an approved ${parsed.data.item === 'cnic' ? 'CNIC' : parsed.data.item === 'selfie' ? 'selfie' : 'profile picture'}`, parsed.data.memberId)
   if (notOwner) return notOwner
 
   const result = await unlockDocument({ actor: gate.actor, memberId: parsed.data.memberId, item: parsed.data.item })

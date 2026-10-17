@@ -12,6 +12,7 @@ import { jobType } from '@/lib/display'
 import CardActions, { type CardAction } from '@/components/CardActions'
 import { cardSummary } from '@/lib/tutorCardCore'
 import Avatar from '@/components/Avatar'
+import CnicVerifiedChip from '@/components/CnicVerifiedChip'
 import BadgeRow from '@/components/badges/BadgeRow'
 import NotVerifiedBadge from '@/components/badges/NotVerifiedBadge'
 import FeaturedTag from '@/components/badges/FeaturedTag'
@@ -94,6 +95,12 @@ export type TutorCardData = {
    * shows no Verified badge rather than claiming one it cannot back up.
    */
   verified_ok?: boolean
+  /** Staff approved the CNIC: the public "CNIC verified" chip (owner, 17 Oct
+   *  2026). Never any part of the number. Absent → no chip. */
+  cnic_verified?: boolean
+  /** "Hide my photo from parents" (owner, 17 Oct 2026): the card shows the
+   *  tutor's initials, never the photo. avatar_url is already null for them. */
+  photo_hidden?: boolean
   /** A paused (under review) or suspended tutor shows no Message button (owner
    *  hotfix, 5 Oct 2026). Both are optional: the directory never carries such a
    *  row, so the usual card is unaffected. */
@@ -441,7 +448,8 @@ export default function TutorCard({
                 tutor profile is a small lie about a real person. */}
             <Avatar
               name={tutor.full_name}
-              src={tutor.avatar_url}
+              src={tutor.photo_hidden ? null : tutor.avatar_url}
+              initials={!!tutor.photo_hidden}
               gender={tutor.gender}
               decorative
               className="h-[72px] w-[72px] text-lg sm:h-[140px] sm:w-[140px] sm:text-3xl"
@@ -478,6 +486,7 @@ export default function TutorCard({
             {/* Stars / "New tutor" on their own line below the name. */}
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <Stars rating={rating} count={reviews} />
+              {tutor.cnic_verified && <CnicVerifiedChip />}
             </div>
             {/* Two lines are always reserved, filled or not, so cards align. */}
             <p className="line-clamp-2 min-h-[2lh] text-xs font-semibold leading-snug text-tm-green-deep">

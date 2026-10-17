@@ -230,7 +230,9 @@ export default function CnicCapture({
         />
       </div>
       )}
-      {show !== 'number' && memberUpload && <DocLockNotice view={sidesView} />}
+      {show !== 'number' && memberUpload && <DocLockNotice view={sidesView} doc="cnic" />}
+      {/* The approved CNIC's number is locked with it (owner, 17 Oct 2026). */}
+      {show === 'number' && memberUpload && sidesView === 'locked' && <DocLockNotice view="locked" doc="cnic_number" />}
       {show !== 'number' && (
         <>
           <p className="text-[11px] leading-relaxed text-gray-500">

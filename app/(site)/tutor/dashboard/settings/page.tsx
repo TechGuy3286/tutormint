@@ -52,6 +52,7 @@ import { useRouter } from "next/navigation";
 import { formatName } from '@/lib/formatName'
 import { TextLinesSkeleton } from '@/components/Skeletons'
 import { usePhotoCropUpload } from '@/components/photo/usePhotoCropUpload'
+import HidePhotoToggle from '@/components/tutor/HidePhotoToggle'
 
 // Tutor settings — ONE SAVE PER CARD (PR 3b §2.6). Each card owns its fields and
 // its own Save button, showing "Saved." or the error inline; there is no
@@ -589,6 +590,8 @@ export default function TutorSettingsPage() {
   const cnicViews = [lockViews?.cnicFront ?? 'open', lockViews?.cnicBack ?? 'open'] as const;
   const cnicReupload = cnicStatus === 'completed' && cnicViews.some((v) => canPick(v));
   const selfieView = lockViews?.selfie ?? 'open';
+  // The approved profile photo is locked too (owner, 17 Oct 2026).
+  const photoView = lockViews?.photo ?? 'open';
   const subjectsStatus: CardStatus = subjectIds.length > 0 ? 'completed' : 'missing';
   const locationStatus: CardStatus =
     formData.city.trim() && areas.length > 0 ? 'completed' : 'missing';
@@ -686,8 +689,23 @@ export default function TutorSettingsPage() {
       body: (
         <div className="space-y-3">
           {photoCropDialog}
-          {/* The profile photo is NOT locked (owner, 9 Oct 2026): a change after
-              approval goes back to photo review; the badge stays meanwhile. */}
+          {/* An APPROVED profile photo is locked (owner, 17 Oct 2026; superseding
+              9 Oct): "Approved 🔒" with the support WhatsApp. The Owner can unlock
+              ONE change, which goes back for review. The server refuses a change
+              without an unlock (/api/profile/photo, migration 186). */}
+          {photoView !== 'open' && <DocLockNotice view={photoView} doc="photo" />}
+          {!canPick(photoView) ? (
+            <div className="h-32 w-32 overflow-hidden rounded-2xl border border-gray-200">
+              <Avatar
+                name={formData.fullName}
+                src={formData.profileImage || null}
+                gender={gender}
+                decorative
+                ring=""
+                className="h-full w-full rounded-none text-2xl"
+              />
+            </div>
+          ) : (
             <FileUpload
               label="Profile photo"
               acceptLabel="JPG or PNG"
@@ -708,31 +726,19 @@ export default function TutorSettingsPage() {
                 />
               }
             />
+          )}
           {/* The picture/selfie instruction (PR70 §4). */}
           <div className="rounded-xl bg-tm-tint-navy p-3">
             <p className="text-[11px] leading-relaxed text-tm-navy">{L.pictureNote.en}</p>
             <p className="mt-1 text-[11px] leading-relaxed text-tm-navy" lang="ur" dir="rtl">{L.pictureNote.ur}</p>
           </div>
-          {/* "Show my picture to parents" toggle (PR70 §2). Default on; the tutor
-              still sees their own photo above with a "Hidden from parents" note. */}
-          <div className="rounded-xl border border-gray-200 bg-white p-3">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={showAvatar}
-              onClick={() => void saveShowAvatar(!showAvatar)}
-              className="flex w-full items-center justify-between gap-3 text-left"
-            >
-              <span className="min-w-0">
-                <span className="block text-sm font-bold text-tm-navy">{L.showAvatar.en}</span>
-                <span className="block text-[11px] text-gray-500" lang="ur" dir="rtl">{L.showAvatar.ur}</span>
-              </span>
-              <span className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ${showAvatar ? 'bg-tm-green-deep' : 'bg-gray-300'}`}>
-                <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${showAvatar ? 'translate-x-5' : 'translate-x-0.5'}`} />
-              </span>
-            </button>
+          {/* "Hide my photo from parents" (owner, 17 Oct 2026; PR70's show_avatar,
+              inverted). Off by default; works even when the photo is approved and
+              locked — it only hides the photo, never changes it. */}
+          <div className="space-y-2">
+            <HidePhotoToggle hidden={!showAvatar} onChange={(h) => void saveShowAvatar(!h)} />
             {!showAvatar && (
-              <p className="mt-2 text-[11px] font-bold text-tm-gold-ink">
+              <p className="text-[11px] font-bold text-tm-gold-ink">
                 {L.hiddenFromParents.en} — <span lang="ur" dir="rtl">{L.hiddenFromParents.ur}</span>
               </p>
             )}
@@ -745,7 +751,7 @@ export default function TutorSettingsPage() {
       status: selfieStatus,
       locked: selfieStatus === 'completed' && !canPick(selfieView),
       lockedValue: 'Approved',
-      lockedNote: lockViews ? <DocLockNotice view={selfieView} /> : undefined,
+      lockedNote: lockViews ? <DocLockNotice view={selfieView} doc="selfie" /> : undefined,
       reason: statuses?.selfie.reason,
       icon: <Camera size={20} aria-hidden />,
       body: (
@@ -756,7 +762,7 @@ export default function TutorSettingsPage() {
             Only TutorMint’s verification team sees your selfie.
             <span lang="ur" dir="rtl" className="ms-1">آپ کی سیلفی صرف ٹیوٹرمنٹ کی تصدیقی ٹیم دیکھتی ہے۔</span>
           </p>
-          {selfieView === 'unlocked' && <DocLockNotice view="unlocked" />}
+          {selfieView === 'unlocked' && <DocLockNotice view="unlocked" doc="selfie" />}
           <div className="w-40">
             <PhotoCaptureTile
               facingMode="user"

@@ -21,8 +21,8 @@ import { buildRejectReason, rejectionWhatsAppText, type RejectTarget } from '@/l
 /** The admin lock facts for the card (lib/docLocks loadAdminLockInfo). */
 export type ReviewLockInfo = {
   review: { cnicFrontId: string | null; cnicBackId: string | null; selfieId: string | null }
-  unlockOpen: { cnic: boolean; selfie: boolean }
-  lockable: { cnic: boolean; selfie: boolean }
+  unlockOpen: { cnic: boolean; selfie: boolean; photo?: boolean }
+  lockable: { cnic: boolean; selfie: boolean; photo?: boolean }
 }
 
 // Per-item identity review (PR60): CNIC front/back, profile picture and selfie
@@ -181,6 +181,10 @@ export default function TutorDocumentReview({
             <a href={avatarOriginalUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex min-h-[44px] items-center text-xs font-bold text-tm-red underline">
               View original
             </a>
+          )}
+          {/* An approved photo is locked (owner, 17 Oct 2026): the Owner unlocks ONE change. */}
+          {lockInfo?.lockable.photo && (
+            <UnlockDocButton memberId={tutorId} item="photo" unlockOpen={!!lockInfo.unlockOpen.photo} canUnlock={canUnlock} />
           )}
         </ReviewItem>
 

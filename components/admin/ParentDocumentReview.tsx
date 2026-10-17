@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import CnicShow from '@/components/admin/CnicShow'
 import { useRouter } from 'next/navigation'
 import { Check, X, Loader2, MessageCircle, BadgeCheck } from 'lucide-react'
 import { normalisePkMobile } from '@/lib/phone'
@@ -33,6 +34,7 @@ export type ParentDocsView = {
   parentId: string
   cnicFrontId: string | null
   cnicBackId: string | null
+  /** MASKED (XXXXX-XXXXXXX-4); the Owner's "Show" fetches the full number. */
   cnicNumber: string | null
   address: string | null
   city: string | null
@@ -115,7 +117,13 @@ export default function ParentDocumentReview({
             </div>
           )}
           {/* The typed number sits with the images: checking a card IS comparing the two. */}
-          <p className="font-mono text-xs font-black text-tm-navy">{docs.cnicNumber ?? 'No number typed'}</p>
+          <p className="font-mono text-xs font-black text-tm-navy">
+            {docs.cnicNumber ? (
+              <CnicShow memberId={docs.parentId} masked={docs.cnicNumber} className="font-mono text-xs font-black text-tm-navy" />
+            ) : (
+              'No number typed'
+            )}
+          </p>
           {/* Staff only: the same number on another account (a warning, never a block). */}
           {docs.cnicNumber && <SavedCnicDuplicate memberId={docs.parentId} />}
           {lockable && !hasNew && (

@@ -88,7 +88,11 @@ test('no initials fallback is left: nothing renders letters, no tint class', () 
   assert.doesNotMatch(out, /<span/)
   assert.doesNotMatch(out, /bg-tm-tint-/)
   const avatar = read('components/Avatar.tsx')
-  assert.doesNotMatch(avatar, /initialsOf|avatarTint|lib\/brand/)
+  assert.doesNotMatch(avatar, /avatarTint|lib\/brand/)
+  // Initials are drawn ONLY when the tutor chose "Hide my photo from parents"
+  // (owner, 17 Oct 2026) — never as the no-photo fallback.
+  assert.equal((avatar.match(/initialsOf\(/g) ?? []).length, 1)
+  assert.match(avatar, /if \(initials\) \{[\s\S]*?initialsOf\(name\)[\s\S]*?\n  \}\n  if \(src\)/)
   // No component draws its own initials disc for a member.
   const offenders: string[] = []
   const walk = (dir: string) => {
@@ -103,7 +107,8 @@ test('no initials fallback is left: nothing renders letters, no tint class', () 
   // The one remaining caller is the social banner image (next/og), which is a
   // generated picture for sharing, not a member avatar on the site. (The CV
   // preview and PDF keep their own initials box: a document, not an avatar.)
-  assert.deepEqual(offenders, ['app/api/admin/social/image/render.tsx'])
+  // Avatar itself draws initials only in its "photo hidden" mode (pinned above).
+  assert.deepEqual(offenders.sort(), ['app/api/admin/social/image/render.tsx', 'components/Avatar.tsx'])
 })
 
 test('every member avatar goes through the shared component and passes gender where one exists', () => {

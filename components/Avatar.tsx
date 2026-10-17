@@ -29,6 +29,7 @@ import Image from 'next/image'
 
 import { defaultAvatarSrc } from '@/lib/defaultAvatar'
 import { isCroppedAvatarUrl } from '@/lib/photoCropCore'
+import { initialsOf } from '@/lib/photoPrivacyCore'
 
 // FACE-FIRST FRAMING (owner, 11 Oct 2026). Members upload full-length and
 // off-centre portraits; cut from the MIDDLE, the round avatar showed a dress and
@@ -89,6 +90,7 @@ export default function Avatar({
   px = 48,
   sizes,
   priority = false,
+  initials = false,
 }: {
   name: string | null | undefined
   src?: string | null
@@ -118,7 +120,26 @@ export default function Avatar({
   sizes?: string
   /** True for the first visible photo on a page (fetchpriority=high + preload). */
   priority?: boolean
+  /**
+   * The tutor chose "Hide my photo from parents" (owner, 17 Oct 2026): draw
+   * their initials on a plain grey disc, never the photo (even if one is
+   * passed) and never the default silhouette.
+   */
+  initials?: boolean
 }) {
+  if (initials) {
+    return (
+      <span
+        role={decorative ? undefined : 'img'}
+        aria-label={decorative ? undefined : (name ?? '')}
+        aria-hidden={decorative || undefined}
+        data-initials-avatar=""
+        className={`inline-grid shrink-0 place-items-center rounded-full bg-slate-200 font-black text-slate-700 ${ring} ${className}`}
+      >
+        {initialsOf(name)}
+      </span>
+    )
+  }
   if (src) {
     const resolved = normalizeStorageSrc(src)
     const alt = decorative ? '' : (name ?? '')

@@ -122,10 +122,10 @@ export default function IdentityDocsStatus() {
 
       {/* Approved selfie is LOCKED (owner, 9 Oct 2026). */}
       {!canPick(statuses.locks?.selfie ?? 'open') ? (
-        <DocLockNotice view={statuses.locks?.selfie ?? 'locked'} />
+        <DocLockNotice view={statuses.locks?.selfie ?? 'locked'} doc="selfie" />
       ) : (
       <>
-      {statuses.locks?.selfie === 'unlocked' && <DocLockNotice view="unlocked" />}
+      {statuses.locks?.selfie === 'unlocked' && <DocLockNotice view="unlocked" doc="selfie" />}
       <input
         ref={fileRef}
         type="file"

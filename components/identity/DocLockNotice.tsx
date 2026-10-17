@@ -1,8 +1,7 @@
 'use client'
 
 import { Clock, Lock, MessageCircle, Unlock } from 'lucide-react'
-import { supportWhatsappHref } from '@/lib/errorMessages'
-import { LOCKED_MESSAGE_EN, LOCKED_MESSAGE_UR, type LockView } from '@/lib/docLockCore'
+import { LOCKED_LINE, LOCKED_MESSAGE_UR, LOCKED_TITLE, lockedWhatsappHref, type LockedDoc, type LockView } from '@/lib/docLockCore'
 
 // What a member sees where the upload button was, once a document is approved
 // (owner, 9 Oct 2026). English with a short Urdu line under it, the site's style.
@@ -16,7 +15,16 @@ const WAITING_UR = 'نئی تصویر بھیج دی گئی ہے۔ ہماری ٹ�
 const UNLOCKED_EN = 'Unlocked by our team: you can upload one new photo.'
 const UNLOCKED_UR = 'ہماری ٹیم نے کھول دیا ہے: آپ ایک نئی تصویر اپلوڈ کر سکتے ہیں۔'
 
-export default function DocLockNotice({ view, className = '' }: { view: LockView; className?: string }) {
+export default function DocLockNotice({
+  view,
+  doc = 'cnic',
+  className = '',
+}: {
+  view: LockView
+  /** Which document this is — named in the prefilled WhatsApp message (owner, 17 Oct 2026). */
+  doc?: LockedDoc
+  className?: string
+}) {
   if (view === 'open') return null
   if (view === 'unlocked') {
     return (
@@ -42,13 +50,23 @@ export default function DocLockNotice({ view, className = '' }: { view: LockView
   }
   return (
     <div className={`space-y-1.5 rounded-xl bg-tm-tint-green p-2.5 ${className}`}>
-      <p className="flex items-start gap-1.5 text-[11px] font-semibold text-tm-green-deep">
+      {/* "Approved 🔒" + "To change this, contact support on WhatsApp 0321
+          5872222." with the number linked to WhatsApp, the message naming the
+          document (owner, 17 Oct 2026). The Urdu line is unchanged. */}
+      <p className="flex items-start gap-1.5 text-[11px] font-black text-tm-green-deep">
         <Lock aria-hidden size={13} className="mt-px shrink-0" />
-        {LOCKED_MESSAGE_EN}
+        {LOCKED_TITLE}
+      </p>
+      <p className="text-[11px] font-semibold text-tm-green-deep">
+        {LOCKED_LINE.replace(' 0321 5872222.', ' ')}
+        <a href={lockedWhatsappHref(doc)} target="_blank" rel="noopener noreferrer" className="font-black underline underline-offset-2">
+          0321 5872222
+        </a>
+        .
       </p>
       <p lang="ur" dir="rtl" className="text-[11px] text-tm-green-deep">{LOCKED_MESSAGE_UR}</p>
       <a
-        href={supportWhatsappHref()}
+        href={lockedWhatsappHref(doc)}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-tm-green-deep/30 bg-white px-3 text-[11px] font-bold text-tm-green-deep"

@@ -232,7 +232,7 @@ export async function reviewTutorDocument(params: {
   const { error } = await admin.from('profiles').update(patch).eq('id', tutorId)
   if (error) return { ok: false, status: 400, error: error.message }
   // A decision on the item ends any open staff unlock for it.
-  if (item !== 'profile_pic') await closeOpenUnlocks(tutorId, item, approved ? 'approved' : 'rejected')
+  await closeOpenUnlocks(tutorId, item === 'profile_pic' ? 'photo' : item, approved ? 'approved' : 'rejected')
 
   const label = item === 'cnic' ? 'CNIC' : item === 'profile_pic' ? 'profile picture' : 'selfie'
   await logAdminAction({

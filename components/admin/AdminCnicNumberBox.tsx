@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Loader2, Save, ScanText } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
+import CnicShow from '@/components/admin/CnicShow'
 import { useToast } from '@/components/ui/Toast'
 import { useAdminReadOnly, useCanApprove } from '@/components/admin/ReadOnly'
 import { formatCnic, isValidCnic, normaliseCnic } from '@/lib/cnic'
@@ -188,7 +189,7 @@ export default function AdminCnicNumberBox({
       <p className="text-[11px] font-bold text-tm-navy">CNIC number</p>
       {saved && !editing ? (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-[11px] font-bold text-slate-700">{saved}</span>
+          <CnicShow memberId={tutorId} masked={saved} />
           {mayWrite && (
             <button type="button" onClick={() => setEditing(true)} className="min-h-[28px] text-[11px] font-bold text-tm-navy underline-offset-2 hover:underline">
               Change

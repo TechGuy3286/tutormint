@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { storeMemberPhoto } from '@/lib/avatarCrop'
 import { validCrop } from '@/lib/photoCropCore'
+import { decidePhotoUpload } from '@/lib/docLocks'
+import { LOCKED_MESSAGE_EN, LOCKED_MESSAGE_UR } from '@/lib/docLockCore'
 
 // A member's new PROFILE PHOTO (owner, 11 Oct 2026): the photo as chosen and the
 // square they framed in the crop step, stored as two new files. Answers with the
@@ -24,6 +26,12 @@ export async function POST(request: Request) {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return refuse(401, 'Please sign in first, then try again.', 'پہلے سائن اِن کریں، پھر دوبارہ کوشش کریں۔')
+
+  // An APPROVED tutor photo is locked (owner, 17 Oct 2026): nothing new is
+  // stored unless the Owner unlocked it. The database refuses the save too
+  // (migration 186), so this is the first of two checks, not the only one.
+  const lock = await decidePhotoUpload(user.id)
+  if (!lock.allow) return NextResponse.json({ error: LOCKED_MESSAGE_EN, errorUr: LOCKED_MESSAGE_UR, locked: true }, { status: lock.status })
 
   const form = await request.formData().catch(() => null)
   const original = form?.get('original')

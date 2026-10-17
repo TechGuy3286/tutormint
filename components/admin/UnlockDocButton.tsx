@@ -21,7 +21,7 @@ export default function UnlockDocButton({
   canUnlock,
 }: {
   memberId: string
-  item: 'cnic' | 'selfie'
+  item: 'cnic' | 'selfie' | 'photo'
   unlockOpen: boolean
   canUnlock: boolean
 }) {
@@ -33,7 +33,7 @@ export default function UnlockDocButton({
   const router = useRouter()
   const [open, setOpen] = useState(unlockOpen)
   const [busy, setBusy] = useState(false)
-  const name = item === 'cnic' ? 'CNIC' : 'selfie'
+  const name = item === 'cnic' ? 'CNIC' : item === 'selfie' ? 'selfie' : 'profile picture'
 
   if (open) {
     return (
@@ -47,7 +47,10 @@ export default function UnlockDocButton({
   const run = async () => {
     const ok = await confirm({
       title: `Unlock this ${name}?`,
-      body: `The member can upload one new ${name}. It waits for approval while the approved one stays on record.`,
+      body:
+        item === 'photo'
+          ? 'The tutor can change their profile picture once. The new photo goes back for your review.'
+          : `The member can upload one new ${name}. It waits for approval while the approved one stays on record.`,
       confirmLabel: 'Unlock',
       destructive: false,
     })

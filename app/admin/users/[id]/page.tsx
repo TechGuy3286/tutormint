@@ -7,6 +7,7 @@ import { notFound } from 'next/navigation'
 import { requireAdminRole, roleBadge, roleSatisfies, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { describeUtm } from '@/lib/utm'
+import { describeSource } from '@/lib/signupSourceCore'
 import { applicationStatus, jobStatus, adminActionLabel } from '@/lib/display'
 import { createAdminClient } from '@/lib/supabase/admin'
 import MemberActions from './MemberActions'
@@ -309,7 +310,7 @@ export default async function AdminMemberPage({
             without a campaign shows the honest dash. */}
         <Fact
           label="Came from"
-          value={describeUtm(profile as Parameters<typeof describeUtm>[0]) ?? 'Direct'}
+          value={describeSource(profile as Parameters<typeof describeUtm>[0], describeUtm(profile as Parameters<typeof describeUtm>[0])) ?? 'Direct'}
           verbatim
         />
         {isTutor && tutor && (

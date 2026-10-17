@@ -16,6 +16,8 @@ import { publicAdUrl } from '@/lib/ads'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sanitizeOrTerm } from '@/lib/pgFilter'
 import { describeUtm } from '@/lib/utm'
+import { describeSource as describeSignupSource } from '@/lib/signupSourceCore'
+import { adminCnicDisplay } from '@/lib/cnicRevealCore'
 import { calculateTutorCompletion } from '@/lib/profileChecklist'
 import { directoryBlockers, type ListingBlocker } from '@/lib/tutorListingStatus'
 import { normalisePkMobile } from '@/lib/phone'
@@ -525,7 +527,8 @@ export async function loadParentQueue({
     email: p.email as string,
     city: (p.city as string) ?? null,
     address: (p.address as string) ?? null,
-    cnicNumber: (p.cnic_number as string) ?? null,
+    // Masked: the full number reaches the Owner only, through the logged Show.
+    cnicNumber: adminCnicDisplay(p.cnic_number as string | null),
     phone: (p.phone_number as string) ?? null,
     phoneVerified: Boolean(p.phone_verified_at),
     state: (p.verification_state as string) ?? 'none',
@@ -697,7 +700,7 @@ export async function loadPaymentQueue({
     method: (p.method as string) ?? null,
     ourReference: (p.provider_ref as string) ?? null,
     payerReference: (p.reference as string) ?? null,
-    cameFrom: describeUtm(p as Parameters<typeof describeUtm>[0]),
+    cameFrom: describeSignupSource(p as Parameters<typeof describeUtm>[0], describeUtm(p as Parameters<typeof describeUtm>[0])),
     hasScreenshot: !!p.screenshot_path,
     receiptPdf: receiptIsPdf(p.screenshot_path as string | null),
     status: p.status as QueuePaymentRow['status'],

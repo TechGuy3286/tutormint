@@ -18,9 +18,16 @@
 //     reject hides it (kept for history) and the old file stays on record.
 //   • Rejected or never-uploaded documents upload exactly as before ('normal').
 //
-// The profile photo is NOT locked.
+// The approved PROFILE PHOTO is locked too (owner, 17 Oct 2026; supersedes
+// "the profile photo is NOT locked", 9 Oct). Its lock is enforced by the
+// database (migration 186, tm_photo_change_refused) on every member write of
+// avatar_url, and by /api/profile/photo before a new file is stored. An Owner
+// unlock (item 'photo') allows ONE change; the new photo goes back for review
+// as before (profile_pic_rereview_at). Hiding the photo is never locked.
 
 export type LockItem = 'cnic' | 'selfie'
+/** Everything the Owner can unlock: the two document kinds and the photo. */
+export type UnlockItem = LockItem | 'photo'
 export type DocPart = 'front' | 'back' | 'selfie'
 
 /** The side a stored CNIC row is: 'back', otherwise 'front' (a null label has
@@ -52,11 +59,32 @@ export type UploadDecision =
   | { allow: true; mode: 'review'; consumeUnlock: boolean }
   | { allow: false; status: 403; error: string }
 
-export const LOCKED_MESSAGE_EN = 'Approved ✓ Locked. To change this document, contact support on WhatsApp 0321 5872222.'
+/** The short status on a locked document (owner, 17 Oct 2026). */
+export const LOCKED_TITLE = 'Approved 🔒'
+/** The line under it; the number is linked to WhatsApp (lockedWhatsappHref). */
+export const LOCKED_LINE = 'To change this, contact support on WhatsApp 0321 5872222.'
+export const LOCKED_MESSAGE_EN = `${LOCKED_TITLE}. ${LOCKED_LINE}`
 export const LOCKED_MESSAGE_UR = 'منظور شدہ ✓ مقفل۔ یہ دستاویز بدلنے کے لیے واٹس ایپ 0321 5872222 پر رابطہ کریں۔'
 export const LOCKED_ERROR = `${LOCKED_MESSAGE_EN}\n${LOCKED_MESSAGE_UR}`
 export const USED_ERROR =
   'You have already sent your new upload. Our team will check it. To change it again, contact support on WhatsApp 0321 5872222.\nآپ نئی تصویر بھیج چکے ہیں۔ ہماری ٹیم اسے دیکھے گی۔ دوبارہ بدلنے کے لیے واٹس ایپ 0321 5872222 پر رابطہ کریں۔'
+
+/** Which document a locked notice is about — named in the WhatsApp message. */
+export type LockedDoc = 'cnic' | 'cnic_number' | 'selfie' | 'photo'
+
+const LOCKED_DOC_NAME: Record<LockedDoc, string> = {
+  cnic: 'CNIC',
+  cnic_number: 'CNIC number',
+  selfie: 'selfie',
+  photo: 'profile picture',
+}
+
+export const SUPPORT_WHATSAPP_NUMBER = '923215872222'
+
+/** wa.me/923215872222 with "Hi TutorMint, I want to update my <document>." */
+export function lockedWhatsappHref(doc: LockedDoc): string {
+  return `https://wa.me/${SUPPORT_WHATSAPP_NUMBER}?text=${encodeURIComponent(`Hi TutorMint, I want to update my ${LOCKED_DOC_NAME[doc]}.`)}`
+}
 
 /** Is this part locked right now (ignoring any unlock)? */
 export function partLocked(f: Pick<UploadFacts, 'approved' | 'partOnRecord'>): boolean {
@@ -71,8 +99,26 @@ export function partLocked(f: Pick<UploadFacts, 'approved' | 'partOnRecord'>): b
  *   waiting  — a new upload of this part is waiting for staff. */
 export type LockView = 'open' | 'locked' | 'unlocked' | 'waiting'
 
-/** A member's three lockable parts. */
-export type DocLockViews = { cnicFront: LockView; cnicBack: LockView; selfie: LockView }
+/** A member's lockable parts: the CNIC sides, the selfie and the profile photo. */
+export type DocLockViews = { cnicFront: LockView; cnicBack: LockView; selfie: LockView; photo: LockView }
+
+/**
+ * The profile photo's view (owner, 17 Oct 2026). Approved and on record →
+ * locked, unless the Owner unlocked it; a change made after approval that is
+ * waiting for review (profile_pic_rereview_at) → waiting.
+ */
+export function photoLockView(f: { approved: boolean; onRecord: boolean; rereviewPending: boolean; unlockOpen: boolean }): LockView {
+  if (!f.approved || !f.onRecord) return 'open'
+  if (f.unlockOpen) return 'unlocked'
+  if (f.rereviewPending) return 'waiting'
+  return 'locked'
+}
+
+/** May a new profile photo be stored? Refused while approved and locked. */
+export function photoUploadDecision(f: { approved: boolean; onRecord: boolean; unlockOpen: boolean }): { allow: true } | { allow: false; status: 403; error: string } {
+  if (f.approved && f.onRecord && !f.unlockOpen) return { allow: false, status: 403, error: LOCKED_ERROR }
+  return { allow: true }
+}
 
 export function lockView(f: {
   part: DocPart

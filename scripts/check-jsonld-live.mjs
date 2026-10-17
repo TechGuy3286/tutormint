@@ -52,7 +52,6 @@ const targets = {
   'blog post': first(all.blog, /^\/blog\//),
   'membership plans': '/membership-plans',
   faq: '/faq',
-  'how it works': '/how-it-works',
   'llms.txt': '/llms.txt',
 }
 
@@ -77,6 +76,8 @@ for (const [name, path] of Object.entries(targets)) {
   }
   const res = await get(path)
   const row = { page: name, url: path, status: res.status }
+  // Every page checked must answer 200 (owner, 17 Oct 2026: no 404s).
+  if (res.status !== 200) problems.push(`${path}: answered ${res.status}, not 200`)
   if (res.status !== 200 || !/html/.test(res.type)) {
     if (res.status === 200) row.note = res.type.split(';')[0]
     rows.push(row)
@@ -133,6 +134,13 @@ for (const [name, path] of Object.entries(targets)) {
   if (!row.description) problems.push(`${path}: no meta description`)
   if (row.h1.length !== 1) problems.push(`${path}: ${row.h1.length} <h1> elements`)
   rows.push(row)
+}
+
+// /how-it-works never existed; it must stay a permanent redirect to /about.
+{
+  const res = await fetch(BASE + '/how-it-works', { headers: { 'user-agent': UA }, redirect: 'manual' })
+  const to = (res.headers.get('location') || '').replace(BASE, '')
+  if (![301, 308].includes(res.status) || to !== '/about') problems.push(`/how-it-works: answered ${res.status}${to ? ' → ' + to : ''}, expected a permanent redirect to /about`)
 }
 
 if (asJson) {

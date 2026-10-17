@@ -34,6 +34,15 @@ const SAME_SUBJECT: { display: string; names: string[] }[] = [
     display: 'Translation of the Holy Quran',
     names: ['Translation of the Holy Quran', 'Translation of Holy Quran', 'Translation of Quran', 'Translation of the Quran'],
   },
+  // Five more pairs (owner, 17 Oct 2026), display only. Deliberately NOT merged:
+  // English / English Literature / English Language & Literature, Urdu / Urdu
+  // Literature, the IB "Language A" pair, and any "Language & Literature" vs
+  // plain "Language" pair — those are different subjects.
+  { display: 'Business Studies', names: ['Business Studies', 'Business'] },
+  { display: 'Design & Technology', names: ['Design & Technology', 'Design Technology'] },
+  { display: 'Robotics & Engineering', names: ['Robotics & Engineering', 'Robotics Engineering'] },
+  { display: 'French', names: ['French', 'French Language'] },
+  { display: 'German', names: ['German', 'German Language'] },
 ]
 
 const DISPLAY_BY_KEY = new Map<string, string>()

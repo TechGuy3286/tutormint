@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { ArrowRight, BadgeCheck, Briefcase, GraduationCap, UserPlus, Users, Wallet } from 'lucide-react'
-import type { ComponentType } from 'react'
+import { Fragment, type ComponentType } from 'react'
 
 import AccessDeniedNotice from '@/components/admin/AccessDeniedNotice'
 import { requireAdminRole, roleBadge, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
@@ -11,6 +11,8 @@ import { TILE_TONE, type TileTone } from '@/lib/tileTones'
 import { smsProviderLabel } from '@/lib/sms'
 import { pkr } from '@/lib/reconciliationCore'
 import { loadSignupFunnel, type FunnelWindowResult } from '@/lib/siteVisits'
+import { loadSignupSources } from '@/lib/signupSources'
+import type { SourceRow } from '@/lib/signupSourceCore'
 
 // Each Overview card a distinct colour (PR32 §2), keyed on the item key.
 // Short card titles (owner, 17 Oct 2026). The list pages keep their own titles.
@@ -105,6 +107,8 @@ export default async function AdminHome({
   // The daily sign-up funnel (owner, 15 Oct 2026): the Owner and the Project
   // Managers only (SCREEN_ACCESS.signupFunnel is []).
   const dailyFunnel = roleSatisfies(actor.adminRole, SCREEN_ACCESS.signupFunnel) ? await loadSignupFunnel() : null
+  // Where sign-ups came from (owner, 17 Oct 2026): the same people as the funnel.
+  const sources = dailyFunnel ? await loadSignupSources() : null
   const counts = STEP_KEYS.map((k) => lists.get(k)?.rows.length ?? 0)
   const funnel = funnelSteps(counts, STEP_KEYS.map((k) => OVERVIEW_ITEMS[k].title))
 
@@ -283,6 +287,7 @@ export default async function AdminHome({
 
       {/* ------------------------------------------- daily sign-up funnel */}
       {dailyFunnel && <DailySignupFunnel windows={dailyFunnel} />}
+      {sources && sources.length > 0 && <SignupSources rows={sources} />}
     </div>
   )
 }
@@ -323,6 +328,63 @@ function DailySignupFunnel({ windows }: { windows: FunnelWindowResult[] }) {
             <p className="text-[11px] text-gray-600">Parent sign-up forms: {w.parentSignups}</p>
           </div>
         ))}
+      </div>
+    </section>
+  )
+}
+
+/**
+ * Where sign-ups came from (owner, 17 Oct 2026) — the first-touch source of
+ * every real tutor and parent account created, grouped. "AI assistants" is
+ * every AI-assistant site (chatgpt.com, gemini.google.com, perplexity.ai…),
+ * with one line per site under it. Pakistan time.
+ */
+function SignupSources({ rows }: { rows: SourceRow[] }) {
+  const cols: { key: keyof SourceRow['counts']; label: string }[] = [
+    { key: 'today', label: 'Today' },
+    { key: 'yesterday', label: 'Yesterday' },
+    { key: 'last7', label: 'Last 7 days' },
+    { key: 'month', label: 'This month' },
+  ]
+  return (
+    <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+      <div>
+        <h2 className="text-sm font-black text-tm-navy">Where sign-ups came from</h2>
+        <p className="mt-0.5 text-[11px] text-gray-500">
+          New tutor and parent accounts, by the first link that brought them. Test, staff and paused accounts are left out. Pakistan time.
+        </p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[420px] text-xs">
+          <thead>
+            <tr className="text-left text-[11px] font-black uppercase tracking-wide text-gray-500">
+              <th className="py-1.5 pr-2">Source</th>
+              {cols.map((c) => (
+                <th key={c.key} className="py-1.5 pl-2 text-right">{c.label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <Fragment key={r.group}>
+                <tr className="border-t border-gray-100">
+                  <td className="py-1.5 pr-2 font-bold text-tm-navy">{r.label}</td>
+                  {cols.map((c) => (
+                    <td key={c.key} className="py-1.5 pl-2 text-right font-bold tabular-nums text-tm-navy">{r.counts[c.key]}</td>
+                  ))}
+                </tr>
+                {(r.sites ?? []).map((s) => (
+                  <tr key={s.site}>
+                    <td className="py-1 pl-4 pr-2 text-slate-700">{s.site}</td>
+                    {cols.map((c) => (
+                      <td key={c.key} className="py-1 pl-2 text-right tabular-nums text-slate-700">{s.counts[c.key]}</td>
+                    ))}
+                  </tr>
+                ))}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
       </div>
     </section>
   )

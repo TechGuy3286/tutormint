@@ -59,7 +59,9 @@ const row = (id: string, user: string, kind: string, label: string | null, at: s
 test('a locked document rejects an upload — API decision is 403 with the plain message', () => {
   const d = uploadDecision({ kind: 'cnic', part: 'front', approved: true, partOnRecord: true, unlock: null })
   assert.deepEqual(d, { allow: false, status: 403, error: LOCKED_ERROR })
-  assert.match(LOCKED_ERROR, /Approved ✓ Locked\. To change this document, contact support on WhatsApp 0321 5872222\./)
+  // "Approved 🔒" + the support line (owner, 17 Oct 2026); the Urdu line is unchanged.
+  assert.match(LOCKED_ERROR, /Approved 🔒\. To change this, contact support on WhatsApp 0321 5872222\./)
+  assert.match(LOCKED_ERROR, /منظور شدہ ✓ مقفل۔/)
   const s = uploadDecision({ kind: 'selfie', part: 'selfie', approved: true, partOnRecord: true, unlock: null })
   assert.equal(s.allow, false)
 })

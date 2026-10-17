@@ -9,6 +9,7 @@
 // Rules are pure in lib/parentDocsCore.ts.
 
 import { pageAll } from '@/lib/pageAll'
+import { adminCnicDisplay } from '@/lib/cnicRevealCore'
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -79,7 +80,8 @@ function toDocs(p: Record<string, unknown>, allDocs: CnicDoc[]): ParentDocs {
     name: formatName(p.full_name as string | null) || 'Unnamed parent',
     address: (p.address as string | null) ?? null,
     city: (p.city as string | null) ?? null,
-    cnicNumber: (p.cnic_number as string | null) ?? null,
+    // Masked: the full number reaches the Owner only, through the logged Show.
+    cnicNumber: adminCnicDisplay(p.cnic_number as string | null),
     cnicFrontId: front?.id ?? null,
     cnicBackId: back?.id ?? null,
     cnicFrontReviewId: waiting.find((d) => d.label !== 'back')?.id ?? null,

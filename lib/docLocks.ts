@@ -17,6 +17,8 @@ import { notify } from '@/lib/notifications'
 import {
   cnicSideOf,
   lockView,
+  photoLockView,
+  photoUploadDecision,
   partOf,
   unlockParts,
   uploadDecision,
@@ -24,6 +26,7 @@ import {
   planReviewDecision,
   type DocPart,
   type LockItem,
+  type UnlockItem,
   type LockView,
   type DocLockViews,
   type OpenUnlock,
@@ -38,11 +41,14 @@ export type LockFacts = {
   role: string | null
   cnicApproved: boolean
   selfieApproved: boolean
+  /** The profile photo (owner, 17 Oct 2026): approved, on record, changed
+   *  after approval and waiting for review. */
+  photo: { approved: boolean; onRecord: boolean; rereviewPending: boolean }
   /** Approved (active) file on record per part. */
   onRecord: Record<DocPart, boolean>
   /** A re-upload waiting for review per part. */
   review: Record<DocPart, boolean>
-  unlocks: Record<LockItem, OpenUnlock>
+  unlocks: Record<UnlockItem, OpenUnlock>
 }
 
 /** CNIC approval marker — the same marker lib/cnicStatus reads. */
@@ -59,7 +65,7 @@ export async function loadLockFacts(userId: string, db?: SupabaseClient): Promis
   if (!admin) return null
   const { data: p } = await admin
     .from('profiles')
-    .select('role, cnic_verified_at, verification_state, selfie_status')
+    .select('role, cnic_verified_at, verification_state, selfie_status, avatar_url, profile_pic_status, profile_pic_rereview_at')
     .eq('id', userId)
     .maybeSingle()
   const { data: docs } = await admin
@@ -79,14 +85,19 @@ export async function loadLockFacts(userId: string, db?: SupabaseClient): Promis
     if (d.status === 'active') onRecord[partOfRow(d)] = true
     else review[partOfRow(d)] = true
   }
-  const unlocks: Record<LockItem, OpenUnlock> = { cnic: null, selfie: null }
+  const unlocks: Record<UnlockItem, OpenUnlock> = { cnic: null, selfie: null, photo: null }
   for (const u of unl ?? []) {
-    unlocks[u.item as LockItem] = { id: u.id as string, usedSides: (u.used_sides as string[] | null) ?? [] }
+    unlocks[u.item as UnlockItem] = { id: u.id as string, usedSides: (u.used_sides as string[] | null) ?? [] }
   }
   return {
     role: (p?.role as string | null) ?? null,
     cnicApproved: cnicApprovedMarker(p ?? {}),
     selfieApproved: String(p?.selfie_status ?? '').toLowerCase() === 'approved',
+    photo: {
+      approved: (p?.role as string | null) === 'tutor' && String(p?.profile_pic_status ?? '').toLowerCase() === 'approved',
+      onRecord: filled(p?.avatar_url),
+      rereviewPending: filled(p?.profile_pic_rereview_at),
+    },
     onRecord,
     review,
     unlocks,
@@ -104,12 +115,17 @@ export function viewsFromFacts(f: LockFacts): LockViews {
       reviewPending: f.review[part],
       unlock: f.unlocks[item],
     })
-  return { cnicFront: v('cnic', 'front'), cnicBack: v('cnic', 'back'), selfie: v('selfie', 'selfie') }
+  return {
+    cnicFront: v('cnic', 'front'),
+    cnicBack: v('cnic', 'back'),
+    selfie: v('selfie', 'selfie'),
+    photo: photoLockView({ ...f.photo, unlockOpen: !!f.unlocks.photo }),
+  }
 }
 
 export async function getLockViews(userId: string): Promise<LockViews> {
   const f = await loadLockFacts(userId)
-  if (!f) return { cnicFront: 'open', cnicBack: 'open', selfie: 'open' }
+  if (!f) return { cnicFront: 'open', cnicBack: 'open', selfie: 'open', photo: 'open' }
   return viewsFromFacts(f)
 }
 
@@ -132,6 +148,14 @@ export async function decideUpload(
   return { decision, part, facts }
 }
 
+/** May this member store a new profile photo (owner, 17 Oct 2026)? Refused
+ *  while the approved photo is locked; the database refuses the save anyway. */
+export async function decidePhotoUpload(userId: string): Promise<{ allow: true } | { allow: false; status: 403; error: string }> {
+  const f = await loadLockFacts(userId)
+  if (!f) return { allow: true }
+  return photoUploadDecision({ approved: f.photo.approved, onRecord: f.photo.onRecord, unlockOpen: !!f.unlocks.photo })
+}
+
 /** Record that the member used their unlock for this part; close it when spent. */
 export async function spendUnlock(facts: LockFacts, kind: LockItem, part: DocPart): Promise<void> {
   const admin = createAdminClient()
@@ -147,7 +171,7 @@ export async function spendUnlock(facts: LockFacts, kind: LockItem, part: DocPar
 }
 
 /** Close any open unlock for this item (a staff decision ends it). */
-export async function closeOpenUnlocks(userId: string, item: LockItem, reason: 'approved' | 'rejected'): Promise<void> {
+export async function closeOpenUnlocks(userId: string, item: UnlockItem, reason: 'approved' | 'rejected'): Promise<void> {
   const admin = createAdminClient()
   if (!admin) return
   await admin
@@ -206,13 +230,13 @@ export async function rejectReview(userId: string, item: LockItem): Promise<void
   if (plan.hide.length > 0) await admin.from('user_documents').update({ status: 'paused' }).in('id', plan.hide)
 }
 
-const ITEM_NAME: Record<LockItem, string> = { cnic: 'CNIC', selfie: 'selfie' }
+const ITEM_NAME: Record<UnlockItem, string> = { cnic: 'CNIC', selfie: 'selfie', photo: 'profile picture' }
 
 /** Staff unlock: the member may upload ONE new copy of this document. */
 export async function unlockDocument(params: {
   actor: { id: string; adminRole: AdminRole; email: string | null }
   memberId: string
-  item: LockItem
+  item: UnlockItem
 }): Promise<{ ok: true; alreadyOpen: boolean } | { ok: false; status: number; error: string }> {
   const { actor, memberId, item } = params
   const admin = createAdminClient()
@@ -220,8 +244,10 @@ export async function unlockDocument(params: {
   const facts = await loadLockFacts(memberId)
   if (!facts) return { ok: false, status: 404, error: 'That account was not found.' }
   if (item === 'selfie' && facts.role !== 'tutor') return { ok: false, status: 400, error: 'Only tutors have a selfie on file.' }
-  const approved = item === 'cnic' ? facts.cnicApproved : facts.selfieApproved
-  const onRecord = item === 'cnic' ? facts.onRecord.front || facts.onRecord.back : facts.onRecord.selfie
+  if (item === 'photo' && facts.role !== 'tutor') return { ok: false, status: 400, error: 'Only a tutor’s profile picture is locked.' }
+  const approved = item === 'cnic' ? facts.cnicApproved : item === 'selfie' ? facts.selfieApproved : facts.photo.approved
+  const onRecord =
+    item === 'cnic' ? facts.onRecord.front || facts.onRecord.back : item === 'selfie' ? facts.onRecord.selfie : facts.photo.onRecord
   if (!approved || !onRecord) {
     return { ok: false, status: 400, error: `The ${ITEM_NAME[item]} is not approved and locked, so there is nothing to unlock. The member can already upload it.` }
   }
@@ -244,12 +270,15 @@ export async function unlockDocument(params: {
     detail: { item, unlockId: data.id, unlockedAt: data.unlocked_at },
   })
   await logActivity({ userId: memberId, event: 'document_unlocked', targetType: 'profile', targetId: memberId, meta: { item } })
-  const href = facts.role === 'tutor' ? '/tutor/dashboard/settings#identity' : '/parent/verify'
+  const href = facts.role === 'tutor' ? (item === 'photo' ? '/tutor/dashboard/settings' : '/tutor/dashboard/settings#identity') : '/parent/verify'
   await notify({
     userId: memberId,
     kind: 'verification_approved',
     title: `You can upload a new ${ITEM_NAME[item]}`,
-    body: `Our team unlocked your ${ITEM_NAME[item]} so you can upload a new one, once. Your approved ${ITEM_NAME[item]} stays on record until the new one is checked.`,
+    body:
+      item === 'photo'
+        ? 'Our team unlocked your profile picture so you can change it, once. Our team will check the new photo.'
+        : `Our team unlocked your ${ITEM_NAME[item]} so you can upload a new one, once. Your approved ${ITEM_NAME[item]} stays on record until the new one is checked.`,
     href,
   })
   return { ok: true, alreadyOpen: false }
@@ -258,17 +287,17 @@ export async function unlockDocument(params: {
 /** For the admin review cards: the waiting re-upload ids and the open unlocks. */
 export type AdminLockInfo = {
   review: { cnicFrontId: string | null; cnicBackId: string | null; selfieId: string | null }
-  unlockOpen: { cnic: boolean; selfie: boolean }
+  unlockOpen: { cnic: boolean; selfie: boolean; photo: boolean }
   /** The document is approved and on record, so it can be unlocked. */
-  lockable: { cnic: boolean; selfie: boolean }
+  lockable: { cnic: boolean; selfie: boolean; photo: boolean }
 }
 
 export async function loadAdminLockInfo(userId: string): Promise<AdminLockInfo> {
   const admin = createAdminClient()
   const empty: AdminLockInfo = {
     review: { cnicFrontId: null, cnicBackId: null, selfieId: null },
-    unlockOpen: { cnic: false, selfie: false },
-    lockable: { cnic: false, selfie: false },
+    unlockOpen: { cnic: false, selfie: false, photo: false },
+    lockable: { cnic: false, selfie: false, photo: false },
   }
   if (!admin) return empty
   const facts = await loadLockFacts(userId, admin)
@@ -283,10 +312,11 @@ export async function loadAdminLockInfo(userId: string): Promise<AdminLockInfo> 
   const first = (p: DocPart) => ((data ?? []) as DocRow[]).find((d) => partOfRow(d) === p)?.id ?? null
   return {
     review: { cnicFrontId: first('front'), cnicBackId: first('back'), selfieId: first('selfie') },
-    unlockOpen: { cnic: !!facts.unlocks.cnic, selfie: !!facts.unlocks.selfie },
+    unlockOpen: { cnic: !!facts.unlocks.cnic, selfie: !!facts.unlocks.selfie, photo: !!facts.unlocks.photo },
     lockable: {
       cnic: facts.cnicApproved && (facts.onRecord.front || facts.onRecord.back),
       selfie: facts.selfieApproved && facts.onRecord.selfie,
+      photo: facts.photo.approved && facts.photo.onRecord,
     },
   }
 }

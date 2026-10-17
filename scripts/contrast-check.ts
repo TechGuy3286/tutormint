@@ -87,6 +87,8 @@ const C = {
   ...Object.fromEntries(Object.entries(NEUTRAL)),
   slate500: '#64748B',
   slate100: '#F1F5F9',
+  slate200: '#E2E8F0',
+  slate700: '#334155',
   // Tailwind's own greys, needed because admin leans on them for muted text.
   gray400: '#9CA3AF',
   gray300: '#D1D5DB',
@@ -151,6 +153,8 @@ const PAIRS: Pair[] = [
   { fg: 'greenDeep', bg: 'white', where: 'Verified badge label, success text' },
   { fg: 'greenDeep', bg: 'bg', where: 'HIRE, eyebrow pill' },
   { fg: 'greenDeep', bg: 'tintGreen', where: 'success panels, homepage pill' },
+  { fg: 'greenDeep', bg: 'tintGreen', where: '"CNIC verified" chip on tutor cards and profiles (owner, 17 Oct 2026)' },
+  { fg: 'slate700', bg: 'slate200', where: 'initials avatar when a tutor hides their photo (owner, 17 Oct 2026)' },
   { fg: 'goldInk', bg: 'white', where: 'Featured badge label, warnings' },
   { fg: 'goldInk', bg: 'bg', where: 'quota and expiry warnings' },
   { fg: 'goldInk', bg: 'tintGold', where: 'warning panels' },

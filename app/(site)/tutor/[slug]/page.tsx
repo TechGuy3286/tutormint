@@ -1,4 +1,6 @@
 import Avatar from '@/components/Avatar'
+import CnicVerifiedChip from '@/components/CnicVerifiedChip'
+import { publicPhoto } from '@/lib/photoPrivacyCore'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import NotFoundView from '@/components/NotFoundView'
 import UpgradeTrigger from '@/components/upgrade/UpgradeTrigger'
@@ -117,7 +119,7 @@ async function loadTutorPreview(userId: string): Promise<PublicTutor | null> {
   const { data: tp } = await admin
     .from('tutor_profiles')
     .select(
-      'id, slug, full_name, headline, bio, avatar_url, city, area, teaching_mode, job_types, online_platforms, gender, hourly_rate_pkr, fee_min_pkr, fee_max_pkr, experience_years, degrees, video_youtube_id, video_status, rating_avg, rating_count, created_at',
+      'id, slug, full_name, headline, bio, avatar_url, show_avatar, city, area, teaching_mode, job_types, online_platforms, gender, hourly_rate_pkr, fee_min_pkr, fee_max_pkr, experience_years, degrees, video_youtube_id, video_status, rating_avg, rating_count, created_at',
     )
     .eq('id', userId)
     .maybeSingle()
@@ -268,7 +270,8 @@ async function loadTutorPreview(userId: string): Promise<PublicTutor | null> {
     full_name: formatName(tp.full_name as string | null) || 'Your profile',
     headline: (tp.headline as string) ?? null,
     bio: (tp.bio as string) ?? null,
-    avatar_url: (tp.avatar_url as string) ?? null,
+    // The preview shows what parents will see: no photo when it is hidden.
+    avatar_url: publicPhoto(tp.avatar_url as string | null, { hidden: (tp as { show_avatar?: boolean | null }).show_avatar === false }),
     city: (tp.city as string) ?? null,
     cities: previewCities,
     area: (tp.area as string) ?? null,
@@ -379,7 +382,8 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       title,
       description,
       path: `/tutor/${tutor.slug}`,
-      image: tutor.avatar_url,
+      // A hidden photo never reaches a share preview (owner, 17 Oct 2026).
+      image: publicPhoto(tutor.avatar_url, { hidden: flags.photoHidden }),
       imageAlt: tutor.full_name,
       type: 'profile',
     }),
@@ -438,19 +442,21 @@ type TutorMetaFlags = {
   cnicApproved: boolean
   profilePicApproved: boolean
   selfieApproved: boolean
+  /** "Hide my photo from parents" (owner, 17 Oct 2026). */
+  photoHidden: boolean
 }
 
 async function tutorMetaFlags(tutorId: string): Promise<TutorMetaFlags> {
   const openDefault: TutorMetaFlags = {
     underReview: false, shareHidden: false, isSeed: false, verified: true, completion: 100,
-    cnicApproved: true, profilePicApproved: true, selfieApproved: true,
+    cnicApproved: true, profilePicApproved: true, selfieApproved: true, photoHidden: false,
   }
   const admin = createAdminClient()
   if (!admin) return openDefault
   const [{ data: tp }, { data: prof }] = await Promise.all([
     admin
       .from('tutor_profiles')
-      .select('under_review, imported, claimed_at, verified_fee_paid_at')
+      .select('under_review, imported, claimed_at, verified_fee_paid_at, show_avatar')
       .eq('id', tutorId)
       .maybeSingle(),
     admin
@@ -483,6 +489,7 @@ async function tutorMetaFlags(tutorId: string): Promise<TutorMetaFlags> {
     cnicApproved,
     profilePicApproved: (prof?.profile_pic_status as string | null) === 'approved',
     selfieApproved: (prof?.selfie_status as string | null) === 'approved',
+    photoHidden: (tp as { show_avatar?: boolean | null } | null)?.show_avatar === false,
   }
 }
 
@@ -773,11 +780,12 @@ export default async function TutorPublicProfile({ params }: { params: Params })
   let cnicApproved = false
   let profilePicApproved = false
   let selfieApproved = false
+  let photoHidden = false
   {
     const admin = createAdminClient()
     if (admin) {
       const [{ data: fp }, { data: pr }] = await Promise.all([
-        admin.from('tutor_profiles').select('verified_fee_paid_at').eq('id', tutor.id).maybeSingle(),
+        admin.from('tutor_profiles').select('verified_fee_paid_at, show_avatar').eq('id', tutor.id).maybeSingle(),
         admin
           .from('profiles')
           .select('profile_completion, is_seed, verification_state, cnic_verified_at, cnic_number, cnic_image_path, profile_pic_status, selfie_status')
@@ -785,6 +793,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
           .maybeSingle(),
       ])
       feePaid = !!(fp?.verified_fee_paid_at as string | null)
+      photoHidden = (fp as { show_avatar?: boolean | null } | null)?.show_avatar === false
       completion = (pr?.profile_completion as number | null) ?? 0
       isSeedAcct = !!(pr?.is_seed as boolean | null)
       cnicApproved =
@@ -868,7 +877,8 @@ export default async function TutorPublicProfile({ params }: { params: Params })
       ? tutorProfileJsonLd({
           slug: tutor.slug,
           name: tutor.full_name,
-          avatarUrl: tutor.avatar_url,
+          // Left out of JSON-LD when the tutor hid their photo (owner, 17 Oct 2026).
+          avatarUrl: publicPhoto(tutor.avatar_url, { hidden: photoHidden }),
           city: tutor.city,
           areas: tutor.areas && tutor.areas.length > 0 ? tutor.areas : tutor.area ? [tutor.area] : [],
           subjects: tutor.subjects.map((x) => x.subject).filter(Boolean) as string[],
@@ -920,7 +930,8 @@ export default async function TutorPublicProfile({ params }: { params: Params })
           <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
             <Avatar
               name={tutor.full_name}
-              src={tutor.avatar_url}
+              src={publicPhoto(tutor.avatar_url, { hidden: photoHidden })}
+              initials={photoHidden}
               gender={tutor.gender}
               decorative
               className="h-24 w-24 text-2xl sm:h-36 sm:w-36 sm:text-4xl"
@@ -943,6 +954,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                   </Link>
                 )}
                 {showNotVerified && <NotVerifiedBadge />}
+                {!preview && cnicApproved && <CnicVerifiedChip />}
               </div>
               {tutor.headline && (
                 <p className="text-sm font-bold text-tm-green-deep">{tutor.headline}</p>

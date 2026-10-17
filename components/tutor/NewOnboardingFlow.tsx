@@ -13,6 +13,7 @@ import { canPick } from '@/lib/docLockCore'
 import DocLockNotice from '@/components/identity/DocLockNotice'
 import { compressUnder1MB } from '@/lib/imageCompress'
 import { usePhotoCropUpload } from '@/components/photo/usePhotoCropUpload'
+import HidePhotoToggle from '@/components/tutor/HidePhotoToggle'
 import { isSyntheticEmail, normalisePkMobile, looksLikeEmail } from '@/lib/phone'
 import { StepShell } from '@/components/onboarding/StepShell'
 import { fieldState, fieldStateClasses } from '@/lib/onboarding/fieldState'
@@ -1195,12 +1196,15 @@ function PhotoStep({ seed, current, shell, onSave, onError }: { seed: string; cu
   const { dialog, cropAndUpload } = usePhotoCropUpload()
   const [preview, setPreview] = useState<string | null>(current)
   const [uploading, setUploading] = useState(false)
+  // An approved photo is LOCKED (owner, 17 Oct 2026); the Owner can unlock one change.
+  const photoView = useDocLocks()?.photo ?? 'open'
   async function upload(file: File) {
     setUploading(true)
     try {
       const url = await cropAndUpload(file)
       if (!url) return
       setPreview(url); onSave(url)
+      refreshDocLocks()
     } catch (e) { onError(e instanceof Error ? e.message : 'We couldn’t upload that photo. Please try again.') } finally { setUploading(false) }
   }
   return shell({
@@ -1208,8 +1212,16 @@ function PhotoStep({ seed, current, shell, onSave, onError }: { seed: string; cu
     children: (
       <div className="space-y-2">
         {dialog}
-        <CaptureButtons facingMode="environment" busy={uploading} done={!!preview}
-          preview={preview ? (<img src={preview} alt="Your photo" className="h-full w-full object-cover" />) : null} onPick={(f) => void upload(f)} />
+        {photoView !== 'open' && <DocLockNotice view={photoView} doc="photo" />}
+        {canPick(photoView) ? (
+          <CaptureButtons facingMode="environment" busy={uploading} done={!!preview}
+            preview={preview ? (<img src={preview} alt="Your photo" className="h-full w-full object-cover" />) : null} onPick={(f) => void upload(f)} />
+        ) : preview ? (
+          // eslint-disable-next-line @next/next/no-img-element -- the tutor's own approved photo
+          <img src={preview} alt="Your photo" className="mx-auto h-32 w-32 rounded-2xl object-cover" />
+        ) : null}
+        {/* Hide my photo from parents (owner, 17 Oct 2026): off by default. */}
+        <HidePhotoToggle />
         <div className="text-center"><TermsLink /></div>
       </div>
     ),
@@ -1241,7 +1253,7 @@ function SelfieStep({ done, initialPreview, shell, onDone, onError }: { done: bo
     onNext: onDone, nextDisabled: !uploaded,
     children: (
       <div className="space-y-2">
-        {selfieView !== 'open' && <DocLockNotice view={selfieView} />}
+        {selfieView !== 'open' && <DocLockNotice view={selfieView} doc="selfie" />}
         {canPick(selfieView) && (
         <CaptureButtons facingMode="user" busy={uploading} done={uploaded}
           preview={preview ? (<img src={preview} alt="Your selfie" className="h-full w-full object-cover" />) : null} onPick={(f) => void upload(f)} />
