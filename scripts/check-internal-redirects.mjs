@@ -25,17 +25,32 @@ const UA = 'Mozilla/5.0 (Linux; Android 13) TutorMint-link-check'
 const ALLOW = new Set([])
 const EXTRA_PAGES = ['/register', '/login', '/forgot-password']
 
-async function get(url) {
-  for (let i = 0; i < 3; i++) {
+// Every request has a time limit and ONE retry (owner, 19 Oct 2026): a fetch
+// with no timeout once held the crawl for 17 minutes on 8 open connections. A
+// body that is not needed is cancelled at once, so no connection is held.
+export const REQUEST_TIMEOUT_MS = 15_000
+export const REQUEST_ATTEMPTS = 2
+const CONCURRENCY = 10
+
+async function get(url, { body = true } = {}) {
+  for (let i = 0; i < REQUEST_ATTEMPTS; i++) {
     try {
-      const res = await fetch(url, { redirect: 'manual', headers: { 'user-agent': UA } })
-      const text = res.status === 200 ? await res.text() : ''
+      const res = await fetch(url, { redirect: 'manual', headers: { 'user-agent': UA }, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
+      const keep = body && res.status === 200
+      const text = keep ? await res.text() : ''
+      if (!keep) await res.body?.cancel().catch(() => {})
       return { status: res.status, location: res.headers.get('location'), text }
     } catch {
-      await new Promise((r) => setTimeout(r, 800))
+      if (i < REQUEST_ATTEMPTS - 1) await new Promise((r) => setTimeout(r, 800))
     }
   }
   return { status: 0, location: null, text: '' }
+}
+
+// A progress line on stderr every 100 URLs (stdout stays the JSON report).
+const started = Date.now()
+function progress(label, done, total) {
+  if (done % 100 === 0 || done === total) console.error(`[check:links] ${label} ${done}/${total} · ${Math.round((Date.now() - started) / 1000)} s`)
 }
 
 const locs = (xml) => [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1].replace(/&amp;/g, '&'))
@@ -93,11 +108,15 @@ function inspect(html) {
 
 const isTuition = (u) => /^\/tuitions\/[^/]+\/[^/]+-[0-9a-f]{4,}$/.test(new URL(u).pathname)
 
-async function pool(items, n, fn) {
+async function pool(items, n, fn, label) {
   let i = 0
+  let done = 0
   await Promise.all(
     Array.from({ length: n }, async () => {
-      while (i < items.length) await fn(items[i++])
+      while (i < items.length) {
+        await fn(items[i++])
+        progress(label, ++done, items.length)
+      }
     }),
   )
 }
@@ -111,13 +130,16 @@ async function main() {
   const rebase = (u) => BASE + new URL(u).pathname + new URL(u).search
   listed = [...new Set(listed.map(rebase))]
   const pages = [...new Set([...listed, ...EXTRA_PAGES.map((p) => BASE + p)])]
+  const listedSet = new Set(listed)
+  const pageSet = new Set(pages)
+  console.error(`[check:links] ${listed.length} sitemap URLs, ${pages.length} pages to crawl`)
 
   const linkedFrom = new Map()
   const sitemapProblems = []
   let tuitions = 0
-  await pool(pages, 8, async (page) => {
+  await pool(pages, CONCURRENCY, async (page) => {
     const r = await get(page)
-    const inSitemap = listed.includes(page)
+    const inSitemap = listedSet.has(page)
     if (inSitemap && r.status !== 200) sitemapProblems.push({ url: page, problem: `status ${r.status}${r.location ? ` -> ${r.location}` : ''}` })
     if (r.status !== 200) return
     if (inSitemap) {
@@ -136,26 +158,27 @@ async function main() {
       }
     }
     for (const t of internalLinks(r.text, page)) (linkedFrom.get(t) ?? linkedFrom.set(t, []).get(t)).push(page)
-  })
+  }, 'pages')
 
   const targets = [...linkedFrom.keys()]
   const redirects = []
   const broken = []
-  await pool(targets, 8, async (t) => {
-    // A listed page was already fetched above and is known to be 200.
-    const r = pages.includes(t) ? null : await get(t)
+  await pool(targets, CONCURRENCY, async (t) => {
+    // A listed page was already fetched above and is known to be 200. Only the
+    // status and Location are needed for a link target, so its body is skipped.
+    const r = pageSet.has(t) ? null : await get(t, { body: false })
     if (!r) return
     if (r.status >= 300 && r.status < 400) {
       if (countsAsRedirect(t, r.location)) redirects.push({ link: t, status: r.status, location: r.location, linkedFrom: linkedFrom.get(t).length, example: linkedFrom.get(t)[0] })
     } else if (r.status === 404 || r.status === 0 || r.status >= 500) {
       broken.push({ link: t, status: r.status, linkedFrom: linkedFrom.get(t).length, example: linkedFrom.get(t)[0] })
     }
-  })
+  }, 'link targets')
 
   redirects.sort((a, b) => b.linkedFrom - a.linkedFrom)
   console.log(
     JSON.stringify(
-      { base: BASE, sitemapUrls: listed.length, pagesCrawled: pages.length, tuitionsChecked: tuitions, linkTargets: targets.length, sitemapProblems, redirectingLinks: redirects, brokenLinks: broken },
+      { base: BASE, seconds: Math.round((Date.now() - started) / 1000), sitemapUrls: listed.length, pagesCrawled: pages.length, tuitionsChecked: tuitions, linkTargets: targets.length, sitemapProblems, redirectingLinks: redirects, brokenLinks: broken },
       null,
       1,
     ),

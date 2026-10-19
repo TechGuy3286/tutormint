@@ -93,3 +93,14 @@ export function notMasterSubjects(ids: readonly number[], masterIds: Iterable<nu
   const known = new Set(masterIds)
   return ids.filter((id) => !Number.isInteger(id) || !known.has(id))
 }
+
+/**
+ * The ids a subject save must REFUSE (owner, 19 Oct 2026): only NEWLY ADDED ids
+ * that are not on the master list. A value the tutor already had saved — even
+ * one the display leaves out, such as a school name saved earlier — never blocks
+ * the save; it is kept as it is.
+ */
+export function refusedNewSubjects(ids: readonly number[], savedIds: Iterable<number>, masterIds: Iterable<number>): number[] {
+  const saved = new Set(savedIds)
+  return notMasterSubjects(ids, masterIds).filter((id) => !saved.has(id))
+}

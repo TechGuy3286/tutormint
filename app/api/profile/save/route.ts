@@ -16,7 +16,7 @@ import { normalisePkMobile } from '@/lib/phone'
 import { labelsForMasterIdsServer } from '@/lib/taxonomyServer'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { alertIfReupload } from '@/lib/docReupload'
-import { unknownMasterIds } from '@/lib/masterSubjectCheck'
+import { unknownNewMasterIds } from '@/lib/masterSubjectCheck'
 import { NOT_A_MASTER_SUBJECT } from '@/lib/subjectDisplay'
 import { formatName } from '@/lib/formatName'
 
@@ -105,7 +105,11 @@ export async function POST(request: Request) {
   // written, so a refused save changes nothing.
   if (Array.isArray(body.subjectMasterIds)) {
     const ids = body.subjectMasterIds.filter((n) => Number.isInteger(n))
-    if ((await unknownMasterIds(supabase, ids)).length > 0) {
+    // Only NEWLY ADDED non-list values are refused (owner, 19 Oct 2026): a value
+    // already saved never blocks the subjects step.
+    const { data: savedRows } = await supabase.from('tutor_subjects').select('master_id').eq('tutor_id', user.id)
+    const savedIds = (savedRows ?? []).map((r) => r.master_id as number)
+    if ((await unknownNewMasterIds(supabase, ids, savedIds)).length > 0) {
       return NextResponse.json({ error: NOT_A_MASTER_SUBJECT }, { status: 400 })
     }
   }

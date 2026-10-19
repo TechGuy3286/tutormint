@@ -78,6 +78,11 @@ export function StepHeader({
   )
 }
 
+/** The one word a LOCKED card shows (owner, 19 Oct 2026). Only an approved
+ *  document locks — CNIC, profile picture, selfie — so a lock always reads as
+ *  approved; no other step is ever shown as Locked. */
+export const APPROVED_LOCK_LABEL = 'Approved 🔒'
+
 function StatusBadge({ status }: { status: CardStatus }) {
   const meta = STATUS_META[status]
   if (!meta.badge) return null
@@ -105,6 +110,7 @@ export function StatusCard({
   locked = false,
   lockedValue,
   lockedNote,
+  approvedLock = false,
   children,
 }: {
   cardKey: string
@@ -129,6 +135,9 @@ export function StatusCard({
   /** Replaces the default "contact support" block under a locked value (the
    *  approved-document lock notice, owner 9 Oct 2026). */
   lockedNote?: ReactNode
+  /** An approved document whose form stays usable (the profile picture keeps
+   *  its "Hide my photo" toggle): the badge reads "Approved 🔒", the body shows. */
+  approvedLock?: boolean
   children: ReactNode
 }) {
   const meta = STATUS_META[status]
@@ -147,7 +156,13 @@ export function StatusCard({
           {copy.title.en}
         </h3>
         <div className="flex shrink-0 items-center gap-2">
-          <StatusBadge status={status} />
+          {locked || approvedLock ? (
+            <span className="inline-flex shrink-0 items-center rounded-full bg-tm-tint-green px-2.5 py-1 text-[10px] font-black text-tm-green-deep">
+              {APPROVED_LOCK_LABEL}
+            </span>
+          ) : (
+            <StatusBadge status={status} />
+          )}
           {onClose && (
             <button
               type="button"
@@ -257,8 +272,7 @@ export function SettingsTile({
           the English above it instead of wrapping larger. */}
       <Urdu center className={`tm-ur-cap text-xs font-bold ${tone.ink}`}>{ur}</Urdu>
       <span className={`inline-flex items-center gap-1 text-[10px] font-black ${tone.ink}`}>
-        {locked && <Lock aria-hidden size={11} />}
-        {locked ? 'Locked' : badge?.en}
+        {locked ? APPROVED_LOCK_LABEL : badge?.en}
       </span>
     </button>
   )

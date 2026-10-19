@@ -597,21 +597,14 @@ export default function TutorSettingsPage() {
     formData.city.trim() && areas.length > 0 ? 'completed' : 'missing';
   const feeStatus: CardStatus = feePaid ? 'completed' : 'missing';
 
-  // PR72 §E: field locks. Each mirrors the server trigger (migration 116).
-  // mobile/CNIC/picture/selfie lock once verified/approved; subjects, city and
-  // areas lock once ALL of step 1 is complete. The show-picture toggle stays
-  // editable (rendered separately below).
-  const step1Complete =
-    mobileStatus === 'completed' &&
-    cnicStatus === 'completed' &&
-    profilePicStatus === 'completed' &&
-    selfieStatus === 'completed' &&
-    subjectsStatus === 'completed' &&
-    locationStatus === 'completed';
-  const subjectSummaryText = subjectLabels.length > 0 ? subjectLabels.join(', ') : '';
-  const locationSummaryText = initialLoc.cities.length
-    ? initialLoc.cities.map((c) => `${c}: ${(initialLoc.areasByCity[c] ?? []).join(', ')}`).join(' | ')
-    : [formData.city, areas.join(', ')].filter(Boolean).join(' · ');
+  // Only documents lock (owner, 19 Oct 2026): the CNIC, the profile picture and
+  // the selfie, once approved (the server enforces it: /api/documents/upload,
+  // /api/profile/photo, migrations 157/158/186). Subjects, where you teach, job
+  // type and every other step stay editable at any time — the old "lock after
+  // Step 1" rule (PR72 §E, migration 116) is gone (migration 187). A verified
+  // mobile is changed through support (its card says so) and is not shown as a
+  // locked step.
+  const photoLocked = photoView === 'locked';
 
   const jobTypeStatus: CardStatus = formData.jobTypes.length > 0 ? 'completed' : 'missing';
   const availabilityStatus: CardStatus = availabilityList.length > 0 ? 'completed' : 'missing';
@@ -625,8 +618,6 @@ export default function TutorSettingsPage() {
     {
       key: 'mobile',
       status: mobileStatus,
-      locked: mobileStatus === 'completed',
-      lockedValue: phoneNumber ? formatPkMobile(phoneNumber) : 'Verified',
       icon: <Smartphone size={20} aria-hidden />,
       body: (
         <div className="space-y-1">
@@ -684,6 +675,9 @@ export default function TutorSettingsPage() {
     {
       key: 'profilePic',
       status: profilePicStatus,
+      // Approved and locked, but its card stays open: the "Hide my photo from
+      // parents" toggle is always usable (owner, 19 Oct 2026).
+      approvedLock: photoLocked,
       reason: statuses?.profilePic.reason,
       icon: <ImageIcon size={20} aria-hidden />,
       body: (
@@ -789,8 +783,6 @@ export default function TutorSettingsPage() {
     {
       key: 'subjects',
       status: subjectsStatus,
-      locked: step1Complete,
-      lockedValue: subjectSummaryText,
       icon: <BookOpen size={20} aria-hidden />,
       collapsible: true,
       summary: subjectSummary,
@@ -805,8 +797,6 @@ export default function TutorSettingsPage() {
     {
       key: 'location',
       status: locationStatus,
-      locked: step1Complete,
-      lockedValue: locationSummaryText,
       icon: <MapPin size={20} aria-hidden />,
       collapsible: true,
       summary: locationSummary,
@@ -1080,6 +1070,7 @@ export default function TutorSettingsPage() {
       locked={c.locked}
       lockedValue={c.lockedValue}
       lockedNote={c.lockedNote}
+      approvedLock={c.approvedLock}
     >
       {c.body}
     </StatusCard>
@@ -1106,7 +1097,7 @@ export default function TutorSettingsPage() {
                     cardKey={c.key}
                     status={c.status}
                     icon={c.icon}
-                    locked={c.locked}
+                    locked={c.locked || c.approvedLock}
                     open={openCard === c.key}
                     onClick={() => (openCard === c.key ? collapse(c.key) : setOpenCard(c.key))}
                   />
@@ -1175,6 +1166,8 @@ type CardDesc = {
   locked?: boolean;
   lockedValue?: string | null;
   lockedNote?: React.ReactNode;
+  /** An approved document whose card body stays usable (the profile picture). */
+  approvedLock?: boolean;
   icon: React.ReactNode;
   body: React.ReactNode;
 };

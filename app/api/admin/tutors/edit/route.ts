@@ -11,7 +11,7 @@ import { numberSavedElsewhere, NUMBER_TAKEN_MESSAGE } from '@/lib/phoneAccount'
 import { normalisePkMobile, formatPkMobile, syntheticEmail, isSyntheticEmail } from '@/lib/phone'
 import { isValidCnic, formatCnic, CNIC_FORMAT_HINT } from '@/lib/cnic'
 import { recordFieldChanges, maskCnicHistory, type Step1Field } from '@/lib/fieldHistory'
-import { unknownMasterIds } from '@/lib/masterSubjectCheck'
+import { unknownNewMasterIds } from '@/lib/masterSubjectCheck'
 import { NOT_A_MASTER_SUBJECT } from '@/lib/subjectDisplay'
 import { TUTOR_SUBJECT_CAP, TOO_MANY_SUBJECTS } from '@/lib/tutorSubjectCap'
 
@@ -151,9 +151,10 @@ export async function POST(request: Request) {
     // The same cap the tutor's own onboarding and Settings use (lib/tutorSubjectCap).
     if (ids.length > TUTOR_SUBJECT_CAP) return NextResponse.json({ error: TOO_MANY_SUBJECTS }, { status: 400 })
     // Master-list subjects only (owner, 17 Oct 2026).
-    if ((await unknownMasterIds(admin, ids)).length > 0) return NextResponse.json({ error: NOT_A_MASTER_SUBJECT }, { status: 400 })
     const { data: oldRows } = await admin.from('tutor_subjects').select('master_id').eq('tutor_id', tutorId)
     const oldIds = (oldRows ?? []).map((r) => r.master_id as number).sort((a, b) => a - b)
+    // Only NEWLY ADDED non-list values are refused; saved ones are kept (owner, 19 Oct 2026).
+    if ((await unknownNewMasterIds(admin, ids, oldIds)).length > 0) return NextResponse.json({ error: NOT_A_MASTER_SUBJECT }, { status: 400 })
     const del = await admin.from('tutor_subjects').delete().eq('tutor_id', tutorId)
     if (del.error) return NextResponse.json({ error: del.error.message }, { status: 400 })
     const ins = await admin.from('tutor_subjects').insert(ids.map((master_id) => ({ tutor_id: tutorId, master_id })))

@@ -5,7 +5,7 @@
 // an id that is not a taxonomy_master row is refused with a plain message
 // instead of half-replacing the set or failing on the foreign key.
 
-import { notMasterSubjects } from '@/lib/subjectDisplay'
+import { notMasterSubjects, refusedNewSubjects } from '@/lib/subjectDisplay'
 
 type Client = {
   from: (t: string) => {
@@ -22,4 +22,19 @@ export async function unknownMasterIds(client: unknown, ids: number[]): Promise<
   if (error) return []
   const found = ((data as { id: number }[] | null) ?? []).map((r) => r.id)
   return notMasterSubjects(ids, found)
+}
+
+/**
+ * The NEWLY ADDED ids that are not on the master list (owner, 19 Oct 2026):
+ * an id already in `savedIds` (the tutor's current set) is never refused.
+ */
+export async function unknownNewMasterIds(client: unknown, ids: number[], savedIds: number[]): Promise<number[]> {
+  const saved = new Set(savedIds)
+  const added = ids.filter((id) => !saved.has(id))
+  if (added.length === 0) return []
+  const db = client as Client
+  const { data, error } = await db.from('taxonomy_master').select('id').in('id', added)
+  if (error) return []
+  const found = ((data as { id: number }[] | null) ?? []).map((r) => r.id)
+  return refusedNewSubjects(ids, saved, found)
 }

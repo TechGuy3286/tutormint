@@ -160,7 +160,8 @@
     "test:locationrunreview": "tsx --test scripts/test-location-run-review.ts",
     "test:locationsfollowups": "tsx --test scripts/test-locations-followups.ts",
     "test:paymentbanner": "tsx --test scripts/test-payment-banner.ts",
-    "test:privacylocks": "tsx --test scripts/test-privacy-locks.ts"
+    "test:privacylocks": "tsx --test scripts/test-privacy-locks.ts",
+    "test:steplocks": "tsx --test scripts/test-step-locks.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",
