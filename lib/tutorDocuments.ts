@@ -22,6 +22,7 @@ import { notify } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
 import { finalRejectReason, rejectionNoticeBody } from '@/lib/rejectReasonsCore'
 import { tutorCardStatuses, type CardDocState } from '@/lib/tutorDocQueueCore'
+import { tutorDocFactsFromRow, type TutorDocRow } from '@/lib/tutorDocSummaryCore'
 import { closeOpenUnlocks, promoteReview, rejectReview, reviewDocs } from '@/lib/docLocks'
 import { cnicApprovalProblem } from '@/lib/docLockCore'
 import type { DocLockViews } from '@/lib/docLockCore'
@@ -100,23 +101,14 @@ export async function loadDocumentStatuses(userId: string): Promise<DocumentStat
     /* ignore */
   }
 
-  // ONE rule with the approval queue (lib/tutorDocQueueCore).
-  return tutorCardStatuses({
-    verification_state: (base?.verification_state as string) ?? null,
-    verification_rejection_reason: (base?.verification_rejection_reason as string) ?? null,
-    cnic_verified_at: (base?.cnic_verified_at as string) ?? null,
-    cnic_number: (base?.cnic_number as string) ?? null,
-    cnic_image_path: (base?.cnic_image_path as string) ?? null,
-    avatar_url: (base?.avatar_url as string) ?? null,
-    profile_pic_status: (newCols?.profile_pic_status as string) ?? null,
-    profile_pic_reason: (newCols?.profile_pic_reason as string) ?? null,
-    selfie_status: (newCols?.selfie_status as string) ?? null,
-    selfie_reason: (newCols?.selfie_reason as string) ?? null,
-    hasSelfieFile: selfieDoc,
-    hasCnicReview: cnicReview,
-    hasSelfieReview: selfieReview,
-    profile_pic_rereview_at: (newCols?.profile_pic_rereview_at as string) ?? null,
-  })
+  // ONE rule with the approval queue (lib/tutorDocQueueCore) and the admin
+  // tutor cards (lib/tutorDocSummaries) — the same row-to-facts mapping.
+  return tutorCardStatuses(
+    tutorDocFactsFromRow(
+      { ...((base as TutorDocRow | null) ?? {}), ...((newCols as TutorDocRow | null) ?? {}) },
+      { hasSelfieFile: selfieDoc, hasCnicReview: cnicReview, hasSelfieReview: selfieReview },
+    ),
+  )
 }
 
 export type ReviewDecision = 'approve' | 'reject'

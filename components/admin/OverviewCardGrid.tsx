@@ -11,6 +11,15 @@ import { formatDate } from '@/lib/datetime'
 import type { BadgeName } from '@/lib/planBadges'
 import FollowUpActions, { MarkFollowedUp } from '@/components/admin/FollowUpActions'
 import type { FollowUpSource } from '@/lib/followUpCore'
+import {
+  DOC_FILTERS,
+  applyDocFilter,
+  docFilterCounts,
+  docFilterLabel,
+  withoutJoined,
+  type DocFilter,
+  type DocSummary,
+} from '@/lib/tutorDocSummaryCore'
 
 // The list behind one Overview number, as a grid of cards (owner, 9 Oct 2026):
 // 4 per row on desktop, 2 on tablet, 1 on phone. Every row the loader returned
@@ -53,6 +62,8 @@ export type GridItem = {
     line: string | null
     tag: string | null
   } | null
+  /** Tutors only: the combined Documents status (owner, 19 Oct 2026). */
+  docs?: (DocSummary & { oldestUploadAt: string | null }) | null
 }
 
 const STEP = 48
@@ -60,8 +71,18 @@ const ROLE_WORD = { tutor: 'Tutor', parent: 'Parent', other: 'Member' } as const
 
 const BTN = 'inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl px-2 text-[11px] font-bold'
 
-export default function OverviewCardGrid({ items }: { items: GridItem[] }) {
+export default function OverviewCardGrid({
+  items,
+  docFilters = false,
+  isOwner = false,
+}: {
+  items: GridItem[]
+  /** Show the Documents filter chips (the Tutors list). */
+  docFilters?: boolean
+  isOwner?: boolean
+}) {
   const [q, setQ] = useState('')
+  const [docFilter, setDocFilter] = useState<DocFilter>('all')
   const [shown, setShown] = useState(STEP)
   const router = useRouter()
   // A card followed up from this tab leaves it at once; Undo brings it back.
@@ -79,7 +100,9 @@ export default function OverviewCardGrid({ items }: { items: GridItem[] }) {
     router.refresh()
   }
 
-  const filtered = useMemo(() => {
+  // Search first, then the Documents chip — the chip counts are over the
+  // searched cards, so each count is exactly what that chip shows.
+  const searched = useMemo(() => {
     const needle = q.trim().toLowerCase()
     const pool = items.filter((it) => !(it.memberId && moved.has(it.memberId) && it.followUp?.tab === 'stuck'))
     if (!needle) return pool
@@ -87,6 +110,8 @@ export default function OverviewCardGrid({ items }: { items: GridItem[] }) {
       [it.title, it.detail, it.member?.name, it.member?.city, it.badge].some((v) => (v ?? '').toLowerCase().includes(needle)),
     )
   }, [items, q, moved])
+  const counts = useMemo(() => (docFilters ? docFilterCounts(searched) : null), [docFilters, searched])
+  const filtered = useMemo(() => (docFilters ? applyDocFilter(searched, docFilter) : searched), [docFilters, searched, docFilter])
 
   const visible = filtered.slice(0, shown)
   const left = filtered.length - visible.length
@@ -104,15 +129,35 @@ export default function OverviewCardGrid({ items }: { items: GridItem[] }) {
           className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white pl-9 pr-3 text-xs outline-none focus:border-tm-navy"
         />
       </label>
+      {counts && (
+        <nav aria-label="Documents" className="flex flex-wrap gap-2">
+          {DOC_FILTERS.map((f) => {
+            const on = f === docFilter
+            return (
+              <button
+                key={f}
+                type="button"
+                aria-pressed={on}
+                onClick={() => { setDocFilter(f); setShown(STEP) }}
+                className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-4 text-xs font-bold ${
+                  on ? 'border-tm-navy bg-tm-navy text-white' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'
+                }`}
+              >
+                {docFilterLabel(f, isOwner)} <span className={on ? 'text-white' : 'text-gray-500'}>{counts[f]}</span>
+              </button>
+            )
+          })}
+        </nav>
+      )}
       {q.trim() && (
         <p className="text-[11px] font-semibold text-gray-600">
-          {filtered.length} of {items.length} match “{q.trim()}”
+          {searched.length} of {items.length} match “{q.trim()}”
         </p>
       )}
 
       {filtered.length === 0 ? (
         <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
-          {items.length === 0 ? 'Nothing here right now.' : 'No card matches that search.'}
+          {items.length === 0 ? 'Nothing here right now.' : searched.length > 0 ? 'No card matches that filter.' : 'No card matches that search.'}
         </p>
       ) : (
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" data-card-count={filtered.length}>
@@ -150,6 +195,8 @@ function MemberBody({
 }) {
   const openHref = `/admin/users/${it.memberId}`
   const fu = it.followUp ?? null
+  // The details table already shows the joined date (owner, 19 Oct 2026).
+  const memberDetail = withoutJoined(it.detail)
   return (
     <>
       <div className="flex items-start gap-3">
@@ -177,10 +224,12 @@ function MemberBody({
         )}
       </dl>
 
+      {it.docs && <DocsRow docs={it.docs} />}
+
       {m.stoppedAt && (
         <p className="rounded-lg bg-tm-tint-gold px-2 py-1 text-[11px] font-semibold text-tm-gold-ink">Stopped at: {m.stoppedAt}</p>
       )}
-      {it.detail && <p className="text-[11px] text-gray-600">{it.detail}</p>}
+      {memberDetail && <p className="text-[11px] text-gray-600">{memberDetail}</p>}
       {it.badge && (
         <span className="self-start rounded-full bg-tm-tint-navy px-2 py-0.5 text-[10px] font-bold text-tm-navy">{it.badge}</span>
       )}
@@ -262,5 +311,32 @@ function PlainBody({ it }: { it: GridItem }) {
         </div>
       )}
     </>
+  )
+}
+
+const DOC_TONE: Record<DocSummary['kind'], string> = {
+  approved: 'text-tm-green-deep',
+  waiting: 'text-tm-gold-ink',
+  rejected: 'text-tm-red',
+  partial: 'text-tm-gold-ink',
+  none: 'text-slate-700',
+}
+
+/** The combined Documents status; tap to see each item (owner, 19 Oct 2026). */
+function DocsRow({ docs }: { docs: DocSummary }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="text-[11px]">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="flex min-h-[32px] w-full items-center justify-between gap-2 rounded-lg border border-gray-200 px-2 text-left hover:border-tm-navy"
+      >
+        <span className="text-gray-500">Documents</span>
+        <span className={`font-bold ${DOC_TONE[docs.kind]}`}>{docs.label}</span>
+      </button>
+      {open && <p className="mt-1 px-2 font-semibold text-slate-700">{docs.breakdown}</p>}
+    </div>
   )
 }

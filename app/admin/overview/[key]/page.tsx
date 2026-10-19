@@ -7,6 +7,7 @@ import { listHeader, loadOverviewList, stuckTabCounts } from '@/lib/overviewItem
 import { OVERVIEW_ITEMS, PAYER_PERIODS, isOverviewItemKey, paidListHref, parseFunnelDays, parsePayerPeriod } from '@/lib/overviewItemsCore'
 import { pkr } from '@/lib/reconciliationCore'
 import { loadMemberCards } from '@/lib/overviewCards'
+import { loadTutorDocSummaries } from '@/lib/tutorDocSummaries'
 import OverviewCardGrid, { type GridItem } from '@/components/admin/OverviewCardGrid'
 
 // The list behind one Overview number (owner, 8 Oct 2026, item 5). It reads the
@@ -27,7 +28,7 @@ export default async function OverviewListPage({
   const { key } = await params
   if (!isOverviewItemKey(key)) notFound()
   const meta = OVERVIEW_ITEMS[key]
-  await requireAdminRole(...SCREEN_ACCESS[meta.screen])
+  const actor = await requireAdminRole(...SCREEN_ACCESS[meta.screen])
   const sp = await searchParams
   const days = parseFunnelDays(sp.days)
 
@@ -38,6 +39,10 @@ export default async function OverviewListPage({
   // Member facts for the cards (owner, 9 Oct 2026) — added to the loader's own
   // rows, never adding or dropping one, so the cards equal the header count.
   const members = await loadMemberCards(list.rows.map((r) => r.memberId ?? '').filter(Boolean))
+  // One combined Documents status per tutor card (owner, 19 Oct 2026), loaded
+  // for the whole page at once — the member page's own status rules.
+  const tutorIds = Array.from(members.entries()).filter(([, m]) => m.role === 'tutor').map(([id]) => id)
+  const docs = await loadTutorDocSummaries(tutorIds)
   const items: GridItem[] = list.rows.map((r) => ({
     id: r.id,
     title: r.title,
@@ -50,6 +55,7 @@ export default async function OverviewListPage({
     reviewHref: r.reviewHref ?? null,
     member: (r.memberId && members.get(r.memberId)) || null,
     followUp: r.followUp ?? null,
+    docs: (r.memberId && docs.get(r.memberId)) || null,
   }))
   // Stuck in onboarding and Follow-up sent are two tabs of one list (owner,
   // 9 Oct 2026), each with its own count.
@@ -138,7 +144,7 @@ export default async function OverviewListPage({
         </nav>
       )}
 
-      <OverviewCardGrid items={items} />
+      <OverviewCardGrid items={items} docFilters={key === 'tutors'} isOwner={actor.adminRole === 'owner'} />
     </div>
   )
 }

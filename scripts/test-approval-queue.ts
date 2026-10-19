@@ -111,7 +111,7 @@ test('card and queue share one rule; every count reads the one list', () => {
 test('Overview lists render as cards, one card per row the loader returned', () => {
   const page = read('app/admin/overview/[key]/page.tsx')
   assert.match(page, /const items: GridItem\[\] = list\.rows\.map\(/)
-  assert.match(page, /<OverviewCardGrid items=\{items\} \/>/)
+  assert.match(page, /<OverviewCardGrid items=\{items\}[ />]/)
   assert.doesNotMatch(page, /\.filter\(/.source === '' ? /x^/ : /items = list\.rows\.filter/)
   const grid = read('components/admin/OverviewCardGrid.tsx')
   assert.match(grid, /grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4/)
