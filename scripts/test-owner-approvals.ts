@@ -35,8 +35,6 @@ const APPROVAL_ROUTES = [
   'app/api/admin/tutors/document-review/route.ts',
   'app/api/admin/parents/document-review/route.ts',
   'app/api/admin/tutors/moderate/route.ts',
-  'app/api/admin/tutors/edit/route.ts',
-  'app/api/admin/tutors/media/route.ts',
   'app/api/admin/documents/unlock/route.ts',
   'app/api/admin/documents/rotate/route.ts',
   'app/api/admin/documents/read-cnic/route.ts',
@@ -73,9 +71,11 @@ test('every approval route calls the Owner-only guard after its gate and before 
   // Mixed routes guard only the approval actions.
   const mod = read('app/api/admin/tutors/moderate/route.ts')
   assert.ok(mod.includes("if (action === 'approve' || action === 'hold') {"))
-  const edit = read('app/api/admin/tutors/edit/route.ts')
-  const cnic = edit.indexOf("if (action === 'set-cnic-number') {")
-  assert.ok(cnic > 0 && edit.indexOf('refuseUnlessOwnerApproval', cnic) - cnic < 300)
+  // Staff uploads and the CNIC number on the edit screen (owner, 19 Oct 2026):
+  // the Owner always; others only while not approved and locked, waiting for
+  // the Owner — scripts/test-admin-doc-upload.ts.
+  assert.ok(read('app/api/admin/tutors/media/route.ts').includes('adminUploadDecision('))
+  assert.ok(read('app/api/admin/tutors/edit/route.ts').includes('cnicNumberDecision('))
   const reader = read('app/api/admin/documents/read-cnic/route.ts')
   assert.ok(reader.indexOf("action === 'cached'") < reader.indexOf('refuseUnlessOwnerApproval(gate.actor'), 'check/cached stay readable')
   // No server actions exist anywhere that could bypass the routes.
@@ -111,7 +111,9 @@ test('approval controls are hidden for non-Owners on every screen', () => {
     ['components/admin/UnlockDocButton.tsx', 'if (!canUnlock || readOnly || !ownerApproves) return null'],
     ['components/admin/DocumentViewer.tsx', '&& !readOnly && ownerApproves'],
     ['app/admin/tutors/TutorModerationClient.tsx', '{ownerApproves && <>'],
-    ['app/admin/tutors/[id]/TutorFieldEditor.tsx', '{ownerApproves && (<>'],
+    // The edit screen's upload sections are open to staff who edit tutors
+    // (owner, 19 Oct 2026); only the Owner's upload is saved as approved.
+    ['app/admin/tutors/[id]/TutorFieldEditor.tsx', "read.statusLabel === 'Approved'"],
     ['app/admin/payments/page.tsx', '&& canApproveRole(actor.adminRole)'],
     ['app/admin/team-activity/claims/page.tsx', '&& canApprove(actor.adminRole)'],
   ]

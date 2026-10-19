@@ -215,7 +215,11 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
       />
 
       {canFieldEdit && (
-        <TutorFieldEditor tutorId={id} currentCity={(tutor.city as string | null) ?? null} />
+        <TutorFieldEditor
+          tutorId={id}
+          currentCity={(tutor.city as string | null) ?? null}
+          cnicNumberMasked={maskCnicHeavy(profile.cnic_number as string | null)}
+        />
       )}
 
       <TutorFieldHistory tutorId={id} />

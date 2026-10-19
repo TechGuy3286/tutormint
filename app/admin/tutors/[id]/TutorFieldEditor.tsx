@@ -6,6 +6,7 @@ import { ChevronDown, IdCard, Image as ImageIcon, MapPin, Smartphone, UserSquare
 
 import MobileNumberInput from '@/components/auth/MobileNumberInput'
 import CnicCapture, { type CnicCaptureState } from '@/components/identity/CnicCapture'
+import { readUploadResponse } from '@/lib/adminDocUploadCore'
 import TaxonomySelector from '@/components/TaxonomySelector'
 import LocationInput from '@/components/forms/LocationInput'
 import TutorCitiesEditor, { type CitiesState } from '@/components/tutor/TutorCitiesEditor'
@@ -97,17 +98,22 @@ const SAVE_BTN =
 export default function TutorFieldEditor({
   tutorId,
   currentCity,
+  cnicNumberMasked = null,
 }: {
   tutorId: string
   currentCity: string | null
+  /** The masked number on file (never the real one), or null. */
+  cnicNumberMasked?: string | null
 }) {
   const router = useRouter()
   const toast = useToast()
   const readOnly = useAdminReadOnly()
-  // A CNIC, photo or selfie saved here is saved as APPROVED, so these three
-  // sections are the Owner's alone (owner, 15 Oct 2026; the media route and
-  // the CNIC-number action refuse everyone else).
+  // A CNIC, photo or selfie the OWNER saves here is saved as approved; any other
+  // staff role may upload only while the document is not approved and locked,
+  // and their upload waits for the Owner (owner, 19 Oct 2026; the media route
+  // and the CNIC-number action enforce it).
   const ownerApproves = useCanApprove()
+  const [lastImage, setLastImage] = useState<Record<'avatar' | 'selfie', { src: string; status: string | null } | null>>({ avatar: null, selfie: null })
   const { map } = useCityAreas()
   const cities = map.cities
   const [open, setOpen] = useState<string | null>(null)
@@ -179,12 +185,14 @@ export default function TutorFieldEditor({
       fd.append('reason', reason.trim())
       fd.append('file', img)
       const res = await fetch('/api/admin/tutors/media', { method: 'POST', body: fd })
-      const j = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        toast.error(j.error ?? 'Could not upload that.')
+      const read = readUploadResponse(res.status, await res.json().catch(() => ({})))
+      if (!read.ok) {
+        toast.error(read.error)
         return
       }
-      toast.success('Saved and approved.')
+      const src = read.url ?? (read.documentId ? `/api/documents/${read.documentId}/preview` : null)
+      if (src) setLastImage((m) => ({ ...m, [kind]: { src, status: read.statusLabel } }))
+      toast.success(read.statusLabel === 'Approved' ? 'Saved and approved.' : 'Uploaded. It is waiting for the Owner’s approval.')
       router.refresh()
     } finally {
       setBusy(null)
@@ -219,15 +227,19 @@ export default function TutorFieldEditor({
         </button>
       </Section>
 
-      {ownerApproves && (<>
+      <>
       {/* CNIC — shared CnicCapture pointed at the admin media route */}
       <Section icon={<IdCard size={16} />} title="CNIC (number and pictures)" titleUr="شناختی کارڈ" open={open === 'cnic'} onToggle={() => toggle('cnic')}>
         <ReasonField value={cnicReason} onChange={setCnicReason} />
         <p className="text-[11px] text-gray-500">
-          Enter the reason first. Saving a CNIC here marks it approved by you.
+          {ownerApproves
+            ? 'Enter the reason first. Saving a CNIC here marks it approved by you.'
+            : 'Enter the reason first. Your upload waits for the Owner’s approval. An approved CNIC can only be replaced by the Owner.'}
         </p>
         <CnicCapture
           onState={setCap}
+          numberOnFile={cnicNumberMasked}
+          onUploaded={() => router.refresh()}
           uploadUrl="/api/admin/tutors/media"
           uploadExtra={{ tutorId, reason: cnicReason.trim() }}
           saveNumber={async (n) => {
@@ -238,7 +250,6 @@ export default function TutorFieldEditor({
               body: JSON.stringify({ action: 'set-cnic-number', tutorId, reason: cnicReason.trim(), cnicNumber: n }),
             })
             if (!res.ok) return { ok: false, error: (await res.json().catch(() => ({}))).error ?? 'Could not save the CNIC number.' }
-            router.refresh()
             return { ok: true }
           }}
         />
@@ -257,6 +268,8 @@ export default function TutorFieldEditor({
             onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadImage('avatar', f); e.target.value = '' }}
           />
         </label>
+        <UploadedImage shot={lastImage.avatar} />
+        {!ownerApproves && <p className="text-[11px] text-gray-500">Your upload waits for the Owner’s approval. An approved photo can only be replaced by the Owner.</p>}
       </Section>
 
       {/* Selfie */}
@@ -272,8 +285,10 @@ export default function TutorFieldEditor({
             onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadImage('selfie', f); e.target.value = '' }}
           />
         </label>
+        <UploadedImage shot={lastImage.selfie} />
+        {!ownerApproves && <p className="text-[11px] text-gray-500">Your upload waits for the Owner’s approval. An approved photo can only be replaced by the Owner.</p>}
       </Section>
-      </>)}
+      </>
 
       {/* Subjects */}
       <Section icon={<BookOpen size={16} />} title="Subjects" titleUr="مضامین" open={open === 'subjects'} onToggle={() => toggle('subjects')}>
@@ -338,5 +353,19 @@ export default function TutorFieldEditor({
         </button>
       </Section>
     </section>
+  )
+}
+
+/** The photo just uploaded from this screen, with the status the route gave. */
+function UploadedImage({ shot }: { shot: { src: string; status: string | null } | null }) {
+  if (!shot) return null
+  return (
+    <div className="flex items-center gap-3">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={shot.src} alt="Uploaded photo" className="h-16 w-16 rounded-xl border border-gray-200 object-cover" />
+      {shot.status && (
+        <span className={`text-[11px] font-bold ${shot.status === 'Approved' ? 'text-tm-green-deep' : 'text-tm-gold-ink'}`}>{shot.status}</span>
+      )}
+    </div>
   )
 }

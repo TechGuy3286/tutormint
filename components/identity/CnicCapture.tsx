@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import CnicCameraField from '@/components/tutor/CnicCameraField'
 import { FormChecklist } from '@/components/forms/FormChecklist'
 import type { ChecklistItem } from '@/lib/formChecklist'
@@ -65,6 +65,7 @@ export default function CnicCapture({
   saveNumber,
   show = 'all',
   hideChecklist = false,
+  numberOnFile = null,
 }: {
   initialNumber?: string
   initialFront?: boolean
@@ -92,13 +93,21 @@ export default function CnicCapture({
   /** PR106-F §3 — the onboarding steps hide the numbered checklist (the button
    *  simply stays disabled until valid). Settings/parent-verify keep it. */
   hideChecklist?: boolean
+  /** Staff editor (owner, 19 Oct 2026): the MASKED number already on file
+   *  (XXXXX-XXXXXXX-4). The box starts empty; left empty, the stored number is
+   *  kept and photos can be uploaded — the masked text is never saved. */
+  numberOnFile?: string | null
 }) {
   const [number, setNumber] = useState(formatCnic(initialNumber))
   const [front, setFront] = useState(initialFront)
   const [back, setBack] = useState(initialBack)
   const [error, setError] = useState<string | null>(null)
 
-  const valid = isValidCnic(number)
+  // Left empty with a number on file = keep the stored number.
+  const keepsStored = !!numberOnFile && normaliseCnic(number).length === 0
+  const valid = isValidCnic(number) || keepsStored
+  // The last number saved from this screen — not saved again before each side.
+  const savedRef = useRef<string | null>(null)
   const ready = valid && front && back
 
   // Approved documents are locked (owner, 9 Oct 2026). Only the member's own
@@ -136,9 +145,17 @@ export default function CnicCapture({
   // cannot be actioned by the admin without a number to compare against. Shared
   // /api/identity save-number endpoint — this route is identical on every surface.
   const ensureNumber = useCallback(async (): Promise<boolean> => {
+    if (keepsStored) {
+      setError(null)
+      return true
+    }
     if (!isValidCnic(number)) {
       setError(CNIC_FORMAT_HINT)
       return false
+    }
+    if (savedRef.current === normaliseCnic(number)) {
+      setError(null)
+      return true
     }
     // PR83: a staff editor supplies its own save (targets the tutor); the
     // default is the member's self-scoped /api/identity save-number.
@@ -148,6 +165,7 @@ export default function CnicCapture({
         setError(res.error ?? 'Could not save the CNIC number.')
         return false
       }
+      savedRef.current = normaliseCnic(number)
       setError(null)
       return true
     }
@@ -162,7 +180,7 @@ export default function CnicCapture({
     }
     setError(null)
     return true
-  }, [number, saveNumber])
+  }, [number, saveNumber, keepsStored])
 
   const items = cnicChecklistItems({ valid, front, back })
   const shownItems =
@@ -184,6 +202,11 @@ export default function CnicCapture({
               fieldState({ value: number, valid }),
             )}`}
           />
+          {numberOnFile && (
+            <p className="-mt-1.5 text-[11px] font-semibold text-slate-700">
+              Number on file: <Ltr>{numberOnFile}</Ltr>. Leave the box empty to keep it, or type the full number to change it.
+            </p>
+          )}
           {showsSuggestion && (
             <p role="status" className="-mt-1.5 rounded-lg bg-tm-tint-gold p-2 text-[11px] font-semibold text-tm-gold-ink">
               {CNIC_SUGGESTED_MEMBER}

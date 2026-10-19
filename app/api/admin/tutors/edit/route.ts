@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
-import { refuseOwnerTarget, refuseUnlessOwnerApproval } from '@/lib/ownerGuard'
+import { refuseOwnerTarget } from '@/lib/ownerGuard'
+import { cnicNumberDecision } from '@/lib/adminDocUploadCore'
+import { cnicApprovedMarker } from '@/lib/docLocks'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import { recomputeCompletion } from '@/lib/completion'
@@ -129,13 +131,31 @@ export async function POST(request: Request) {
 
   // ----------------------------------------------------------- cnic number ---
   if (action === 'set-cnic-number') {
-    // Typing or confirming a CNIC number is part of approval: Owner only (owner, 15 Oct 2026).
-    const notOwner = await refuseUnlessOwnerApproval(gate.actor, "type a tutor's CNIC number", tutorId)
-    if (notOwner) return notOwner
+    // (owner, 19 Oct 2026; lib/adminDocUploadCore cnicNumberDecision) A masked
+    // or empty value never overwrites the stored number — it is kept as it is.
+    // The Owner may always save a real number; another staff role only while
+    // the CNIC is not approved (the number then waits with the CNIC for the
+    // Owner). Every refusal is a 4xx with a plain message.
+    const { data: cnicRow } = await admin
+      .from('profiles')
+      .select('cnic_verified_at, verification_state')
+      .eq('id', tutorId)
+      .maybeSingle()
+    const numberDecision = cnicNumberDecision({
+      input: body.cnicNumber,
+      isOwner: gate.actor.adminRole === 'owner',
+      cnicApproved: cnicApprovedMarker(cnicRow ?? {}),
+    })
+    if (numberDecision.action === 'keep') return NextResponse.json({ ok: true, kept: true })
+    if (numberDecision.action === 'refuse') {
+      return NextResponse.json({ error: numberDecision.error }, { status: numberDecision.status })
+    }
     const raw = body.cnicNumber ?? ''
     if (!isValidCnic(raw)) return NextResponse.json({ error: CNIC_FORMAT_HINT }, { status: 400 })
     const oldCnic = (prof.cnic_number as string | null) ?? null
     const formatted = formatCnic(raw)
+    // Saving the same number again changes nothing and is not logged again.
+    if (oldCnic && formatCnic(oldCnic) === formatted) return NextResponse.json({ ok: true, kept: true })
     const { error } = await admin.from('profiles').update({ cnic_number: formatted }).eq('id', tutorId)
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
     await recordFieldChanges([{ tutorId, field: 'cnic_number', oldValue: maskCnicHistory(oldCnic), newValue: maskCnicHistory(formatted), changedBy: gate.actor.id, changedByRole: 'staff', changedByEmail: actorEmail, reason }])

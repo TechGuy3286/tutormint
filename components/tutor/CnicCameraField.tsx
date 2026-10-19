@@ -7,6 +7,7 @@ import PhotoCaptureTile from '@/components/tutor/PhotoCaptureTile'
 import { compressUnder1MB } from '@/lib/imageCompress'
 import { canPick, type LockView } from '@/lib/docLockCore'
 import { refreshDocLocks } from '@/lib/useDocLocks'
+import { readUploadResponse } from '@/lib/adminDocUploadCore'
 
 // The ONE CNIC capture control (PR 3b §2.1, PR22 §3), behind the apply-gate /
 // verify flow (TutorVerifyGate), the onboarding CNIC step and the Settings
@@ -60,6 +61,8 @@ export default function CnicCameraField({
 }) {
   const [localPreview, setLocalPreview] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // The status the upload route reported ("Approved" / "Waiting for approval").
+  const [statusLabel, setStatusLabel] = useState<string | null>(null)
 
   async function handle(file: File) {
     if (disabled) return
@@ -75,19 +78,15 @@ export default function CnicCameraField({
       if (uploadExtra) for (const [k, v] of Object.entries(uploadExtra)) fd.append(k, v)
       const res = await fetch(uploadUrl, { method: 'POST', body: fd })
       const json = await res.json().catch(() => ({}))
-      if (!res.ok || !json.documentId) {
-        throw new Error(
-          json.error ??
-            (res.status === 413
-              ? 'That photo was too large. Please try again.'
-              : `Upload failed (${res.status}).`),
-        )
-      }
+      // A 2xx is success only when it says what was stored (owner, 19 Oct 2026).
+      const read = readUploadResponse(res.status, json)
+      if (!read.ok || !read.documentId) throw new Error(read.ok ? 'The upload did not come back as expected. Reload the page to check it.' : read.error)
+      setStatusLabel(read.statusLabel)
       setLocalPreview((old) => {
         if (old) URL.revokeObjectURL(old)
         return URL.createObjectURL(img)
       })
-      onUploaded?.(json.documentId as string)
+      onUploaded?.(read.documentId)
       refreshDocLocks()
     } catch (e) {
       onError?.(e instanceof Error ? e.message : 'That upload did not go through.')
@@ -122,6 +121,7 @@ export default function CnicCameraField({
   }
 
   return (
+    <div className="flex min-w-0 flex-1 flex-col gap-1">
     <PhotoCaptureTile
       facingMode="environment"
       aspectClass="aspect-[1.6]"
@@ -134,5 +134,11 @@ export default function CnicCameraField({
       preview={shown}
       onPick={(f) => void handle(f)}
     />
+    {statusLabel && (
+      <p role="status" className={`text-center text-[11px] font-bold ${statusLabel === 'Approved' ? 'text-tm-green-deep' : 'text-tm-gold-ink'}`}>
+        {statusLabel}
+      </p>
+    )}
+    </div>
   )
 }
