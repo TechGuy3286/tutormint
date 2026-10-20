@@ -8,6 +8,7 @@ import LocationInput from '@/components/forms/LocationInput'
 import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
 import StaffAreaField from '@/components/forms/StaffAreaField'
+import CityPicker from '@/components/forms/CityPicker'
 import { matchCuratedCity } from '@/lib/staffAreaCore'
 
 // The "Where and how" row of the job form — city, area and budget. "When" is now
@@ -98,30 +99,17 @@ export default function WhereHowWhen({
         {/* Staff choose the city from the curated list only (owner, 16 Oct
             2026) — no free text; the server refuses anything else. Parents keep
             the free-text field. */}
+        {/* A searchable picker of every Pakistani city and town (owner, 20 Oct
+            2026). Staff: the list only. Parents: the list, or their own text. */}
         {staff ? (
-          <IconSelect icon={<Building2 size={15} />} label="City" value={staffCityValue(map.cities, city)} onChange={onCity}>
-            <option value="">City</option>
-            {city && !staffCityValue(map.cities, city) && (
-              <option value={city} disabled>
-                {city} (not in the list — choose a city)
-              </option>
+          <div className="space-y-1">
+            <CityPicker value={city} onChange={onCity} icon={<Building2 size={15} />} />
+            {city && map.cities.length > 0 && !staffCityValue(map.cities, city) && (
+              <p className="text-[11px] font-semibold text-tm-red">{city} is not on the city list — choose a city.</p>
             )}
-            {map.cities.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </IconSelect>
+          </div>
         ) : (
-          <LocationInput
-            id="whw-city"
-            label="City"
-            icon={<Building2 size={15} />}
-            value={city}
-            onChange={onCity}
-            options={map.cities}
-            placeholder="City"
-          />
+          <CityPicker value={city} onChange={onCity} icon={<Building2 size={15} />} allowFreeText />
         )}
 
         {/* Staff may add a new area while posting (owner, 13 Oct 2026); parents

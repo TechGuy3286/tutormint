@@ -5,7 +5,7 @@
 // this fills the province (addressRegion) and postcode (postalCode) Google asks
 // for, so NO new field is ever added to that form.
 //
-// Pure data, no imports, no database — the lookup lives in code so there is no
+// Pure data, no database (the generated city list is imported for the other cities) — the lookup lives in code so there is no
 // migration and it can be extended in one place.
 //
 // TWO RULES SHAPED THE POSTCODES:
@@ -18,6 +18,8 @@
 //      AREA_POSTCODES starts effectively empty; every area falls back to its
 //      city's main code. The owner can add confirmed "City|Area" codes here.
 //
+import { PK_CITIES } from '@/lib/pkCityData'
+
 // Keys are matched case-insensitively and trimmed, because jobs.city holds plain
 // text and both "Lahore" and "lahore" occur.
 
@@ -91,9 +93,11 @@ function key(s: string | null | undefined): string {
   return (s ?? '').trim().toLowerCase()
 }
 
-/** The province for a city, or null when the city is not one we recognise. */
+/** The province for a city, or null when the city is not one we recognise. The
+ *  hand table wins for the 26; every other listed city comes from the generated
+ *  city data (owner, 20 Oct 2026). */
 export function provinceForCity(city: string | null | undefined): Province | null {
-  return CITY_PROVINCE[key(city)] ?? null
+  return CITY_PROVINCE[key(city)] ?? listedProvince(key(city))
 }
 
 /**
@@ -110,4 +114,11 @@ export function postcodeFor(
   const areaCode = AREA_POSTCODE[`${c}|${key(area)}`]
   if (areaCode) return areaCode
   return CITY_POSTCODE[c] ?? null
+}
+
+let listedByKey: Map<string, Province> | null = null
+function listedProvince(k: string): Province | null {
+  if (!k) return null
+  listedByKey ??= new Map(PK_CITIES.map((c) => [c.name.toLowerCase(), c.province as Province]))
+  return listedByKey.get(k) ?? null
 }

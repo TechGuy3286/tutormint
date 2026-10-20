@@ -8,7 +8,7 @@ import MobileNumberInput from '@/components/auth/MobileNumberInput'
 import CnicCapture, { type CnicCaptureState } from '@/components/identity/CnicCapture'
 import { readUploadResponse } from '@/lib/adminDocUploadCore'
 import TaxonomySelector from '@/components/TaxonomySelector'
-import LocationInput from '@/components/forms/LocationInput'
+import CityPicker from '@/components/forms/CityPicker'
 import TutorCitiesEditor, { type CitiesState } from '@/components/tutor/TutorCitiesEditor'
 import { useToast } from '@/components/ui/Toast'
 import { useAdminReadOnly, useCanApprove } from '@/components/admin/ReadOnly'
@@ -115,7 +115,6 @@ export default function TutorFieldEditor({
   const ownerApproves = useCanApprove()
   const [lastImage, setLastImage] = useState<Record<'avatar' | 'selfie', { src: string; status: string | null } | null>>({ avatar: null, selfie: null })
   const { map } = useCityAreas()
-  const cities = map.cities
   const [open, setOpen] = useState<string | null>(null)
   const toggle = (k: string) => setOpen((o) => (o === k ? null : k))
 
@@ -320,7 +319,7 @@ export default function TutorFieldEditor({
 
       {/* City */}
       <Section icon={<MapPin size={16} />} title="City" titleUr="شہر" open={open === 'city'} onToggle={() => toggle('city')}>
-        <LocationInput id="edit-city" label="City" value={city} onChange={setCity} options={cities} icon={<MapPin size={15} />} />
+        <CityPicker label="City" value={city} onChange={setCity} icon={<MapPin size={15} />} allowFreeText />
         <ReasonField value={cityReason} onChange={setCityReason} />
         <button
           type="button"

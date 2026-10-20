@@ -9,6 +9,7 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import Avatar from '@/components/Avatar'
 import FileUpload from '@/components/FileUpload'
 import { useCityAreas } from '@/lib/cityAreas'
+import CityPicker from '@/components/forms/CityPicker'
 import { areasForCity } from '@/lib/cityAreasCore'
 import { createClient } from '@/lib/supabase/client'
 import { usePhotoCropUpload } from '@/components/photo/usePhotoCropUpload'
@@ -273,26 +274,19 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
           </label>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block space-y-1">
+            <div className="block space-y-1">
               <span className={LABEL}>City</span>
               <FieldUr>شہر</FieldUr>
-              <input
-                list="parent-city-options"
+              <CityPicker
                 value={city}
-                onChange={(e) => {
-                  setCity(e.target.value)
+                onChange={(c) => {
+                  setCity(c)
                   setArea('')
                 }}
                 placeholder="Choose or type your city"
-                autoComplete="off"
-                className={FIELD}
+                allowFreeText
               />
-              <datalist id="parent-city-options">
-                {map.cities.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
-            </label>
+            </div>
             <label className="block space-y-1">
               <span className={LABEL}>Area</span>
               <FieldUr>علاقہ</FieldUr>

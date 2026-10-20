@@ -1,0 +1,447 @@
+# Pakistani towns and cities from GeoNames (https://www.geonames.org), licence CC BY 4.0.
+# Extracted 20 Oct 2026 from https://download.geonames.org/export/dump/PK.zip and admin2Codes.txt.
+# Kept: feature class P with code PPL, PPLA, PPLA2, PPLA3 or PPLC and population >= 10,000 (why=pop10k);
+# every PPLA2 district headquarters whatever its population (why=district_hq); and four towns GeoNames
+# lists with no population (why=named). Curation (exclusions, spellings) is in scripts/build-pk-cities.ts.
+geonameid	asciiname	lat	lng	feature_code	admin1	district	population	why
+1172451	Lahore	31.558	74.35071	PPLA	04	Lahore District	13004135	pop10k
+1174872	Karachi	24.8608	67.0104	PPLA	05		11624219	pop10k
+1168197	Peshawar	34.008	71.57849	PPLA	03	Peshawar District	4758762	pop10k
+1179400	Faisalabad	31.41554	73.08969	PPLA2	04	Faisalabad District	3800193	pop10k
+1166993	Rawalpindi	33.59733	73.0479	PPLA2	04	Rawalpindi District	3357612	pop10k
+1177662	Gujranwala	32.15567	74.18705	PPLA2	04	Gujranwala District	2511118	pop10k
+1169825	Multan	30.19679	71.47824	PPLA2	04	Multan District	2169915	pop10k
+1176734	Hyderabad	25.39689	68.37718	PPLA2	05	Hyderabad District	1921275	pop10k
+1167528	Quetta	30.18414	67.00141	PPLA	02	Quetta District	1565546	pop10k
+1183460	Bannu	32.98527	70.60403	PPLA2	03	Bannu District	1357890	pop10k
+1166000	Sargodha	32.08586	72.67418	PPLA2	04	Sargodha District	975886	pop10k
+1164909	Sialkot	32.49268	74.53134	PPLA2	04	Sialkot	911817	pop10k
+1183880	Bahawalpur	29.39779	71.6752	PPLA2	04	Bahawalpur District	903795	pop10k
+1184370	Arifwala	30.29058	73.06574	PPL	04	Pakpattan District	854462	pop10k
+1180281	Dera Ismail Khan	31.83129	70.9017	PPLA2	03	Dera Ismail Khan	763195	pop10k
+1169607	Muzaffarabad	34.37002	73.47082	PPLA	06	Muzaffarabad District	725000	pop10k
+1183105	Battagram	34.67719	73.02329	PPLA2	03	Battagram District	700000	pop10k
+1180942	Chunian	30.96621	73.97908	PPL	04	Kasur	634236	pop10k
+1175892	Jhang Sadr	31.26981	72.31687	PPL	04	Jhang District	606533	pop10k
+1176615	Islamabad	33.72148	73.04329	PPLC	08		601600	pop10k
+1165221	Shekhupura	31.71287	73.98556	PPLA2	04	Shekhupura District	591424	pop10k
+1177654	Gujrat	32.5742	74.07542	PPLA2	04	Gujrat District	574240	pop10k
+1164408	Sukkur	27.70323	68.85889	PPLA2	05	Sukkur District	563851	pop10k
+1166547	Sahiwal	31.97386	72.33109	PPL	04	Sargodha District	538344	pop10k
+1166548	Sahiwal	30.66595	73.10186	PPLA2	04	Sahiwal District	538344	pop10k
+1168718	Okara	30.81029	73.45155	PPLA2	04	Okara District	533693	pop10k
+1167460	Rahim Yar Khan	28.41987	70.30345	PPLA2	04	Rahimyar Khan	517000	pop10k
+1174625	Kasur	31.11866	74.45025	PPLA2	04	Kasur	510875	pop10k
+1176358	Jalalpur Pirwala	29.5051	71.22202	PPL	04	Multan District	500000	pop10k
+1180289	Dera Ghazi Khan	30.04587	70.64029	PPLA2	04	Dera Ghazi Khan District	494464	pop10k
+1168021	Pindi Bhattian	31.89844	73.27339	PPL	04	Hafizabad District	493222	pop10k
+1163964	Tando Bago	24.78914	68.96535	PPL	05	Badin District	426535	pop10k
+1163965	Tando Allahyar	25.4605	68.71745	PPLA2	05	Tando Allahyar District	421923	pop10k
+1175748	Chak Jhumra	31.56808	73.18317	PPL	04	Faisalabad District	385169	pop10k
+1182682	Bhawana	31.56884	72.64917	PPL	04	Chiniot	373841	pop10k
+1172128	Larkana	27.55898	68.21204	PPLA2	05	Larkana	364033	pop10k
+1169116	Nawabshah	26.23939	68.40369	PPLA2	05	Nawabshah District	363138	pop10k
+1182092	Burewala	30.16667	72.65	PPL	04	Vehari District	361664	pop10k
+1170395	Mingora	34.7795	72.36265	PPL	03	Swat	361112	pop10k
+1164776	Sinjhoro	26.03008	68.80867	PPL	05	Sanghar	354709	pop10k
+1177384	Hafizabad	32.07095	73.68802	PPLA2	04	Hafizabad District	318621	pop10k
+1181096	Chiniot	31.72091	72.97836	PPLA2	04	Chiniot	318165	pop10k
+1170880	Mardan	34.19794	72.04965	PPLA2	03	Mardan	300424	pop10k
+1175088	Kamoke	31.97526	74.22304	PPL	04	Gujranwala District	292023	pop10k
+1185056	Abbottabad	34.1463	73.21168	PPLA2	03	Abbottabad District	275890	pop10k
+1166652	Saddiqabad	28.3091	70.12652	PPL	04	Rahimyar Khan	274210	pop10k
+1170295	Mirpur Khas	25.5276	69.01255	PPLA2	05	Mirpur Khas District	267833	pop10k
+1164709	Skardu	35.29787	75.63372	PPLA2	07	Skardu	260000	pop10k
+1169692	Muridke	31.80258	74.25772	PPL	04	Shekhupura District	254291	pop10k
+1165569	Shahkot	31.5709	73.48531	PPL	04	Nankana Sahib District	244868	pop10k
+1183883	Bahawalnagar	29.99835	73.25272	PPLA2	04	Bahawalnagar District	241873	pop10k
+1332083	Bahawalnagar	30.55083	73.39083	PPL	04	Okara District	241873	pop10k
+1172657	Kunri	25.17874	69.56572	PPL	05	Umerkot District	237063	pop10k
+1169605	Muzaffargarh	30.07258	71.19379	PPLA2	04	Muzaffargarh District	235541	pop10k
+1179837	Digri	25.15657	69.11098	PPL	05	Mirpur Khas District	234578	pop10k
+1176515	Jacobabad	28.28187	68.43761	PPLA2	05	Jacobabad District	219315	pop10k
+1173664	Khuzdar	27.81193	66.61096	PPL	02	Khuzdar District	218112	pop10k
+1178338	Gilgit	35.91869	74.31245	PPLA	07	Gilgit	216760	pop10k
+1178231	Gojra	31.14926	72.68323	PPL	04	Toba Tek Singh District	214000	pop10k
+1165108	Shikarpur	27.95558	68.63823	PPLA2	05	Shikarpur District	204938	pop10k
+1180809	Dadu	26.73033	67.7769	PPLA2	05	Dadu	201017	pop10k
+1164045	Talhar	24.88454	68.81437	PPL	05	Tando Mohammad Khan District	200014	pop10k
+1167648	Qadirpur Ran	30.29184	71.67164	PPL	04	Multan District	200000	pop10k
+1180752	Dajal	29.55769	70.37614	PPL	04	Rajanpur	200000	pop10k
+1184845	Ahmadpur East	29.14269	71.25771	PPL	04	Bahawalpur District	196718	pop10k
+12524485	Hub	25.02555	66.88534	PPL	02	Lasbela District	195661	pop10k
+8986037	Dhirkot	34.03917	73.57694	PPL	06	Bagh	195000	pop10k
+1174376	Garhi Khairo	28.05717	67.97898	PPL	05	Jacobabad District	193297	pop10k
+1162004	Khairpur Mir's	27.52948	68.75915	PPLA2	05	Khairpur District	191044	pop10k
+1175864	Jhelum	32.93448	73.73102	PPLA2	04	Jhelum District	190425	pop10k
+1163967	Tando Adam	25.76818	68.66196	PPL	05	Sanghar	174291	pop10k
+1177042	Hasilpur	29.69221	72.54566	PPL	04	Bahawalpur District	168146	pop10k
+1175156	Kamalia	30.72708	72.64607	PPL	04	Toba Tek Singh District	166617	pop10k
+11250625	Arif Wala	26.32478	66.29587	PPL	02	Lasbela District	157063	pop10k
+1176241	Jampur	29.64235	70.59518	PPL	04	Rajanpur	155243	pop10k
+1162456	Wazirabad	32.44324	74.12	PPL	04	Gujranwala District	152624	pop10k
+1173491	Kohat	33.58196	71.44929	PPLA2	03	Kohat	151427	pop10k
+1172035	Layyah	30.96128	70.93904	PPLA2	04	Layyah District	151274	pop10k
+1164970	Shujaabad	29.88092	71.29344	PPL	04	Multan District	151115	pop10k
+1179406	Eminabad	32.04237	74.25996	PPL	04	Gujranwala District	150646	pop10k
+1176106	Jaranwala	31.3332	73.41868	PPL	04	Faisalabad District	150380	pop10k
+1163198	Tordher	33.99047	72.2863	PPL	03	Swabi District	150000	pop10k
+1181073	Chishtian	29.79713	72.85772	PPL	04	Bahawalnagar District	149939	pop10k
+1177073	Harunabad	29.61206	73.13802	PPL	04	Bahawalnagar District	149679	pop10k
+1176368	Jalalpur Jattan	32.64118	74.20561	PPL	04	Gujrat District	146743	pop10k
+1162959	Umarkot	25.36329	69.74184	PPLA2	05	Umerkot District	144558	pop10k
+1171965	Lodhran	29.5339	71.63244	PPLA2	04	Lodhran District	144512	pop10k
+1170013	Moro	26.66317	68.00016	PPL	05	Naushahro Firoz	142685	pop10k
+1174167	Khanpur	28.64739	70.65694	PPL	04	Rahimyar Khan	142426	pop10k
+1184249	Attock City	33.76671	72.35977	PPLA2	04	Attock District	141945	pop10k
+1170989	Manjhand	25.90827	68.23683	PPL	05	Jamshoro District	140766	pop10k
+1170486	Mian Channun	30.44067	72.35679	PPL	04	Khanewal District	140112	pop10k
+1182815	Bhakkar	31.62685	71.06471	PPLA2	04	Bhakkar District	131658	pop10k
+1169278	Narowal	32.10197	74.87303	PPLA2	04	Narowal District	130692	pop10k
+1181611	Chaman	30.91769	66.45259	PPL	02	Qila Abdullah District	130139	pop10k
+1169372	Nankana Sahib	31.4501	73.70653	PPL	04	Nankana Sahib District	130041	pop10k
+1171123	Mandi Bahauddin	32.58704	73.49123	PPLA2	04	Mandi Bahauddin District	129733	pop10k
+1170425	Mianwali	32.57756	71.52847	PPLA2	04	Mianwali	129500	pop10k
+1180374	Daur	26.45528	68.31835	PPL	05	Nawabshah District	128958	pop10k
+1180436	Daska Kalan	32.32422	74.35039	PPLX	04	Sialkot	126924	named
+1165388	Shakargarh	32.26361	75.16008	PPL	04	Narowal District	126742	pop10k
+1168555	Pakpattan	30.34314	73.38944	PPLA2	04	Pakpattan District	126706	pop10k
+1171502	Mailsi	29.80123	72.17398	PPL	04	Vehari District	125431	pop10k
+1179660	Dokri	27.37421	68.09715	PPL	05	Larkana	125000	pop10k
+1169027	New Mirpur City	33.14782	73.75187	PPLA2	06	Mirpur District	124352	pop10k
+1163272	Toba Tek Singh	30.97127	72.48275	PPLA2	04	Toba Tek Singh District	123102	pop10k
+1176997	Haveli Lakha	30.45097	73.69371	PPL	04	Okara District	122389	pop10k
+1165638	Shahdad Kot	27.84726	67.90679	PPLA2	05	Qamber Shahdadkot District	120687	pop10k
+1181439	Charsadda	34.14822	71.7406	PPLA2	03	Charsadda District	120170	pop10k
+1178456	Ghotki	28.00437	69.31569	PPLA2	05	Ghotki District	119879	pop10k
+1166265	Sambrial	32.47835	74.35338	PPL	04	Sialkot	119571	pop10k
+1184055	Badin	24.656	68.837	PPLA2	05	Badin District	117455	pop10k
+1163724	Taunsa	30.70358	70.65054	PPL	04	Dera Ghazi Khan District	115704	pop10k
+1182829	Phool Nagar	31.2024	73.94857	PPL	04	Kasur	114530	pop10k
+1163952	Tando Muhammad Khan	25.12384	68.53677	PPLA2	05	Tando Mohammad Khan District	114406	pop10k
+1168226	Pattoki	31.02021	73.85333	PPL	04	Kasur	113735	pop10k
+1165635	Shahdadpur	25.92539	68.6228	PPL	05	Sanghar	113342	pop10k
+1176022	Jauharabad	32.29016	72.28182	PPL	04	Khushab	113188	pop10k
+1162813	Vihari	30.0445	72.3556	PPLA2	04	Vehari District	112840	pop10k
+1181163	Chichawatni	30.5301	72.69155	PPL	04	Sahiwal District	112191	pop10k
+1397479	Dera Murad Jamali	28.54657	68.22308	PPLA2	02	Nasirabad	106952	pop10k
+1172904	Kotri	25.36566	68.30831	PPL	05	Jamshoro District	106615	pop10k
+1173378	Kot Addu	30.46907	70.96699	PPL	04	Muzaffargarh District	104217	pop10k
+1166146	Sangla Hill	31.71667	73.38333	PPL	04	Nankana Sahib District	103709	pop10k
+1174042	Kharian	32.81612	73.88697	PPL	04	Gujrat District	103036	pop10k
+1173687	Khushab	32.29667	72.3525	PPLA3	04	Khushab	102793	pop10k
+1168307	Pasrur	32.26286	74.66327	PPL	04	Sialkot	102717	pop10k
+1168412	Pano Aqil	27.85619	69.11111	PPL	05	Sukkur District	102701	pop10k
+1165744	Shabqadar	34.21599	71.5548	PPL	03	Charsadda District	102340	pop10k
+1172915	Kot Radha Kishan	31.17068	74.10126	PPL	04	Kasur	102057	pop10k
+1181636	Chakwal	32.93286	72.85394	PPLA2	04	Chakwal District	101200	pop10k
+1166933	Renala Khurd	30.87878	73.59857	PPLA3	04	Okara District	100054	pop10k
+1167386	Raja Jang	31.22078	74.25483	PPL	04	Kasur	100000	pop10k
+1170157	Model Town	31.48104	74.32563	PPL	04	Lahore District	100000	pop10k
+1179760	Dipalpur	30.66984	73.65306	PPL	04	Okara District	99858	pop10k
+1167534	Qubo Saeed Khan	27.87437	67.70886	PPL	05	Qamber Shahdadkot District	99308	pop10k
+1175021	Kandhkot	28.24574	69.17974	PPL	05	Kashmore District	99155	pop10k
+1164216	Swabi	34.12018	72.46982	PPLA2	03	Swabi District	97363	pop10k
+1179834	Dijkot	31.21735	72.99621	PPL	04	Faisalabad District	96934	pop10k
+1173692	Khurarianwala	31.49936	73.26763	PPL	04	Faisalabad District	96743	pop10k
+1179061	Gambat	27.3517	68.5215	PPL	05	Khairpur District	93884	pop10k
+1166827	Rohri	27.69203	68.89503	PPL	05	Sukkur District	92135	pop10k
+1175560	Kabirwala	30.40472	71.86269	PPL	04	Khanewal District	91932	pop10k
+1172663	Kunjah	32.52982	73.97486	PPL	04	Gujrat District	90905	pop10k
+11179544	Daharki	28.05361	69.70249	PPL	05	Ghotki District	90177	pop10k
+1179790	Dinga	32.64101	73.72039	PPL	04	Gujrat District	89922	pop10k
+1163414	Thul	28.2403	68.7755	PPL	05	Jacobabad District	88554	pop10k
+11124382	Nowshera Kalan	34.0191	71.97445	PPL	03	Nowshera District	88003	pop10k
+1179223	Fort Abbas	29.19344	72.85525	PPL	04	Bahawalnagar District	83192	pop10k
+1167031	Ratodero	27.80227	68.28902	PPL	05	Larkana	81935	pop10k
+1179331	Fatehjang	33.56492	72.64281	PPL	04	Attock District	81321	pop10k
+11535259	Alahabad	30.87696	74.05524	PPL	04	Kasur	80084	pop10k
+1173920	Khewra	32.6491	73.01059	PPL	04	Jhelum District	80000	pop10k
+1164069	Talagang	32.92766	72.41594	PPL	04	Chakwal District	79431	pop10k
+1175453	Kahna Nau	31.36709	74.36899	PPL	04	Lahore District	79301	pop10k
+1167622	Kambar	27.58753	68.00066	PPL	05	Qamber Shahdadkot District	77481	pop10k
+1162275	Zahir Pir	28.81284	70.52341	PPL	04	Rahimyar Khan	76979	pop10k
+1176800	Hujra Shah Muqim	30.74168	73.82327	PPL	04	Okara District	76462	pop10k
+1168633	Paharpur	32.10502	70.97055	PPL	03	Dera Ismail Khan	76027	pop10k
+1163054	Turbat	26.00122	63.04849	PPLA2	02	Kech District	75694	pop10k
+1163224	Topi	34.07034	72.62147	PPL	03	Swabi District	74867	pop10k
+1182787	Bhalwal	32.26576	72.89809	PPL	04	Sargodha District	74744	pop10k
+1170294	Mirpur Mathelo	28.02136	69.54914	PPL	05	Ghotki District	74651	pop10k
+1166073	Sarai Alamgir	32.90495	73.75518	PPL	04	Gujrat District	73967	pop10k
+1183090	Bat Khela	34.6178	71.97247	PPL	03	Malakand Protected Area	73525	pop10k
+1166381	Sakrand	26.13845	68.27444	PPL	05	Nawabshah District	72040	pop10k
+1163958	Tando Jam	25.42813	68.52923	PPL	05	Hyderabad District	71760	pop10k
+1177278	Hala	25.81459	68.42198	PPL	05	Matiari District	71094	pop10k
+1177446	Gwadar	25.12163	62.32541	PPLA2	02	Gwadar	70852	pop10k
+1167507	Rabwah	31.75511	72.91403	PPL	04	Chiniot	70000	pop10k
+1175446	Kahror Pakka	29.6243	71.91437	PPL	04	Lodhran District	69743	pop10k
+1177682	Gujar Khan	33.25411	73.30433	PPL	04	Rawalpindi District	69374	pop10k
+1180983	Chuhar Kana	31.75	73.8	PPL	04	Shekhupura District	69321	pop10k
+1180454	Darya Khan	31.78447	71.10197	PPL	04	Bhakkar District	68622	pop10k
+1164987	Shorkot	31.91023	70.87757	PPL	03	Dera Ismail Khan	67439	pop10k
+1170398	Minchinabad	30.16356	73.56858	PPL	04	Bahawalnagar District	67164	pop10k
+1170951	Mansehra	34.33023	73.19679	PPLA2	03	Mansehra District	66486	pop10k
+1183224	Basirpur	30.57759	73.83912	PPL	04	Okara District	65541	pop10k
+1172318	Lala Musa	32.70138	73.95746	PPL	04	Gujrat District	65197	pop10k
+1162868	Usta Muhammad	28.17723	68.04367	PPL	02	Usta Muhammad District	64632	pop10k
+1164896	Sibi	29.54299	67.87726	PPLA2	02	Sibi District	64069	pop10k
+1168015	Pindi Gheb	33.24095	72.2648	PPL	04	Attock District	63810	pop10k
+1168166	Phalia	32.43104	73.579	PPL	04	Mandi Bahauddin District	62453	pop10k
+1166164	Sanghar	26.04694	68.94917	PPLA2	05	Sanghar	62033	pop10k
+1179377	Faqirwali	29.46799	73.03489	PPL	04	Bahawalnagar District	61586	pop10k
+1162316	Yazman	29.12122	71.74459	PPL	04	Bahawalpur District	60738	pop10k
+1179346	Faruka	31.88642	72.41362	PPL	04	Sargodha District	60000	pop10k
+1359673	Kurkali Sindh Pakistan	25.94123	68.81765	PPL	05	Sanghar	59387	pop10k
+1181065	Chitral	35.8518	71.78636	PPLA2	03	Chitral District	57157	pop10k
+1176452	Jahangira	33.96416	72.22097	PPL	03	Swabi District	57011	pop10k
+1177107	Haripur	33.99783	72.93493	PPLA2	03	Haripur District	56977	pop10k
+1176233	Jamrud	34.00152	71.38007	PPL	03	Khyber Agency	56642	pop10k
+1106880	Sharifabad	33.4341	73.36276	PPL	04	Rawalpindi District	55027	pop10k
+1179496	Dullewala	31.83439	71.43639	PPL	04	Bhakkar District	54277	pop10k
+1161991	Pir Jo Goth	27.59178	68.61848	PPL	05	Khairpur District	54266	pop10k
+1168680	Pabbi	34.00968	71.79445	PPL	03	Nowshera District	52701	pop10k
+1172295	Lalian	31.82462	72.80116	PPL	04	Chiniot	52542	pop10k
+1167669	Qabula	30.17784	73.0651	PPL	04	Pakpattan District	52495	pop10k
+1167873	Pir Mahal	30.76663	72.43455	PPL	04	Toba Tek Singh District	52476	pop10k
+1170219	Mithi	24.73701	69.79707	PPL	05	Thar Parkar District	52376	pop10k
+1172964	Kot Mumin	32.18843	73.02987	PPL	04	Sargodha District	51021	pop10k
+1163021	Ubauro	28.16429	69.73114	PPL	05	Ghotki District	50981	pop10k
+1167380	Rajanpur	29.10408	70.32969	PPLA2	04	Rajanpur	50682	pop10k
+1162105	Zhob	31.34082	69.4493	PPLA2	02	Zhob District	50537	pop10k
+1170667	Matli	25.0429	68.65591	PPL	05	Badin District	50398	pop10k
+1176445	Jahanian	30.03928	71.8167	PPL	04	Khanewal District	50318	pop10k
+1161983	Rawalakot	33.85782	73.76043	PPLA2	06	Poonch District	50000	pop10k
+1182122	Buni	36.27333	72.25929	PPL	03	Chitral District	50000	pop10k
+1177397	Hadali	32.64043	74.56898	PPL	04	Sialkot	49663	pop10k
+1164825	Sillanwali	31.82539	72.54064	PPL	04	Sargodha District	49311	pop10k
+1168749	Nushki	29.55218	66.02288	PPL	02	Nushki District	48572	pop10k
+1176035	Jatoi Shimali	29.51827	70.84474	PPL	04	Muzaffargarh District	47144	pop10k
+1173055	Kotli	33.51836	73.9022	PPLA2	06	Kotli District	46907	pop10k
+1169620	Mustafabad	30.89222	73.49889	PPL	04	Okara District	45795	pop10k
+1340665	Kamra	33.85497	72.39421	PPL	04	Attock District	45738	pop10k
+1177064	Chak Thirty-one -Eleven Left	30.42388	72.69737	PPL	04	Sahiwal District	45665	pop10k
+1174984	Kanganpur	30.76468	74.12286	PPL	04	Kasur	45000	pop10k
+1171757	Mach	29.86371	67.33018	PPL	02	Kachhi District	44542	pop10k
+1175010	Kandiaro	27.05918	68.21022	PPL	05	Naushahro Firoz	44382	pop10k
+1163582	Thatta	24.74745	67.92353	PPLA2	05	Thatta District	44302	pop10k
+1179305	Fatehpur	31.17772	71.2048	PPL	04	Layyah District	44084	pop10k
+1175082	Kamra	33.74698	73.51229	PPL	04	Rawalpindi District	43779	pop10k
+1168312	Pasni	25.26302	63.46921	PPL	02	Gwadar	43494	pop10k
+1172682	Kundian	32.45775	71.47892	PPL	04	Mianwali	42903	pop10k
+1164419	Sukheke Mandi	31.86541	73.50875	PPL	04	Hafizabad District	42626	pop10k
+1184569	Amangarh	34.00584	71.92971	PPL	03	Nowshera District	42123	pop10k
+1179450	Dunyapur	29.80275	71.74344	PPL	04	Lodhran District	41575	pop10k
+1165789	Sehwan	26.42495	67.86126	PPL	05	Jamshoro District	41150	pop10k
+1162500	Washuk	27.72728	64.80972	PPL	02	Washuk District	41107	pop10k
+1169145	Naushahra Virkan	31.96258	73.97117	PPL	04	Gujranwala District	40853	pop10k
+1174357	Khairpur	28.06437	69.70363	PPL	05	Ghotki District	40083	pop10k
+1181053	Choa Saidan Shah	32.71962	72.98625	PPL	04	Chakwal District	40000	pop10k
+1181910	Chak	27.85838	68.83378	PPL	05	Shikarpur District	40000	pop10k
+1175125	Kamar Mushani	32.84318	71.36192	PPL	04	Mianwali	39013	pop10k
+1357699	New Badah	27.34167	68.03194	PPL	05	Larkana	38855	pop10k
+1163905	Tank	32.21707	70.38315	PPLA2	03	Tank	38488	pop10k
+1163968	Tandlianwala	31.03359	73.13268	PPL	04	Faisalabad District	38285	pop10k
+1181887	Chak Azam Sahu	30.75202	73.02834	PPL	04	Sahiwal District	38216	pop10k
+1171868	Loralai	30.37051	68.59795	PPLA2	02	Loralai District	37787	pop10k
+1176995	Havelian	34.05348	73.15993	PPL	03	Abbottabad District	37509	pop10k
+1172339	Lakki	32.60724	70.91234	PPLA2	03	Lakki Marwat District	36391	pop10k
+1177203	Hangu	33.53198	71.0595	PPLA2	03	Hangu District	36150	pop10k
+1448637	Risalpur Cantonment	34.06048	71.99276	PPL	03	Nowshera District	36074	pop10k
+1163927	Tangi	34.3009	71.65238	PPL	03	Charsadda District	35659	pop10k
+1170564	Mehrabpur	28.10773	68.02554	PPL	02	Usta Muhammad District	35263	pop10k
+6457378	Malakwal City	32.55492	73.2122	PPL	04	Mandi Bahauddin District	35000	pop10k
+1174217	Khangah Dogran	31.83294	73.62213	PPL	04	Nankana Sahib District	34949	pop10k
+1169334	Narang Mandi	31.90376	74.51587	PPL	04	Shekhupura District	34778	pop10k
+1171376	Malakwal	32.55449	73.21274	PPL	04	Mandi Bahauddin District	34589	pop10k
+1167142	Ranipur	27.2872	68.50623	PPL	05	Khairpur District	34337	pop10k
+1162855	Utmanzai	34.18775	71.76274	PPL	03	Charsadda District	34257	pop10k
+1162261	Zaida	34.0595	72.4669	PPL	03	Swabi District	34200	pop10k
+1174653	Kashmor	28.4326	69.58364	PPL	05	Kashmore District	33732	pop10k
+1184655	Alipur	29.38242	70.91106	PPL	04	Muzaffargarh District	33601	pop10k
+1183992	Bagh	33.98111	73.77608	PPLA2	06	Bagh	33548	pop10k
+1169187	Naudero	27.66684	68.3609	PPL	05	Larkana	33455	pop10k
+1412008	Setharja Old	27.2127	68.46883	PPL	05	Khairpur District	32651	pop10k
+1171198	Mamu Kanjan	30.83044	72.79943	PPL	04	Faisalabad District	31914	pop10k
+1165260	Sharqpur Sharif	31.46116	74.10091	PPL	04	Shekhupura District	31855	pop10k
+1182665	Bhera	32.48206	72.90865	PPL	04	Sargodha District	31781	pop10k
+1179423	Dursh Khela	35.00028	72.45217	PPL	03	Swat	31732	pop10k
+1167398	Raiwind	31.24895	74.21534	PPL	04	Kasur	31592	pop10k
+1174355	Khairpur Tamewah	29.58139	72.23804	PPL	04	Bahawalpur District	30967	pop10k
+1174062	Kharan	28.58459	65.41501	PPLA2	02	Kharan District	30841	pop10k
+1162572	Chak Five Hundred Seventy-five	31.54514	73.82891	PPL	04	Nankana Sahib District	30738	pop10k
+1168889	Nok Kundi	28.82704	62.75039	PPL	02	Chagai District	30621	pop10k
+1341204	Nowshera Cantonment	33.99829	71.99834	PPL	03	Nowshera District	30599	pop10k
+1170584	Mehar	27.18027	67.82051	PPL	05	Dadu	30429	pop10k
+1174344	Khairpur Nathan Shah	27.09064	67.73489	PPL	05	Dadu	30286	pop10k
+1168036	Pind Dadan Khan	32.58662	73.04456	PPL	04	Jhelum District	29935	pop10k
+1179757	Upper Dir	35.2074	71.8768	PPLA2	03	Upper Dir District	29869	pop10k
+1178560	Ghauspur	28.13882	69.08245	PPL	05	Kashmore District	29767	pop10k
+1184752	Akora Khattak	34.00337	72.12561	PPL	03	Nowshera District	29750	pop10k
+1175180	Kalur Kot	32.15512	71.26631	PPL	04	Bhakkar District	29578	pop10k
+1182998	Bela	26.22718	66.31178	PPL	02	Lasbela District	29380	pop10k
+1164076	Thal	35.47836	72.24383	PPL	03	Upper Dir District	29331	pop10k
+1178841	Garh Maharaja	30.83383	71.90491	PPL	04	Jhang District	29153	pop10k
+1176444	Jahanian Shah	31.80541	72.2774	PPL	04	Sargodha District	29095	pop10k
+1170706	Mastung	29.79966	66.84553	PPLA2	02	Mastung District	29082	pop10k
+1171006	Manhala	31.53333	74.55	PPL	04	Lahore District	29000	pop10k
+1177308	Hajira	33.77389	73.89438	PPL	06	Poonch District	28953	pop10k
+1171165	Mananwala	31.58803	73.68927	PPL	04	Shekhupura District	28432	pop10k
+1179255	Fazilpur	32.17629	75.06583	PPL	04	Narowal District	28213	pop10k
+1164064	Talamba	30.52693	72.24079	PPL	04	Khanewal District	28151	pop10k
+1175870	Jhawarian	32.36192	72.62275	PPL	04	Sargodha District	27893	pop10k
+1169254	Nasirabad	27.38137	67.91644	PPL	05	Qamber Shahdadkot District	27809	pop10k
+1182637	Bhimber	32.97465	74.07846	PPLA2	06	Bhimbar District	27636	pop10k
+1164716	Sita Road	27.03333	67.85	PPL	05	Dadu	27587	pop10k
+1176470	Jaglot	35.68842	74.62412	PPL	07	Gilgit	27000	pop10k
+1181352	Chawinda	32.34434	74.70507	PPL	04	Sialkot	26906	pop10k
+1175296	Kalat	29.02663	66.59361	PPLA2	02	Kalat	26701	pop10k
+1180419	Daud Khel	32.87533	71.57118	PPL	04	Mianwali	26395	pop10k
+1170222	Mitha Tiwana	32.2454	72.10615	PPL	04	Khushab	26390	pop10k
+1176948	Hazro City	33.9099	72.49179	PPL	04	Attock District	26309	pop10k
+1179463	Dunga Bunga	29.74975	73.24294	PPL	04	Bahawalnagar District	25893	pop10k
+1174720	Karor	31.2246	70.95153	PPL	04	Layyah District	25634	pop10k
+1173302	Kot Diji	27.34156	68.70821	PPL	05	Khairpur District	25616	pop10k
+1175712	Jiwani	25.04852	61.74573	PPL	02	Gwadar	25332	pop10k
+1169684	Murree	33.90836	73.3903	PPL	04	Rawalpindi District	25186	pop10k
+1170436	Mian Sahib	28.15341	68.64182	PPL	05	Shikarpur District	25000	pop10k
+1356491	Ahmadpur Sial	30.67791	71.74344	PPL	04	Jhang District	24889	pop10k
+1172779	Kulachi	31.93058	70.45959	PPL	03	Dera Ismail Khan	24481	pop10k
+1167821	Pishin	30.58176	66.99406	PPLA2	02	Pishin District	24239	pop10k
+1175098	Chak One Hundred Twenty Nine Left	30.42919	73.04522	PPL	04	Sahiwal District	24053	pop10k
+1177169	Harappa	30.63251	72.87032	PPL	04	Sahiwal District	23500	pop10k
+1168544	Pallandri	33.71527	73.68366	PPLA2	06	Sudhanoti District	23243	pop10k
+1162285	Zafarwal	32.34464	74.8999	PPL	04	Narowal District	23078	pop10k
+1172888	Kot Samaba	28.55207	70.46837	PPL	04	Rahimyar Khan	22953	pop10k
+1175436	Kahuta	33.59183	73.38736	PPL	04	Rawalpindi District	22551	pop10k
+1174171	Khanpur Mahar	27.84088	69.41302	PPL	05	Ghotki District	22273	pop10k
+1176889	Hingorja	27.21088	68.41598	PPL	05	Khairpur District	22263	pop10k
+1169367	Naukot	24.85822	69.40153	PPL	05	Mirpur Khas District	22081	pop10k
+1172595	Kuri Dulal	33.38437	73.26367	PPL	04	Rawalpindi District	22000	pop10k
+1182688	Bhaun	32.86048	72.75677	PPL	04	Chakwal District	21711	pop10k
+11467709	Chaksawari	33.2641	73.7853	PPL	06	Mirpur District	21475	pop10k
+1173025	Kotli Loharan	32.58893	74.49466	PPL	04	Sialkot	21463	pop10k
+1165507	Shahpur Chakar	26.15411	68.65013	PPL	05	Sanghar	21446	pop10k
+1181022	Chhor	25.5126	69.78437	PPL	05	Umerkot District	21178	pop10k
+7091688	Oghi	34.49847	73.01399	PPL	03	Mansehra District	21129	pop10k
+1168652	Pad Idan	26.77455	68.30094	PPL	05	Naushahro Firoz	20919	pop10k
+1173272	Kot Ghulam Muhammad	32.33311	74.54694	PPL	04	Sialkot	20897	pop10k
+1172059	Lawa	32.69683	71.93266	PPL	04	Chakwal District	20619	pop10k
+1164245	Surkhpur	32.71816	74.44773	PPL	04	Gujrat District	20000	pop10k
+1412851	Sook Kalan	32.59702	74.14652	PPL	04	Gujrat District	20000	pop10k
+1179902	Dhoro Naro	25.50484	69.5709	PPL	05	Umerkot District	19907	pop10k
+1180071	Dhaunkal	32.40613	74.13706	PPL	04	Gujranwala District	19871	pop10k
+1174211	Khangarh	29.91446	71.16067	PPL	04	Muzaffargarh District	19698	pop10k
+1166066	Sarai Naurang	32.82581	70.78107	PPL	03	Lakki Marwat District	19694	pop10k
+1178587	Gharo	24.74182	67.58534	PPL	05	Thatta District	19524	pop10k
+1175762	Jhol	25.95533	68.88871	PPL	05	Sanghar	19363	pop10k
+1184075	Baddomalhi	31.99042	74.6641	PPL	04	Narowal District	19351	pop10k
+1182607	Bhit Shah	25.80565	68.49143	PPL	05	Matiari District	19325	pop10k
+1386114	Khai Gala	33.84589	73.82722	PPL	06	Poonch District	19119	pop10k
+1170677	Matiari	25.59709	68.4467	PPLA2	05	Matiari District	18929	pop10k
+1162589	Warah	27.44805	67.79654	PPL	05	Qamber Shahdadkot District	18724	pop10k
+1108161	Chuhar Jamali	24.3944	67.99298	PPL	05	Sujawal District	18721	pop10k
+1177303	Haji Shah	33.87686	72.32763	PPL	04	Attock District	18586	pop10k
+1172513	Lachi	33.38291	71.33733	PPL	03	Kohat	18537	pop10k
+9969716	Taftan	28.94687	61.58661	PPL	02	Chagai District	18510	pop10k
+1176218	Jand	33.43304	72.01877	PPL	04	Attock District	18170	pop10k
+1180295	Dera Bugti	29.03619	69.15849	PPLA2	02	Dera Bugti District	18120	pop10k
+1385128	Musa Banda/Musa khan kallay	34.03374	72.48176	PPL	03	Swabi District	18000	pop10k
+1163595	Tharu Shah	26.9423	68.11759	PPL	05	Naushahro Firoz	17698	pop10k
+1169143	Naushahro Firoz	26.8401	68.12265	PPLA2	05	Naushahro Firoz	17631	pop10k
+1184644	Alipur	33.64894	73.17787	PPL	08		17566	pop10k
+1184020	Baffa	34.4377	73.22368	PPL	03	Mansehra District	17556	pop10k
+1179185	Gadani	25.11879	66.73219	PPL	02	Lasbela District	17540	pop10k
+1182577	Bhopalwala	32.42968	74.3635	PPL	04	Sialkot	17341	pop10k
+1180825	Dadhar	29.47489	67.65167	PPL	02	Kachhi District	17276	pop10k
+1182775	Bhan	26.55831	67.72139	PPL	05	Jamshoro District	16961	pop10k
+1167501	Goth Radhan	27.19846	67.95348	PPL	05	Larkana	16786	pop10k
+1386329	Islamgarh	33.18969	73.83834	PPL	06	Mirpur District	16651	pop10k
+1162862	Uthal	25.80722	66.62194	PPLA2	02	Lasbela District	16483	pop10k
+1175283	Kaleke Mandi	31.97597	73.59999	PPL	04	Hafizabad District	16361	pop10k
+1175678	Johi	26.69225	67.61431	PPL	05	Dadu	16311	pop10k
+1171050	Mangla	31.89306	72.38167	PPL	04	Sargodha District	16264	pop10k
+1165486	Shahr Sultan	29.57517	71.02209	PPL	04	Muzaffargarh District	16166	pop10k
+1183614	Karimabad	36.32692	74.66141	PPL	07	Hunza-Nagar District	16000	pop10k
+1164679	Sodhri	32.46211	74.18207	PPL	04	Gujranwala District	15977	pop10k
+1175365	Kalabagh	32.96164	71.54638	PPL	04	Mianwali	15976	pop10k
+1175232	Kallar Kahar	32.77998	72.69793	PPL	04	Chakwal District	15800	pop10k
+1180133	Dhanot	29.57991	71.75213	PPL	04	Lodhran District	15672	pop10k
+1177089	Harnoli	32.27871	71.55429	PPL	04	Mianwali	15669	pop10k
+1166062	Sarai Sidhu	30.59476	71.9699	PPL	04	Khanewal District	15632	pop10k
+1166480	Saidpur	33.74188	73.07046	PPL	08		15000	pop10k
+1180757	Daira Din Panah	30.57053	70.93722	PPL	04	Muzaffargarh District	14878	pop10k
+1178843	Garhiyasin	27.90631	68.5121	PPL	05	Shikarpur District	14810	pop10k
+1171677	Madeji	27.75314	68.45166	PPL	05	Shikarpur District	14802	pop10k
+1164698	Sobhodero	27.30475	68.39715	PPL	05	Khairpur District	14623	pop10k
+1180729	Dalbandin	28.88846	64.40616	PPLA2	02	Chagai District	14621	pop10k
+1180397	Daulatpur	26.50158	67.97079	PPL	05	Nawabshah District	14574	pop10k
+1182872	Bhag	29.04174	67.82394	PPL	02	Sibi District	14555	pop10k
+1166819	Rojhan	28.68735	69.9535	PPL	04	Rajanpur	14494	pop10k
+1167064	Rasulnagar	32.32794	73.7804	PPL	04	Gujranwala District	14392	pop10k
+1182622	Bhiria	26.91041	68.19466	PPL	05	Naushahro Firoz	14370	pop10k
+1177098	Harnai	30.10077	67.93824	PPL	02	Harnai	14277	pop10k
+1170974	Mankera	31.38771	71.44047	PPL	04	Bhakkar District	14184	pop10k
+1165518	Shahpur	32.2682	72.46884	PPL	04	Sargodha District	14153	pop10k
+12747019	Muhammad Pur	30.71015	73.01782	PPL	04	Sahiwal District	14018	pop10k
+1174074	Karak	33.11633	71.09354	PPLA2	03	Karak District	13679	pop10k
+1172389	Lakhi	27.84884	68.69972	PPL	05	Shikarpur District	13600	pop10k
+1164306	Surab	28.49276	66.25999	PPL	02	Kalat	13104	pop10k
+1387846	Chak One Hundred Thirty-eight Nine Left	30.55988	72.96739	PPL	04	Sahiwal District	13089	pop10k
+1168700	Ormara	25.21018	64.63626	PPL	02	Gwadar	13026	pop10k
+1181600	Chamber	25.29362	68.81176	PPL	05	Tando Allahyar District	12746	pop10k
+1175297	Kalaswala	32.20081	74.64858	PPL	04	Sialkot	12576	pop10k
+1176608	Islamkot	24.69904	70.17982	PPL	05	Thar Parkar District	12426	pop10k
+1171991	Liliani	32.20393	72.9512	PPL	04	Sargodha District	12211	pop10k
+1170281	Mirwah Gorchani	25.30981	69.05019	PPL	05	Mirpur Khas District	12139	pop10k
+1168643	Bhagowal	32.43751	74.66939	PPL	04	Sialkot	12000	pop10k
+1340606	Abdul Khel	32.39967	70.91311	PPL	03	Lakki Marwat District	12000	pop10k
+1177009	Hattian Bala	34.1704	73.73379	PPL	06	Hatian	11880	pop10k
+1180379	Daultala	33.19282	73.14099	PPL	04	Rawalpindi District	11814	pop10k
+1179758	Diplo	24.46688	69.58114	PPL	05	Thar Parkar District	11575	pop10k
+1173464	Kohlu	29.903	69.231	PPLA2	02	Kohlu District	11089	pop10k
+1176206	Jandiala Sher Khan	31.82098	73.91815	PPL	04	Shekhupura District	10985	pop10k
+1180491	Daromehar	24.79382	68.17978	PPL	05	Sujawal District	10869	pop10k
+1182851	Bhagwal	32.82111	73.95528	PPL	04	Gujrat District	10669	pop10k
+1166118	Sanjwal	33.76105	72.43315	PPL	04	Attock District	10657	pop10k
+1170312	Miro Khan	27.75985	68.09195	PPL	05	Qamber Shahdadkot District	10590	pop10k
+1165778	Sehnsa	33.51366	73.75479	PPL	06	Kotli District	10568	pop10k
+1176261	Jamgah	33.89624	72.28968	PPL	04	Attock District	10044	pop10k
+1107099	Inzari	34.66879	71.3888	PPL	03	Bajaur Agency	10000	pop10k
+1172866	Kot Sultan	30.7737	70.93125	PPL	04	Layyah District	10000	pop10k
+1174089	Khar	34.7361	71.52739	PPL	03	Bajaur Agency	10000	pop10k
+1179082	Gahkuch	36.17683	73.76383	PPLA2	07	Ghizer District	10000	pop10k
+1183307	Barkhan	29.89773	69.52558	PPLA2	02	Barkhan District	8760	district_hq
+10944629	Athhmuqam	34.58887	73.91306	PPLA2	06	Neelum District	8000	district_hq
+1162094	Ziarat	30.38244	67.72562	PPLA2	02	Ziarat District	733	district_hq
+1111188	Timargara	34.82659	71.84423	PPLA2	03	Lower Dir District	0	district_hq
+1163237	Tolti	35.02819	76.09213	PPLA2	07	Skardu	0	district_hq
+1165119	Shigar	35.42376	75.73911	PPLA2	07	Skardu	0	district_hq
+1166234	Samundri	31.06123	72.95858	PPL	04	Faisalabad District	0	named
+1166475	Saidu Sharif	34.74655	72.35568	PPLA2	03	Swat	0	district_hq
+1167550	Qila Saifullah	30.70077	68.35984	PPLA2	02	Qila Saifullah	0	district_hq
+1167579	Qila Abdullah	30.72803	66.66117	PPLA2	02	Qila Abdullah District	0	district_hq
+1168288	Patan	35.10964	73.00781	PPLA2	03	Lower Kohistan District	0	district_hq
+1168394	Parachinar	33.89968	70.10012	PPLA2	03	Kurram District	0	district_hq
+1168446	Panjgur	26.97186	64.09459	PPLA2	02	Panjgur District	0	district_hq
+1168864	Nowshera	34.01583	71.98123	PPLA2	03	Nowshera District	0	district_hq
+1169544	Nagir	36.27542	74.71959	PPLA2	07	Hunza-Nagar District	0	district_hq
+1169663	Musa Khel Bazar	30.85944	69.82208	PPLA2	02	Musa Khel District	0	district_hq
+1171389	Malakand	34.56561	71.93043	PPLA2	03	Malakand Protected Area	0	district_hq
+1174094	Khaplu	35.16221	76.33381	PPLA2	07	Ghanche District	0	district_hq
+1174220	Khanewal	30.30173	71.93212	PPLA2	04	Khanewal District	0	district_hq
+1175873	Dera Allahyar	28.37353	68.35078	PPLA2	02	Jafarabad District	0	district_hq
+1176229	Jamshoro	25.43608	68.28017	PPLA2	05	Jamshoro District	0	district_hq
+1177063	Hassan Abdal	33.8218	72.68918	PPL	04	Attock District	0	named
+11785970	Taxila	33.7373	72.80064	PPL	04	Rawalpindi District	0	named
+1179030	Gandava	28.61321	67.48564	PPLA2	02	Jhal Magsi District	0	district_hq
+1180787	Daggar	34.51106	72.48438	PPLA2	03	Buner District	0	district_hq
+1181138	Chilas	35.41287	74.10407	PPLA2	07	Diamir	0	district_hq
+1184205	Awaran	26.45677	65.23144	PPLA2	02	Awaran District	0	district_hq
+1184701	Aliabad	36.30703	74.61545	PPLA2	07	Hunza-Nagar District	0	district_hq
+1330335	Jhang City	31.30568	72.32594	PPLA2	04	Jhang District	0	district_hq
+1482305	Alpurai	34.92039	72.63265	PPLA2	03	Shangla District	0	district_hq
+7419667	Dambudas	35.59759	75.22493	PPLA2	07	Skardu	0	district_hq
+7423730	Eidghah	35.34712	74.85632	PPLA2	07	Astor	0	district_hq
+7427390	Dasu	35.29169	73.2906	PPLA2	03	Upper Kohistan District	0	district_hq
+7536245	Athmuqam	34.57173	73.89724	PPLA2	06	Neelum District	0	district_hq
+9030991	Hattian Bala	34.1691	73.7432	PPLA2	06	Hatian	0	district_hq

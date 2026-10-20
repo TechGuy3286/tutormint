@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { SlidersHorizontal, X } from 'lucide-react'
 import { useJobTitles } from '@/lib/jobTitles'
-import { useCityAreas } from '@/lib/cityAreas'
+import CityPicker from '@/components/forms/CityPicker'
+import { useBrowseCities } from '@/lib/useBrowseCities'
+import { browseCityOptions } from '@/lib/pkCitiesCore'
 import Typeahead from '@/components/search/Typeahead'
 import { BUDGET_BANDS, bandFor, bandRange, feeChipLabel } from '@/lib/feeBands'
 import {
@@ -36,11 +38,11 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
 
-  // Curated cities from the DB (migration 73) — one source. A select, not a
-  // free-text field: the filter narrows results; free-text entry is on the post
-  // and profile forms.
-  const { map } = useCityAreas()
-  const cities = map.cities
+  // Only cities with an open tuition or a listed tutor (owner, 20 Oct 2026), in
+  // a searchable picker: never hundreds of empty towns. Every city stays
+  // choosable on the posting and sign-up forms.
+  const active = useBrowseCities()
+  const cities = browseCityOptions(active ?? [], active ?? [], values.city)
   const { titles: jobTitles } = useJobTitles()
 
   const [categories, setCategories] = useState<string[]>([])
@@ -174,15 +176,8 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:contents">
-        <label className="block">
-          <span className="sr-only">City</span>
-          <select className={FIELD} value={values.city} onChange={(e) => apply({ city: e.target.value })}>
-            <option value="">Any city</option>
-            {cities.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        </label>
+        <CityPicker value={values.city} onChange={(c) => apply({ city: c || null })} only={cities} emptyLabel="Any city" />
+
         <label className="block">
           <span className="sr-only">Job Type</span>
           <select className={FIELD} value={values.mode} onChange={(e) => apply({ mode: e.target.value })}>

@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 
 import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
-import LocationInput from '@/components/forms/LocationInput'
+import CityPicker from '@/components/forms/CityPicker'
 
 // PR85 (Part A) — pick up to 2 cities, each with its own areas. Shared by tutor
 // Settings ("Where you teach") and onboarding, so both save the same shape.
@@ -101,14 +101,13 @@ export default function TutorCitiesEditor({
         <div key={i} className="space-y-2 rounded-xl border border-gray-200 p-3">
           <div className="flex items-center gap-2">
             <div className="min-w-0 flex-1">
-              <LocationInput
-                id={`tutor-city-${i}`}
+              <CityPicker
                 label={i === 0 ? 'Main city' : 'Second city'}
                 value={city}
                 onChange={(v) => setCity(i, v)}
-                options={map.cities}
                 placeholder={i === 0 ? 'Main city' : 'Second city'}
                 icon={<MapPin size={15} />}
+                allowFreeText
               />
             </div>
             {i > 0 && (

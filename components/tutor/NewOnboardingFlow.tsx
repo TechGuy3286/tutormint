@@ -44,6 +44,7 @@ import { deriveCnicStatus } from '@/lib/cnicStatus'
 import { googleVisibilityLine, tutorIndexRequirements, tutorProfileIndexable } from '@/lib/seo/indexable'
 import type { FlowFacts } from '@/lib/tutorFlow'
 import { ChipSkeletons } from '@/components/Skeletons'
+import CityPicker from '@/components/forms/CityPicker'
 
 // The NEW tutor onboarding (PR106-G3c). A SEPARATE component from the live
 // CompleteProfileFlow (which is not touched): shown only when showNewOnboarding
@@ -416,7 +417,7 @@ export default function NewOnboardingFlow({
   }
 
   // ---------- CITY (up to 2) ----------
-  if (stepKey === 'city') return <CityStep facts={facts} cities={cityMap.cities} shell={shell} onSave={(cities) => void saveAndNext({ profile: { city: cities[0] }, tutorProfile: {} }, { city: cities[0] })} />
+  if (stepKey === 'city') return <CityStep facts={facts} shell={shell} onSave={(cities) => void saveAndNext({ profile: { city: cities[0] }, tutorProfile: {} }, { city: cities[0] })} />
 
   // ---------- AREAS ----------
   if (stepKey === 'area') return <AreaStep city={facts.city ?? ''} initial={facts.area ? [facts.area] : []} busy={busy} shell={shell}
@@ -560,31 +561,33 @@ type ShellFn = (opts: {
 }) => React.ReactElement
 
 // ---------------------------------------------------------------- City ------
-function CityStep({ facts, cities, shell, onSave }: { facts: Facts; cities: string[]; shell: ShellFn; onSave: (cities: string[]) => void }) {
+function CityStep({ facts, shell, onSave }: { facts: Facts; shell: ShellFn; onSave: (cities: string[]) => void }) {
   const [sel, setSel] = useState<string[]>(facts.city ? [facts.city] : [])
-  const [q, setQ] = useState('')
   const [tried, setTried] = useState(false)
-  const query = q.trim().toLowerCase()
-  const shown = query ? cities.filter((c) => c.toLowerCase().includes(query)).slice(0, 30) : cities.slice(0, 24)
-  const toggle = (name: string) => setSel((s) => (s.includes(name) ? s.filter((x) => x !== name) : s.length >= 2 ? [s[1], name] : [...s, name]))
+  // Every Pakistani city and town, searchable (owner, 20 Oct 2026). Up to two;
+  // a third replaces the older one, as before.
+  const add = (name: string) => {
+    if (!name) return
+    setSel((s) => (s.includes(name) ? s : s.length >= 2 ? [s[1], name] : [...s, name]))
+  }
   return shell({
     onNext: () => { if (sel.length === 0) { setTried(true); return } onSave(sel) },
     nextDisabled: false,
     children: (
       <div className="space-y-3">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search" aria-label="Search cities"
-          className={`min-h-[44px] w-full rounded-xl border p-3 text-sm outline-none ${fieldStateClasses(fieldState({ value: sel.join(',') }))}`} />
-        <div className="flex flex-wrap justify-center gap-2">
-          {Array.from(new Set([...sel, ...shown])).map((name) => {
-            const on = sel.includes(name)
-            return (
-              <button key={name} type="button" aria-pressed={on} onClick={() => toggle(name)}
-                className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-4 text-sm font-bold transition-colors ${on ? 'border-tm-green-deep bg-tm-tint-green text-tm-green-deep' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'}`}>
-                {on && <Check size={14} aria-hidden />}{name}
-              </button>
-            )
-          })}
+        <div>
+          <CityPicker value="" onChange={add} placeholder={sel.length ? 'Add another city' : 'Search your city or town'} label="City" />
         </div>
+        {sel.length > 0 && (
+          <div className="flex flex-wrap justify-center gap-2">
+            {sel.map((name) => (
+              <button key={name} type="button" aria-label={`Remove ${name}`} onClick={() => setSel((s) => s.filter((x) => x !== name))}
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-tm-green-deep bg-tm-tint-green px-4 text-sm font-bold text-tm-green-deep">
+                <Check size={14} aria-hidden />{name}<X size={14} aria-hidden />
+              </button>
+            ))}
+          </div>
+        )}
         {tried && sel.length === 0 && (
           <p className="text-center text-[11px] font-bold text-tm-red">Pick your city.<span lang="ur" dir="rtl" className="block font-semibold text-gray-500">اپنا شہر منتخب کریں۔</span></p>
         )}

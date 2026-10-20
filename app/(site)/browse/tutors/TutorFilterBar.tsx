@@ -8,6 +8,9 @@ import { GENDERS } from '@/lib/locations'
 import { useJobTitles } from '@/lib/jobTitles'
 import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
+import CityPicker from '@/components/forms/CityPicker'
+import { useBrowseCities } from '@/lib/useBrowseCities'
+import { browseCityOptions } from '@/lib/pkCitiesCore'
 import Typeahead from '@/components/search/Typeahead'
 import { FEE_BANDS, bandFor, bandRange, feeChipLabel } from '@/lib/feeBands'
 import {
@@ -102,6 +105,14 @@ export default function TutorFilterBar({ values, facets }: { values: FilterValue
   const { map } = useCityAreas()
   const { titles: jobTitles } = useJobTitles()
   const areas = useMemo(() => areasForCity(map, values.city), [map, values.city])
+  // Cities (owner, 20 Oct 2026): only those with tutors for the current filters
+  // (the facet counts), else those with an open tuition or a listed tutor —
+  // never hundreds of empty towns. A searchable picker, biggest first.
+  const active = useBrowseCities()
+  const cityChoices = facets?.cities
+    ? browseCityOptions(facets.cities.map((o) => o.name), facets.cities.map((o) => o.name), values.city)
+    : browseCityOptions(active ?? [], active ?? [], values.city)
+  const cityCounts = facets?.cities ? Object.fromEntries(facets.cities.map((o) => [o.name, o.count])) : undefined
 
   const activeCount = [
     values.subject,
@@ -224,21 +235,13 @@ export default function TutorFilterBar({ values, facets }: { values: FilterValue
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:contents">
-        <label className="block">
-          <span className="sr-only">City</span>
-          <select
-            className={FIELD}
-            value={values.city}
-            onChange={(e) => apply({ city: e.target.value, area: null })}
-          >
-            <option value="">Any city</option>
-            {choices(map.cities, facets?.cities, values.city).map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <CityPicker
+          value={values.city}
+          onChange={(c) => apply({ city: c || null, area: null })}
+          only={cityChoices}
+          counts={cityCounts}
+          emptyLabel="Any city"
+        />
 
         <label className="block">
           <span className="sr-only">Area</span>

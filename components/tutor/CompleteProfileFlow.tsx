@@ -53,6 +53,7 @@ import { directoryBlockers, profileGaps, listingFixItems } from '@/lib/tutorList
 import LogoLoader from '@/components/LogoLoader'
 import { ChipSkeletons } from '@/components/Skeletons'
 import { safeReturnTo } from '@/lib/returnTo'
+import CityPicker from '@/components/forms/CityPicker'
 
 // One tap-tap flow for every tutor (PR 4 §1). It replaces the long step-tab form
 // at /tutor/complete-profile and unifies with /tutor/onboarding. It computes what
@@ -595,11 +596,20 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
         )}
 
         {stepKey === 'city' && (
-          <ChipRow
-            options={cityOptions(facets, cityMap.cities)}
-            selected={facts.city}
-            onPick={(name) => void tapSave({ profile: { city: name } }, { city: name })}
-          />
+          <div className="space-y-3">
+            <ChipRow
+              options={cityOptions(facets, cityMap.cities)}
+              selected={facts.city}
+              onPick={(name) => void tapSave({ profile: { city: name } }, { city: name })}
+            />
+            {/* Any other Pakistani city or town, searchable (owner, 20 Oct 2026). */}
+            <CityPicker
+              value=""
+              onChange={(name) => name && void tapSave({ profile: { city: name } }, { city: name })}
+              placeholder="Another city or town"
+              label="City"
+            />
+          </div>
         )}
 
         {/* Level first (PR69): pick the academic level(s); all grades are taken

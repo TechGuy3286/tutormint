@@ -294,7 +294,11 @@ test('city: staff choose from the curated list only; free text is refused', () =
   const jobs = read('lib/jobs.ts')
   assert.equal((jobs.match(/const curatedCity = await curatedCityName\(input\.city\)/g) ?? []).length, 2, 'create and edit')
   assert.match(jobs, /error: 'Choose the city from the list\.'/)
-  assert.match(read('components/forms/WhereHowWhen.tsx'), /\{staff \? \(\n\s+<IconSelect icon=\{<Building2 size=\{15\} \/>\} label="City"/)
+  // Since 20 Oct 2026 the staff city field is the searchable picker, list only
+  // (no allowFreeText); parents keep free text.
+  const whw = read('components/forms/WhereHowWhen.tsx')
+  assert.match(whw, /\{staff \? \(\n\s+<div className="space-y-1">\n\s+<CityPicker value=\{city\} onChange=\{onCity\} icon=\{<Building2 size=\{15\} \/>\} \/>/)
+  assert.match(whw, /\) : \(\n\s+<CityPicker value=\{city\} onChange=\{onCity\} icon=\{<Building2 size=\{15\} \/>\} allowFreeText \/>/)
 })
 
 test('title check: misspelt school, junk in the school slot, stray commas, post type vs level', () => {
