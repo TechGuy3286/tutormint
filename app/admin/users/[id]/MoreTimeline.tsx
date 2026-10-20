@@ -29,7 +29,8 @@ export default function MoreTimeline({
     endpoint: '/api/admin/queues/timeline',
     params: { userId: memberId, group },
     initialCursor,
-    storageKey: `tm:more:admin-timeline:${memberId}:${group}`,
+    storageKey: `tm:more:admin-timeline2:${memberId}:${group}`,
+    serverIds: [],
   })
 
   return (
@@ -37,7 +38,7 @@ export default function MoreTimeline({
       {items.length > 0 && (
         <ol className="space-y-2">
           {items.map((e) => (
-            <TimelineRow key={e.id} event={e} />
+            <TimelineRow key={e.id} event={e} memberId={memberId} />
           ))}
         </ol>
       )}

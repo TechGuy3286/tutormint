@@ -1,6 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+
+import ProfileShareButtons from '@/components/admin/ProfileShareButtons'
+import type { ProfileShare } from '@/lib/profileShareCore'
+import { setUrlParam } from '@/lib/useUrlState'
 
 import { formatDate } from '@/lib/datetime'
 import {
@@ -18,6 +24,12 @@ import {
   type MyStep,
   type RoleFilter,
 } from '@/lib/mySignupsCore'
+
+// The filters live in the page address (owner, 20 Oct 2026) under their own
+// keys, so coming back from a member reopens the same list. 'counted' and
+// 'month' are still read on My sign-ups, where the Team activity links use them.
+const URL_KEY: Record<keyof Filters, string> = { q: 'fq', role: 'frole', step: 'fstep', counted: 'fcounted', month: 'fmonth' }
+const ROLE_FILTERS: string[] = ['all', 'tutor', 'parent']
 
 // The sign-up rows (owner, 16 Oct 2026): Tuitions → My sign-ups, and the lists
 // behind the numbers on Team activity — the same columns in both. Rows arrive
@@ -66,25 +78,38 @@ export default function SignupRows({
   rows,
   showFilters = false,
   filtersFromUrl = false,
+  memberLinks = false,
+  shares = {},
 }: {
   rows: MySignupRow[]
   showFilters?: boolean
-  /** Open with ?counted= / ?month= from the page address (filters only —
-   *  the rows are already cut on the server). */
+  /** Also open with the older ?counted= / ?month= keys (My sign-ups). */
   filtersFromUrl?: boolean
+  /** The viewer may open the admin member page: names become links. */
+  memberLinks?: boolean
+  /** Tutors: Copy profile link / Share on WhatsApp, by member id. */
+  shares?: Record<string, ProfileShare>
 }) {
-  const [f, setF] = useState<Filters>(EMPTY_FILTERS)
-  useEffect(() => {
-    if (!filtersFromUrl) return
-    const sp = new URLSearchParams(window.location.search)
-    const counted = sp.get('counted')
-    const month = sp.get('month')
-    if (isCountedFilter(counted) || isMonthFilter(month)) {
-      setF((cur) => ({ ...cur, ...(isCountedFilter(counted) ? { counted } : {}), ...(isMonthFilter(month) ? { month } : {}) }))
+  const sp = useSearchParams()
+  const [f, setF] = useState<Filters>(() => {
+    const get = (k: keyof Filters) => sp.get(URL_KEY[k])
+    const counted = get('counted') ?? (filtersFromUrl ? sp.get('counted') : null)
+    const month = get('month') ?? (filtersFromUrl ? sp.get('month') : null)
+    const role = get('role')
+    const step = get('step')
+    return {
+      q: get('q') ?? '',
+      role: role && ROLE_FILTERS.includes(role) ? (role as RoleFilter) : 'all',
+      step: step && STEP_OPTIONS.some((o) => o.key === step) ? (step as MyStep | 'all') : 'all',
+      counted: isCountedFilter(counted) ? counted : 'all',
+      month: isMonthFilter(month) ? month : 'all',
     }
-  }, [filtersFromUrl])
+  })
   const shown = useMemo(() => filterRows(rows, f, Date.now()), [rows, f])
-  const set = <K extends keyof Filters>(k: K, v: Filters[K]) => setF((cur) => ({ ...cur, [k]: v }))
+  const set = <K extends keyof Filters>(k: K, v: Filters[K]) => {
+    setF((cur) => ({ ...cur, [k]: v }))
+    setUrlParam(URL_KEY[k], v === EMPTY_FILTERS[k] ? null : String(v))
+  }
 
   return (
     <div className="space-y-3">
@@ -147,7 +172,13 @@ export default function SignupRows({
             <li key={`${r.kind}-${r.memberId}`} className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4 text-xs">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-sm font-black text-tm-navy">{r.name}</p>
+                  {memberLinks && r.kind === 'credit' ? (
+                    <Link href={`/admin/users/${r.memberId}`} className="text-sm font-black text-tm-navy hover:underline">
+                      {r.name}
+                    </Link>
+                  ) : (
+                    <p className="text-sm font-black text-tm-navy">{r.name}</p>
+                  )}
                   <p className="text-gray-600">
                     {r.role === 'tutor' ? 'Tutor' : 'Parent'}
                     {r.city ? ` · ${r.city}` : ''}
@@ -185,6 +216,7 @@ export default function SignupRows({
                   </>
                 )}
               </dl>
+              {r.role === 'tutor' && r.kind === 'credit' && shares[r.memberId] && <ProfileShareButtons share={shares[r.memberId]} />}
               {r.waLink && (
                 <a
                   href={r.waLink}

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
@@ -87,9 +86,6 @@ export default function CleanupClient({
   return (
     <div className="space-y-5">
       <header className="space-y-2">
-        <Link href="/admin/users" className="text-xs font-bold text-tm-red hover:underline">
-          ← All people
-        </Link>
         <h2 className="text-lg font-black text-tm-navy">Junk accounts</h2>
         <p className="text-xs leading-relaxed text-gray-500">
           {candidates.length} of {scanned} accounts look like junk: an address that cannot receive

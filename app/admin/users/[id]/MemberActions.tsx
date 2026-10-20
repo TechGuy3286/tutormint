@@ -1,24 +1,26 @@
 'use client'
-import { AlertTriangle, Ban, ClipboardList, CreditCard, RotateCcw, ShieldX, MessageSquare, PhoneCall } from 'lucide-react'
+import { AlertTriangle, Ban, ChevronDown, CreditCard, MessageCircle, MessageSquare, Pencil, Phone, PhoneCall, RotateCcw, ShieldX } from 'lucide-react'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 
-// Quick actions on a member page.
+// Actions on a member page (owner, 20 Oct 2026):
 //
-// Warn, suspend, reinstate — the same three the reports queue offers, through
-// the same route and the same lib/moderation.ts implementation. Part 4 adds a
-// permanent BAN (owner/manager, distinct from suspend, with a typed "BAN"
-// confirmation) and its owner-only reversal, plus a "Send message" link to the
-// official TutorMint Team channel.
+//   Warn · Suspend or ban ▾ (Suspend / Reinstate, Ban for fraud)
+//   Contact: Message (the in-app TutorMint Team channel) · WhatsApp · Call
+//   Verify mobile manually · Change mobile · Grant or revoke a plan ·
+//   Edit tutor record · Create parent account
 //
-// Granting a plan is deliberately NOT duplicated here: that flow already exists
-// on /admin/plans with its own permission, and re-implementing it would quietly
-// widen who can hand out plans. The link carries the member across instead.
+// Warn, suspend, reinstate and ban go through the same route and the same
+// lib/moderation.ts as the reports queue, with the same confirm steps (a
+// reason; for a ban, typing BAN) and the same permissions as before. Granting a
+// plan stays on /admin/plans with its own permission.
+
+const BTN = 'inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-bold'
 
 export default function MemberActions({
   userId,
@@ -30,10 +32,13 @@ export default function MemberActions({
   isSelf,
   isStaff,
   isOwner,
-  isTutor,
   canVerifyMobile,
   mobileVerified,
   hasMobile,
+  whatsappMsisdn = null,
+  callMsisdn = null,
+  editTutorHref = null,
+  secondRole = null,
 }: {
   userId: string
   name: string
@@ -44,20 +49,44 @@ export default function MemberActions({
   isSelf: boolean
   isStaff: boolean
   isOwner: boolean
-  isTutor: boolean
+  isTutor?: boolean
   canVerifyMobile: boolean
   mobileVerified: boolean
   hasMobile: boolean
+  /** 92… for wa.me; null when there is no number. */
+  whatsappMsisdn?: string | null
+  /** 92… for tel:; null when there is no number. */
+  callMsisdn?: string | null
+  /** The admin tutor record (profile address and edits). */
+  editTutorHref?: string | null
+  /** "Create parent account" / "Create tutor account" (SecondRoleCard). */
+  secondRole?: React.ReactNode
 }) {
   const router = useRouter()
   const toast = useToast()
   const readOnly = useAdminReadOnly()
   const [open, setOpen] = useState<string | null>(null)
+  const [menu, setMenu] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
   const [reason, setReason] = useState('')
   const [confirmWord, setConfirmWord] = useState('')
   const [newMobile, setNewMobile] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!menu) return
+    const close = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenu(false)
+    }
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setMenu(false)
+    document.addEventListener('mousedown', close)
+    document.addEventListener('keydown', esc)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('keydown', esc)
+    }
+  }, [menu])
 
   const act = async (action: string) => {
     setBusy(true)
@@ -106,8 +135,10 @@ export default function MemberActions({
 
   if (readOnly) return null
 
+  const moderable = !isSelf && !isOwner
+
   return (
-    <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
+    <section className="space-y-4 rounded-2xl border border-gray-200 bg-white p-4">
       <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">Actions</h2>
 
       {error && <p className="text-[11px] font-bold text-tm-red">{error}</p>}
@@ -121,10 +152,10 @@ export default function MemberActions({
       {isSelf ? (
         <p className="text-xs text-gray-500">This is your own account.</p>
       ) : isOwner ? (
-        <p className="text-xs text-gray-500">
-          The owner account cannot be warned, suspended or banned from here.
-        </p>
-      ) : open ? (
+        <p className="text-xs text-gray-500">The owner account cannot be warned, suspended or banned from here.</p>
+      ) : null}
+
+      {open ? (
         <div className="space-y-2">
           <label className="block space-y-1">
             <span className="text-[11px] font-bold text-gray-500">
@@ -205,111 +236,143 @@ export default function MemberActions({
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {banned ? (
-            canUnban && (
-              <button
-                type="button"
-                onClick={() => setOpen('unban')}
-                className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl bg-tm-green-deep px-4 text-xs font-bold text-white sm:col-span-2"
-              >
-                <RotateCcw aria-hidden size={13} />
-                Lift ban
-              </button>
-            )
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => setOpen('warn')}
-                className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl bg-tm-gold px-4 text-xs font-bold text-tm-navy"
-              >
-                <AlertTriangle aria-hidden size={13} />
-                Warn
-              </button>
-              {suspended ? (
-                <button
-                  type="button"
-                  onClick={() => setOpen('unsuspend')}
-                  className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl bg-tm-green-deep px-4 text-xs font-bold text-white"
-                >
-                  <RotateCcw aria-hidden size={13} />
-                  Reinstate
-                </button>
+        <>
+          {moderable && (
+            <div className="flex flex-wrap gap-2">
+              {banned ? (
+                canUnban && (
+                  <button type="button" onClick={() => setOpen('unban')} className={`${BTN} bg-tm-green-deep text-white`}>
+                    <RotateCcw aria-hidden size={13} />
+                    Lift ban
+                  </button>
+                )
               ) : (
-                <button
-                  type="button"
-                  onClick={() => setOpen('suspend')}
-                  className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl bg-tm-red px-4 text-xs font-bold text-white"
-                >
-                  <Ban aria-hidden size={13} />
-                  Suspend
-                </button>
+                <>
+                  <button type="button" onClick={() => setOpen('warn')} className={`${BTN} bg-tm-gold text-tm-navy`}>
+                    <AlertTriangle aria-hidden size={13} />
+                    Warn
+                  </button>
+                  {/* Suspend and ban in one menu (owner, 20 Oct 2026): the same
+                      confirm steps and permissions as the two buttons had. */}
+                  <div ref={menuRef} className="relative">
+                    <button
+                      type="button"
+                      aria-haspopup="menu"
+                      aria-expanded={menu}
+                      onClick={() => setMenu((v) => !v)}
+                      className={`${BTN} border border-tm-red bg-white text-tm-red`}
+                    >
+                      <Ban aria-hidden size={13} />
+                      Suspend or ban
+                      <ChevronDown aria-hidden size={13} />
+                    </button>
+                    {menu && (
+                      <ul role="menu" className="absolute left-0 z-20 mt-1 min-w-[200px] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
+                        <li role="none">
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                              setMenu(false)
+                              setOpen(suspended ? 'unsuspend' : 'suspend')
+                            }}
+                            className="flex min-h-[44px] w-full items-center gap-1.5 px-3 text-left text-xs font-bold text-tm-navy hover:bg-tm-bg"
+                          >
+                            {suspended ? <RotateCcw aria-hidden size={13} /> : <Ban aria-hidden size={13} />}
+                            {suspended ? 'Reinstate' : 'Suspend'}
+                          </button>
+                        </li>
+                        {canBan && (
+                          <li role="none">
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => {
+                                setMenu(false)
+                                setOpen('ban')
+                              }}
+                              className="flex min-h-[44px] w-full items-center gap-1.5 px-3 text-left text-xs font-bold text-tm-red hover:bg-tm-bg"
+                            >
+                              <ShieldX aria-hidden size={13} />
+                              Ban for fraud
+                            </button>
+                          </li>
+                        )}
+                      </ul>
+                    )}
+                  </div>
+                </>
               )}
-              {canVerifyMobile && hasMobile && !mobileVerified && (
-                <button
-                  type="button"
-                  onClick={() => setOpen('verify-mobile')}
-                  className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl bg-tm-navy px-4 text-xs font-bold text-white"
-                >
-                  <PhoneCall aria-hidden size={13} />
-                  Verify mobile manually
-                </button>
-              )}
-              {canVerifyMobile && (
-                <button
-                  type="button"
-                  onClick={() => setOpen('change-mobile')}
-                  className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-tm-navy hover:border-tm-navy"
-                >
-                  <PhoneCall aria-hidden size={13} />
-                  Change mobile
-                </button>
-              )}
-              {canBan && (
-                <button
-                  type="button"
-                  onClick={() => setOpen('ban')}
-                  className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl border border-tm-red bg-white px-4 text-xs font-bold text-tm-red sm:col-span-2"
-                >
-                  <ShieldX aria-hidden size={13} />
-                  Ban for fraud
-                </button>
-              )}
-            </>
+            </div>
           )}
-        </div>
-      )}
 
-      <div className="flex flex-col gap-2 sm:flex-row">
-        {!isSelf && !banned && (
-          <Link
-            href={`/admin/inbox?to=${userId}`}
-            className="gap-1.5 inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700 hover:border-tm-navy"
-          >
-            <MessageSquare aria-hidden size={14} />
-            Send message
-          </Link>
-        )}
-        {!isStaff && (
-          <Link
-            href="/admin/plans"
-            className="gap-1.5 inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
-          >
-            <CreditCard aria-hidden size={14} />
-            Grant or revoke a plan
-          </Link>
-        )}
-        {isTutor && (
-          <Link
-            href="/admin/tutors"
-            className="gap-1.5 inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
-          >
-            <ClipboardList aria-hidden size={14} />
-            Open moderation queue
-          </Link>
-        )}
-      </div>
+          {/* Contact (owner, 20 Oct 2026): one group. */}
+          {!isSelf && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Contact</p>
+              <div className="flex flex-wrap gap-2">
+                {!banned && (
+                  <Link href={`/admin/inbox?to=${userId}`} className={`${BTN} border border-gray-200 text-slate-700 hover:border-tm-navy`}>
+                    <MessageSquare aria-hidden size={14} />
+                    Message
+                  </Link>
+                )}
+                {whatsappMsisdn && (
+                  <a
+                    href={`https://wa.me/${whatsappMsisdn}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`${BTN} bg-tm-green-deep text-white hover:bg-tm-green-deep-hover`}
+                  >
+                    <MessageCircle aria-hidden size={14} />
+                    WhatsApp
+                  </a>
+                )}
+                {callMsisdn && (
+                  <a href={`tel:+${callMsisdn}`} className={`${BTN} border border-gray-200 text-slate-700 hover:border-tm-navy`}>
+                    <Phone aria-hidden size={14} />
+                    Call
+                  </a>
+                )}
+                {!whatsappMsisdn && !callMsisdn && <span className="self-center text-[11px] text-gray-500">No mobile number on file.</span>}
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            {moderable && !banned && canVerifyMobile && hasMobile && !mobileVerified && (
+              <button type="button" onClick={() => setOpen('verify-mobile')} className={`${BTN} bg-tm-navy text-white`}>
+                <PhoneCall aria-hidden size={13} />
+                Verify mobile manually
+              </button>
+            )}
+            {moderable && !banned && canVerifyMobile && (
+              <button
+                type="button"
+                onClick={() => setOpen('change-mobile')}
+                className={`${BTN} border border-gray-200 bg-white text-tm-navy hover:border-tm-navy`}
+              >
+                <PhoneCall aria-hidden size={13} />
+                Change mobile
+              </button>
+            )}
+            {!isStaff && (
+              <Link href="/admin/plans" className={`${BTN} border border-gray-200 text-slate-700 hover:border-tm-navy`}>
+                <CreditCard aria-hidden size={14} />
+                Grant or revoke a plan
+              </Link>
+            )}
+            {editTutorHref && (
+              <Link href={editTutorHref} className={`${BTN} border border-gray-200 text-slate-700 hover:border-tm-navy`}>
+                <Pencil aria-hidden size={14} />
+                Edit tutor record
+              </Link>
+            )}
+          </div>
+
+          {secondRole}
+        </>
+      )}
     </section>
   )
 }

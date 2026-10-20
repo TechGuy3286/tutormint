@@ -36,9 +36,6 @@ export default async function UnmetSearchesPage({ searchParams }: { searchParams
             {board.excluded} search{board.excluded === 1 ? '' : 'es'} by staff, test accounts or test text {board.excluded === 1 ? 'is' : 'are'} left out.
           </p>
         </div>
-        <Link href="/admin" className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy">
-          Back to Overview
-        </Link>
       </header>
 
       <nav aria-label="Tabs" className="flex flex-wrap gap-2">

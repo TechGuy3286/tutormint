@@ -11,7 +11,9 @@ import { OwnerOnlyNote, useAdminReadOnly, useCanApprove } from '@/components/adm
 import type { DocumentStatuses, DocItem, DocState } from '@/lib/tutorDocuments'
 import { cnicSideNote } from '@/lib/tutorDocQueueCore'
 import { CNIC_NUMBER_MISSING } from '@/lib/docLockCore'
-import UnlockDocButton from '@/components/admin/UnlockDocButton'
+import { UnlockedNote, useUnlockDoc } from '@/components/admin/UnlockDocButton'
+import DocChangeMenu from '@/components/admin/DocChangeMenu'
+import { changeMenuOptions } from '@/lib/docChangeMenuCore'
 import AdminCnicNumberBox, { CNIC_NUMBER_BOX_ID } from '@/components/admin/AdminCnicNumberBox'
 import DocumentsApprovedWhatsApp from '@/components/admin/DocumentsApprovedWhatsApp'
 import { allDocumentsApproved } from '@/lib/documentsApprovedCore'
@@ -90,7 +92,9 @@ export default function TutorDocumentReview({
   const at: Record<string, number> = {}
   if (cnicFrontId) { at.cnicFront = images.length; images.push({ src: `/api/documents/${cnicFrontId}/preview`, alt: 'CNIC front', documentId: cnicFrontId }) }
   if (cnicBackId) { at.cnicBack = images.length; images.push({ src: `/api/documents/${cnicBackId}/preview`, alt: 'CNIC back', documentId: cnicBackId }) }
-  if (avatarUrl) { at.pic = images.length; images.push({ src: avatarUrl, alt: 'Profile picture', profileId: tutorId }) }
+  // The expand icon opens the ORIGINAL upload (owner, 20 Oct 2026) — the
+  // picture as uploaded, turned by any saved rotation, never the crop.
+  if (avatarUrl) { at.pic = images.length; images.push({ src: avatarOriginalUrl ? `/api/admin/profile-photo/source?memberId=${tutorId}` : avatarUrl, alt: 'Profile picture', profileId: tutorId }) }
   if (selfieDocId) { at.selfie = images.length; images.push({ src: `/api/documents/${selfieDocId}/preview`, alt: 'Selfie', documentId: selfieDocId }) }
   if (rv?.cnicFrontId) { at.newFront = images.length; images.push({ src: `/api/documents/${rv.cnicFrontId}/preview`, alt: 'New CNIC front', documentId: rv.cnicFrontId }) }
   if (rv?.cnicBackId) { at.newBack = images.length; images.push({ src: `/api/documents/${rv.cnicBackId}/preview`, alt: 'New CNIC back', documentId: rv.cnicBackId }) }
@@ -111,6 +115,7 @@ export default function TutorDocumentReview({
           canReview={canReview}
           memberWhatsapp={memberWhatsapp}
           state={statuses.cnic}
+          unlock={lockInfo ? { item: 'cnic', lockable: lockInfo.lockable.cnic && !rv?.cnicFrontId && !rv?.cnicBackId, unlockOpen: lockInfo.unlockOpen.cnic, canUnlock } : null}
           onStatus={(st) => setLive((l) => ({ ...l, cnic: st }))}
           onNumberMissing={() => {
             setNumberHighlight(true)
@@ -155,9 +160,6 @@ export default function TutorDocumentReview({
             </NewUpload>
           )}
           <AdminCnicNumberBox tutorId={tutorId} maskedNumber={cnicNumberMasked} canEdit={canEditNumber} highlight={numberHighlight} />
-          {lockInfo?.lockable.cnic && !rv?.cnicFrontId && !rv?.cnicBackId && (
-            <UnlockDocButton memberId={tutorId} item="cnic" unlockOpen={lockInfo.unlockOpen.cnic} canUnlock={canUnlock} />
-          )}
         </ReviewItem>
 
         <ReviewItem
@@ -167,6 +169,7 @@ export default function TutorDocumentReview({
           canReview={canReview}
           memberWhatsapp={memberWhatsapp}
           state={statuses.profilePic}
+          unlock={lockInfo ? { item: 'photo', lockable: !!lockInfo.lockable.photo, unlockOpen: !!lockInfo.unlockOpen.photo, canUnlock } : null}
           onStatus={(st) => setLive((l) => ({ ...l, profilePic: st }))}
         >
           {avatarUrl ? (
@@ -177,15 +180,6 @@ export default function TutorDocumentReview({
           ) : (
             <NoImage label="No picture" />
           )}
-          {avatarUrl && avatarOriginalUrl && (
-            <a href={avatarOriginalUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex min-h-[44px] items-center text-xs font-bold text-tm-red underline">
-              View original
-            </a>
-          )}
-          {/* An approved photo is locked (owner, 17 Oct 2026): the Owner unlocks ONE change. */}
-          {lockInfo?.lockable.photo && (
-            <UnlockDocButton memberId={tutorId} item="photo" unlockOpen={!!lockInfo.unlockOpen.photo} canUnlock={canUnlock} />
-          )}
         </ReviewItem>
 
         <ReviewItem
@@ -195,6 +189,7 @@ export default function TutorDocumentReview({
           canReview={canReview}
           memberWhatsapp={memberWhatsapp}
           state={statuses.selfie}
+          unlock={lockInfo ? { item: 'selfie', lockable: lockInfo.lockable.selfie && !rv?.selfieId, unlockOpen: lockInfo.unlockOpen.selfie, canUnlock } : null}
           onStatus={(st) => setLive((l) => ({ ...l, selfie: st }))}
         >
           {selfieDocId ? (
@@ -210,9 +205,6 @@ export default function TutorDocumentReview({
                 <SecureDocumentPreview documentId={rv.selfieId} alt="New selfie" />
               </Zoomable>
             </NewUpload>
-          )}
-          {lockInfo?.lockable.selfie && !rv?.selfieId && (
-            <UnlockDocButton memberId={tutorId} item="selfie" unlockOpen={lockInfo.unlockOpen.selfie} canUnlock={canUnlock} />
           )}
         </ReviewItem>
       </div>
@@ -251,8 +243,11 @@ function ReviewItem({
   memberWhatsapp,
   onNumberMissing,
   onStatus,
+  unlock = null,
   children,
 }: {
+  /** Unlock for re-upload, offered in the Change menu when the document is approved and locked. */
+  unlock?: { item: 'cnic' | 'selfie' | 'photo'; lockable: boolean; unlockOpen: boolean; canUnlock: boolean } | null
   tutorId: string
   item: DocItem
   title: string
@@ -282,14 +277,24 @@ function ReviewItem({
   const clearReason = () => { setChosen(null); setNote('') }
   const [rejecting, setRejecting] = useState(false)
   const [busy, setBusy] = useState<'approve' | 'reject' | null>(null)
-  // PR106-C §7: once a decision is made, the active buttons are hidden behind a
-  // "Change decision" link, so an approved/rejected item is not changed by a
-  // stray tap. Clicking reveals the buttons again; any change is logged by the
-  // route exactly as a first decision is.
+  // PR106-C §7: once a decision is made, the active buttons are hidden behind
+  // the "Change ▾" menu (owner, 20 Oct 2026), so an approved/rejected item is
+  // not changed by a stray tap; any change is logged by the route exactly as a
+  // first decision is.
   const [changing, setChanging] = useState(false)
 
+  const unlocker = useUnlockDoc(tutorId, unlock?.item ?? 'cnic', !!unlock?.unlockOpen)
   const s = STATUS_LABEL[status]
   const decided = status === 'approved' || status === 'rejected'
+  // One Change menu (owner, 20 Oct 2026) — Owner only, lib/docChangeMenuCore.
+  const menu = changeMenuOptions({
+    canDecide: canReview,
+    status,
+    hasUpload: state.hasUpload,
+    unlockable: !!unlock?.lockable,
+    unlockOpen: unlocker.open,
+    canUnlock: !!unlock?.canUnlock,
+  })
 
   // PR106-H1 §4: "Send on WhatsApp" — opens WhatsApp to the member with the
   // rejection message pre-written (staff press send). English + Urdu, with the
@@ -347,14 +352,20 @@ function ReviewItem({
         <p className="text-[11px] font-semibold text-gray-500">Not uploaded yet — nothing to review.</p>
       )}
 
-      {canReview && state.hasUpload && decided && !changing && (
-        <button
-          type="button"
-          onClick={() => setChanging(true)}
-          className="min-h-[32px] text-[11px] font-bold text-tm-navy underline-offset-2 hover:underline"
-        >
-          Change decision
-        </button>
+      {unlock && unlocker.open && <UnlockedNote />}
+
+      {decided && !changing && (
+        <DocChangeMenu
+          options={menu}
+          busy={!!busy || unlocker.busy}
+          onPick={(o) => {
+            if (o === 'approve') void act('approve')
+            else if (o === 'reject') {
+              setChanging(true)
+              setRejecting(true)
+            } else void unlocker.run()
+          }}
+        />
       )}
 
       {canReview && state.hasUpload && (!decided || changing) && (

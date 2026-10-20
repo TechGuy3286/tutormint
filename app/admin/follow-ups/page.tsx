@@ -2,6 +2,7 @@ import Link from 'next/link'
 
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadUnpaidSignups } from '@/lib/staffOutreach'
+import { loadProfileShares } from '@/lib/profileShare'
 import {
   parseTutorScope,
   parseUnpaidFilter,
@@ -119,6 +120,7 @@ async function TutorsTab({ filterParam, scope }: { filterParam?: string; scope: 
     startedPayment: !!r.startedPayment,
   })
   const rows = all.filter((r) => unpaidRowMatches(facts(r), filter, now))
+  const shares = await loadProfileShares(rows.map((r) => r.id))
   const count = (f: UnpaidFilter) => all.filter((r) => unpaidRowMatches(facts(r), f, now)).length
   const chip = (on: boolean) =>
     `inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-4 text-xs font-bold ${
@@ -195,6 +197,7 @@ async function TutorsTab({ filterParam, scope }: { filterParam?: string; scope: 
             <UnpaidSignupRow
               key={r.id}
               row={r}
+              share={shares.get(r.id) ?? null}
               showMissing={scope === 'paid_unfinished'}
               followUp={{
                 tab: states.get(r.id)?.sent ? 'sent' : 'stuck',

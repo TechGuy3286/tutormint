@@ -15,7 +15,9 @@ import { PARENT_REJECT_PRESETS, type ParentDocItem, type ParentItemState } from 
 import { buildRejectReason, rejectionWhatsAppText } from '@/lib/rejectReasonsCore'
 import RejectReasonPicker from '@/components/admin/RejectReasonPicker'
 import { cnicSideNote } from '@/lib/tutorDocQueueCore'
-import UnlockDocButton from '@/components/admin/UnlockDocButton'
+import { UnlockedNote, useUnlockDoc } from '@/components/admin/UnlockDocButton'
+import DocChangeMenu from '@/components/admin/DocChangeMenu'
+import { changeMenuOptions } from '@/lib/docChangeMenuCore'
 
 // A parent's documents (owner, 8 Oct 2026): CNIC front + back and the typed
 // address, each approved or rejected on its own. The member page's Documents
@@ -79,7 +81,7 @@ export default function ParentDocumentReview({
         </p>
       )}
       <div className="grid gap-3 sm:grid-cols-2">
-        <ReviewItem parentId={docs.parentId} item="cnic" title="CNIC (front & back)" canReview={canReview} state={docs.cnic} whatsapp={docs.whatsapp} onVerified={setVerified}>
+        <ReviewItem parentId={docs.parentId} item="cnic" title="CNIC (front & back)" canReview={canReview} state={docs.cnic} whatsapp={docs.whatsapp} onVerified={setVerified} unlock={{ lockable: lockable && !hasNew, unlockOpen, canUnlock }}>
           <div className="grid grid-cols-2 gap-2">
             {docs.cnicFrontId ? (
               <Zoomable onOpen={() => setLbIndex(at.front)}>
@@ -126,9 +128,6 @@ export default function ParentDocumentReview({
           </p>
           {/* Staff only: the same number on another account (a warning, never a block). */}
           {docs.cnicNumber && <SavedCnicDuplicate memberId={docs.parentId} />}
-          {lockable && !hasNew && (
-            <UnlockDocButton memberId={docs.parentId} item="cnic" unlockOpen={unlockOpen} canUnlock={canUnlock} />
-          )}
         </ReviewItem>
 
         <ReviewItem parentId={docs.parentId} item="address" title="Home address" canReview={canReview} state={docs.addressItem} whatsapp={docs.whatsapp} onVerified={setVerified}>
@@ -155,8 +154,11 @@ function ReviewItem({
   state,
   whatsapp,
   onVerified,
+  unlock = null,
   children,
 }: {
+  /** Unlock for re-upload (the CNIC), offered in the Change menu. */
+  unlock?: { lockable: boolean; unlockOpen: boolean; canUnlock: boolean } | null
   parentId: string
   item: ParentDocItem
   title: string
@@ -189,8 +191,18 @@ function ReviewItem({
   const [busy, setBusy] = useState<'approve' | 'reject' | null>(null)
   const [changing, setChanging] = useState(false)
 
+  const unlocker = useUnlockDoc(parentId, 'cnic', !!unlock?.unlockOpen)
   const s = STATUS_LABEL[status]
   const decided = status === 'approved' || status === 'rejected'
+  // One Change menu (owner, 20 Oct 2026) — Owner only, lib/docChangeMenuCore.
+  const menu = changeMenuOptions({
+    canDecide: canReview,
+    status,
+    hasUpload: state.hasUpload,
+    unlockable: !!unlock?.lockable,
+    unlockOpen: unlocker.open,
+    canUnlock: !!unlock?.canUnlock,
+  })
   const what = item === 'cnic' ? 'CNIC photo' : 'address'
 
   // "Send on WhatsApp" — the rejection message pre-written (staff press send),
@@ -255,10 +267,20 @@ function ReviewItem({
         </p>
       )}
 
-      {canReview && state.hasUpload && decided && !changing && (
-        <button type="button" onClick={() => setChanging(true)} className="min-h-[32px] text-[11px] font-bold text-tm-navy underline-offset-2 hover:underline">
-          Change decision
-        </button>
+      {unlock && unlocker.open && <UnlockedNote />}
+
+      {decided && !changing && (
+        <DocChangeMenu
+          options={menu}
+          busy={!!busy || unlocker.busy}
+          onPick={(o) => {
+            if (o === 'approve') void act('approve')
+            else if (o === 'reject') {
+              setChanging(true)
+              setRejecting(true)
+            } else void unlocker.run()
+          }}
+        />
       )}
 
       {canReview && state.hasUpload && (!decided || changing) && (

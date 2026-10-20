@@ -67,14 +67,31 @@ export function docSummary(statuses: CardStatuses, videoStatus?: string | null):
   return { kind: 'none', label: '⚪ Not uploaded', breakdown, waitingCount }
 }
 
+/** One colour per status, shared by the tutor cards' Documents row and the
+ *  member page's Documents fact (owner, 20 Oct 2026): green approved, amber
+ *  waiting or partly approved, red only for rejected, grey for not uploaded. */
+export const DOC_KIND_TONE: Record<DocSummaryKind, string> = {
+  approved: 'text-tm-green-deep',
+  waiting: 'text-tm-gold-ink',
+  partial: 'text-tm-gold-ink',
+  rejected: 'text-tm-red',
+  none: 'text-gray-500',
+}
+
 // ── The Tutors list's filter chips ────────────────────────────────────────
 
-export type DocFilter = 'all' | 'waiting' | 'approved' | 'rejected' | 'none'
-export const DOC_FILTERS: DocFilter[] = ['all', 'waiting', 'approved', 'rejected', 'none']
+export type DocFilter = 'all' | 'waiting' | 'partial' | 'approved' | 'rejected' | 'none'
+// 'Partly approved' (owner, 20 Oct 2026): some required items approved, the rest
+// not uploaded — the card's own 'k of 3 approved' status.
+export const DOC_FILTERS: DocFilter[] = ['all', 'waiting', 'partial', 'approved', 'rejected', 'none']
+
+export function isDocFilter(v: string): v is DocFilter {
+  return (DOC_FILTERS as string[]).includes(v)
+}
 
 export function docFilterLabel(f: DocFilter, isOwner: boolean): string {
   if (f === 'waiting') return isOwner ? 'Waiting for my approval' : 'Waiting for approval'
-  return { all: 'All', approved: 'Approved', rejected: 'Rejected', none: 'Not uploaded' }[f]
+  return { all: 'All', partial: 'Partly approved', approved: 'Approved', rejected: 'Rejected', none: 'Not uploaded' }[f]
 }
 
 type WithDocs = { docs?: { kind: DocSummaryKind; oldestUploadAt: string | null } | null }

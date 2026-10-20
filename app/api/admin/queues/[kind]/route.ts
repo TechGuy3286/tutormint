@@ -7,7 +7,6 @@ import {
   loadParentQueue,
   loadPaymentQueue,
   withoutAmounts,
-  loadMemberTimeline,
   loadReportQueue,
   loadSubscriptionLedger,
   loadTutorQueue,
@@ -15,6 +14,9 @@ import {
   QUEUE_SCREEN,
   type QueueKind,
 } from '@/lib/adminQueues'
+import { loadUnifiedTimeline } from '@/lib/memberTimeline'
+import { parseTimelineGroup } from '@/lib/memberTimelineCore'
+import type { AdminRole } from '@/lib/adminAccessCore'
 
 // The "and then some more" half of every admin list that used to end at a
 // hard cap.
@@ -31,7 +33,7 @@ import {
 
 export const dynamic = 'force-dynamic'
 
-type Args = { filter: string; search: string; cursor: string | null; params: URLSearchParams }
+type Args = { filter: string; search: string; cursor: string | null; params: URLSearchParams; role: AdminRole }
 
 const LOADERS: Record<QueueKind, (args: Args) => Promise<{
   rows: unknown[]
@@ -51,12 +53,15 @@ const LOADERS: Record<QueueKind, (args: Args) => Promise<{
   // from the query string and is used only as an equality on user_id -- the
   // permission that matters is SCREEN_ACCESS.users, checked above, because an
   // admin who may open the member directory may read any member's timeline.
-  timeline: ({ cursor, params }) =>
-    loadMemberTimeline({
+  // ONE merged timeline (owner, 20 Oct 2026): the cursor is a position in the
+  // grouped list. Visits (sessions and pages) only for owner/admin/Partner, as
+  // the old Activity box was.
+  timeline: ({ cursor, params, role }) =>
+    loadUnifiedTimeline({
       userId: params.get('userId') ?? '',
-      group: params.get('group') ?? 'all',
-      cursor,
-      limit: QUEUE_PAGE,
+      group: parseTimelineGroup(params.get('group')),
+      offset: Number(cursor) || 0,
+      withVisits: roleSatisfies(role, ['admin']),
     }),
 }
 
@@ -79,6 +84,7 @@ export async function GET(
     search: url.searchParams.get('search') ?? '',
     cursor: url.searchParams.get('cursor'),
     params: url.searchParams,
+    role: gate.actor.adminRole,
   })
 
   // Payment amounts only for the owner and the Partner (owner, 8 Oct 2026).

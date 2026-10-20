@@ -36,26 +36,22 @@ export default function SecondRoleCard({
 
   if (linkedId) {
     return (
-      <section className="rounded-2xl border border-gray-200 bg-white p-4 text-xs text-gray-700">
-        <h2 className="mb-1 text-xs font-black uppercase tracking-wide text-gray-500">Second account</h2>
+      <p className="text-xs text-gray-700">
         This person also has a linked account on the same mobile.{' '}
         <Link href={`/admin/users/${linkedId}`} className="font-bold text-tm-navy underline">
           Open it
         </Link>
-      </section>
+      </p>
     )
   }
   if (!role) {
     return reason ? (
-      <section className="rounded-2xl border border-gray-200 bg-white p-4 text-xs text-gray-500">
-        <h2 className="mb-1 text-xs font-black uppercase tracking-wide text-gray-500">Second account</h2>
-        {reason}
-      </section>
+      <p className="text-[11px] text-gray-500">Second account: {reason}</p>
     ) : null
   }
   if (readOnly) return null
 
-  const label = role === 'parent' ? 'Create a parent account for this person' : 'Create a tutor account'
+  const label = role === 'parent' ? 'Create parent account' : 'Create tutor account'
 
   const create = async () => {
     setBusy(true)
@@ -75,8 +71,7 @@ export default function SecondRoleCard({
   }
 
   return (
-    <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
-      <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">Second account</h2>
+    <div className="space-y-3">
       {!open ? (
         <button
           type="button"
@@ -115,6 +110,6 @@ export default function SecondRoleCard({
           </div>
         </div>
       )}
-    </section>
+    </div>
   )
 }

@@ -8,6 +8,7 @@ import { OVERVIEW_ITEMS, PAYER_PERIODS, isOverviewItemKey, paidListHref, parseFu
 import { pkr } from '@/lib/reconciliationCore'
 import { loadMemberCards } from '@/lib/overviewCards'
 import { loadTutorDocSummaries } from '@/lib/tutorDocSummaries'
+import { loadProfileShares } from '@/lib/profileShare'
 import OverviewCardGrid, { type GridItem } from '@/components/admin/OverviewCardGrid'
 
 // The list behind one Overview number (owner, 8 Oct 2026, item 5). It reads the
@@ -42,7 +43,7 @@ export default async function OverviewListPage({
   // One combined Documents status per tutor card (owner, 19 Oct 2026), loaded
   // for the whole page at once — the member page's own status rules.
   const tutorIds = Array.from(members.entries()).filter(([, m]) => m.role === 'tutor').map(([id]) => id)
-  const docs = await loadTutorDocSummaries(tutorIds)
+  const [docs, shares] = await Promise.all([loadTutorDocSummaries(tutorIds), loadProfileShares(tutorIds)])
   const items: GridItem[] = list.rows.map((r) => ({
     id: r.id,
     title: r.title,
@@ -56,6 +57,7 @@ export default async function OverviewListPage({
     member: (r.memberId && members.get(r.memberId)) || null,
     followUp: r.followUp ?? null,
     docs: (r.memberId && docs.get(r.memberId)) || null,
+    share: (r.memberId && shares.get(r.memberId)) || null,
   }))
   // Stuck in onboarding and Follow-up sent are two tabs of one list (owner,
   // 9 Oct 2026), each with its own count.
@@ -83,12 +85,6 @@ export default async function OverviewListPage({
           )}
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link
-            href={meta.funnel ? `/admin?funnel=${days}` : '/admin'}
-            className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy"
-          >
-            Back to Overview
-          </Link>
           {list.workHref && (
             <Link
               href={list.workHref}

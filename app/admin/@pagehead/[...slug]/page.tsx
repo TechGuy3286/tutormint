@@ -1,6 +1,7 @@
 import Breadcrumbs from '@/components/Breadcrumbs'
 import { getAdminActor, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
-import { adminTrail } from '@/lib/adminNav'
+import { adminTrail, type Crumb } from '@/lib/adminNav'
+import { trailFor } from '@/lib/adminFromCore'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { formatName } from '@/lib/formatName'
 import { OVERVIEW_ITEMS, isOverviewItemKey } from '@/lib/overviewItemsCore'
@@ -70,14 +71,38 @@ async function dynamicLabel(slug: string[]): Promise<string | null> {
   return formatName(data?.full_name as string | null) || null
 }
 
+/**
+ * The trail for one admin address. A record opened FROM a list carries the
+ * list in `?from=` (lib/adminFromCore): the trail is then the list's own trail
+ * (its crumb linking back to the list's full address, filter and search kept)
+ * plus this record — up to FROM_MAX_DEPTH lists deep. With no `from` it is the
+ * record's own section, e.g. "Admin › People › Name".
+ */
+function trailForUrl(url: string): Promise<Crumb[]> {
+  return trailFor(url, async (path) => {
+    const slug = path.split('/').filter(Boolean).slice(1)
+    return adminTrail(path, await dynamicLabel(slug)).crumbs
+  })
+}
+
 export default async function AdminPageHead({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug?: string[] }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const { slug = [] } = await params
-  const label = await dynamicLabel(slug)
-  const { crumbs, title } = adminTrail(['/admin', ...slug].join('/'), label)
+  const sp = await searchParams
+  const query = new URLSearchParams()
+  for (const [k, v] of Object.entries(sp)) {
+    if (typeof v === 'string') query.set(k, v)
+    else if (Array.isArray(v)) v.forEach((x) => query.append(k, x))
+  }
+  const path = ['/admin', ...slug].join('/')
+  const qs = query.toString()
+  const crumbs = await trailForUrl(qs ? `${path}?${qs}` : path)
+  const title = crumbs[crumbs.length - 1].label
 
   return (
     <div className="min-w-0">

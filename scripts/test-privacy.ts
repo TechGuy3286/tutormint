@@ -67,9 +67,10 @@ test('the watermark is a dense, high-contrast repeated TutorMint grid', () => {
 
 // ---------------------------------- §7 / §9 source guarantees -------------------
 
-test('admin Change-decision reveals the buttons that re-run the same logged review action', () => {
+test('admin Change menu re-runs the same logged review action', () => {
   const src = read('components/admin/TutorDocumentReview.tsx')
-  assert.ok(src.includes('Change decision'), 'a decided item offers "Change decision"')
+  // Since 20 Oct 2026 a decided item offers one 'Change ▾' menu (DocChangeMenu).
+  assert.ok(src.includes('<DocChangeMenu'), 'a decided item offers the Change menu')
   assert.ok(src.includes('decided && !changing'), 'the active buttons are hidden until the admin chooses to change')
   // The reveal re-runs act(), which POSTs the same document-review route that
   // logs to the member timeline + notifies the tutor (lib/tutorDocuments).

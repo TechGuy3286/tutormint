@@ -265,7 +265,9 @@ export function adminTrail(
                   ? 'Staff member'
                   : part))
       : SECTION_LABELS[part]
-    crumbs.push(i === parts.length - 1 ? { label } : { label, href })
+    // /admin/overview has no page of its own: the Overview IS /admin.
+    const to = i === 0 && part === 'overview' ? '/admin' : href
+    crumbs.push(i === parts.length - 1 ? { label } : { label, href: to })
   })
 
   return { crumbs, title: crumbs[crumbs.length - 1].label }

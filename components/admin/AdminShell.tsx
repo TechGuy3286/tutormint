@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useId, useRef, useState } from 'react'
+import { Suspense, useEffect, useId, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -42,6 +42,7 @@ import {
 } from 'lucide-react'
 
 import type { NavColor, NavGroup } from '@/lib/adminNav'
+import AdminReturnKeeper from '@/components/admin/AdminReturnKeeper'
 
 // The admin shell: one sidebar, one header, one content column.
 //
@@ -443,6 +444,9 @@ export default function AdminShell({
         {banner}
 
         <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">{children}</main>
+        <Suspense fallback={null}>
+          <AdminReturnKeeper />
+        </Suspense>
       </div>
     </div>
   )

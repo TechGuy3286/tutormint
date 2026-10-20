@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ExternalLink, FileCheck2, MessageCircle, Phone, Search } from 'lucide-react'
@@ -11,11 +11,16 @@ import { formatDate } from '@/lib/datetime'
 import type { BadgeName } from '@/lib/planBadges'
 import FollowUpActions, { MarkFollowedUp } from '@/components/admin/FollowUpActions'
 import type { FollowUpSource } from '@/lib/followUpCore'
+import ProfileShareButtons from '@/components/admin/ProfileShareButtons'
+import type { ProfileShare } from '@/lib/profileShareCore'
+import { useUrlState } from '@/lib/useUrlState'
 import {
   DOC_FILTERS,
   applyDocFilter,
   docFilterCounts,
   docFilterLabel,
+  isDocFilter,
+  DOC_KIND_TONE,
   withoutJoined,
   type DocFilter,
   type DocSummary,
@@ -64,6 +69,8 @@ export type GridItem = {
   } | null
   /** Tutors only: the combined Documents status (owner, 19 Oct 2026). */
   docs?: (DocSummary & { oldestUploadAt: string | null }) | null
+  /** Tutors only: Copy profile link / Share on WhatsApp (owner, 20 Oct 2026). */
+  share?: ProfileShare | null
 }
 
 const STEP = 48
@@ -81,9 +88,30 @@ export default function OverviewCardGrid({
   docFilters?: boolean
   isOwner?: boolean
 }) {
-  const [q, setQ] = useState('')
-  const [docFilter, setDocFilter] = useState<DocFilter>('all')
-  const [shown, setShown] = useState(STEP)
+  // Search and chip live in the page address (owner, 20 Oct 2026), so coming
+  // back from a card — breadcrumb, browser or phone back — reopens the same
+  // list. How far 'Show more' went is remembered for the tab.
+  const [q, setQ] = useUrlState<string>('q', '')
+  const [docFilter, setDocFilter] = useUrlState<DocFilter>('docs', 'all', isDocFilter)
+  const [shown, setShownRaw] = useState(STEP)
+  useEffect(() => {
+    // After the first paint, so the server and browser draw the same first list.
+    const frame = requestAnimationFrame(() => {
+      try {
+        const n = Number(sessionStorage.getItem(`tm:grid-shown:${window.location.pathname}${window.location.search}`))
+        if (Number.isFinite(n) && n > STEP) setShownRaw(n)
+      } catch {}
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [])
+  const setShown = (v: number | ((n: number) => number)) =>
+    setShownRaw((cur) => {
+      const n = typeof v === 'function' ? v(cur) : v
+      try {
+        sessionStorage.setItem(`tm:grid-shown:${window.location.pathname}${window.location.search}`, String(n))
+      } catch {}
+      return n
+    })
   const router = useRouter()
   // A card followed up from this tab leaves it at once; Undo brings it back.
   const [moved, setMoved] = useState<Set<string>>(new Set())
@@ -225,6 +253,7 @@ function MemberBody({
       </dl>
 
       {it.docs && <DocsRow docs={it.docs} />}
+      {m.role === 'tutor' && it.share && <ProfileShareButtons share={it.share} />}
 
       {m.stoppedAt && (
         <p className="rounded-lg bg-tm-tint-gold px-2 py-1 text-[11px] font-semibold text-tm-gold-ink">Stopped at: {m.stoppedAt}</p>
@@ -314,13 +343,7 @@ function PlainBody({ it }: { it: GridItem }) {
   )
 }
 
-const DOC_TONE: Record<DocSummary['kind'], string> = {
-  approved: 'text-tm-green-deep',
-  waiting: 'text-tm-gold-ink',
-  rejected: 'text-tm-red',
-  partial: 'text-tm-gold-ink',
-  none: 'text-slate-700',
-}
+const DOC_TONE = DOC_KIND_TONE
 
 /** The combined Documents status; tap to see each item (owner, 19 Oct 2026). */
 function DocsRow({ docs }: { docs: DocSummary }) {

@@ -7,5 +7,5 @@ import PageHead from './[...slug]/page'
 export const dynamic = 'force-dynamic'
 
 export default async function AdminRootHead() {
-  return PageHead({ params: Promise.resolve({ slug: [] }) })
+  return PageHead({ params: Promise.resolve({ slug: [] }), searchParams: Promise.resolve({}) })
 }

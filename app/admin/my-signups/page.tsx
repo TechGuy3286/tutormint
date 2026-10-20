@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { after } from 'next/server'
 
-import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { loadProfileShares } from '@/lib/profileShare'
 import { loadMySignupsPage, logMySignupsOpen } from '@/lib/mySignups'
 import { HOW_CREDIT_WORKS, EMPTY_STATE } from '@/lib/mySignupsCore'
 import { isParticipantRole } from '@/lib/staffSignupsCore'
@@ -49,6 +50,9 @@ export default async function MySignupsPage() {
 
   const page = await loadMySignupsPage(actor.id)
   after(() => logMySignupsOpen(actor, page.rows.length))
+  const shares = Object.fromEntries(
+    await loadProfileShares(page.rows.filter((r) => r.kind === 'credit' && r.role === 'tutor').map((r) => r.memberId)),
+  )
   const card = page.card
   const label = monthLabel(card.month)
 
@@ -106,7 +110,7 @@ export default async function MySignupsPage() {
       {page.rows.length === 0 ? (
         <p className="rounded-2xl border border-gray-200 bg-white p-4 text-sm text-slate-700">{EMPTY_STATE}</p>
       ) : (
-        <SignupRows rows={page.rows} showFilters filtersFromUrl />
+        <SignupRows rows={page.rows} showFilters filtersFromUrl memberLinks={roleSatisfies(actor.adminRole, SCREEN_ACCESS.users)} shares={shares} />
       )}
     </div>
   )

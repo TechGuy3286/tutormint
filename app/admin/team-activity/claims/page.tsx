@@ -1,4 +1,3 @@
-import Link from 'next/link'
 
 import { requireAdminRole, roleMayWrite, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { canApprove } from '@/lib/adminAccessCore'
@@ -27,9 +26,6 @@ export default async function ClaimsPage() {
 
   return (
     <div className="space-y-4">
-      <Link href="/admin/team-activity" className="text-xs font-bold text-tm-navy hover:underline">
-        ← Back to Team activity
-      </Link>
       <h1 className="text-base font-black text-tm-navy">Claims to review ({pending.length})</h1>
       {pending.length === 0 && (
         <p className="rounded-2xl border border-gray-200 bg-white p-4 text-xs text-gray-500">No claims waiting.</p>

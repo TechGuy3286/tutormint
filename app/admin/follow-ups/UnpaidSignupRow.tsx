@@ -11,6 +11,8 @@ import { formatDate, formatDateTime } from '@/lib/datetime'
 import { CONTACT_OUTCOMES, OUTCOME_LABEL, type ContactOutcome } from '@/lib/staffOutreachCore'
 import type { UnpaidRow } from '@/lib/staffOutreach'
 import FollowUpActions, { MarkFollowedUp } from '@/components/admin/FollowUpActions'
+import ProfileShareButtons from '@/components/admin/ProfileShareButtons'
+import type { ProfileShare } from '@/lib/profileShareCore'
 
 // One unpaid signup (owner, 8 Oct 2026): who, where they stopped, WhatsApp and
 // Call, the last contact, and a one-line outcome log.
@@ -19,8 +21,11 @@ export default function UnpaidSignupRow({
   row,
   followUp,
   showMissing = false,
+  share = null,
 }: {
   row: UnpaidRow
+  /** Copy profile link / Share on WhatsApp (owner, 20 Oct 2026). */
+  share?: ProfileShare | null
   /** "Still to do: …" — the tutor's own missing list (owner, 16 Oct 2026). */
   showMissing?: boolean
   /** The shared follow-up state (owner, 9 Oct 2026). */
@@ -81,6 +86,8 @@ export default function UnpaidSignupRow({
         {row.completion}% complete
         {row.stoppedAt && <span className="font-bold text-tm-red"> · Stopped at: {row.stoppedAt}</span>}
       </p>
+
+      {share && <ProfileShareButtons share={share} />}
 
       {row.startedPayment && (
         <p className="text-xs font-bold text-tm-red">

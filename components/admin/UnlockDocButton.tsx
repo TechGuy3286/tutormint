@@ -8,41 +8,22 @@ import { useToast } from '@/components/ui/Toast'
 import { useAdminReadOnly, useCanApprove } from '@/components/admin/ReadOnly'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 
-// "Unlock for re-upload" (owner, 9 Oct 2026) — next to an approved, locked CNIC
-// or selfie on the member's admin page. The member may then upload ONE new
-// copy, which waits in the approval queue while the approved file stays on
-// record. Owner, admin and operations; a Partner (view-only) never sees it and
-// the route refuses them anyway. Audited (who, when) by the route.
+// "Unlock for re-upload" (owner, 9 Oct 2026) on an approved, locked CNIC,
+// selfie or profile picture. The member may then upload ONE new copy, which
+// waits in the approval queue while the approved file stays on record. The
+// Owner's alone (owner, 15 Oct 2026); the route refuses everyone else and
+// audits who and when.
+//
+// Since 20 Oct 2026 the action lives in the document card's "Change ▾" menu
+// (useUnlockDoc); UnlockedNote is the line shown while an unlock is open.
 
-export default function UnlockDocButton({
-  memberId,
-  item,
-  unlockOpen,
-  canUnlock,
-}: {
-  memberId: string
-  item: 'cnic' | 'selfie' | 'photo'
-  unlockOpen: boolean
-  canUnlock: boolean
-}) {
-  const readOnly = useAdminReadOnly()
-  // Unlocking an approved document is the Owner's alone (owner, 15 Oct 2026).
-  const ownerApproves = useCanApprove()
+export function useUnlockDoc(memberId: string, item: 'cnic' | 'selfie' | 'photo', unlockOpen: boolean) {
   const toast = useToast()
   const confirm = useConfirm()
   const router = useRouter()
   const [open, setOpen] = useState(unlockOpen)
   const [busy, setBusy] = useState(false)
   const name = item === 'cnic' ? 'CNIC' : item === 'selfie' ? 'selfie' : 'profile picture'
-
-  if (open) {
-    return (
-      <p className="flex items-center gap-1.5 text-[11px] font-semibold text-tm-navy">
-        <Unlock aria-hidden size={12} /> Unlocked — waiting for the member&rsquo;s new upload.
-      </p>
-    )
-  }
-  if (!canUnlock || readOnly || !ownerApproves) return null
 
   const run = async () => {
     const ok = await confirm({
@@ -71,6 +52,34 @@ export default function UnlockDocButton({
     }
   }
 
+  return { open, busy, run }
+}
+
+export function UnlockedNote() {
+  return (
+    <p className="flex items-center gap-1.5 text-[11px] font-semibold text-tm-navy">
+      <Unlock aria-hidden size={12} /> Unlocked — waiting for the member&rsquo;s new upload.
+    </p>
+  )
+}
+
+/** The stand-alone button (kept for any screen without a Change menu). */
+export default function UnlockDocButton({
+  memberId,
+  item,
+  unlockOpen,
+  canUnlock,
+}: {
+  memberId: string
+  item: 'cnic' | 'selfie' | 'photo'
+  unlockOpen: boolean
+  canUnlock: boolean
+}) {
+  const readOnly = useAdminReadOnly()
+  const ownerApproves = useCanApprove()
+  const { open, busy, run } = useUnlockDoc(memberId, item, unlockOpen)
+  if (open) return <UnlockedNote />
+  if (!canUnlock || readOnly || !ownerApproves) return null
   return (
     <button
       type="button"

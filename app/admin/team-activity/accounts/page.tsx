@@ -1,6 +1,7 @@
 import Link from 'next/link'
 
-import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { loadProfileShares } from '@/lib/profileShare'
 import { loadSignupList } from '@/lib/staffSignups'
 import { rowsForAccounts } from '@/lib/mySignups'
 import SignupRows from '@/components/admin/SignupRows'
@@ -63,14 +64,14 @@ export default async function SignupListPage({
   // The same columns as My sign-ups (owner, 16 Oct 2026): full phone, email,
   // city, step, next step, counted — the viewer may open this list.
   const rows = await rowsForAccounts(result.accounts)
+  const shares = Object.fromEntries(
+    await loadProfileShares(rows.filter((r) => r.kind === 'credit' && r.role === 'tutor').map((r) => r.memberId)),
+  )
   const unpaidAll = sp.unpaid === 'all'
   const noun = unpaidAll ? (n === 1 ? 'person' : 'people') : role === 'tutor' ? (n === 1 ? 'tutor' : 'tutors') : n === 1 ? 'parent' : 'parents'
 
   return (
     <div className="space-y-3">
-      <Link href={back} className="text-xs font-bold text-tm-navy hover:underline">
-        ← Back to Team activity
-      </Link>
       <h1 className="text-base font-black text-tm-navy">
         {unpaidAll ? (
           <>
@@ -86,7 +87,7 @@ export default async function SignupListPage({
       {n === 0 ? (
         <p className="rounded-2xl border border-gray-200 bg-white p-4 text-xs text-gray-600">Nobody here for this period.</p>
       ) : (
-        <SignupRows rows={rows} showFilters />
+        <SignupRows rows={rows} showFilters memberLinks={roleSatisfies(actor.adminRole, SCREEN_ACCESS.users)} shares={shares} />
       )}
     </div>
   )

@@ -59,7 +59,6 @@ export default async function AdminUsersPage({
       <div className="space-y-5">
         <header className="flex flex-wrap items-center gap-2">
           <h1 className="text-lg font-black text-tm-navy">Approval needed ({approvalRows.length})</h1>
-          <Link href="/admin/users" className="text-xs font-bold text-tm-red hover:underline">Back to everyone</Link>
         </header>
         <p className="text-xs text-gray-500">Members with a document waiting for review. Fee-paid first, then oldest. Tap a row to review their identity.</p>
         <ApprovalList rows={approvalRows} />

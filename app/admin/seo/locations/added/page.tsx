@@ -1,4 +1,3 @@
-import Link from 'next/link'
 
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadRunReview } from '@/lib/locationRunReview'
@@ -20,9 +19,6 @@ export default async function AddedAreasReviewPage() {
   const s = board.summary
   return (
     <div className="space-y-4">
-      <Link href="/admin/seo/locations" className="text-xs font-bold text-tm-navy hover:underline">
-        ← Locations
-      </Link>
       <header className="space-y-1">
         <h1 className="text-xl font-black text-tm-navy">Review added areas</h1>
         <p className="text-xs text-gray-600">

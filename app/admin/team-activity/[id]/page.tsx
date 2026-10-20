@@ -9,7 +9,6 @@ import { formatDateTime } from '@/lib/datetime'
 import { formatName } from '@/lib/formatName'
 import { joinLinkFor } from '@/lib/staffSignups'
 import { isParticipantRole } from '@/lib/staffSignupsCore'
-import { teamActivityHref } from '@/lib/teamActivityCore'
 import JoinLinkCard from '@/components/admin/JoinLinkCard'
 import { loadMySignupsLog } from '@/lib/mySignups'
 import { NEXT_STEP_LABEL, type NextStep } from '@/lib/mySignupsCore'
@@ -79,9 +78,6 @@ export default async function StaffDetailPage({
             Member record →
           </Link>
         </div>
-        <Link href={teamActivityHref('posted')} className="text-[11px] font-bold text-tm-navy hover:underline">
-          ← Team activity
-        </Link>
       </div>
 
       {joinLink && <JoinLinkCard url={joinLink.url} code={joinLink.code} title={actor.id === id ? 'Your join link' : `${name}'s join link`} />}

@@ -277,9 +277,10 @@ test('a member upload stores the original AND the cropped square; the profile us
   }
   // Review rules unchanged: the tutor screens still save avatar_url through their own member-side path.
   assert.ok(read('app', '(site)', 'tutor', 'dashboard', 'settings', 'page.tsx').includes("from('tutor_profiles').update({ avatar_url: publicUrl })"))
-  // Staff review shows the crop first with a link to the original.
+  // Staff review shows the crop; the expand icon opens the uploaded original
+  // (owner, 20 Oct 2026 — the separate 'View original' link is gone).
   const review = read('components', 'admin', 'TutorDocumentReview.tsx')
-  assert.ok(review.includes('View original') && review.includes('href={avatarOriginalUrl}'))
+  assert.ok(review.includes('avatarOriginalUrl ? `/api/admin/profile-photo/source?memberId=${tutorId}`') && !review.includes('View original'))
   // No dependency was added for cropping.
   const deps = Object.keys(JSON.parse(read('package.json')).dependencies)
   assert.ok(!deps.some((d) => /crop|cropper|easy-crop|pica/i.test(d)), deps.join(','))
