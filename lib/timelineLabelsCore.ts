@@ -77,6 +77,7 @@ export const AUDIT_LABELS: Record<string, string> = {
   'plan.revoke': 'Plan removed',
   'plan.settings': 'Changed a plan setting',
   'payment.approve': 'Payment approved',
+  'payment.bank_link': 'Recorded a bank payment from a bank credit',
   'payment.reject': 'Payment rejected',
   'payment.refund': 'Marked a payment as refunded',
   'payment.checkout_close': 'Closed unfinished checkouts',

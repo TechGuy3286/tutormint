@@ -1,0 +1,252 @@
+'use client'
+
+// Link a bank credit to a member (owner, 20 Oct 2026).
+//
+// Two entry points, one form:
+//   • on an unmatched bank credit (Finance → Settlement check): "Link to member"
+//     — search for the member, pick what it paid for;
+//   • on the member page under Payments: "Record a bank payment" — pick one of
+//     the unmatched bank credits, so a payment is never recorded without a real
+//     credit behind it.
+// The amount is pre-filled from the credit. Owner only: the server refuses
+// everyone else (/api/admin/payments/bank-link); here it simply does not render.
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Landmark, UserPlus } from 'lucide-react'
+
+import { adminFetch } from '@/components/admin/adminFetch'
+import { useCanApprove } from '@/components/admin/ReadOnly'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { useToast } from '@/components/ui/Toast'
+import { formatDate } from '@/lib/datetime'
+import { pkr } from '@/lib/reconciliationCore'
+
+const INPUT =
+  'min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-slate-800 focus:border-tm-navy focus:outline-none'
+const BUTTON =
+  'inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-navy px-4 text-xs font-bold text-white hover:bg-tm-navy-hover disabled:opacity-60'
+const GHOST =
+  'inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy disabled:opacity-60'
+const LABEL = 'block text-[11px] font-bold text-gray-600'
+
+type Credit = { id: string; date: string; time: string | null; amountPkr: number; reference: string | null; senderName: string | null }
+type Member = { id: string; name: string; role: string; city: string | null; joined: string }
+type Plan = { code: string; name: string; pricePkr: number }
+
+const creditLine = (c: Credit) =>
+  `${pkr(c.amountPkr)} · ${formatDate(c.date)}${c.time ? ` ${c.time}` : ''} · ${c.senderName ?? 'Sender not recorded'}${c.reference ? ` · ref ${c.reference}` : ''}`
+
+export default function LinkBankCredit(props: { credit: Credit } | { member: { id: string; name: string } }) {
+  const canApprove = useCanApprove()
+  const router = useRouter()
+  const toast = useToast()
+  const confirm = useConfirm()
+  const fixedCredit = 'credit' in props ? props.credit : null
+  const fixedMember = 'member' in props ? props.member : null
+
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [q, setQ] = useState('')
+  const [found, setFound] = useState<Member[]>([])
+  const [member, setMember] = useState<{ id: string; name: string } | null>(fixedMember)
+  const [credits, setCredits] = useState<Credit[] | null>(null)
+  const [creditId, setCreditId] = useState<string | null>(fixedCredit?.id ?? null)
+  const [plans, setPlans] = useState<Plan[] | null>(null)
+  const [planCode, setPlanCode] = useState('')
+  const [amount, setAmount] = useState(fixedCredit ? String(fixedCredit.amountPkr) : '')
+
+  const credit = fixedCredit ?? credits?.find((c) => c.id === creditId) ?? null
+
+  // Member search (from a credit).
+  useEffect(() => {
+    if (!open || fixedMember || member || q.trim().length < 2) {
+      setFound([])
+      return
+    }
+    const ctrl = new AbortController()
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/admin/payments/bank-link?q=${encodeURIComponent(q.trim())}`, { signal: ctrl.signal })
+        const d = (await res.json().catch(() => ({}))) as { members?: Member[] }
+        setFound(d.members ?? [])
+      } catch {
+        /* a newer keystroke cancelled it */
+      }
+    }, 250)
+    return () => {
+      clearTimeout(t)
+      ctrl.abort()
+    }
+  }, [q, open, member, fixedMember])
+
+  // Once the member is known: what it could be for, and the unmatched credits.
+  useEffect(() => {
+    if (!open || !member) return
+    let live = true
+    void (async () => {
+      const res = await fetch(`/api/admin/payments/bank-link?memberId=${member.id}`)
+      const d = (await res.json().catch(() => ({}))) as { plans?: Plan[]; credits?: Credit[]; error?: string }
+      if (!live) return
+      if (!res.ok) {
+        toast.error(d.error ?? 'That did not load. Please try again.')
+        return
+      }
+      setPlans(d.plans ?? [])
+      setCredits(d.credits ?? [])
+      setPlanCode((cur) => cur || (d.plans?.[0]?.code ?? ''))
+    })()
+    return () => {
+      live = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is a stable API; re-running on it would loop
+  }, [open, member])
+
+  if (!canApprove) return null
+
+  const reset = () => {
+    setOpen(false)
+    setQ('')
+    setFound([])
+    setMember(fixedMember)
+    setPlans(null)
+    setPlanCode('')
+    if (!fixedCredit) {
+      setCreditId(null)
+      setAmount('')
+    }
+  }
+
+  const pickCredit = (c: Credit) => {
+    setCreditId(c.id)
+    setAmount(String(c.amountPkr))
+  }
+
+  const save = async () => {
+    const plan = plans?.find((p) => p.code === planCode)
+    const value = Number(amount)
+    if (!member || !credit || !plan || !(value > 0)) {
+      toast.error('Choose the member, the bank credit and what it paid for.')
+      return
+    }
+    const ok = await confirm({
+      title: 'Record this bank payment?',
+      body: `${pkr(value)} for ${plan.name}, paid by ${member.name}, from the bank credit of ${formatDate(credit.date)}. It counts as an approved payment on that date and the member is sent a receipt.`,
+      confirmLabel: 'Record payment',
+      destructive: false,
+    })
+    if (!ok) return
+    setBusy(true)
+    const { ok: done, data } = await adminFetch<{ error?: string; reference?: string; mode?: string }>('/api/admin/payments/bank-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transferId: credit.id, memberId: member.id, planCode: plan.code, amountPkr: value }),
+    })
+    setBusy(false)
+    if (!done) {
+      toast.error(data?.error ?? 'That did not save. Please try again.')
+      return
+    }
+    toast.success(
+      data?.mode === 'attach'
+        ? `Payment ${data.reference} recorded and attached to the badge or plan they already had.`
+        : `Payment ${data?.reference ?? ''} recorded and approved.`,
+    )
+    reset()
+    router.refresh()
+  }
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className={GHOST}>
+        {fixedCredit ? <UserPlus aria-hidden size={14} /> : <Landmark aria-hidden size={14} />}
+        {fixedCredit ? 'Link to member' : 'Record a bank payment'}
+      </button>
+    )
+  }
+
+  return (
+    <div className="w-full space-y-2 rounded-xl border border-gray-100 bg-tm-bg p-3">
+      <p className="text-xs font-bold text-tm-navy">{fixedCredit ? 'Who paid this, and for what?' : 'Record a payment from a bank credit'}</p>
+
+      {!fixedMember &&
+        (member ? (
+          <p className="text-xs text-slate-700">
+            Member: <span className="font-bold">{member.name}</span>{' '}
+            <button type="button" onClick={() => setMember(null)} className="font-bold text-tm-red underline">
+              Change
+            </button>
+          </p>
+        ) : (
+          <div className="space-y-1">
+            <label className="block">
+              <span className={LABEL}>Find the member (name, email or mobile)</span>
+              <input value={q} onChange={(e) => setQ(e.target.value)} className={INPUT} autoFocus />
+            </label>
+            {found.length > 0 && (
+              <ul className="max-h-48 space-y-1 overflow-y-auto">
+                {found.map((m) => (
+                  <li key={m.id}>
+                    <button
+                      type="button"
+                      onClick={() => setMember({ id: m.id, name: m.name })}
+                      className="min-h-[40px] w-full rounded-lg bg-white px-2 text-left text-xs text-slate-700 hover:bg-tm-tint-navy"
+                    >
+                      <span className="font-bold">{m.name}</span> · {m.role === 'tutor' ? 'Tutor' : 'Parent'}
+                      {m.city ? ` · ${m.city}` : ''} · joined {formatDate(m.joined)}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ))}
+
+      {member && !fixedCredit && credits && (
+        <div className="space-y-1">
+          <span className={LABEL}>Which bank credit?</span>
+          {credits.length === 0 ? (
+            <p className="text-[11px] text-gray-600">No unmatched bank credits. Add the bank credit on Finance → Settlement check first.</p>
+          ) : (
+            <div className="max-h-48 space-y-1 overflow-y-auto">
+              {credits.map((c) => (
+                <label key={c.id} className="flex min-h-[36px] items-center gap-2 break-all text-[11px] text-slate-700">
+                  <input type="radio" name="bank-credit" checked={creditId === c.id} onChange={() => pickCredit(c)} />
+                  {creditLine(c)}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {member && plans && (
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="block">
+            <span className={LABEL}>What it paid for</span>
+            <select value={planCode} onChange={(e) => setPlanCode(e.target.value)} className={INPUT}>
+              {plans.map((p) => (
+                <option key={p.code} value={p.code}>
+                  {p.name} ({pkr(p.pricePkr)})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className={LABEL}>Amount (Rs)</span>
+            <input value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" className={INPUT} />
+          </label>
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <button type="button" disabled={busy || !member || !credit || !planCode} onClick={() => void save()} className={BUTTON}>
+          {busy ? 'Saving…' : 'Record payment'}
+        </button>
+        <button type="button" onClick={reset} className={GHOST}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}

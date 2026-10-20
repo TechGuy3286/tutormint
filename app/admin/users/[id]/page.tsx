@@ -35,6 +35,8 @@ import { fillPaymentNotFinished, payAgainLink, PAYMENT_NOT_FINISHED_FALLBACK, PA
 import { normalisePkMobile } from '@/lib/phone'
 import { ExternalLink } from 'lucide-react'
 import PaymentFollowUp from './PaymentFollowUp'
+import LinkBankCredit from '@/components/admin/LinkBankCredit'
+import { canApprove } from '@/lib/adminAccessCore'
 
 // One member, everything about them in one place.
 //
@@ -524,17 +526,28 @@ export default async function AdminMemberPage({
         </Panel>
 
         <Panel title={`Payments (${paymentRows.length})`}>
-          {paymentRows.map((p) => {
-            const wa = paymentNeedsFollowUp(p.facts, nowMs) ? followUpHref(p.facts.planCode) : null
-            return (
-              <Row
-                key={p.id}
-                main={paymentLabel(p.facts, nowMs, { showAmount: showAmounts })}
-                sub={`${p.facts.provider === 'manual' ? 'Bank transfer' : p.facts.provider === 'paypro' ? 'PayPro' : (p.facts.provider ?? 'Payment')} · ${formatDate(p.facts.createdAt)}`}
-                extra={wa ? <PaymentFollowUp memberId={id} href={wa} /> : null}
-              />
-            )
-          })}
+          {[
+            ...paymentRows.map((p) => {
+              const wa = paymentNeedsFollowUp(p.facts, nowMs) ? followUpHref(p.facts.planCode) : null
+              return (
+                <Row
+                  key={p.id}
+                  main={paymentLabel(p.facts, nowMs, { showAmount: showAmounts })}
+                  sub={`${p.facts.provider === 'manual' ? 'Bank transfer' : p.facts.provider === 'paypro' ? 'PayPro' : (p.facts.provider ?? 'Payment')} · ${formatDate(p.facts.createdAt)}`}
+                  extra={wa ? <PaymentFollowUp memberId={id} href={wa} /> : null}
+                />
+              )
+            }),
+            // Record a bank payment (owner, 20 Oct 2026): Owner only, and only
+            // from an unmatched bank credit — never a payment with no money behind it.
+            ...(canApprove(actor.adminRole) && (isTutor || profile.role === 'parent')
+              ? [
+                  <li key="record-bank-payment" className="pt-1">
+                    <LinkBankCredit member={{ id, name: formatName(profile.full_name as string | null) || 'This member' }} />
+                  </li>,
+                ]
+              : []),
+          ]}
         </Panel>
 
         <Panel title={`Subscriptions (${(subs ?? []).length})`}>

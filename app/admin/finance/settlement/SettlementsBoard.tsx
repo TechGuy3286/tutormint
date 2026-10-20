@@ -13,6 +13,7 @@ import type { CreditView, OrderView } from '@/lib/settlementMatchCore'
 import type { SettlementsBoard as BoardData } from '@/lib/settlementMatch'
 
 import AddBankCredits from './AddBankCredits'
+import LinkBankCredit from '@/components/admin/LinkBankCredit'
 
 // Settlements (owner, 11 Oct 2026): what customers paid against what reached the
 // bank, for one month. Everything shown is worked out on the server
@@ -209,6 +210,11 @@ export default function SettlementsBoard({ data }: { data: BoardData }) {
               <button type="button" disabled={busy !== null} onClick={() => void sendLink(c.id, 'auto')} className={GHOST}>
                 Back to automatic
               </button>
+            )}
+            {(c.state === 'unmatched' || c.state === 'held') && (
+              <LinkBankCredit
+                credit={{ id: c.id, date: c.date, time: c.time, amountPkr: c.amountPkr, reference: c.reference, senderName: c.senderName }}
+              />
             )}
           </div>
         )}

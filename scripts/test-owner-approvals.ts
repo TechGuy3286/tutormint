@@ -41,6 +41,7 @@ const APPROVAL_ROUTES = [
   'app/api/admin/profile-photo/rotate/route.ts',
   'app/api/admin/profile-photo/crop/route.ts',
   'app/api/admin/payments/decide/route.ts',
+  'app/api/admin/payments/bank-link/route.ts',
   'app/api/admin/staff-signups/claims/decide/route.ts',
 ]
 

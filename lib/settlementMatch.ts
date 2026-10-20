@@ -61,7 +61,7 @@ export type SettlementsBoard = {
 
 type Loaded = { rows: PayproRow[]; credits: Credit[]; ourPaypro: OurPaypro[]; receipts: Receipt[]; links: ManualLink[] }
 
-async function loadAll(): Promise<Loaded | null> {
+export async function loadAll(): Promise<Loaded | null> {
   const admin = createAdminClient()
   if (!admin) return null
 
@@ -289,7 +289,7 @@ export async function recordedReferences(references: string[]): Promise<string[]
 
 type LinkResult = { ok: true } | { ok: false; error: string }
 
-async function clearLinks(transferId: string, actor: Actor): Promise<boolean> {
+export async function clearLinks(transferId: string, actor: Actor): Promise<boolean> {
   const admin = createAdminClient()
   if (!admin) return false
   const { error } = await admin

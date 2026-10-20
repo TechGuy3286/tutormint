@@ -126,6 +126,7 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   'parents/document-review': 'edit',
   'payments/alert-emails': 'view',
   'payments/bank-details': 'view',
+  'payments/bank-link': 'view',
   'payments/decide': 'view',
   'payments/gateways': 'view',
   'sms/test': 'view',
