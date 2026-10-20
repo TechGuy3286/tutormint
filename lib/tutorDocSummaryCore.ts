@@ -179,3 +179,16 @@ export function tutorDocFactsFromRow(
     profile_pic_rereview_at: p.profile_pic_rereview_at ?? null,
   }
 }
+
+/**
+ * The red "Review" button on an admin tutor card (owner, 21 Oct 2026): shown
+ * only when there is something for the Owner to decide — a document waiting.
+ * A tutor whose documents are all approved (e.g. on Paid today), rejected and
+ * not re-uploaded, or never uploaded has nothing to review. A card with no
+ * Documents row (a parent) keeps the button: its list decided it is needed.
+ */
+export function showReviewButton(reviewHref: string | null | undefined, docs: Pick<DocSummary, 'kind'> | null | undefined): boolean {
+  if (!reviewHref) return false
+  if (!docs) return true
+  return docs.kind === 'waiting'
+}

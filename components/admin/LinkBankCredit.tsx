@@ -30,12 +30,29 @@ const GHOST =
   'inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy disabled:opacity-60'
 const LABEL = 'block text-[11px] font-bold text-gray-600'
 
-type Credit = { id: string; date: string; time: string | null; amountPkr: number; reference: string | null; senderName: string | null }
+type Credit = {
+  id: string
+  date: string
+  time: string | null
+  amountPkr: number
+  reference: string | null
+  senderName: string | null
+  /** Set when the credit is matched AUTOMATICALLY to these bank-transfer
+   *  receipts (TM references); linking replaces that match (21 Oct 2026). */
+  replacesReceipts?: string[]
+}
 type Member = { id: string; name: string; role: string; city: string | null; joined: string }
 type Plan = { code: string; name: string; pricePkr: number }
 
+const replacesLine = (c: Credit | null) =>
+  c?.replacesReceipts && c.replacesReceipts.length > 0
+    ? `Now matched automatically to bank transfer ${c.replacesReceipts.join(', ')}. Linking replaces that match, and that receipt goes back to waiting for its own bank credit.`
+    : null
+
 const creditLine = (c: Credit) =>
-  `${pkr(c.amountPkr)} · ${formatDate(c.date)}${c.time ? ` ${c.time}` : ''} · ${c.senderName ?? 'Sender not recorded'}${c.reference ? ` · ref ${c.reference}` : ''}`
+  `${pkr(c.amountPkr)} · ${formatDate(c.date)}${c.time ? ` ${c.time}` : ''} · ${c.senderName ?? 'Sender not recorded'}${c.reference ? ` · ref ${c.reference}` : ''}${
+    c.replacesReceipts && c.replacesReceipts.length > 0 ? ` · now matched automatically to ${c.replacesReceipts.join(', ')}` : ''
+  }`
 
 export default function LinkBankCredit(props: { credit: Credit } | { member: { id: string; name: string } }) {
   const canApprove = useCanApprove()
@@ -131,7 +148,7 @@ export default function LinkBankCredit(props: { credit: Credit } | { member: { i
     }
     const ok = await confirm({
       title: 'Record this bank payment?',
-      body: `${pkr(value)} for ${plan.name}, paid by ${member.name}, from the bank credit of ${formatDate(credit.date)}. It counts as an approved payment on that date and the member is sent a receipt.`,
+      body: `${pkr(value)} for ${plan.name}, paid by ${member.name}, from the bank credit of ${formatDate(credit.date)}. It counts as an approved payment on that date and the member is sent a receipt.${replacesLine(credit) ? ` ${replacesLine(credit)}` : ''}`,
       confirmLabel: 'Record payment',
       destructive: false,
     })
@@ -168,6 +185,8 @@ export default function LinkBankCredit(props: { credit: Credit } | { member: { i
   return (
     <div className="w-full space-y-2 rounded-xl border border-gray-100 bg-tm-bg p-3">
       <p className="text-xs font-bold text-tm-navy">{fixedCredit ? 'Who paid this, and for what?' : 'Record a payment from a bank credit'}</p>
+
+      {replacesLine(fixedCredit) && <p className="text-[11px] font-bold text-tm-gold-ink">{replacesLine(fixedCredit)}</p>}
 
       {!fixedMember &&
         (member ? (
@@ -206,7 +225,7 @@ export default function LinkBankCredit(props: { credit: Credit } | { member: { i
         <div className="space-y-1">
           <span className={LABEL}>Which bank credit?</span>
           {credits.length === 0 ? (
-            <p className="text-[11px] text-gray-600">No unmatched bank credits. Add the bank credit on Finance → Settlement check first.</p>
+            <p className="text-[11px] text-gray-600">No bank credit is free to link. Add the bank credit on Finance → Settlement check first.</p>
           ) : (
             <div className="max-h-48 space-y-1 overflow-y-auto">
               {credits.map((c) => (

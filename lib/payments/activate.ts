@@ -28,6 +28,7 @@ import { sendPaymentAlert } from '@/lib/payments/paymentAlerts'
 import type { AdminRole } from '@/lib/adminAuth'
 import { formatDate } from '@/lib/datetime'
 import { formatName } from '@/lib/formatName'
+import { closeOtherCheckouts } from '@/lib/payments/closeOtherCheckouts'
 
 export type ActivationResult =
   | { ok: true; alreadyActive: true; subscriptionId: string | null }
@@ -177,6 +178,9 @@ export async function activatePayment(params: {
       .eq('id', payment.id)
     if (feePayError) return { ok: false, status: 400, error: feePayError.message }
 
+    // Paid: any other open checkout for the fee is closed "Paid by another method".
+    await closeOtherCheckouts(admin, { userId, paymentId: payment.id as string, planCode, actorId: params.actor?.id ?? null })
+
     // Defensive: if the tutor had bought Premium/Featured BEFORE paying the fee,
     // that plan is paused waiting to be listable. The fee is what lists them, so
     // start any paused plan now. Dynamic import breaks the activate↔goLive cycle.
@@ -317,6 +321,9 @@ export async function activatePayment(params: {
     await admin.from('subscriptions').delete().eq('id', sub.id)
     return { ok: false, status: 400, error: payError.message }
   }
+
+  // Paid: any other open checkout for this plan is closed "Paid by another method".
+  await closeOtherCheckouts(admin, { userId, paymentId: payment.id as string, planCode, actorId: params.actor?.id ?? null })
 
   // Featured flags are a cache of a RUNNING plan. A paused plan is not running,
   // so it is not tagged until go-live (goLive.ts calls applyPlanFlags then).

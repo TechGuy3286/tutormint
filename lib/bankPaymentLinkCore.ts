@@ -18,12 +18,28 @@ import { pkDay } from '@/lib/settlementCore'
 export const ALREADY_PAID = 'This member has already paid this fee.'
 
 /** The settlement states a credit may be linked from: not matched (automatic
- *  or by hand). An ignored credit ("not a sale") and a matched one may not. */
+ *  or by hand). An ignored credit ("not a sale") may not. */
 export const LINKABLE_CREDIT_STATES = ['unmatched', 'held'] as const
 export type LinkableState = (typeof LINKABLE_CREDIT_STATES)[number]
 
-export function creditLinkable(state: string | null | undefined): state is LinkableState {
-  return (LINKABLE_CREDIT_STATES as readonly string[]).includes(state ?? '')
+/** How a matched credit was matched — enough to tell a guess from a decision. */
+export type CreditMatchFacts = { status: string; orders: string[]; receipts: string[] } | null | undefined
+
+/**
+ * A MATCHED credit may still be linked to a member when the match was the
+ * automatic same-amount guess against bank-transfer receipts (owner, 21 Oct
+ * 2026: Ayaz Hussain's Rs 199 credit was matched by that rule to another
+ * tutor's approved receipt from two days earlier). Linking replaces the guess:
+ * a manual link always wins, and the receipt it was guessed for goes back to
+ * waiting for its own credit. A match made by hand, or one that pays PayPro
+ * orders, is never replaced from here — unlink it first.
+ */
+export function autoReceiptMatch(state: string | null | undefined, match: CreditMatchFacts): boolean {
+  return state === 'matched' && !!match && match.status !== 'manual' && match.orders.length === 0 && match.receipts.length > 0
+}
+
+export function creditLinkable(state: string | null | undefined, match?: CreditMatchFacts): boolean {
+  return (LINKABLE_CREDIT_STATES as readonly string[]).includes(state ?? '') || autoReceiptMatch(state, match)
 }
 
 /**
@@ -57,6 +73,8 @@ export type LinkFacts = {
   /** The member's active or paused subscriptions. */
   subs: ExistingSub[]
   creditState: string | null
+  /** The credit's current match (automatic or by hand), if any. */
+  creditMatch?: CreditMatchFacts
   creditAmountPkr: number
   amountPkr: number
 }
@@ -77,8 +95,8 @@ export type LinkDecision =
 const counted = (p: ExistingPayment) => p.status === 'approved' && !((Number(p.refundedAmountPkr) || 0) > 0 || p.refundedAt)
 
 export function linkDecision(f: LinkFacts): LinkDecision {
-  if (!creditLinkable(f.creditState)) {
-    return { ok: false, error: f.creditState === 'ignored' ? 'This bank credit is marked "not a sale". Put it back to automatic first.' : 'This bank credit is already matched. Unlink it first.' }
+  if (!creditLinkable(f.creditState, f.creditMatch)) {
+    return { ok: false, error: f.creditState === 'ignored' ? 'This bank credit is marked "not a sale". Put it back to automatic first.' : 'This bank credit is already matched by hand or to PayPro orders. Unlink it first.' }
   }
   if (f.memberRole !== 'tutor' && f.memberRole !== 'parent') return { ok: false, error: 'Choose a tutor or parent account.' }
   const plan = f.plan

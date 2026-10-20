@@ -14,6 +14,7 @@ import type { SettlementsBoard as BoardData } from '@/lib/settlementMatch'
 
 import AddBankCredits from './AddBankCredits'
 import LinkBankCredit from '@/components/admin/LinkBankCredit'
+import { autoReceiptMatch } from '@/lib/bankPaymentLinkCore'
 
 // Settlements (owner, 11 Oct 2026): what customers paid against what reached the
 // bank, for one month. Everything shown is worked out on the server
@@ -211,9 +212,19 @@ export default function SettlementsBoard({ data }: { data: BoardData }) {
                 Back to automatic
               </button>
             )}
-            {(c.state === 'unmatched' || c.state === 'held') && (
+            {/* Also on a credit only GUESSED to match a bank-transfer receipt by
+                the same-amount rule (21 Oct 2026): linking replaces the guess. */}
+            {(c.state === 'unmatched' || c.state === 'held' || autoReceiptMatch(c.state, m)) && (
               <LinkBankCredit
-                credit={{ id: c.id, date: c.date, time: c.time, amountPkr: c.amountPkr, reference: c.reference, senderName: c.senderName }}
+                credit={{
+                  id: c.id,
+                  date: c.date,
+                  time: c.time,
+                  amountPkr: c.amountPkr,
+                  reference: c.reference,
+                  senderName: c.senderName,
+                  replacesReceipts: autoReceiptMatch(c.state, m) ? m!.receipts.map((id) => data.receiptRefs[id] ?? id) : [],
+                }}
               />
             )}
           </div>

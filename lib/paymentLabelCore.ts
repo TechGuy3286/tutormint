@@ -38,13 +38,14 @@ export function paymentPlanName(code: string | null | undefined): string {
   )
 }
 
-export type PaymentState = 'paid' | 'refunded' | 'receipt_waiting' | 'cancelled' | 'expired' | 'started_not_paid' | 'in_progress' | 'not_approved'
+export type PaymentState = 'paid' | 'refunded' | 'receipt_waiting' | 'cancelled' | 'paid_another_way' | 'expired' | 'started_not_paid' | 'in_progress' | 'not_approved'
 
 export const PAYMENT_STATE_WORDS: Record<PaymentState, string> = {
   paid: 'paid',
   refunded: 'refunded',
   receipt_waiting: 'receipt waiting',
   cancelled: 'cancelled',
+  paid_another_way: 'cancelled, paid by another method',
   expired: 'expired',
   started_not_paid: 'started, not paid',
   in_progress: 'started just now',
@@ -70,7 +71,8 @@ export function paymentState(p: PaymentFacts, nowMs: number): PaymentState {
   if (p.status === 'approved') return 'paid'
   if (p.status === 'rejected') return 'not_approved'
   if (p.hasReceipt) return 'receipt_waiting'
-  if (p.checkoutClosedAt) return p.checkoutCloseReason === 'cancelled_by_member' ? 'cancelled' : 'expired'
+  if (p.checkoutClosedAt)
+    return p.checkoutCloseReason === 'cancelled_by_member' ? 'cancelled' : p.checkoutCloseReason === 'paid_another_way' ? 'paid_another_way' : 'expired'
   const t = Date.parse(p.createdAt)
   if (Number.isFinite(t) && nowMs - t > STARTED_PAYMENT_MIN_MS) return 'started_not_paid'
   return 'in_progress'

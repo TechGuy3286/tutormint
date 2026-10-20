@@ -25,6 +25,7 @@ import {
   withoutJoined,
   type DocFilter,
   type DocSummary,
+  showReviewButton,
 } from '@/lib/tutorDocSummaryCore'
 
 // The list behind one Overview number, as a grid of cards (owner, 9 Oct 2026):
@@ -303,7 +304,7 @@ function MemberBody({
             <Phone aria-hidden size={13} /> Call
           </a>
         )}
-        {it.reviewHref && (
+        {it.reviewHref && showReviewButton(it.reviewHref, it.docs) && (
           <Link href={it.reviewHref} className={`${BTN} basis-full bg-tm-red text-white hover:bg-tm-red-hover`}>
             <FileCheck2 aria-hidden size={13} /> Review
           </Link>

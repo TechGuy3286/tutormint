@@ -109,6 +109,7 @@
     "test:settlement": "tsx --test scripts/test-settlement.ts",
     "test:settlements": "tsx --test scripts/test-settlements.ts",
     "test:bankpaymentlink": "tsx --test scripts/test-bank-payment-link.ts",
+    "test:approvebankcredit": "tsx --test scripts/test-approve-bank-credit.ts",
     "test:payproexport": "tsx --test scripts/test-paypro-export.ts",
     "test:bankalerts": "tsx --test scripts/test-bankalerts.ts",
     "test:photocrop": "tsx --test scripts/test-photo-crop.ts",

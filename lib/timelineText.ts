@@ -241,7 +241,8 @@ export function timelineSentence(event: string, meta: TimelineMeta = {}): string
     case 'second_role_created':
       return 'A second account was made on the same mobile'
     case 'checkout_cancelled':
-      return 'Cancelled a payment they had started'
+      // Closed automatically once the same thing was paid another way (21 Oct 2026).
+      return str(meta.reason) === 'paid_another_way' ? 'A started payment was closed: paid by another method' : 'Cancelled a payment they had started'
     case 'refund_recorded':
       return 'A refund was recorded'
     case 'fee_flag_cleared':

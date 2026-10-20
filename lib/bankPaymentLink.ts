@@ -32,9 +32,11 @@ import { formatDate } from '@/lib/datetime'
 import { formatName } from '@/lib/formatName'
 import { newPaymentReference } from '@/lib/payments/provider'
 import { activatePayment } from '@/lib/payments/activate'
+import { closeOtherCheckouts } from '@/lib/payments/closeOtherCheckouts'
 import { buildBoard } from '@/lib/settlementMatchCore'
 import { clearLinks, loadAll, type Actor } from '@/lib/settlementMatch'
 import {
+  autoReceiptMatch,
   bankPaymentRow,
   creditLinkable,
   creditPaidAt,
@@ -54,18 +56,40 @@ export type LinkableCredit = {
   reference: string | null
   senderName: string | null
   isPaypro: boolean
+  /** Set when the credit is now matched AUTOMATICALLY to a bank-transfer
+   *  receipt: that receipt's TM reference(s). Linking replaces the guess. */
+  replacesReceipts: string[]
 }
 
-/** Every bank credit that is not matched (automatically or by hand) and not
- *  set aside as "not a sale", newest first. */
+/** Every bank credit that is not matched, or matched only by the automatic
+ *  same-amount guess against bank-transfer receipts (21 Oct 2026), and not set
+ *  aside as "not a sale", newest first. */
 export async function linkableCredits(): Promise<LinkableCredit[] | null> {
   const all = await loadAll()
   if (!all) return null
   const board = buildBoard({ ...all, nowIso: new Date().toISOString() })
   return board.credits
-    .filter((c) => creditLinkable(c.state))
-    .map((c) => ({ id: c.id, date: c.date, time: c.time, amountPkr: c.amountPkr, reference: c.reference, senderName: c.senderName, isPaypro: c.isPaypro }))
+    .filter((c) => creditLinkable(c.state, c.match))
+    .map((c) => ({
+      id: c.id,
+      date: c.date,
+      time: c.time,
+      amountPkr: c.amountPkr,
+      reference: c.reference,
+      senderName: c.senderName,
+      isPaypro: c.isPaypro,
+      replacesReceipts: replacedReceiptRefs(board, c.id),
+    }))
     .sort((a, b) => b.date.localeCompare(a.date) || (b.time ?? '').localeCompare(a.time ?? ''))
+}
+
+/** The receipts an automatic match of this credit points at (empty when the
+ *  credit is not matched, or matched by hand). */
+export function replacedReceiptRefs(board: ReturnType<typeof buildBoard>, creditId: string): string[] {
+  const c = board.credits.find((x) => x.id === creditId)
+  if (!c || !autoReceiptMatch(c.state, c.match)) return []
+  const refs = new Map(board.receipts.map((r) => [r.id, r.ref]))
+  return c.match!.receipts.map((id) => refs.get(id) ?? id)
 }
 
 export type LinkMember = { id: string; name: string; role: string; city: string | null; joined: string }
@@ -109,11 +133,15 @@ export async function linkPlansFor(role: string): Promise<LinkPlan[]> {
     .sort((a, b) => (a.code === 'verified' ? -1 : b.code === 'verified' ? 1 : a.pricePkr - b.pricePkr))
 }
 
-export type LinkResult = { ok: true; paymentId: string; reference: string; mode: 'activate' | 'attach'; paidAt: string } | { ok: false; status: number; error: string }
+export type LinkResult =
+  | { ok: true; paymentId: string; reference: string; mode: 'activate' | 'attach'; paidAt: string; replacedReceipts: string[]; closedCheckouts: string[] }
+  | { ok: true; dryRun: true; mode: 'activate' | 'attach'; paidAt: string; replacedReceipts: string[]; creditState: string } | { ok: false; status: number; error: string }
 
 export async function linkCreditToMember(
   input: { transferId: string; memberId: string; planCode: string; amountPkr: number },
   actor: Actor,
+  /** Written into the audit row — e.g. that a data step did this on the Owner's instruction. */
+  opts: { auditNote?: string; dryRun?: boolean } = {},
 ): Promise<LinkResult> {
   const admin = createAdminClient()
   const all = await loadAll()
@@ -164,12 +192,15 @@ export async function linkCreditToMember(
     payments,
     subs,
     creditState: credit.state,
+    creditMatch: credit.match,
     creditAmountPkr: credit.amountPkr,
     amountPkr: input.amountPkr,
   })
   if (!decision.ok) return { ok: false, status: 409, error: decision.error }
 
+  const replacedReceipts = replacedReceiptRefs(board, credit.id)
   const paidAt = creditPaidAt(credit.date, credit.time)
+  if (opts.dryRun) return { ok: true, dryRun: true, mode: decision.mode, paidAt, replacedReceipts, creditState: credit.state }
   const reference = newPaymentReference()
   const row = bankPaymentRow({
     userId: input.memberId,
@@ -235,6 +266,10 @@ export async function linkCreditToMember(
     })
   }
 
+  // Paid: any other open checkout for the same thing is closed "Paid by
+  // another method" (activatePayment already did it on the activate path).
+  const closedCheckouts = await closeOtherCheckouts(admin, { userId: input.memberId, paymentId, planCode: plan!.code, actorId: actor.id })
+
   // Revenue and every paid count read reviewed_at: the day the money arrived,
   // not the day it was linked.
   await admin.from('payments').update({ reviewed_at: paidAt }).eq('id', paymentId)
@@ -263,6 +298,9 @@ export async function linkCreditToMember(
       mode: decision.mode,
       reference,
       settlementLinked: !linkError,
+      replacedAutoMatch: replacedReceipts,
+      closedCheckouts: closedCheckouts.length,
+      ...(opts.auditNote ? { note: opts.auditNote } : {}),
     },
   })
 
@@ -273,5 +311,5 @@ export async function linkCreditToMember(
       error: `The payment ${reference} was recorded, but linking it to the bank credit did not save. Link the credit to bank transfer ${reference} by hand on the Settlement check.`,
     }
   }
-  return { ok: true, paymentId, reference, mode: decision.mode, paidAt }
+  return { ok: true, paymentId, reference, mode: decision.mode, paidAt, replacedReceipts, closedCheckouts }
 }

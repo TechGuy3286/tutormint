@@ -47,7 +47,14 @@ export function videoFact(status: string | null | undefined, visibility: string 
 
 // ── Tutor status, with why it is pending ────────────────────────────────
 
-/** "Pending: fee not paid · documents waiting", or the status in words. */
+/**
+ * "Pending: fee not paid · documents waiting", or the status in words.
+ *
+ * tutor_profiles.verification_status stays 'pending' after the fee and the
+ * documents are done (only the video review sets 'verified'), so a tutor with
+ * the Verification Fee paid and CNIC, photo and selfie approved — the site's
+ * Verified-badge rule — reads "Verified", not "Pending" (owner, 21 Oct 2026).
+ */
 export function tutorStatusFact(
   status: string | null | undefined,
   f: { feePaid: boolean; docKind: DocSummaryKind },
@@ -55,6 +62,7 @@ export function tutorStatusFact(
   const s = (status ?? '').trim().toLowerCase()
   if (!s) return '—'
   if (s !== 'pending') return cap(s)
+  if (f.feePaid && f.docKind === 'approved') return 'Verified'
   const why: string[] = []
   if (!f.feePaid) why.push('fee not paid')
   if (f.docKind === 'waiting') why.push('documents waiting')
