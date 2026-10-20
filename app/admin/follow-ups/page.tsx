@@ -1,23 +1,34 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 
-import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
-import { loadUnpaidSignups } from '@/lib/staffOutreach'
+import { requireAdminRole, roleMayWrite, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadProfileShares } from '@/lib/profileShare'
 import {
+  isSignupWindow,
   parseTutorScope,
-  parseUnpaidFilter,
+  signedUpIn,
   TUTOR_SCOPE_LABEL,
   TUTOR_SCOPES,
-  unpaidRowMatches,
   UNPAID_WINDOW_DAYS,
+  type SignupWindow,
   type TutorScope,
-  type UnpaidFilter,
 } from '@/lib/staffOutreachCore'
 import { loadFollowUpStates } from '@/lib/followUps'
 import { followUpLine } from '@/lib/followUpCore'
 import { loadAbandonedSignups } from '@/lib/abandonedSignups'
 import { loadOrphanedAccounts } from '@/lib/adminOrphans'
 import { loadTemplates } from '@/lib/adminMessaging'
+import { loadTutorFollowUps } from '@/lib/tutorFollowUps'
+import {
+  chipCounts,
+  FOLLOW_CHIP_LABEL,
+  FOLLOW_CHIPS,
+  legacyFollowUpsRedirect,
+  parseFollowChip,
+  rowsForChip,
+  type ChipFilter,
+  type FollowChip,
+} from '@/lib/tutorFollowUpCore'
 import {
   FOLLOW_UP_TABS,
   followUpTabsFor,
@@ -25,6 +36,7 @@ import {
   onParentsTab,
   pickFollowUpTab,
 } from '@/lib/followUpsPageCore'
+import QueueSearch from '@/components/admin/QueueSearch'
 
 import UnpaidSignupRow from './UnpaidSignupRow'
 import SignupsClient from './SignupsClient'
@@ -32,7 +44,11 @@ import OrphansSection from './OrphansSection'
 
 // People → Follow-ups (owner, 15 Oct 2026): ONE page in place of Unpaid signups
 // and Abandoned signups (both old addresses redirect here, query kept).
-//   Tutors                         the Unpaid signups list, unchanged
+//   Tutors                         ONE list (owner, 20 Oct 2026) — the Overview
+//                                  lists "Unpaid signups not yet contacted",
+//                                  "Stuck in onboarding" and "Started payment,
+//                                  didn't finish" are its chips; each tutor is
+//                                  one short card (lib/tutorFollowUpCore)
 //                                  (SCREEN_ACCESS.unpaidSignups — Tuitions staff too)
 //   Parents & email not confirmed  from Abandoned signups (SCREEN_ACCESS.signups)
 //   Orphaned accounts              (SCREEN_ACCESS.signups)
@@ -43,17 +59,9 @@ export const dynamic = 'force-dynamic'
 /** The request's clock, read once per tab render. */
 const nowMs = () => Date.now()
 
-const FILTERS: { key: UnpaidFilter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'payment', label: 'Stopped at payment' },
-  { key: 'onboarding', label: 'Stuck in onboarding' },
-  { key: 'uncontacted', label: 'Not contacted yet' },
-  { key: 'followed', label: 'Follow-up sent' },
-]
-
 // Quick filters by sign-up day (owner, 12 Oct 2026) — where the Overview card
 // "Signed up today, not paid" lands. Pakistan-time days.
-const SIGNED_UP: { key: UnpaidFilter; label: string }[] = [
+const SIGNED_UP: { key: SignupWindow; label: string }[] = [
   { key: 'today', label: 'Today' },
   { key: 'yesterday', label: 'Yesterday' },
   { key: 'week', label: 'Last 7 days' },
@@ -61,11 +69,19 @@ const SIGNED_UP: { key: UnpaidFilter; label: string }[] = [
 
 const SIGNUP_TEMPLATE_KEYS = ['signup_email_unconfirmed', 'signup_profile_unfinished'] as const
 
-export default async function FollowUpsPage({ searchParams }: { searchParams: Promise<{ tab?: string; filter?: string; scope?: string }> }) {
+type SP = { tab?: string; filter?: string; scope?: string; chip?: string; q?: string }
+
+export default async function FollowUpsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const actor = await requireAdminRole(...SCREEN_ACCESS.unpaidSignups)
   const sp = await searchParams
   const tabs = followUpTabsFor(actor.adminRole)
   const tab = pickFollowUpTab(actor.adminRole, sp.tab)
+  // Old chips and groups (?filter=onboarding, ?scope=started_payment…) open
+  // the merged list on the matching chip, so bookmarks still work.
+  if (tab === 'tutors') {
+    const to = legacyFollowUpsRedirect({ filter: sp.filter, scope: sp.scope, chip: sp.chip, q: sp.q })
+    if (to) redirect(to)
+  }
 
   return (
     <div className="space-y-4">
@@ -85,7 +101,16 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
           ))}
         </nav>
       )}
-      {tab === 'tutors' && <TutorsTab filterParam={sp.filter} scope={parseTutorScope(sp.scope)} />}
+      {tab === 'tutors' && (
+        <TutorsTab
+          scope={parseTutorScope(sp.scope)}
+          chip={parseFollowChip(sp.chip)}
+          window={isSignupWindow(sp.filter) ? sp.filter : null}
+          q={(sp.q ?? '').trim()}
+          // The roles that see payment amounts (Owner, Partner) — the route checks too.
+          canCheckPayment={roleMayWrite(actor.adminRole, ['partner'])}
+        />
+      )}
       {tab === 'parents' && <ParentsTab />}
       {tab === 'orphans' && <OrphansTab />}
     </div>
@@ -94,35 +119,42 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
 
 // ------------------------------------------------------------------ Tutors
 
-// Which tutors (owner, 16 Oct 2026): the last 30 days unpaid (the default, as
-// before), unpaid tutors who joined earlier, or tutors who paid the
-// Verification Fee and have not finished onboarding. The follow-up filters
-// below apply within the chosen group; the sign-up-day chips only to the
-// default group.
-async function TutorsTab({ filterParam, scope }: { filterParam?: string; scope: TutorScope }) {
-  const filter = parseUnpaidFilter(filterParam)
-  const all = await loadUnpaidSignups(new Date(), scope)
-  // The "Started payment, didn't finish" chip opens its own group (every tutor
-  // with a checkout started and not finished, any join date).
-  const startedCount =
-    scope === 'started_payment' ? null : (await loadUnpaidSignups(new Date(), 'started_payment')).length
-  const scopeHref = (s: TutorScope, extra: { filter?: string } = {}) =>
-    followUpsHref('tutors', { scope: s === 'recent' ? undefined : s, ...extra })
-  // The shared follow-up record (owner, 9 Oct 2026): followed up in the last 7
-  // days → the Follow-up sent tab; older → back, tagged "Followed up once".
+async function TutorsTab({
+  scope,
+  chip,
+  window,
+  q,
+  canCheckPayment,
+}: {
+  scope: TutorScope
+  chip: ChipFilter
+  window: SignupWindow | null
+  q: string
+  canCheckPayment: boolean
+}) {
   const now = nowMs()
-  const states = await loadFollowUpStates(all.map((r) => r.id))
-  const facts = (r: (typeof all)[number]) => ({
-    stoppedAt: r.stoppedAt,
-    lastContactAt: r.lastContact?.at ?? null,
-    followUpSent: !!states.get(r.id)?.sent,
-    joinedAt: r.joinedAt,
-    startedPayment: !!r.startedPayment,
-  })
-  const rows = all.filter((r) => unpaidRowMatches(facts(r), filter, now))
+  let all = await loadTutorFollowUps(scope)
+  // "Signed up today, not paid" (the Overview card): the fee-unpaid tutors who
+  // joined in the window — its number is the length of "Today".
+  if (window) all = all.filter((r) => !r.feePaid && signedUpIn(r.joinedAt, window, now))
+  const needle = q.toLowerCase()
+  if (needle) all = all.filter((r) => [r.name, r.city].some((v) => (v ?? '').toLowerCase().includes(needle)))
+  const items = all.map((r) => ({ row: r, chips: new Set<FollowChip>(r.chips), primary: r.primary }))
+  const counts = chipCounts(items)
+  const rows = rowsForChip(items, chip).map((x) => x.row)
   const shares = await loadProfileShares(rows.map((r) => r.id))
-  const count = (f: UnpaidFilter) => all.filter((r) => unpaidRowMatches(facts(r), f, now)).length
-  const chip = (on: boolean) =>
+  const href = (o: { scope?: TutorScope; chip?: ChipFilter; window?: SignupWindow | null }) => {
+    const sc = o.scope ?? scope
+    const ch = o.chip ?? chip
+    const win = o.window === undefined ? window : o.window
+    return followUpsHref('tutors', {
+      scope: sc === 'recent' ? undefined : sc,
+      chip: ch === 'all' ? undefined : ch,
+      filter: win ?? undefined,
+      q: q || undefined,
+    })
+  }
+  const pill = (on: boolean) =>
     `inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-4 text-xs font-bold ${
       on ? 'border-tm-navy bg-tm-navy text-white' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'
     }`
@@ -133,78 +165,60 @@ async function TutorsTab({ filterParam, scope }: { filterParam?: string; scope: 
         <h2 className="text-lg font-black text-tm-navy">Tutors</h2>
         <p className="text-xs text-gray-500">
           {scope === 'recent' &&
-            `Tutors who joined in the last ${UNPAID_WINDOW_DAYS} days and have not paid the Verification Fee, newest first.`}
-          {scope === 'older' &&
-            `Tutors who joined more than ${UNPAID_WINDOW_DAYS} days ago and have not paid the Verification Fee, newest first.`}
-          {scope === 'paid_unfinished' &&
-            'Tutors who paid the Verification Fee and have not finished their profile, newest first.'}
-          {scope === 'started_payment' &&
-            "Tutors who opened a checkout over an hour ago and did not pay. They leave this list 48 hours after the checkout started, or as soon as they pay."}{' '}
-          Paused, test and staff accounts are left out. Log every call so nobody is rung twice.
+            `Tutors who joined in the last ${UNPAID_WINDOW_DAYS} days and have not paid the Verification Fee, and anyone who started a payment and did not finish.`}
+          {scope === 'older' && `Tutors who joined more than ${UNPAID_WINDOW_DAYS} days ago and have not paid the Verification Fee.`}
+          {scope === 'paid_unfinished' && 'Tutors who paid the Verification Fee and have not finished their profile.'} Each tutor
+          is listed once. Paused, test and staff accounts are left out.
         </p>
       </header>
 
       <nav aria-label="Which tutors" className="flex flex-wrap gap-2">
         {TUTOR_SCOPES.map((s) => (
-          <Link key={s} href={scopeHref(s)} aria-current={s === scope ? 'page' : undefined} className={chip(s === scope)}>
+          <Link key={s} href={href({ scope: s, window: null })} aria-current={s === scope ? 'page' : undefined} className={pill(s === scope)}>
             {TUTOR_SCOPE_LABEL[s]}
           </Link>
         ))}
       </nav>
 
+      <QueueSearch
+        basePath="/admin/follow-ups"
+        initialQuery={q}
+        filter={window ?? ''}
+        keep={{ scope: scope === 'recent' ? undefined : scope, chip: chip === 'all' ? undefined : chip }}
+        placeholder="Search by name or city"
+        ariaLabel="Search tutors"
+      />
+
       <nav aria-label="Filter" className="flex flex-wrap gap-2">
-        {scope !== 'started_payment' && FILTERS.map((f) => (
-          <Link
-            key={f.key}
-            href={scopeHref(scope, { filter: f.key === 'all' ? undefined : f.key })}
-            aria-current={f.key === filter ? 'page' : undefined}
-            className={chip(f.key === filter)}
-          >
-            {f.label} <span className={f.key === filter ? 'text-white' : 'text-gray-500'}>{count(f.key)}</span>
+        {(['all', ...FOLLOW_CHIPS] as ChipFilter[]).map((c) => (
+          <Link key={c} href={href({ chip: c })} aria-current={c === chip ? 'page' : undefined} className={pill(c === chip)}>
+            {c === 'all' ? 'All' : FOLLOW_CHIP_LABEL[c]} <span className={c === chip ? 'text-white' : 'text-gray-500'}>{counts[c]}</span>
           </Link>
         ))}
-        <Link
-          href={followUpsHref('tutors', { scope: 'started_payment', filter: 'started_payment' })}
-          aria-current={scope === 'started_payment' ? 'page' : undefined}
-          className={chip(scope === 'started_payment')}
-        >
-          Started payment, didn&apos;t finish{' '}
-          <span className={scope === 'started_payment' ? 'text-white' : 'text-gray-500'}>{startedCount ?? all.length}</span>
-        </Link>
       </nav>
 
-      {scope === 'recent' && <nav aria-label="Signed up" className="flex flex-wrap items-center gap-2">
-        <span className="text-[11px] font-bold text-gray-600">Signed up:</span>
-        {SIGNED_UP.map((f) => (
-          <Link
-            key={f.key}
-            href={followUpsHref('tutors', { filter: f.key })}
-            aria-current={f.key === filter ? 'page' : undefined}
-            className={chip(f.key === filter)}
-          >
-            {f.label} <span className={f.key === filter ? 'text-white' : 'text-gray-500'}>{count(f.key)}</span>
-          </Link>
-        ))}
-      </nav>}
+      {scope === 'recent' && (
+        <nav aria-label="Signed up" className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-bold text-gray-600">Signed up:</span>
+          {SIGNED_UP.map((f) => (
+            <Link
+              key={f.key}
+              href={href({ window: window === f.key ? null : f.key })}
+              aria-current={f.key === window ? 'page' : undefined}
+              className={pill(f.key === window)}
+            >
+              {f.label}
+            </Link>
+          ))}
+        </nav>
+      )}
 
       {rows.length === 0 ? (
-        <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
-          Nobody here right now.
-        </p>
+        <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">Nobody here right now.</p>
       ) : (
         <ul className="space-y-3">
           {rows.map((r) => (
-            <UnpaidSignupRow
-              key={r.id}
-              row={r}
-              share={shares.get(r.id) ?? null}
-              showMissing={scope === 'paid_unfinished'}
-              followUp={{
-                tab: states.get(r.id)?.sent ? 'sent' : 'stuck',
-                line: states.get(r.id) ? followUpLine(states.get(r.id)!, now) : null,
-                tag: states.get(r.id)?.tag ?? null,
-              }}
-            />
+            <UnpaidSignupRow key={r.id} row={r} share={shares.get(r.id) ?? null} canCheckPayment={canCheckPayment} />
           ))}
         </ul>
       )}

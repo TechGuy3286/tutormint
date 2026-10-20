@@ -7,7 +7,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { availabilityToSlots } from '@/lib/timeSlots'
-import { stoppedAtLabel } from '@/lib/onboardingStopCore'
+import { stoppedAtLabel, stoppedAtStep } from '@/lib/onboardingStopCore'
 import type { FlowFacts } from '@/lib/tutorFlow'
 import { missingSummary } from '@/lib/onboarding/missingItems'
 import { chunk, pageAllIn } from '@/lib/pageAll'
@@ -16,6 +16,8 @@ export type TutorFlowState = {
   facts: FlowFacts
   /** "Stopped at: <step>", or null when every step is done. */
   stoppedAt: string | null
+  /** The same stop as a key (lib/onboardingStopCore stoppedAtStep). */
+  stoppedStep: ReturnType<typeof stoppedAtStep>
   /** What is still to do, in plain English (lib/onboarding/missingItems). */
   missing: string[]
 }
@@ -37,6 +39,7 @@ export async function flowStateByTutor(admin: SupabaseClient, ids: string[]): Pr
     out.set(id, {
       facts,
       stoppedAt: stoppedAtLabel(facts, { emailConfirmed: !unconfirmed.has(id) }),
+      stoppedStep: stoppedAtStep(facts, { emailConfirmed: !unconfirmed.has(id) }),
       missing: missingSummary(facts).missing.map((m) => m.label),
     })
   }

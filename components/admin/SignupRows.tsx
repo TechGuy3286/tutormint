@@ -42,12 +42,12 @@ const STEP_OPTIONS: { key: MyStep | 'all'; label: string }[] = [
   ...[...TUTOR_PATH, ...PARENT_PATH.filter((s) => s.key === 'posted')].map((s) => ({ key: s.key, label: s.label })),
 ]
 
-function logTap(memberId: string, nextStep: string | null) {
+function logTap(memberId: string, nextStep: string | null, messageType: string | null) {
   try {
     void fetch('/api/admin/my-signups/whatsapp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ memberId, nextStep }),
+      body: JSON.stringify({ memberId, nextStep, messageType }),
       keepalive: true,
     })
   } catch {
@@ -222,7 +222,7 @@ export default function SignupRows({
                   href={r.waLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  onClick={() => logTap(r.memberId, r.nextStep)}
+                  onClick={() => logTap(r.memberId, r.nextStep, r.messageType)}
                   className="inline-flex min-h-[44px] items-center rounded-xl bg-tm-green-deep px-4 text-xs font-bold text-white hover:bg-tm-green-deep-hover"
                 >
                   WhatsApp

@@ -45,3 +45,18 @@ export function stoppedAtLabel(f: FlowFacts, account: { emailConfirmed?: boolean
   const k = firstMissingStep(f, NEW_FLOW_ORDER)
   return k ? STEP_LABEL[k] : null
 }
+
+/** The KEY of the step this tutor stopped at (owner, 20 Oct 2026, Follow-ups):
+ *  'email' / 'mobile' before the flow, 'whatsapp' for the contact step when the
+ *  mobile is already verified, else the flow step. null when every step is done.
+ *  Always agrees with stoppedAtLabel. */
+export function stoppedAtStep(
+  f: FlowFacts,
+  account: { emailConfirmed?: boolean } = {},
+): FlowStepKey | 'email' | 'mobile' | 'whatsapp' | null {
+  if (account.emailConfirmed === false) return 'email'
+  if (!f.phoneVerified) return 'mobile'
+  const k = firstMissingStep(f, NEW_FLOW_ORDER)
+  if (k === 'contact') return 'whatsapp'
+  return k ?? null
+}

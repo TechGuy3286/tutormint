@@ -96,6 +96,9 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   'documents/unlock': 'edit',
   'flags': 'edit',
   'follow-ups': 'edit',
+  // Check payment status on a Started payment card (owner, 20 Oct 2026):
+  // checkAdminRole('partner') — the Owner and the Partner only.
+  'follow-ups/payment-check': 'edit',
   'import': 'view',
   // Reply (POST) is an edit; editing a template (PUT) is refused inside the route.
   'inbox': 'mixed',

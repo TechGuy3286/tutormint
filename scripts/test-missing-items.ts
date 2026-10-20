@@ -137,7 +137,8 @@ test('the dashboard and every onboarding step show the list', () => {
 
 test('the admin stuck list and the WhatsApp message use the same list', () => {
   assert.ok(read('lib/onboardingStop.ts').includes('missing: missingSummary(facts).missing.map((m) => m.label)'))
-  assert.ok(read('lib/overviewItems.ts').includes('missing: r.missing })'))
+  // The follow-up card shows the list under See all steps (owner, 20 Oct 2026).
+  assert.ok(read('app/admin/follow-ups/UnpaidSignupRow.tsx').includes("row.missing.join(', ')"))
   const left = ['Add your subjects', 'Choose your gender', 'Add your teaching areas']
   assert.equal(missingSentence(left), 'Add your subjects, choose your gender and add your teaching areas.')
   assert.equal(missingSentence(['Add your subjects']), 'Add your subjects.')

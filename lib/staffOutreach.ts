@@ -11,7 +11,7 @@ import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
 import type { AdminRole } from '@/lib/adminAuth'
-import { flowStateByTutor } from '@/lib/onboardingStop'
+import { flowStateByTutor, type TutorFlowState } from '@/lib/onboardingStop'
 import { normalisePkMobile } from '@/lib/phone'
 import { tuitionPath } from '@/lib/slugs'
 import { absoluteUrl } from '@/lib/siteUrl'
@@ -55,7 +55,20 @@ export type UnpaidRow = {
   lastContact: { outcome: ContactOutcome; note: string | null; staffEmail: string | null; at: string } | null
   /** A checkout started and not finished (owner, 16 Oct 2026): its package and
    *  when; the WhatsApp then carries the payment_not_finished message. */
-  startedPayment: { planCode: string | null; startedAt: string } | null
+  startedPayment: StartedInfo | null
+  /** The stop as a key (lib/onboardingStopCore stoppedAtStep). */
+  stoppedStep: TutorFlowState['stoppedStep'] | null
+  /** The Verification Fee is stamped (paid or granted). */
+  feePaid: boolean
+}
+
+/** A checkout started and not finished: which payment, which package, where. */
+export type StartedInfo = {
+  paymentId: string
+  planCode: string | null
+  startedAt: string
+  provider: string | null
+  providerRef: string | null
 }
 
 /** Tutors who signed up in the last 30 days and have not paid the
@@ -99,8 +112,10 @@ export async function loadUnpaidSignups(now = new Date(), scope: TutorScope = 'r
   }
   // Checkouts started and not finished — the chip, and the WhatsApp text for those rows.
   const started = await loadStartedNotFinished(now).catch(() => [])
-  const startedBy = new Map<string, { planCode: string | null; startedAt: string }>()
-  for (const s of started) if (s.userId && !startedBy.has(s.userId)) startedBy.set(s.userId, { planCode: s.planCode, startedAt: s.createdAt })
+  const startedBy = new Map<string, StartedInfo>()
+  for (const s of started)
+    if (s.userId && !startedBy.has(s.userId))
+      startedBy.set(s.userId, { paymentId: s.id, planCode: s.planCode, startedAt: s.createdAt, provider: s.provider, providerRef: s.providerRef })
   if (scope === 'started_payment' && startedBy.size === 0) return []
   let notFinishedBody = PAYMENT_NOT_FINISHED_FALLBACK
   if (startedBy.size > 0) {
@@ -122,6 +137,19 @@ export async function loadUnpaidSignups(now = new Date(), scope: TutorScope = 'r
             .order('id')
             .range(from, to)
         })
+  // The default group also carries started-payment tutors who joined earlier
+  // (owner, 20 Oct 2026, the merged Follow-ups list).
+  if (scope === 'recent' && startedBy.size > 0) {
+    const have = new Set(profiles.map((p) => p.id as string))
+    const more = [...startedBy.keys()].filter((id) => !have.has(id))
+    if (more.length > 0) {
+      const extra = await pageAllIn(more, (part, from, to) =>
+        admin.from('profiles').select(cols).eq('role', 'tutor').in('id', part).order('id').range(from, to),
+      )
+      profiles.push(...extra)
+      profiles.sort((a, b) => Date.parse(b.created_at as string) - Date.parse(a.created_at as string))
+    }
+  }
   const candidates = profiles.filter(
     // Staff accounts (any admin_role) are TutorMint's own people, not leads.
     (p) => !p.is_suspended && !p.is_banned && !p.is_seed && !p.is_team_account && !p.admin_role && !isTestName(p.full_name as string | null),
@@ -196,6 +224,8 @@ export async function loadUnpaidSignups(now = new Date(), scope: TutorScope = 'r
       telHref: msisdn ? `tel:+${msisdn}` : null,
       lastContact: last.get(p.id as string) ?? null,
       startedPayment: startedBy.get(p.id as string) ?? null,
+      stoppedStep: stopped.get(p.id as string)?.stoppedStep ?? null,
+      feePaid: !!t.verified_fee_paid_at,
     })
   }
   return out

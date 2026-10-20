@@ -79,6 +79,7 @@ export const AUDIT_LABELS: Record<string, string> = {
   'payment.reject': 'Payment rejected',
   'payment.refund': 'Marked a payment as refunded',
   'payment.checkout_close': 'Closed unfinished checkouts',
+  'payment.status_check': 'Checked a payment with PayPro',
   'payments.gateway': 'Changed payment gateway settings',
   'payments.switch': 'Changed a way to pay',
   'payments.bank_details': 'Changed the bank transfer details',

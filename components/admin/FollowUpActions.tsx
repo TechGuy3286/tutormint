@@ -34,11 +34,14 @@ export type FollowUpProps = {
   onRestored?: (memberId: string) => void
   /** Class for the WhatsApp / Call buttons (matches the card's own buttons). */
   btnClass?: string
+  /** The merged Follow-ups list (owner, 20 Oct 2026) has no tabs: the toast
+   *  says this instead of "Moved to Follow-up sent". */
+  toastText?: string
 }
 
 const BTN = 'inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl px-2 text-[11px] font-bold'
 
-export function useFollowUp({ memberId, source, templateKey, tab, onMoved, onRestored }: Pick<FollowUpProps, 'memberId' | 'source' | 'templateKey' | 'tab' | 'onMoved' | 'onRestored'>) {
+export function useFollowUp({ memberId, source, templateKey, tab, onMoved, onRestored, toastText }: Pick<FollowUpProps, 'memberId' | 'source' | 'templateKey' | 'tab' | 'onMoved' | 'onRestored' | 'toastText'>) {
   const toast = useToast()
   const [busy, setBusy] = useState(false)
 
@@ -70,7 +73,7 @@ export function useFollowUp({ memberId, source, templateKey, tab, onMoved, onRes
     }
     const id = data.id
     onMoved?.(memberId)
-    toast.success(tab === 'sent' ? 'Follow-up recorded' : 'Moved to Follow-up sent', { label: 'Undo', onClick: () => void undo(id) })
+    toast.success(toastText ?? (tab === 'sent' ? 'Follow-up recorded' : 'Moved to Follow-up sent'), { label: 'Undo', onClick: () => void undo(id) })
   }
 
   return { record, busy }
@@ -107,7 +110,7 @@ export default function FollowUpActions(p: FollowUpProps) {
 }
 
 /** The small "Mark as followed up" text link under the buttons. */
-export function MarkFollowedUp(p: Pick<FollowUpProps, 'memberId' | 'source' | 'templateKey' | 'tab' | 'onMoved' | 'onRestored'>) {
+export function MarkFollowedUp(p: Pick<FollowUpProps, 'memberId' | 'source' | 'templateKey' | 'tab' | 'onMoved' | 'onRestored' | 'toastText'>) {
   const readOnly = useAdminReadOnly()
   const { record, busy } = useFollowUp(p)
   if (readOnly) return null

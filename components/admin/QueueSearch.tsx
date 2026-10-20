@@ -22,17 +22,21 @@ export default function QueueSearch({
   filter,
   placeholder,
   ariaLabel,
+  keep = {},
 }: {
   basePath: string
   initialQuery: string
   filter: string
   placeholder: string
   ariaLabel: string
+  /** Other query params to keep while typing (e.g. Follow-ups' chip and group). */
+  keep?: Record<string, string | undefined>
 }) {
   const router = useRouter()
 
   const apply = (q: string, replace: boolean) => {
     const params = new URLSearchParams()
+    for (const [k, v] of Object.entries(keep)) if (v) params.set(k, v)
     if (filter) params.set('filter', filter)
     if (q) params.set('q', q)
     const href = params.toString() ? `${basePath}?${params}` : basePath

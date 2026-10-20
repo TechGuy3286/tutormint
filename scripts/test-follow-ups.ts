@@ -73,7 +73,7 @@ test('recording a follow-up moves the card to Follow-up sent, with the line', ()
   // The WhatsApp button records as it opens the chat, and the card leaves.
   const ui = read('components/admin/FollowUpActions.tsx')
   assert.match(ui, /onClick=\{\(\) => void record\('whatsapp'\)\}/)
-  assert.match(ui, /'Moved to Follow-up sent', \{ label: 'Undo'/)
+  assert.match(ui, /'Moved to Follow-up sent'\), \{ label: 'Undo'/)
   assert.match(read('components/admin/OverviewCardGrid.tsx'), /moved\.has\(it\.memberId\) && it\.followUp\?\.tab === 'stuck'/)
 })
 
@@ -110,14 +110,14 @@ test('paying or finishing onboarding removes the member from both tabs', () => {
   assert.match(src, /feeStamped: !!t\.verified_fee_paid_at/)
   assert.match(src, /if \(!inScope\) continue/)
   const ov = read('lib/overviewItems.ts')
-  assert.match(ov, /all\.filter\(\(r\) => r\.stoppedAt && r\.stoppedAt !== PAYMENT_STEP_LABEL\)/)
+  // The Overview rows are chips of the merged Follow-ups list (owner, 20 Oct 2026).
+  assert.match(ov, /tutorsWithChip\(chip\)/)
 })
 
 test('counts equal the cards', () => {
   const ov = read('lib/overviewItems.ts')
-  // The Overview number, the Stuck tab and its count are the same array.
-  assert.match(ov, /case 'todo-stuck': \{\s*const t = await stuckTabs\(\)\s*return \{\s*key,\s*rows: t\.stuck,/)
-  assert.match(ov, /return \{ stuck: t\.stuck\.length, sent: t\.sent\.length \}/)
+  // The Overview number and the Stuck chip are the same rows (owner, 20 Oct 2026).
+  assert.match(ov, /case 'todo-stuck': \{\s*const \{ rows, stops \} = await chipRows\('stuck'\)/)
   // Unpaid signups: a followed-up row is in "Follow-up sent" and in no other tab.
   const filters: UnpaidFilter[] = ['all', 'payment', 'onboarding', 'uncontacted']
   const row = { stoppedAt: 'Subjects', lastContactAt: null, followUpSent: true }

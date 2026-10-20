@@ -138,6 +138,10 @@ export function tutorInScope(
 ): boolean {
   if (scope === 'started_payment') return !!t.startedPayment
   if (scope === 'paid_unfinished') return t.feeApproved && !t.onboarded
+  // The merged Follow-ups list (owner, 20 Oct 2026): the default group also
+  // carries every tutor with a checkout started and not finished, whenever
+  // they joined — the "Started payment" chip.
+  if (scope === 'recent' && t.startedPayment) return true
   const joined = Date.parse(t.joinedAt)
   if (!Number.isFinite(joined) || t.feeStamped) return false
   const recent = joined >= nowMs - UNPAID_WINDOW_DAYS * DAY_MS

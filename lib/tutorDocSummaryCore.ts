@@ -127,13 +127,15 @@ export function docFilterCounts<T extends WithDocs>(items: T[]): Record<DocFilte
 }
 
 /** The card's free-text line without its "Joined <date>" part — the details
- *  table already shows the joined date (owner, 19 Oct 2026). */
+ *  table already shows the joined date (owner, 19 Oct 2026) — and without a
+ *  "stopped at …" / "Next: …" / "Still to do …" part: the card shows the step
+ *  once, as its own "Next:" line (owner, 20 Oct 2026). */
 export function withoutJoined(detail: string | null | undefined): string | null {
   if (!detail) return null
   const kept = detail
     .split(' · ')
     .map((s) => s.trim())
-    .filter((s) => s && !/^joined\b/i.test(s))
+    .filter((s) => s && !/^(joined|stopped at|next:|still to do)/i.test(s))
   return kept.length ? kept.join(' · ') : null
 }
 

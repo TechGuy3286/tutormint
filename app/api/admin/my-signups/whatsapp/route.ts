@@ -13,14 +13,18 @@ import { parseBody, z } from '@/lib/validate'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const Body = z.object({ memberId: z.guid(), nextStep: z.string().max(40).nullable().optional() })
+const Body = z.object({
+  memberId: z.guid(),
+  nextStep: z.string().max(40).nullable().optional(),
+  messageType: z.string().max(80).nullable().optional(),
+})
 
 export async function POST(request: Request) {
   const gate = await checkAdminRole(...SCREEN_ACCESS.tuitionPosting)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
   const parsed = await parseBody(request, Body)
   if (!parsed.ok) return parsed.response
-  const ok = await logWhatsAppTap(gate.actor, parsed.data.memberId, parsed.data.nextStep ?? null)
+  const ok = await logWhatsAppTap(gate.actor, parsed.data.memberId, parsed.data.nextStep ?? null, parsed.data.messageType ?? null)
   if (!ok) return NextResponse.json({ error: 'You can only message your own sign-ups.' }, { status: 403 })
   return NextResponse.json({ ok: true })
 }

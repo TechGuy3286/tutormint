@@ -83,11 +83,12 @@ test('A. the card number equals the rows of the Today filter, followed up or not
   // One loader, one rule: the Overview item filters the SAME list with signedUpIn.
   const items = read('lib', 'overviewItems.ts')
   assert.ok(items.includes("case 'signups-today'") && items.includes("const all = await unpaid()") && items.includes("signedUpIn(r.joinedAt, 'today', nowMs)"))
-  assert.ok(items.includes('const unpaid = cache(async () => loadUnpaidSignups('))
+  assert.ok(items.includes('const unpaid = cache(async () => (await loadUnpaidSignups(new Date())).filter((r) => !r.feePaid))'))
   assert.ok(items.includes('`${counts.yesterday} yesterday · ${counts.week} in the last 7 days`'))
   // Unpaid signups is the Tutors tab of People → Follow-ups (owner, 15 Oct 2026).
   const page = read('app', 'admin', 'follow-ups', 'page.tsx')
-  assert.ok(page.includes('loadUnpaidSignups(new Date(), scope)') && page.includes('unpaidRowMatches(facts(r), filter, now)'))
+  // One merged list (owner, 20 Oct 2026): the sign-up day filter is the same signedUpIn rule.
+  assert.ok(page.includes('loadTutorFollowUps(scope)') && page.includes('!r.feePaid && signedUpIn(r.joinedAt, window, now)'))
   for (const label of ["label: 'Today'", "label: 'Yesterday'", "label: 'Last 7 days'"]) assert.ok(page.includes(label), label)
   assert.ok(page.includes('UnpaidSignupRow'), 'the existing WhatsApp / Call / Follow-up sent rows — no new list')
 })

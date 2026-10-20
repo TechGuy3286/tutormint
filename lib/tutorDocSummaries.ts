@@ -13,12 +13,14 @@ import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { pageAllIn } from '@/lib/pageAll'
-import { tutorCardStatuses } from '@/lib/tutorDocQueueCore'
+import { tutorCardStatuses, type CardStatuses } from '@/lib/tutorDocQueueCore'
 import { docSummary, itemState, tutorDocFactsFromRow, type DocSummary, type TutorDocRow } from '@/lib/tutorDocSummaryCore'
 
 export type CardDocs = DocSummary & {
   /** The oldest upload still waiting for a decision (for "oldest first"). */
   oldestUploadAt: string | null
+  /** The per-item statuses (and rejection reasons) the summary was built from. */
+  statuses: CardStatuses
 }
 
 const PROFILE_COLS =
@@ -78,7 +80,7 @@ export async function loadTutorDocSummaries(tutorIds: string[]): Promise<Map<str
     times.sort()
     const oldest = summary.kind === 'waiting' ? (times[0] ?? (p.created_at as string | null) ?? null) : null
 
-    out.set(id, { ...summary, oldestUploadAt: oldest })
+    out.set(id, { ...summary, oldestUploadAt: oldest, statuses })
   }
   return out
 }

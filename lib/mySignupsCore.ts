@@ -182,12 +182,16 @@ export type MySignupRow = {
   staffId: string
   /** The ready-made WhatsApp link, or null. */
   waLink: string | null
+  /** Which message the link carries (owner, 20 Oct 2026): a template key, or
+   *  the Follow-ups message type for an unpaid tutor. Logged with the tap. */
+  messageType: string | null
 }
 
 /** The only keys a row may carry (scripts/test-my-signups.ts checks it). */
 export const MY_SIGNUP_ROW_KEYS = [
   'memberId', 'name', 'phone', 'waNumber', 'email', 'city', 'role', 'signedUpAt', 'creditedBy', 'kind', 'step', 'stepLabel',
   'nextStep', 'nextStepLabel', 'counted', 'notCountedReason', 'notCountedLabel', 'paid', 'paidAt', 'staffId', 'waLink',
+  'messageType',
 ] as const
 
 /** Never in a row, an API answer or the page (owner, 16 Oct 2026). */
@@ -226,6 +230,9 @@ export function creditRow(input: {
   facts: MemberFacts
   templateBodies: Record<string, string>
   siteUrl: (path: string) => string
+  /** An unpaid tutor's message from their own state (lib/tutorFollowUpCore,
+   *  the same text as Follow-ups). Used in place of the step template. */
+  tutorMessage?: { text: string; type: string } | null
 }): MySignupRow {
   const f = input.facts
   const step = stepOf(f)
@@ -233,7 +240,8 @@ export function creditRow(input: {
   const reason = countedReason(f)
   const tpl = NEXT_STEP_TEMPLATE[next]
   const body = input.templateBodies[tpl.key]
-  const text = body ? whatsAppText(body, input.name, input.siteUrl(tpl.path)) : null
+  const own = f.role === 'tutor' && !f.paidAt ? (input.tutorMessage ?? null) : null
+  const text = own ? own.text : body ? whatsAppText(body, input.name, input.siteUrl(tpl.path)) : null
   return {
     memberId: input.memberId,
     name: input.name,
@@ -256,6 +264,7 @@ export function creditRow(input: {
     paidAt: f.paidAt,
     staffId: input.staffId,
     waLink: text ? whatsAppLink(input.waNumber, text) : null,
+    messageType: own ? own.type : text ? tpl.key : null,
   }
 }
 
@@ -293,6 +302,7 @@ export function claimRow(input: {
     paidAt: null,
     staffId: input.staffId,
     waLink: null,
+    messageType: null,
   }
 }
 

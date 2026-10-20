@@ -167,7 +167,8 @@ test('Follow-ups: tabs per role; Tuitions staff see Tutors only', () => {
   assert.equal(onParentsTab({ stage: 'profile_unfinished', role: 'parent' }), true)
   assert.equal(onParentsTab({ stage: 'email_unconfirmed', role: 'tutor' }), true)
   // Overview "Stuck in onboarding" keeps its filtered view.
-  assert.ok(read('lib/overviewItems.ts').includes("workHref: '/admin/follow-ups?filter=onboarding'"))
+  // …now the Stuck chip of the merged list (owner, 20 Oct 2026).
+  assert.ok(read('lib/overviewItems.ts').includes("workHref: chipHref('stuck')"))
   assert.equal(SIGNUPS_TODAY_HREF, '/admin/follow-ups?filter=today')
 })
 

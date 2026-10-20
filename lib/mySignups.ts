@@ -27,6 +27,12 @@ import { logAdminAction } from '@/lib/auditLog'
 import { maskMobile } from '@/lib/smsHealthCore'
 import { tutorDocStatusesFromProfile } from '@/lib/tutorDocStatus'
 import { tutorDocsSubmitted } from '@/lib/badgeRule'
+import { flowStateByTutor } from '@/lib/onboardingStop'
+import { loadTutorDocSummaries } from '@/lib/tutorDocSummaries'
+import { loadStartedNotFinished } from '@/lib/startedPayment'
+import { loadFollowUpStates } from '@/lib/followUps'
+import { docFactsFrom, followUpMessage } from '@/lib/tutorFollowUpCore'
+import { fillPaymentNotFinished, payAgainLink, PAYMENT_NOT_FINISHED_KEY } from '@/lib/startedPaymentCore'
 import { loadCreditedAccounts, joinLinkFor, type JoinLink } from '@/lib/staffSignups'
 import { loadTargetBoard, type TargetCard } from '@/lib/staffTargets'
 import { mayViewStaff, type CreditedAccount, type MemberRole } from '@/lib/staffSignupsCore'
@@ -37,7 +43,7 @@ import { NEXT_STEP_TEMPLATE, claimRow, creditRow, type CreditedBy, type MySignup
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>
 
 async function templateBodies(admin: Admin): Promise<Record<string, string>> {
-  const keys = [...new Set(Object.values(NEXT_STEP_TEMPLATE).map((t) => t.key))]
+  const keys = [...new Set([...Object.values(NEXT_STEP_TEMPLATE).map((t) => t.key), PAYMENT_NOT_FINISHED_KEY])]
   const { data } = await admin.from('admin_message_templates').select('key, body').in('key', keys)
   return Object.fromEntries((data ?? []).map((t) => [t.key as string, t.body as string]))
 }
@@ -52,7 +58,7 @@ export async function rowsForAccounts(accounts: CreditedAccount[]): Promise<MySi
       admin
         .from('profiles')
         .select(
-          'id, full_name, email, city, phone_number, whatsapp, verification_state, cnic_verified_at, cnic_number, cnic_image_path, avatar_url, profile_pic_status, selfie_status',
+          'id, full_name, email, city, phone_number, whatsapp, profile_completion, verification_state, cnic_verified_at, cnic_number, cnic_image_path, avatar_url, profile_pic_status, selfie_status',
         )
         .in('id', part)
         .order('id')
@@ -94,6 +100,39 @@ export async function rowsForAccounts(accounts: CreditedAccount[]): Promise<MySi
     if (wasRefunded && isQualifyingPayment(facts, role)) refunded.add(p.user_id as string)
   }
 
+  // Unpaid tutors get the Follow-ups message built from their own state
+  // (owner, 20 Oct 2026) — the same text as Follow-ups → Tutors.
+  const unpaidTutors = accounts.filter((a) => a.role === 'tutor' && !a.at.paid).map((a) => a.memberId)
+  const nowMs = Date.now()
+  const [flow, docSums, started, fu] = unpaidTutors.length
+    ? await Promise.all([
+        flowStateByTutor(admin, unpaidTutors),
+        loadTutorDocSummaries(unpaidTutors),
+        loadStartedNotFinished(new Date(nowMs)).catch(() => []),
+        loadFollowUpStates(unpaidTutors, new Date(nowMs)),
+      ])
+    : [new Map(), new Map(), [], new Map()] as const
+  const startedBy = new Map<string, { planCode: string | null; startedAt: string }>()
+  for (const s of started) if (s.userId && !startedBy.has(s.userId)) startedBy.set(s.userId, { planCode: s.planCode, startedAt: s.createdAt })
+  const tutorMessage = (a: CreditedAccount, p: Record<string, unknown> | undefined) => {
+    if (a.role !== 'tutor' || a.at.paid) return null
+    const fs = flow.get(a.memberId)
+    const sp = startedBy.get(a.memberId) ?? null
+    return followUpMessage(
+      {
+        feePaid: false,
+        completion: Number(p?.profile_completion ?? 0) || 0,
+        stoppedStep: fs?.stoppedStep ?? null,
+        ...docFactsFrom(docSums.get(a.memberId)?.statuses),
+        startedPayment: sp,
+        lastContactAt: fu.get(a.memberId)?.lastAt ?? null,
+      },
+      a.name,
+      nowMs,
+      sp && bodies[PAYMENT_NOT_FINISHED_KEY] ? fillPaymentNotFinished(bodies[PAYMENT_NOT_FINISHED_KEY], { name: a.name, payLink: payAgainLink(sp.planCode) }) : null,
+    )
+  }
+
   return accounts.map((a) => {
     const p = prof.get(a.memberId)
     const phone = ((p?.phone_number as string | null) ?? (p?.whatsapp as string | null)) || a.mobile || null
@@ -120,6 +159,7 @@ export async function rowsForAccounts(accounts: CreditedAccount[]): Promise<MySi
       },
       templateBodies: bodies,
       siteUrl: absoluteUrl,
+      tutorMessage: tutorMessage(a, p as Record<string, unknown> | undefined),
     })
   })
 }
@@ -218,7 +258,7 @@ export async function logMySignupsOpen(actor: Actor, rows: number): Promise<void
  * actor — or to a staff member the actor may view (the Owner, the Project
  * Managers and Admin on another person's list). Returns false when not.
  */
-export async function logWhatsAppTap(actor: Actor, memberId: string, nextStep: string | null): Promise<boolean> {
+export async function logWhatsAppTap(actor: Actor, memberId: string, nextStep: string | null, messageType: string | null = null): Promise<boolean> {
   const admin = createAdminClient()
   if (!admin) return false
   const { data: credit } = await admin.from('staff_signup_credits').select('staff_id').eq('member_id', memberId).maybeSingle()
@@ -230,7 +270,7 @@ export async function logWhatsAppTap(actor: Actor, memberId: string, nextStep: s
     action: 'staff.my_signups_whatsapp',
     targetType: 'profile',
     targetId: memberId,
-    detail: { nextStep, creditedTo: credit.staff_id },
+    detail: { nextStep, messageType, creditedTo: credit.staff_id },
   })
   return true
 }

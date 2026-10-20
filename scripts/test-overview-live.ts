@@ -83,16 +83,17 @@ test('lists agree with independent counts', { skip: !live }, async () => {
     .eq('status', 'pending')
     .gte('created_at', new Date(now - 48 * 3600_000).toISOString())
     .lt('created_at', new Date(now - 3600_000).toISOString())
-  const candidates = new Map(
+  // Since 20 Oct 2026 the row is the Started payment chip of Follow-ups →
+  // Tutors: one row per TUTOR (their id), each with such a checkout.
+  const withCheckout = new Set(
     (pend ?? [])
       .filter((p) => p.user_id && !p.screenshot_path && !String(p.reference ?? '').trim())
-      .map((p) => [p.id as string, `${p.user_id}|${p.plan_code}`]),
+      .map((p) => p.user_id as string),
   )
   const started = (await loadOverviewList('todo-payments')).rows
-  for (const r of started) assert.ok(candidates.has(r.id), `todo-payments: ${r.id} is not a pending 1–48 h checkout`)
-  const pairs = started.map((r) => candidates.get(r.id))
-  assert.equal(new Set(pairs).size, pairs.length, 'todo-payments: one row per member and package')
-  assert.ok(started.length <= new Set(candidates.values()).size)
+  for (const r of started) assert.ok(withCheckout.has(r.id), `todo-payments: ${r.id} has no pending 1–48 h checkout`)
+  assert.equal(new Set(started.map((r) => r.id)).size, started.length, 'todo-payments: each tutor once')
+  assert.ok(started.length <= withCheckout.size)
   const flags = await head(admin.from('abuse_flags').select('id', { count: 'exact', head: true }).eq('status', 'open'))
   const reports = await head(admin.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'open'))
   assert.equal((await loadOverviewList('todo-flagged')).rows.length, flags + reports)

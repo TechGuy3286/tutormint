@@ -11,7 +11,6 @@
 import { signedUpIn, signupCounts } from '@/lib/staffOutreachCore'
 import { SIGNUPS_TODAY_HREF, payproFileNote, waitingOrderLine, type FileNote } from '@/lib/overviewItemsCore'
 import { pkr } from '@/lib/reconciliationCore'
-import { missingSentence } from '@/lib/onboarding/missingItems'
 import { loadUnmetBoard } from '@/lib/unmetSearches'
 import { loadEmailFailures } from '@/lib/emailHealth'
 import { testAccountIds } from '@/lib/testAccounts'
@@ -24,10 +23,10 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { approvalNeeded } from '@/lib/approvalQueue'
 import { loadUnpaidSignups, loadFeaturedWhatsapp } from '@/lib/staffOutreach'
-import { loadStartedNotFinished } from '@/lib/startedPayment'
-import { isTestName, PAYMENT_STEP_LABEL, stuckBreakdown, firstNameOf } from '@/lib/staffOutreachCore'
-import { continueLink, loadFollowUpStates, loadStuckTemplate } from '@/lib/followUps'
-import { followUpLine, followUpText, followUpWaLink, splitFollowUpTabs, STUCK_TEMPLATE_KEY, type FollowUpSource } from '@/lib/followUpCore'
+import { isTestName, stuckBreakdown } from '@/lib/staffOutreachCore'
+import type { FollowUpSource } from '@/lib/followUpCore'
+import { tutorsWithChip } from '@/lib/tutorFollowUps'
+import { chipHref, type FollowChip } from '@/lib/tutorFollowUpCore'
 import { pauseDueAtMs } from '@/lib/tuitionStatus'
 import { settleByDate } from '@/lib/settlementCore'
 import type { PayproRow } from '@/lib/reconciliationCore'
@@ -105,53 +104,24 @@ export type OverviewList = {
 const PK_DATE = (iso: string) => formatDate(iso)
 
 
-const unpaid = cache(async () => loadUnpaidSignups(new Date()))
+// The default group of Follow-ups → Tutors also carries started-payment tutors
+// who already paid the fee (a plan checkout); "Signed up, not paid" is the
+// fee-unpaid ones only.
+const unpaid = cache(async () => (await loadUnpaidSignups(new Date())).filter((r) => !r.feePaid))
 const featured = cache(async () => loadFeaturedWhatsapp(new Date()))
 
 /**
- * Stuck in onboarding, split into its two tabs by the shared follow-up record
- * (owner, 9 Oct 2026). The Overview number is the Stuck tab's length; each
- * card carries the prefilled WhatsApp link built from the stored template.
+ * The three follow-up to-do rows are chips of ONE list, Follow-ups → Tutors
+ * (owner, 20 Oct 2026). Each row's number is that chip's count, read from the
+ * same loader the list page uses (lib/tutorFollowUps), and the row opens the
+ * list on that chip. Rows here carry only what a count needs.
  */
-const stuckTabs = cache(async () => {
-  const now = new Date()
-  const all = await unpaid()
-  const stuckRows = all.filter((r) => r.stoppedAt && r.stoppedAt !== PAYMENT_STEP_LABEL)
-  const [states, template] = await Promise.all([loadFollowUpStates(stuckRows.map((r) => r.id), now), loadStuckTemplate()])
-  const link = continueLink()
-  const toRow = (r: (typeof stuckRows)[number], tab: 'stuck' | 'sent'): OverviewRow => {
-    const st = states.get(r.id)
-    const text = template ? followUpText(template.body, { name: firstNameOf(r.name), step: r.stoppedAt, link, missing: r.missing }) : null
-    return {
-      id: r.id,
-      title: r.name,
-      // The same missing-items list the tutor sees (owner, 13 Oct 2026).
-      detail: `Stopped at ${r.stoppedAt} · joined ${PK_DATE(r.joinedAt)}${r.missing.length ? ` · Still to do: ${missingSentence(r.missing, 6)}` : ''}`,
-      href: `/admin/users/${r.id}`,
-      memberId: r.id,
-      followUp: {
-        source: 'stuck',
-        templateKey: template?.key ?? STUCK_TEMPLATE_KEY,
-        waHref: r.msisdn && text ? followUpWaLink(r.msisdn, text) : null,
-        telHref: r.msisdn ? `tel:+${r.msisdn}` : null,
-        tab,
-        line: st ? followUpLine(st, now.getTime()) : null,
-        tag: st?.tag ?? null,
-      },
-    }
-  }
-  const split = splitFollowUpTabs(stuckRows, states)
+async function chipRows(chip: FollowChip): Promise<{ rows: OverviewRow[]; stops: (string | null)[] }> {
+  const list = await tutorsWithChip(chip)
   return {
-    all,
-    stuck: split.stuck.map((r) => toRow(r, 'stuck')),
-    sent: split.sent.map((r) => toRow(r, 'sent')),
+    rows: list.map((r) => ({ id: r.id, title: r.name, detail: r.next ? `Next: ${r.next}` : null, href: `/admin/users/${r.id}`, memberId: r.id })),
+    stops: list.map((r) => r.stoppedAt),
   }
-})
-
-/** Both tab counts, for the tabs on the list page. */
-export async function stuckTabCounts(): Promise<{ stuck: number; sent: number }> {
-  const t = await stuckTabs()
-  return { stuck: t.stuck.length, sent: t.sent.length }
 }
 
 // ---------------------------------------------------------------- funnel
@@ -429,59 +399,36 @@ export async function loadOverviewList(
     }
 
     case 'todo-uncontacted': {
-      const rows = (await unpaid()).filter((r) => !r.lastContact)
-      return {
-        key,
-        rows: rows.map((r) => ({ id: r.id, title: r.name, detail: `Joined ${PK_DATE(r.joinedAt)} · stopped at ${r.stoppedAt ?? 'payment'}`, href: `/admin/users/${r.id}`, memberId: r.id })),
-        filter: 'who joined in the last 30 days, have not paid, and nobody has contacted yet',
-        workHref: '/admin/follow-ups?filter=uncontacted',
-      }
+      const { rows } = await chipRows('not_contacted')
+      return { key, rows, filter: 'who joined in the last 30 days, have not paid, and nobody has contacted yet', workHref: chipHref('not_contacted') }
     }
 
     case 'todo-stuck': {
-      const t = await stuckTabs()
+      const { rows, stops } = await chipRows('stuck')
       return {
         key,
-        rows: t.stuck,
+        rows,
         filter: 'who joined in the last 30 days and stopped before the payment step',
-        extra: stuckBreakdown(t.all.map((r) => r.stoppedAt)).detail,
-        workHref: '/admin/follow-ups?filter=onboarding',
+        extra: stuckBreakdown(stops).detail,
+        workHref: chipHref('stuck'),
       }
     }
 
     case 'todo-stuck-sent': {
-      const t = await stuckTabs()
-      return {
-        key,
-        rows: t.sent,
-        filter: 'stuck in onboarding, followed up in the last 7 days',
-        workHref: '/admin/follow-ups?filter=followed',
-      }
+      const { rows } = await chipRows('contacted')
+      return { key, rows, filter: 'contacted in the last 3 days', workHref: chipHref('contacted') }
     }
 
     case 'todo-payments': {
       // "Started payment, didn't finish" (owner, 16 Oct 2026): checkouts opened
-      // and never completed — gone 48 h after they started, or as soon as the
-      // member pays. One loader for the row, this list and the Follow-ups chip.
-      const started = await loadStartedNotFinished(now)
-      const names = new Map<string, string>()
-      const ids = [...new Set(started.map((r) => r.userId).filter((v): v is string => !!v))]
-      if (ids.length > 0) {
-        const { data: ps } = await admin.from('profiles').select('id, full_name').in('id', ids.slice(0, 1000))
-        for (const p of ps ?? []) names.set(p.id as string, formatName(p.full_name as string | null) || '—')
-      }
+      // and never completed — the Started payment chip of Follow-ups → Tutors
+      // (owner, 20 Oct 2026), so tutors only. No amounts here.
+      const { rows } = await chipRows('started')
       return {
         key,
-        // No amounts: staff see the status, never rupees (item 3).
-        rows: started.map((p) => ({
-          id: p.id,
-          memberId: p.userId ?? undefined,
-          title: names.get(p.userId ?? '') ?? p.providerRef ?? p.id,
-          detail: `Started ${formatDateTime(p.createdAt)} · ${p.planCode === 'verified' ? FEE_LABEL : (p.planCode ?? 'plan')} · ${p.provider === 'manual' ? 'bank transfer page' : p.provider}${p.providerRef ? ` · ${p.providerRef}` : ''}`,
-          href: p.userId ? `/admin/users/${p.userId}` : `/admin/payments?filter=pending&q=${encodeURIComponent(p.providerRef ?? '')}`,
-        })),
-        filter: 'checkout opened over an hour ago and not paid; leaves the list 48 hours after it started or when the member pays',
-        workHref: '/admin/follow-ups?filter=started_payment&scope=started_payment',
+        rows,
+        filter: 'checkout opened over an hour ago and not paid; leaves the list 48 hours after it started or when the tutor pays',
+        workHref: chipHref('started'),
       }
     }
 

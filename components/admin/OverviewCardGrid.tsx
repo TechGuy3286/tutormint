@@ -256,7 +256,7 @@ function MemberBody({
       {m.role === 'tutor' && it.share && <ProfileShareButtons share={it.share} />}
 
       {m.stoppedAt && (
-        <p className="rounded-lg bg-tm-tint-gold px-2 py-1 text-[11px] font-semibold text-tm-gold-ink">Stopped at: {m.stoppedAt}</p>
+        <p className="rounded-lg bg-tm-tint-gold px-2 py-1 text-[11px] font-semibold text-tm-gold-ink">Next: {m.stoppedAt}</p>
       )}
       {memberDetail && <p className="text-[11px] text-gray-600">{memberDetail}</p>}
       {it.badge && (

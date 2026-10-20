@@ -6,6 +6,7 @@ import AccessDeniedNotice from '@/components/admin/AccessDeniedNotice'
 import { requireAdminRole, roleBadge, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadOverviewList, type OverviewList } from '@/lib/overviewItems'
 import { OVERVIEW_ITEMS, SIGNUPS_TODAY_HREF, type OverviewItemKey } from '@/lib/overviewItemsCore'
+import { chipHref, OVERVIEW_KEY_CHIP } from '@/lib/tutorFollowUpCore'
 import { funnelSteps } from '@/lib/staffOutreachCore'
 import { TILE_TONE, type TileTone } from '@/lib/tileTones'
 import { smsProviderLabel } from '@/lib/sms'
@@ -79,8 +80,9 @@ export default async function AdminHome({
   )
   // "Signed up today, not paid" opens the existing Unpaid signups list on its
   // Today filter (the same rows), not a second list.
+  // The follow-up rows open Follow-ups → Tutors on their chip (owner, 20 Oct 2026).
   const href = (k: OverviewItemKey) =>
-    k === 'signups-today' ? SIGNUPS_TODAY_HREF : `/admin/overview/${k}${OVERVIEW_ITEMS[k].funnel ? `?days=${funnelDays}` : ''}`
+    k === 'signups-today' ? SIGNUPS_TODAY_HREF : OVERVIEW_KEY_CHIP[k] ? chipHref(OVERVIEW_KEY_CHIP[k]) : `/admin/overview/${k}${OVERVIEW_ITEMS[k].funnel ? `?days=${funnelDays}` : ''}`
 
   const tiles = CARD_KEYS.filter((k) => lists.has(k)).map((k) => {
     const l = lists.get(k)!

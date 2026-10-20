@@ -1,9 +1,10 @@
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { ArrowRight } from 'lucide-react'
 
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
-import { listHeader, loadOverviewList, stuckTabCounts } from '@/lib/overviewItems'
+import { listHeader, loadOverviewList } from '@/lib/overviewItems'
+import { chipHref, OVERVIEW_KEY_CHIP } from '@/lib/tutorFollowUpCore'
 import { OVERVIEW_ITEMS, PAYER_PERIODS, isOverviewItemKey, paidListHref, parseFunnelDays, parsePayerPeriod } from '@/lib/overviewItemsCore'
 import { pkr } from '@/lib/reconciliationCore'
 import { loadMemberCards } from '@/lib/overviewCards'
@@ -30,6 +31,10 @@ export default async function OverviewListPage({
   if (!isOverviewItemKey(key)) notFound()
   const meta = OVERVIEW_ITEMS[key]
   const actor = await requireAdminRole(...SCREEN_ACCESS[meta.screen])
+  // The three follow-up lists are chips of Follow-ups → Tutors now (owner,
+  // 20 Oct 2026); their old addresses open the list on that chip.
+  const chip = OVERVIEW_KEY_CHIP[key]
+  if (chip) redirect(chipHref(chip))
   const sp = await searchParams
   const days = parseFunnelDays(sp.days)
 
@@ -59,10 +64,6 @@ export default async function OverviewListPage({
     docs: (r.memberId && docs.get(r.memberId)) || null,
     share: (r.memberId && shares.get(r.memberId)) || null,
   }))
-  // Stuck in onboarding and Follow-up sent are two tabs of one list (owner,
-  // 9 Oct 2026), each with its own count.
-  const tabbed = key === 'todo-stuck' || key === 'todo-stuck-sent'
-  const tabCounts = tabbed ? await stuckTabCounts() : null
 
   return (
     <div className="space-y-4">
@@ -111,29 +112,6 @@ export default async function OverviewListPage({
                 }`}
               >
                 {p.label}
-              </Link>
-            )
-          })}
-        </nav>
-      )}
-
-      {tabCounts && (
-        <nav aria-label="Tabs" className="flex flex-wrap gap-2">
-          {([
-            ['todo-stuck', 'Stuck in onboarding', tabCounts.stuck],
-            ['todo-stuck-sent', 'Follow-up sent', tabCounts.sent],
-          ] as const).map(([k, label, n]) => {
-            const on = k === key
-            return (
-              <Link
-                key={k}
-                href={`/admin/overview/${k}`}
-                aria-current={on ? 'page' : undefined}
-                className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-4 text-xs font-bold ${
-                  on ? 'border-tm-navy bg-tm-navy text-white' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'
-                }`}
-              >
-                {label} <span className={on ? 'text-white' : 'text-gray-500'}>{n}</span>
               </Link>
             )
           })}

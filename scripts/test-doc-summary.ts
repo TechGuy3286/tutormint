@@ -116,7 +116,9 @@ test('filter counts match the list, with search and oldest-first waiting', () =>
 
 test('the duplicate "Joined" line is gone', () => {
   assert.equal(withoutJoined('Joined 3 Oct 2026'), null)
-  assert.equal(withoutJoined('Stopped at Gender · joined 3 Oct 2026 · Still to do: CNIC'), 'Stopped at Gender · Still to do: CNIC')
-  assert.equal(withoutJoined('Joined 3 Oct 2026, 10:00 · stopped at payment'), 'stopped at payment')
+  // The step shows once, as the card's own "Next:" line (owner, 20 Oct 2026).
+  assert.equal(withoutJoined('Stopped at Gender · joined 3 Oct 2026 · Still to do: CNIC'), null)
+  assert.equal(withoutJoined('Joined 3 Oct 2026, 10:00 · stopped at payment'), null)
+  assert.equal(withoutJoined('Joined 3 Oct 2026 · Rs 199'), 'Rs 199')
   assert.match(read('components/admin/OverviewCardGrid.tsx'), /withoutJoined\(it\.detail\)/)
 })
