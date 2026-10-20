@@ -52,7 +52,11 @@ export default function TimelineRow({ event: e, memberId }: { event: TimelineEve
   return (
     <li className="rounded-2xl border border-gray-200 bg-white p-3">
       <div className="flex min-h-[28px] flex-wrap items-baseline gap-x-2 gap-y-1">
-        <span className={`min-w-0 flex-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${TONE[e.tone]}`}>
+        {/* A grouped line is short by construction (groupLineText) and is
+            clamped to 2 lines as well; the full detail is under "Show each". */}
+        <span
+          className={`min-w-0 flex-1 rounded-2xl px-2 py-0.5 text-[11px] font-semibold ${e.count > 1 ? 'line-clamp-2' : ''} ${TONE[e.tone]}`}
+        >
           {e.text}
           {e.count > 1 && <> ×{e.count}</>}
           {e.range && <span className="font-normal"> ({e.range})</span>}

@@ -106,7 +106,8 @@ export default async function AdminPageHead({
 
   return (
     <div className="min-w-0">
-      <Breadcrumbs items={crumbs} />
+      {/* No "← Back to …" link: the trail is the only way back (owner, 20 Oct 2026). */}
+      <Breadcrumbs items={crumbs} showBack={false} />
       <h1 className="-mt-2 truncate text-base font-black text-tm-navy sm:text-lg">{title}</h1>
     </div>
   )

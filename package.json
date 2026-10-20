@@ -119,6 +119,7 @@
     "test:approvalqueue": "tsx --test scripts/test-approval-queue.ts",
     "test:docsummary": "tsx --test scripts/test-doc-summary.ts",
     "test:admincleanup": "tsx --test scripts/test-admin-cleanup.ts",
+    "test:headertimeline": "tsx --test scripts/test-header-timeline.ts",
     "test:admindocupload": "tsx --test scripts/test-admin-doc-upload.ts",
     "test:doclocks": "tsx --test scripts/test-doc-locks.ts",
     "test:tutorcard": "tsx --test scripts/test-tutor-card.ts",

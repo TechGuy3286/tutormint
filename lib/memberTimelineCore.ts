@@ -25,9 +25,9 @@
 // Nothing stored is changed or deleted — this only decides what is shown.
 // PURE — unit-tested by scripts/test-admin-cleanup.ts.
 
-import { adminActionLabel } from '@/lib/display'
+import { auditLabel, actorFirstSentence } from '@/lib/timelineLabelsCore'
 import { formatTime, formatDate } from '@/lib/datetime'
-import { collapseTimeline, timelineSentence, type TimelineMeta } from '@/lib/timelineText'
+import { timelineSentence, type TimelineMeta } from '@/lib/timelineText'
 
 export type TimelineGroup = 'all' | 'account' | 'activity' | 'money' | 'moderation'
 export const TIMELINE_TABS: { key: TimelineGroup; label: string }[] = [
@@ -106,7 +106,9 @@ const itemOf = (detail: Record<string, unknown> | null): string | null => {
 }
 
 /** "Approved CNIC", "Rejected selfie", "Unlocked profile picture for re-upload". */
-export function auditSentence(action: string, detail: Record<string, unknown> | null): string {
+export function auditSentence(action: string, detail: Record<string, unknown> | null, actorName: string | null = null): string {
+  const first = actorFirstSentence(action, actorName)
+  if (first) return first
   const item = itemOf(detail)
   switch (action) {
     case 'tutor.approve':
@@ -148,7 +150,7 @@ export function auditSentence(action: string, detail: Record<string, unknown> | 
     case 'profile_photo.crop_reset':
       return 'Reset the profile picture crop'
     default:
-      return adminActionLabel(action)
+      return auditLabel(action)
   }
 }
 
@@ -235,9 +237,33 @@ export function sessionSentence(s: SessionRow): string {
 
 type Flat = { item: TimelineItem; group: Exclude<TimelineGroup, 'all'> | null; key: string | null }
 
+/**
+ * Events whose sentence changes from row to row (the fields, the subjects, the
+ * document). A run of them groups by the event alone, under this SHORT line —
+ * "Changed subjects ×23 (12:43–12:47 am)" — and the full sentence of each row
+ * is under "Show each" (owner, 20 Oct 2026). A group line therefore never
+ * carries a long list of names.
+ */
+export const GROUP_LINE: Record<string, string> = {
+  profile_updated: 'Updated their profile',
+  subjects_changed: 'Changed subjects',
+  document_uploaded: 'Uploaded documents',
+  search_performed: 'Searched',
+  login: 'Signed in',
+  profile_viewed: 'Viewed profiles',
+  completion_changed: 'Profile completion changed',
+  verification_decision_received: 'Documents reviewed by staff',
+}
+
 /** Grouping key for an event: same key, in a row → one line. */
 function repeatKey(event: string, text: string): string {
-  return event === 'profile_updated' ? 'profile_updated' : `${event}|${text}`
+  return GROUP_LINE[event] ? event : `${event}|${text}`
+}
+
+/** The short line for a group: never the long sentence of one of its rows. */
+export function groupLineText(key: string | null, newestText: string): string {
+  if (key && GROUP_LINE[key]) return GROUP_LINE[key]
+  return newestText
 }
 
 /** Neighbours further apart than this are not "in a row". */
@@ -280,7 +306,7 @@ export function groupRepeats(rows: Flat[]): Flat[] {
     const run = rows.slice(i, j + 1)
     const newest = run[0].item
     const oldest = run[run.length - 1].item
-    const text = head.key === 'profile_updated' ? 'Updated their profile' : newest.text
+    const text = groupLineText(head.key, newest.text)
     out.push({
       key: head.key,
       group: head.group,
@@ -305,7 +331,9 @@ export function buildTimeline(
   src: { logs: LogRow[]; audits: AuditRow[]; sessions: SessionRow[] },
   group: TimelineGroup,
 ): TimelineItem[] {
-  const logs = collapseTimeline(dedupeAgainstAudit(src.logs, src.audits))
+  // Each subject edit stays its own row here so a run groups under the short
+  // "Changed subjects ×N" line with every edit under "Show each".
+  const logs = dedupeAgainstAudit(src.logs, src.audits)
   const flat: Flat[] = []
   for (const l of logs) {
     const text = timelineSentence(l.event, l.meta)
@@ -316,11 +344,13 @@ export function buildTimeline(
     })
   }
   for (const a of src.audits) {
-    const text = auditSentence(a.action, a.detail)
+    const text = auditSentence(a.action, a.detail, a.actorName)
+    // "Aqsa sent a WhatsApp from My sign-ups" already names who did it.
+    const named = actorFirstSentence(a.action, a.actorName) != null
     flat.push({
       group: 'moderation',
       key: `audit|${a.action}|${text}|${a.actorName ?? ''}`,
-      item: { id: `a:${a.id}`, at: a.at, text, who: a.actorName ? `by ${a.actorName}` : 'by the system', tone: toneOf(a.action), count: 1, range: null, children: null, sessionId: null },
+      item: { id: `a:${a.id}`, at: a.at, text, who: named ? null : a.actorName ? `by ${a.actorName}` : 'by the system', tone: toneOf(a.action), count: 1, range: null, children: null, sessionId: null },
     })
   }
   for (const s of src.sessions) {

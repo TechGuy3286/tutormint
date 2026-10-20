@@ -118,7 +118,7 @@ export function timelineSentence(event: string, meta: TimelineMeta = {}): string
     }
     case 'video_visibility_changed': {
       const v = str(meta.visibility)
-      return v ? `Video set to ${v}` : 'Video visibility changed'
+      return v ? `Video set to ${v}` : 'Changed who can see their video'
     }
     case 'job_posted':
       return 'Posted a tuition'
@@ -203,7 +203,7 @@ export function timelineSentence(event: string, meta: TimelineMeta = {}): string
     case 'staff_created':
       return 'Staff account created'
     case 'staff_role_changed':
-      return 'Staff role changed'
+      return 'Their staff role was changed'
     case 'staff_removed':
       return 'Removed from the team'
     case 'staff_suspended':
@@ -227,13 +227,32 @@ export function timelineSentence(event: string, meta: TimelineMeta = {}): string
     case 'follow_up_sent': {
       // The shared follow-up record (owner, 9 Oct 2026).
       const ch = meta.channel === 'whatsapp' ? 'on WhatsApp' : meta.channel === 'email' ? 'by email' : 'by call'
-      return `Followed up by staff ${ch}${typeof meta.templateKey === 'string' && meta.templateKey ? ` (template: ${meta.templateKey})` : ''}`
+      // The template's code name is not shown (owner, 20 Oct 2026).
+      return `Followed up by staff ${ch}`
     }
     case 'follow_up_undone':
       return 'A staff follow-up was undone'
+    case 'account_self_paused':
+      return 'Paused their own account'
+    case 'account_self_restored':
+      return 'Came back after pausing their account'
+    case 'onboarding_done':
+      return 'Finished the sign-up steps'
+    case 'second_role_created':
+      return 'A second account was made on the same mobile'
+    case 'checkout_cancelled':
+      return 'Cancelled a payment they had started'
+    case 'refund_recorded':
+      return 'A refund was recorded'
+    case 'fee_flag_cleared':
+      return 'Verification Fee record corrected by staff'
+    case 'email_preferences_changed':
+      return 'Changed their email settings'
+    case 'document_unlocked':
+      return 'A document was unlocked for re-upload'
     default:
       // Never raw: a code like "some_new_event" becomes "Some new event".
-      return event.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
+      return event.replace(/[._]+/g, ' ').trim().replace(/^\w/, (c) => c.toUpperCase())
   }
 }
 

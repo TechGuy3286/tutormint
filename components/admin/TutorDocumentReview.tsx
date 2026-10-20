@@ -159,7 +159,7 @@ export default function TutorDocumentReview({
               </div>
             </NewUpload>
           )}
-          <AdminCnicNumberBox tutorId={tutorId} maskedNumber={cnicNumberMasked} canEdit={canEditNumber} highlight={numberHighlight} />
+          <AdminCnicNumberBox tutorId={tutorId} maskedNumber={cnicNumberMasked} canEdit={canEditNumber} highlight={numberHighlight} hasFrontPhoto={!!(cnicFrontId || rv?.cnicFrontId)} />
         </ReviewItem>
 
         <ReviewItem

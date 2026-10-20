@@ -628,15 +628,17 @@ function Fact({
    */
   verbatim?: boolean
 }) {
+  // A long value ("Pending: Fee Not Paid · Documents waiting") wraps onto a
+  // second line — never cut off with "…" (owner, 20 Oct 2026).
   return (
     <div className="min-w-0">
       <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{label}</p>
       {href ? (
-        <a href={href} className={`block truncate text-sm font-black underline-offset-2 hover:underline ${tone ?? 'text-tm-red'} ${verbatim || tone ? '' : 'capitalize'}`}>
+        <a href={href} className={`block break-words text-sm font-black leading-snug underline-offset-2 hover:underline ${tone ?? 'text-tm-red'} ${verbatim || tone ? '' : 'capitalize'}`}>
           {value}
         </a>
       ) : (
-        <p className={`truncate text-sm font-black text-tm-navy ${verbatim ? '' : 'capitalize'}`}>
+        <p className={`break-words text-sm font-black leading-snug text-tm-navy ${verbatim ? '' : 'capitalize'}`}>
           {value}
         </p>
       )}

@@ -62,8 +62,14 @@ function nearestAncestor(trail: Crumb[]): Crumb | null {
 export default function Breadcrumbs({
   items,
   backFallbackHref,
+  showBack = true,
 }: {
   items: Crumb[]
+  /**
+   * False in the admin header (owner, 20 Oct 2026): there the trail itself is
+   * the only way back, so no "← Back to …" link is drawn above the title.
+   */
+  showBack?: boolean
   /**
    * Where "up" goes when no ancestor in the trail carries an href -- the role
    * dashboard, for a page that names its own parent without linking it. Every
@@ -82,7 +88,7 @@ export default function Breadcrumbs({
 
   // Two or more levels deep: `items` excludes Home, so length >= 2 means the
   // current page has a real parent that is not the homepage.
-  const parent = items.length >= 2 ? nearestAncestor(trail) : null
+  const parent = showBack && items.length >= 2 ? nearestAncestor(trail) : null
   const backHref = parent?.href ?? backFallbackHref ?? '/'
   const backLabel = parent?.label ?? 'Home'
 

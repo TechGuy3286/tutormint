@@ -10,6 +10,7 @@ import { useToast } from '@/components/ui/Toast'
 import { useAdminReadOnly, useCanApprove } from '@/components/admin/ReadOnly'
 import { formatCnic, isValidCnic, normaliseCnic } from '@/lib/cnic'
 import { CNIC_DUPLICATE_STAFF, CNIC_NOT_READ_STAFF, CNIC_SUGGESTED_STAFF } from '@/lib/cnicReaderCore'
+import { cnicReadButton } from '@/lib/cnicReadButtonCore'
 
 // The CNIC number box on the tutor's review card (owner, 9 Oct 2026). The
 // number stays required for tutor CNIC approval; staff type it here and save in
@@ -73,6 +74,7 @@ export default function AdminCnicNumberBox({
   maskedNumber,
   canEdit,
   highlight = false,
+  hasFrontPhoto = true,
 }: {
   tutorId: string
   /** XXXXX-XXXXXXX-4, or null when no number is on file. */
@@ -80,6 +82,8 @@ export default function AdminCnicNumberBox({
   canEdit: boolean
   /** Draw attention to the box (an Approve was refused for a missing number). */
   highlight?: boolean
+  /** A CNIC front photo is on file; without one there is nothing to read. */
+  hasFrontPhoto?: boolean
 }) {
   const readOnly = useAdminReadOnly()
   const toast = useToast()
@@ -97,6 +101,7 @@ export default function AdminCnicNumberBox({
   // Typing / reading the CNIC number is part of approval: Owner only (owner, 15 Oct 2026).
   const ownerApproves = useCanApprove()
   const mayWrite = canEdit && !readOnly && ownerApproves
+  const readBtn = cnicReadButton(hasFrontPhoto, reading)
 
   // On open: a saved number is checked for a duplicate; an empty box is
   // pre-filled from a suggestion already on file. Neither calls the reader.
@@ -220,12 +225,14 @@ export default function AdminCnicNumberBox({
           <button
             type="button"
             onClick={() => void readFromPhoto()}
-            disabled={reading}
+            disabled={readBtn.disabled}
+            title={readBtn.hint ?? undefined}
             className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-tm-navy px-2.5 text-[11px] font-bold text-tm-navy hover:bg-tm-tint-navy disabled:opacity-50"
           >
             {reading ? <Loader2 size={12} className="animate-spin" aria-hidden /> : <ScanText size={12} aria-hidden />}
             Read number from photo
           </button>
+          {readBtn.hint && <p className="text-[11px] text-gray-500">{readBtn.hint}</p>}
           {showsSuggestion && <p role="status" className="text-[11px] font-semibold text-tm-gold-ink">{CNIC_SUGGESTED_STAFF}</p>}
           {note && !showsSuggestion && <p role="status" className="text-[11px] font-semibold text-slate-700">{note}</p>}
         </>
