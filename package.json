@@ -166,7 +166,8 @@
     "test:paymentbanner": "tsx --test scripts/test-payment-banner.ts",
     "test:privacylocks": "tsx --test scripts/test-privacy-locks.ts",
     "test:steplocks": "tsx --test scripts/test-step-locks.ts",
-    "test:tutorfollowups": "tsx --test scripts/test-tutor-follow-ups.ts"
+    "test:tutorfollowups": "tsx --test scripts/test-tutor-follow-ups.ts",
+    "test:adminwhatsapp": "tsx --test scripts/test-admin-whatsapp.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

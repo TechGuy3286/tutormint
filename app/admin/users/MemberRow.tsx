@@ -53,7 +53,7 @@ export default function MemberRow({ row: r }: { row: Row }) {
             </span>
           )}
           {/* PR86: one-tap WhatsApp chat (staff only; sits above the stretched link). */}
-          <WhatsappChatButton whatsapp={r.whatsapp} phone={r.phone} compact className="relative z-10" />
+          <WhatsappChatButton memberId={r.id} from="people" whatsapp={r.whatsapp} phone={r.phone} compact className="relative z-10" />
           {r.slug && <span className="truncate">· /tutor/{r.slug}</span>}
         </div>
 

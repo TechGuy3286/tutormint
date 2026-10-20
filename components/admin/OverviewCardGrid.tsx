@@ -14,6 +14,7 @@ import type { FollowUpSource } from '@/lib/followUpCore'
 import ProfileShareButtons from '@/components/admin/ProfileShareButtons'
 import type { ProfileShare } from '@/lib/profileShareCore'
 import { useUrlState } from '@/lib/useUrlState'
+import { adminWhatsAppRoute } from '@/lib/adminWhatsAppCore'
 import {
   DOC_FILTERS,
   applyDocFilter,
@@ -286,9 +287,10 @@ function MemberBody({
             btnClass={BTN}
           />
         )}
-        {!fu && m.msisdn && (
+        {!fu && m.msisdn && it.memberId && (
           <a
-            href={`https://wa.me/${m.msisdn}`}
+            // Pre-filled from the member's own state, logged (owner, 20 Oct 2026).
+            href={adminWhatsAppRoute(it.memberId, 'overview')}
             target="_blank"
             rel="noopener noreferrer"
             className={`${BTN} bg-tm-green-deep text-white hover:bg-tm-green-deep-hover`}

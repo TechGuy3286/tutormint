@@ -1,9 +1,11 @@
 import { MessageCircle } from 'lucide-react'
 
 import { formatPkMobile } from '@/lib/phone'
-import { whatsappTarget, waMeHref } from '@/lib/tutorWhatsapp'
+import { whatsappTarget } from '@/lib/tutorWhatsapp'
+import { adminWhatsAppRoute, type WhatsAppFrom } from '@/lib/adminWhatsAppCore'
 
-// PR86 — a staff-only "Chat on WhatsApp" button (opens wa.me/92… in a new tab).
+// PR86 — a staff-only "Chat on WhatsApp" button (opens wa.me/92… in a new tab,
+// with a message pre-filled from the member's state — owner, 20 Oct 2026).
 // Rendered only inside admin pages that already gate on a role that can see
 // contact details, so no extra permission logic here. Never appears on any
 // public or member surface.
@@ -14,12 +16,17 @@ import { whatsappTarget, waMeHref } from '@/lib/tutorWhatsapp'
 //   * nothing usable → renders nothing.
 
 export default function WhatsappChatButton({
+  memberId,
+  from,
   whatsapp,
   whatsappNumber,
   phone,
   compact = false,
   className = '',
 }: {
+  /** The member: the server builds the pre-filled message from their state. */
+  memberId: string
+  from: WhatsAppFrom
   whatsapp?: string | null
   whatsappNumber?: string | null
   phone?: string | null
@@ -28,7 +35,7 @@ export default function WhatsappChatButton({
   className?: string
 }) {
   const target = whatsappTarget({ whatsapp, whatsappNumber, phone })
-  const href = waMeHref(target)
+  const href = target.msisdn ? adminWhatsAppRoute(memberId, from) : null
   if (!href || !target.msisdn) return null
 
   const button = (

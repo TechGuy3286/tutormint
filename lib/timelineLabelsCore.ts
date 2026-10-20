@@ -43,6 +43,7 @@ export const AUDIT_LABELS: Record<string, string> = {
   'member.unban': 'Ban lifted',
   'member.message': 'Sent a message from the TutorMint team',
   'member.follow_up': 'Followed up',
+  'member.whatsapp_open': 'Opened a WhatsApp chat with a pre-filled message',
   'member.follow_up_undo': 'Undid a follow-up',
   'report.action': 'Acted on a report',
   'report.dismiss': 'Dismissed a report',

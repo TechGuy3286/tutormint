@@ -181,6 +181,8 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
       <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
         <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">WhatsApp</h2>
         <WhatsappChatButton
+          memberId={id}
+          from="tutor_record"
           whatsapp={profile.whatsapp as string | null}
           whatsappNumber={tutor.whatsapp_number as string | null}
           phone={profile.phone_number as string | null}

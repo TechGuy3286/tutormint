@@ -182,9 +182,9 @@ export function nextPhrase(f: Pick<TutorFollowFacts, 'stoppedStep' | 'feePaid'>)
 
 export type MessageType = 'next_step' | 'fee_due' | 'payment_unfinished' | 'payment_unfinished_plan'
 
-const DOC_WORD: Record<RejectedDoc['doc'], string> = { cnic: 'CNIC photos', photo: 'profile photo', selfie: 'selfie' }
+export const DOC_WORD: Record<RejectedDoc['doc'], string> = { cnic: 'CNIC photos', photo: 'profile photo', selfie: 'selfie' }
 
-function joinAnd(parts: string[]): string {
+export function joinAnd(parts: string[]): string {
   if (parts.length <= 1) return parts[0] ?? ''
   return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
 }

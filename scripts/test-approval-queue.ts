@@ -116,7 +116,8 @@ test('Overview lists render as cards, one card per row the loader returned', () 
   const grid = read('components/admin/OverviewCardGrid.tsx')
   assert.match(grid, /grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4/)
   assert.match(grid, /Show more/)
-  assert.match(grid, /https:\/\/wa\.me\//)
+  // WhatsApp opens with a pre-filled message through the admin route (20 Oct 2026).
+  assert.match(grid, /adminWhatsAppRoute\(it\.memberId, 'overview'\)/)
   assert.match(grid, /tel:\+/)
   assert.match(grid, /> Review/)
   // Member facts are added, never used to drop a row.

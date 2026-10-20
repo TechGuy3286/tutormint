@@ -344,7 +344,7 @@ export default function TutorModerationClient({
                     </p>
                   )}
                   {/* PR86: one-tap WhatsApp chat (staff only). */}
-                  <WhatsappChatButton whatsapp={t.whatsapp} phone={t.phone} compact className="mt-1 inline-flex" />
+                  <WhatsappChatButton memberId={t.id} from="tutor_queue" whatsapp={t.whatsapp} phone={t.phone} compact className="mt-1 inline-flex" />
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
                   <CnicPill

@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
+import { adminWhatsAppRoute } from '@/lib/adminWhatsAppCore'
 
 // Actions on a member page (owner, 20 Oct 2026):
 //
@@ -319,7 +320,7 @@ export default function MemberActions({
                 )}
                 {whatsappMsisdn && (
                   <a
-                    href={`https://wa.me/${whatsappMsisdn}`}
+                    href={adminWhatsAppRoute(userId, 'member')}
                     target="_blank"
                     rel="noopener noreferrer"
                     className={`${BTN} bg-tm-green-deep text-white hover:bg-tm-green-deep-hover`}
