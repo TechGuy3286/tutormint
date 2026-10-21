@@ -21,7 +21,7 @@ export const PAYMENT_NOT_FINISHED_KEY = 'payment_not_finished'
 
 /** The built-in wording (Team inbox → Templates holds the editable copy). No amount. */
 export const PAYMENT_NOT_FINISHED_FALLBACK =
-  "Assalam o Alaikum {name}, your TutorMint payment didn't complete. Need help? Here is your link to try again: {pay_link}. Support WhatsApp 0321 5872222."
+  "Assalam o Alaikum {name}, your TutorMint payment didn't complete. Need help? Support WhatsApp 0321 5872222. Here is your link to try again:\n{pay_link}"
 
 export type StartedCheckout = {
   id: string

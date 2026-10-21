@@ -249,7 +249,8 @@ test('started payment: the WhatsApp text and the Follow-ups chip', () => {
   const text = fillPaymentNotFinished(PAYMENT_NOT_FINISHED_FALLBACK, { name: 'Ayesha Khan', payLink: payAgainLink('verified') })
   assert.equal(
     text,
-    "Assalam o Alaikum Ayesha, your TutorMint payment didn't complete. Need help? Here is your link to try again: https://www.tutormint.org/pay/choose?plan=verified. Support WhatsApp 0321 5872222.",
+    // The link on its own line (owner, 21 Oct 2026; migration 191).
+    "Assalam o Alaikum Ayesha, your TutorMint payment didn't complete. Need help? Support WhatsApp 0321 5872222. Here is your link to try again:\nhttps://www.tutormint.org/pay/choose?plan=verified",
   )
   assert.equal(/\bRs\b|PKR|rupee/i.test(text), false, 'no amount')
   assert.equal(unpaidRowMatches({ stoppedAt: null, lastContactAt: null, startedPayment: true }, 'started_payment'), true)

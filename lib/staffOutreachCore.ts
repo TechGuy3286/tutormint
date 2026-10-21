@@ -10,6 +10,7 @@
 
 import { genderApplyBlocked } from '@/lib/genderPref'
 import { isOnlineType, matchVisibility } from '@/lib/matchChip'
+import { finishWaText } from '@/lib/waLinkCore'
 
 // ------------------------------------------------------------ test accounts
 /** A test/fixture account by NAME — the rule the owner's test-account pause
@@ -100,23 +101,29 @@ export function unpaidRowMatches(
   return true
 }
 
-// Which tutors the Follow-ups → Tutors tab lists (owner, 16 Oct 2026):
-//   recent           joined in the last 30 days, Verification Fee not paid
-//                    (the default — the list as it always was);
-//   older            joined MORE than 30 days ago, fee not paid;
-//   paid_unfinished  an approved, not refunded Verification Fee and onboarding
-//                    not done, whenever they joined.
-// Paused, banned, test, seed, team and staff accounts are out of all three.
-export const TUTOR_SCOPES = ['recent', 'older', 'paid_unfinished'] as const
+// Which tutors the Follow-ups → Tutors tab lists. Every tutor who has not
+// FINISHED is on it, whatever their age (owner, 21 Oct 2026; "finished" is
+// lib/tutorFollowUpCore tutorDone — fee paid, CNIC, photo and selfie approved,
+// onboarding done — applied by lib/tutorFollowUps after the documents load):
+//   recent           joined in the last 30 days (the default);
+//   older            joined MORE than 30 days ago;
+//   paid_unfinished  the Verification Fee is paid and they have not finished,
+//                    whenever they joined (a view across both groups);
+//   not_interested   marked "Not interested" by staff — the hidden group; they
+//                    are in no other group until the mark is undone.
+// Paused, banned, test, seed, team and staff accounts are out of all of them
+// (the People page's rule, lib/peopleDirectoryCore excludedReason).
+export const TUTOR_SCOPES = ['recent', 'older', 'paid_unfinished', 'not_interested'] as const
 /** 'started_payment' (owner, 16 Oct 2026): every tutor with a checkout started
  *  and not finished — reached from the "Started payment, didn't finish" chip,
  *  not shown as a group of its own. */
 export type TutorScope = (typeof TUTOR_SCOPES)[number] | 'started_payment'
 
 export const TUTOR_SCOPE_LABEL: Record<TutorScope, string> = {
-  recent: `Last ${UNPAID_WINDOW_DAYS} days (unpaid)`,
-  older: `Older than ${UNPAID_WINDOW_DAYS} days (unpaid)`,
-  paid_unfinished: 'Paid, profile not finished',
+  recent: `Last ${UNPAID_WINDOW_DAYS} days`,
+  older: `Older than ${UNPAID_WINDOW_DAYS} days`,
+  paid_unfinished: 'Paid, not finished',
+  not_interested: 'Not interested',
   started_payment: "Started payment, didn't finish",
 }
 
@@ -132,20 +139,21 @@ export function parseTutorScope(v: string | null | undefined): TutorScope {
  *   onboarded    onboarding done (tutor_profiles.onboarded_at).
  */
 export function tutorInScope(
-  t: { joinedAt: string; feeStamped: boolean; feeApproved: boolean; onboarded: boolean; startedPayment?: boolean },
+  t: { joinedAt: string; feeStamped: boolean; feeApproved?: boolean; onboarded?: boolean; startedPayment?: boolean; notInterested?: boolean },
   scope: TutorScope,
   nowMs: number,
 ): boolean {
+  if (scope === 'not_interested') return !!t.notInterested
+  if (t.notInterested) return false
   if (scope === 'started_payment') return !!t.startedPayment
-  if (scope === 'paid_unfinished') return t.feeApproved && !t.onboarded
-  // The merged Follow-ups list (owner, 20 Oct 2026): the default group also
-  // carries every tutor with a checkout started and not finished, whenever
-  // they joined — the "Started payment" chip.
+  if (scope === 'paid_unfinished') return t.feeStamped || !!t.feeApproved
+  // The default group also carries every tutor with a checkout started and not
+  // finished, whenever they joined — the "Started payment" chip (20 Oct 2026).
   if (scope === 'recent' && t.startedPayment) return true
   const joined = Date.parse(t.joinedAt)
-  if (!Number.isFinite(joined) || t.feeStamped) return false
+  if (!Number.isFinite(joined)) return false
   const recent = joined >= nowMs - UNPAID_WINDOW_DAYS * DAY_MS
-  return scope === 'recent' ? recent : !recent
+  return scope === 'recent' ? recent : !recent && !t.startedPayment
 }
 
 /** The short help message an unpaid signup gets on WhatsApp (English + Urdu). */
@@ -208,7 +216,7 @@ export function featuredMessage(firstName: string, tuitions: WaTuition[]): strin
 
 /** wa.me link for a Pakistani MSISDN (923001234567) with a prefilled text. */
 export function waLink(msisdn: string, text: string): string {
-  return `https://wa.me/${msisdn}?text=${encodeURIComponent(text)}`
+  return `https://wa.me/${msisdn}?text=${encodeURIComponent(finishWaText(text))}`
 }
 
 export function firstNameOf(full: string | null | undefined): string {

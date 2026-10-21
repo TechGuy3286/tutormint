@@ -19,6 +19,7 @@
 // PURE — unit-tested by scripts/test-follow-ups.ts.
 
 import { missingSentence } from '@/lib/onboarding/missingItems'
+import { finishWaText } from '@/lib/waLinkCore'
 
 export const FOLLOW_UP_HOLD_DAYS = 7
 const DAY = 86_400_000
@@ -144,5 +145,5 @@ export function followUpText(templateBody: string, v: { name: string; step: stri
 
 /** https://wa.me/92XXXXXXXXXX?text=… — msisdn already in 92… form. */
 export function followUpWaLink(msisdn: string, text: string): string {
-  return `https://wa.me/${msisdn}?text=${encodeURIComponent(text)}`
+  return `https://wa.me/${msisdn}?text=${encodeURIComponent(finishWaText(text))}`
 }

@@ -20,7 +20,6 @@ import {
   CONTACT_OUTCOMES,
   FEATURED_FIRST_LOOKBACK_DAYS,
   FEATURED_MAX_TUITIONS,
-  UNPAID_WINDOW_DAYS,
   featuredCutoff,
   featuredMessage,
   firstNameOf,
@@ -32,7 +31,8 @@ import {
   type ContactOutcome,
   type TutorScope,
 } from '@/lib/staffOutreachCore'
-import { isQualifyingPayment } from '@/lib/staffTargetsCore'
+import { loadDirectory } from '@/lib/peopleDirectory'
+import { loadNotInterested, type NotInterestedMark } from '@/lib/followUpDismissals'
 import { loadStartedNotFinished } from '@/lib/startedPayment'
 import { fillPaymentNotFinished, payAgainLink, PAYMENT_NOT_FINISHED_FALLBACK, PAYMENT_NOT_FINISHED_KEY } from '@/lib/startedPaymentCore'
 
@@ -60,6 +60,8 @@ export type UnpaidRow = {
   stoppedStep: TutorFlowState['stoppedStep'] | null
   /** The Verification Fee is stamped (paid or granted). */
   feePaid: boolean
+  /** Marked "Not interested" by staff (owner, 21 Oct 2026), or null. */
+  notInterested: NotInterestedMark | null
 }
 
 /** A checkout started and not finished: which payment, which package, where. */
@@ -71,45 +73,14 @@ export type StartedInfo = {
   providerRef: string | null
 }
 
-/** Tutors who signed up in the last 30 days and have not paid the
- *  Verification Fee — newest first, paused (suspended/banned) and test accounts out.
- *  `scope` (owner, 16 Oct 2026; lib/staffOutreachCore tutorInScope) also lists
- *  unpaid tutors who joined EARLIER ('older'), or tutors with an approved fee
- *  whose onboarding is not done ('paid_unfinished'). */
+/** Every tutor of a Follow-ups group (owner, 21 Oct 2026; lib/staffOutreachCore
+ *  tutorInScope), newest first. Paused (suspended / banned) accounts and the
+ *  accounts the People page leaves out (staff, seed, team, test) are not here.
+ *  Whether a tutor has FINISHED needs their documents, so lib/tutorFollowUps
+ *  drops the finished ones; this loader only decides the group. */
 export async function loadUnpaidSignups(now = new Date(), scope: TutorScope = 'recent'): Promise<UnpaidRow[]> {
   const admin = createAdminClient()
   if (!admin) return []
-  const since = new Date(now.getTime() - UNPAID_WINDOW_DAYS * 86_400_000).toISOString()
-  // 'paid_unfinished': the tutors with an approved Verification Fee payment.
-  const approvedFee = new Set<string>()
-  if (scope === 'paid_unfinished') {
-    const pays = await pageAll((from, to) =>
-      admin
-        .from('payments')
-        .select('id, user_id, plan_code, status, reviewed_at, refunded_amount_pkr, refunded_at')
-        .eq('plan_code', 'verified')
-        .eq('status', 'approved')
-        .order('id')
-        .range(from, to),
-    )
-    for (const p of pays) {
-      if (
-        p.user_id &&
-        isQualifyingPayment(
-          {
-            planCode: p.plan_code as string,
-            status: p.status as string,
-            approvedAt: (p.reviewed_at as string | null) ?? null,
-            refundedAmountPkr: (p.refunded_amount_pkr as number | null) ?? null,
-            refundedAt: (p.refunded_at as string | null) ?? null,
-          },
-          'tutor',
-        )
-      )
-        approvedFee.add(p.user_id as string)
-    }
-    if (approvedFee.size === 0) return []
-  }
   // Checkouts started and not finished — the chip, and the WhatsApp text for those rows.
   const started = await loadStartedNotFinished(now).catch(() => [])
   const startedBy = new Map<string, StartedInfo>()
@@ -122,37 +93,29 @@ export async function loadUnpaidSignups(now = new Date(), scope: TutorScope = 'r
     const { data: tpl } = await admin.from('admin_message_templates').select('body').eq('key', PAYMENT_NOT_FINISHED_KEY).maybeSingle()
     if ((tpl?.body as string | undefined)?.trim()) notFinishedBody = tpl!.body as string
   }
+  const [directory, dismissed] = await Promise.all([loadDirectory(), loadNotInterested()])
+  const excluded = new Set(directory.people.filter((p) => p.excluded !== null).map((p) => p.id))
   const cols = 'id, full_name, city, created_at, profile_completion, phone_number, whatsapp, is_suspended, is_banned, is_seed, is_team_account, admin_role'
   const profiles =
-    scope === 'paid_unfinished' || scope === 'started_payment'
+    scope === 'started_payment'
       ? (
-          await pageAllIn([...(scope === 'started_payment' ? startedBy.keys() : approvedFee)], (part, from, to) =>
+          await pageAllIn([...startedBy.keys()], (part, from, to) =>
             admin.from('profiles').select(cols).eq('role', 'tutor').in('id', part).order('id').range(from, to),
           )
         ).sort((a, b) => Date.parse(b.created_at as string) - Date.parse(a.created_at as string))
-      : await pageAll((from, to) => {
-          const q = admin.from('profiles').select(cols).eq('role', 'tutor')
-          return (scope === 'older' ? q.lt('created_at', since) : q.gte('created_at', since))
-            .order('created_at', { ascending: false })
-            .order('id')
-            .range(from, to)
-        })
-  // The default group also carries started-payment tutors who joined earlier
-  // (owner, 20 Oct 2026, the merged Follow-ups list).
-  if (scope === 'recent' && startedBy.size > 0) {
-    const have = new Set(profiles.map((p) => p.id as string))
-    const more = [...startedBy.keys()].filter((id) => !have.has(id))
-    if (more.length > 0) {
-      const extra = await pageAllIn(more, (part, from, to) =>
-        admin.from('profiles').select(cols).eq('role', 'tutor').in('id', part).order('id').range(from, to),
-      )
-      profiles.push(...extra)
-      profiles.sort((a, b) => Date.parse(b.created_at as string) - Date.parse(a.created_at as string))
-    }
-  }
+      : await pageAll((from, to) =>
+          admin.from('profiles').select(cols).eq('role', 'tutor').order('created_at', { ascending: false }).order('id').range(from, to),
+        )
   const candidates = profiles.filter(
     // Staff accounts (any admin_role) are TutorMint's own people, not leads.
-    (p) => !p.is_suspended && !p.is_banned && !p.is_seed && !p.is_team_account && !p.admin_role && !isTestName(p.full_name as string | null),
+    (p) =>
+      !p.is_suspended &&
+      !p.is_banned &&
+      !p.is_seed &&
+      !p.is_team_account &&
+      !p.admin_role &&
+      !isTestName(p.full_name as string | null) &&
+      !excluded.has(p.id as string),
   )
   const ids = candidates.map((p) => p.id as string)
   if (ids.length === 0) return []
@@ -192,9 +155,9 @@ export async function loadUnpaidSignups(now = new Date(), scope: TutorScope = 'r
       {
         joinedAt: p.created_at as string,
         feeStamped: !!t.verified_fee_paid_at,
-        feeApproved: approvedFee.has(p.id as string),
         onboarded: !!t.onboarded_at,
         startedPayment: startedBy.has(p.id as string),
+        notInterested: dismissed.has(p.id as string),
       },
       scope,
       now.getTime(),
@@ -226,10 +189,12 @@ export async function loadUnpaidSignups(now = new Date(), scope: TutorScope = 'r
       startedPayment: startedBy.get(p.id as string) ?? null,
       stoppedStep: stopped.get(p.id as string)?.stoppedStep ?? null,
       feePaid: !!t.verified_fee_paid_at,
+      notInterested: dismissed.get(p.id as string) ?? null,
     })
   }
   return out
 }
+
 
 /** Record one call/WhatsApp outcome for a tutor. Audited; on the tutor's file. */
 export async function logContact(

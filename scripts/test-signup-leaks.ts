@@ -156,9 +156,11 @@ test('documents_approved picks the right version and fills it', () => {
   assert.equal(allDocumentsApproved({ cnic: 'approved', profilePic: 'pending', selfie: 'approved' }), false)
   assert.equal(waMeHref('923001234567', 'hi there'), 'https://wa.me/923001234567?text=hi%20there')
   assert.equal(waMeHref('03001234567', 'x'), null)
-  // The migration seeds both rows with exactly the owner's wording.
-  const sql = read('supabase/migrations/173_signup_funnel_templates_owner_name.sql')
-  assert.ok(sql.includes(DOCUMENTS_APPROVED_FALLBACK[DOCUMENTS_APPROVED_KEY]) && sql.includes(DOCUMENTS_APPROVED_FALLBACK[DOCUMENTS_APPROVED_PAID_KEY]))
+  // Migration 191 (21 Oct 2026) moved the link onto its own line; the stored
+  // rows and the fallback carry exactly the same wording.
+  const sql = read('supabase/migrations/191_follow_up_not_interested.sql')
+  const asSql = (t: string) => t.replace(/\n/g, '\\n')
+  assert.ok(sql.includes(asSql(DOCUMENTS_APPROVED_FALLBACK[DOCUMENTS_APPROVED_KEY])) && sql.includes(asSql(DOCUMENTS_APPROVED_FALLBACK[DOCUMENTS_APPROVED_PAID_KEY])))
   // The button logs a follow-up and shows only when all three are approved.
   assert.ok(read('components/admin/DocumentsApprovedWhatsApp.tsx').includes("source: 'documents'"))
   assert.ok(read('components/admin/TutorDocumentReview.tsx').includes('allDocumentsApproved(live) && <DocumentsApprovedWhatsApp'))

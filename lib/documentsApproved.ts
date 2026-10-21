@@ -1,5 +1,7 @@
 import 'server-only'
 
+import { finishWaText } from '@/lib/waLinkCore'
+
 // lib/documentsApproved.ts
 //
 // The "your documents are approved" WhatsApp for one tutor (owner, 15 Oct
@@ -38,11 +40,11 @@ export async function documentsApprovedMessage(tutorId: string): Promise<Documen
   const body = ((tpl?.body as string | null) ?? '').trim() || DOCUMENTS_APPROVED_FALLBACK[templateKey]
 
   const slug = (tp?.slug as string | null) ?? null
-  const text = fillDocumentsApproved(body, {
+  const text = finishWaText(fillDocumentsApproved(body, {
     name: (p.full_name as string | null) ?? '',
     payLink: `${SITE_URL}/pay/choose?plan=verified`,
     profileLink: slug ? `${SITE_URL}/tutor/${slug}` : null,
-  })
+  }))
   const msisdn = normalisePkMobile((p.whatsapp as string | null) ?? '') ?? normalisePkMobile((p.phone_number as string | null) ?? '')
   return { ok: true, templateKey, text, href: waMeHref(msisdn, text), feePaid }
 }

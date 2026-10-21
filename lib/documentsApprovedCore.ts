@@ -8,6 +8,8 @@
 //                              public profile link.
 // No fee amount is ever written in the message.
 
+import { finishWaText } from '@/lib/waLinkCore'
+
 export const DOCUMENTS_APPROVED_KEY = 'documents_approved'
 export const DOCUMENTS_APPROVED_PAID_KEY = 'documents_approved_paid'
 
@@ -19,9 +21,9 @@ export function documentsApprovedKey(feePaid: boolean): string {
 /** The built-in wording, used when a template row is missing. */
 export const DOCUMENTS_APPROVED_FALLBACK: Record<string, string> = {
   [DOCUMENTS_APPROVED_KEY]:
-    'Assalam o Alaikum {name}, your documents on TutorMint are approved ✅. One step left to get your Verified badge and appear to parents: pay the Verification Fee here: {pay_link}. Need help? WhatsApp 0321 5872222. — TutorMint',
+    'Assalam o Alaikum {name}, your documents on TutorMint are approved ✅. One step left to get your Verified badge and appear to parents: pay the Verification Fee. Need help? WhatsApp 0321 5872222. — TutorMint\n\n{pay_link}',
   [DOCUMENTS_APPROVED_PAID_KEY]:
-    'Assalam o Alaikum {name}, your documents on TutorMint are approved ✅ and your profile is now live — parents can find you here: {profile_link}. Need help? WhatsApp 0321 5872222. — TutorMint',
+    'Assalam o Alaikum {name}, your documents on TutorMint are approved ✅ and your profile is now live — parents can find you on TutorMint. Need help? WhatsApp 0321 5872222. — TutorMint\n\n{profile_link}',
 }
 
 /** The three documents a tutor's badge reads, as the review card shows them. */
@@ -48,5 +50,5 @@ export function fillDocumentsApproved(
 export function waMeHref(msisdn: string | null | undefined, text: string): string | null {
   const digits = (msisdn ?? '').replace(/\D/g, '')
   if (!/^92\d{10}$/.test(digits)) return null
-  return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`
+  return `https://wa.me/${digits}?text=${encodeURIComponent(finishWaText(text))}`
 }

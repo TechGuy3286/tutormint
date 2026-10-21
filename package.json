@@ -177,7 +177,9 @@
     "test:liveselfie": "tsx --test scripts/test-live-selfie.ts",
     "test:people": "tsx --test scripts/test-people-directory.ts",
     "test:people:live": "tsx --conditions=react-server --env-file-if-exists=.env.local --test scripts/test-people-live.ts",
-    "test:financeitems": "tsx --test scripts/test-finance-items.ts"
+    "test:financeitems": "tsx --test scripts/test-finance-items.ts",
+    "test:followupreasons": "tsx --test scripts/test-follow-ups-reasons.ts",
+    "test:followupflags:live": "tsx --env-file-if-exists=.env.local --test scripts/test-follow-ups-flags-live.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

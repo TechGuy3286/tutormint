@@ -57,9 +57,9 @@ export function followUpsHref(tab: FollowUpTab, extra: Query = {}): string {
   return s ? `${FOLLOW_UPS_PATH}?${s}` : FOLLOW_UPS_PATH
 }
 
-/** Is this Abandoned-signups row for the Parents tab? A tutor who has not
- *  finished belongs to the Tutors tab; an unconfirmed email of any role, or a
- *  parent who has not finished, belongs here. */
+/** Is this Abandoned-signups row for the Parents tab? Every unfinished tutor —
+ *  an unconfirmed email included — is on the Tutors tab (owner, 21 Oct 2026);
+ *  a parent who has not finished or never confirmed their email is here. */
 export function onParentsTab(row: { stage: string; role: string | null }): boolean {
-  return row.stage === 'email_unconfirmed' || row.role !== 'tutor'
+  return row.role !== 'tutor'
 }

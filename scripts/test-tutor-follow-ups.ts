@@ -75,7 +75,7 @@ test('each tutor appears once on All, with the most urgent chip', () => {
     recent: 'contacted',
   })
   // A tutor can match several chips…
-  assert.deepEqual([...rows[1].chips].sort(), ['again', 'started', 'stuck'].sort())
+  assert.deepEqual([...rows[1].chips].sort(), ['again', 'on_tutor', 'started', 'stuck'].sort())
   // …and still shows up ONCE on All, most urgent first.
   const all = rowsForChip(rows, 'all')
   assert.equal(all.length, rows.length)
@@ -128,7 +128,8 @@ test('the default group carries started-payment tutors whatever their join date'
   })
   assert.equal(tutorInScope(t(90, { startedPayment: true }), 'recent', NOW), true)
   assert.equal(tutorInScope(t(90), 'recent', NOW), false)
-  assert.equal(tutorInScope(t(90, { startedPayment: true }), 'older', NOW), true)
+  // …and only there, so nobody is in two groups (21 Oct 2026).
+  assert.equal(tutorInScope(t(90, { startedPayment: true }), 'older', NOW), false)
 })
 
 // ----------------------------------------------------- old addresses
@@ -170,7 +171,7 @@ test('message: stuck or not contacted — name, %, next step, dashboard link', (
   assert.equal(m.type, 'next_step')
   assert.equal(
     m.text,
-    'Assalam o Alaikum Hina, your TutorMint profile is 62% complete. The next step is add your CNIC photos. You can continue here: tutormint.org/tutor/dashboard. If you need any help, just reply here. 🙂',
+    'Assalam o Alaikum Hina, your TutorMint profile is 62% complete. The next step is to add your CNIC photos. If you need any help, just reply here. 🙂 You can continue here:\nhttps://www.tutormint.org/tutor/dashboard',
   )
   assert.equal(m.templateKey, 'followup_next_step')
   // Every step has its own words.
@@ -190,7 +191,7 @@ test('message: stuck or not contacted — name, %, next step, dashboard link', (
     ['verify', 'pay the one-time Rs 199 Verification Fee'],
   ]
   for (const [step, phrase] of words) {
-    assert.ok(followUpMessage(base({ stoppedStep: step }), 'A', NOW).text.includes(`The next step is ${phrase}.`), String(step))
+    assert.ok(followUpMessage(base({ stoppedStep: step }), 'A', NOW).text.includes(`The next step is to ${phrase}.`), String(step))
   }
 })
 
@@ -199,7 +200,7 @@ test('message: docs done, fee not paid', () => {
   assert.equal(m.type, 'fee_due')
   assert.equal(
     m.text,
-    'Assalam o Alaikum Monica, your documents are approved ✅. The last step is the one-time Rs 199 Verification Fee: tutormint.org/pay/choose. After that you get the Verified badge and can apply to tuitions. Reply here if you need help. 🙂',
+    'Assalam o Alaikum Monica, your documents are approved ✅. The last step is the one-time Rs 199 Verification Fee. After that you get the Verified badge and can apply to tuitions. Reply here if you need help. 🙂 Pay here:\nhttps://www.tutormint.org/pay/choose',
   )
 })
 
@@ -208,7 +209,7 @@ test('message: started payment', () => {
   assert.equal(m.type, 'payment_unfinished')
   assert.equal(
     m.text,
-    "Assalam o Alaikum Fabiha, you started your Rs 199 Verification Fee but it didn't complete. You can finish it here: tutormint.org/pay/choose. If JazzCash gave a problem, choose 'Other methods' to pay from any bank app or Easypaisa. Reply here if you need help. 🙂",
+    "Assalam o Alaikum Fabiha, you started your Rs 199 Verification Fee but it didn't complete. If JazzCash gave a problem, choose 'Other methods' to pay from any bank app or Easypaisa. Reply here if you need help. 🙂 You can finish it here:\nhttps://www.tutormint.org/pay/choose",
   )
   // A plan checkout (not the fee) never gets the Rs 199 wording.
   const plan = followUpMessage(base({ startedPayment: { planCode: 'premium', startedAt: ago(0.2) } }), 'X', NOW, 'Stored plan text')

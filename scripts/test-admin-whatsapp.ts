@@ -105,16 +105,16 @@ test('a rejected document asks for a re-upload with the reason', () => {
   assert.equal(m.type, 'doc_rejected')
   assert.equal(
     m.text,
-    'Assalam o Alaikum Sara, please re-upload your selfie (Face not clear): tutormint.org/tutor/dashboard. Reply here if you need help. 🙂',
+    'Assalam o Alaikum Sara, please re-upload your selfie (Face not clear). Reply here if you need help. 🙂\n\nhttps://www.tutormint.org/tutor/dashboard',
   )
-  assert.equal(documentRejectedMessage('Sara', [{ doc: 'cnic', reason: null }]).includes('CNIC photos:'), true)
+  assert.equal(documentRejectedMessage('Sara', [{ doc: 'cnic', reason: null }]).includes('CNIC photos.'), true)
 })
 
 test('documents waiting name the next step', () => {
   const m = adminMemberMessage({ role: 'tutor', name: 'Sara Ali', tutor: { facts: facts({ stoppedStep: 'tagline' }), docsWaiting: true }, nowMs: NOW })
   assert.equal(m.type, 'docs_waiting')
   assert.equal(m.text, documentsWaitingMessage('Sara', 'write your tagline and bio'))
-  assert.match(m.text, /We're checking them now\. Meanwhile, your next step is to write your tagline and bio: tutormint\.org\/tutor\/dashboard\./)
+  assert.match(m.text, /We're checking them now\. Meanwhile, your next step is to write your tagline and bio\. Reply here if you need help\. 🙂\n\nhttps:\/\/www\.tutormint\.org\/tutor\/dashboard$/)
 })
 
 test('other tutor states use the Follow-ups messages', () => {

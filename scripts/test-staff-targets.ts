@@ -420,20 +420,18 @@ test('Follow-ups → Tutors groups', () => {
     onboarded: false,
     ...f,
   })
-  // Last 30 days unpaid (the default).
+  // Every unfinished tutor, whatever their age (owner, 21 Oct 2026): the fee
+  // no longer decides the group — lib/tutorFollowUpCore tutorDone does, later.
   assert.equal(tutorInScope(t(3), 'recent', now), true)
   assert.equal(tutorInScope(t(45), 'recent', now), false)
-  assert.equal(tutorInScope(t(3, { feeStamped: true }), 'recent', now), false)
-  // Older than 30 days, unpaid.
+  assert.equal(tutorInScope(t(3, { feeStamped: true }), 'recent', now), true)
   assert.equal(tutorInScope(t(45), 'older', now), true)
   assert.equal(tutorInScope(t(3), 'older', now), false)
-  assert.equal(tutorInScope(t(45, { feeStamped: true }), 'older', now), false)
-  // Paid, profile not finished — any join date.
+  assert.equal(tutorInScope(t(45, { feeStamped: true }), 'older', now), true)
+  // Paid, not finished — any join date, a granted fee included.
   assert.equal(tutorInScope(t(60, { feeStamped: true, feeApproved: true }), 'paid_unfinished', now), true)
-  assert.equal(tutorInScope(t(2, { feeStamped: true, feeApproved: true }), 'paid_unfinished', now), true)
-  assert.equal(tutorInScope(t(2, { feeStamped: true, feeApproved: true, onboarded: true }), 'paid_unfinished', now), false)
-  // A free grant (stamped, no approved payment) is not "paid" here.
-  assert.equal(tutorInScope(t(2, { feeStamped: true }), 'paid_unfinished', now), false)
+  assert.equal(tutorInScope(t(2, { feeStamped: true }), 'paid_unfinished', now), true)
+  assert.equal(tutorInScope(t(2), 'paid_unfinished', now), false)
   assert.equal(parseTutorScope('older'), 'older')
   assert.equal(parseTutorScope('nonsense'), 'recent')
   const page = read('app/admin/follow-ups/page.tsx')

@@ -96,11 +96,13 @@ test('A. the card number equals the rows of the Today filter, followed up or not
 test('A. staff, test, paused, banned and paid accounts are not in the number', () => {
   const lib = read('lib', 'staffOutreach.ts')
   // The one filter of the list the card reads.
-  assert.ok(lib.includes('!p.is_suspended && !p.is_banned && !p.is_seed && !p.is_team_account && !p.admin_role && !isTestName(p.full_name'))
-  // A tutor who paid is left out of the default group (owner, 16 Oct 2026: the
-  // rule moved into tutorInScope, read by the loader).
-  assert.ok(lib.includes('feeStamped: !!t.verified_fee_paid_at') && lib.includes('if (!inScope) continue'), 'a tutor who paid is left out')
-  assert.equal(tutorInScope({ joinedAt: new Date().toISOString(), feeStamped: true, feeApproved: true, onboarded: false }, 'recent', Date.now()), false)
+  for (const piece of ['!p.is_suspended', '!p.is_banned', '!p.is_seed', '!p.is_team_account', '!p.admin_role', '!isTestName(p.full_name', '!excluded.has(p.id'])
+    assert.ok(lib.includes(piece), piece)
+  // Since 21 Oct 2026 the Follow-ups list keeps a paid tutor who has not
+  // finished; the CARD counts only fee-unpaid sign-ups (lib/overviewItems).
+  assert.ok(lib.includes('feeStamped: !!t.verified_fee_paid_at') && lib.includes('if (!inScope) continue'))
+  assert.equal(tutorInScope({ joinedAt: new Date().toISOString(), feeStamped: true, feeApproved: true, onboarded: false }, 'recent', Date.now()), true)
+  assert.ok(read('lib', 'overviewItems.ts').includes('.filter((r) => !r.feePaid)'), 'a tutor who paid is left out of the number')
   assert.ok(lib.includes(".eq('role', 'tutor')"))
   assert.equal(isTestName('Test Tutor 6'), true)
   assert.equal(isTestName('New User'), true)

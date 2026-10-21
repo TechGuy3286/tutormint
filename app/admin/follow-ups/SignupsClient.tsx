@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { MarkFollowedUp } from '@/components/admin/FollowUpActions'
+import NotInterestedButton from '@/components/admin/NotInterestedButton'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { Mail, MessageCircle, Send, X, AlertTriangle } from 'lucide-react'
@@ -39,12 +40,15 @@ export default function SignupsClient({
   ok,
   templateBodies,
   followUps = {},
+  notInterested = false,
 }: {
   rows: AbandonedSignup[]
   ok: boolean
   templateBodies: Record<string, string>
   /** The shared follow-up record (owner, 9 Oct 2026), per member. */
   followUps?: Record<string, { sent: boolean; line: string | null; tag: string | null }>
+  /** The hidden "Not interested" group (owner, 21 Oct 2026): every row, no tabs. */
+  notInterested?: boolean
 }) {
   const { success, error } = useToast()
   const router = useRouter()
@@ -54,7 +58,7 @@ export default function SignupsClient({
   const isSent = (id: string) => !!followUps[id]?.sent
   const stuckRows = rows.filter((r) => !isSent(r.userId) && !moved.has(r.userId))
   const sentRows = rows.filter((r) => isSent(r.userId))
-  const shownRows = tab === 'stuck' ? stuckRows : sentRows
+  const shownRows = notInterested ? rows : tab === 'stuck' ? stuckRows : sentRows
   const onMoved = (id: string) => {
     if (tab === 'stuck') setMoved((prev) => new Set(prev).add(id))
     router.refresh()
@@ -141,8 +145,8 @@ export default function SignupsClient({
       <div>
         <h2 className="text-lg font-black text-tm-navy">Parents &amp; email not confirmed</h2>
         <p className="text-xs text-gray-500">
-          Parents who have not finished, and anyone who signed up with an email and never confirmed it. Tutors who
-          have not finished are on the Tutors tab. Message them on the channel they gave —
+          Parents who have not finished, or signed up with an email and never confirmed it, whenever they joined. Tutors
+          are on the Tutors tab. Staff and test accounts are left out. Message them on the channel they gave —
           email for an email signup, WhatsApp for a mobile one. No prices; these are nudges to
           finish, not offers.
         </p>
@@ -163,11 +167,11 @@ export default function SignupsClient({
         <>
           <p className="flex items-center gap-2 rounded-xl border border-gray-200 bg-tm-bg p-3 text-[11px] font-semibold text-slate-700">
             <AlertTriangle aria-hidden size={14} className="shrink-0 text-tm-gold-ink" />
-            {rows.length} signup{rows.length === 1 ? '' : 's'} stuck. A message goes out as the
+            {rows.length} signup{rows.length === 1 ? '' : 's'} {notInterested ? 'marked not interested' : 'stuck'}. A message goes out as the
             official TutorMint Team, is audit-logged and appears on the member’s timeline.
           </p>
 
-          <nav aria-label="Tabs" className="flex flex-wrap gap-2">
+          {!notInterested && <nav aria-label="Tabs" className="flex flex-wrap gap-2">
             {([
               ['stuck', 'Stuck', stuckRows.length],
               ['sent', 'Follow-up sent', sentRows.length],
@@ -184,7 +188,7 @@ export default function SignupsClient({
                 {label} <span className={tab === k ? 'text-white' : 'text-gray-500'}>{n}</span>
               </button>
             ))}
-          </nav>
+          </nav>}
 
           <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
             <table className="w-full text-left text-[11px]">
@@ -254,7 +258,12 @@ export default function SignupsClient({
                         </button>
                       )}
                       <div>
-                        <MarkFollowedUp memberId={r.userId} source="abandoned" templateKey={null} tab={tab} onMoved={onMoved} onRestored={onRestored} />
+                        {!notInterested && (
+                          <MarkFollowedUp memberId={r.userId} source="abandoned" templateKey={null} tab={tab} onMoved={onMoved} onRestored={onRestored} />
+                        )}
+                      </div>
+                      <div>
+                        <NotInterestedButton memberId={r.userId} marked={notInterested} />
                       </div>
                     </td>
                   </tr>

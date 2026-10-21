@@ -20,6 +20,11 @@ export type AuditAction =
   // One-tap follow-up for stuck sign-ups (9 Oct 2026).
   | 'member.follow_up'
   | 'member.follow_up_undo'
+  // "Not interested" on Follow-ups, and its undo (owner, 21 Oct 2026).
+  | 'member.not_interested'
+  | 'member.not_interested_undo'
+  // A test-account mark taken off / put on by hand (owner, 21 Oct 2026).
+  | 'member.unhide_public'
   | 'tutor.hold'
   | 'tutor.suspend'
   | 'tutor.unsuspend'

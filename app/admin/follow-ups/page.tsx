@@ -2,6 +2,9 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { requireAdminRole, roleMayWrite, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { canApprove } from '@/lib/adminAccessCore'
+import { loadNotInterested } from '@/lib/followUpDismissals'
+import { loadDirectory } from '@/lib/peopleDirectory'
 import { loadProfileShares } from '@/lib/profileShare'
 import {
   isSignupWindow,
@@ -109,9 +112,10 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
           q={(sp.q ?? '').trim()}
           // The roles that see payment amounts (Owner, Partner) — the route checks too.
           canCheckPayment={roleMayWrite(actor.adminRole, ['partner'])}
+          isOwner={canApprove(actor.adminRole)}
         />
       )}
-      {tab === 'parents' && <ParentsTab />}
+      {tab === 'parents' && <ParentsTab showNotInterested={sp.scope === 'not_interested'} />}
       {tab === 'orphans' && <OrphansTab />}
     </div>
   )
@@ -125,12 +129,14 @@ async function TutorsTab({
   window,
   q,
   canCheckPayment,
+  isOwner,
 }: {
   scope: TutorScope
   chip: ChipFilter
   window: SignupWindow | null
   q: string
   canCheckPayment: boolean
+  isOwner: boolean
 }) {
   const now = nowMs()
   let all = await loadTutorFollowUps(scope)
@@ -165,10 +171,12 @@ async function TutorsTab({
         <h2 className="text-lg font-black text-tm-navy">Tutors</h2>
         <p className="text-xs text-gray-500">
           {scope === 'recent' &&
-            `Tutors who joined in the last ${UNPAID_WINDOW_DAYS} days and have not paid the Verification Fee, and anyone who started a payment and did not finish.`}
-          {scope === 'older' && `Tutors who joined more than ${UNPAID_WINDOW_DAYS} days ago and have not paid the Verification Fee.`}
-          {scope === 'paid_unfinished' && 'Tutors who paid the Verification Fee and have not finished their profile.'} Each tutor
-          is listed once. Paused, test and staff accounts are left out.
+            `Tutors who joined in the last ${UNPAID_WINDOW_DAYS} days and have not finished, and anyone who started a payment and did not finish.`}
+          {scope === 'older' && `Tutors who joined more than ${UNPAID_WINDOW_DAYS} days ago and have not finished.`}
+          {scope === 'paid_unfinished' && 'Tutors who paid the Verification Fee and have not finished, whenever they joined.'}
+          {scope === 'not_interested' && 'Tutors marked "Not interested". They are on no other list until the mark is undone.'} Finished
+          means the Verification Fee is paid, CNIC, photo and selfie are approved and every step is done. Each tutor is listed once.
+          Paused, test and staff accounts are left out.
         </p>
       </header>
 
@@ -218,7 +226,7 @@ async function TutorsTab({
       ) : (
         <ul className="space-y-3">
           {rows.map((r) => (
-            <UnpaidSignupRow key={r.id} row={r} share={shares.get(r.id) ?? null} canCheckPayment={canCheckPayment} />
+            <UnpaidSignupRow key={r.id} row={r} share={shares.get(r.id) ?? null} canCheckPayment={canCheckPayment} isOwner={isOwner} />
           ))}
         </ul>
       )}
@@ -228,10 +236,19 @@ async function TutorsTab({
 
 // ---------------------------------------------- Parents & email not confirmed
 
-async function ParentsTab() {
-  const [{ rows: allRows, ok }, templates] = await Promise.all([loadAbandonedSignups(), loadTemplates()])
-  // Tutors who have not finished are on the Tutors tab, never on two tabs.
-  const rows = allRows.filter(onParentsTab)
+async function ParentsTab({ showNotInterested }: { showNotInterested: boolean }) {
+  const [{ rows: allRows, ok }, templates, directory, dismissed] = await Promise.all([
+    loadAbandonedSignups(),
+    loadTemplates(),
+    loadDirectory(),
+    loadNotInterested(),
+  ])
+  // Staff and test accounts are left out by the People page's rule; tutors are
+  // on the Tutors tab, never on two tabs.
+  const excluded = new Set(directory.people.filter((p) => p.excluded !== null).map((p) => p.id))
+  const listed = allRows.filter((r) => onParentsTab(r) && !excluded.has(r.userId))
+  const rows = listed.filter((r) => dismissed.has(r.userId) === showNotInterested)
+  const notInterestedCount = listed.filter((r) => dismissed.has(r.userId)).length
 
   // Pass only the signup templates the client needs, as a plain map.
   const bodies: Record<string, string> = {}
@@ -248,8 +265,29 @@ async function ParentsTab() {
     if (st) followUps[r.userId] = { sent: st.sent, line: followUpLine(st, now), tag: st.tag }
   }
 
-  return <SignupsClient rows={rows} ok={ok} templateBodies={bodies} followUps={followUps} />
+  return (
+    <div className="space-y-3">
+      <nav aria-label="Which parents" className="flex flex-wrap gap-2">
+        <Link href={followUpsHref('parents')} aria-current={!showNotInterested ? 'page' : undefined} className={groupPill(!showNotInterested)}>
+          Not finished
+        </Link>
+        <Link
+          href={followUpsHref('parents', { scope: 'not_interested' })}
+          aria-current={showNotInterested ? 'page' : undefined}
+          className={groupPill(showNotInterested)}
+        >
+          Not interested <span className={showNotInterested ? 'text-white' : 'text-gray-500'}>{notInterestedCount}</span>
+        </Link>
+      </nav>
+      <SignupsClient rows={rows} ok={ok} templateBodies={bodies} followUps={followUps} notInterested={showNotInterested} />
+    </div>
+  )
 }
+
+const groupPill = (on: boolean) =>
+  `inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-4 text-xs font-bold ${
+    on ? 'border-tm-navy bg-tm-navy text-white' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'
+  }`
 
 // ------------------------------------------------------------- Orphaned accounts
 

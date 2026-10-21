@@ -22,6 +22,7 @@
 // Unit-tested by scripts/test-admin-whatsapp.ts.
 
 import { normalisePkMobile } from '@/lib/phone'
+import { finishWaText, siteLink } from '@/lib/waLinkCore'
 import {
   DOC_WORD,
   firstNameOf,
@@ -35,25 +36,25 @@ import {
 
 export type AdminMessageType = MessageType | 'docs_waiting' | 'doc_rejected' | 'parent_help' | 'member_help'
 
-export const DASHBOARD_LINK = 'tutormint.org/tutor/dashboard'
+export const DASHBOARD_LINK = siteLink('/tutor/dashboard')
 
 /** https://wa.me/92…?text=… — or null with no usable number or no text. The
  *  number may be typed any way (+92, 0300-…, spaces); it is reduced to 92…. */
 export function adminWaLink(rawNumber: string | null | undefined, text: string | null | undefined): string | null {
   const msisdn = normalisePkMobile(rawNumber)
-  const body = (text ?? '').trim()
+  const body = finishWaText(text ?? '')
   if (!msisdn || !body) return null
   return `https://wa.me/${msisdn}?text=${encodeURIComponent(body)}`
 }
 
 export function documentsWaitingMessage(name: string, phrase: string): string {
-  return `Assalam o Alaikum ${firstNameOf(name)}, thanks for uploading your documents. We're checking them now. Meanwhile, your next step is to ${phrase}: ${DASHBOARD_LINK}. Reply here if you need help. 🙂`
+  return `Assalam o Alaikum ${firstNameOf(name)}, thanks for uploading your documents. We're checking them now. Meanwhile, your next step is to ${phrase}. Reply here if you need help. 🙂\n\n${DASHBOARD_LINK}`
 }
 
 export function documentRejectedMessage(name: string, rejected: RejectedDoc[]): string {
   const docs = joinAnd([...new Set(rejected.map((r) => DOC_WORD[r.doc]))])
   const reasons = [...new Set(rejected.map((r) => (r.reason ?? '').trim().replace(/[.\s]+$/, '')).filter(Boolean))]
-  return `Assalam o Alaikum ${firstNameOf(name)}, please re-upload your ${docs}${reasons.length ? ` (${reasons.join('; ')})` : ''}: ${DASHBOARD_LINK}. Reply here if you need help. 🙂`
+  return `Assalam o Alaikum ${firstNameOf(name)}, please re-upload your ${docs}${reasons.length ? ` (${reasons.join('; ')})` : ''}. Reply here if you need help. 🙂\n\n${DASHBOARD_LINK}`
 }
 
 export function parentHelpMessage(name: string): string {

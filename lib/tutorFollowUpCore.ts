@@ -29,14 +29,21 @@
 // Unit-tested by scripts/test-tutor-follow-ups.ts.
 
 import type { FlowStepKey } from '@/lib/tutorFlow'
+import { siteLink } from '@/lib/waLinkCore'
 
 export const FOLLOW_UP_AGAIN_DAYS = 3
 const DAY = 86_400_000
 
-export const FOLLOW_CHIPS = ['started', 'docs_done', 'stuck', 'not_contacted', 'again', 'contacted'] as const
+/** Who has to act next (owner, 21 Oct 2026): every card is in exactly one. */
+export const WAIT_CHIPS = ['on_tutor', 'on_us'] as const
+export type WaitChip = (typeof WAIT_CHIPS)[number]
+
+export const STATE_CHIPS = ['started', 'docs_done', 'stuck', 'not_contacted', 'again', 'contacted'] as const
+export const FOLLOW_CHIPS = [...STATE_CHIPS, ...WAIT_CHIPS] as const
 export type FollowChip = (typeof FOLLOW_CHIPS)[number]
-/** The order "most urgent first" — also the order the chips are shown in. */
-export const PRIORITY: readonly FollowChip[] = FOLLOW_CHIPS
+/** The order "most urgent first" — the state chips; the card's badge and the
+ *  "All" order. The two wait chips are a split, not a state. */
+export const PRIORITY: readonly FollowChip[] = STATE_CHIPS
 
 export const FOLLOW_CHIP_LABEL: Record<FollowChip, string> = {
   started: 'Started payment',
@@ -45,6 +52,8 @@ export const FOLLOW_CHIP_LABEL: Record<FollowChip, string> = {
   not_contacted: 'Not contacted',
   again: 'Follow up again',
   contacted: 'Contacted',
+  on_tutor: 'Waiting on the tutor',
+  on_us: 'Waiting on us',
 }
 
 export type ChipFilter = FollowChip | 'all'
@@ -72,6 +81,13 @@ export type TutorFollowFacts = {
   startedPayment: { planCode: string | null; startedAt: string } | null
   /** The newest contact of any kind (a follow-up record or a logged call). */
   lastContactAt: string | null
+  /** CNIC, photo or selfie uploaded and waiting for the Owner's decision. */
+  docsWaiting?: boolean
+  /** The oldest of those waiting uploads. */
+  waitingSince?: string | null
+  /** When they signed up, and when they were last seen on the site. */
+  joinedAt?: string | null
+  lastSeenAt?: string | null
 }
 
 const isFeeStep = (s: FollowStep | null) => s === null || s === 'verify'
@@ -88,6 +104,7 @@ export function chipsFor(f: TutorFollowFacts, nowMs: number): Set<FollowChip> {
     if (!f.feePaid && age >= FOLLOW_UP_AGAIN_DAYS * DAY) out.add('again')
     else out.add('contacted')
   }
+  out.add(waitChip(f))
   return out
 }
 
@@ -226,17 +243,17 @@ export function followUpMessage(
     type = 'payment_unfinished_plan'
     body =
       planMessage?.trim() ||
-      `Assalam o Alaikum ${first}, your TutorMint payment didn't complete. You can try again here: tutormint.org/membership-plans. Reply here if you need help. 🙂`
+      `Assalam o Alaikum ${first}, your TutorMint payment didn't complete. You can try again on the plans page. Reply here if you need help. 🙂\n\n${siteLink('/membership-plans')}`
   } else if (primary === 'started') {
     type = 'payment_unfinished'
-    body = `Assalam o Alaikum ${first}, you started your Rs 199 Verification Fee but it didn't complete. You can finish it here: tutormint.org/pay/choose. If JazzCash gave a problem, choose 'Other methods' to pay from any bank app or Easypaisa. Reply here if you need help. 🙂`
+    body = `Assalam o Alaikum ${first}, you started your Rs 199 Verification Fee but it didn't complete. If JazzCash gave a problem, choose 'Other methods' to pay from any bank app or Easypaisa. Reply here if you need help. 🙂 You can finish it here:\n${siteLink('/pay/choose')}`
   } else if (primary === 'docs_done') {
     type = 'fee_due'
-    body = `Assalam o Alaikum ${first}, your documents are approved ✅. The last step is the one-time Rs 199 Verification Fee: tutormint.org/pay/choose. After that you get the Verified badge and can apply to tuitions. Reply here if you need help. 🙂`
+    body = `Assalam o Alaikum ${first}, your documents are approved ✅. The last step is the one-time Rs 199 Verification Fee. After that you get the Verified badge and can apply to tuitions. Reply here if you need help. 🙂 Pay here:\n${siteLink('/pay/choose')}`
   } else {
     type = 'next_step'
     const pct = Math.max(0, Math.min(100, Math.round(f.completion || 0)))
-    body = `Assalam o Alaikum ${first}, your TutorMint profile is ${pct}% complete. The next step is ${nextPhrase(f)}. You can continue here: tutormint.org/tutor/dashboard. If you need any help, just reply here. 🙂`
+    body = `Assalam o Alaikum ${first}, your TutorMint profile is ${pct}% complete. The next step is to ${nextPhrase(f)}. If you need any help, just reply here. 🙂 You can continue here:\n${siteLink('/tutor/dashboard')}`
   }
   const lead = reuploadLine(f.rejected)
   return { text: lead ? `${lead}\n\n${body}` : body, type, templateKey: messageTemplateKey(type, !!lead) }
@@ -350,4 +367,106 @@ export function latestContact(
   const xs = [a, b].filter((x): x is { at: string; by: string | null } => !!x?.at)
   if (xs.length === 0) return null
   return xs.sort((x, y) => Date.parse(y.at) - Date.parse(x.at))[0]
+}
+
+// ------------------------------------------------- reason line (21 Oct 2026)
+//
+// Every unfinished sign-up is on Follow-ups, of any age, and every card says
+// in ONE plain line why they have not finished. First match wins:
+//   rejected   "Documents rejected — <document>: <reason>"
+//   waiting    "Waiting for our approval (<n> days)"
+//   started    "Started Rs 199 payment, didn't finish"
+//   docs_done  "Documents approved, fee not paid"
+//   stopped    "Stopped at: <step>"
+//   no_mobile  "Signed up, never verified mobile"
+// plus " · No activity for <n> days" when they were last seen 14+ days ago.
+
+export const INACTIVE_DAYS = 14
+
+export type ReasonKind = 'rejected' | 'waiting' | 'started' | 'docs_done' | 'stopped' | 'no_mobile' | 'unfinished'
+
+export const REASON_DOC_NAME: Record<RejectedDoc['doc'], string> = { cnic: 'CNIC', photo: 'Profile photo', selfie: 'Selfie' }
+
+const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
+const daysSince = (iso: string | null | undefined, nowMs: number): number | null => {
+  const t = Date.parse(iso ?? '')
+  return Number.isFinite(t) ? Math.max(0, Math.floor((nowMs - t) / DAY)) : null
+}
+
+/** Who acts next: the Owner when documents are waiting for a decision
+ *  (and nothing is rejected), the tutor otherwise. */
+export function waitChip(f: TutorFollowFacts): WaitChip {
+  return reasonKind(f) === 'waiting' ? 'on_us' : 'on_tutor'
+}
+
+export function reasonKind(f: TutorFollowFacts): ReasonKind {
+  if (f.rejected.length > 0) return 'rejected'
+  if (f.docsWaiting) return 'waiting'
+  if (f.startedPayment) return 'started'
+  if (!f.feePaid && f.docsApproved && isFeeStep(f.stoppedStep)) return 'docs_done'
+  if (f.stoppedStep === 'mobile' || f.stoppedStep === 'contact') return 'no_mobile'
+  if (f.stoppedStep && f.stoppedStep !== 'verify') return 'stopped'
+  return 'unfinished'
+}
+
+/** "No activity for 21 days", or null. Last seen = the newer of their last
+ *  visit and their sign-up (someone who never came back is counted from then). */
+export function inactivityLine(f: Pick<TutorFollowFacts, 'lastSeenAt' | 'joinedAt'>, nowMs: number): string | null {
+  const times = [f.lastSeenAt, f.joinedAt].map((x) => Date.parse(x ?? '')).filter(Number.isFinite)
+  if (times.length === 0) return null
+  const days = Math.floor((nowMs - Math.max(...times)) / DAY)
+  return days >= INACTIVE_DAYS ? `No activity for ${days} days` : null
+}
+
+/** The card's one reason line. */
+export function followReason(f: TutorFollowFacts, nowMs: number, planName?: string | null): { kind: ReasonKind; text: string } {
+  const kind = reasonKind(f)
+  let text: string
+  switch (kind) {
+    case 'rejected':
+      text = `Documents rejected — ${f.rejected
+        .map((r) => {
+          const why = (r.reason ?? '').trim().replace(/[.\s]+$/, '')
+          return why ? `${REASON_DOC_NAME[r.doc]}: ${why}` : REASON_DOC_NAME[r.doc]
+        })
+        .join('; ')}`
+      break
+    case 'waiting': {
+      const n = daysSince(f.waitingSince, nowMs)
+      text = `Waiting for our approval (${n === null || n === 0 ? 'under 1 day' : plural(n, 'day')})`
+      break
+    }
+    case 'started':
+      text =
+        !f.startedPayment?.planCode || f.startedPayment.planCode === 'verified'
+          ? "Started Rs 199 payment, didn't finish"
+          : `Started ${planName || 'plan'} payment, didn't finish`
+      break
+    case 'docs_done':
+      text = 'Documents approved, fee not paid'
+      break
+    case 'no_mobile':
+      text = 'Signed up, never verified mobile'
+      break
+    case 'stopped':
+      text = `Stopped at: ${NEXT_LABEL[f.stoppedStep as FollowStep]}`
+      break
+    default:
+      text = f.feePaid ? 'Paid, documents not finished' : 'Not finished'
+  }
+  const idle = inactivityLine(f, nowMs)
+  return { kind, text: idle ? `${text} · ${idle}` : text }
+}
+
+/** Done, so off Follow-ups: the Verification Fee paid, CNIC, photo and selfie
+ *  approved — and, because a paid tutor whose profile is not finished stays on
+ *  the list ("Paid, profile not finished"), every onboarding step done. */
+export function tutorDone(f: Pick<TutorFollowFacts, 'feePaid' | 'docsApproved' | 'stoppedStep' | 'rejected'>): boolean {
+  return f.feePaid && f.docsApproved && f.rejected.length === 0 && (f.stoppedStep === null || f.stoppedStep === 'verify')
+}
+
+/** WhatsApp is not offered on a card that is waiting on us — staff should not
+ *  chase someone who is waiting for our decision. */
+export function showWhatsApp(chips: readonly FollowChip[]): boolean {
+  return !chips.includes('on_us')
 }

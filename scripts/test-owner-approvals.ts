@@ -163,10 +163,11 @@ test('Follow-ups: tabs per role; Tuitions staff see Tutors only', () => {
   assert.deepEqual(followUpTabsFor('tuitions_staff'), ['tutors'])
   assert.equal(pickFollowUpTab('tuitions_staff', 'parents'), 'tutors')
   assert.equal(pickFollowUpTab('admin', 'orphans'), 'orphans')
-  // A tutor who has not finished is on Tutors only; parents and unconfirmed emails here.
+  // Every unfinished tutor is on Tutors only, an unconfirmed email included (21 Oct 2026).
   assert.equal(onParentsTab({ stage: 'profile_unfinished', role: 'tutor' }), false)
   assert.equal(onParentsTab({ stage: 'profile_unfinished', role: 'parent' }), true)
-  assert.equal(onParentsTab({ stage: 'email_unconfirmed', role: 'tutor' }), true)
+  assert.equal(onParentsTab({ stage: 'email_unconfirmed', role: 'tutor' }), false)
+  assert.equal(onParentsTab({ stage: 'email_unconfirmed', role: 'parent' }), true)
   // Overview "Stuck in onboarding" keeps its filtered view.
   // …now the Stuck chip of the merged list (owner, 20 Oct 2026).
   assert.ok(read('lib/overviewItems.ts').includes("workHref: chipHref('stuck')"))
