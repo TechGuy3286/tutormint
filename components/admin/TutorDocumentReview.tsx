@@ -18,6 +18,7 @@ import AdminCnicNumberBox, { CNIC_NUMBER_BOX_ID } from '@/components/admin/Admin
 import DocumentsApprovedWhatsApp from '@/components/admin/DocumentsApprovedWhatsApp'
 import { allDocumentsApproved } from '@/lib/documentsApprovedCore'
 import RejectReasonPicker from '@/components/admin/RejectReasonPicker'
+import SelfieMatchWarning from '@/components/admin/SelfieMatchWarning'
 import { buildRejectReason, rejectionWhatsAppText, type RejectTarget } from '@/lib/rejectReasonsCore'
 
 /** The admin lock facts for the card (lib/docLocks loadAdminLockInfo). */
@@ -56,6 +57,7 @@ export default function TutorDocumentReview({
   canUnlock = false,
   cnicNumberMasked = null,
   canEditNumber = false,
+  selfieLooksLikePhoto = false,
 }: {
   tutorId: string
   canReview: boolean
@@ -78,6 +80,8 @@ export default function TutorDocumentReview({
   cnicNumberMasked?: string | null
   /** Staff who may type the CNIC number here (SCREEN_ACCESS.tutorEdit). */
   canEditNumber?: boolean
+  /** The selfie looks the same as the profile picture (lib/selfieMatch) — a warning only. */
+  selfieLooksLikePhoto?: boolean
 }) {
   const [numberHighlight, setNumberHighlight] = useState(false)
   // Each item's status as it changes on this card, so "Send WhatsApp" appears
@@ -192,6 +196,7 @@ export default function TutorDocumentReview({
           unlock={lockInfo ? { item: 'selfie', lockable: lockInfo.lockable.selfie && !rv?.selfieId, unlockOpen: lockInfo.unlockOpen.selfie, canUnlock } : null}
           onStatus={(st) => setLive((l) => ({ ...l, selfie: st }))}
         >
+          {selfieLooksLikePhoto && <SelfieMatchWarning />}
           {selfieDocId ? (
             <Zoomable onOpen={() => setLbIndex(at.selfie)}>
               <SecureDocumentPreview documentId={selfieDocId} alt="Selfie" />

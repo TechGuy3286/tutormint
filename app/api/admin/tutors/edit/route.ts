@@ -14,6 +14,7 @@ import { normalisePkMobile, formatPkMobile, syntheticEmail, isSyntheticEmail } f
 import { isValidCnic, formatCnic, CNIC_FORMAT_HINT } from '@/lib/cnic'
 import { recordFieldChanges, maskCnicHistory, type Step1Field } from '@/lib/fieldHistory'
 import { unknownNewMasterIds } from '@/lib/masterSubjectCheck'
+import { subjectLimitRefusal } from '@/lib/subjectLimit'
 import { NOT_A_MASTER_SUBJECT } from '@/lib/subjectDisplay'
 import { TUTOR_SUBJECT_CAP, TOO_MANY_SUBJECTS } from '@/lib/tutorSubjectCap'
 
@@ -175,6 +176,9 @@ export async function POST(request: Request) {
     const oldIds = (oldRows ?? []).map((r) => r.master_id as number).sort((a, b) => a - b)
     // Only NEWLY ADDED non-list values are refused; saved ones are kept (owner, 19 Oct 2026).
     if ((await unknownNewMasterIds(admin, ids, oldIds)).length > 0) return NextResponse.json({ error: NOT_A_MASTER_SUBJECT }, { status: 400 })
+    // At most 15 distinct subjects (owner, 21 Oct 2026) — the same rule as the tutor's own save.
+    const limit = await subjectLimitRefusal(admin, ids, oldIds)
+    if (limit) return NextResponse.json({ error: limit }, { status: 400 })
     const del = await admin.from('tutor_subjects').delete().eq('tutor_id', tutorId)
     if (del.error) return NextResponse.json({ error: del.error.message }, { status: 400 })
     const ins = await admin.from('tutor_subjects').insert(ids.map((master_id) => ({ tutor_id: tutorId, master_id })))

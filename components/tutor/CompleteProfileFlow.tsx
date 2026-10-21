@@ -35,7 +35,6 @@ import type { ManualInstructions } from '@/lib/payments/provider'
 import { DEFAULT_CHECKOUT_METHODS, type CheckoutMethods } from '@/lib/payments/gatewaySettingsCore'
 import { fetchTaxonomyTree, resolveMasterIds, fetchNonLegacyMasters, loadedNoGradeLevels, type TaxonomyNode } from '@/lib/taxonomy'
 import { orderSubjectsForPicker } from '@/lib/taxonomyBuild'
-import PhotoCaptureTile from '@/components/tutor/PhotoCaptureTile'
 import TimeSlotGrid from '@/components/forms/TimeSlotGrid'
 import { availabilityToSlots, slotsToAvailabilityList, type DaySlot } from '@/lib/timeSlots'
 import TutorVerifyGate from '@/components/upgrade/TutorVerifyGate'
@@ -53,6 +52,9 @@ import { directoryBlockers, profileGaps, listingFixItems } from '@/lib/tutorList
 import LogoLoader from '@/components/LogoLoader'
 import { ChipSkeletons } from '@/components/Skeletons'
 import { safeReturnTo } from '@/lib/returnTo'
+import SubjectLimitNote from '@/components/tutor/SubjectLimitNote'
+import { canAddSubject, subjectKeysOfNames } from '@/lib/subjectLimitCore'
+import LiveSelfieCapture from '@/components/tutor/LiveSelfieCapture'
 import CityPicker from '@/components/forms/CityPicker'
 
 // One tap-tap flow for every tutor (PR 4 §1). It replaces the long step-tab form
@@ -1182,8 +1184,11 @@ function SubjectsPerLevelStep({
     return { cat, subs: query ? subs.filter((s) => matchSubject(query, s, subjectWords)) : subs }
   })
   const total = Object.values(selByCat).reduce((n, arr) => n + arr.length, 0)
+  // At most 15 distinct subjects (owner, 21 Oct 2026; lib/subjectLimitCore).
+  const keys = subjectKeysOfNames(Object.values(selByCat).flat())
   const toggle = (cat: string, sub: string) => {
     const cur = selByCat[cat] ?? []
+    if (!cur.includes(sub) && !canAddSubject(keys, sub)) return
     onChange({ ...selByCat, [cat]: cur.includes(sub) ? cur.filter((x) => x !== sub) : [...cur, sub] })
   }
   const items: ChecklistItem[] = [
@@ -1198,6 +1203,7 @@ function SubjectsPerLevelStep({
         aria-label="Search subjects"
         className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-tm-navy"
       />
+      <SubjectLimitNote count={keys.size} className="text-center" />
       {groups.map((g) => (
         <div key={g.cat} className="space-y-2">
           {cats.length > 1 && <p className="text-[11px] font-bold text-gray-500">{g.cat}</p>}
@@ -1386,12 +1392,8 @@ function SelfieStep({ done, onDone }: { done: boolean; onDone: () => void }) {
     <div className="space-y-4">
       {selfieView !== 'open' && <DocLockNotice view={selfieView} doc="selfie" />}
       {canPick(selfieView) && (
-      <div className="mx-auto w-40">
-        <PhotoCaptureTile
-          facingMode="user"
-          aspectClass="aspect-square"
-          label={uploaded ? 'Selfie added' : 'Selfie'}
-          ariaLabel="your verification selfie"
+      <div className="mx-auto max-w-xs">
+        <LiveSelfieCapture
           busy={busy}
           done={uploaded}
           preview={
@@ -1400,7 +1402,7 @@ function SelfieStep({ done, onDone }: { done: boolean; onDone: () => void }) {
               <img src={preview} alt="Your verification selfie" className="h-full w-full object-cover" />
             ) : null
           }
-          onPick={(f) => void upload(f)}
+          onCapture={(f) => void upload(f)}
         />
       </div>
       )}

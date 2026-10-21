@@ -9,6 +9,7 @@ import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
+import { TUITION_LIVE_LABEL } from '@/lib/tuitionStatus'
 import type { RepeatPair } from '@/lib/duplicates'
 
 // The Duplicates screen (owner, 6 Oct 2026). One card per repeat, grouped by
@@ -36,7 +37,7 @@ export default function DuplicatesClient({ pairs, days, canMerge }: { pairs: Rep
   const merge = async (p: RepeatPair) => {
     const ok = await confirm({
       title: `Merge ${p.repeat.refId ?? 'this tuition'} into ${p.original.refId ?? 'the original'}?`,
-      body: 'The repeat is closed and its address will send visitors to the original. Nothing is deleted. The original moves to the top of Browse with a fresh 15 days.',
+      body: `The repeat is closed and its address will send visitors to the original. Nothing is deleted. The original moves to the top of Browse with a fresh ${TUITION_LIVE_LABEL}.`,
       confirmLabel: 'Merge into original',
     })
     if (!ok) return

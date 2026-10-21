@@ -302,7 +302,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
   }
 
   // §7 — the poster (and admin) see when their OPEN tuition will auto-pause,
-  // derived at read time from coalesce(resumed_at, created_at) + 15 days. The
+  // derived at read time from coalesce(resumed_at, created_at) + 20 days. The
   // poster reads their own row, so no service role is needed.
   let pauseLabel: string | null = null
   if ((isPoster || isAdmin) && state.isOpen) {
@@ -515,7 +515,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
             last day and the past-due-but-unswept window; it still takes
             applications until the sweep actually pauses it. */}
         {/* Item 16 — the poster (and an admin) can Refresh an open tuition from
-            its own page: top of Browse, fresh 15 days, same URL; once every 3 days. */}
+            its own page: top of Browse, fresh 20 days, same URL; once every 3 days. */}
         {(isPoster || isAdmin) && state.isOpen && (
           <RefreshInline jobId={job.id} admin={isAdmin && !isPoster} />
         )}

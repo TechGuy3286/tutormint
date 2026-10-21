@@ -114,11 +114,11 @@ test('JobPosting: a home tuition has every required and recommended field', () =
   assert.deepEqual([salary.value.minValue, salary.value.maxValue], [10000, 19999])
 })
 
-test('JobPosting: validThrough is the 15-day pause, and moves with a resume', () => {
+test('JobPosting: validThrough is the 20-day pause, and moves with a resume', () => {
   const j = posting(HOME)
   assert.equal(new Date(j.validThrough as string).getTime(), pauseDueAtMs(POSTED))
   const resumed = new Date().toISOString()
-  assert.equal(pauseDueAtMs(resumed) - new Date(resumed).getTime(), 15 * 86_400_000)
+  assert.equal(pauseDueAtMs(resumed) - new Date(resumed).getTime(), 20 * 86_400_000)
 })
 
 test('JobPosting: an online tuition is TELECOMMUTE for applicants in Pakistan', () => {

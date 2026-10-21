@@ -6,7 +6,7 @@ import PausedClient from './PausedClient'
 
 // Marketplace → Paused tuitions (owner, 8 Oct 2026). Every role that can post
 // tuitions. Auto-paused tuitions newest first, filters, Resume one or many, and
-// the backlog's progress while the 15-day rule works through the old tuitions.
+// the backlog's progress while the 20-day rule works through the old tuitions.
 
 export const dynamic = 'force-dynamic'
 

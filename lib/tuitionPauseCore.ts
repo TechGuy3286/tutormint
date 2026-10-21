@@ -2,7 +2,7 @@
 //
 // The pure batching rule behind the nightly tuition pause (owner, 8 Oct 2026).
 //
-// A tuition pauses TUITION_LIVE_DAYS (15) after it was posted or last resumed.
+// A tuition pauses TUITION_LIVE_DAYS (20 since 21 Oct 2026) after it was posted or last resumed.
 // When the rule moved from 7 days back to 15 (owner, 13 Oct 2026), every tuition
 // live that day whose 15 days had already run out was given until LIVE_FLOOR_MS
 // (3 days later). Those are the BACKLOG — every tuition due at the floor —

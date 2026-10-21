@@ -1,7 +1,7 @@
 // lib/tuitionPause.ts
 //
-// Tuitions auto-pause TUITION_LIVE_DAYS (15) after they were posted or last
-// resumed (owner, 13 Oct 2026; 7 days from 8 Oct, 15 before that — PR27 §3).
+// Tuitions auto-pause TUITION_LIVE_DAYS (20) after they were posted or last
+// resumed (owner, 21 Oct 2026; 15 from 13 Oct, 7 from 8 Oct — PR27 §3).
 //
 // A paused tuition has status 'paused' — auto-excluded from browse, search,
 // matching, the sitemap, landing pages and Apply (all of which filter

@@ -54,7 +54,7 @@ export async function POST(request: Request) {
   const { jobId, action } = parsed.data
   const reason = (parsed.data.reason ?? '').trim()
 
-  // Refresh (owner, 6 Oct 2026, item 16): same URL, top of Browse, fresh 15 days,
+  // Refresh (owner, 6 Oct 2026, item 16): same URL, top of Browse, fresh 20 days,
   // Google told; the 3-day limit is enforced in lib/tuitionMerge.
   if (action === 'refresh') {
     const r = await refreshTuition(jobId, { id: gate.actor.id, adminRole: gate.actor.adminRole, email: gate.actor.email, kind: 'admin' }, null)

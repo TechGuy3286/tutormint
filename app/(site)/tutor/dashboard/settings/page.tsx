@@ -4,7 +4,7 @@ import ChangePasswordCard from '@/components/account/ChangePasswordCard'
 import PauseAccountCard from '@/components/account/PauseAccountCard'
 import { PauseCircle } from 'lucide-react'
 import FileUpload from '@/components/FileUpload';
-import PhotoCaptureTile from '@/components/tutor/PhotoCaptureTile';
+import LiveSelfieCapture from '@/components/tutor/LiveSelfieCapture';
 import { compressUnder1MB } from '@/lib/imageCompress';
 import PasswordInput from '@/components/ui/PasswordInput'
 import { useJobTitles } from '@/lib/jobTitles'
@@ -757,12 +757,8 @@ export default function TutorSettingsPage() {
             <span lang="ur" dir="rtl" className="ms-1">آپ کی سیلفی صرف ٹیوٹرمنٹ کی تصدیقی ٹیم دیکھتی ہے۔</span>
           </p>
           {selfieView === 'unlocked' && <DocLockNotice view="unlocked" doc="selfie" />}
-          <div className="w-40">
-            <PhotoCaptureTile
-              facingMode="user"
-              aspectClass="aspect-square"
-              label="Selfie"
-              ariaLabel="your verification selfie"
+          <div className="max-w-xs">
+            <LiveSelfieCapture
               busy={selfieBusy}
               done={!!selfiePreviewUrl}
               preview={
@@ -771,7 +767,7 @@ export default function TutorSettingsPage() {
                   <img src={selfiePreviewUrl} alt="Your verification selfie" className="h-full w-full object-cover" />
                 ) : null
               }
-              onPick={(f) => void handleSelfieCapture(f)}
+              onCapture={(f) => void handleSelfieCapture(f)}
             />
           </div>
           {selfieError && (

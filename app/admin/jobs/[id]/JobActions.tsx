@@ -6,6 +6,7 @@ import { Loader2 } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
+import { TUITION_LIVE_LABEL } from '@/lib/tuitionStatus'
 
 // Close, pause/resume, un-feature.
 //
@@ -166,7 +167,7 @@ export default function JobActions({
         </p>
         <p>
           <span className="font-bold text-gray-700">Refresh</span> — moves the tuition to the top of
-          Browse with a fresh 15 days on the same address, and tells Google. At most once every 3 days.
+          Browse with a fresh {TUITION_LIVE_LABEL} on the same address, and tells Google. At most once every 3 days.
         </p>
         <p>Nothing is ever deleted. The post, its applications and its chats always stay.</p>
       </div>

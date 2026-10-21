@@ -15,6 +15,7 @@ import ProfileShareButtons from '@/components/admin/ProfileShareButtons'
 import type { ProfileShare } from '@/lib/profileShareCore'
 import { useUrlState } from '@/lib/useUrlState'
 import { adminWhatsAppRoute } from '@/lib/adminWhatsAppCore'
+import SelfieMatchWarning from '@/components/admin/SelfieMatchWarning'
 import {
   DOC_FILTERS,
   applyDocFilter,
@@ -70,7 +71,7 @@ export type GridItem = {
     tag: string | null
   } | null
   /** Tutors only: the combined Documents status (owner, 19 Oct 2026). */
-  docs?: (DocSummary & { oldestUploadAt: string | null }) | null
+  docs?: (DocSummary & { oldestUploadAt: string | null; selfieLooksLikePhoto?: boolean }) | null
   /** Tutors only: Copy profile link / Share on WhatsApp (owner, 20 Oct 2026). */
   share?: ProfileShare | null
 }
@@ -255,6 +256,7 @@ function MemberBody({
       </dl>
 
       {it.docs && <DocsRow docs={it.docs} />}
+      {it.docs?.selfieLooksLikePhoto && <SelfieMatchWarning compact />}
       {m.role === 'tutor' && it.share && <ProfileShareButtons share={it.share} />}
 
       {m.stoppedAt && (

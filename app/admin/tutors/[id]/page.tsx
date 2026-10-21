@@ -19,6 +19,7 @@ import { jobTypesLabel } from '@/lib/display'
 import SlugField from './SlugField'
 import TutorFieldEditor from './TutorFieldEditor'
 import TutorFieldHistory from './TutorFieldHistory'
+import { selfiePhotoMatchUsers } from '@/lib/selfieMatch'
 import { formatName } from '@/lib/formatName'
 
 // One tutor, as staff.
@@ -209,6 +210,7 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
         cnicBackId={cnicBack?.id ?? null}
         selfieDocId={selfieDoc?.id ?? null}
         statuses={docStatuses}
+        selfieLooksLikePhoto={(await selfiePhotoMatchUsers([id])).has(id)}
         memberWhatsapp={(profile.whatsapp as string | null) ?? (tutor.whatsapp_number as string | null) ?? (profile.phone_number as string | null) ?? null}
         lockInfo={lockInfo}
         canUnlock={roleMayWrite(actor.adminRole, SCREEN_ACCESS.documentUnlock)}

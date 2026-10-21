@@ -11,6 +11,7 @@ import { RELOAD_AND_RETRY } from '@/lib/tutorSubjectCap'
 import { decideUpload, spendUnlock } from '@/lib/docLocks'
 import { readCnicFromDocument } from '@/lib/cnicReader'
 import { isValidCnic } from '@/lib/cnic'
+import { checkSelfieAgainstProfilePhoto } from '@/lib/selfieMatch'
 
 // Upload a CNIC scan or a degree certificate.
 //
@@ -115,6 +116,16 @@ export async function POST(request: Request) {
   if ((kind === 'cnic' || kind === 'selfie') && !review) {
     await alertIfReupload(user.id, kind)
   }
+  // Is the selfie the profile picture again? (owner, 21 Oct 2026) — compared in
+  // the background; a match only shows staff a warning (lib/selfieMatch).
+  if (kind === 'selfie') {
+    const selfieBytes = Buffer.from(await file.arrayBuffer())
+    const documentId = result.doc.id
+    after(async () => {
+      await checkSelfieAgainstProfilePhoto(user.id, documentId, selfieBytes).catch(() => null)
+    })
+  }
+
   // A selfie or CNIC side can be the last onboarding step (owner, 15 Oct 2026).
   if (kind === 'selfie' || kind === 'cnic') after(() => markOnboardedIfComplete(user.id, 'document_upload'))
 

@@ -34,6 +34,8 @@ import {
   type Master as RangeMaster, type RangeSelection,
 } from '@/lib/onboarding/levelRanges'
 import { TUTOR_SUBJECT_CAP, TOO_MANY_SUBJECTS } from '@/lib/tutorSubjectCap'
+import { canAddSubject, subjectChangeAllowed, subjectKeysOfNames } from '@/lib/subjectLimitCore'
+import SubjectLimitNote from '@/components/tutor/SubjectLimitNote'
 import { availabilityToSlots, slotsToAvailabilityList, type DaySlot } from '@/lib/timeSlots'
 import { NEW_FLOW_ORDER, firstMissingStep, nextMissingAfter, stepDone, type FlowStepKey } from '@/lib/tutorFlow'
 import LogoLoader from '@/components/LogoLoader'
@@ -44,6 +46,7 @@ import { deriveCnicStatus } from '@/lib/cnicStatus'
 import { googleVisibilityLine, tutorIndexRequirements, tutorProfileIndexable } from '@/lib/seo/indexable'
 import type { FlowFacts } from '@/lib/tutorFlow'
 import { ChipSkeletons } from '@/components/Skeletons'
+import LiveSelfieCapture from '@/components/tutor/LiveSelfieCapture'
 import CityPicker from '@/components/forms/CityPicker'
 
 // The NEW tutor onboarding (PR106-G3c). A SEPARATE component from the live
@@ -701,6 +704,7 @@ function SubjectsStep({ initialIds, draft, shell, helpWaHref, onDraft, onAutoSav
   const [moreOpen, setMoreOpen] = useState<Record<string, boolean>>({})
   const [tried, setTried] = useState(false)
   const [tooMany, setTooMany] = useState(false)
+  const [limitHit, setLimitHit] = useState(false)
   const [savedNote, setSavedNote] = useState(false)
   const [helpVisible, setHelpVisible] = useState(false)
   const subjectWords = useSubjectWords()
@@ -733,7 +737,13 @@ function SubjectsStep({ initialIds, draft, shell, helpWaHref, onDraft, onAutoSav
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const update = (next: RangeSelection) => { touched.current = true; setTried(false); setTooMany(false); setSel(next); onDraft(next) }
+  // At most 15 distinct subjects (owner, 21 Oct 2026; lib/subjectLimitCore). A
+  // change that would ADD a subject past 15 is refused; removing is always fine.
+  const keysOf = (s: RangeSelection) => subjectKeysOfNames(Object.values(s).flatMap((r) => r?.subjects ?? []))
+  const update = (next: RangeSelection) => {
+    if (!subjectChangeAllowed(keysOf(sel), keysOf(next))) { setLimitHit(true); return }
+    touched.current = true; setTried(false); setTooMany(false); setLimitHit(false); setSel(next); onDraft(next)
+  }
 
   // The platform's typo-tolerant + Roman-Urdu matching (/api/search/suggest —
   // "fizics" → Physics, "hisab" → Mathematics), debounced. Only its SUBJECT
@@ -786,6 +796,8 @@ function SubjectsStep({ initialIds, draft, shell, helpWaHref, onDraft, onAutoSav
   const others = ranges.filter((r) => !r.named)
   const chosen = ranges.filter((r) => sel[r.id])
   const counts = selectionCounts(sel)
+  const keys = keysOf(sel)
+  const blocked = (sub: string, on: boolean) => !on && !canAddSubject(keys, sub)
   const SMALL = 'inline-flex min-h-[36px] items-center gap-1 rounded-full border px-3 text-xs font-bold transition-colors'
 
   return shell({
@@ -816,6 +828,8 @@ function SubjectsStep({ initialIds, draft, shell, helpWaHref, onDraft, onAutoSav
               </div>
             )}
 
+            <SubjectLimitNote count={keys.size} refused={limitHit} />
+
             {/* The ONE search box. */}
             <div className="space-y-2">
               <div className="relative">
@@ -828,8 +842,8 @@ function SubjectsStep({ initialIds, draft, shell, helpWaHref, onDraft, onAutoSav
                   <ul className="space-y-1.5">
                     {hits.map((h) => (
                       <li key={`${h.range.id}|${h.subject}`}>
-                        <button type="button" aria-pressed={h.selected} onClick={() => update(toggleSubject(sel, h.range, h.subject))}
-                          className={`flex min-h-[44px] w-full items-center justify-between gap-2 rounded-xl border px-3 text-left text-sm font-bold transition-colors ${h.selected ? 'border-tm-green-deep bg-tm-tint-green text-tm-green-deep' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'}`}>
+                        <button type="button" aria-pressed={h.selected} disabled={blocked(h.subject, h.selected)} onClick={() => update(toggleSubject(sel, h.range, h.subject))}
+                          className={`flex min-h-[44px] w-full items-center justify-between gap-2 rounded-xl border px-3 text-left text-sm font-bold transition-colors ${h.selected ? 'border-tm-green-deep bg-tm-tint-green text-tm-green-deep' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'} disabled:cursor-not-allowed disabled:opacity-50`}>
                           <span className="min-w-0 break-words">{h.subject} <span className="font-semibold text-gray-600">· {h.range.label}</span></span>
                           {h.selected ? <Check size={16} aria-hidden className="shrink-0" /> : <Plus size={16} aria-hidden className="shrink-0" />}
                         </button>
@@ -848,7 +862,7 @@ function SubjectsStep({ initialIds, draft, shell, helpWaHref, onDraft, onAutoSav
                 <p className="text-[11px] font-bold text-gray-600">Quick picks</p>
                 <div className="flex flex-wrap gap-2">
                   {picks.map((p) => (
-                    <OChip key={p.pick.id} label={p.pick.label} selected={pickApplied(sel, p)} onClick={() => update(applyQuickPick(sel, p))} />
+                    <OChip key={p.pick.id} label={p.pick.label} selected={pickApplied(sel, p)} disabled={!pickApplied(sel, p) && !subjectChangeAllowed(keys, keysOf(applyQuickPick(sel, p)))} onClick={() => update(applyQuickPick(sel, p))} />
                   ))}
                 </div>
               </div>
@@ -898,7 +912,7 @@ function SubjectsStep({ initialIds, draft, shell, helpWaHref, onDraft, onAutoSav
                   {main.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {main.map((sub) => (
-                        <OChip key={sub} large label={sub} sub={urdu[sub]} selected={row.subjects.includes(sub)} onClick={() => update(toggleSubject(sel, range, sub))} />
+                        <OChip key={sub} large label={sub} sub={urdu[sub]} selected={row.subjects.includes(sub)} disabled={blocked(sub, row.subjects.includes(sub))} onClick={() => update(toggleSubject(sel, range, sub))} />
                       ))}
                     </div>
                   )}
@@ -911,7 +925,7 @@ function SubjectsStep({ initialIds, draft, shell, helpWaHref, onDraft, onAutoSav
                   {open && rest.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {rest.map((sub) => (
-                        <OChip key={sub} large label={sub} sub={urdu[sub]} selected={false} onClick={() => update(toggleSubject(sel, range, sub))} />
+                        <OChip key={sub} large label={sub} sub={urdu[sub]} selected={false} disabled={blocked(sub, false)} onClick={() => update(toggleSubject(sel, range, sub))} />
                       ))}
                     </div>
                   )}
@@ -1258,8 +1272,8 @@ function SelfieStep({ done, initialPreview, shell, onDone, onError }: { done: bo
       <div className="space-y-2">
         {selfieView !== 'open' && <DocLockNotice view={selfieView} doc="selfie" />}
         {canPick(selfieView) && (
-        <CaptureButtons facingMode="user" busy={uploading} done={uploaded}
-          preview={preview ? (<img src={preview} alt="Your selfie" className="h-full w-full object-cover" />) : null} onPick={(f) => void upload(f)} />
+        <LiveSelfieCapture busy={uploading} done={uploaded}
+          preview={preview ? (<img src={preview} alt="Your selfie" className="h-full w-full object-cover" />) : null} onCapture={(f) => void upload(f)} />
         )}
         <div className="text-center"><TermsLink /></div>
       </div>
@@ -1518,12 +1532,12 @@ function TermsLink() {
 
 // A tap chip for the subjects step (PR106-G6 §1/§2): selected = light green fill +
 // tick + deep-green border, matching the shared input colours.
-function OChip({ label, selected, onClick, large = false, sub }: { label: string; selected: boolean; onClick: () => void; large?: boolean; sub?: string }) {
+function OChip({ label, selected, onClick, large = false, sub, disabled = false }: { label: string; selected: boolean; onClick: () => void; large?: boolean; sub?: string; disabled?: boolean }) {
   // `sub` = the short Urdu name, under the English one (owner, 8 Oct 2026). A
   // two-line chip is a pill with rounded corners rather than a full circle end.
   return (
-    <button type="button" aria-pressed={selected} onClick={onClick}
-      className={`inline-flex ${large ? 'min-h-[48px] px-5 text-base' : 'min-h-[44px] px-4 text-sm'} ${sub ? 'rounded-[18px] py-1.5' : 'rounded-full'} items-center gap-1.5 border font-bold transition-colors ${selected ? 'border-tm-green-deep bg-tm-tint-green text-tm-green-deep' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'}`}>
+    <button type="button" aria-pressed={selected} onClick={onClick} disabled={disabled}
+      className={`disabled:cursor-not-allowed disabled:opacity-50 inline-flex ${large ? 'min-h-[48px] px-5 text-base' : 'min-h-[44px] px-4 text-sm'} ${sub ? 'rounded-[18px] py-1.5' : 'rounded-full'} items-center gap-1.5 border font-bold transition-colors ${selected ? 'border-tm-green-deep bg-tm-tint-green text-tm-green-deep' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'}`}>
       {selected && <Check size={14} aria-hidden />}
       {sub ? (
         <span className="flex flex-col items-start leading-tight">

@@ -36,6 +36,7 @@ import { normalisePkMobile } from '@/lib/phone'
 import { ExternalLink } from 'lucide-react'
 import PaymentFollowUp from './PaymentFollowUp'
 import LinkBankCredit from '@/components/admin/LinkBankCredit'
+import { selfiePhotoMatchUsers } from '@/lib/selfieMatch'
 import { canApprove } from '@/lib/adminAccessCore'
 
 // One member, everything about them in one place.
@@ -456,6 +457,7 @@ export default async function AdminMemberPage({
               canUnlock={canUnlock}
               cnicNumberMasked={tutorDocs.cnicNumberMasked}
               canEditNumber={roleMayWrite(actor.adminRole, SCREEN_ACCESS.tutorEdit)}
+              selfieLooksLikePhoto={(await selfiePhotoMatchUsers([id])).has(id)}
             />
           )}
         </section>

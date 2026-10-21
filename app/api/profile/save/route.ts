@@ -17,6 +17,7 @@ import { labelsForMasterIdsServer } from '@/lib/taxonomyServer'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { alertIfReupload } from '@/lib/docReupload'
 import { unknownNewMasterIds } from '@/lib/masterSubjectCheck'
+import { subjectLimitRefusal } from '@/lib/subjectLimit'
 import { NOT_A_MASTER_SUBJECT } from '@/lib/subjectDisplay'
 import { formatName } from '@/lib/formatName'
 
@@ -112,6 +113,10 @@ export async function POST(request: Request) {
     if ((await unknownNewMasterIds(supabase, ids, savedIds)).length > 0) {
       return NextResponse.json({ error: NOT_A_MASTER_SUBJECT }, { status: 400 })
     }
+    // At most 15 distinct subjects (owner, 21 Oct 2026). A tutor already over
+    // keeps their set and may remove subjects, but cannot add a new one.
+    const limit = await subjectLimitRefusal(supabase, ids, savedIds)
+    if (limit) return NextResponse.json({ error: limit }, { status: 400 })
   }
 
   // PR41 §2 — check the PUBLIC text fields BEFORE writing, and do NOT publish

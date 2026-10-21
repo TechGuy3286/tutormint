@@ -9,6 +9,8 @@ import { orderSubjectsForPicker } from '@/lib/taxonomyBuild'
 import { deriveSelections, mergeSubjectSelections } from '@/lib/subjectMerge'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { ChipSkeletons } from '@/components/Skeletons'
+import SubjectLimitNote from '@/components/tutor/SubjectLimitNote'
+import { canAddSubject, subjectKeysOfNames } from '@/lib/subjectLimitCore'
 
 // PR84 — the tutor Settings subject editor, level-first, matching onboarding's
 // "subjects once per level" (SubjectsPerLevelStep): pick level(s), then the
@@ -47,6 +49,7 @@ export default function SubjectLevelEditor({
   const [visibleCats, setVisibleCats] = useState<string[]>([])
   const [adding, setAdding] = useState(false)
   const [q, setQ] = useState('')
+  const [limitHit, setLimitHit] = useState(false)
 
   useEffect(() => {
     let live = true
@@ -87,7 +90,13 @@ export default function SubjectLevelEditor({
     return query ? union.filter((s) => matchSubject(query, s, subjectWords)) : union
   }
 
+  // At most 15 distinct subjects (owner, 21 Oct 2026; lib/subjectLimitCore):
+  // removing is always allowed, adding a NEW subject only while under 15.
+  const keys = subjectKeysOfNames(Object.values(selByCat).flat())
   const toggle = (cat: string, sub: string) => {
+    const on = (selByCat[cat] ?? []).includes(sub)
+    if (!on && !canAddSubject(keys, sub)) { setLimitHit(true); return }
+    setLimitHit(false)
     setSelByCat((prev) => {
       const cur = prev[cat] ?? []
       return { ...prev, [cat]: cur.includes(sub) ? cur.filter((x) => x !== sub) : [...cur, sub] }
@@ -126,6 +135,8 @@ export default function SubjectLevelEditor({
           پہلے لیول منتخب کریں، پھر اس کے مضامین
         </span>
       </p>
+
+      <SubjectLimitNote count={keys.size} refused={limitHit} />
 
       {/* Search across the shown levels' subjects (instant, no button). */}
       {visibleCats.length > 0 && (
@@ -171,7 +182,8 @@ export default function SubjectLevelEditor({
                       type="button"
                       onClick={() => toggle(cat, sub)}
                       aria-pressed={on}
-                      className={`inline-flex min-h-[40px] items-center rounded-xl border px-3 text-[11px] font-bold transition-colors ${
+                      disabled={!on && !canAddSubject(keys, sub)}
+                      className={`disabled:cursor-not-allowed disabled:opacity-50 inline-flex min-h-[40px] items-center rounded-xl border px-3 text-[11px] font-bold transition-colors ${
                         on
                           ? 'border-tm-green-deep/30 bg-tm-tint-green text-tm-green-deep'
                           : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'

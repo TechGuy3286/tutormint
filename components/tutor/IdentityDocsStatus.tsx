@@ -1,11 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { CheckCircle2, Clock, AlertCircle, CircleDashed, Camera, Loader2 } from 'lucide-react'
+import { CheckCircle2, Clock, AlertCircle, CircleDashed } from 'lucide-react'
 import { compressImage } from '@/lib/imageCompress'
 import { useToast } from '@/components/ui/Toast'
 import type { DocumentStatuses, DocState } from '@/lib/tutorDocuments'
 import { canPick } from '@/lib/docLockCore'
+import LiveSelfieCapture from '@/components/tutor/LiveSelfieCapture'
 import DocLockNotice from '@/components/identity/DocLockNotice'
 
 // The tutor's verification status for CNIC, profile picture and selfie (PR60),
@@ -126,23 +127,7 @@ export default function IdentityDocsStatus() {
       ) : (
       <>
       {statuses.locks?.selfie === 'unlocked' && <DocLockNotice view="unlocked" doc="selfie" />}
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/*"
-        capture="user"
-        className="hidden"
-        onChange={(e) => void onFile(e.target.files?.[0])}
-      />
-      <button
-        type="button"
-        onClick={() => fileRef.current?.click()}
-        disabled={busy}
-        className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-tm-navy/30 px-4 text-xs font-bold text-tm-navy hover:bg-tm-tint-navy disabled:opacity-50"
-      >
-        {busy ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <Camera size={14} aria-hidden />}
-        {statuses.selfie.hasUpload ? 'Upload a new selfie' : 'Upload a selfie'}
-      </button>
+      <LiveSelfieCapture busy={busy} done={statuses.selfie.hasUpload} onCapture={(f) => void onFile(f)} />
       <Urdu>
         <span className="text-[11px] font-semibold text-gray-500">
           اپنی سیلفی اپلوڈ کریں — چہرہ صاف نظر آنا چاہیے۔

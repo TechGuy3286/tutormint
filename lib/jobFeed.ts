@@ -349,7 +349,7 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       description: maskedDescription.masked ? maskedDescription.text : ((j.description as string) ?? null),
       created_at: (j.created_at as string) ?? new Date().toISOString(),
       // The auto-pause clock base for JobPosting validThrough (PR89 Part C):
-      // coalesce(resumed_at, created_at) + 15 days is when the tuition auto-pauses.
+      // coalesce(resumed_at, created_at) + 20 days is when the tuition auto-pauses.
       resumed_at: (j.resumed_at as string | null) ?? null,
       // When it was paused: a paused tuition stays indexable for 60 days after.
       paused_at: (j.paused_at as string | null) ?? null,

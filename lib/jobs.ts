@@ -931,7 +931,7 @@ export async function closeJob(parentId: string, jobId: string): Promise<{ ok: t
  * so the check is here, in the code path, and the UI merely reflects it.
  */
 /**
- * Resume a paused tuition (PR27 §3.3). Poster-owned; sets a fresh 15-day clock
+ * Resume a paused tuition (PR27 §3.3). Poster-owned; sets a fresh 20-day clock
  * (resumed_at = now) and clears the pause. A no-op on a tuition that is not
  * paused, so a double tap does nothing.
  */

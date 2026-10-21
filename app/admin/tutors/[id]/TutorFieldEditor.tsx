@@ -15,6 +15,8 @@ import { useAdminReadOnly, useCanApprove } from '@/components/admin/ReadOnly'
 import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
 import { resolveMasterIds } from '@/lib/taxonomy'
+import { subjectChangeAllowed, subjectKeysOfNames } from '@/lib/subjectLimitCore'
+import SubjectLimitNote from '@/components/tutor/SubjectLimitNote'
 import { compressUnder1MB } from '@/lib/imageCompress'
 
 // PR83 (Part B) — staff edit of a tutor's locked step-1 fields, on
@@ -157,6 +159,14 @@ export default function TutorFieldEditor({
   const [level, setLevel] = useState('')
   const [grades, setGrades] = useState<string[]>([])
   const [subjects, setSubjects] = useState<string[]>([])
+  // At most 15 distinct subjects (owner, 21 Oct 2026) — the same rule the
+  // server applies on save (lib/subjectLimitCore). Removing is always allowed.
+  const [subjectLimitHit, setSubjectLimitHit] = useState(false)
+  const setSubjectsCapped = (next: string[]) => {
+    if (!subjectChangeAllowed(subjectKeysOfNames(subjects), subjectKeysOfNames(next))) { setSubjectLimitHit(true); return }
+    setSubjectLimitHit(false)
+    setSubjects(next)
+  }
   const [subjectsReason, setSubjectsReason] = useState('')
 
   // ---- city ----------------------------------------------------------------
@@ -297,9 +307,10 @@ export default function TutorFieldEditor({
           selectedGrades={grades}
           setSelectedGrades={setGrades}
           selectedSubjects={subjects}
-          setSelectedSubjects={setSubjects}
+          setSelectedSubjects={setSubjectsCapped}
           allowSelectAll={false}
         />
+        <SubjectLimitNote count={subjectKeysOfNames(subjects).size} refused={subjectLimitHit} />
         <ReasonField value={subjectsReason} onChange={setSubjectsReason} />
         <button
           type="button"

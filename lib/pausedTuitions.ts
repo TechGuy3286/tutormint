@@ -2,10 +2,10 @@ import 'server-only'
 
 // Marketplace → Paused tuitions (owner, 8 Oct 2026).
 //
-// The auto-paused tuitions (pause_source 'auto' or 'backlog' — the 15-day rule),
+// The auto-paused tuitions (pause_source 'auto' or 'backlog' — the 20-day rule),
 // newest first, with city, area, grade, poster, paused date and application
 // count; filters by city, "paused this week / older" and "with / without
-// applications". Resume — one row or many — gives a fresh 15 days, moves the
+// applications". Resume — one row or many — gives a fresh 20 days, moves the
 // tuition back to the top of Browse (and so Google Jobs), keeps its URL, tells
 // the Indexing API, notifies the poster and writes a `job.resume` audit row,
 // which is what Staff activity counts.
@@ -25,7 +25,7 @@ import { NO_CONTACT_REASON, NO_CONTACT_SOURCE } from '@/lib/tuitionContactCore'
 
 export type PausedFilters = { city?: string; age?: 'week' | 'older' | ''; apps?: 'with' | 'without' | ''; reason?: 'no_contact' | '' }
 
-/** The pause sources this screen lists: the 15-day rule, and "No contact number". */
+/** The pause sources this screen lists: the 20-day rule, and "No contact number". */
 export const PAUSED_SOURCES = ['auto', 'backlog', NO_CONTACT_SOURCE] as const
 
 /** The reason staff see for a paused tuition. */
@@ -45,7 +45,7 @@ export type PausedRow = {
   source: string
   applications: number
   href: string | null
-  /** "Paused after 15 days" or "No contact number". */
+  /** "Paused after 20 days" or "No contact number". */
   reason: string
   /** Posted by the TutorMint team — a number can be added by staff. */
   teamPosted: boolean

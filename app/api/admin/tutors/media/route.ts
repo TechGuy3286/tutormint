@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { storeDocument } from '@/lib/documents'
+import { checkSelfieAgainstProfilePhoto } from '@/lib/selfieMatch'
 import { recomputeCompletion } from '@/lib/completion'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
@@ -171,6 +172,12 @@ export async function POST(request: Request) {
         await admin.from('profiles').update({ selfie_status: 'pending', selfie_reason: null }).eq('id', tutorId)
       }
       field = 'selfie'
+      // Compared with the profile picture in the background (owner, 21 Oct 2026).
+      const selfieBytes = Buffer.from(await file.arrayBuffer())
+      const documentId = result.doc.id
+      after(async () => {
+        await checkSelfieAgainstProfilePhoto(tutorId, documentId, selfieBytes).catch(() => null)
+      })
     }
     // Store the document id as the file reference (the history view renders a
     // staff-only thumbnail from it).

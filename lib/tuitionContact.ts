@@ -8,7 +8,7 @@
 //                            verified mobile) — read by every resume path.
 //   saveTuitionContactNumber staff add or change the number on a STAFF-posted
 //                            tuition, and may resume it in the same step (a
-//                            fresh 15 days, same address). Audited.
+//                            fresh 20 days, same address). Audited.
 //
 // The number is stored in job_contacts (never on the anon-readable jobs row),
 // in the one MSISDN format of lib/phone.ts. Nothing is deleted.
@@ -67,7 +67,7 @@ export type SaveNumberResult =
 /**
  * Save the parent's contact number on a staff-posted tuition. With `resume`, a
  * tuition paused for having no number goes live again in the same step: a fresh
- * 15 days, the same address, Google told. `canResume` says the tuition is paused
+ * 20 days, the same address, Google told. `canResume` says the tuition is paused
  * for no number and could be resumed now (the "Resume now" offer).
  */
 export async function saveTuitionContactNumber(args: { actor: AdminActor; jobId: string; phone: string; resume?: boolean }): Promise<SaveNumberResult> {

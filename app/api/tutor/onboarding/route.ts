@@ -6,6 +6,7 @@ import { recomputeCompletion } from '@/lib/completion'
 import { ensureTutorSlug } from '@/lib/tutorSlug'
 import { logActivity } from '@/lib/activityLog'
 import { labelsForMasterIdsServer } from '@/lib/taxonomyServer'
+import { subjectLimitRefusal } from '@/lib/subjectLimit'
 import { markOnboardedIfComplete } from '@/lib/onboardingDone'
 
 // The tutor onboarding submit. Writes everything the tap-only flow collected —
@@ -89,6 +90,14 @@ export async function POST(request: Request) {
       .in('subject_slug', subjectSlugs)
       .in('level_slug', levelSlugs)
     masterIds = Array.from(new Set((masterRows ?? []).map((m) => m.id as number))).slice(0, MAX_MASTERS)
+  }
+
+  // At most 15 distinct subjects (owner, 21 Oct 2026) — checked before anything
+  // is written; a tutor already over keeps their set but cannot add to it.
+  if (masterIds.length > 0) {
+    const { data: savedRows } = await supabase.from('tutor_subjects').select('master_id').eq('tutor_id', user.id)
+    const limit = await subjectLimitRefusal(supabase, masterIds, (savedRows ?? []).map((r) => r.master_id as number))
+    if (limit) return NextResponse.json({ error: limit }, { status: 400 })
   }
 
   // ---- city: one field for tutors (PR 3b §0) ----

@@ -7,6 +7,7 @@ import { Loader2, PlayCircle } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { parseContactNumber } from '@/lib/tuitionContactCore'
+import { TUITION_LIVE_LABEL } from '@/lib/tuitionStatus'
 
 // "Add parent number" for a staff-posted tuition with no contact number (owner,
 // 12 Oct 2026). ONE control for Paused tuitions (where saving the number also
@@ -57,7 +58,7 @@ export default function AddParentNumber({
       return
     }
     if (data?.resumed) {
-      toast.success('Number saved. The tuition is live again for 15 days, on the same address.')
+      toast.success(`Number saved. The tuition is live again for ${TUITION_LIVE_LABEL}, on the same address.`)
       router.refresh()
       return
     }

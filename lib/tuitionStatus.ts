@@ -17,18 +17,19 @@
 
 /**
  * How long a tuition stays live: it auto-pauses this many days after it is
- * posted or last resumed (owner, 13 Oct 2026 — 15 days; it was 7 from 8 Oct).
+ * posted or last resumed (owner, 21 Oct 2026 — 20 days; 15 from 13 Oct, 7 from 8 Oct).
  * THE one value. The nightly pause, Resume and Refresh, JobPosting
  * validThrough, the countdown, the Overview "pausing soon" row and every label
  * that names the number read it from here.
  */
-export const TUITION_LIVE_DAYS = 15
+export const TUITION_LIVE_DAYS = 20
 
-/** "15 days" — for labels, so no screen carries its own copy of the number. */
+/** "20 days" — for labels, so no screen carries its own copy of the number. */
 export const TUITION_LIVE_LABEL = `${TUITION_LIVE_DAYS} days`
 
 /**
- * The one-time floor of the move from 15 days to 15 (owner, 13 Oct 2026). A
+ * The one-time floor of the move from 7 days to 15 (owner, 13 Oct 2026; the
+ * later move to 20 days never needs it — it only lengthens the clock). A
  * tuition that was live on the day of the change and whose 15 days had already
  * run out (or would within 3 days) stays live until this instant, 3 days after
  * the change, so nothing disappeared on the day. A tuition posted or resumed

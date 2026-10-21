@@ -21,6 +21,9 @@ export type CardDocs = DocSummary & {
   oldestUploadAt: string | null
   /** The per-item statuses (and rejection reasons) the summary was built from. */
   statuses: CardStatuses
+  /** The current or waiting selfie looks the same as the profile picture
+   *  (owner, 21 Oct 2026; lib/selfieMatch) — a warning only. */
+  selfieLooksLikePhoto: boolean
 }
 
 const PROFILE_COLS =
@@ -40,7 +43,7 @@ export async function loadTutorDocSummaries(tutorIds: string[]): Promise<Map<str
     pageAllIn(ids, (part, from, to) =>
       admin
         .from('user_documents')
-        .select('id, user_id, kind, status, created_at')
+        .select('id, user_id, kind, status, created_at, same_as_profile_photo')
         .in('kind', ['cnic', 'selfie'])
         .in('status', ['active', 'review'])
         .in('user_id', part)
@@ -49,11 +52,11 @@ export async function loadTutorDocSummaries(tutorIds: string[]): Promise<Map<str
     ),
   ])
   const video = new Map(tps.map((t) => [t.id as string, (t.video_status as string | null) ?? null]))
-  const byUser = new Map<string, { kind: string; status: string; created_at: string }[]>()
+  const byUser = new Map<string, { kind: string; status: string; created_at: string; same?: boolean }[]>()
   for (const d of docs) {
     const k = d.user_id as string
     const list = byUser.get(k) ?? []
-    list.push({ kind: d.kind as string, status: d.status as string, created_at: (d.created_at as string) ?? '' })
+    list.push({ kind: d.kind as string, status: d.status as string, created_at: (d.created_at as string) ?? '', same: d.same_as_profile_photo === true })
     byUser.set(k, list)
   }
 
@@ -80,7 +83,7 @@ export async function loadTutorDocSummaries(tutorIds: string[]): Promise<Map<str
     times.sort()
     const oldest = summary.kind === 'waiting' ? (times[0] ?? (p.created_at as string | null) ?? null) : null
 
-    out.set(id, { ...summary, oldestUploadAt: oldest, statuses })
+    out.set(id, { ...summary, oldestUploadAt: oldest, statuses, selfieLooksLikePhoto: mine.some((d) => d.kind === 'selfie' && d.same === true) })
   }
   return out
 }
