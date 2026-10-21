@@ -9,7 +9,7 @@ import { useToast } from '@/components/ui/Toast'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { pkr } from '@/lib/reconciliationCore'
-import type { CreditView, OrderView } from '@/lib/settlementMatchCore'
+import { FEE_CHECK_WORDS, feeNeedsCheck, type CreditView, type OrderView } from '@/lib/settlementMatchCore'
 import type { SettlementsBoard as BoardData } from '@/lib/settlementMatch'
 
 import AddBankCredits from './AddBankCredits'
@@ -419,7 +419,7 @@ export default function SettlementsBoard({ data }: { data: BoardData }) {
                   {orderChip(o)}
                 </div>
                 <p className="text-[11px] text-slate-700">
-                  {o.method} · amount {pkr(o.orderAmount)} · share {pkr(o.merchantShare)} · fee {pkr(o.fee)}
+                  {o.method} · amount {pkr(o.orderAmount)} · share {pkr(o.merchantShare)} · fee {feeNeedsCheck(o.fee) ? FEE_CHECK_WORDS : pkr(o.fee)}
                 </p>
                 <p className="text-[11px] text-gray-600">
                   {o.datePaid ? `Paid ${formatDate(o.datePaid)}` : 'Not paid'}
@@ -486,7 +486,14 @@ export default function SettlementsBoard({ data }: { data: BoardData }) {
                     <td className="p-2">{monthName(f.month)}</td>
                     <td className="p-2 font-bold">{f.method}</td>
                     <td className="p-2">{f.orders}</td>
-                    <td className="p-2">{f.perOrder.map((n) => pkr(n)).join(', ')}</td>
+                    <td className="p-2">
+                      {[
+                        ...f.perOrder.map((n) => pkr(n)),
+                        ...(f.checkOrders.length > 0
+                          ? [`${FEE_CHECK_WORDS} (${f.checkOrders.length} ${f.checkOrders.length === 1 ? 'order' : 'orders'}: ${f.checkOrders.join(', ')})`]
+                          : []),
+                      ].join(', ')}
+                    </td>
                     <td className="p-2">{pkr(f.fees)}</td>
                   </tr>
                 ))}

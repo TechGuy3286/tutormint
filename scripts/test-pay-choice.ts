@@ -223,7 +223,9 @@ test('owner, Partner, admin and operations approve; Tuitions staff cannot', () =
   const queue = read('app/admin/payments/PaymentQueue.tsx')
   assert.match(queue, /<DocumentViewer/)
   assert.match(queue, /turnOnly: true/)
-  assert.match(queue, /Bank transfer receipts/)
+  // The "Bank transfer receipts" chip became the amber "Receipt waiting —
+  // review" badge at the top of Unpaid / Incomplete (owner, 21 Oct 2026).
+  assert.match(queue, /WAITING_LABEL/)
   assert.match(read('app/admin/layout.tsx'), /'\/admin\/payments': receipts/, 'sidebar badge')
 })
 

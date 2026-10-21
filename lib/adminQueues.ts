@@ -1,6 +1,14 @@
 import 'server-only'
 import { receiptIsPdf, receiptUnderReview } from '@/lib/payments/receiptCore'
-import { pageAll } from '@/lib/pageAll'
+import { pageAll, pageAllIn } from '@/lib/pageAll'
+import {
+  defaultPaymentFilter,
+  isNamelessPayment,
+  paymentBucket,
+  sortPayments,
+  type PaymentFilter,
+  type PaymentFilterFacts,
+} from '@/lib/paymentFiltersCore'
 import { parentsAwaitingReview } from '@/lib/parentDocuments'
 import {
   type ParentDocFacts,
@@ -605,116 +613,158 @@ export type QueuePaymentRow = {
   refund: RefundState
   refundMethod: string | null
   refundedAt: string | null
+  /** The status words on the Payments page (lib/paymentFiltersCore). */
+  statusLabel: string
+  /** A bank receipt waiting for the Owner's decision. */
+  waitingReview: boolean
 }
 
+export type PaymentQueueCounts = {
+  /** Visible rows per filter, after the search and the hidden rule. */
+  paid: number
+  unpaid: number
+  /** Bank receipts waiting for the Owner (never hidden). */
+  waiting: number
+  /** Nameless rows left out of the chosen filter (after the search). */
+  hidden: number
+}
+
+/**
+ * The Payments page list (owner, 21 Oct 2026): two filters, Paid / Completed
+ * and Unpaid / Incomplete (rules: lib/paymentFiltersCore). Every payment is
+ * read once and classified here, so the header count, the chip counts and the
+ * footer all describe the SAME list — the rows in the chosen filter after the
+ * search and the hidden rule. The cursor is an offset into that list.
+ */
 export async function loadPaymentQueue({
   filter,
   search = '',
   cursor,
   limit = QUEUE_PAGE,
+  showHidden = false,
+  nowMs = Date.now(),
 }: {
+  /** 'paid' | 'unpaid'; anything else is chosen by defaultPaymentFilter. */
   filter: string
   search?: string
   cursor?: string | null
   limit?: number
+  showHidden?: boolean
+  nowMs?: number
 }) {
+  const empty = { paid: 0, unpaid: 0, waiting: 0, hidden: 0 }
   const admin = createAdminClient()
-  if (!admin) return { rows: [] as QueuePaymentRow[], nextCursor: null, total: 0 }
+  if (!admin)
+    return { rows: [] as QueuePaymentRow[], nextCursor: null, total: 0, counts: empty, filter: 'paid' as PaymentFilter }
 
-  const term = search.trim().replace(/[%,()]/g, '')
-
-  // Payments carry no name — the payer's name lives on `profiles`. So a search
-  // resolves matching payer ids first (by name or email), and OR's them with a
-  // match on the payment's own references, so an admin can paste either a
-  // person's name or the reference from a receipt.
-  let payerIds: string[] | null = null
-  const orTerm = sanitizeOrTerm(term)
-  if (orTerm) {
-    const { data: payers } = await admin
-      .from('profiles')
-      .select('id')
-      .or(`full_name.ilike.%${orTerm}%,email.ilike.%${orTerm}%`)
-      .limit(500)
-    payerIds = (payers ?? []).map((p) => p.id as string)
-  }
-
-  const build = () => {
-    let q = admin
+  const all = await pageAll<Record<string, unknown>>((from, to) =>
+    admin
       .from('payments')
       .select(
-        'id, user_id, plan_code, amount_pkr, method, provider, provider_ref, reference, screenshot_path, status, rejection_reason, reviewed_at, created_at, utm_source, utm_medium, utm_campaign, refunded_amount_pkr, refund_method, refunded_at, note',
-        { count: 'exact' },
+        'id, user_id, plan_code, amount_pkr, method, provider, provider_ref, reference, screenshot_path, status, rejection_reason, reviewed_at, created_at, utm_source, utm_medium, utm_campaign, refunded_amount_pkr, refund_method, refunded_at, note, checkout_closed_at, checkout_close_reason',
       )
-    // "Bank transfer receipts" (owner, 11 Oct 2026): transfers a member has sent
-    // proof of that still wait for a decision — the sidebar badge's own list.
-    if (filter === 'receipts') {
-      q = q.eq('status', 'pending').eq('provider', 'manual').or('screenshot_path.not.is.null,reference.not.is.null')
-    } else if (filter !== 'all') q = q.eq('status', filter)
-    if (term) {
-      // A PostgREST OR spanning a name match (via resolved ids) and the
-      // references on the row. An empty payer list still lets a reference match
-      // through — `in.()` is an always-false term, not an error.
-      const idList = (payerIds ?? []).join(',')
-      q = q.or(
-        `user_id.in.(${idList || NO_MATCH}),provider_ref.ilike.%${term}%,reference.ilike.%${term}%`,
-      )
-    }
-    return q
-  }
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(from, to),
+  )
 
-  const { page, nextCursor, total } = await keysetPage<Record<string, unknown>>(build, {
-    orderCol: 'created_at',
-    cursor,
-    limit,
-  })
-
-  const userIds = Array.from(new Set(page.map((p) => p.user_id as string)))
-  const [{ data: profiles }, { data: plans }] = await Promise.all([
-    admin
-      .from('profiles')
-      .select('id, full_name, email, role')
-      .in('id', userIds.length ? userIds : [NO_MATCH]),
+  const userIds = Array.from(new Set(all.map((p) => p.user_id as string | null).filter((x): x is string => !!x)))
+  const [profiles, { data: plans }] = await Promise.all([
+    pageAllIn<Record<string, unknown>, string>(userIds, (ids, from, to) =>
+      admin.from('profiles').select('id, full_name, email, is_test_name, hidden_from_public').in('id', ids).order('id').range(from, to),
+    ),
     admin.from('plans').select('code, name'),
   ])
-
   const planName = new Map((plans ?? []).map((p) => [p.code as string, p.name as string]))
   const who = new Map(
-    (profiles ?? []).map((p) => [
+    profiles.map((p) => [
       p.id as string,
-      { name: formatName(p.full_name as string | null) || '—', email: (p.email as string) ?? '—' },
+      {
+        name: formatName(p.full_name as string | null),
+        email: (p.email as string) ?? '—',
+        test: !!p.is_test_name || !!p.hidden_from_public,
+      },
     ]),
   )
 
-  const rows: QueuePaymentRow[] = page.map((p) => ({
-    id: p.id as string,
-    userId: (p.user_id as string | null) ?? null,
-    // A payment whose account was hard-deleted keeps its amount, reference and
-    // dates; the name line reads its note instead of a dash.
-    name: who.get(p.user_id as string)?.name ?? (p.note ? String(p.note) : '—'),
-    email: who.get(p.user_id as string)?.email ?? (p.user_id ? '—' : 'account deleted'),
-    note: (p.note as string | null) ?? null,
-    planCode: (p.plan_code as string) ?? '—',
-    planName: (p.plan_code as string) === 'verified' ? FEE_LABEL : (planName.get(p.plan_code as string) ?? ((p.plan_code as string) ?? '—')),
-    amountPkr: p.amount_pkr as number,
-    provider: p.provider as string,
-    method: (p.method as string) ?? null,
-    ourReference: (p.provider_ref as string) ?? null,
-    payerReference: (p.reference as string) ?? null,
-    cameFrom: describeSignupSource(p as Parameters<typeof describeUtm>[0], describeUtm(p as Parameters<typeof describeUtm>[0])),
-    hasScreenshot: !!p.screenshot_path,
-    receiptPdf: receiptIsPdf(p.screenshot_path as string | null),
-    status: p.status as QueuePaymentRow['status'],
-    rejectionReason: (p.rejection_reason as string) ?? null,
-    createdAt: p.created_at as string,
-    reviewedAt: (p.reviewed_at as string) ?? null,
-    refundedAmountPkr: (p.refunded_amount_pkr as number | null) ?? null,
-    refund: refundState(p.amount_pkr as number, (p.refunded_amount_pkr as number | null) ?? null),
-    refundMethod: (p.refund_method as string | null) ?? null,
-    refundedAt: (p.refunded_at as string | null) ?? null,
-  }))
+  const term = search.trim().toLowerCase()
+  type Classified = QueuePaymentRow & { waiting: boolean; filter: PaymentFilter; nameless: boolean }
+  const classified: Classified[] = []
+  for (const p of all) {
+    const member = p.user_id ? who.get(p.user_id as string) : undefined
+    const facts: PaymentFilterFacts = {
+      status: p.status as string,
+      provider: p.provider as string,
+      hasReceipt: !!p.screenshot_path,
+      payerReference: (p.reference as string | null) ?? null,
+      amountPkr: p.amount_pkr as number,
+      refundedAmountPkr: (p.refunded_amount_pkr as number | null) ?? null,
+      refundedAt: (p.refunded_at as string | null) ?? null,
+      checkoutClosedAt: (p.checkout_closed_at as string | null) ?? null,
+      checkoutCloseReason: (p.checkout_close_reason as string | null) ?? null,
+      createdAt: p.created_at as string,
+      hasMember: !!member && !!member.name,
+      isTestAccount: member?.test ?? false,
+    }
+    const bucket = paymentBucket(facts, nowMs)
+    const row: Classified = {
+      id: p.id as string,
+      userId: (p.user_id as string | null) ?? null,
+      // A payment whose account was hard-deleted keeps its amount, reference and
+      // dates; the name line reads its note instead of a dash.
+      name: member?.name || (p.note ? String(p.note) : '—'),
+      email: member?.email ?? (p.user_id ? '—' : 'account deleted'),
+      note: (p.note as string | null) ?? null,
+      planCode: (p.plan_code as string) ?? '—',
+      planName: (p.plan_code as string) === 'verified' ? FEE_LABEL : (planName.get(p.plan_code as string) ?? ((p.plan_code as string) ?? '—')),
+      amountPkr: p.amount_pkr as number,
+      provider: p.provider as string,
+      method: (p.method as string) ?? null,
+      ourReference: (p.provider_ref as string) ?? null,
+      payerReference: (p.reference as string) ?? null,
+      cameFrom: describeSignupSource(p as Parameters<typeof describeUtm>[0], describeUtm(p as Parameters<typeof describeUtm>[0])),
+      hasScreenshot: !!p.screenshot_path,
+      receiptPdf: receiptIsPdf(p.screenshot_path as string | null),
+      status: p.status as QueuePaymentRow['status'],
+      rejectionReason: (p.rejection_reason as string) ?? null,
+      createdAt: p.created_at as string,
+      reviewedAt: (p.reviewed_at as string) ?? null,
+      refundedAmountPkr: (p.refunded_amount_pkr as number | null) ?? null,
+      refund: refundState(p.amount_pkr as number, (p.refunded_amount_pkr as number | null) ?? null),
+      refundMethod: (p.refund_method as string | null) ?? null,
+      refundedAt: (p.refunded_at as string | null) ?? null,
+      statusLabel: bucket.label,
+      waitingReview: bucket.waiting,
+      waiting: bucket.waiting,
+      filter: bucket.filter,
+      nameless: isNamelessPayment(facts),
+    }
+    // Search: the payer's name or email, or a reference off the row or receipt.
+    if (term) {
+      const hay = [row.name, row.email, row.ourReference, row.payerReference].filter(Boolean).join(' ').toLowerCase()
+      if (!hay.includes(term)) continue
+    }
+    classified.push(row)
+  }
 
-  return { rows, nextCursor, total }
+  const counts: PaymentQueueCounts = { ...empty }
+  for (const r of classified) {
+    if (r.waiting) counts.waiting += 1
+    if (r.nameless && !showHidden) continue
+    counts[r.filter] += 1
+  }
+  const chosen: PaymentFilter = filter === 'paid' || filter === 'unpaid' ? filter : defaultPaymentFilter(counts.waiting)
+  counts.hidden = classified.filter((r) => r.filter === chosen && r.nameless).length
+
+  const list = sortPayments(classified.filter((r) => r.filter === chosen && (showHidden || !r.nameless)))
+  const offset = Math.max(0, Number(cursor) || 0)
+  const page = list.slice(offset, offset + limit)
+  const nextCursor = offset + limit < list.length ? String(offset + limit) : null
+  const rows: QueuePaymentRow[] = page.map(({ waiting: _w, filter: _f, nameless: _n, ...r }) => r)
+
+  return { rows, nextCursor, total: list.length, counts, filter: chosen }
 }
+
 
 // --------------------------------------------------------------- reports ---
 

@@ -43,8 +43,8 @@ const LOADERS: Record<QueueKind, (args: Args) => Promise<{
   tutors: ({ filter, search, cursor }) =>
     loadTutorQueue({ filter, search, cursor, limit: QUEUE_PAGE }),
   parents: ({ filter, cursor }) => loadParentQueue({ filter, cursor, limit: QUEUE_PAGE }),
-  payments: ({ filter, search, cursor }) =>
-    loadPaymentQueue({ filter, search, cursor, limit: QUEUE_PAGE }),
+  payments: ({ filter, search, cursor, params }) =>
+    loadPaymentQueue({ filter, search, cursor, limit: QUEUE_PAGE, showHidden: params.get('hidden') === '1' }),
   subscriptions: ({ cursor }) => loadSubscriptionLedger({ cursor, limit: QUEUE_PAGE }),
   reports: ({ filter, cursor }) => loadReportQueue({ filter, cursor, limit: QUEUE_PAGE }),
   blocks: ({ cursor }) => loadBlockList({ cursor, limit: QUEUE_PAGE }),

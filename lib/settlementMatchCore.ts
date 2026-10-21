@@ -54,6 +54,16 @@ export function feeOf(r: { orderAmount: number | null; merchantShare: number | n
   return round2(r.orderAmount - r.merchantShare)
 }
 
+/** A fee below zero means the export shows MerchantShare above Order-Amount
+ *  (owner, 21 Oct 2026: six October orders in PayPro's own export). We never
+ *  change their data; the screen says "Check with PayPro" instead of a
+ *  negative fee. */
+export function feeNeedsCheck(fee: number | null): boolean {
+  return fee !== null && fee < 0
+}
+
+export const FEE_CHECK_WORDS = 'Check with PayPro'
+
 const orderKey = (s: string) => s.trim().toUpperCase()
 
 /** One row per order number. A PAID line wins over a non-paid one; otherwise the
@@ -534,7 +544,9 @@ export type AttentionItem = {
   creditId?: string
 }
 
-export type FeeRow = { month: string; method: PayMethod; orders: number; amount: number; fees: number; perOrder: number[] }
+/** perOrder and fees leave out an order whose fee is below zero; that order
+ *  is listed in checkOrders ("Check with PayPro"). */
+export type FeeRow = { month: string; method: PayMethod; orders: number; amount: number; fees: number; perOrder: number[]; checkOrders: string[] }
 
 export type MonthView = {
   month: string
@@ -671,11 +683,15 @@ export function feeTable(orders: OrderView[]): FeeRow[] {
     if (o.state === 'not_paid' || !o.datePaid || o.fee === null) continue
     const month = o.datePaid.slice(0, 7)
     const k = `${month}|${o.method}`
-    const row = by.get(k) ?? { month, method: o.method, orders: 0, amount: 0, fees: 0, perOrder: [] }
+    const row = by.get(k) ?? { month, method: o.method, orders: 0, amount: 0, fees: 0, perOrder: [], checkOrders: [] }
     row.orders += 1
     row.amount = round2(row.amount + (o.orderAmount ?? 0))
-    row.fees = round2(row.fees + o.fee)
-    if (!row.perOrder.includes(o.fee)) row.perOrder.push(o.fee)
+    if (feeNeedsCheck(o.fee)) {
+      row.checkOrders.push(o.orderNumber)
+    } else {
+      row.fees = round2(row.fees + o.fee)
+      if (!row.perOrder.includes(o.fee)) row.perOrder.push(o.fee)
+    }
     by.set(k, row)
   }
   return [...by.values()]

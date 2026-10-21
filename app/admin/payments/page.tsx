@@ -1,10 +1,12 @@
 import { Gauge, Landmark, Scale, SlidersHorizontal } from 'lucide-react'
 import Link from 'next/link'
+import { permanentRedirect } from 'next/navigation'
 
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
 import { loadPaymentQueue, loadSubscriptionLedger, withoutAmounts } from '@/lib/adminQueues'
 import { canApprove as canApproveRole } from '@/lib/adminAccessCore'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { legacyPaymentFilter } from '@/lib/paymentFiltersCore'
 import PaymentQueue from './PaymentQueue'
 
 // Payments: the manual-transfer approval queue and the subscription ledger.
@@ -25,7 +27,7 @@ export const dynamic = 'force-dynamic'
 export default async function AdminPaymentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string; q?: string }>
+  searchParams: Promise<{ filter?: string; q?: string; hidden?: string }>
 }) {
   const actor = await requireAdminRole(...SCREEN_ACCESS.payments)
   // Approving a bank-transfer receipt is the Owner's alone (owner, 15 Oct
@@ -36,8 +38,21 @@ export default async function AdminPaymentsPage({
   const canReconcile = roleSatisfies(actor.adminRole, SCREEN_ACCESS.finance)
   const canRefund = roleMayWrite(actor.adminRole, SCREEN_ACCESS.paymentsRefund)
   const seesAmounts = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentAmounts)
-  const { filter = 'all', q = '' } = await searchParams
+  const { filter: rawFilter, q = '', hidden } = await searchParams
   const search = q.trim()
+  const showHidden = hidden === '1'
+  // Two filters only (owner, 21 Oct 2026). The old ones (All, Bank transfer
+  // receipts, Waiting, Approved, Rejected) redirect to the matching new one,
+  // so a bookmark still opens; 'all' drops the filter and takes the default.
+  const wanted = legacyPaymentFilter(rawFilter)
+  if (rawFilter !== undefined && wanted !== rawFilter) {
+    const qs = new URLSearchParams()
+    if (wanted) qs.set('filter', wanted)
+    if (search) qs.set('q', search)
+    if (showHidden) qs.set('hidden', '1')
+    const tail = qs.toString()
+    permanentRedirect(tail ? `/admin/payments?${tail}` : '/admin/payments')
+  }
 
   const admin = createAdminClient()
   if (!admin) {
@@ -49,7 +64,7 @@ export default async function AdminPaymentsPage({
   }
 
   const [payments, subscriptions] = await Promise.all([
-    loadPaymentQueue({ filter, search }),
+    loadPaymentQueue({ filter: wanted ?? '', search, showHidden }),
     loadSubscriptionLedger({}),
   ])
 
@@ -101,7 +116,9 @@ export default async function AdminPaymentsPage({
         payments={seesAmounts ? payments.rows : withoutAmounts(payments.rows, { keepAwaiting: canApprove })}
         canRefund={canRefund}
         subscriptions={subscriptions.rows}
-        filter={filter}
+        filter={payments.filter}
+        counts={payments.counts}
+        showHidden={showHidden}
         search={search}
         canApprove={canApprove}
         paymentsCursor={payments.nextCursor}

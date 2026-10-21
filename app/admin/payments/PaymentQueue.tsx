@@ -9,13 +9,14 @@ import StatusChip from '@/components/admin/StatusChip'
 import PaymentDecide from './PaymentDecide'
 import DocumentViewer from '@/components/admin/DocumentViewer'
 import { OwnerOnlyNote } from '@/components/admin/ReadOnly'
-import { channelLabel, receiptUnderReview } from '@/lib/payments/receiptCore'
+import { channelLabel } from '@/lib/payments/receiptCore'
+import { PAYMENT_FILTERS, WAITING_LABEL, paymentsHeading } from '@/lib/paymentFiltersCore'
 import RefundControl from './RefundControl'
 import { refundLabel } from '@/lib/payments/refundCore'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { useInfinite } from '@/lib/useInfinite'
 import { dedupeById } from '@/lib/dedupe'
-import type { QueuePaymentRow, QueueSubscriptionRow } from '@/lib/adminQueues'
+import type { PaymentQueueCounts, QueuePaymentRow, QueueSubscriptionRow } from '@/lib/adminQueues'
 
 // The payments screen: the manual-transfer queue (awaiting approval) and the
 // ledger of what is currently active.
@@ -35,25 +36,27 @@ import type { QueuePaymentRow, QueueSubscriptionRow } from '@/lib/adminQueues'
 export type QueuePayment = QueuePaymentRow
 export type SubscriptionRow = QueueSubscriptionRow
 
-const FILTERS = [
-  { key: 'all', label: 'All' },
-  { key: 'receipts', label: 'Bank transfer receipts' },
-  { key: 'pending', label: 'Waiting' },
-  { key: 'approved', label: 'Approved' },
-  { key: 'rejected', label: 'Rejected' },
-]
-
-// A bank transfer the member has actually sent proof of (a receipt, or on older
-// rows a transaction reference) and that is still pending — i.e. waiting for a
-// person to approve it. One rule with the badge and the member's own screen.
+// Two filters only (owner, 21 Oct 2026): Paid / Completed and Unpaid /
+// Incomplete. Rules and words: lib/paymentFiltersCore. Whether a bank receipt
+// waits for the Owner is decided on the server (waitingReview) by the same
+// rule as the sidebar badge and the member's own screen.
 function awaitingApproval(p: QueuePayment): boolean {
-  return receiptUnderReview({ status: p.status, provider: p.provider, screenshot_path: p.hasScreenshot ? 'y' : null, reference: p.payerReference })
+  return p.waitingReview
+}
+
+function filterHref(key: string, search: string, showHidden: boolean): string {
+  const qs = new URLSearchParams({ filter: key })
+  if (search) qs.set('q', search)
+  if (showHidden) qs.set('hidden', '1')
+  return `/admin/payments?${qs.toString()}`
 }
 
 export default function PaymentQueue({
   payments,
   subscriptions,
   filter,
+  counts,
+  showHidden,
   search,
   canApprove,
   canRefund,
@@ -65,6 +68,8 @@ export default function PaymentQueue({
   payments: QueuePayment[]
   subscriptions: SubscriptionRow[]
   filter: string
+  counts: PaymentQueueCounts
+  showHidden: boolean
   search: string
   canApprove: boolean
   /** Marking refunded is owner only (owner, 8 Oct 2026). */
@@ -81,9 +86,9 @@ export default function PaymentQueue({
   // rows; the ledger below is unaffected.
   const morePayments = useInfinite<QueuePayment>({
     endpoint: '/api/admin/queues/payments',
-    params: { filter, ...(search ? { search } : {}) },
+    params: { filter, ...(search ? { search } : {}), ...(showHidden ? { hidden: '1' } : {}) },
     initialCursor: paymentsCursor,
-    storageKey: `tm:more:admin-payments:${filter}:${search}`,
+    storageKey: `tm:more:admin-payments:v2:${filter}:${search}:${showHidden ? 'h' : ''}`,
   })
   const moreSubs = useInfinite<SubscriptionRow>({
     endpoint: '/api/admin/queues/subscriptions',
@@ -104,17 +109,18 @@ export default function PaymentQueue({
   return (
     <div className="space-y-5">
       <nav className="flex flex-wrap gap-2" aria-label="Payment status">
-        {FILTERS.map((f) => (
+        {PAYMENT_FILTERS.map((f) => (
           <Link
             key={f.key}
-            href={`/admin/payments?filter=${f.key}`}
+            href={filterHref(f.key, search, showHidden)}
+            aria-current={filter === f.key ? 'page' : undefined}
             className={`inline-flex min-h-[44px] items-center rounded-xl px-4 text-xs font-bold ${
               filter === f.key
                 ? 'bg-tm-black text-white'
                 : 'border border-gray-200 bg-white text-slate-700'
             }`}
           >
-            {f.label}
+            {f.label} ({counts[f.key]})
           </Link>
         ))}
       </nav>
@@ -124,7 +130,7 @@ export default function PaymentQueue({
         <div className="flex flex-col gap-3">
           <div className="space-y-0.5">
             <h2 className="text-sm font-black text-tm-navy">
-              Payments {paymentsTotal > 0 ? `(${paymentsTotal})` : ''}
+              {paymentsHeading(allPayments.length, paymentsTotal)}
             </h2>
           </div>
           {/* Searches the payer's name or email, or a reference off the receipt. */}
@@ -132,6 +138,7 @@ export default function PaymentQueue({
             basePath="/admin/payments"
             initialQuery={search}
             filter={filter}
+            keep={{ hidden: showHidden ? '1' : undefined }}
             placeholder="Payer name, email, or reference"
             ariaLabel="Search payments"
           />
@@ -157,13 +164,15 @@ export default function PaymentQueue({
                       approval" (gold). A 'pending' row with no payer reference
                       never completed → neutral "Incomplete". Others as stored. */}
                   {awaitingApproval(p) ? (
-                    <StatusChip status="pending" label="Waiting for approval" tone="pending" />
-                  ) : p.status === 'pending' ? (
-                    <StatusChip status={p.status} label="Incomplete" tone="neutral" />
+                    <StatusChip status="pending" label={WAITING_LABEL} tone="pending" />
+                  ) : p.statusLabel === 'Paid' ? (
+                    <StatusChip status={p.status} label="Paid" />
                   ) : (
-                    <StatusChip status={p.status} />
+                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                      {p.statusLabel}
+                    </span>
                   )}
-                  {p.refund !== 'none' && (
+                  {p.refund !== 'none' && !p.statusLabel.includes('efunded') && (
                     <span className="rounded-full bg-tm-tint-navy px-2 py-0.5 text-[10px] font-bold text-tm-navy">
                       {refundLabel(p.refund)}
                     </span>
@@ -260,6 +269,26 @@ export default function PaymentQueue({
             total={paymentsTotal}
             noun="payments"
           />
+        )}
+
+        {/* Rows with no member name (a deleted or test account) are hidden by
+            default; nothing is deleted. A waiting receipt is never hidden. */}
+        {!showHidden && counts.hidden > 0 && (
+          <p className="text-center">
+            <Link
+              href={`${filterHref(filter, search, true)}`}
+              className="text-xs font-bold text-tm-navy underline"
+            >
+              Show {counts.hidden} hidden {counts.hidden === 1 ? 'row' : 'rows'}
+            </Link>
+          </p>
+        )}
+        {showHidden && (
+          <p className="text-center">
+            <Link href={filterHref(filter, search, false)} className="text-xs font-bold text-tm-navy underline">
+              Hide rows with no member name
+            </Link>
+          </p>
         )}
       </section>
 
