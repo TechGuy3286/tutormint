@@ -1,12 +1,16 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { avatarShown } from '@/lib/showAvatar'
+import { brandMonogramDataUri } from '@/lib/covers/assets'
+import { loadSocialTutorFacts } from '@/lib/social/eligibility'
+import { NOT_VERIFIED_MESSAGE, socialEligible } from '@/lib/social/eligibilityCore'
+import { socialPortraitSrc } from '@/lib/social/avatars'
 import { getAdminActor, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { badgesForPlan } from '@/lib/planBadges'
 import { verifiedBadgeOkOne } from '@/lib/badgeFacts'
 import { absoluteUrl } from '@/lib/siteUrl'
 import { cvQrDataUri } from '@/lib/cv/assets'
 import { resolveSubjectLabels } from '@/lib/social/data'
-import { isSocialFormat, isSocialTemplate } from '@/lib/social/copy'
+import { DEFAULT_SOCIAL_TEMPLATE, isSocialFormat, isSocialTemplate } from '@/lib/social/copy'
 
 import { renderSocialBanner, type BannerTutor } from './render'
 
@@ -16,7 +20,10 @@ import { renderSocialBanner, type BannerTutor } from './render'
 // the point of generating these is that what we publish about a tutor matches
 // what the site says about them.
 //
-// It renders any REAL tutor — is_seed and is_fixture are refused ALWAYS, with no
+// It renders ONLY a verified tutor (owner, 21 Oct 2026 — see the check below);
+// signed out → 401, a staff role without the screen → 403.
+//
+// Earlier rule, still applied first: is_seed and is_fixture are refused ALWAYS, with no
 // override, because a fixture carries badges it never earned and these images go
 // to Facebook and Instagram (owner, 14 Sep 2026). An unlisted real tutor still
 // renders (so the team can preview), but with NO badges — an unlisted tutor has
@@ -32,14 +39,15 @@ export async function GET(request: Request) {
   // Not checkAdminRole: this returns an image, and an HTML error page in an
   // <img> is worse than a plain status.
   const actor = await getAdminActor()
-  if (!actor || !roleSatisfies(actor.adminRole, SCREEN_ACCESS.social)) {
+  if (!actor) return new Response('Sign in.', { status: 401 })
+  if (!roleSatisfies(actor.adminRole, SCREEN_ACCESS.social)) {
     return new Response('Not allowed.', { status: 403 })
   }
 
   const url = new URL(request.url)
   const slug = url.searchParams.get('slug') ?? ''
   const format = url.searchParams.get('format') ?? 'square'
-  const template = url.searchParams.get('template') ?? 'spotlight'
+  const template = url.searchParams.get('template') ?? DEFAULT_SOCIAL_TEMPLATE
   const headline = (url.searchParams.get('headline') ?? '').slice(0, 90)
   const subhead = (url.searchParams.get('subhead') ?? '').slice(0, 90)
   const dateLabel = (url.searchParams.get('date') ?? '').slice(0, 40)
@@ -73,6 +81,12 @@ export async function GET(request: Request) {
     return new Response('Fixture accounts are never promoted.', { status: 403 })
   }
 
+  // Only verified tutors are ever posted (owner, 21 Oct 2026): fee paid, CNIC,
+  // photo and selfie approved, not suspended / banned / paused, not a test
+  // account. lib/social/eligibilityCore.ts is the one rule the picker reads too.
+  const facts = await loadSocialTutorFacts(admin, tp.id as string)
+  if (!facts || !socialEligible(facts)) return new Response(NOT_VERIFIED_MESSAGE, { status: 403 })
+
   // Listed decides whether ANY badge shows (an unlisted tutor has earned none);
   // Verified additionally needs a real reviewed degree. Both are real facts, not
   // a hardcoded true.
@@ -95,7 +109,10 @@ export async function GET(request: Request) {
 
   // The banner is public marketing, so it honours the tutor's "show my picture
   // to parents" toggle (PR70) — hidden → initials, like the public profile.
-  const showPhoto = await avatarShown(admin, tp.id as string)
+  // "Hide my photo from parents" (show_avatar=false) or a rejected photo → null,
+  // so the render draws the grey silhouette for the profile gender; the real
+  // photo URL never reaches the picture.
+  const showPhoto = !facts.photoHidden && (await avatarShown(admin, tp.id as string))
 
   const tutor = {
     id: tp.id,
@@ -106,13 +123,14 @@ export async function GET(request: Request) {
     area: tp.area,
     rating_avg: tp.rating_avg,
     rating_count: tp.rating_count,
-    avatar_url: showPhoto ? tp.avatar_url : null,
+    avatar_url: socialPortraitSrc(tp.avatar_url as string | null, !showPhoto, facts.gender),
     experience_years: tp.experience_years,
     teaching_mode: tp.teaching_mode,
+    gender: facts.gender,
   }
 
   const profileUrl = absoluteUrl(`/tutor/${tp.slug as string}`)
-  const qrDataUri = await cvQrDataUri(profileUrl)
+  const [qrDataUri, logoDataUri] = await Promise.all([cvQrDataUri(profileUrl), brandMonogramDataUri()])
 
   return renderSocialBanner({
     tutor: tutor as unknown as BannerTutor,
@@ -128,5 +146,6 @@ export async function GET(request: Request) {
     subhead,
     dateLabel,
     successKind,
+    logoDataUri,
   })
 }

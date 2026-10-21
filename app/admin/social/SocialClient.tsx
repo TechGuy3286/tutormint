@@ -6,7 +6,7 @@ import { useMemo, useState } from 'react'
 import { Copy, Download } from 'lucide-react'
 import Typeahead from '@/components/search/Typeahead'
 import { useToast } from '@/components/ui/Toast'
-import { buildCaption, type SocialData, type SocialTemplate } from '@/lib/social/copy'
+import { buildCaption, DEFAULT_SOCIAL_TEMPLATE, type SocialData, type SocialTemplate } from '@/lib/social/copy'
 
 const SITE_ORIGIN = 'https://www.tutormint.org'
 
@@ -25,11 +25,14 @@ export type PickerTutor = {
   listed: boolean
   /** Card fields that would render blank (named for the poster). */
   missing: string[]
+  /** "Hide my photo from parents" is on — posts use the grey silhouette. */
+  photoHidden: boolean
   /** The REAL earned badges — an unlisted tutor has none. */
   badges: ('Verified' | 'Premium' | 'Featured')[]
 }
 
 const TEMPLATES = [
+  { code: 'verified', label: "I'm a Verified Tutor", blurb: 'Clean and light — the default' },
   { code: 'spotlight', label: 'Spotlight', blurb: 'Light background, profile-led' },
   { code: 'bold', label: 'Bold', blurb: 'Dark background, high contrast for feeds' },
   { code: 'success', label: 'Success story', blurb: '“Congratulations” — verified or hired' },
@@ -57,7 +60,7 @@ const FORMATS = [
 export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
   const [slug, setSlug] = useState(tutors[0]?.slug ?? '')
   const [query, setQuery] = useState('')
-  const [template, setTemplate] = useState('spotlight')
+  const [template, setTemplate] = useState<string>(DEFAULT_SOCIAL_TEMPLATE)
   const [format, setFormat] = useState('square')
   const [headline, setHeadline] = useState('')
   const [subhead, setSubhead] = useState('')
@@ -150,7 +153,7 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
     return (
       <div className="space-y-3">
         <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
-          No real tutors to post about yet.
+          No verified tutors to post about yet. A tutor shows up as soon as they&rsquo;re verified.
         </p>
       </div>
     )
@@ -160,9 +163,8 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
     <div className="space-y-5">
       <header className="space-y-1">
         <p className="text-xs leading-relaxed text-gray-500">
-          Everything but the headline comes from the tutor&rsquo;s live profile. Every real tutor
-          appears here; seed and fixture accounts never do. Badges are the real earned set — an
-          unlisted tutor shows none, and &ldquo;Not listed&rdquo; names the fields that will render blank.
+          Only verified tutors appear here. A tutor shows up as soon as they&rsquo;re verified.
+          Everything but the headline comes from the tutor&rsquo;s live profile.
         </p>
       </header>
 
@@ -200,6 +202,9 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
                           {[t.area, t.city].filter(Boolean).join(', ') || 'Pakistan'}
                           {t.subjects.length > 0 ? ` · ${t.subjects.slice(0, 2).join(', ')}` : ''}
                         </span>
+                        {t.photoHidden && (
+                          <span className="block text-[9px] font-semibold text-gray-500">Photo hidden — posts use a grey avatar</span>
+                        )}
                         {t.listed ? (
                           <span className="block text-[9px] font-bold text-tm-green-deep">Listed</span>
                         ) : (
@@ -259,7 +264,9 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
 
             <label className="block space-y-1">
               <span className="text-[11px] font-bold text-gray-500">
-                {template === 'success'
+                {template === 'verified'
+                  ? 'Headline (optional — replaces the line under “I’m a Verified Tutor”)'
+                  : template === 'success'
                   ? 'Headline (the occasion — e.g. “You’re Verified!”)'
                   : template === 'announcement'
                     ? 'Headline (the announcement)'
@@ -270,7 +277,9 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
                 maxLength={90}
                 onChange={(e) => setHeadline(e.target.value)}
                 placeholder={
-                  template === 'success'
+                  template === 'verified'
+                    ? 'Verified tutors get trusted by more parents.'
+                    : template === 'success'
                     ? "You're Verified!"
                     : template === 'announcement'
                       ? 'New verified tutors this month'

@@ -358,6 +358,12 @@ const PAIRS: Pair[] = [
   { fg: 'navy', bg: 'tintGreen', where: 'social v2 success panel occasion & name' },
   { fg: 'greenDeep', bg: 'tintGreen', where: 'social v2 success "Congratulations" script' },
   { fg: 'navy', bg: 'white', where: 'social v2 inverted Premium badge, bold (navy on white)' },
+  // "I'm a Verified Tutor" template (owner, 21 Oct 2026) — the light page ground.
+  { fg: 'navy', bg: 'bg', where: 'social verified template headline + footer tagline' },
+  { fg: 'greenDeep', bg: 'bg', where: 'social verified template "Verified Tutor"' },
+  { fg: 'slate700', bg: 'bg', where: 'social verified template sub-line, footnote, footer handles' },
+  { fg: 'black', bg: 'bg', where: 'social verified template wordmark "Tutor"' },
+  { fg: 'red', bg: 'bg', where: 'social verified template wordmark "Mint"' },
 
   // Blog composed covers (lib/covers/compose.tsx). next/og literals from
   // lib/brand.ts. ONE fixed layout (owner, 14 Oct 2026): every word sits on the

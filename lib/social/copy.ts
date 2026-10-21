@@ -12,10 +12,13 @@
 import { levelLabel, jobType } from '@/lib/display'
 import { isOnlineType } from '@/lib/matchChip'
 
-export type SocialTemplate = 'spotlight' | 'bold' | 'success' | 'announcement'
+export type SocialTemplate = 'verified' | 'spotlight' | 'bold' | 'success' | 'announcement'
 export type SocialFormat = 'square' | 'story' | 'wide'
 
-export const SOCIAL_TEMPLATES: SocialTemplate[] = ['spotlight', 'bold', 'success', 'announcement']
+export const SOCIAL_TEMPLATES: SocialTemplate[] = ['verified', 'spotlight', 'bold', 'success', 'announcement']
+
+/** The template the generator opens on (owner, 21 Oct 2026). */
+export const DEFAULT_SOCIAL_TEMPLATE: SocialTemplate = 'verified'
 export const SOCIAL_FORMATS: SocialFormat[] = ['square', 'story', 'wide']
 
 export function isSocialTemplate(v: string): v is SocialTemplate {
@@ -56,6 +59,26 @@ export const X_HANDLE = 'X: @TutorMint5'
 /** The band's text, in order — the single source both the render and the test read. */
 export function bandTextLines(): string[] {
   return [WORDMARK, TAGLINE, SITE, HANDLE, X_HANDLE]
+}
+
+// ---- the "I'm a Verified Tutor" template (owner, 21 Oct 2026) -------------
+//
+// The big headline is drawn as two runs, "I'm a " and "Verified Tutor", the
+// second in green, with a drawn tick after it (a ✓ glyph is not in the render
+// font, so it is an inline SVG — the same reason the star is).
+
+export const VERIFIED_HEADLINE_LEAD = "I'm a "
+export const VERIFIED_HEADLINE_ACCENT = 'Verified Tutor'
+export const VERIFIED_SUBLINE = 'Verified tutors get trusted by more parents.'
+export const VERIFIED_CTA = 'Get your profile verified'
+export const VERIFIED_CTA_SITE = 'tutormint.org'
+export const VERIFIED_FOOTNOTE = 'New tuitions posted every day'
+
+/** The line under the big headline: the admin's Headline field when filled
+ *  (max 90 characters, as for every template), else the standard line. */
+export function verifiedSubline(headline: string | null | undefined): string {
+  const h = (headline ?? '').trim().slice(0, 90)
+  return h || VERIFIED_SUBLINE
 }
 
 // ---- the body -------------------------------------------------------------
@@ -101,11 +124,25 @@ export function ctaText(template: SocialTemplate, data: SocialData): string {
       : 'Congratulations — verified on TutorMint'
   }
   if (template === 'announcement') return (data.headline ?? '').trim() || 'Announcement'
+  if (template === 'verified') return `${VERIFIED_CTA} → ${VERIFIED_CTA_SITE}`
   return 'Hire verified tutors on tutormint.org'
 }
 
 /** Every BODY string a template renders (no band), for the commission scan. */
 export function bodyTextLines(template: SocialTemplate, data: SocialData): string[] {
+  if (template === 'verified') {
+    // Only what the template draws: headline, sub-line, the card (name, up to
+    // three subjects, city), the call to action and the footnote.
+    return [
+      VERIFIED_HEADLINE_LEAD + VERIFIED_HEADLINE_ACCENT,
+      verifiedSubline(data.headline),
+      data.name,
+      ...subjectLabels(data.subjects),
+      ...(data.city?.trim() ? [data.city.trim()] : []),
+      ctaText(template, data),
+      VERIFIED_FOOTNOTE,
+    ]
+  }
   const lines: string[] = [data.name, ...data.badges, ...subjectLabels(data.subjects)]
   const r = ratingText(data.ratingAvg, data.ratingCount)
   if (r) lines.push(r)

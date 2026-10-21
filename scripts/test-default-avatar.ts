@@ -104,11 +104,11 @@ test('no initials fallback is left: nothing renders letters, no tint class', () 
   }
   walk('components')
   walk('app')
-  // The one remaining caller is the social banner image (next/og), which is a
-  // generated picture for sharing, not a member avatar on the site. (The CV
-  // preview and PDF keep their own initials box: a document, not an avatar.)
-  // Avatar itself draws initials only in its "photo hidden" mode (pinned above).
-  assert.deepEqual(offenders.sort(), ['app/api/admin/social/image/render.tsx', 'components/Avatar.tsx'])
+  // The social banner image (next/og) draws the grey gender silhouette since
+  // 21 Oct 2026, so it is no longer a caller. (The CV preview and PDF keep their
+  // own initials box: a document, not an avatar.) Avatar itself draws initials
+  // only in its "photo hidden" mode (pinned above).
+  assert.deepEqual(offenders.sort(), ['components/Avatar.tsx'])
 })
 
 test('every member avatar goes through the shared component and passes gender where one exists', () => {

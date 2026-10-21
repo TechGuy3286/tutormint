@@ -5,8 +5,16 @@ import { badgesForPlan, type BadgeName } from '@/lib/planBadges'
 import { loadVerifiedBadgeOk } from '@/lib/badgeFacts'
 import SocialClient, { type PickerTutor } from './SocialClient'
 import { formatName } from '@/lib/formatName'
+import { loadSocialEligibleTutors } from '@/lib/social/eligibility'
+import { chunk } from '@/lib/pageAll'
 
 // The social post generator. owner / admin / operations.
+//
+// ONLY VERIFIED TUTORS (owner, 21 Oct 2026): the picker lists exactly the tutors
+// lib/social/eligibilityCore.ts allows — Verification Fee paid, CNIC, photo and
+// selfie approved, not suspended / banned / paused, not a fixture or test
+// account. Read fresh on every request (force-dynamic, no cache), so a tutor
+// verified a moment ago appears at once. The render route refuses everyone else.
 //
 // It lists every REAL tutor — seed AND team accounts are excluded ALWAYS, with
 // no override (owner, 14 Sep 2026; PR26 §3). Each tutor's LISTED flag is the
@@ -43,16 +51,16 @@ export default async function AdminSocialPage() {
   // nothing downstream can re-include them. (`is_fixture` does not exist on
   // profiles — see the header note; the tutor-side fixture signals are is_seed
   // and the one is_team_account.)
-  const { data: profiles } = await admin
-    .from('profiles')
-    .select('id, full_name, city')
-    .eq('role', 'tutor')
-    .eq('is_seed', false)
-    .eq('is_team_account', false)
-    .order('full_name')
-    .limit(300)
+  const eligible = await loadSocialEligibleTutors(admin)
+  const eligibleIds = [...eligible.keys()]
+  const profiles: { id: string; full_name: string | null; city: string | null }[] = []
+  for (const part of chunk(eligibleIds, 100)) {
+    const { data } = await admin.from('profiles').select('id, full_name, city').in('id', part)
+    for (const r of data ?? []) profiles.push(r as { id: string; full_name: string | null; city: string | null })
+  }
+  profiles.sort((a, b) => (formatName(a.full_name) || '').localeCompare(formatName(b.full_name) || ''))
 
-  const ids = (profiles ?? []).map((p) => p.id as string)
+  const ids = profiles.map((p) => p.id)
   const none = ['00000000-0000-0000-0000-000000000000']
 
   const [{ data: tps }, { data: listedRows }, { data: subs }, { data: subjectLinks }, subjectsByTutor] =
@@ -94,7 +102,7 @@ export default async function AdminSocialPage() {
 
     // The card fields that would render blank, named so the poster knows.
     const missing: string[] = []
-    if (!t.avatar_url) missing.push('photo')
+    if (!t.avatar_url && !eligible.get(id)?.photoHidden) missing.push('photo')
     if (!t.headline) missing.push('headline')
     if (nSubjects === 0) missing.push('subjects')
     if (!(p.city as string)?.trim()) missing.push('city')
@@ -114,6 +122,7 @@ export default async function AdminSocialPage() {
       teachingMode: (t.teaching_mode as string | null) ?? null,
       listed,
       missing,
+      photoHidden: eligible.get(id)?.photoHidden ?? false,
       // Real earned badges: gate = listed, Verified = staff-approved docs.
       badges: badgesForPlan(planByUser.get(id) ?? null, listed, verifiedOk) as BadgeName[],
     })

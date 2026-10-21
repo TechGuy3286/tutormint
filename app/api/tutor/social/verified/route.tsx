@@ -45,7 +45,7 @@ export async function GET(request: Request) {
   // #46 — the name on the card goes through the one shared formatter.
   ;(tutor as Record<string, unknown>).full_name = formatName(tutor.full_name as string | null)
 
-  const [{ data: sub }, subjects] = await Promise.all([
+  const [{ data: sub }, subjects, { data: own }] = await Promise.all([
     admin
       .from('subscriptions')
       .select('plan_code')
@@ -55,7 +55,12 @@ export async function GET(request: Request) {
       .limit(1)
       .maybeSingle(),
     resolveSubjectLabels(admin, user.id, 3),
+    // The profile gender picks the grey silhouette when the photo is hidden (the
+    // view already returns no photo then) — owner, 21 Oct 2026.
+    admin.from('tutor_profiles').select('gender, show_avatar').eq('id', user.id).maybeSingle(),
   ])
+  ;(tutor as Record<string, unknown>).gender = (own?.gender as string | null) ?? null
+  if (own?.show_avatar === false) (tutor as Record<string, unknown>).avatar_url = null
 
   const profileUrl = absoluteUrl(`/tutor/${tutor.slug as string}`)
   const qrDataUri = await cvQrDataUri(profileUrl)
