@@ -364,6 +364,18 @@ const PAIRS: Pair[] = [
   { fg: 'slate700', bg: 'bg', where: 'social verified template sub-line, footnote, footer handles' },
   { fg: 'black', bg: 'bg', where: 'social verified template wordmark "Tutor"' },
   { fg: 'red', bg: 'bg', where: 'social verified template wordmark "Mint"' },
+  { fg: 'navy', bg: 'tintNavy', where: 'social C2 subject chip, verified + success' },
+  { fg: 'white', bg: 'greenDeep', where: 'social C2 filled CTA pill (verified, success) + ✓ badge' },
+  // PR C2 (owner, 21 Oct 2026) — every text pair the five redesigned templates use.
+  { fg: 'navy', bg: 'white', where: 'social C2 headline/name on white (spotlight, success); chips on navy (bold, announcement)' },
+  { fg: 'greenDeep', bg: 'white', where: 'social C2 green key word on white; spotlight outlined CTA' },
+  { fg: 'slate700', bg: 'white', where: 'social C2 sub-line + footer handles, white templates' },
+  { fg: 'navy', bg: 'tintGreen', where: 'social C2 subject chip, spotlight' },
+  { fg: 'white', bg: 'navy', where: 'social C2 headline/name/Premium pill (bold, announcement); Premium pill on light' },
+  { fg: 'mint', bg: 'navy', where: 'social C2 green key word + outlined CTA + footer tagline, navy templates' },
+  { fg: 'navy', bg: 'mint', where: 'social C2 filled CTA pill, bold' },
+  { fg: 'slate300', bg: 'navy', where: 'social C2 sub-line + footer handles, navy templates' },
+  { fg: 'black', bg: 'gold', where: 'social C2 Featured pill + announcement date chip' },
 
   // Blog composed covers (lib/covers/compose.tsx). next/og literals from
   // lib/brand.ts. ONE fixed layout (owner, 14 Oct 2026): every word sits on the

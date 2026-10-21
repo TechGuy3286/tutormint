@@ -4,6 +4,8 @@ import { brandMonogramDataUri } from '@/lib/covers/assets'
 import { loadSocialTutorFacts } from '@/lib/social/eligibility'
 import { NOT_VERIFIED_MESSAGE, socialEligible } from '@/lib/social/eligibilityCore'
 import { socialPortraitSrc } from '@/lib/social/avatars'
+import { croppedPortrait } from '@/lib/social/crop'
+import { parseCropAdjust } from '@/lib/social/cropCore'
 import { getAdminActor, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { badgesForPlan } from '@/lib/planBadges'
 import { verifiedBadgeOkOne } from '@/lib/badgeFacts'
@@ -52,6 +54,8 @@ export async function GET(request: Request) {
   const subhead = (url.searchParams.get('subhead') ?? '').slice(0, 90)
   const dateLabel = (url.searchParams.get('date') ?? '').slice(0, 40)
   const successKind = url.searchParams.get('kind') === 'hired' ? 'hired' : 'verified'
+  // Zoom / move for THIS post only — read from the URL, never saved anywhere.
+  const crop = parseCropAdjust(url.searchParams)
 
   if (!isSocialFormat(format)) return new Response('Unknown format.', { status: 400 })
   if (!isSocialTemplate(template)) return new Response('Unknown template.', { status: 400 })
@@ -123,7 +127,9 @@ export async function GET(request: Request) {
     area: tp.area,
     rating_avg: tp.rating_avg,
     rating_count: tp.rating_count,
-    avatar_url: socialPortraitSrc(tp.avatar_url as string | null, !showPhoto, facts.gender),
+    // Cropped on the face and shoulders (plus the admin's zoom / move); a hidden
+    // photo is the silhouette, which passes through untouched.
+    avatar_url: await croppedPortrait(socialPortraitSrc(tp.avatar_url as string | null, !showPhoto, facts.gender), crop),
     experience_years: tp.experience_years,
     teaching_mode: tp.teaching_mode,
     gender: facts.gender,
@@ -147,5 +153,7 @@ export async function GET(request: Request) {
     dateLabel,
     successKind,
     logoDataUri,
+    // Every tutor here passed the verified-only rule above.
+    verified: true,
   })
 }

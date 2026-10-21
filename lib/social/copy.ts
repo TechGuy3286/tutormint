@@ -31,6 +31,8 @@ export function isSocialFormat(v: string): v is SocialFormat {
 export type SocialData = {
   slug: string
   name: string
+  /** The tutor's own profile headline (spotlight / bold sub-line fallback). */
+  tutorHeadline?: string | null
   badges: string[]
   /** Already "Level Subject" display strings (levelLabel applied by the resolver). */
   subjects: string[]
@@ -44,8 +46,10 @@ export type SocialData = {
   profileUrl: string
   /** success only: what the card celebrates. */
   successKind?: 'verified' | 'hired'
-  /** announcement only: the admin's headline. */
+  /** The admin's Headline field (max 90). */
   headline?: string | null
+  /** announcement only: the detail / venue line. */
+  subhead?: string | null
 }
 
 // ---- the band -------------------------------------------------------------
@@ -72,7 +76,6 @@ export const VERIFIED_HEADLINE_ACCENT = 'Verified Tutor'
 export const VERIFIED_SUBLINE = 'Verified tutors get trusted by more parents.'
 export const VERIFIED_CTA = 'Get your profile verified'
 export const VERIFIED_CTA_SITE = 'tutormint.org'
-export const VERIFIED_FOOTNOTE = 'New tuitions posted every day'
 
 /** The line under the big headline: the admin's Headline field when filled
  *  (max 90 characters, as for every template), else the standard line. */
@@ -116,44 +119,87 @@ export function placeText(area: string | null, city: string | null): string | nu
   return [area?.trim(), city?.trim()].filter(Boolean).join(' · ') || null
 }
 
-/** The template-specific call to action. */
-export function ctaText(template: SocialTemplate, data: SocialData): string {
-  if (template === 'success') {
-    return data.successKind === 'hired'
-      ? 'Congratulations — hired through TutorMint'
-      : 'Congratulations — verified on TutorMint'
-  }
-  if (template === 'announcement') return (data.headline ?? '').trim() || 'Announcement'
-  if (template === 'verified') return `${VERIFIED_CTA} → ${VERIFIED_CTA_SITE}`
-  return 'Hire verified tutors on tutormint.org'
+// ---- the headline, sub-line and CTA of each template (PR C2) -------------
+//
+// Every template has the same structure: a heavy headline with its key words in
+// green, an optional sub-line, the tutor, and a CTA pill "<label> → tutormint.org".
+
+export type Headline = {
+  text: string
+  /** How many words at the END are the green key words (0 = none). */
+  accentWords: number
+  /** The whole headline is the key word. */
+  accentAll?: boolean
+  /** Drawn after the last word: the verified tick or the party popper. */
+  tail?: 'tick' | 'confetti'
 }
 
-/** Every BODY string a template renders (no band), for the commission scan. */
-export function bodyTextLines(template: SocialTemplate, data: SocialData): string[] {
-  if (template === 'verified') {
-    // Only what the template draws: headline, sub-line, the card (name, up to
-    // three subjects, city), the call to action and the footnote.
-    return [
-      VERIFIED_HEADLINE_LEAD + VERIFIED_HEADLINE_ACCENT,
-      verifiedSubline(data.headline),
-      data.name,
-      ...subjectLabels(data.subjects),
-      ...(data.city?.trim() ? [data.city.trim()] : []),
-      ctaText(template, data),
-      VERIFIED_FOOTNOTE,
-    ]
+export const ANNOUNCEMENT_DEFAULT = 'New on TutorMint'
+export const SPOTLIGHT_HEADLINE = 'Meet your next tutor'
+export const BOLD_HEADLINE = 'Hire a Verified Tutor'
+export const SUCCESS_HEADLINE = 'Congratulations'
+export const HIRE_CTA = 'Hire verified tutors'
+
+const clip90 = (s: string | null | undefined) => (s ?? '').trim().slice(0, 90)
+
+export function headlineFor(template: SocialTemplate, data: SocialData): Headline {
+  switch (template) {
+    case 'verified':
+      return { text: VERIFIED_HEADLINE_LEAD + VERIFIED_HEADLINE_ACCENT, accentWords: 2, tail: 'tick' }
+    case 'spotlight':
+      return { text: SPOTLIGHT_HEADLINE, accentWords: 2 }
+    case 'bold':
+      return { text: BOLD_HEADLINE, accentWords: 2 }
+    case 'success':
+      return { text: SUCCESS_HEADLINE, accentWords: 0, accentAll: true, tail: 'confetti' }
+    case 'announcement':
+      return { text: clip90(data.headline) || ANNOUNCEMENT_DEFAULT, accentWords: 1 }
   }
-  const lines: string[] = [data.name, ...data.badges, ...subjectLabels(data.subjects)]
-  const r = ratingText(data.ratingAvg, data.ratingCount)
-  if (r) lines.push(r)
-  const e = experienceText(data.experienceYears)
-  if (e) lines.push(e)
-  const chip = teachingChip(data.teachingMode)
-  if (chip) lines.push(chip)
-  const place = placeText(data.area, data.city)
-  if (place) lines.push(place)
-  lines.push(ctaText(template, data))
-  return lines
+}
+
+/** The smaller line under the headline, or null. */
+export function subLineFor(template: SocialTemplate, data: SocialData): string | null {
+  if (template === 'verified') return verifiedSubline(data.headline)
+  if (template === 'spotlight' || template === 'bold') return clip90(data.headline) || clip90(data.tutorHeadline) || null
+  if (template === 'announcement') return clip90(data.subhead) || null
+  return null
+}
+
+/** Success only: the occasion under "Congratulations". */
+export function occasionFor(template: SocialTemplate, data: SocialData): string | null {
+  if (template !== 'success') return null
+  return clip90(data.headline) || (data.successKind === 'hired' ? 'You got hired!' : "You're Verified!")
+}
+
+/** The CTA pill: a label, an arrow, and tutormint.org in bold. */
+export function ctaParts(template: SocialTemplate, data: SocialData): { label: string; site: string } {
+  if (template === 'verified') return { label: VERIFIED_CTA, site: VERIFIED_CTA_SITE }
+  if (template === 'success') {
+    return { label: data.successKind === 'hired' ? 'Hired through TutorMint' : 'Verified on TutorMint', site: SITE }
+  }
+  return { label: HIRE_CTA, site: SITE }
+}
+
+/** The CTA as one line of text. */
+export function ctaText(template: SocialTemplate, data: SocialData): string {
+  const c = ctaParts(template, data)
+  return `${c.label} → ${c.site}`
+}
+
+/** Every BODY string a template renders (no footer), for the text scans. */
+export function bodyTextLines(template: SocialTemplate, data: SocialData): string[] {
+  const occasion = occasionFor(template, data)
+  const sub = subLineFor(template, data)
+  return [
+    headlineFor(template, data).text,
+    ...(occasion ? [occasion] : []),
+    ...(sub ? [sub] : []),
+    data.name,
+    ...data.badges.filter((b) => b !== 'Verified'),
+    ...subjectLabels(data.subjects),
+    ...(data.city?.trim() ? [data.city.trim()] : []),
+    ctaText(template, data),
+  ]
 }
 
 /** The whole creative's text: band + body. What test-social.ts scans. */

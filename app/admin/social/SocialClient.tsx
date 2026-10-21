@@ -2,11 +2,12 @@
 
 import { submitSignal } from '@/lib/submit'
 
-import { useMemo, useState } from 'react'
-import { Copy, Download } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Copy, Download, RotateCcw } from 'lucide-react'
 import Typeahead from '@/components/search/Typeahead'
 import { useToast } from '@/components/ui/Toast'
 import { buildCaption, DEFAULT_SOCIAL_TEMPLATE, type SocialData, type SocialTemplate } from '@/lib/social/copy'
+import { cropQuery, MOVE_STEPS, NO_ADJUST, ZOOM_MAX, ZOOM_MIN, type CropAdjust } from '@/lib/social/cropCore'
 
 const SITE_ORIGIN = 'https://www.tutormint.org'
 
@@ -33,7 +34,7 @@ export type PickerTutor = {
 
 const TEMPLATES = [
   { code: 'verified', label: "I'm a Verified Tutor", blurb: 'Clean and light — the default' },
-  { code: 'spotlight', label: 'Spotlight', blurb: 'Light background, profile-led' },
+  { code: 'spotlight', label: 'Spotlight', blurb: 'Light background, photo-led' },
   { code: 'bold', label: 'Bold', blurb: 'Dark background, high contrast for feeds' },
   { code: 'success', label: 'Success story', blurb: '“Congratulations” — verified or hired' },
   { code: 'announcement', label: 'Announcement', blurb: 'Navy, for roundups and events' },
@@ -69,6 +70,25 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState(false)
   const toast = useToast()
+  // Zoom / move the photo for THIS post only. It travels on the image URL and
+  // is never saved — not to the tutor's profile, not anywhere.
+  const [crop, setCrop] = useState<CropAdjust>(NO_ADJUST)
+  const [zoomDraft, setZoomDraft] = useState(1)
+  useEffect(() => {
+    const t = setTimeout(() => setCrop((c) => (c.zoom === zoomDraft ? c : { ...c, zoom: zoomDraft })), 350)
+    return () => clearTimeout(t)
+  }, [zoomDraft])
+  const pickTutor = (next: string) => {
+    setSlug(next)
+    setCrop(NO_ADJUST)
+    setZoomDraft(1)
+  }
+  const move = (dx: number, dy: number) =>
+    setCrop((c) => ({
+      ...c,
+      x: Math.max(-MOVE_STEPS, Math.min(MOVE_STEPS, c.x + dx)),
+      y: Math.max(-MOVE_STEPS, Math.min(MOVE_STEPS, c.y + dy)),
+    }))
 
   const tutor = useMemo(() => tutors.find((t) => t.slug === slug) ?? null, [tutors, slug])
 
@@ -96,8 +116,9 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
     if (isAnnouncement && subhead.trim()) p.set('subhead', subhead.trim())
     if (isAnnouncement && dateLabel.trim()) p.set('date', dateLabel.trim())
     if (isSuccess) p.set('kind', successKind)
+    for (const [k, v] of Object.entries(cropQuery(crop))) p.set(k, v)
     return `/api/admin/social/image?${p}`
-  }, [slug, format, template, headline, subhead, dateLabel, isAnnouncement, isSuccess, successKind])
+  }, [slug, format, template, headline, subhead, dateLabel, isAnnouncement, isSuccess, successKind, crop])
 
   // The caption is built from the SAME copy module the creative renders from, so
   // what is pasted and what is drawn cannot diverge (tagline once, profile URL,
@@ -184,7 +205,7 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
                   <li key={t.slug}>
                     <button
                       type="button"
-                      onClick={() => setSlug(t.slug)}
+                      onClick={() => pickTutor(t.slug)}
                       className={`flex min-h-[44px] w-full items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left ${
                         slug === t.slug ? 'border-tm-navy bg-tm-bg' : 'border-gray-200'
                       }`}
@@ -384,6 +405,62 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
             alt={`Preview for ${tutor?.name}`}
             className="w-full rounded-xl border border-gray-200"
           />
+          <div className="space-y-2 rounded-xl border border-gray-200 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-bold text-gray-500">Photo crop (this post only)</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setCrop(NO_ADJUST)
+                  setZoomDraft(1)
+                }}
+                className="inline-flex min-h-[44px] items-center gap-1 rounded-lg px-2 text-[11px] font-bold text-slate-700"
+              >
+                <RotateCcw size={12} /> Reset
+              </button>
+            </div>
+            {tutor?.photoHidden ? (
+              <p className="text-[10px] text-gray-500">This tutor hid their photo, so the post uses a grey avatar — nothing to crop.</p>
+            ) : (
+              <>
+                <label className="flex items-center gap-2 text-[11px] font-bold text-slate-700">
+                  Zoom
+                  <input
+                    type="range"
+                    min={ZOOM_MIN}
+                    max={ZOOM_MAX}
+                    step={0.1}
+                    value={zoomDraft}
+                    onChange={(e) => setZoomDraft(Number(e.target.value))}
+                    className="min-h-[44px] flex-1 accent-tm-navy"
+                    aria-label="Zoom the photo"
+                  />
+                  <span className="w-8 text-right text-[10px] text-gray-500">{zoomDraft.toFixed(1)}×</span>
+                </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-bold text-slate-700">Move</span>
+                  {[
+                    { label: 'Move up', icon: ArrowUp, dx: 0, dy: -1 },
+                    { label: 'Move down', icon: ArrowDown, dx: 0, dy: 1 },
+                    { label: 'Move left', icon: ArrowLeft, dx: -1, dy: 0 },
+                    { label: 'Move right', icon: ArrowRight, dx: 1, dy: 0 },
+                  ].map(({ label, icon: Icon, dx, dy }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      aria-label={label}
+                      title={label}
+                      onClick={() => move(dx, dy)}
+                      className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-gray-200 text-slate-700"
+                    >
+                      <Icon size={16} />
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-gray-500">Not saved to the tutor&rsquo;s profile.</p>
+              </>
+            )}
+          </div>
           <p className="text-[10px] leading-relaxed text-gray-500">
             Posting is manual: download the image, copy the caption, publish from the TutorMint
             account.

@@ -6,6 +6,9 @@ import { absoluteUrl } from '@/lib/siteUrl'
 import { cvQrDataUri } from '@/lib/cv/assets'
 import { resolveSubjectLabels } from '@/lib/social/data'
 import { isSocialFormat } from '@/lib/social/copy'
+import { croppedPortrait } from '@/lib/social/crop'
+import { silhouetteDataUri } from '@/lib/social/avatars'
+import { brandMonogramDataUri } from '@/lib/covers/assets'
 
 import { renderSocialBanner, type BannerTutor } from '@/app/api/admin/social/image/render'
 import { formatName } from '@/lib/formatName'
@@ -63,7 +66,9 @@ export async function GET(request: Request) {
   if (own?.show_avatar === false) (tutor as Record<string, unknown>).avatar_url = null
 
   const profileUrl = absoluteUrl(`/tutor/${tutor.slug as string}`)
-  const qrDataUri = await cvQrDataUri(profileUrl)
+  const [qrDataUri, logoDataUri] = await Promise.all([cvQrDataUri(profileUrl), brandMonogramDataUri()])
+  const avatar = (tutor as Record<string, unknown>).avatar_url as string | null
+  ;(tutor as Record<string, unknown>).avatar_url = await croppedPortrait(avatar || silhouetteDataUri(own?.gender as string | null))
   // PR105-B §1 — the Verified badge needs staff-approved CNIC+photo+selfie. The
   // dashboard only offers this card to a tutor who holds the badge, so this is
   // belt-and-braces.
@@ -79,5 +84,7 @@ export async function GET(request: Request) {
     profileUrl,
     headline,
     successKind: 'verified',
+    logoDataUri,
+    verified: verifiedOk,
   })
 }

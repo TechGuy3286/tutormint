@@ -2,9 +2,9 @@
  * scripts/report-social-picker.ts — READ-ONLY.
  * How many tutors the Social posts picker lists (lib/social/eligibilityCore — the
  * same rule the page and the render route use), why listed tutors are left out
- * (counts only), and, with a folder argument, sample PNGs of the "I'm a Verified
- * Tutor" template for one verified tutor with a photo and one shown with the
- * hidden-photo silhouette.
+ * (counts only), and, with a folder argument, sample PNGs of every template × format
+ * for one verified tutor with a photo, the Square of each template for one shown
+ * with the hidden-photo silhouette, and a contact sheet of the 15.
  *   npx tsx --env-file=.env.local scripts/report-social-picker.ts [samples-folder]
  */
 // @ts-expect-error pg ships no bundled types
@@ -17,6 +17,9 @@ import { PROFILE_COLS, socialEligible, socialIneligibleReason, toFacts } from '.
 import { socialPortraitSrc } from '../lib/social/avatars'
 import { renderSocialBanner } from '../app/api/admin/social/image/render'
 import { formatName } from '../lib/formatName'
+import { croppedPortrait } from '../lib/social/crop'
+import { SOCIAL_TEMPLATES, SOCIAL_FORMATS } from '../lib/social/copy'
+import { contactSheet } from './socialContactSheet'
 import { levelLabel } from '../lib/display'
 
 async function main() {
@@ -60,6 +63,7 @@ async function main() {
   const logoDataUri = `data:image/png;base64,${mono.toString('base64')}`
   const withPhoto = eligible.find((r: Record<string, unknown>) => r.avatar_url && r.show_avatar !== false && r.city)
   const hidden = eligible.find((r: Record<string, unknown>) => r.show_avatar === false) ?? eligible.find((r: Record<string, unknown>) => r !== withPhoto)
+  const sheetRows: { label: string; images: Buffer[] }[] = []
   for (const [label, r, hide] of [
     ['photo', withPhoto, false],
     ['hidden-photo', hidden, true],
@@ -68,32 +72,37 @@ async function main() {
     const subs = [...new Set(subjects.filter((s: { tutor_id: string }) => s.tutor_id === r.id).map((s: { subject: string; level: string }) => `${levelLabel(s.level)} ${s.subject}`))].slice(0, 3) as string[]
     const profileUrl = `https://www.tutormint.org/tutor/${r.slug}`
     const qrDataUri = await QRCode.toDataURL(profileUrl, { margin: 1 })
-    for (const format of ['square', 'story', 'wide'] as const) {
-      const res = renderSocialBanner({
-        tutor: {
-          id: r.id,
-          slug: r.slug,
-          full_name: formatName(r.full_name) || 'Tutor',
-          headline: null,
-          city: r.city,
-          area: null,
-          rating_avg: 0,
-          rating_count: 0,
-          avatar_url: socialPortraitSrc(r.avatar_url, hide, r.gender),
-          gender: r.gender,
-        },
-        badges: ['Verified'],
-        subjects: subs,
-        format,
-        template: 'verified',
-        qrDataUri,
-        profileUrl,
-        logoDataUri,
-      })
-      const file = path.join(out, `real-${label}-${format}.png`)
-      writeFileSync(file, Buffer.from(await res.arrayBuffer()))
-      console.log(file)
+    // The same crop the render route applies (face-first, no admin adjustment).
+    const avatar = await croppedPortrait(socialPortraitSrc(r.avatar_url, hide, r.gender))
+    // Every template × format for the tutor with a photo; the Square of each for the hidden one.
+    for (const template of SOCIAL_TEMPLATES) {
+      const row: Buffer[] = []
+      for (const format of hide ? (['square'] as const) : SOCIAL_FORMATS) {
+        const res = renderSocialBanner({
+          tutor: { id: r.id, slug: r.slug, full_name: formatName(r.full_name) || 'Tutor', headline: null, city: r.city, area: null, rating_avg: 0, rating_count: 0, avatar_url: avatar, gender: r.gender },
+          badges: ['Verified'],
+          subjects: subs,
+          format,
+          template,
+          qrDataUri,
+          profileUrl,
+          logoDataUri,
+          verified: true,
+          dateLabel: template === 'announcement' ? 'October 2026' : undefined,
+        })
+        const buf = Buffer.from(await res.arrayBuffer())
+        row.push(buf)
+        const file = path.join(out, `${template}-${format}${hide ? '-hidden-photo' : ''}.png`)
+        writeFileSync(file, buf)
+        console.log(file)
+      }
+      if (!hide) sheetRows.push({ label: template, images: row })
     }
+  }
+  if (sheetRows.length) {
+    const file = path.join(out, 'contact-sheet.png')
+    writeFileSync(file, await contactSheet(sheetRows))
+    console.log(file)
   }
 }
 

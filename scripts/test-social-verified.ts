@@ -29,7 +29,12 @@ import {
 } from '../lib/social/copy'
 import { bannedClaims } from '../lib/brandClaims'
 import { BRAND } from '../lib/brand'
-import { renderSocialBanner, FORMATS, VERIFIED_MARGIN, type BannerTutor } from '../app/api/admin/social/image/render'
+import { renderSocialBanner, FORMATS, SAFE_MARGIN, templateBackground, type BannerTutor } from '../app/api/admin/social/image/render'
+import { SOCIAL_FORMATS, type SocialTemplate } from '../lib/social/copy'
+import { cropBox, parseCropAdjust, cropQuery, NO_ADJUST } from '../lib/social/cropCore'
+import { croppedPortrait } from '../lib/social/crop'
+import { fitWords, accentTail, splitsAccent, textWidth } from '../lib/social/fit'
+import { contactSheet } from './socialContactSheet'
 
 const root = path.join(__dirname, '..')
 const src = (f: string) => readFileSync(path.join(root, f), 'utf8')
@@ -166,16 +171,71 @@ test('the verified template is the default; the Headline field replaces the sub-
   const text = socialText('verified', data({ headline: null })).join('\n')
   assert.match(text, /I'm a Verified Tutor/)
   assert.match(text, /Get your profile verified → tutormint\.org/)
-  assert.match(text, /New tuitions posted every day/)
   assert.equal((text.toLowerCase().match(/commission/g) ?? []).length, 1)
 })
 
-// ---- the render: margins, hidden photo -------------------------------------
+// ---- PR C2: text fitting ----------------------------------------------------
+
+test('the headline keeps "Verified Tutor" together and never exceeds two lines', () => {
+  const words = accentTail("I'm a Verified Tutor", 2)
+  // The three formats' real headline boxes (square, story, wide).
+  for (const [max, maxWidth] of [[92, 805], [124, 769], [66, 620]]) {
+    const f = fitWords(words, { max, min: 30, weight: 800, maxWidth, maxLines: 2, tail: 0.98 * max })
+    assert.ok(f.lines.length <= 2)
+    assert.equal(splitsAccent(f.lines), false, `split at ${maxWidth}`)
+  }
+  const long = fitWords(accentTail('Teaching O Level Physics and Matric Maths in Johar Town, Lahore — book a demo lesson', 1), {
+    max: 92, min: 42, weight: 800, maxWidth: 890, maxLines: 2,
+  })
+  assert.ok(long.lines.length <= 2)
+  for (const line of long.lines) assert.ok(textWidth(line.map((w) => w.text).join(' '), long.size, 800) <= 890)
+})
+
+// ---- PR C2: the crop is for this post only ---------------------------------
+
+test('the default crop favours the face: a full-length photo is cropped tight from the top', () => {
+  const tall = cropBox(600, 1200)
+  assert.ok(tall.size < 600, 'zoomed in on a full-length photo')
+  assert.ok(tall.top < 200, 'taken from the upper part')
+  assert.equal(tall.left, Math.round((600 - tall.size) / 2), 'centred')
+  const wide = cropBox(1600, 900)
+  assert.equal(wide.size, 900)
+  assert.equal(wide.left, 350)
+  // Zoom and move change the box, and the box stays inside the picture.
+  const z = cropBox(600, 1200, { zoom: 2, x: 5, y: 5 })
+  assert.ok(z.size < tall.size)
+  assert.ok(z.left + z.size <= 600 && z.top + z.size <= 1200 && z.left >= 0 && z.top >= 0)
+})
+
+test('crop controls are read from the URL, clamped, and default to nothing', () => {
+  assert.deepEqual(parseCropAdjust(new URLSearchParams('')), NO_ADJUST)
+  assert.deepEqual(parseCropAdjust(new URLSearchParams('zoom=9&x=-40&y=abc')), { zoom: 3, x: -5, y: 0 })
+  assert.deepEqual(cropQuery(NO_ADJUST), {})
+  assert.deepEqual(cropQuery({ zoom: 1.5, x: 0, y: -2 }), { zoom: '1.5', y: '-2' })
+})
+
+test('the crop changes only the post: nothing is saved to the profile', () => {
+  const route = src('app/api/admin/social/image/route.tsx')
+  assert.match(route, /parseCropAdjust\(url\.searchParams\)/)
+  assert.match(route, /croppedPortrait\(/)
+  assert.doesNotMatch(route, /\.(update|insert|upsert|delete)\(/, 'the render route writes nothing')
+  assert.doesNotMatch(src('lib/social/crop.ts'), /supabase|\.from\('|\.update\(|\.upsert\(/)
+  const client = src('app/admin/social/SocialClient.tsx')
+  assert.match(client, /cropQuery\(crop\)/, 'zoom / move travel only on the image URL')
+  assert.doesNotMatch(client, /\/api\/(profile|tutor)/)
+})
+
+test('a hidden photo is never cropped from the real photo — the silhouette passes through', async () => {
+  const sil = silhouetteDataUri('female')
+  assert.equal(await croppedPortrait(sil), sil)
+})
+
+// ---- the render: 15 combinations, margins, hidden photo ---------------------
 
 const MAGENTA = { r: 255, g: 0, b: 255 }
 
-async function solidPng(rgb: { r: number; g: number; b: number }) {
-  const buf = await sharp({ create: { width: 64, height: 64, channels: 3, background: rgb } }).png().toBuffer()
+async function solidPng(rgb: { r: number; g: number; b: number }, w = 64, h = 64) {
+  const buf = await sharp({ create: { width: w, height: h, channels: 3, background: rgb } }).png().toBuffer()
   return `data:image/png;base64,${buf.toString('base64')}`
 }
 
@@ -184,7 +244,7 @@ function tutor(over: Partial<BannerTutor> = {}): BannerTutor {
     id: '00000000-0000-4000-8000-000000000001',
     slug: 'ayesha-khan',
     full_name: 'Ayesha Khan',
-    headline: null,
+    headline: 'Physics and maths made simple',
     city: 'Lahore',
     area: 'Johar Town',
     rating_avg: 0,
@@ -197,19 +257,22 @@ function tutor(over: Partial<BannerTutor> = {}): BannerTutor {
   }
 }
 
-async function render(format: SocialFormat, t: BannerTutor, headline = '') {
+async function render(template: SocialTemplate, format: SocialFormat, t: BannerTutor, headline = '') {
   const qrDataUri = await QRCode.toDataURL('https://www.tutormint.org/tutor/ayesha-khan', { margin: 1 })
   const mono = readFileSync(path.join(root, 'public/brand/tutormint-monogram.png'))
   const res = renderSocialBanner({
     tutor: t,
-    badges: ['Verified'],
+    badges: ['Verified', 'Premium'],
     subjects: ['O Level Physics', 'Matric Mathematics', 'Grade 8 English'],
     format,
-    template: 'verified',
+    template,
     qrDataUri,
     profileUrl: 'https://www.tutormint.org/tutor/ayesha-khan',
     headline,
+    subhead: template === 'announcement' ? 'Ten new verified tutors joined this week' : '',
+    dateLabel: template === 'announcement' ? 'October 2026' : '',
     logoDataUri: `data:image/png;base64,${mono.toString('base64')}`,
+    verified: true,
   })
   return Buffer.from(await res.arrayBuffer())
 }
@@ -219,19 +282,22 @@ function hex(c: string) {
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }
 }
 
-async function marginProblems(png: Buffer, format: SocialFormat): Promise<string[]> {
+/** Pixels in the safe margin that are "ink": far from the ground colour. The
+ *  soft background shapes are low-opacity and stay well under the threshold. */
+async function marginProblems(png: Buffer, template: SocialTemplate, format: SocialFormat): Promise<string[]> {
   const { data: px, info } = await sharp(png).removeAlpha().raw().toBuffer({ resolveWithObject: true })
   const { width, height } = FORMATS[format]
   assert.equal(info.width, width)
   assert.equal(info.height, height)
-  const m = VERIFIED_MARGIN[format]
-  const bg = hex(BRAND.bg)
+  const m = SAFE_MARGIN[format]
+  assert.ok(m.x >= Math.ceil(width * 0.06) && m.y >= Math.ceil(height * 0.06), 'margins are at least 6%')
+  const bg = hex(templateBackground(template))
   const out: string[] = []
   for (let y = 0; y < height && out.length < 5; y++) {
     for (let x = 0; x < width; x++) {
-      if (x >= m && x < width - m && y >= m && y < height - m) continue
+      if (x >= m.x && x < width - m.x && y >= m.y && y < height - m.y) continue
       const i = (y * width + x) * 3
-      if (Math.abs(px[i] - bg.r) > 3 || Math.abs(px[i + 1] - bg.g) > 3 || Math.abs(px[i + 2] - bg.b) > 3) {
+      if (Math.abs(px[i] - bg.r) > 40 || Math.abs(px[i + 1] - bg.g) > 40 || Math.abs(px[i + 2] - bg.b) > 40) {
         out.push(`(${x},${y})`)
         break
       }
@@ -250,32 +316,45 @@ async function hasColour(png: Buffer, c: { r: number; g: number; b: number }) {
 
 const samples = process.env.SOCIAL_SAMPLES_DIR
 if (samples) mkdirSync(samples, { recursive: true })
+const sheet: Record<string, Buffer[]> = {}
 
-for (const format of ['square', 'story', 'wide'] as const) {
-  test(`verified template, ${format}: renders at size with nothing in the margins`, async () => {
-    const photo = await solidPng(MAGENTA)
-    const withPhoto = await render(format, tutor({ avatar_url: photo }))
-    assert.deepEqual(await marginProblems(withPhoto, format), [])
-    assert.equal(await hasColour(withPhoto, MAGENTA), true, 'the real photo is drawn when shown')
+for (const template of SOCIAL_TEMPLATES) {
+  for (const format of SOCIAL_FORMATS) {
+    test(`${template} × ${format}: renders at size with nothing in the safe margins`, async () => {
+      const photo = await solidPng(MAGENTA)
+      const withPhoto = await render(template, format, tutor({ avatar_url: photo }))
+      assert.deepEqual(await marginProblems(withPhoto, template, format), [])
+      assert.equal(await hasColour(withPhoto, MAGENTA), true, 'the photo is drawn')
 
-    // A long name and a long headline still stay inside the margins.
-    const long = await render(
-      format,
-      tutor({ full_name: 'Muhammad Abdul Rehman Siddiqui Qureshi' }),
-      'Teaching O Level Physics and Matric Maths in Johar Town, Lahore — book a demo lesson',
-    )
-    assert.deepEqual(await marginProblems(long, format), [])
+      // A very long name and a long headline still stay inside the margins.
+      const long = await render(
+        template,
+        format,
+        tutor({ full_name: 'Muhammad Abdul Rehman Siddiqui Qureshi' }),
+        'Teaching O Level Physics and Matric Maths in Johar Town, Lahore — book a demo lesson',
+      )
+      assert.deepEqual(await marginProblems(long, template, format), [], 'long name + headline')
 
-    // Hidden photo: the route hands the silhouette, never the real photo.
-    const hidden = await render(format, tutor({ avatar_url: socialPortraitSrc(photo, true, 'female') }))
-    assert.equal(await hasColour(hidden, MAGENTA), false, 'the hidden photo never reaches the PNG')
-    assert.equal(await hasColour(hidden, hex('#E5E7EB')), true, 'the grey silhouette is drawn')
-    assert.deepEqual(await marginProblems(hidden, format), [])
+      if (format === 'square') {
+        // Hidden photo: the route hands the silhouette — drawn inside the frame.
+        const hidden = await render(template, format, tutor({ avatar_url: socialPortraitSrc(photo, true, 'female') }))
+        assert.equal(await hasColour(hidden, MAGENTA), false, 'the hidden photo never reaches the PNG')
+        assert.equal(await hasColour(hidden, hex('#E5E7EB')), true, 'the grey silhouette is drawn')
+        assert.deepEqual(await marginProblems(hidden, template, format), [])
+        if (samples) writeFileSync(path.join(samples, `${template}-${format}-hidden-photo.png`), hidden)
+      }
+      if (samples) {
+        writeFileSync(path.join(samples, `${template}-${format}.png`), withPhoto)
+        writeFileSync(path.join(samples, `${template}-${format}-long.png`), long)
+        ;(sheet[template] ??= [])[SOCIAL_FORMATS.indexOf(format)] = withPhoto
+      }
+    })
+  }
+}
 
-    if (samples) {
-      writeFileSync(path.join(samples, `verified-${format}-photo.png`), withPhoto)
-      writeFileSync(path.join(samples, `verified-${format}-hidden-photo.png`), hidden)
-      writeFileSync(path.join(samples, `verified-${format}-long-name.png`), long)
-    }
+if (samples) {
+  test('contact sheet', async () => {
+    const rows = SOCIAL_TEMPLATES.map((t) => ({ label: t, images: sheet[t] }))
+    writeFileSync(path.join(samples, 'contact-sheet.png'), await contactSheet(rows))
   })
 }
