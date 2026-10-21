@@ -10,11 +10,15 @@ type Admin = NonNullable<ReturnType<typeof createAdminClient>>
 // tutor_directory.subjects column is not populated, so the social banner
 // resolves them from tutor_subjects → taxonomy, exactly like the CV does.
 
-export async function resolveSubjectLabels(
-  admin: Admin,
-  tutorId: string,
-  limit = 6,
-): Promise<string[]> {
+export async function resolveSubjectLabels(admin: Admin, tutorId: string, limit = 6): Promise<string[]> {
+  return (await resolveSubjectParts(admin, tutorId, limit)).map((x) => x.label)
+}
+
+export type SubjectPart = { level: string; subject: string | null; label: string }
+
+/** The same, with the level and the subject kept apart (PR C3 — the subject
+ *  spotlight's big word is the subject, its line "<level> <subject> tutor"). */
+export async function resolveSubjectParts(admin: Admin, tutorId: string, limit = 6): Promise<SubjectPart[]> {
   const { data: subs } = await admin
     .from('tutor_subjects')
     .select('master_id')
@@ -40,15 +44,15 @@ export async function resolveSubjectLabels(
   const levelName = new Map((levels ?? []).map((l) => [l.slug as string, l.name as string]))
   const subjectName = new Map((subjects ?? []).map((s) => [s.slug as string, s.name as string]))
 
-  const out: string[] = []
+  const out: SubjectPart[] = []
   const seen = new Set<string>()
   for (const m of rows) {
     const level = levelLabel(levelName.get(m.level_slug) ?? '')
-    const subject = m.subject_slug ? subjectName.get(m.subject_slug) : null
+    const subject = m.subject_slug ? (subjectName.get(m.subject_slug) ?? null) : null
     const label = (subject ? `${level} ${subject}` : level).trim()
     if (label && !seen.has(label)) {
       seen.add(label)
-      out.push(label)
+      out.push({ level, subject, label })
     }
     if (out.length >= limit) break
   }

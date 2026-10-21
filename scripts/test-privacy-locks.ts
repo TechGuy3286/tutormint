@@ -131,7 +131,14 @@ test('a hidden photo never reaches the card, profile, OG or JSON-LD output', () 
   assert.equal((browse.match(/trustFields\(|withTrust\(t, trust\)/g) ?? []).length >= 3, true)
   assert.match(read('components/TutorCard.tsx'), /src=\{tutor\.photo_hidden \? null : tutor\.avatar_url\}/)
   const page = read('app/(site)/tutor/[slug]/page.tsx')
-  assert.match(page, /image: publicPhoto\(tutor\.avatar_url, \{ hidden: flags\.photoHidden \}\)/)
+  // The og:image is the generated share card (PR C3, 21 Oct 2026): its version
+  // knows whether the photo is shown, and the card itself draws the silhouette
+  // for a hidden photo — the real URL is never read then.
+  assert.match(page, /photoShown: !!publicPhoto\(tutor\.avatar_url, \{ hidden: flags\.photoHidden \}\)/)
+  assert.match(page, /image: shareImagePath\(/)
+  assert.match(read('lib/social/postTutor.ts'), /socialPortraitSrc\(tp\.avatar_url as string \| null, !photoShown, facts\?\.gender \?\? null\)/)
+  assert.match(read('lib/social/postTutor.ts'), /const photoShown = !!facts && !facts\.photoHidden && \(await avatarShown\(admin, id\)\)/)
+  assert.match(read('app/og/tutor/[slug]/route.tsx'), /loadPostTutor\(admin, slug\)/)
   assert.match(page, /avatarUrl: publicPhoto\(tutor\.avatar_url, \{ hidden: photoHidden \}\)/)
   assert.match(page, /initials=\{photoHidden\}/)
   assert.match(page, /show_avatar === false \}\),/)

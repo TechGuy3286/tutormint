@@ -53,10 +53,10 @@ export default async function AdminSocialPage() {
   // and the one is_team_account.)
   const eligible = await loadSocialEligibleTutors(admin)
   const eligibleIds = [...eligible.keys()]
-  const profiles: { id: string; full_name: string | null; city: string | null }[] = []
+  const profiles: { id: string; full_name: string | null; city: string | null; cnic_verified_at: string | null }[] = []
   for (const part of chunk(eligibleIds, 100)) {
-    const { data } = await admin.from('profiles').select('id, full_name, city').in('id', part)
-    for (const r of data ?? []) profiles.push(r as { id: string; full_name: string | null; city: string | null })
+    const { data } = await admin.from('profiles').select('id, full_name, city, cnic_verified_at').in('id', part)
+    for (const r of data ?? []) profiles.push(r as (typeof profiles)[number])
   }
   profiles.sort((a, b) => (formatName(a.full_name) || '').localeCompare(formatName(b.full_name) || ''))
 
@@ -67,7 +67,7 @@ export default async function AdminSocialPage() {
     await Promise.all([
       admin
         .from('tutor_profiles')
-        .select('id, slug, headline, area, avatar_url, experience_years, teaching_mode, rating_avg, rating_count, degrees')
+        .select('id, slug, headline, area, avatar_url, experience_years, teaching_mode, rating_avg, rating_count, degrees, verified_fee_paid_at')
         .in('id', ids.length ? ids : none),
       admin.from('tutor_directory').select('id').in('id', ids.length ? ids : none),
       admin
@@ -125,6 +125,9 @@ export default async function AdminSocialPage() {
       photoHidden: eligible.get(id)?.photoHidden ?? false,
       // Real earned badges: gate = listed, Verified = staff-approved docs.
       badges: badgesForPlan(planByUser.get(id) ?? null, listed, verifiedOk) as BadgeName[],
+      // When they became verified — the later of the fee and the CNIC approval
+      // (the group post defaults to the most recently verified, PR C3).
+      verifiedAt: [t.verified_fee_paid_at as string | null, p.cnic_verified_at].filter(Boolean).sort().pop() ?? null,
     })
   }
 

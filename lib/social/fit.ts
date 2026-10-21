@@ -6,9 +6,9 @@
 // word) cannot use line-clamp. So the words are laid out here with the font's
 // own advance widths (lib/social/fonts.ts) and handed to the render as lines.
 
-import { JAKARTA_WIDTHS } from '@/lib/social/fonts'
+import { CAVEAT_WIDTHS, JAKARTA_WIDTHS } from '@/lib/social/fonts'
 
-export type Weight = 500 | 700 | 800
+export type Weight = 500 | 700 | 800 | 'hand'
 
 /** A word and whether it is drawn in the accent (green) colour. */
 export type Word = { text: string; accent?: boolean }
@@ -16,7 +16,8 @@ export type Word = { text: string; accent?: boolean }
 /** Width of a string in px at a size and weight. Unknown characters count as
  *  a wide letter, so an estimate errs towards wrapping, never overflowing. */
 export function textWidth(text: string, size: number, weight: Weight): number {
-  const table = JAKARTA_WIDTHS[weight]
+  // 'hand' = Caveat Bold, the Polaroid name (PR C3).
+  const table = weight === 'hand' ? CAVEAT_WIDTHS : JAKARTA_WIDTHS[weight]
   let em = 0
   for (const ch of text) em += table[ch] ?? 0.72
   return em * size

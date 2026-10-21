@@ -16,8 +16,36 @@ import { readFileSync } from 'node:fs'
 import { loadOverviewList } from '../lib/overviewItems'
 import { OVERVIEW_ITEM_KEYS, OVERVIEW_ITEMS, funnelSets } from '../lib/overviewItemsCore'
 import { createAdminClient } from '../lib/supabase/admin'
+import { pageAll } from '../lib/pageAll'
+import { loadDirectory } from '../lib/peopleDirectory'
 
 const live = !!process.env.SUPABASE_SERVICE_ROLE_KEY && !!process.env.NEXT_PUBLIC_SUPABASE_URL
+
+/**
+ * The People page's people, counted independently (owner, 21 Oct 2026): every
+ * profile of the roles that is not seed, the team account, test-named or hidden
+ * (straight from the base columns), less the accounts the directory leaves out
+ * as staff-linked with no real activity — the one part of the rule that needs
+ * staff emails / mobiles to decide.
+ */
+async function independentPeople(roles: string[]): Promise<{ id: string; createdAt: string }[]> {
+  const admin = createAdminClient()!
+  const rows = await pageAll<{ id: string; created_at: string }>((a, b) =>
+    admin
+      .from('profiles')
+      .select('id, created_at')
+      .in('role', roles)
+      .not('is_seed', 'is', true)
+      .not('is_team_account', 'is', true)
+      .not('is_test_name', 'is', true)
+      .not('hidden_from_public', 'is', true)
+      .order('id')
+      .range(a, b) as never,
+  )
+  const d = await loadDirectory()
+  const staffLinked = new Set(d.people.filter((p) => p.excluded === 'staff').map((p) => p.id))
+  return rows.filter((r) => !staffLinked.has(r.id)).map((r) => ({ id: r.id, createdAt: r.created_at }))
+}
 
 test('the Overview reads every number from the item list it links to', () => {
   const page = readFileSync('app/admin/page.tsx', 'utf8')
@@ -61,11 +89,16 @@ for (const days of [7, 30] as const) {
 test('lists agree with independent counts', { skip: !live }, async () => {
   const admin = createAdminClient()!
   const head = async (q: PromiseLike<{ count: number | null }>) => (await q).count ?? 0
-  assert.equal((await loadOverviewList('tutors')).rows.length, await head(admin.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'tutor').eq('is_test_name', false)))
-  assert.equal(
-    (await loadOverviewList('parents')).rows.length,
-    await head(admin.from('profiles').select('id', { count: 'exact', head: true }).in('role', ['parent', 'academy']).eq('is_test_name', false)),
-  )
+  // New tutors / New parents = the People tabs (owner, 21 Oct 2026): staff,
+  // seed, team, test-named and hidden accounts are left out, and so is an
+  // account linked to staff with no real activity. Checked against a separate
+  // query of the base columns, less the directory's staff-linked exclusions.
+  for (const [key, roles] of [['tutors', ['tutor']], ['parents', ['parent', 'academy']]] as const) {
+    const base = await independentPeople([...roles])
+    const rows = (await loadOverviewList(key)).rows.map((r) => r.id)
+    assert.equal(rows.length, base.length, `${key}: Overview total = independent count`)
+    assert.deepEqual(new Set(rows), new Set(base.map((b) => b.id)), `${key}: the same people`)
+  }
   // Test-named accounts and their tuitions are not counted (owner, 8 Oct 2026).
   const { data: testRows } = await admin.from('profiles').select('id').eq('is_test_name', true)
   const testIds = (testRows ?? []).map((r) => r.id as string)
@@ -145,16 +178,12 @@ test('square cards agree with their lists and with independent counts', { skip: 
   const signups = await loadOverviewList('signups-today')
   assert.equal(n(signups.card!.today), signups.rows.length)
   // New tutors today / yesterday / last 7 days against a separate query.
+  const people = { tutor: await independentPeople(['tutor']), parent: await independentPeople(['parent', 'academy']) }
   const count = async (role: string[], from: number, to: number) =>
-    (
-      await admin
-        .from('profiles')
-        .select('id', { count: 'exact', head: true })
-        .in('role', role)
-        .eq('is_test_name', false)
-        .gte('created_at', new Date(from).toISOString())
-        .lt('created_at', new Date(to).toISOString())
-    ).count ?? 0
+    people[role[0] === 'tutor' ? 'tutor' : 'parent'].filter((p) => {
+      const t = Date.parse(p.createdAt)
+      return t >= from && t < to
+    }).length
   assert.equal(n(tutors.card!.today), await count(['tutor'], today, now + 1))
   assert.equal(n(tutors.card!.yesterday), await count(['tutor'], today - 86_400_000, today))
   assert.equal(n(tutors.card!.last7), await count(['tutor'], today - 6 * 86_400_000, now + 1))

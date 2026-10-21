@@ -11,11 +11,42 @@
 
 import { levelLabel, jobType } from '@/lib/display'
 import { isOnlineType } from '@/lib/matchChip'
+import { withArticle } from '@/lib/article'
 
-export type SocialTemplate = 'verified' | 'spotlight' | 'bold' | 'success' | 'announcement'
+export type SocialTemplate =
+  | 'verified'
+  | 'spotlight'
+  | 'bold'
+  | 'success'
+  | 'announcement'
+  // PR C3 (owner, 21 Oct 2026) — seven layouts of their own.
+  | 'split'
+  | 'idcard'
+  | 'quote'
+  | 'subject'
+  | 'group'
+  | 'justverified'
+  | 'polaroid'
+  // INTERNAL — the neutral link-preview card for a tutor who is not verified
+  // ('Tutor on TutorMint'; never says Verified). Not offered on Social posts.
+  | 'profile'
 export type SocialFormat = 'square' | 'story' | 'wide'
 
-export const SOCIAL_TEMPLATES: SocialTemplate[] = ['verified', 'spotlight', 'bold', 'success', 'announcement']
+/** The twelve templates the admin can pick (the internal 'profile' look is not one). */
+export const SOCIAL_TEMPLATES: SocialTemplate[] = [
+  'verified',
+  'spotlight',
+  'bold',
+  'success',
+  'announcement',
+  'split',
+  'idcard',
+  'quote',
+  'subject',
+  'group',
+  'justverified',
+  'polaroid',
+]
 
 /** The template the generator opens on (owner, 21 Oct 2026). */
 export const DEFAULT_SOCIAL_TEMPLATE: SocialTemplate = 'verified'
@@ -50,6 +81,10 @@ export type SocialData = {
   headline?: string | null
   /** announcement only: the detail / venue line. */
   subhead?: string | null
+  /** The tutor's subjects as level + subject (the subject template's big word). */
+  subjectParts?: { level: string; subject: string | null }[]
+  /** group only: the city and the 4–6 tutors on the post. */
+  group?: { city: string; tutors: { name: string; subject: string | null }[] } | null
 }
 
 // ---- the band -------------------------------------------------------------
@@ -68,8 +103,8 @@ export function bandTextLines(): string[] {
 // ---- the "I'm a Verified Tutor" template (owner, 21 Oct 2026) -------------
 //
 // The big headline is drawn as two runs, "I'm a " and "Verified Tutor", the
-// second in green, with a drawn tick after it (a ✓ glyph is not in the render
-// font, so it is an inline SVG — the same reason the star is).
+// second in green. No tick after it (PR C3): the ✓ badge on the photo ring is
+// the one tick on the post.
 
 export const VERIFIED_HEADLINE_LEAD = "I'm a "
 export const VERIFIED_HEADLINE_ACCENT = 'Verified Tutor'
@@ -119,10 +154,12 @@ export function placeText(area: string | null, city: string | null): string | nu
   return [area?.trim(), city?.trim()].filter(Boolean).join(' · ') || null
 }
 
-// ---- the headline, sub-line and CTA of each template (PR C2) -------------
+// ---- the headline, sub-line and CTA of each template (PR C2 + C3) --------
 //
-// Every template has the same structure: a heavy headline with its key words in
-// green, an optional sub-line, the tutor, and a CTA pill "<label> → tutormint.org".
+// Every C2 template has the same structure: a heavy headline with its key words
+// in green, an optional sub-line, the tutor, and a CTA pill "<label> →
+// tutormint.org". The seven C3 templates have layouts of their own
+// (app/api/admin/social/image/layouts.tsx) but read their words from here too.
 
 export type Headline = {
   text: string
@@ -130,7 +167,9 @@ export type Headline = {
   accentWords: number
   /** The whole headline is the key word. */
   accentAll?: boolean
-  /** Drawn after the last word: the verified tick or the party popper. */
+  /** Drawn after the last word: a tick or the party popper. The "I'm a
+   *  Verified Tutor" headline has NO tick (owner, 21 Oct 2026 — PR C3: the ✓
+   *  badge on the photo ring is the one tick). */
   tail?: 'tick' | 'confetti'
 }
 
@@ -140,12 +179,62 @@ export const BOLD_HEADLINE = 'Hire a Verified Tutor'
 export const SUCCESS_HEADLINE = 'Congratulations'
 export const HIRE_CTA = 'Hire verified tutors'
 
+// PR C3 — the seven new templates.
+export const SPLIT_HEADLINE = 'Learn with a verified tutor'
+export const IDCARD_HEADLINE = 'Meet a verified tutor'
+/** The card's own title. Deliberately NOT "identity card" or anything that reads
+ *  like a government document. */
+export const IDCARD_TITLE = 'TutorMint Tutor'
+export const IDCARD_SEAL = 'Verified by TutorMint'
+export const POLAROID_HEADLINE = 'Meet your next tutor'
+export const JUST_VERIFIED_LEAD = 'Another tutor just got verified'
+export const GROUP_LEAD = 'Verified tutors in'
+/** The neutral link-preview card for a tutor who is not verified. */
+export const PROFILE_HEADLINE = 'Tutor on TutorMint'
+export const PROFILE_CTA = 'View profile'
+export const VERIFY_CTA = 'Get your profile verified'
+
 const clip90 = (s: string | null | undefined) => (s ?? '').trim().slice(0, 90)
+const words = (s: string) => s.trim().split(/\s+/).filter(Boolean).length
+
+/** The tutor's own profile headline, exactly as written (trimmed). Null when
+ *  there is none — the "Tutor's own words" template is then unavailable. */
+export function ownWords(data: Pick<SocialData, 'tutorHeadline'>): string | null {
+  const t = (data.tutorHeadline ?? '').replace(/\s+/g, ' ').trim()
+  return t || null
+}
+
+/** What the picker says when "Tutor's own words" cannot be used. */
+export const NO_HEADLINE_MESSAGE = 'No headline on profile'
+
+/** The tutor's top subject as level + subject, from the profile. */
+export function topSubject(data: SocialData): { level: string; subject: string | null } | null {
+  const p = data.subjectParts?.find((x) => (x.subject ?? x.level).trim())
+  if (p) return { level: levelLabel(p.level).trim(), subject: p.subject?.trim() || null }
+  const label = subjectLabels(data.subjects, 1)[0]
+  return label ? { level: '', subject: label } : null
+}
+
+/** The huge background word of the subject template: the subject's own name in
+ *  capitals (the level's name when the subject is a level, e.g. Holy Quran). */
+export function subjectWord(data: SocialData): string {
+  const t = topSubject(data)
+  return (t?.subject ?? t?.level ?? 'TUTOR').toUpperCase()
+}
+
+/** "<level> <subject> tutor in <city>", from the profile. */
+export function subjectLine(data: SocialData): string {
+  const t = topSubject(data)
+  const what = t ? [t.level, t.subject].filter(Boolean).join(' ') : ''
+  const city = data.city?.trim()
+  return `${what ? what + ' tutor' : 'Tutor'}${city ? ` in ${city}` : ''}`
+}
 
 export function headlineFor(template: SocialTemplate, data: SocialData): Headline {
+  const city = data.city?.trim() || ''
   switch (template) {
     case 'verified':
-      return { text: VERIFIED_HEADLINE_LEAD + VERIFIED_HEADLINE_ACCENT, accentWords: 2, tail: 'tick' }
+      return { text: VERIFIED_HEADLINE_LEAD + VERIFIED_HEADLINE_ACCENT, accentWords: 2 }
     case 'spotlight':
       return { text: SPOTLIGHT_HEADLINE, accentWords: 2 }
     case 'bold':
@@ -154,6 +243,26 @@ export function headlineFor(template: SocialTemplate, data: SocialData): Headlin
       return { text: SUCCESS_HEADLINE, accentWords: 0, accentAll: true, tail: 'confetti' }
     case 'announcement':
       return { text: clip90(data.headline) || ANNOUNCEMENT_DEFAULT, accentWords: 1 }
+    case 'split':
+      return clip90(data.headline) ? { text: clip90(data.headline), accentWords: 0 } : { text: SPLIT_HEADLINE, accentWords: 2 }
+    case 'idcard':
+      return clip90(data.headline) ? { text: clip90(data.headline), accentWords: 0 } : { text: IDCARD_HEADLINE, accentWords: 2 }
+    case 'polaroid':
+      return clip90(data.headline) ? { text: clip90(data.headline), accentWords: 0 } : { text: POLAROID_HEADLINE, accentWords: 2 }
+    case 'quote':
+      return { text: ownWords(data) ?? '', accentWords: 0 }
+    case 'subject':
+      return { text: subjectLine(data), accentWords: 0 }
+    case 'group': {
+      const c = data.group?.city?.trim() || city
+      return c ? { text: `${GROUP_LEAD} ${c}`, accentWords: words(c) } : { text: 'Verified tutors', accentWords: 1 }
+    }
+    case 'justverified':
+      return city
+        ? { text: `${JUST_VERIFIED_LEAD} in ${city}`, accentWords: words(city), tail: 'tick' }
+        : { text: JUST_VERIFIED_LEAD, accentWords: 1, tail: 'tick' }
+    case 'profile':
+      return { text: PROFILE_HEADLINE, accentWords: 1 }
   }
 }
 
@@ -162,6 +271,9 @@ export function subLineFor(template: SocialTemplate, data: SocialData): string |
   if (template === 'verified') return verifiedSubline(data.headline)
   if (template === 'spotlight' || template === 'bold') return clip90(data.headline) || clip90(data.tutorHeadline) || null
   if (template === 'announcement') return clip90(data.subhead) || null
+  if (template === 'split') return clip90(data.tutorHeadline) || null
+  // The neutral preview never says Verified — not even in the tutor's own words.
+  if (template === 'profile') return /verif/i.test(data.tutorHeadline ?? '') ? null : clip90(data.tutorHeadline) || null
   return null
 }
 
@@ -173,7 +285,8 @@ export function occasionFor(template: SocialTemplate, data: SocialData): string 
 
 /** The CTA pill: a label, an arrow, and tutormint.org in bold. */
 export function ctaParts(template: SocialTemplate, data: SocialData): { label: string; site: string } {
-  if (template === 'verified') return { label: VERIFIED_CTA, site: VERIFIED_CTA_SITE }
+  if (template === 'verified' || template === 'justverified') return { label: VERIFIED_CTA, site: VERIFIED_CTA_SITE }
+  if (template === 'profile') return { label: PROFILE_CTA, site: SITE }
   if (template === 'success') {
     return { label: data.successKind === 'hired' ? 'Hired through TutorMint' : 'Verified on TutorMint', site: SITE }
   }
@@ -190,16 +303,36 @@ export function ctaText(template: SocialTemplate, data: SocialData): string {
 export function bodyTextLines(template: SocialTemplate, data: SocialData): string[] {
   const occasion = occasionFor(template, data)
   const sub = subLineFor(template, data)
-  return [
-    headlineFor(template, data).text,
-    ...(occasion ? [occasion] : []),
-    ...(sub ? [sub] : []),
-    data.name,
-    ...data.badges.filter((b) => b !== 'Verified'),
-    ...subjectLabels(data.subjects),
-    ...(data.city?.trim() ? [data.city.trim()] : []),
-    ctaText(template, data),
-  ]
+  const city = data.city?.trim() ? [data.city.trim()] : []
+  const head = headlineFor(template, data).text
+  const tail = ctaText(template, data)
+  switch (template) {
+    case 'group':
+      return [
+        head,
+        ...(data.group?.tutors ?? []).flatMap((t) => [t.name, ...(t.subject ? [levelLabel(t.subject)] : [])]),
+        tail,
+      ]
+    case 'justverified':
+      return [head, data.name, ...subjectLabels(data.subjects), tail]
+    case 'quote':
+      return [head, data.name, ...city, tail]
+    case 'subject':
+      return [subjectWord(data), head, data.name, tail]
+    case 'idcard':
+      return [head, IDCARD_TITLE, data.name, ...subjectLabels(data.subjects), ...city, IDCARD_SEAL, tail]
+    default:
+      return [
+        head,
+        ...(occasion ? [occasion] : []),
+        ...(sub ? [sub] : []),
+        data.name,
+        ...data.badges.filter((b) => b !== 'Verified'),
+        ...subjectLabels(data.subjects),
+        ...city,
+        tail,
+      ]
+  }
 }
 
 /** The whole creative's text: band + body. What test-social.ts scans. */
@@ -215,8 +348,9 @@ function sanitizeTag(s: string): string {
 
 /** Exactly five hashtags: brand, city, subject, and two evergreen. */
 export function hashtags(data: SocialData): string[] {
-  const subjects = subjectLabels(data.subjects)
-  const cityTag = data.city ? `#${sanitizeTag(data.city)}Tutors` : null
+  const subjects = data.group ? data.group.tutors.map((t) => t.subject).filter(Boolean).map((s) => levelLabel(s as string)) : subjectLabels(data.subjects)
+  const city = data.group?.city ?? data.city
+  const cityTag = city ? `#${sanitizeTag(city)}Tutors` : null
   // The subject word (last token of "Level Subject"), e.g. "O Level Physics" → Physics.
   const subjectWord = subjects[0] ? sanitizeTag(subjects[0].split(/\s+/).pop() ?? '') : ''
   const subjectTag = subjectWord ? `#${subjectWord}Tutor` : null
@@ -238,22 +372,88 @@ export function hashtags(data: SocialData): string[] {
   return out
 }
 
-/** A ready-to-paste caption: one line about the tutor, the tagline once, the
-    profile URL, the handles, and five hashtags. Announcement leads with the
-    admin's headline. */
-export function buildCaption(template: SocialTemplate, data: SocialData): string {
+/** The tutors-in-a-city page a group post links to. */
+export function cityTutorsUrl(city: string): string {
+  return `https://www.tutormint.org/browse/tutors?city=${encodeURIComponent(city.trim())}`
+}
+
+/** "A, B and C". */
+function listNames(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? ''
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+}
+
+/**
+ * THREE caption leads per template (owner, 21 Oct 2026 — PR C3): the same facts
+ * in different words. Every fact comes from the live profile (name, subjects,
+ * city, the tutor's own headline) or the admin's Headline field; nothing is
+ * invented, no price, no superlative.
+ */
+export function captionLeads(template: SocialTemplate, data: SocialData): [string, string, string] {
   const subjects = subjectLabels(data.subjects)
-  const lead =
-    template === 'announcement' && (data.headline ?? '').trim()
-      ? (data.headline as string).trim()
-      : `Meet ${data.name} — a verified ${subjects[0] ? subjects[0] + ' ' : ''}tutor${
-          data.city ? ' in ' + data.city : ''
-        } on TutorMint.`
-  return [
-    lead,
-    TAGLINE,
-    data.profileUrl,
-    `${HANDLE} · ${X_HANDLE}`,
-    hashtags(data).join(' '),
-  ].join('\n')
+  const s = subjects[0] ? subjects[0] + ' ' : ''
+  const inCity = data.city?.trim() ? ` in ${data.city.trim()}` : ''
+  const name = data.name
+  const teaches = subjects.length ? `${name} teaches ${listNames(subjects)}${inCity}.` : `${name} teaches${inCity || ' on TutorMint'}.`
+  const generic: [string, string, string] = [
+    `Meet ${name} — a verified ${s}tutor${inCity} on TutorMint.`,
+    `Looking for ${withArticle(s + 'tutor')}${inCity}? ${name} is verified on TutorMint.`,
+    `${teaches} Verified on TutorMint — see the profile.`,
+  ]
+  const h = (data.headline ?? '').trim()
+  switch (template) {
+    case 'announcement':
+      return h ? [h, `${h} — meet ${name}${inCity}.`, `News from TutorMint: ${h}`] : generic
+    case 'success':
+      return data.successKind === 'hired'
+        ? [`${name} got hired through TutorMint${inCity}!`, `Congratulations to ${name} on being hired through TutorMint${inCity}.`, `Hired through TutorMint: ${name}, ${s}tutor${inCity}.`]
+        : [`${name} is now verified on TutorMint${inCity}!`, `Congratulations to ${name} — verified on TutorMint${inCity}.`, `Verified on TutorMint: ${name}, ${s}tutor${inCity}.`]
+    case 'justverified':
+      return [
+        `Another tutor just got verified${inCity}: ${name}.`,
+        `Welcome ${name} — now verified on TutorMint${inCity}.`,
+        `${name} is now a verified ${s}tutor${inCity}.`,
+      ]
+    case 'quote': {
+      const q = ownWords(data)
+      if (!q) return generic
+      return [`“${q}” — ${name}${inCity ? ',' + inCity.replace(' in', '') : ''}`, `In ${name}'s own words: “${q}”`, `${name}, verified ${s}tutor${inCity}: “${q}”`]
+    }
+    case 'subject': {
+      const line = subjectLine(data)
+      const top = topSubject(data)
+      if (!top) return generic
+      const what = [top.level, top.subject].filter(Boolean).join(' ')
+      return [`${line}: meet ${name}, verified on TutorMint.`, `Need ${withArticle(what + ' tutor')}${inCity}? ${name} is verified on TutorMint.`, `${name} — ${line}. Verified on TutorMint.`]
+    }
+    case 'group': {
+      const g = data.group
+      const city = g?.city ?? data.city ?? ''
+      const names = (g?.tutors ?? []).map((t) => t.name)
+      const where = city ? ` in ${city}` : ''
+      return [
+        `Verified tutors${where}: ${listNames(names)}.`,
+        `Meet ${names.length} verified tutors${where} — ${listNames(names)}.`,
+        `Looking for a tutor${where}? ${listNames(names)} are verified on TutorMint.`,
+      ]
+    }
+    case 'profile':
+      return [`${name} — ${s}tutor${inCity} on TutorMint.`, `${teaches}`, `See ${name}'s profile on TutorMint.`]
+    default:
+      return generic
+  }
+}
+
+/** The three ready-to-paste captions: a lead, the tagline once, the link, the
+    handles and five hashtags. The link and the hashtags are the same on all
+    three; only the lead's wording changes. */
+export function captionVariants(template: SocialTemplate, data: SocialData): [string, string, string] {
+  const link = template === 'group' && data.group?.city ? cityTutorsUrl(data.group.city) : data.profileUrl
+  const tail = [TAGLINE, link, `${HANDLE} · ${X_HANDLE}`, hashtags(data).join(' ')]
+  return captionLeads(template, data).map((lead) => [lead, ...tail].join('\n')) as [string, string, string]
+}
+
+/** A ready-to-paste caption — the first of the three versions. */
+export function buildCaption(template: SocialTemplate, data: SocialData): string {
+  return captionVariants(template, data)[0]
 }

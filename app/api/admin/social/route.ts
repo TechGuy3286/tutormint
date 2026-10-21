@@ -11,7 +11,8 @@ import { parseBody, z, text } from '@/lib/validate'
 // downloads a post to publish — which is the moment worth a record.
 
 const SocialBody = z.object({
-  slug: text({ min: 1, max: 200, label: 'Tutor' }),
+  // A group post records its 4–6 tutors' slugs, comma-separated (PR C3).
+  slug: text({ min: 1, max: 800, label: 'Tutor' }),
   template: z.string().max(64).optional(),
   format: z.string().max(64).optional(),
   edited: z.boolean().optional(),

@@ -30,8 +30,9 @@ import { formatDate } from '@/lib/datetime'
 import { levelLabel } from '@/lib/display'
 import { feeLabelOf } from '@/lib/fee'
 import JobTypesChip from '@/components/JobTypesChip'
-import { jsonLdScript, pageDescription, pageTitle, socialMeta, tutorProfileJsonLd, seoTitle, seoDescription } from '@/lib/seo'
+import { jsonLdScript, pageDescription, pageTitle, socialMeta, tutorProfileJsonLd, seoDescription } from '@/lib/seo'
 import { tutorMetaDescription } from '@/lib/tutorMeta'
+import { shareImagePath, shareImageVersion, tutorOgDescription, tutorOgTitle } from '@/lib/seo/tutorOg'
 import { getLandingLinker } from '@/lib/landing'
 import { currentSlugForRetired } from '@/lib/tutorSlug'
 import { formatName } from '@/lib/formatName'
@@ -320,8 +321,6 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     new Set(tutor.subjects.map((s) => s.subject ?? s.level).filter(Boolean)),
   ).slice(0, 3)
 
-  const subjectText = subjects.length > 0 ? subjects.join(', ') : 'Verified'
-  const city = tutor.city ?? 'Pakistan'
 
   // SHARE-CARD GUARD (owner): the link preview must never present an
   // under-review or unclaimed-import tutor as a hireable listing — no name, no
@@ -347,7 +346,13 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   // by the search engine, which is preferable to dropping the brand.
   // ≤ 60 characters (owner, 6 Oct 2026): "Name — Subject tutor in City | TutorMint"
   // when it fits, the brand dropped when it does not, cut at a word otherwise.
-  const title = seoTitle(`${tutor.full_name} — ${subjectText} tutor in ${city}`)
+  // The title — and the og:title — is the first WHOLE form that fits ~60
+  // characters (owner, 21 Oct 2026 — PR C3): two subjects, one, the level range,
+  // the first name, no subject. Never cut inside a word or a subject. (An
+  // Admission Test Prep school choice reads as its level, as on the page.)
+  const ogSubjects = tutor.subjects.map((x) => (x.school ? x.level : (x.subject ?? x.level)))
+  const ogLevels = tutor.subjects.filter((x) => !x.school).map((x) => levelLabel(x.level))
+  const title = tutorOgTitle({ name: tutor.full_name, subjects: ogSubjects, levels: ogLevels, city: tutor.city })
   // "<Name> — verified <subjects> tutor in <areas, city> (home/online). Contact
   // directly on TutorMint, no commission." (owner, 13 Oct 2026). "verified" is
   // said only when the page is indexable — fee paid and documents approved.
@@ -378,13 +383,29 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       : {}),
     // Their photo when they have one, the branded default otherwise. Complete
     // OG + Twitter, so the card is never a bare link. See socialMeta.
+    // The preview card (PR C3): its own description (the headline or subjects,
+    // then the tagline) and a 1200×630 image in the C2 Wide design — the photo,
+    // or the grey silhouette when hidden; "I'm a Verified Tutor" only when
+    // verified, else a neutral "Tutor on TutorMint". The version in the URL
+    // changes with the photo, name or verification, so previews refresh.
     ...socialMeta({
       title,
-      description,
+      description: tutorOgDescription({ headline: tutor.headline, subjects: ogSubjects, city: tutor.city }),
       path: `/tutor/${tutor.slug}`,
-      // A hidden photo never reaches a share preview (owner, 17 Oct 2026).
-      image: publicPhoto(tutor.avatar_url, { hidden: flags.photoHidden }),
-      imageAlt: tutor.full_name,
+      image: shareImagePath(
+        tutor.slug,
+        shareImageVersion({
+          avatar: tutor.avatar_url,
+          // A hidden photo never reaches a share preview (owner, 17 Oct 2026).
+          photoShown: !!publicPhoto(tutor.avatar_url, { hidden: flags.photoHidden }),
+          name: tutor.full_name,
+          verified: flags.verified && flags.cnicApproved && flags.profilePicApproved && flags.selfieApproved,
+          city: tutor.city,
+          subjects: ogSubjects.slice(0, 3),
+          headline: tutor.headline,
+        }),
+      ),
+      imageAlt: `${tutor.full_name} on TutorMint`,
       type: 'profile',
     }),
   }

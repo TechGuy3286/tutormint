@@ -40,6 +40,20 @@ for (const w of weights) {
   }
   widths[w] = table
 }
+// Caveat Bold (SIL OFL 1.1, assets/fonts/caveat/OFL.txt; latin subset from
+// @fontsource/caveat 5.2.8) — the friendly handwritten face the Polaroid
+// template writes the tutor's name in (owner, 21 Oct 2026 — PR C3).
+{
+  const buf = readFileSync(path.join(root, 'assets/fonts/caveat/caveat-latin-700-normal.woff'))
+  out += `export const CAVEAT_700_B64 =\n  '${buf.toString('base64')}'\n\n`
+  const font = fontkit.create(buf)
+  const table: Record<string, number> = {}
+  for (let c = 32; c < 127; c++) {
+    const ch = String.fromCharCode(c)
+    table[ch] = Math.round((font.layout(ch).advanceWidth / font.unitsPerEm) * 1000) / 1000
+  }
+  out += `/** Caveat Bold advance width in em, for printable ASCII. */\nexport const CAVEAT_WIDTHS: Record<string, number> = ${JSON.stringify(table)}\n\n`
+}
 out += `/** Advance width in em, per weight, for printable ASCII. */\nexport const JAKARTA_WIDTHS: Record<500 | 700 | 800, Record<string, number>> = ${JSON.stringify(widths)}\n`
 writeFileSync(path.join(root, 'lib/social/fonts.ts'), out)
 console.log('wrote lib/social/fonts.ts')

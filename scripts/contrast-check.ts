@@ -377,6 +377,30 @@ const PAIRS: Pair[] = [
   { fg: 'slate300', bg: 'navy', where: 'social C2 sub-line + footer handles, navy templates' },
   { fg: 'black', bg: 'gold', where: 'social C2 Featured pill + announcement date chip' },
 
+  // Social C3 (owner, 21 Oct 2026) — the seven new layouts' grounds and the
+  // neutral link-preview card. Pairs already listed above (navy/white/mint on
+  // white, navy, bg; navy on tintNavy / tintGreen) are not repeated.
+  { fg: 'red', bg: 'bg', where: 'social profile preview key word "TutorMint" + pin' },
+  { fg: 'white', bg: 'navy', where: 'social C3 ID card band title + profile-preview CTA pill' },
+  { fg: 'greenDeep', bg: 'tintNavy', where: 'social C3 ID card ground: green key word (headline only, 56px+ heavy)', large: true },
+  { fg: 'slate700', bg: 'tintNavy', where: 'social C3 ID card ground: footer handles' },
+  { fg: 'black', bg: 'tintNavy', where: 'social C3 ID card ground: wordmark "Tutor"' },
+  { fg: 'red', bg: 'tintNavy', where: 'social C3 ID card ground: wordmark "Mint"' },
+  { fg: 'slate700', bg: 'white', where: 'social C3 ID card subjects (on the white card)' },
+  { fg: 'greenDeep', bg: 'white', where: 'social C3 ID card seal "Verified by TutorMint"' },
+  { fg: 'greenDeep', bg: 'tintGreen', where: 'social C3 quote / polaroid ground: green key word' },
+  { fg: 'slate700', bg: 'tintGreen', where: 'social C3 quote / polaroid ground: city + footer handles' },
+  { fg: 'black', bg: 'tintGreen', where: 'social C3 quote / polaroid ground: wordmark "Tutor"' },
+  { fg: 'red', bg: 'tintGreen', where: 'social C3 quote / polaroid ground: wordmark "Mint"' },
+  { fg: 'navy', bg: 'white', where: 'social C3 chips on tint grounds + polaroid handwritten name' },
+  { fg: 'navy', bg: 'slate100', where: 'social C3 polaroid ground: headline, name, city' },
+  { fg: 'greenDeep', bg: 'slate100', where: 'social C3 polaroid ground: green key word' },
+  { fg: 'slate700', bg: 'slate100', where: 'social C3 polaroid ground: footer handles' },
+  { fg: 'black', bg: 'slate100', where: 'social C3 polaroid ground: wordmark "Tutor"' },
+  { fg: 'red', bg: 'slate100', where: 'social C3 polaroid ground: wordmark "Mint"' },
+  { fg: 'white', bg: 'navy', where: 'social C3 polaroid CTA pill (navy fill)' },
+  { fg: 'navy', bg: 'tintNavy', where: 'social C3 subject chips (split, just verified)' },
+
   // Blog composed covers (lib/covers/compose.tsx). next/og literals from
   // lib/brand.ts. ONE fixed layout (owner, 14 Oct 2026): every word sits on the
   // white text column, whatever the scene's ground — so these are all the pairs.
