@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { ExternalLink, FileCheck2, MessageCircle, Phone, Search } from 'lucide-react'
 
 import Avatar from '@/components/Avatar'
@@ -13,7 +13,7 @@ import FollowUpActions, { MarkFollowedUp } from '@/components/admin/FollowUpActi
 import type { FollowUpSource } from '@/lib/followUpCore'
 import ProfileShareButtons from '@/components/admin/ProfileShareButtons'
 import type { ProfileShare } from '@/lib/profileShareCore'
-import { useUrlState } from '@/lib/useUrlState'
+import { setUrlParam, useUrlState } from '@/lib/useUrlState'
 import { adminWhatsAppRoute } from '@/lib/adminWhatsAppCore'
 import SelfieMatchWarning from '@/components/admin/SelfieMatchWarning'
 import {
@@ -74,6 +74,35 @@ export type GridItem = {
   docs?: (DocSummary & { oldestUploadAt: string | null; selfieLooksLikePhoto?: boolean }) | null
   /** Tutors only: Copy profile link / Share on WhatsApp (owner, 20 Oct 2026). */
   share?: ProfileShare | null
+  /** People tabs (owner, 21 Oct 2026): the value of each extra filter row for
+   *  this card, keyed by the row's `param` (e.g. { paid: 'paid' }). */
+  tags?: Record<string, string>
+  /** Extra text the search box matches (email, mobile) — never shown. */
+  searchText?: string
+  /** Parents tab: the parent's own facts. */
+  parent?: GridParent | null
+  /** "Possible duplicate" — the other accounts that look like the same person. */
+  dupes?: { id: string; name: string; reason: string }[]
+}
+
+export type GridParent = {
+  mobileVerified: boolean
+  tuitionsOpen: number
+  tuitionsTotal: number
+  plan: string
+  verification: string
+  verificationTone: 'good' | 'pending' | 'bad' | 'neutral'
+  lastActive: string | null
+}
+
+/** An extra single-select chip row above the cards. The first option is the
+ *  default; a card matches an option when its tags[param] equals the key ('all'
+ *  matches everything). An option with `hideWhenZero` only shows when a card is
+ *  in it. Counts are over the cards the search and the rows above leave. */
+export type FilterRow = {
+  param: string
+  label: string
+  options: { key: string; label: string; hideWhenZero?: boolean }[]
 }
 
 const STEP = 48
@@ -85,12 +114,28 @@ export default function OverviewCardGrid({
   items,
   docFilters = false,
   isOwner = false,
+  filterRows = [],
 }: {
   items: GridItem[]
   /** Show the Documents filter chips (the Tutors list). */
   docFilters?: boolean
   isOwner?: boolean
+  /** Extra chip rows, applied in order before the Documents chips. */
+  filterRows?: FilterRow[]
 }) {
+  const sp = useSearchParams()
+  const [sel, setSel] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      filterRows.map((r) => {
+        const v = sp.get(r.param)
+        return [r.param, v && r.options.some((o) => o.key === v) ? v : r.options[0].key]
+      }),
+    ),
+  )
+  const pick = (row: FilterRow, key: string) => {
+    setSel((cur) => ({ ...cur, [row.param]: key }))
+    setUrlParam(row.param, key === row.options[0].key ? null : key)
+  }
   // Search and chip live in the page address (owner, 20 Oct 2026), so coming
   // back from a card — breadcrumb, browser or phone back — reopens the same
   // list. How far 'Show more' went is remembered for the tab.
@@ -137,12 +182,29 @@ export default function OverviewCardGrid({
     const needle = q.trim().toLowerCase()
     const pool = items.filter((it) => !(it.memberId && moved.has(it.memberId) && it.followUp?.tab === 'stuck'))
     if (!needle) return pool
-    return pool.filter((it) =>
-      [it.title, it.detail, it.member?.name, it.member?.city, it.badge].some((v) => (v ?? '').toLowerCase().includes(needle)),
+    const digits = needle.replace(/\D/g, '')
+    return pool.filter(
+      (it) =>
+        [it.title, it.detail, it.member?.name, it.member?.city, it.badge, it.searchText].some((v) => (v ?? '').toLowerCase().includes(needle)) ||
+        (digits.length >= 4 && (it.searchText ?? '').includes(digits)),
     )
   }, [items, q, moved])
-  const counts = useMemo(() => (docFilters ? docFilterCounts(searched) : null), [docFilters, searched])
-  const filtered = useMemo(() => (docFilters ? applyDocFilter(searched, docFilter) : searched), [docFilters, searched, docFilter])
+  // The extra rows, in order: each row's counts are over what the search and
+  // the rows above it leave, so a chip's number is exactly what it shows.
+  const { rowCounts, rowed } = useMemo(() => {
+    let pool = searched
+    const out: Record<string, Record<string, number>> = {}
+    for (const row of filterRows) {
+      const c: Record<string, number> = {}
+      for (const o of row.options) c[o.key] = o.key === 'all' ? pool.length : pool.filter((it) => it.tags?.[row.param] === o.key).length
+      out[row.param] = c
+      const chosen = sel[row.param] ?? row.options[0].key
+      if (chosen !== 'all') pool = pool.filter((it) => it.tags?.[row.param] === chosen)
+    }
+    return { rowCounts: out, rowed: pool }
+  }, [searched, filterRows, sel])
+  const counts = useMemo(() => (docFilters ? docFilterCounts(rowed) : null), [docFilters, rowed])
+  const filtered = useMemo(() => (docFilters ? applyDocFilter(rowed, docFilter) : rowed), [docFilters, rowed, docFilter])
 
   const visible = filtered.slice(0, shown)
   const left = filtered.length - visible.length
@@ -160,6 +222,31 @@ export default function OverviewCardGrid({
           className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white pl-9 pr-3 text-xs outline-none focus:border-tm-navy"
         />
       </label>
+      {filterRows.map((row) => (
+        <nav key={row.param} aria-label={row.label} className="flex flex-wrap gap-2">
+          {row.options
+            .filter((o) => !o.hideWhenZero || (rowCounts[row.param]?.[o.key] ?? 0) > 0 || sel[row.param] === o.key)
+            .map((o) => {
+              const on = (sel[row.param] ?? row.options[0].key) === o.key
+              return (
+                <button
+                  key={o.key}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => {
+                    pick(row, o.key)
+                    setShown(STEP)
+                  }}
+                  className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-4 text-xs font-bold ${
+                    on ? 'border-tm-navy bg-tm-navy text-white' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'
+                  }`}
+                >
+                  {o.label} <span className={on ? 'text-white' : 'text-gray-500'}>{rowCounts[row.param]?.[o.key] ?? 0}</span>
+                </button>
+              )
+            })}
+        </nav>
+      ))}
       {counts && (
         <nav aria-label="Documents" className="flex flex-wrap gap-2">
           {DOC_FILTERS.map((f) => {
@@ -245,8 +332,29 @@ function MemberBody({
       <dl className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px]">
         <dt className="text-gray-500">Joined</dt>
         <dd className="text-right font-semibold text-slate-700">{m.joinedAt ? formatDate(m.joinedAt) : '—'}</dd>
-        <dt className="text-gray-500">Profile</dt>
-        <dd className="text-right font-semibold text-slate-700">{m.completion}%</dd>
+        {it.parent ? (
+          <>
+            <dt className="text-gray-500">Mobile</dt>
+            <dd className={`text-right font-bold ${it.parent.mobileVerified ? 'text-tm-green-deep' : 'text-gray-500'}`}>
+              {it.parent.mobileVerified ? 'Verified ✓' : 'Not verified'}
+            </dd>
+            <dt className="text-gray-500">Tuitions</dt>
+            <dd className="text-right font-semibold text-slate-700">
+              {it.parent.tuitionsOpen} open / {it.parent.tuitionsTotal} total
+            </dd>
+            <dt className="text-gray-500">Plan</dt>
+            <dd className="text-right font-semibold text-slate-700">{it.parent.plan}</dd>
+            <dt className="text-gray-500">Verification</dt>
+            <dd className={`text-right font-bold ${PARENT_TONE[it.parent.verificationTone]}`}>{it.parent.verification}</dd>
+            <dt className="text-gray-500">Last active</dt>
+            <dd className="text-right font-semibold text-slate-700">{it.parent.lastActive ? formatDate(it.parent.lastActive) : '—'}</dd>
+          </>
+        ) : (
+          <>
+            <dt className="text-gray-500">Profile</dt>
+            <dd className="text-right font-semibold text-slate-700">{m.completion}%</dd>
+          </>
+        )}
         {m.paid !== null && (
           <>
             <dt className="text-gray-500">Fee</dt>
@@ -255,6 +363,20 @@ function MemberBody({
         )}
       </dl>
 
+      {it.dupes && it.dupes.length > 0 && (
+        <p className="rounded-lg bg-tm-tint-red px-2 py-1 text-[11px] font-semibold text-tm-red">
+          Possible duplicate:{' '}
+          {it.dupes.map((d, i) => (
+            <span key={d.id}>
+              {i > 0 ? ', ' : ''}
+              <Link href={`/admin/users/${d.id}`} className="underline underline-offset-2">
+                {d.name}
+              </Link>{' '}
+              ({d.reason})
+            </span>
+          ))}
+        </p>
+      )}
       {it.docs && <DocsRow docs={it.docs} />}
       {it.docs?.selfieLooksLikePhoto && <SelfieMatchWarning compact />}
       {m.role === 'tutor' && it.share && <ProfileShareButtons share={it.share} />}
@@ -349,6 +471,12 @@ function PlainBody({ it }: { it: GridItem }) {
 }
 
 const DOC_TONE = DOC_KIND_TONE
+const PARENT_TONE: Record<GridParent['verificationTone'], string> = {
+  good: 'text-tm-green-deep',
+  pending: 'text-tm-gold-ink',
+  bad: 'text-tm-red',
+  neutral: 'text-gray-500',
+}
 
 /** The combined Documents status; tap to see each item (owner, 19 Oct 2026). */
 function DocsRow({ docs }: { docs: DocSummary }) {

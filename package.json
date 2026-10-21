@@ -174,7 +174,10 @@
     "test:adminwhatsapp": "tsx --test scripts/test-admin-whatsapp.ts",
     "test:pkcities": "tsx --test scripts/test-pk-cities.ts",
     "test:subjectlimit": "tsx --test scripts/test-subject-limit.ts",
-    "test:liveselfie": "tsx --test scripts/test-live-selfie.ts"
+    "test:liveselfie": "tsx --test scripts/test-live-selfie.ts",
+    "test:people": "tsx --test scripts/test-people-directory.ts",
+    "test:people:live": "tsx --conditions=react-server --env-file-if-exists=.env.local --test scripts/test-people-live.ts",
+    "test:financeitems": "tsx --test scripts/test-finance-items.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

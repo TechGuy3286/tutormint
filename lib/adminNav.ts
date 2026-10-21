@@ -85,17 +85,12 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: 'Verification',
-    color: 'green', // #2E7D4F
-    items: [
-      { href: '/admin/tutors', label: 'Tutors', icon: 'graduation', screen: 'tutors' },
-      { href: '/admin/parents', label: 'Parents', icon: 'users', screen: 'parents' },
-    ],
-  },
-  {
     title: 'People',
     color: 'navy', // #151E6B
     items: [
+      // ONE member directory, tabs Tutors | Parents | Staff (owner, 21 Oct 2026).
+      // It replaced the Verification group (Tutors, Parents); its badge is the
+      // documents waiting for the Owner, tutors and parents together.
       { href: '/admin/users', label: 'People', icon: 'contact', screen: 'users' },
       // ONE page for follow-ups (owner, 15 Oct 2026): it replaced Unpaid signups
       // and Abandoned signups (tabs Tutors | Parents & email not confirmed |
@@ -216,6 +211,7 @@ export const SECTION_LABELS: Record<string, string> = {
   'staff-activity': 'Team activity',
   team: 'Team',
   tutors: 'Tutors',
+  videos: 'Video reviews',
   usage: 'Quota usage',
   // "Members" → "People" everywhere admin reads it (owner PR32 §6). The URL stays
   // /admin/users — only the label changes.

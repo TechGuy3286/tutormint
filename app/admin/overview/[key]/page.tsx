@@ -5,6 +5,7 @@ import { ArrowRight } from 'lucide-react'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { listHeader, loadOverviewList } from '@/lib/overviewItems'
 import { chipHref, OVERVIEW_KEY_CHIP } from '@/lib/tutorFollowUpCore'
+import { overviewPeopleRedirect } from '@/lib/peopleDirectoryCore'
 import { OVERVIEW_ITEMS, PAYER_PERIODS, isOverviewItemKey, paidListHref, parseFunnelDays, parsePayerPeriod } from '@/lib/overviewItemsCore'
 import { pkr } from '@/lib/reconciliationCore'
 import { loadMemberCards } from '@/lib/overviewCards'
@@ -25,7 +26,7 @@ export default async function OverviewListPage({
   searchParams,
 }: {
   params: Promise<{ key: string }>
-  searchParams: Promise<{ days?: string; period?: string }>
+  searchParams: Promise<{ days?: string; period?: string; docs?: string; q?: string }>
 }) {
   const { key } = await params
   if (!isOverviewItemKey(key)) notFound()
@@ -36,6 +37,10 @@ export default async function OverviewListPage({
   const chip = OVERVIEW_KEY_CHIP[key]
   if (chip) redirect(chipHref(chip))
   const sp = await searchParams
+  // Tutors, Parents and Documents to approve moved to People (owner, 21 Oct
+  // 2026): the old addresses open the matching tab and chip.
+  const people = overviewPeopleRedirect(key, sp)
+  if (people) redirect(people)
   const days = parseFunnelDays(sp.days)
 
   // "Paid today" has a period switch (owner, 15 Oct 2026; it replaced
@@ -118,7 +123,7 @@ export default async function OverviewListPage({
         </nav>
       )}
 
-      <OverviewCardGrid items={items} docFilters={key === 'tutors'} isOwner={actor.adminRole === 'owner'} />
+      <OverviewCardGrid items={items} isOwner={actor.adminRole === 'owner'} />
     </div>
   )
 }

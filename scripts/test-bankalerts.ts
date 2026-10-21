@@ -202,7 +202,7 @@ test('"Ignore (not a sale)": unlinked, not counted as unmatched, never deleted, 
   assert.ok(route.includes("z.enum(['link', 'unlink', 'ignore', 'auto'])"))
   assert.ok(route.includes('checkAdminRole(...SCREEN_ACCESS.finance)'))
   const ui = read('app', 'admin', 'finance', 'settlement', 'SettlementsBoard.tsx')
-  assert.ok(ui.includes('Ignore (not a sale)') && ui.includes("openLink(c, 'ignore')"))
+  assert.ok(ui.includes('Ignore (not a sale)') && ui.includes("setConfirmFor({ id: c.id, mode: 'ignore' })"))
 })
 
 test('owner and Partner only: other staff cannot reach a credit or ignore one', () => {
@@ -219,7 +219,7 @@ test('owner and Partner only: other staff cannot reach a credit or ignore one', 
   assert.ok(auth.includes("status: 401, error: 'Admin access required.'"))
   // The paste form is rendered only inside the block the Partner never gets.
   const ui = read('app', 'admin', 'finance', 'settlement', 'SettlementsBoard.tsx')
-  const writeBlock = ui.slice(ui.indexOf('{!readOnly && (\n        <section'))
+  const writeBlock = ui.slice(ui.indexOf("{!readOnly && adding === 'credit' && ("))
   assert.ok(ui.includes('useAdminReadOnly()') && writeBlock.includes('<AddBankCredits'))
   assert.equal((ui.match(/<AddBankCredits/g) ?? []).length, 1)
 })

@@ -109,7 +109,8 @@ test('the settlement check (and the old reconciliation) is owner only', () => {
   const old = readFileSync(join(__dirname, '..', 'app', 'admin', 'payments', 'reconciliation', 'page.tsx'), 'utf8')
   // Moved to Admin → Finance → Settlement check (owner, 8 Oct 2026), now a tab
   // of Finance (owner, 15 Oct 2026).
-  assert.ok(old.includes('permanentRedirect(`/admin/finance?tab=settlement'), 'the old URL redirects')
+  // One Finance page since 21 Oct 2026.
+  assert.ok(old.includes('permanentRedirect(`/admin/finance${q}`)'), 'the old URL redirects')
 })
 
 // --- per settle date (owner, 8 Oct 2026) -----------------------------------

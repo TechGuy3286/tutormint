@@ -1,3 +1,4 @@
+import { OVERVIEW_KEY_PEOPLE } from '@/lib/peopleDirectoryCore'
 import Link from 'next/link'
 import { ArrowRight, BadgeCheck, Briefcase, GraduationCap, UserPlus, Users, Wallet } from 'lucide-react'
 import { Fragment, type ComponentType } from 'react'
@@ -82,7 +83,7 @@ export default async function AdminHome({
   // Today filter (the same rows), not a second list.
   // The follow-up rows open Follow-ups → Tutors on their chip (owner, 20 Oct 2026).
   const href = (k: OverviewItemKey) =>
-    k === 'signups-today' ? SIGNUPS_TODAY_HREF : OVERVIEW_KEY_CHIP[k] ? chipHref(OVERVIEW_KEY_CHIP[k]) : `/admin/overview/${k}${OVERVIEW_ITEMS[k].funnel ? `?days=${funnelDays}` : ''}`
+    k === 'signups-today' ? SIGNUPS_TODAY_HREF : OVERVIEW_KEY_PEOPLE[k] ? OVERVIEW_KEY_PEOPLE[k] : OVERVIEW_KEY_CHIP[k] ? chipHref(OVERVIEW_KEY_CHIP[k]) : `/admin/overview/${k}${OVERVIEW_ITEMS[k].funnel ? `?days=${funnelDays}` : ''}`
 
   const tiles = CARD_KEYS.filter((k) => lists.has(k)).map((k) => {
     const l = lists.get(k)!

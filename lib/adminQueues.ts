@@ -1,3 +1,5 @@
+import { loadTutorDocSummaries } from '@/lib/tutorDocSummaries'
+import type { DocSummaryKind } from '@/lib/tutorDocSummaryCore'
 import 'server-only'
 import { receiptIsPdf, receiptUnderReview } from '@/lib/payments/receiptCore'
 import { pageAll, pageAllIn } from '@/lib/pageAll'
@@ -214,6 +216,9 @@ export type QueueTutorRow = {
   /** PR86: the tutor's WhatsApp number (profiles.whatsapp), for the staff chat button. */
   whatsapp: string | null
   documents: { id: string; kind: 'cnic' | 'degree'; label: string | null; createdAt: string }[]
+  /** The combined Documents status — lib/tutorDocSummaries, the one source the
+   *  People cards and the member page read (owner, 21 Oct 2026). */
+  docs: { kind: DocSummaryKind; label: string } | null
   /** Is this tutor returned by tutor_directory (visible in browse, migration 94)? */
   listed: boolean
   /** Every reason they are not, in the view's order. Empty when visible. */
@@ -302,8 +307,13 @@ export async function loadTutorQueue({
     if (n) verifiedNumberCount.set(n, (verifiedNumberCount.get(n) ?? 0) + 1)
   }
 
+  // ONE document-status source (owner, 21 Oct 2026): the same summary the
+  // People cards and the member page show (lib/tutorDocSummaries).
+  const docSummaries = await loadTutorDocSummaries(ids)
+
   const rows: QueueTutorRow[] = page.map((t) => {
     const p = profiles?.find((x) => x.id === t.id)
+    const ds = docSummaries.get(t.id as string)
     const myDocs = (docs ?? []).filter((d) => d.user_id === t.id)
     // Completion computed HERE from the same engine the dashboard and the stored
     // percentage use, so the number and the "what's missing" list cannot
@@ -396,6 +406,7 @@ export async function loadTutorQueue({
         label: (d.label as string) ?? null,
         createdAt: (d.created_at as string) ?? '',
       })),
+      docs: ds ? { kind: ds.kind, label: ds.label } : null,
       listed: blockers.length === 0,
       blockers,
       verified: !!(t.verified_fee_paid_at as string | null),

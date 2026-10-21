@@ -261,7 +261,7 @@ export default function TutorModerationClient({
       </p>
 
       <QueueSearch
-        basePath="/admin/tutors"
+        basePath="/admin/tutors/videos"
         initialQuery={search}
         filter={filter}
         placeholder="Name, email, city, headline or slug"
@@ -272,7 +272,7 @@ export default function TutorModerationClient({
         {FILTERS.map((f) => (
           <Link
             key={f.key}
-            href={`/admin/tutors?filter=${f.key}`}
+            href={`/admin/tutors/videos?filter=${f.key}`}
             aria-current={filter === f.key ? 'page' : undefined}
             className={`min-h-[44px] whitespace-nowrap px-3.5 py-2 rounded-xl text-[11px] font-bold border flex items-center transition-colors ${
               filter === f.key
@@ -347,10 +347,7 @@ export default function TutorModerationClient({
                   <WhatsappChatButton memberId={t.id} from="tutor_queue" whatsapp={t.whatsapp} phone={t.phone} compact className="mt-1 inline-flex" />
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
-                  <CnicPill
-                    status={t.verificationStatus}
-                    hasCnic={!!t.cnicNumber || t.documents.some((d) => d.kind === 'cnic')}
-                  />
+                  <DocsPill status={t.verificationStatus} docs={t.docs} />
                   {t.duplicateMobile && (
                     <span className="inline-flex items-center rounded-full bg-tm-tint-red px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-tm-red">
                       Duplicate mobile
@@ -679,15 +676,16 @@ function Info({ label, value }: { label: string; value: string }) {
   )
 }
 
-// The CNIC review status pill (owner PR8 §3.1). It used to render the tutor's
-// verification_status, so an approved-CNIC-but-fee-unpaid tutor showed "VERIFIED"
-// — which reads as fully listed when they are not. It now names the CNIC state
-// only; the listing status ("Listed in search" / "Not listed · …") stays on its
-// own line in the row.
-function CnicPill({ status, hasCnic }: { status: string; hasCnic: boolean }) {
+// The Documents pill (owner, 21 Oct 2026). It used to read
+// tutor_profiles.verification_status, which stays 'pending' until the intro
+// video is reviewed — so a tutor whose CNIC, photo and selfie were all approved
+// (e.g. Abdullah Shahzad) showed "CNIC PENDING" here while the member page said
+// Approved. It now shows the one shared Documents status (lib/tutorDocSummaries),
+// the same words as the People cards and the member page. A suspended tutor
+// still reads Suspended.
+function DocsPill({ status, docs }: { status: string; docs: QueueTutor['docs'] }) {
   if (status === 'suspended') return <StatusChip tone="bad" status="suspended" label="Suspended" />
-  if (status === 'verified') return <StatusChip tone="good" status="approved" label="CNIC approved" />
-  if (status === 'rejected') return <StatusChip tone="bad" status="rejected" label="CNIC rejected" />
-  if (hasCnic) return <StatusChip tone="pending" status="submitted" label="CNIC pending" />
-  return <StatusChip tone="neutral" status="none" label="No CNIC" />
+  if (!docs) return <StatusChip tone="neutral" status="none" label="Not uploaded" />
+  const tone = docs.kind === 'approved' ? 'good' : docs.kind === 'rejected' ? 'bad' : docs.kind === 'none' ? 'neutral' : 'pending'
+  return <StatusChip tone={tone} status={docs.kind} label={docs.label.replace(/^\S+\s/, '')} />
 }

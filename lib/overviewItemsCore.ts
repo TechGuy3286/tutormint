@@ -298,7 +298,7 @@ export function payproFileNote(uploadedAt: string | null, dateText: string | nul
     date: dateText,
     after: '. Upload a newer file to update.',
     stale: age > PAYPRO_FILE_STALE_DAYS * 24 * 3600_000,
-    href: '/admin/finance?tab=settlement',
+    href: '/admin/finance',
     linkLabel: 'Settlement check',
   }
 }

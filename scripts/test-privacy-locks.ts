@@ -83,7 +83,7 @@ test('every admin loader sends the masked number, never the full one', () => {
   // A number read from the photo is the number: Owner only.
   assert.match(read('app/api/admin/documents/read-cnic/route.ts'), /number: mayRevealCnic\(gate\.actor\.adminRole\) \? c\.number : null/)
   // The tutor queue's Show button is the Owner's only.
-  assert.match(read('app/admin/tutors/page.tsx'), /canRevealCnic=\{mayRevealCnic\(actor\.adminRole\)\}/)
+  assert.match(read('app/admin/tutors/videos/page.tsx'), /canRevealCnic=\{mayRevealCnic\(actor\.adminRole\)\}/)
   // The Show button: Owner only, hidden again on leave.
   const show = read('components/admin/CnicShow.tsx')
   assert.match(show, /useCanApprove\(\)/)

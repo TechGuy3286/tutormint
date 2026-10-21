@@ -80,6 +80,19 @@ export function useInfinite<T>({
   const serverIdsRef = useRef<string[]>(serverIds ?? [])
   serverIdsRef.current = serverIds ?? []
 
+  // A new list (another chip, search or tab) under the SAME mounted component
+  // starts again from the server's cursor (owner, 21 Oct 2026). Before, the
+  // state kept the previous list's position, so Verification → Tutors opened on
+  // "Pending" (no next page) and then said "That's all 25 tutors" on "All".
+  const [listKey, setListKey] = useState(storageKey)
+  if (listKey !== storageKey) {
+    setListKey(storageKey)
+    setItems([])
+    setCursor(initialCursor)
+    setState('idle')
+    restored.current = false
+  }
+
   const done = cursor === null
 
   // ------------------------------------------------------------ restore ----

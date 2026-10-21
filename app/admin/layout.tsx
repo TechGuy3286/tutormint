@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 
 import AdminSearch from '@/components/admin/AdminSearch'
 import AdminShell from '@/components/admin/AdminShell'
-import { approvalNeeded } from '@/lib/approvalQueue'
+import { peopleWaitingCount } from '@/lib/peopleDirectory'
 import AdminSignOut from '@/components/admin/AdminSignOut'
 import BridgeBanner from '@/components/admin/BridgeBanner'
 import NotificationBell from '@/components/notifications/NotificationBell'
@@ -25,27 +25,22 @@ import { receiptsWaitingCount } from '@/lib/payments/receipt'
 async function navBadges(): Promise<Record<string, number>> {
   const admin = createAdminClient()
   if (!admin) return {}
-  const [toForward, reports, approvalRows, receipts] = await Promise.all([
+  const [toForward, reports, waiting, receipts] = await Promise.all([
     // Marketplace → Applicants to forward: the "To forward" tab's count.
     applicantsToForwardCount(),
     admin.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'open'),
-    // PR106-H1 §3.7: the "Approval needed" count beside People (one source of
-    // truth with the tab). Only roles that can open /admin/users see the badge.
-    approvalNeeded(),
+    // Documents waiting for the Owner, tutors and parents together — the People
+    // tabs' own Waiting chips (owner, 21 Oct 2026; lib/peopleDirectory). Only
+    // roles that can open /admin/users see the badge.
+    peopleWaitingCount(),
     // Payments: bank-transfer receipts waiting for a decision (owner, 11 Oct 2026).
     receiptsWaitingCount(),
   ])
-  const approvals = approvalRows.length
   return {
-    // Tutors with a document waiting — the same list as the queue and the
-    // review card (owner, 9 Oct 2026), not a raw verification_state count.
-    '/admin/tutors': approvalRows.filter((r) => r.kind === 'tutor').length,
     '/admin/reports': reports.count ?? 0,
     '/admin/payments': receipts,
     '/admin/jobs/applicants': toForward,
-    '/admin/users': approvals,
-    // Parents with their CNIC or address waiting (owner, 8 Oct 2026).
-    '/admin/parents': approvalRows.filter((r) => r.kind === 'parent').length,
+    '/admin/users': waiting,
   }
 }
 

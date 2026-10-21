@@ -162,7 +162,9 @@ test('server: reason required, audit + timeline + notify + email on every decisi
 test('one list: Overview row, People badge and Parents queue share parentsAwaitingReview', () => {
   assert.match(read('lib/approvalQueue.ts'), /parentsAwaitingReview\(\)/)
   assert.match(read('lib/adminQueues.ts'), /filter === 'submitted'[^]*parentsAwaitingReview\(\)/)
-  assert.match(read('lib/overviewItems.ts'), /case 'todo-docs'[^]*approvalNeeded\(\)/)
+  // Since 21 Oct 2026 the row reads the People directory (lib/peopleDirectory),
+  // whose parent Waiting chip uses the same parentDocsCore states.
+  assert.match(read('lib/overviewItems.ts'), /case 'todo-docs'[^]*p\.parent\?\.verification === 'waiting'/)
   const page = read('app/admin/users/[id]/page.tsx')
   assert.match(page, /href=\{parentDocs \|\| tutorDocs \? '#documents'/)
   assert.match(page, /id="documents"/)

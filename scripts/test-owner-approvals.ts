@@ -12,7 +12,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { canApprove, OWNER_ONLY_APPROVAL, roleMayWrite, roleSatisfies, SCREEN_ACCESS, type AdminRole } from '../lib/adminAccessCore'
 import { DEFAULT_TAB, isRemovedTab, pickTab, staffActivityRedirect, tabsFor, TEAM_TABS } from '../lib/teamActivityCore'
 import { followUpTabsFor, followUpsHref, onParentsTab, pickFollowUpTab } from '../lib/followUpsPageCore'
-import { financeHref, pickFinanceTab } from '../lib/financeTabsCore'
+import { financeHref, isLegacyFinanceQuery } from '../lib/financeTabsCore'
 import {
   feePayersInRange,
   feePayersSince,
@@ -111,7 +111,7 @@ test('approval controls are hidden for non-Owners on every screen', () => {
     ['components/admin/AdminCnicNumberBox.tsx', 'const mayWrite = canEdit && !readOnly && ownerApproves'],
     ['components/admin/UnlockDocButton.tsx', 'if (!canUnlock || readOnly || !ownerApproves) return null'],
     ['components/admin/DocumentViewer.tsx', '&& !readOnly && ownerApproves'],
-    ['app/admin/tutors/TutorModerationClient.tsx', '{ownerApproves && <>'],
+    ['app/admin/tutors/videos/TutorModerationClient.tsx', '{ownerApproves && <>'],
     // The edit screen's upload sections are open to staff who edit tutors
     // (owner, 19 Oct 2026); only the Owner's upload is saved as approved.
     ['app/admin/tutors/[id]/TutorFieldEditor.tsx', "read.statusLabel === 'Approved'"],
@@ -177,23 +177,25 @@ test('retired routes redirect to the right tab or period, query kept', () => {
   assert.equal(followUpsHref('tutors', { filter: 'today' }), '/admin/follow-ups?filter=today')
   assert.equal(followUpsHref('parents', {}), '/admin/follow-ups?tab=parents')
   assert.equal(followUpsHref('orphans'), '/admin/follow-ups?tab=orphans')
-  assert.equal(financeHref('settlement', { month: '2026-10' }), '/admin/finance?tab=settlement&month=2026-10')
-  assert.equal(financeHref('settlement', { from: '2026-10-01', to: '2026-10-15' }), '/admin/finance?tab=settlement&from=2026-10-01&to=2026-10-15')
-  assert.equal(pickFinanceTab('settlement'), 'settlement')
-  assert.equal(pickFinanceTab(undefined), 'finance')
+  // Finance is ONE page now (owner, 21 Oct 2026): the old tab is dropped, the
+  // month and range kept.
+  assert.equal(financeHref({ tab: 'settlement', month: '2026-10' }), '/admin/finance?month=2026-10')
+  assert.equal(financeHref({ tab: 'settlement', from: '2026-10-01', to: '2026-10-15' }), '/admin/finance?from=2026-10-01&to=2026-10-15')
+  assert.equal(isLegacyFinanceQuery({ tab: 'settlement' }), true)
+  assert.equal(isLegacyFinanceQuery({ month: '2026-10' }), false)
   assert.equal(paidListHref('month'), '/admin/overview/paid-today?period=month')
   assert.equal(paidListHref('today'), '/admin/overview/paid-today')
   const redirects: [string, string][] = [
     ['app/admin/users/unpaid-signups/page.tsx', "redirect(followUpsHref('tutors', await searchParams))"],
     ['app/admin/signups/page.tsx', "redirect(followUpsHref('parents', await searchParams))"],
     ['app/admin/orphans/page.tsx', "redirect(followUpsHref('orphans'))"],
-    ['app/admin/finance/settlement/page.tsx', "redirect(financeHref('settlement', await searchParams))"],
+    ['app/admin/finance/settlement/page.tsx', 'redirect(financeHref(await searchParams))'],
     ['app/admin/flags/page.tsx', "redirect('/admin/reports?tab=flags')"],
     ['app/admin/payments/payers/page.tsx', "redirect(paidListHref(sp.period ? parsePayerPeriod(sp.period) : 'month'))"],
     ['app/admin/staff-activity/page.tsx', 'redirect(staffActivityRedirect())'],
   ]
   for (const [f, needle] of redirects) assert.ok(read(f).includes(needle), f)
-  assert.ok(read('app/admin/payments/reconciliation/page.tsx').includes('/admin/finance?tab=settlement'))
+  assert.ok(read('app/admin/payments/reconciliation/page.tsx').includes('permanentRedirect(`/admin/finance${q}`)'))
 })
 
 test('Finance tab permissions unchanged; settlement actions stay Owner only', () => {
@@ -238,7 +240,7 @@ test('Paid today list: period switch with the Recent payers rule; today equals t
 })
 
 test('sidebar after the merges; group order kept', () => {
-  assert.deepEqual(NAV_GROUPS.map((g) => g.title), ['Overview', 'Verification', 'People', 'Tuitions', 'Marketplace', 'Trust', 'Growth'])
+  assert.deepEqual(NAV_GROUPS.map((g) => g.title), ['Overview', 'People', 'Tuitions', 'Marketplace', 'Trust', 'Growth'])
   const labels = NAV_GROUPS.flatMap((g) => g.items.map((i) => `${g.title}:${i.label}`))
   for (const gone of ['Abandoned signups', 'Unpaid signups', 'Settlement check', 'Flagged messages', 'Reports', 'Staff activity', 'Tuition posting activity']) {
     assert.equal(labels.some((l) => l.endsWith(`:${gone}`)), false, gone)

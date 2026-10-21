@@ -138,7 +138,7 @@ test('sidebar: one Team activity entry per allowed role; the old entries are gon
     assert.equal(visible.filter((i) => i.label === 'Team activity').length, 1, r)
   }
   // Group order unchanged.
-  assert.deepEqual(NAV_GROUPS.map((g) => g.title), ['Overview', 'Verification', 'People', 'Tuitions', 'Marketplace', 'Trust', 'Growth'])
+  assert.deepEqual(NAV_GROUPS.map((g) => g.title), ['Overview', 'People', 'Tuitions', 'Marketplace', 'Trust', 'Growth'])
 })
 
 test('sidebar is a full-height column with a sticky, self-scrolling panel', () => {

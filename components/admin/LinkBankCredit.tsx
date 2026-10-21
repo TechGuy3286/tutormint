@@ -54,19 +54,31 @@ const creditLine = (c: Credit) =>
     c.replacesReceipts && c.replacesReceipts.length > 0 ? ` · now matched automatically to ${c.replacesReceipts.join(', ')}` : ''
   }`
 
-export default function LinkBankCredit(props: { credit: Credit } | { member: { id: string; name: string } }) {
+export default function LinkBankCredit(
+  props:
+    | {
+        credit: Credit
+        /** Finance → Link (21 Oct 2026): the member was already picked in the
+         *  one search; the form opens straight on what it paid for. */
+        initialMember?: { id: string; name: string }
+        onCancel?: () => void
+      }
+    | { member: { id: string; name: string } },
+) {
   const canApprove = useCanApprove()
   const router = useRouter()
   const toast = useToast()
   const confirm = useConfirm()
   const fixedCredit = 'credit' in props ? props.credit : null
   const fixedMember = 'member' in props ? props.member : null
+  const initialMember = 'credit' in props ? (props.initialMember ?? null) : null
+  const onCancel = 'credit' in props ? props.onCancel : undefined
 
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(!!initialMember)
   const [busy, setBusy] = useState(false)
   const [q, setQ] = useState('')
   const [found, setFound] = useState<Member[]>([])
-  const [member, setMember] = useState<{ id: string; name: string } | null>(fixedMember)
+  const [member, setMember] = useState<{ id: string; name: string } | null>(fixedMember ?? initialMember)
   const [credits, setCredits] = useState<Credit[] | null>(null)
   const [creditId, setCreditId] = useState<string | null>(fixedCredit?.id ?? null)
   const [plans, setPlans] = useState<Plan[] | null>(null)
@@ -122,6 +134,7 @@ export default function LinkBankCredit(props: { credit: Credit } | { member: { i
   if (!canApprove) return null
 
   const reset = () => {
+    onCancel?.()
     setOpen(false)
     setQ('')
     setFound([])

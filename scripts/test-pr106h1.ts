@@ -73,10 +73,10 @@ test('approval queue: waiting conditions, order (paid first then oldest), chips'
   assert.match(q, /a\.paid === b\.paid \? a\.createdAt\.localeCompare\(b\.createdAt\) : a\.paid \? -1 : 1/, 'fee-paid first, then oldest')
   assert.match(q, /!p\.is_seed && !p\.is_banned && !p\.is_suspended/, 'fixtures/banned/suspended excluded')
   const page = read('app/admin/users/page.tsx')
-  assert.match(page, /filter === 'approval' && canReview/, 'owner/admin/operations only, own tab')
-  assert.match(page, /Approval needed/, 'the tab/chip')
+  // "Approval needed" is People → Tutors · Waiting now (owner, 21 Oct 2026).
+  assert.ok(page.includes("if (filter === 'approval') redirect(peopleHref('tutors', { docs: 'waiting' }))"), 'the old tab opens the Waiting chip')
   const layout = read('app/admin/layout.tsx')
-  assert.match(layout, /'\/admin\/users': approvals/, 'sidebar count beside People')
+  assert.ok(layout.includes("'/admin/users': waiting"), 'sidebar count beside People')
 })
 
 // --------------------------------------------- STEP 4: rejection alerts -----

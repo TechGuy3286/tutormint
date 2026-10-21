@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { Download } from 'lucide-react'
 
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
@@ -7,7 +7,7 @@ import { monthRangeLabel, type FinancePayment } from '@/lib/financeCore'
 import { pkr } from '@/lib/reconciliationCore'
 import { formatDate, formatDateTime, pkDayKey } from '@/lib/datetime'
 import { TILE_TONE } from '@/lib/tileTones'
-import { FINANCE_TABS, financeHref, pickFinanceTab, type FinanceTab } from '@/lib/financeTabsCore'
+import { financeHref, isLegacyFinanceQuery } from '@/lib/financeTabsCore'
 
 import SettlementTab from './settlement/SettlementTab'
 
@@ -20,9 +20,11 @@ import SettlementTab from './settlement/SettlementTab'
 // and never mixed into a total (lib/financeCore). Dated by approval, in
 // Pakistan time. No member contact detail is read for this page.
 //
-// Two tabs (owner, 15 Oct 2026): Finance | Settlement check — the settlement
-// check was its own page and sidebar entry (/admin/finance/settlement, now a
-// redirect to ?tab=settlement). Same access; its actions stay Owner only.
+// ONE page (owner, 21 Oct 2026): the Finance and Settlement check tabs merged.
+// Three cards, two filters and the month's items come first (SettlementTab);
+// the totals below, the range check, the fee table, the full lists and the
+// downloads sit behind "Show details". Old ?tab= addresses redirect here.
+// Same access; every action stays Owner only.
 
 export const dynamic = 'force-dynamic'
 
@@ -40,19 +42,11 @@ const td = 'p-2 text-xs text-slate-700'
 export default async function FinancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; from?: string; to?: string; month?: string }>
+  searchParams: Promise<{ tab?: string; from?: string; to?: string; month?: string; show?: string }>
 }) {
   await requireAdminRole(...SCREEN_ACCESS.finance)
   const sp = await searchParams
-  const tab = pickFinanceTab(sp.tab)
-  if (tab === 'settlement') {
-    return (
-      <div className="space-y-4">
-        <FinanceTabs active={tab} />
-        <SettlementTab sp={sp} />
-      </div>
-    )
-  }
+  if (isLegacyFinanceQuery(sp)) redirect(financeHref(sp))
   const today = pkDayKey(new Date())
   let from = sp.from && ISO_DAY.test(sp.from) ? sp.from : `${today.slice(0, 7)}-01`
   let to = sp.to && ISO_DAY.test(sp.to) ? sp.to : today
@@ -67,12 +61,11 @@ export default async function FinancePage({
     { key: 'year', label: 'This year', sum: f.totals.thisYear, sub: `1 Jan – today, ${f.thisYear}`, tone: TILE_TONE.violet },
   ]
 
-  return (
+  const extra = (
     <div className="space-y-6">
-      <FinanceTabs active={tab} />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <h1 className="text-lg font-black text-tm-navy">Finance</h1>
+          <h2 className="text-sm font-black text-tm-navy">Totals</h2>
           <p className="max-w-2xl text-xs text-gray-500">
             Approved payments, dated by approval in Pakistan time. Totals leave out refunded payments and payments from deleted
             accounts — both are listed on their own below.
@@ -182,6 +175,8 @@ export default async function FinancePage({
       </section>
     </div>
   )
+
+  return <SettlementTab sp={sp} extra={extra} />
 }
 
 function SumTable({ title, rows }: { title: string; rows: { label: string; count: number; amount: number }[] }) {
@@ -247,24 +242,5 @@ function PaymentList({
         </ul>
       )}
     </section>
-  )
-}
-
-function FinanceTabs({ active }: { active: FinanceTab }) {
-  return (
-    <nav aria-label="Tabs" className="flex flex-wrap gap-1 border-b border-gray-200">
-      {FINANCE_TABS.map((t) => (
-        <Link
-          key={t.key}
-          href={financeHref(t.key)}
-          aria-current={active === t.key ? 'page' : undefined}
-          className={`-mb-px min-h-[44px] border-b-2 px-3 py-2.5 text-xs font-bold ${
-            active === t.key ? 'border-tm-red text-tm-navy' : 'border-transparent text-gray-600 hover:text-tm-navy'
-          }`}
-        >
-          {t.label}
-        </Link>
-      ))}
-    </nav>
   )
 }

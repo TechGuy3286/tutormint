@@ -193,7 +193,7 @@ test('the previously blank buttons go through the route', () => {
   assert.match(read('app/admin/users/[id]/MemberActions.tsx'), /adminWhatsAppRoute\(userId, 'member'\)/)
   assert.match(read('components/admin/WhatsappChatButton.tsx'), /adminWhatsAppRoute\(memberId, from\)/)
   assert.match(read('app/admin/users/MemberRow.tsx'), /<WhatsappChatButton memberId=\{r\.id\} from="people"/)
-  assert.match(read('app/admin/tutors/TutorModerationClient.tsx'), /<WhatsappChatButton memberId=\{t\.id\} from="tutor_queue"/)
+  assert.match(read('app/admin/tutors/videos/TutorModerationClient.tsx'), /<WhatsappChatButton memberId=\{t\.id\} from="tutor_queue"/)
   assert.match(read('app/admin/tutors/[id]/page.tsx'), /from="tutor_record"/)
   const route = read('app/api/admin/whatsapp/route.ts')
   assert.match(route, /action: 'member\.whatsapp_open'/)

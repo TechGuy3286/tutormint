@@ -271,11 +271,11 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
           Member record and timeline
         </Link>
         <Link
-          href="/admin/tutors"
+          href="/admin/tutors/videos?filter=all"
           className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy"
         >
           <ClipboardList aria-hidden size={14} />
-          Moderation queue
+          Video reviews
         </Link>
       </div>
     </div>

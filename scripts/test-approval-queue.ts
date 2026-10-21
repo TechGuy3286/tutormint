@@ -103,9 +103,13 @@ test('card and queue share one rule; every count reads the one list', () => {
   assert.match(q, /export async function approvalNeededCount\(\): Promise<number> \{\s*return \(await build\(\)\)\.length/)
   const layout = read('app/admin/layout.tsx')
   assert.doesNotMatch(layout, /\.eq\('verification_state', 'submitted'\)/)
-  assert.match(layout, /'\/admin\/tutors': approvalRows\.filter\(\(r\) => r\.kind === 'tutor'\)\.length/)
-  assert.match(layout, /'\/admin\/users': approvals/)
-  assert.match(read('lib/overviewItems.ts'), /approvalNeeded\(\)/)
+  // Since 21 Oct 2026 the badge sits on People only (the Verification group is
+  // gone) and counts the People tabs' Waiting chips — the card statuses again,
+  // through lib/tutorDocSummaries (tutorCardStatuses).
+  assert.ok(layout.includes("'/admin/users': waiting"))
+  assert.ok(!layout.includes("'/admin/tutors':"))
+  assert.match(read('lib/tutorDocSummaries.ts'), /tutorCardStatuses\(/)
+  assert.match(read('lib/overviewItems.ts'), /case 'todo-docs'[^]*docs\.get\(p\.id\)\?\.kind === 'waiting'/)
 })
 
 test('Overview lists render as cards, one card per row the loader returned', () => {
@@ -125,5 +129,5 @@ test('Overview lists render as cards, one card per row the loader returned', () 
   assert.match(cards, /never adds or\s*\/\/ drops a row/)
   // Document lists carry a Review link.
   const items = read('lib/overviewItems.ts')
-  assert.match(items, /reviewHref: r\.href/)
+  assert.match(items, /reviewHref: `\/admin\/users\/\$\{p\.id\}#documents`/)
 })

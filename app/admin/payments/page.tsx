@@ -102,7 +102,7 @@ export default async function AdminPaymentsPage({
           </Link>
           {canReconcile && (
             <Link
-              href="/admin/finance?tab=settlement"
+              href="/admin/finance"
               className="gap-1.5 inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
             >
               <Scale aria-hidden size={14} />

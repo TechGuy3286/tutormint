@@ -58,11 +58,9 @@ async function adminScreensFor(): Promise<AdminEntry[]> {
   // again here with different rules is how a verifier ends up with a Payments
   // link that refuses them — the menu must never offer a door that is locked.
   const candidates: { label: string; href: string; allowed: (typeof SCREEN_ACCESS)['tutors'] }[] = [
-    { label: 'Tutor moderation', href: '/admin/tutors', allowed: SCREEN_ACCESS.tutors },
-    { label: 'Parent verification', href: '/admin/parents', allowed: SCREEN_ACCESS.parents },
     { label: 'Payments', href: '/admin/payments', allowed: SCREEN_ACCESS.payments },
     { label: 'Reports', href: '/admin/reports', allowed: SCREEN_ACCESS.reports },
-    { label: 'Members', href: '/admin/users', allowed: SCREEN_ACCESS.users },
+    { label: 'People', href: '/admin/users', allowed: SCREEN_ACCESS.users },
   ]
 
   return candidates

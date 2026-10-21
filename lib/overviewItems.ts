@@ -18,10 +18,10 @@ import { pageAll } from '@/lib/pageAll'
 import 'server-only'
 
 import { cache } from 'react'
-import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { approvalNeeded } from '@/lib/approvalQueue'
+import { inTab, loadDirectory, loadDirectoryDocs } from '@/lib/peopleDirectory'
+import { OVERVIEW_KEY_PEOPLE } from '@/lib/peopleDirectoryCore'
 import { loadUnpaidSignups, loadFeaturedWhatsapp } from '@/lib/staffOutreach'
 import { isTestName, stuckBreakdown } from '@/lib/staffOutreachCore'
 import type { FollowUpSource } from '@/lib/followUpCore'
@@ -164,25 +164,17 @@ function tutorRows(list: CohortTutor[]): OverviewRow[] {
   return list.map((t) => ({ id: t.id, title: t.name, detail: `Joined ${PK_DATE(t.createdAt)}`, href: `/admin/users/${t.id}`, memberId: t.id }))
 }
 
-async function profilesByRole(admin: SupabaseClient, roles: string[]): Promise<OverviewRow[]> {
-  // Test-named accounts (owner, 8 Oct 2026) are left out of every Overview count.
-  const rows = await pageAll((a, b) =>
-    admin
-      .from('profiles')
-      .select('id, full_name, created_at')
-      .in('role', roles)
-      .eq('is_test_name', false)
-      .order('created_at', { ascending: false })
-      .order('id')
-      .range(a, b),
-  )
-  return rows.map((p) => ({
-    id: p.id as string,
-    title: formatName(p.full_name as string | null) || '—',
-    detail: `Joined ${PK_DATE(p.created_at as string)}`,
+/** The People tab's own people (lib/peopleDirectory — staff, seed, team and
+ *  test accounts left out), newest first (owner, 21 Oct 2026). */
+async function directoryRows(role: 'tutor' | 'parent'): Promise<OverviewRow[]> {
+  const d = await loadDirectory()
+  return inTab(d.people, role, false).map((p) => ({
+    id: p.id,
+    title: p.name,
+    detail: `Joined ${PK_DATE(p.createdAt)}`,
     href: `/admin/users/${p.id}`,
-    memberId: p.id as string,
-    createdAt: p.created_at as string,
+    memberId: p.id,
+    createdAt: p.createdAt,
   }))
 }
 
@@ -327,19 +319,21 @@ export async function loadOverviewList(
       }
     }
 
+    // The SAME people as People → Tutors / Parents (owner, 21 Oct 2026):
+    // lib/peopleDirectory's one rule, so "Total" equals the tab's count.
     case 'tutors': {
-      const rows = await profilesByRole(admin, ['tutor'])
-      return { key, rows, card: joinedCard(rows, now.getTime()), filter: 'registered as tutors', workHref: '/admin/users?role=tutor' }
+      const rows = await directoryRows('tutor')
+      return { key, rows, card: joinedCard(rows, now.getTime()), filter: 'registered as tutors (staff and test accounts left out)', workHref: OVERVIEW_KEY_PEOPLE.tutors }
     }
 
     case 'parents': {
-      const rows = await profilesByRole(admin, ['parent', 'academy'])
+      const rows = await directoryRows('parent')
       return {
         key,
         rows,
         card: joinedCard(rows, now.getTime()),
-        filter: 'registered as parents or institutions',
-        workHref: '/admin/users?role=parent',
+        filter: 'registered as parents or institutions (staff and test accounts left out)',
+        workHref: OVERVIEW_KEY_PEOPLE.parents,
       }
     }
 
@@ -382,19 +376,26 @@ export async function loadOverviewList(
     }
 
     case 'todo-docs': {
-      const rows = await approvalNeeded()
+      // The People badge's own count (owner, 21 Oct 2026): tutors in the
+      // Tutors tab's Waiting chip plus parents waiting for review.
+      const d = await loadDirectory()
+      const docs = await loadDirectoryDocs()
+      const waiting = [
+        ...inTab(d.people, 'tutor', false).filter((p) => docs.get(p.id)?.kind === 'waiting'),
+        ...inTab(d.people, 'parent', false).filter((p) => p.parent?.verification === 'waiting'),
+      ]
       return {
         key,
-        rows: rows.map((r) => ({
-          id: r.id,
-          title: r.name,
-          detail: `${r.kind === 'parent' ? 'Parent · ' : ''}Waiting: ${r.waiting.join(', ')}${r.paid ? ' · fee paid' : ''}`,
-          href: r.href,
-          memberId: r.id,
-          reviewHref: r.href,
+        rows: waiting.map((p) => ({
+          id: p.id,
+          title: p.name,
+          detail: p.role === 'parent' ? 'Parent' : 'Tutor',
+          href: `/admin/users/${p.id}#documents`,
+          memberId: p.id,
+          reviewHref: `/admin/users/${p.id}#documents`,
         })),
         filter: 'with a document waiting for a decision',
-        workHref: '/admin/users?filter=approval',
+        workHref: OVERVIEW_KEY_PEOPLE['todo-docs'],
       }
     }
 
@@ -478,10 +479,10 @@ export async function loadOverviewList(
             ageDays: d.ageDays,
             overdue: d.overdue,
           }),
-          href: '/admin/finance?tab=settlement',
+          href: '/admin/finance',
         })),
         filter: 'paid by customers, not yet paid out to our bank by PayPro',
-        workHref: '/admin/finance?tab=settlement',
+        workHref: '/admin/finance',
         note: payproFileNote(uploadedAt, uploadedAt ? `${formatDateTime(uploadedAt)} (Pakistan time)` : null, now.getTime()),
       }
     }

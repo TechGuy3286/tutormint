@@ -77,7 +77,7 @@ export default async function PaymentGatewaysPage({
             audit log
           </Link>
           . The settlement check is under{' '}
-          <Link href="/admin/finance?tab=settlement" className="font-bold text-tm-navy hover:underline">
+          <Link href="/admin/finance" className="font-bold text-tm-navy hover:underline">
             Finance
           </Link>
           .

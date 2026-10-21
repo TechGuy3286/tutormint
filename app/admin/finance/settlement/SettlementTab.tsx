@@ -1,26 +1,28 @@
+import type { ReactNode } from 'react'
+
 import { loadGatewayHealth } from '@/lib/payments/gatewaySettings'
 import { loadSettlement, type SettlementView } from '@/lib/settlement'
 import { loadSettlementsBoard } from '@/lib/settlementMatch'
+import { financeItems } from '@/lib/financeItemsCore'
 import { pkDayKey } from '@/lib/datetime'
 import SettlementCheck from './SettlementCheck'
 import SettlementsBoard from './SettlementsBoard'
 
-// Admin → Finance → "Settlement check" tab (owner, 15 Oct 2026: it was its own
-// page and sidebar entry; /admin/finance/settlement now redirects to
-// /admin/finance?tab=settlement). OWNER ONLY plus the view-only Partner
-// (SCREEN_ACCESS.finance — checked by the Finance page that renders this).
+// The body of Admin → Finance (owner, 21 Oct 2026: the Finance and Settlement
+// check tabs became one page with one month picker). OWNER ONLY plus the
+// view-only Partner (SCREEN_ACCESS.finance — checked by the Finance page that
+// renders this).
 //
-// Two parts, on the same data (gateway files, bank credits, deduction lines):
-//   • Settlements (owner, 11 Oct 2026) — one month: PayPro payouts and approved
-//     bank transfers matched to the bank credits, with what needs attention.
-//   • The range check and deduction lines per gateway (6–8 Oct 2026), unchanged,
-//     folded under it.
-// The old URLs (/admin/payments/reconciliation) redirect here.
+// The board shows the three cards, the two filters and the month's items; the
+// range check and deduction lines per gateway (6–8 Oct 2026, unchanged) and the
+// totals passed in as `extra` sit inside its closed "Show details" section. The
+// old URLs (/admin/finance/settlement, ?tab=settlement,
+// /admin/payments/reconciliation) redirect to /admin/finance.
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
 const ISO_MONTH = /^\d{4}-(0[1-9]|1[0-2])$/
 
-export default async function SettlementTab({ sp }: { sp: { from?: string; to?: string; month?: string } }) {
+export default async function SettlementTab({ sp, extra }: { sp: { from?: string; to?: string; month?: string; show?: string }; extra?: ReactNode }) {
   const today = pkDayKey(new Date())
   const month = sp.month && ISO_MONTH.test(sp.month) ? sp.month : today.slice(0, 7)
   const ranged = !!(sp.from && ISO_DAY.test(sp.from) && sp.to && ISO_DAY.test(sp.to))
@@ -36,36 +38,47 @@ export default async function SettlementTab({ sp }: { sp: { from?: string; to?: 
     if (v) views.push({ id: g.id, name: g.name, view: v })
   }
 
+  const rangeCheck = (
+    <section className="space-y-3">
+      <p className="text-sm font-black text-tm-navy">Range check and deduction lines</p>
+      <div className="mx-auto max-w-xl space-y-6">
+        {views.length === 0 ? (
+          <p className="text-xs text-gray-500">No payment gateway is connected.</p>
+        ) : (
+          views.map((v) => (
+            <section key={v.id} className="space-y-2">
+              <p className="text-sm font-bold text-tm-navy">{v.name}</p>
+              <SettlementCheck view={v.view} gatewayName={v.name} />
+            </section>
+          ))
+        )}
+      </div>
+    </section>
+  )
+
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <header className="space-y-1">
-        <h2 className="text-lg font-black text-tm-navy">Settlement check</h2>
-        <p className="text-xs text-gray-500">
-          What customers paid, and what has reached the bank: PayPro payouts and approved bank transfers matched to your bank credits, Pakistan time.
-        </p>
+        <h1 className="text-lg font-black text-tm-navy">Finance</h1>
+        <p className="text-xs text-gray-500">What customers paid, and what has reached the bank — Pakistan time.</p>
       </header>
 
       {board ? (
-        <SettlementsBoard key={month} data={board} />
+        <SettlementsBoard
+          key={month}
+          data={board}
+          items={financeItems(board.view)}
+          detailsOpen={ranged || sp.show === 'details'}
+          details={
+            <>
+              {rangeCheck}
+              {extra}
+            </>
+          }
+        />
       ) : (
-        <p className="rounded-2xl border border-gray-200 bg-white p-4 text-xs text-gray-500">Settlements could not be loaded right now. Please reload the page.</p>
+        <p className="rounded-2xl border border-gray-200 bg-white p-4 text-xs text-gray-500">Finance could not be loaded right now. Please reload the page.</p>
       )}
-
-      <details open={ranged} className="rounded-2xl border border-gray-200 bg-white p-4">
-        <summary className="min-h-[44px] cursor-pointer text-sm font-bold text-tm-navy">Range check and deduction lines</summary>
-        <div className="mx-auto max-w-xl space-y-6 pt-3">
-          {views.length === 0 ? (
-            <p className="text-xs text-gray-500">No payment gateway is connected.</p>
-          ) : (
-            views.map((v) => (
-              <section key={v.id} className="space-y-2">
-                <p className="text-sm font-bold text-tm-navy">{v.name}</p>
-                <SettlementCheck view={v.view} gatewayName={v.name} />
-              </section>
-            ))
-          )}
-        </div>
-      </details>
     </div>
   )
 }
