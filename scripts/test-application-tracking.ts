@@ -60,7 +60,7 @@ test('stages: the seven stages, in order', () => {
 test('a stage change writes the history, the tuition audit row and the tutor timeline', () => {
   const src = code('lib/applicationTracking.ts')
   const body = src.slice(src.indexOf('async function writeStage'), src.indexOf('export async function changeStage'))
-  assert.match(body, /from\('applications'\)\s*\.update\(\{ stage: to, stage_changed_at: now, stage_changed_by: actor\.id/)
+  assert.match(body, /from\('applications'\)\s*\.update\(\{\s*stage: to,\s*stage_changed_at: now,\s*stage_changed_by: actor\.id/)
   assert.match(body, /from\('application_stage_events'\)\.insert/)
   assert.match(body, /action: 'application\.stage',\s*targetType: 'job'/)
   assert.match(body, /event: 'application_stage_changed'/)
@@ -80,7 +80,9 @@ test('only the service role changes a stage (migration 192 trigger)', () => {
 test('a forward to the parent moves Applied → Forwarded', () => {
   const src = code('lib/applicantForwards.ts')
   assert.match(src, /await advanceForwarded\(args\.actor, args\.jobId, tutorIds\)/)
-  assert.match(code('lib/applicationTracking.ts'), /\.eq\('stage', 'applied'\)/)
+  // Applications v2 (owner, 22 Oct 2026): only an Applied one moves; the others
+  // keep their stage and are marked worked.
+  assert.match(code('lib/applicationTracking.ts'), /if \(a\.stage !== 'applied'\) \{\s*touched\.push\(a\.id\)/)
 })
 
 test('Hired: the other open applications are offered, the default leaves them', () => {
@@ -91,7 +93,7 @@ test('Hired: the other open applications are offered, the default leaves them', 
     { id: 'd', jobId: 'j2', stage: 'applied' as Stage },
   ]
   assert.deepEqual(otherOpenOnJob(all, { id: 'a', jobId: 'j1' }).map((x) => x.id), ['b'])
-  const ui = code('app/admin/follow-ups/ApplicationsClient.tsx')
+  const ui = code('app/admin/applications/ApplicationsClient.tsx')
   // Nothing ticked unless staff tick it.
   assert.match(ui, /setHire\(\{ row, others: data\?\.others \?\? \[\], close: new Set\(\) \}\)/)
   // Only the ticked ones are closed, server-side, as Not selected.
@@ -173,7 +175,7 @@ test('the Follow-ups badge: own overdue applications; every one for the Owner', 
   assert.equal(overdueBadgeCount(items, OWNER, NOW), 3)
   assert.equal(overdueBadgeCount(items, PARTNER, NOW), 0)
   const layout = code('app/admin/layout.tsx')
-  assert.match(layout, /'\/admin\/follow-ups': overdue/)
+  assert.match(layout, /'\/admin\/applications': overdue/)
   assert.match(layout, /overdueApplicationsCount\(actor\)/)
 })
 
@@ -302,9 +304,9 @@ test('JobPosting, expiry and noindex unchanged after a Hired', () => {
 
 // -------------------------------------------------------------- old address
 
-test('Applicants to forward redirects to Follow-ups → Applications', () => {
+test('Applicants to forward redirects to Tuitions → Applications', () => {
+  // Applications v2 (owner, 22 Oct 2026): its own page.
   const page = code('app/admin/jobs/applicants/page.tsx')
-  assert.match(page, /permanentRedirect\(`\/admin\/follow-ups\?\$\{q\.toString\(\)\}`\)/)
-  assert.match(page, /tab: 'applications'/)
+  assert.match(page, /permanentRedirect\(legacyApplicationsHref\(/)
   assert.doesNotMatch(code('lib/adminNav.ts'), /'\/admin\/jobs\/applicants'/)
 })

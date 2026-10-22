@@ -35,7 +35,7 @@ import {
 const STEP = 48
 // The board lives on Follow-ups → Applications → Forward to parents (owner,
 // 22 Oct 2026); /admin/jobs/applicants redirects here.
-const FORWARD_HREF = '/admin/follow-ups?tab=applications&view=forward'
+const FORWARD_HREF = '/admin/applications?view=forward'
 const BTN = 'inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl px-2 text-[11px] font-bold'
 const TABS: { key: ForwardTab; label: string }[] = [
   { key: 'to_forward', label: 'To forward' },

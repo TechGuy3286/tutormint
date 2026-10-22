@@ -186,7 +186,7 @@ test('who can act: owner, Partner, admin, operations and tuitions staff', () => 
   }
   assert.match(code('lib/adminAuth.ts'), /alwaysNeedsTwoFactor/)
   // The UI offers a Partner no action: buttons, tick boxes and the outcome form sit behind !readOnly.
-  const ui = code('app/admin/follow-ups/ForwardToParents.tsx')
+  const ui = code('app/admin/applications/ForwardToParents.tsx')
   // WhatsApp / Call need a number on the tuition (owner, 12 Oct 2026); without one the card offers "Add parent number".
   assert.match(ui, /\{!readOnly && !!card\.parent\.msisdn && \(\s*<div className="mt-auto space-y-2">/)
   assert.match(ui, /canSelect=\{!readOnly\}/)

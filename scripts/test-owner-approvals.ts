@@ -156,12 +156,12 @@ test('the Verifications & messages tab and its API are gone; old links land on P
 
 // ------------------------------------------------------------- 3. merges
 
-test('Follow-ups: tabs per role; Tuitions staff see Tutors and Applications only', () => {
-  // Applications (owner, 22 Oct 2026) sits next to Tutors for every role that posts.
+test('Follow-ups: tabs per role; Tuitions staff see Tutors only', () => {
+  // Applications moved to its own page, Tuitions → Applications (owner, 22 Oct 2026).
   for (const r of ['owner', 'partner', 'admin', 'operations'] as AdminRole[]) {
-    assert.deepEqual(followUpTabsFor(r), ['tutors', 'applications', 'parents', 'orphans'], r)
+    assert.deepEqual(followUpTabsFor(r), ['tutors', 'parents', 'orphans'], r)
   }
-  assert.deepEqual(followUpTabsFor('tuitions_staff'), ['tutors', 'applications'])
+  assert.deepEqual(followUpTabsFor('tuitions_staff'), ['tutors'])
   assert.equal(pickFollowUpTab('tuitions_staff', 'parents'), 'tutors')
   assert.equal(pickFollowUpTab('admin', 'orphans'), 'orphans')
   // Every unfinished tutor is on Tutors only, an unconfirmed email included (21 Oct 2026).

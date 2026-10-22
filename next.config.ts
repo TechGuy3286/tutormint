@@ -168,6 +168,10 @@ const nextConfig: NextConfig = {
       // /how-it-works never existed (owner, 17 Oct 2026). How TutorMint works,
       // for both sides, is on /about, so the address points there.
       { source: '/how-it-works', destination: '/about', permanent: true },
+      // /tuitions on its own was never a page (owner, 22 Oct 2026): the tuition
+      // list is /browse/tuitions. Only the bare address — /tuitions/<city>/…
+      // pages are untouched.
+      { source: '/tuitions', destination: '/browse/tuitions', permanent: true },
     ]
   },
 

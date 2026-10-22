@@ -53,6 +53,7 @@ export type AdminScreen =
   | 'featuredWhatsapp'
   | 'pausedTuitions'
   | 'applicantForwards'
+  | 'cityOwners'
   | 'jobsPost'
   | 'tuitionPosting'
   | 'mySignups'
@@ -108,10 +109,16 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/admin/jobs', label: 'Tuitions', icon: 'clipboard', screen: 'jobs' },
       { href: '/admin/jobs/new', label: 'Post a tuition', icon: 'filePlus', screen: 'jobsPost' },
+      // Its own page (owner, 22 Oct 2026; was Follow-ups → Applications). Its
+      // badge: overdue applications on the viewer's own tuitions — all of them
+      // for the site Owner. Applications on tuitions over 30 days old never count.
+      { href: '/admin/applications', label: 'Applications', icon: 'inbox', screen: 'applicantForwards' },
       // Auto-paused tuitions with Resume (owner, 8 Oct 2026): the roles that post.
       { href: '/admin/jobs/paused', label: 'Paused tuitions', icon: 'pause', screen: 'pausedTuitions' },
       { href: '/admin/jobs/duplicates', label: 'Duplicates', icon: 'copy', screen: 'duplicates' },
-      // Applicants to forward moved into Follow-ups → Applications (owner, 22 Oct 2026).
+      // Who owns each city's parent-posted tuitions (owner, 22 Oct 2026). Only
+      // the site Owner edits; the Partner views.
+      { href: '/admin/settings/city-owners', label: 'City owners', icon: 'mapPin', screen: 'cityOwners' },
       // ONE page for staff numbers (owner, 15 Oct 2026): it replaced Staff
       // activity (People) and Tuition posting activity. Paid sign-ups first; the
       // Verifications & messages tab is checked separately (staffActivity).
@@ -201,6 +208,8 @@ export const SECTION_LABELS: Record<string, string> = {
   reports: 'Reports & flags',
   flags: 'Reports & flags',
   'follow-ups': 'Follow-ups',
+  applications: 'Applications',
+  'city-owners': 'City owners',
   security: 'Two-factor',
   seo: 'SEO',
   landing: 'Landing pages',

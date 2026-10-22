@@ -52,6 +52,8 @@ type AppRow = {
   stage_changed_by_name: string | null
   created_at: string
   withdrawn_at: string | null
+  worked_at: string | null
+  worked_by_name: string | null
 }
 
 type TutorFlags = {
@@ -69,7 +71,7 @@ export function applicantExcluded(p: TutorFlags | undefined): boolean {
   return p.role === 'admin' || !!p.is_seed || !!p.is_team_account || !!p.is_test_name || !!p.hidden_from_public
 }
 
-const APP_COLS = 'id, job_id, tutor_id, stage, stage_changed_at, stage_changed_by_name, created_at, withdrawn_at'
+const APP_COLS = 'id, job_id, tutor_id, stage, stage_changed_at, stage_changed_by_name, created_at, withdrawn_at, worked_at, worked_by_name'
 const FLAG_COLS = 'id, role, is_seed, is_team_account, is_test_name, hidden_from_public'
 
 /** Every counted application, with the tuition's owner. */
@@ -86,8 +88,15 @@ async function loadCounted(admin: Admin, jobIds?: string[]) {
   )
   const flagBy = new Map(flags.map((f) => [f.id, f]))
   const counted = live.filter((a) => !applicantExcluded(flagBy.get(a.tutor_id)))
-  const owners = await loadOwners(admin, [...new Set(counted.map((a) => a.job_id))])
-  return { counted, owners }
+  const countedJobs = [...new Set(counted.map((a) => a.job_id))]
+  const [owners, posted] = await Promise.all([
+    loadOwners(admin, countedJobs),
+    pageAllIn<{ id: string; created_at: string }, string>(countedJobs, (ids, from, to) =>
+      admin.from('jobs').select('id, created_at').in('id', ids).order('id').range(from, to),
+    ),
+  ])
+  const jobCreated = new Map(posted.map((j) => [j.id, j.created_at]))
+  return { counted, owners, jobCreated }
 }
 
 async function loadOwners(admin: Admin, jobIds: string[]): Promise<Map<string, string | null>> {
@@ -97,12 +106,14 @@ async function loadOwners(admin: Admin, jobIds: string[]): Promise<Map<string, s
   return new Map(rows.map((r) => [r.job_id, r.staff_id]))
 }
 
-const toItem = (a: AppRow, owners: Map<string, string | null>): BoardItem => ({
+const toItem = (a: AppRow, owners: Map<string, string | null>, jobCreated: Map<string, string>): BoardItem => ({
   id: a.id,
   stage: a.stage,
   stageChangedAt: a.stage_changed_at,
   ownerId: owners.get(a.job_id) ?? null,
   createdAt: a.created_at,
+  workedAt: a.worked_at,
+  jobCreatedAt: jobCreated.get(a.job_id) ?? null,
 })
 
 /** The Follow-ups red badge for this staff member. Tolerant — 0 on any failure. */
@@ -110,8 +121,8 @@ export const overdueApplicationsCount = cache(async (actor: AdminActor): Promise
   const admin = createAdminClient()
   if (!admin) return 0
   try {
-    const { counted, owners } = await loadCounted(admin)
-    return overdueBadgeCount(counted.map((a) => toItem(a, owners)), actor, Date.now())
+    const { counted, owners, jobCreated } = await loadCounted(admin)
+    return overdueBadgeCount(counted.map((a) => toItem(a, owners, jobCreated)), actor, Date.now())
   } catch {
     return 0
   }
@@ -134,16 +145,22 @@ export type BoardRow = BoardItem & {
   jobPath: string | null
   ownerName: string | null
   stageChangedByName: string | null
+  workedByName: string | null
 }
 
 export type StaffOption = { id: string; name: string }
 
-export type ApplicationBoard = { rows: BoardRow[]; staff: StaffOption[] }
+export type ApplicationBoard = {
+  rows: BoardRow[]
+  staff: StaffOption[]
+  /** Every owner's name (former staff included), for the Staff dropdown. */
+  ownerNames: Record<string, string>
+}
 
 export async function loadApplicationBoard(): Promise<ApplicationBoard> {
   const admin = createAdminClient()
-  if (!admin) return { rows: [], staff: [] }
-  const { counted, owners } = await loadCounted(admin)
+  if (!admin) return { rows: [], staff: [], ownerNames: {} }
+  const { counted, owners, jobCreated } = await loadCounted(admin)
   const tutorIds = [...new Set(counted.map((a) => a.tutor_id))]
   const jobIds = [...new Set(counted.map((a) => a.job_id))]
 
@@ -180,7 +197,7 @@ export async function loadApplicationBoard(): Promise<ApplicationBoard> {
     const owner = owners.get(a.job_id) ?? null
     const phone = p?.whatsapp || p?.phone_number || null
     return {
-      ...toItem(a, owners),
+      ...toItem(a, owners, jobCreated),
       jobId: a.job_id,
       tutorId: a.tutor_id,
       tutorName: formatName(p?.full_name) || 'Tutor',
@@ -193,13 +210,14 @@ export async function loadApplicationBoard(): Promise<ApplicationBoard> {
       jobPath: j ? tuitionPath({ public_slug: j.public_slug, city: j.city, job_tx_id: j.job_tx_id, id: j.id }) : null,
       ownerName: owner ? (staffName.get(owner) ?? 'Former staff') : null,
       stageChangedByName: a.stage_changed_by_name,
+      workedByName: a.worked_by_name,
     }
   })
-  return { rows, staff }
+  return { rows, staff, ownerNames: Object.fromEntries(staffName) }
 }
 
 /** Staff who may own a tuition: every staff role, not suspended. */
-async function loadStaffOptions(admin: Admin): Promise<StaffOption[]> {
+export async function loadStaffOptions(admin: Admin): Promise<StaffOption[]> {
   const { data } = await admin
     .from('profiles')
     .select('id, full_name, admin_role, is_suspended')
@@ -247,7 +265,15 @@ async function writeStage(admin: Admin, actor: AdminActor, name: string | null, 
   const now = new Date().toISOString()
   const { error } = await admin
     .from('applications')
-    .update({ stage: to, stage_changed_at: now, stage_changed_by: actor.id, stage_changed_by_name: name })
+    .update({
+      stage: to,
+      stage_changed_at: now,
+      stage_changed_by: actor.id,
+      stage_changed_by_name: name,
+      worked_at: now,
+      worked_by: actor.id,
+      worked_by_name: name,
+    })
     .eq('id', app.id)
     .eq('stage', app.stage)
   if (error) throw new Error(error.message)
@@ -344,18 +370,113 @@ export async function otherOpenApplications(applicationId: string): Promise<Othe
 export async function advanceForwarded(actor: AdminActor, jobId: string, tutorIds: string[]): Promise<number> {
   const admin = createAdminClient()
   if (!admin || tutorIds.length === 0) return 0
-  const { data } = await admin.from('applications').select(APP_COLS).eq('job_id', jobId).in('tutor_id', tutorIds).eq('stage', 'applied')
+  const { data } = await admin.from('applications').select(APP_COLS).eq('job_id', jobId).in('tutor_id', tutorIds)
   const name = await actorName(admin, actor)
   let n = 0
+  const touched: string[] = []
   for (const a of (data ?? []) as AppRow[]) {
     if (a.withdrawn_at) continue
+    if (a.stage !== 'applied') {
+      touched.push(a.id)
+      continue
+    }
     try {
       if (await writeStage(admin, actor, name, a, 'forwarded', 'forwarded to parent')) n++
     } catch {
       /* the forward itself is recorded; a stage that did not move shows Applied */
     }
   }
+  // Forwarding is activity on every included application (Applications v2):
+  // one already past Applied keeps its stage and sinks as worked.
+  await markWorked(admin, actor, name, touched)
   return n
+}
+
+/**
+ * Record activity on applications without changing their stage — a WhatsApp
+ * check-in tap, or forwarding one already past Applied (owner, 22 Oct 2026).
+ * The row sinks to the bottom of its tuition group until it is overdue again.
+ */
+async function markWorked(admin: Admin, actor: AdminActor, name: string | null, ids: string[]): Promise<void> {
+  if (ids.length === 0) return
+  const now = new Date().toISOString()
+  await admin.from('applications').update({ worked_at: now, worked_by: actor.id, worked_by_name: name }).in('id', ids)
+}
+
+/** The WhatsApp check-in tap (/api/admin/applications/whatsapp). Tolerant. */
+export async function recordCheckInTap(actor: AdminActor, applicationId: string): Promise<void> {
+  const admin = createAdminClient()
+  if (!admin) return
+  try {
+    await markWorked(admin, actor, await actorName(admin, actor), [applicationId])
+  } catch {
+    /* the tap still opens WhatsApp; it just does not sink */
+  }
+}
+
+/** Who changed it, when the parent did it through the site's own hire flow. */
+export const PARENT_NAME = 'Parent'
+
+/**
+ * A parent's hire through the site's own flow (lib/jobs hireApplicant) moves
+ * that tutor's application on that tuition to Hired, recorded as changed by
+ * "Parent": the stage history, the tuition's history (admin_audit_log) and the
+ * tutor's timeline. The other applicants are NOT marked, and the tuition itself
+ * is not touched here. Returns true when the stage moved. Tolerant: a failure
+ * never undoes the hire.
+ */
+export async function recordParentHire(args: { jobId: string; tutorId: string; parentId: string; at?: string; reason?: string }): Promise<boolean> {
+  const admin = createAdminClient()
+  if (!admin) return false
+  try {
+    const { data } = await admin.from('applications').select(APP_COLS).eq('job_id', args.jobId).eq('tutor_id', args.tutorId).maybeSingle()
+    const app = data as AppRow | null
+    if (!app || app.withdrawn_at || app.stage === 'hired') return false
+    const now = args.at ?? new Date().toISOString()
+    const { error } = await admin
+      .from('applications')
+      .update({
+        stage: 'hired',
+        stage_changed_at: now,
+        stage_changed_by: args.parentId,
+        stage_changed_by_name: PARENT_NAME,
+        worked_at: now,
+        worked_by: args.parentId,
+        worked_by_name: PARENT_NAME,
+      })
+      .eq('id', app.id)
+      .eq('stage', app.stage)
+    if (error) return false
+    await admin.from('application_stage_events').insert({
+      application_id: app.id,
+      job_id: app.job_id,
+      tutor_id: app.tutor_id,
+      from_stage: app.stage,
+      to_stage: 'hired',
+      staff_id: null,
+      staff_name: PARENT_NAME,
+      created_at: now,
+    })
+    await admin.from('admin_audit_log').insert({
+      actor_id: args.parentId,
+      actor_role: 'member',
+      actor_email: null,
+      action: 'application.stage',
+      target_type: 'job',
+      target_id: app.job_id,
+      detail: { applicationId: app.id, tutorId: app.tutor_id, from: app.stage, to: 'hired', reason: args.reason ?? 'parent hired', by: 'parent' },
+    })
+    await logActivity({
+      userId: app.tutor_id,
+      event: 'application_stage_changed',
+      targetType: 'application',
+      targetId: app.id,
+      meta: { jobId: app.job_id, from: app.stage, to: 'hired', stage: STAGE_LABEL.hired, by: 'parent' },
+    })
+    return true
+  } catch {
+    return false
+  }
 }
 
 /**
@@ -403,7 +524,7 @@ export async function reassignOwner(args: { actor: AdminActor; jobIds: string[];
 
 /** A newly posted staff tuition belongs to the staff member who posted it. */
 export async function recordPoster(admin: Admin, jobId: string, staffId: string): Promise<void> {
-  await admin.from('tuition_owners').upsert({ job_id: jobId, staff_id: staffId, source: 'poster' }, { onConflict: 'job_id', ignoreDuplicates: true })
+  await admin.from('tuition_owners').upsert({ job_id: jobId, staff_id: staffId, posted_by: staffId, source: 'poster' }, { onConflict: 'job_id', ignoreDuplicates: true })
 }
 
 // -------------------------------------------------------- tutor dashboard ----

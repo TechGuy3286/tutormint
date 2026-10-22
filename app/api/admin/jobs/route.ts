@@ -30,6 +30,7 @@ export async function GET(request: Request) {
       subject: get('subject'),
       featured: get('featured'),
       postedBy: get('postedBy'),
+      poster: get('poster'),
     },
     limit: PAGE_SIZE,
     cursor: get('cursor') || null,

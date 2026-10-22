@@ -11,9 +11,9 @@
 //            who have not finished, and any email signup never confirmed.
 //            SCREEN_ACCESS.signups (not Tuitions staff).
 //   orphans  Orphaned accounts — a sign-in with no profile row. SCREEN_ACCESS.signups.
-//   applications  Applications (owner, 22 Oct 2026) — every application with its
-//            stage, owner and overdue flag, plus the "Forward to parents" board
-//            that was Applicants to forward. SCREEN_ACCESS.applicantForwards.
+//   Applications moved to its own page, Tuitions → Applications (owner, 22 Oct
+//            2026); ?tab=applications redirects there (lib/applicationStageCore
+//            legacyApplicationsHref).
 //
 // Tutors who have not finished are on the Tutors tab only, so nobody is on two
 // tabs. Old addresses redirect here with their query string kept.
@@ -22,12 +22,10 @@ import { roleSatisfies, SCREEN_ACCESS, type AdminRole } from './adminAccessCore'
 
 export const FOLLOW_UPS_PATH = '/admin/follow-ups'
 
-export type FollowUpTab = 'tutors' | 'applications' | 'parents' | 'orphans'
+export type FollowUpTab = 'tutors' | 'parents' | 'orphans'
 
 export const FOLLOW_UP_TABS: { key: FollowUpTab; label: string }[] = [
   { key: 'tutors', label: 'Tutors' },
-  // Application tracking (owner, 22 Oct 2026): it absorbed Applicants to forward.
-  { key: 'applications', label: 'Applications' },
   { key: 'parents', label: 'Parents & email not confirmed' },
   { key: 'orphans', label: 'Orphaned accounts' },
 ]
@@ -35,7 +33,6 @@ export const FOLLOW_UP_TABS: { key: FollowUpTab; label: string }[] = [
 export function mayOpenFollowUpTab(role: AdminRole | null | undefined, tab: FollowUpTab): boolean {
   if (!role) return false
   if (tab === 'tutors') return roleSatisfies(role, SCREEN_ACCESS.unpaidSignups)
-  if (tab === 'applications') return roleSatisfies(role, SCREEN_ACCESS.applicantForwards)
   return roleSatisfies(role, SCREEN_ACCESS.signups)
 }
 

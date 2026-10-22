@@ -55,6 +55,8 @@ export type AdminJobFilters = {
   featured: string
   /** '' = both tabs, 'parent' = parent-posted, 'admin' = team-posted (3.8). */
   postedBy: string
+  /** The staff member who POSTED it (tuition_owners.posted_by; owner, 22 Oct 2026). '' = anyone. */
+  poster?: string
 }
 
 export const NO_JOB_FILTERS: AdminJobFilters = {
@@ -64,6 +66,7 @@ export const NO_JOB_FILTERS: AdminJobFilters = {
   subject: '',
   featured: '',
   postedBy: '',
+  poster: '',
 }
 
 type JobCursor = { c: string; i: string }
@@ -102,12 +105,22 @@ export async function adminJobPage({
   const teamId = await teamParentId()
 
   const build = () => {
-    let q = admin
-      .from('jobs')
-      .select(
-        'id, job_tx_id, ref_id, title, status, is_featured, city, area, class_level, subjects, created_at, parent_id, hired_tutor_id',
-        { count: 'exact' },
-      )
+    const poster = filters.poster && /^[0-9a-f-]{36}$/i.test(filters.poster) ? filters.poster : ''
+    let q = poster
+      ? admin
+          .from('jobs')
+          .select(
+            'id, job_tx_id, ref_id, title, status, is_featured, city, area, class_level, subjects, created_at, parent_id, hired_tutor_id, tuition_owners!inner(posted_by)',
+            { count: 'exact' },
+          )
+      : admin
+          .from('jobs')
+          .select('id, job_tx_id, ref_id, title, status, is_featured, city, area, class_level, subjects, created_at, parent_id, hired_tutor_id', {
+            count: 'exact',
+          })
+    // "Posted by" a staff member (owner, 22 Oct 2026): the poster never changes
+    // when the owner is reassigned, so it is read from posted_by, not staff_id.
+    if (poster) q = q.eq('tuition_owners.posted_by', poster)
     if (matchingIds) q = q.in('id', matchingIds)
     if (filters.status) q = q.eq('status', filters.status)
     if (filters.city) q = q.ilike('city', filters.city)
@@ -193,6 +206,25 @@ export async function adminJobPage({
       : null,
     total: count ?? 0,
   }
+}
+
+export type PosterOption = { id: string; name: string; count: number }
+
+/** "Posted by" choices: every staff member who posted a tuition, with counts. */
+export async function adminPosterFacets(): Promise<PosterOption[]> {
+  const admin = createAdminClient()
+  if (!admin) return []
+  const rows = await pageAll<{ job_id: string; posted_by: string | null }>((from, to) =>
+    admin.from('tuition_owners').select('job_id, posted_by').not('posted_by', 'is', null).order('job_id').range(from, to),
+  )
+  const count = new Map<string, number>()
+  for (const r of rows) if (r.posted_by) count.set(r.posted_by, (count.get(r.posted_by) ?? 0) + 1)
+  if (count.size === 0) return []
+  const { data } = await admin.from('profiles').select('id, full_name').in('id', [...count.keys()])
+  const name = new Map((data ?? []).map((p) => [p.id as string, formatName(p.full_name as string | null) || 'Former staff']))
+  return [...count.entries()]
+    .map(([id, n]) => ({ id, name: name.get(id) ?? 'Former staff', count: n }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 }
 
 /** The cities and subjects that actually appear on jobs, for the filter bar. */

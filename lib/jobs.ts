@@ -17,7 +17,8 @@
 //     what the page rendered.
 
 import { PARENT_MOBILE_GATE_MESSAGE, PARENT_MOBILE_HREF } from '@/lib/parentGate'
-import { recordPoster } from '@/lib/applicationTracking'
+import { recordParentHire, recordPoster } from '@/lib/applicationTracking'
+import { assignNewTuitionOwner } from '@/lib/cityOwners'
 import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { createClient } from '@/lib/supabase/server'
 import { sanitizeGradeSubjects, gradesWithoutIds, unionMasterIds } from '@/lib/gradeSubjects'
@@ -411,6 +412,10 @@ export async function createJob(
   revalidateLanding()
   // Google Indexing API (item 3): published. Never blocks; skipped without credentials.
   queueIndexingUpdate({ public_slug: (job.public_slug as string) ?? null, city: input.city }, { newPost: true })
+
+  // A parent's own tuition belongs to its city's owner (owner, 22 Oct 2026;
+  // lib/cityOwners). No staff member posted it.
+  await assignNewTuitionOwner(job.id as string)
 
   return { ok: true, id: job.id as string, jobTxId: job.job_tx_id as string }
 }
@@ -1080,6 +1085,11 @@ export async function hireApplicant(
     .eq('id', job.id)
     .eq('parent_id', parentId)
   if (jobError) return { ok: false, status: 400, error: jobError.message }
+
+  // The application itself moves to Hired, recorded as changed by "Parent"
+  // (owner, 22 Oct 2026; lib/applicationTracking). The other applicants' stages
+  // are left as they are, and nothing here touches the tuition again.
+  await recordParentHire({ jobId: job.id as string, tutorId: application.tutor_id as string, parentId })
 
   if (admin) {
     // Everyone else is rejected in one statement, and told. Leaving other

@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { X } from 'lucide-react'
 import Typeahead from '@/components/search/Typeahead'
-import type { AdminJobFilters } from '@/lib/adminJobs'
+import type { AdminJobFilters, PosterOption } from '@/lib/adminJobs'
 
 // Filters for the admin tuition list.
 //
@@ -24,10 +24,13 @@ export default function JobFilters({
   values,
   cities,
   subjects,
+  posters = [],
 }: {
   values: AdminJobFilters
   cities: string[]
   subjects: { slug: string; name: string }[]
+  /** "Posted by" staff choices with counts (team tab only; owner, 22 Oct 2026). */
+  posters?: PosterOption[]
 }) {
   const router = useRouter()
   const search = useSearchParams()
@@ -51,6 +54,9 @@ export default function JobFilters({
       key: 'subject',
       label: subjects.find((s) => s.slug === values.subject)?.name ?? values.subject,
     })
+  }
+  if (values.poster) {
+    chips.push({ key: 'poster', label: `Posted by ${posters.find((p) => p.id === values.poster)?.name ?? 'staff'}` })
   }
   if (values.featured) {
     chips.push({ key: 'featured', label: values.featured === 'yes' ? 'Featured' : 'Not featured' })
@@ -128,6 +134,20 @@ export default function JobFilters({
             <option value="no">Not featured</option>
           </select>
         </label>
+
+        {posters.length > 0 && (
+          <label className="block">
+            <span className="sr-only">Posted by</span>
+            <select className={FIELD} value={values.poster ?? ''} onChange={(e) => apply({ poster: e.target.value || null })}>
+              <option value="">Posted by anyone</option>
+              {posters.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} ({p.count})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
 
       {chips.length > 0 && (

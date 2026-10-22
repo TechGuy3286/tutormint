@@ -275,6 +275,9 @@ export const SCREEN_ACCESS = {
   // parent which paid tutors applied. Owner, admin, operations and tuitions
   // staff act; the Partner views (refused on every write by checkAdminRole).
   applicantForwards: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
+  // Tuitions → City owners (owner, 22 Oct 2026): only the site Owner edits;
+  // the Partner views (roleMayWrite refuses them, the list names nobody).
+  cityOwners: [] as AdminRole[],
   users: ['admin', 'operations', 'partner'] as AdminRole[],
   // Team activity → "Verifications & messages" tab, its API and the per-staff
   // detail pages: the Owner, the Project Managers and Admin, view only (owner,

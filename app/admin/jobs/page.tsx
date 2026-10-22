@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import AccessDeniedNotice from '@/components/admin/AccessDeniedNotice'
-import { adminJobFacets, adminJobPage, type AdminJobFilters } from '@/lib/adminJobs'
+import { adminJobFacets, adminJobPage, adminPosterFacets, type AdminJobFilters } from '@/lib/adminJobs'
 
 import JobFilters from './JobFilters'
 import JobRow from './JobRow'
@@ -28,7 +28,7 @@ const PAGE_SIZE = 40
 export default async function AdminJobsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; city?: string; subject?: string; featured?: string; postedBy?: string; denied?: string }>
+  searchParams: Promise<{ q?: string; status?: string; city?: string; subject?: string; featured?: string; postedBy?: string; poster?: string; denied?: string }>
 }) {
   await requireAdminRole(...SCREEN_ACCESS.jobs)
 
@@ -44,11 +44,14 @@ export default async function AdminJobsPage({
     subject: sp.subject ?? '',
     featured: sp.featured ?? '',
     postedBy,
+    // "Posted by" a staff member (owner, 22 Oct 2026) — the team tab only.
+    poster: postedBy === 'admin' ? (sp.poster ?? '') : '',
   }
 
-  const [{ rows, nextCursor, total }, facets] = await Promise.all([
+  const [{ rows, nextCursor, total }, facets, posters] = await Promise.all([
     adminJobPage({ filters, limit: PAGE_SIZE }),
     adminJobFacets(),
+    adminPosterFacets(),
   ])
 
   const params: Record<string, string> = {}
@@ -57,11 +60,11 @@ export default async function AdminJobsPage({
   // A tab link that keeps the current search/status/city filters.
   const tabHref = (tab: 'parent' | 'admin') => {
     const p = new URLSearchParams()
-    for (const [k, v] of Object.entries(filters)) if (v && k !== 'postedBy') p.set(k, v)
+    for (const [k, v] of Object.entries(filters)) if (v && k !== 'postedBy' && k !== 'poster') p.set(k, v)
     p.set('postedBy', tab)
     return `/admin/jobs?${p.toString()}`
   }
-  const narrowed = ['q', 'status', 'city', 'subject', 'featured'].some((k) => params[k])
+  const narrowed = ['q', 'status', 'city', 'subject', 'featured', 'poster'].some((k) => params[k])
 
   return (
     <div className="space-y-4">
@@ -98,7 +101,7 @@ export default async function AdminJobsPage({
         ))}
       </div>
 
-      <JobFilters values={filters} cities={facets.cities} subjects={facets.subjects} />
+      <JobFilters values={filters} cities={facets.cities} subjects={facets.subjects} posters={postedBy === 'admin' ? posters : []} />
 
       {rows.length === 0 ? (
         <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">

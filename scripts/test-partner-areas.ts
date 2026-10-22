@@ -47,7 +47,7 @@ test('every view-only area refuses a Partner write; the Owner is unaffected', ()
     'finance', 'revenue', 'paymentAmounts', 'payments', 'paymentsApprove', 'paymentsRefund', 'paymentsSettings', 'paymentsSwitches',
     'paymentGateways', 'smsHealth', 'emailHealth', 'reconciliation', 'plans', 'plansMutate', 'subjectsCore', 'secondRole', 'team', 'audit', 'seo', 'unmetSearches',
     'ads', 'social', 'import', 'cleanup', 'blog', 'blogPublish', 'blogApprove', 'blogQueue', 'blogGenerate', 'staffActivity', 'signupFunnel', 'usersExport', 'overview',
-    'staffSignupsAll', 'staffSignupClaim', 'staffClaimsReview', 'mySignups',
+    'staffSignupsAll', 'staffSignupClaim', 'staffClaimsReview', 'mySignups', 'cityOwners',
   ]
   for (const key of VIEW) {
     assert.equal(roleMayWrite('partner', SCREEN_ACCESS[key]), false, key)
@@ -89,6 +89,8 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   // tuitions they own; reassigning is the Owner's alone.
   'applications/stage': 'mixed',
   'applications/owner': 'owner',
+  // City owners (owner, 22 Oct 2026): the site Owner only.
+  'city-owners': 'owner',
   'blog/cover': 'view',
   'blog/generate-cover': 'view',
   'blog/generate': 'view',

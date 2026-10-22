@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { logAdminAction } from '@/lib/auditLog'
 import { applicationCheckInLink } from '@/lib/applicationWhatsApp'
+import { recordCheckInTap } from '@/lib/applicationTracking'
 import { uuid } from '@/lib/validate'
 
 // GET /api/admin/applications/whatsapp?applicationId=… (owner, 22 Oct 2026)
@@ -32,5 +33,7 @@ export async function GET(request: Request) {
     targetId: wa.jobId,
     detail: { applicationId: id.data, tutorId: wa.tutorId, stage: wa.stage },
   })
+  // The tap is activity (owner, 22 Oct 2026): the row sinks until overdue again.
+  await recordCheckInTap(gate.actor, id.data)
   return NextResponse.redirect(wa.href, { status: 302, headers: { 'Cache-Control': 'private, no-store' } })
 }

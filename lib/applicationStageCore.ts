@@ -127,6 +127,10 @@ export type BoardItem = {
   stageChangedAt: string | null
   ownerId: string | null
   createdAt: string
+  /** The last staff (or parent) activity on it — stage change, WhatsApp tap, forward (migration 193). */
+  workedAt?: string | null
+  /** When the tuition was posted — over 30 days ago it is in the Older section. */
+  jobCreatedAt?: string | null
 }
 
 export function matchesFilter(item: BoardItem, filter: BoardFilter, actorId: string): boolean {
@@ -140,7 +144,7 @@ export function matchesFilter(item: BoardItem, filter: BoardFilter, actorId: str
  *  the rest newest stage change first. */
 export function sortBoard<T extends BoardItem>(items: T[], nowMs: number): T[] {
   const rank = (i: T) => {
-    const f = overdueFlag(i.stage, i.stageChangedAt, nowMs)
+    const f = itemOverdue(i, nowMs)
     return f === 'forward_overdue' ? 0 : f === 'check_in' ? 1 : 2
   }
   const at = (i: T) => Date.parse(i.stageChangedAt ?? i.createdAt) || 0
@@ -173,7 +177,7 @@ export function boardCounts(items: BoardItem[], actorId: string): Record<BoardFi
 export function overdueBadgeCount(items: BoardItem[], actor: ActorLike, nowMs: number): number {
   let n = 0
   for (const i of items) {
-    if (!overdueFlag(i.stage, i.stageChangedAt, nowMs)) continue
+    if (!itemOverdue(i, nowMs)) continue
     if (actor.adminRole === 'owner' || i.ownerId === actor.id) n++
   }
   return n
@@ -263,4 +267,207 @@ export function successStoryAction(row: { stage: Stage; tutorVerified: boolean; 
   if (row.stage !== 'hired') return null
   if (row.tutorVerified && row.tutorSlug) return { href: successStoryHref(row.tutorSlug) }
   return { label: VERIFY_FIRST }
+}
+
+// =========================================================== Applications v2
+// (owner, 22 Oct 2026). Its own page, Tuitions → Applications: a Staff filter,
+// one group per tuition, worked items sink to the bottom, and applications on
+// tuitions posted more than 30 days ago sit in a collapsed "Older" section.
+
+export const APPLICATIONS_PATH = '/admin/applications'
+
+/** Tuitions posted longer ago than this are "Older": never overdue, no badge. */
+export const OLDER_AFTER_DAYS = 30
+
+const ms = (v: string | null | undefined) => {
+  const t = v ? Date.parse(v) : NaN
+  return Number.isFinite(t) ? t : NaN
+}
+
+/** The last thing that happened to it: its stage change or a later activity. */
+export function lastActivityAt(i: Pick<BoardItem, 'stageChangedAt' | 'workedAt'>): string | null {
+  const a = ms(i.stageChangedAt)
+  const b = ms(i.workedAt)
+  if (!Number.isFinite(a) && !Number.isFinite(b)) return null
+  return new Date(Math.max(Number.isFinite(a) ? a : -Infinity, Number.isFinite(b) ? b : -Infinity)).toISOString()
+}
+
+/** Posted more than 30 days ago (a tuition with no date is not Older). */
+export function isOlderTuition(jobCreatedAt: string | null | undefined, nowMs: number): boolean {
+  const t = ms(jobCreatedAt)
+  return Number.isFinite(t) && nowMs - t > OLDER_AFTER_DAYS * DAY_MS
+}
+
+/** Overdue, counted from the last activity. An Older tuition is never overdue. */
+export function itemOverdue(i: BoardItem, nowMs: number): OverdueFlag | null {
+  if (isOlderTuition(i.jobCreatedAt, nowMs)) return null
+  return overdueFlag(i.stage, lastActivityAt(i), nowMs)
+}
+
+/** Worked = has had an activity and is not overdue again. */
+export function isWorked(i: BoardItem, nowMs: number): boolean {
+  return Number.isFinite(ms(i.workedAt)) && !itemOverdue(i, nowMs)
+}
+
+// ------------------------------------------------------------ Staff filter --
+
+/** 'all', 'unassigned', or one staff member's id ('mine' = the viewer). */
+export type StaffFilter = string
+
+export function parseStaffFilter(v: string | null | undefined, actor: ActorLike): StaffFilter {
+  const s = (v ?? '').trim()
+  if (s === 'all' || s === 'unassigned') return s
+  if (s === 'mine') return actor.id
+  if (/^[0-9a-f-]{36}$/i.test(s)) return s.toLowerCase()
+  return defaultFilter(actor) === 'all' ? 'all' : actor.id
+}
+
+export function matchesStaff(i: Pick<BoardItem, 'ownerId'>, f: StaffFilter): boolean {
+  if (f === 'all') return true
+  if (f === 'unassigned') return i.ownerId === null
+  return i.ownerId === f
+}
+
+export type StaffChoice = { key: StaffFilter; label: string; count: number }
+
+/**
+ * The Staff dropdown: All, each staff member who owns a tuition with
+ * applications (the viewer always listed, as "Mine"), then Unassigned — each
+ * with its count of applications.
+ */
+export function staffChoices(items: Pick<BoardItem, 'ownerId'>[], names: Map<string, string>, actor: ActorLike): StaffChoice[] {
+  const count = new Map<string, number>()
+  let unassigned = 0
+  for (const i of items) {
+    if (i.ownerId) count.set(i.ownerId, (count.get(i.ownerId) ?? 0) + 1)
+    else unassigned++
+  }
+  if (!count.has(actor.id) && actor.adminRole !== 'owner') count.set(actor.id, 0)
+  const people = [...count.entries()]
+    .map(([id, n]) => ({ key: id, label: id === actor.id ? `Mine (${names.get(id) ?? 'you'})` : (names.get(id) ?? 'Former staff'), count: n }))
+    .sort((a, b) => (a.key === actor.id ? -1 : b.key === actor.id ? 1 : a.label.localeCompare(b.label)))
+  return [{ key: 'all', label: 'All staff', count: items.length }, ...people, { key: 'unassigned', label: 'Unassigned', count: unassigned }]
+}
+
+/** Stage chip: 'any' or one stage. */
+export function parseStageFilter(v: string | null | undefined): Stage | 'any' {
+  return isStage(v) ? v : 'any'
+}
+
+// --------------------------------------------------------------- addresses --
+
+type Query = Record<string, string | string[] | undefined>
+const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)
+
+/**
+ * The new address for an old Applications link (Follow-ups → Applications, or
+ * Applicants to forward), keeping its filters. The old `show=mine|all|
+ * unassigned` becomes `staff=`, `show=<stage>` stays a stage chip, and
+ * view=forward / fwd= stay as they are.
+ */
+export function legacyApplicationsHref(sp: Query): string {
+  const q = new URLSearchParams()
+  const show = one(sp.show)
+  if (show === 'mine' || show === 'all' || show === 'unassigned') q.set('staff', show)
+  else if (isStage(show)) q.set('show', show)
+  for (const k of ['staff', 'view', 'fwd', 'q']) {
+    const v = one(sp[k])
+    if (v) q.set(k, v)
+  }
+  // Applicants to forward's own sub-tabs.
+  const tab = one(sp.tab)
+  if (tab === 'to_forward' || tab === 'forwarded' || tab === 'outcome') {
+    q.set('view', 'forward')
+    if (tab !== 'to_forward') q.set('fwd', tab)
+  }
+  const s = q.toString()
+  return s ? `${APPLICATIONS_PATH}?${s}` : APPLICATIONS_PATH
+}
+
+// ---------------------------------------------------------------- grouping --
+
+export type GroupState = 'overdue' | 'open' | 'worked'
+
+export type BoardGroup<T> = { jobId: string; rows: T[]; state: GroupState; older: boolean }
+
+const RANK: Record<GroupState, number> = { overdue: 0, open: 1, worked: 2 }
+
+function rowRank(i: BoardItem, nowMs: number): number {
+  if (itemOverdue(i, nowMs)) return 0
+  return isWorked(i, nowMs) ? 2 : 1
+}
+
+/** Inside a group: overdue (oldest activity first), then not yet worked (oldest
+ *  first), then worked (most recently worked LAST). */
+export function sortGroupRows<T extends BoardItem>(rows: T[], nowMs: number): T[] {
+  const key = (i: T, r: number) => (r === 2 ? ms(i.workedAt) : r === 0 ? ms(lastActivityAt(i)) : ms(i.createdAt)) || 0
+  return [...rows].sort((a, b) => {
+    const ra = rowRank(a, nowMs)
+    const rb = rowRank(b, nowMs)
+    if (ra !== rb) return ra - rb
+    return key(a, ra) - key(b, rb) || a.id.localeCompare(b.id)
+  })
+}
+
+/**
+ * One group per tuition. Groups on tuitions posted more than 30 days ago go to
+ * `older`. Order: overdue groups (oldest overdue item first), then groups with
+ * an item not yet worked (oldest first), then fully worked groups (most
+ * recently worked LAST).
+ */
+export function groupBoard<T extends BoardItem & { jobId: string }>(rows: T[], nowMs: number): { main: BoardGroup<T>[]; older: BoardGroup<T>[] } {
+  const byJob = new Map<string, T[]>()
+  for (const r of rows) byJob.set(r.jobId, [...(byJob.get(r.jobId) ?? []), r])
+  const groups: (BoardGroup<T> & { at: number })[] = []
+  for (const [jobId, list] of byJob) {
+    const sorted = sortGroupRows(list, nowMs)
+    const ranks = sorted.map((r) => rowRank(r, nowMs))
+    const state: GroupState = ranks.includes(0) ? 'overdue' : ranks.includes(1) ? 'open' : 'worked'
+    const at =
+      state === 'worked'
+        ? Math.max(...sorted.map((r) => ms(r.workedAt) || 0))
+        : Math.min(
+            ...sorted
+              .filter((_, k) => ranks[k] === RANK[state])
+              .map((r) => (state === 'overdue' ? ms(lastActivityAt(r)) : ms(r.createdAt)) || 0),
+          )
+    groups.push({ jobId, rows: sorted, state, older: isOlderTuition(list[0].jobCreatedAt, nowMs), at })
+  }
+  groups.sort((a, b) => RANK[a.state] - RANK[b.state] || a.at - b.at || a.jobId.localeCompare(b.jobId))
+  const strip = (g: BoardGroup<T> & { at: number }): BoardGroup<T> => ({ jobId: g.jobId, rows: g.rows, state: g.state, older: g.older })
+  return { main: groups.filter((g) => !g.older).map(strip), older: groups.filter((g) => g.older).map(strip) }
+}
+
+/** "4 applied · 1 forwarded" (+ " · 1 hired" when there is one). */
+export function groupCountLine(stages: Stage[]): string {
+  const t = tallyStages(stages)
+  return `${t.applied} applied · ${t.forwarded} forwarded${t.hired ? ` · ${t.hired} hired` : ''}`
+}
+
+/** A title cut at a whole word, with an ellipsis. */
+export function shortTitle(title: string, max = 60): string {
+  const t = title.replace(/\s+/g, ' ').trim()
+  if (t.length <= max) return t
+  const cut = t.slice(0, max + 1)
+  const sp = cut.lastIndexOf(' ')
+  const head = sp > max / 2 ? cut.slice(0, sp) : t.slice(0, max)
+  return `${head.replace(/[\s,|·–-]+$/u, '')}…`
+}
+
+/** Search: tutor name, TM number (with or without "TM-"), title, city. */
+export function searchMatches(r: { tutorName: string; jobRef: string | null; jobTitle: string; jobCity: string | null }, query: string): boolean {
+  const needle = query.trim().toLowerCase()
+  if (!needle) return false
+  const bare = needle.replace(/^tm-?/, '')
+  const ref = (r.jobRef ?? '').toLowerCase()
+  if (ref && (ref.includes(needle) || (bare.length > 0 && ref.replace(/^tm-?/, '').includes(bare)))) return true
+  return [r.tutorName, r.jobTitle, r.jobCity].some((v) => (v ?? '').toLowerCase().includes(needle))
+}
+
+/** "Updated 2 days ago by Aqsa" for a worked row. */
+export function workedLine(workedAt: string | null | undefined, by: string | null | undefined, nowMs: number): string | null {
+  if (!Number.isFinite(ms(workedAt))) return null
+  const t = timeAtStage(workedAt ?? null, nowMs)
+  const when = t === 'just now' ? 'just now' : `${t} ago`
+  return `Updated ${when}${by ? ` by ${by}` : ''}`
 }

@@ -26,8 +26,9 @@ async function navBadges(actor: AdminActor): Promise<Record<string, number>> {
   const admin = createAdminClient()
   if (!admin) return {}
   const [overdue, reports, waiting, receipts] = await Promise.all([
-    // Follow-ups: overdue applications on this staff member's own tuitions —
-    // every overdue application for the Owner (owner, 22 Oct 2026).
+    // Applications: overdue applications on this staff member's own tuitions —
+    // every overdue application for the Owner (owner, 22 Oct 2026). Follow-ups
+    // has no badge of its own now; tuitions over 30 days old never count.
     overdueApplicationsCount(actor),
     admin.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'open'),
     // Documents waiting for the Owner, tutors and parents together — the People
@@ -40,7 +41,7 @@ async function navBadges(actor: AdminActor): Promise<Record<string, number>> {
   return {
     '/admin/reports': reports.count ?? 0,
     '/admin/payments': receipts,
-    '/admin/follow-ups': overdue,
+    '/admin/applications': overdue,
     '/admin/users': waiting,
   }
 }

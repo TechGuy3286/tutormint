@@ -141,6 +141,7 @@ export const AUDIT_LABELS: Record<string, string> = {
   // Application tracking (owner, 22 Oct 2026).
   'application.stage': 'Changed an application stage',
   'application.whatsapp_open': 'Opened a WhatsApp check-in with a tutor',
+  'city_owner.set': 'Changed a city owner',
   'job.owner_assign': 'Changed the owner of a tuition',
 
   // Places and search
