@@ -23,6 +23,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { logAdminAction } from '@/lib/auditLog'
 import { advanceForwarded } from '@/lib/applicationTracking'
+import { recordForwardFollowUps } from '@/lib/applicationFollowUps'
 import type { AdminActor } from '@/lib/adminAuth'
 import { fetchTaxonomyTables, buildTaxonomy } from '@/lib/taxonomyBuild'
 import { loadVerifiedBadgeOk } from '@/lib/badgeFacts'
@@ -215,8 +216,8 @@ export async function loadForwardBoard(): Promise<ForwardBoard> {
     pageAllIn<{ id: string; full_name: string | null; avatar_url: string | null; profile_pic_status: string | null }, string>(tutorIds, (ids, from, to) =>
       admin.from('profiles').select('id, full_name, avatar_url, profile_pic_status').in('id', ids).order('id').range(from, to),
     ),
-    pageAllIn<{ id: string; slug: string | null; city: string | null; area: string | null; gender: string | null; experience_years: number | null }, string>(tutorIds, (ids, from, to) =>
-      admin.from('tutor_profiles').select('id, slug, city, area, gender, experience_years').in('id', ids).order('id').range(from, to),
+    pageAllIn<{ id: string; slug: string | null; city: string | null; area: string | null; gender: string | null; experience_years: number | null; show_avatar: boolean | null }, string>(tutorIds, (ids, from, to) =>
+      admin.from('tutor_profiles').select('id, slug, city, area, gender, experience_years, show_avatar').in('id', ids).order('id').range(from, to),
     ),
     pageAllIn<{ tutor_id: string; master_id: number }, string>(tutorIds, (ids, from, to) =>
       admin.from('tutor_subjects').select('tutor_id, master_id').in('tutor_id', ids).order('tutor_id').order('master_id').range(from, to),
@@ -285,7 +286,9 @@ export async function loadForwardBoard(): Promise<ForwardBoard> {
       return {
         id: t.tutorId,
         name: formatName(p?.full_name) || 'Unnamed tutor',
-        avatarUrl: (p?.profile_pic_status ?? '').toLowerCase() === 'rejected' ? null : (p?.avatar_url ?? null),
+        // A rejected or hidden photo ("Hide my photo from parents") shows the
+        // grey gender silhouette (owner, 22 Oct 2026).
+        avatarUrl: (p?.profile_pic_status ?? '').toLowerCase() === 'rejected' || tp?.show_avatar === false ? null : (p?.avatar_url ?? null),
         gender: tp?.gender ?? null,
         badges,
         subjects: namesFor(tutorSubjectIds.get(t.tutorId) ?? []),
@@ -378,6 +381,9 @@ export async function recordForward(args: { actor: AdminActor; jobId: string; ch
   // Each included tutor's application moves from Applied to Forwarded (owner,
   // 22 Oct 2026). Later stages are left alone.
   await advanceForwarded(args.actor, args.jobId, tutorIds)
+  // Applications v3 (owner, 22 Oct 2026): a parent follow-up on each included
+  // application, so it moves to Sent.
+  await recordForwardFollowUps(args.actor, args.jobId, tutorIds)
   return { ok: true }
 }
 

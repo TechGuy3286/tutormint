@@ -25,7 +25,7 @@ import { AlertCircle, CheckCircle2, X } from 'lucide-react'
 
 export type ToastKind = 'success' | 'error'
 /** An optional button on the toast, e.g. Undo (owner, 9 Oct 2026). */
-export type ToastAction = { label: string; onClick: () => void }
+export type ToastAction = { label: string; onClick: () => void; /** How long the toast stays, in ms (e.g. a 10-second Undo). */ ms?: number }
 type Toast = { id: number; kind: ToastKind; message: string; action?: ToastAction }
 
 type ToastApi = {
@@ -60,9 +60,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const arm = useCallback(
-    (id: number, kind: ToastKind, long = false) => {
-      // A toast with a button (Undo) stays twice as long, so it can be reached.
-      const timer = setTimeout(() => dismiss(id), long ? DURATION[kind] * 2 : DURATION[kind])
+    (id: number, kind: ToastKind, action?: ToastAction) => {
+      // A toast with a button (Undo) stays twice as long, so it can be reached —
+      // or exactly as long as the button asks for (ms).
+      const timer = setTimeout(() => dismiss(id), action ? (action.ms ?? DURATION[kind] * 2) : DURATION[kind])
       timers.current.set(id, timer)
     },
     [dismiss],
@@ -74,7 +75,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       // Cap the stack: three at once is plenty, and an unbounded pile from a
       // loop of failures would cover the page.
       setToasts((prev) => [...prev.slice(-2), { id, kind, message, action }])
-      arm(id, kind, !!action)
+      arm(id, kind, action)
     },
     [arm],
   )
@@ -109,7 +110,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               const timer = timers.current.get(t.id)
               if (timer) clearTimeout(timer)
             }}
-            onResume={() => arm(t.id, t.kind, !!t.action)}
+            onResume={() => arm(t.id, t.kind, t.action)}
           />
         ))}
       </div>

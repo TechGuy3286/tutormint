@@ -41,6 +41,10 @@ export type ActivityEvent =
   | 'application_withdrawn'
   // Staff moved an application to a new stage (owner, 22 Oct 2026).
   | 'application_stage_changed'
+  // A WhatsApp follow-up on one of their applications (owner, 22 Oct 2026, v3).
+  // Recipient type only (parent | tutor) — never a number.
+  | 'application_follow_up'
+  | 'application_follow_up_undone'
   | 'demo_requested'
   | 'demo_accepted'
   | 'demo_declined'

@@ -111,13 +111,14 @@ test('every old link redirects to the new page, keeping filters', () => {
   assert.equal(legacyApplicationsHref({ tab: 'applications', show: 'mine' }), '/admin/applications?staff=mine')
   assert.equal(legacyApplicationsHref({ tab: 'applications', show: 'unassigned' }), '/admin/applications?staff=unassigned')
   assert.equal(legacyApplicationsHref({ tab: 'applications', show: 'demo' }), '/admin/applications?show=demo')
-  assert.equal(legacyApplicationsHref({ tab: 'applications', view: 'forward', fwd: 'outcome' }), '/admin/applications?view=forward&fwd=outcome')
+  // v3 (owner, 22 Oct 2026): the Forward to parents tab is gone — its links land on the page.
+  assert.equal(legacyApplicationsHref({ tab: 'applications', view: 'forward', fwd: 'outcome' }), APPLICATIONS_PATH)
   // Applicants to forward and its sub-tabs.
-  assert.equal(legacyApplicationsHref({ tab: 'to_forward' }), '/admin/applications?view=forward')
-  assert.equal(legacyApplicationsHref({ tab: 'forwarded' }), '/admin/applications?view=forward&fwd=forwarded')
+  assert.equal(legacyApplicationsHref({ tab: 'to_forward' }), APPLICATIONS_PATH)
+  assert.equal(legacyApplicationsHref({ tab: 'forwarded', staff: 'all' }), '/admin/applications?staff=all')
   assert.match(code('app/admin/follow-ups/page.tsx'), /if \(sp\.tab === 'applications'\) permanentRedirect\(legacyApplicationsHref\(sp\)\)/)
   assert.match(code('app/admin/jobs/applicants/page.tsx'), /permanentRedirect\(legacyApplicationsHref\(/)
-  assert.match(code('app/admin/applications/ForwardToParents.tsx'), /'\/admin\/applications\?view=forward'/)
+  assert.doesNotMatch(code('app/admin/applications/ForwardToParents.tsx'), /view=forward/)
 })
 
 test('/tuitions is a permanent redirect to /browse/tuitions, and only the bare address', () => {
@@ -228,8 +229,9 @@ test('search finds worked items and Older items by tutor, TM number, title or ci
   // The page searches EVERY row — staff and stage filters are set aside, and
   // the Older section opens when it holds a match.
   const ui = code('app/admin/applications/ApplicationsClient.tsx')
-  assert.match(ui, /const listed = searching \? rows\.filter\(\(r\) => hits\.has\(r\.id\)\)/)
-  assert.match(ui, /const showOlder = olderOpen \|\| \(searching && older\.length > 0\)/)
+  // v3: search covers To do, Sent and Older, filters set aside (no Older section while searching).
+  assert.ok(ui.includes('const listed = searching ? all.filter((r) => hits.has(r.id))'))
+  assert.ok(ui.includes('const olderRows = searching ? []'))
   assert.match(ui, /hit \? 'bg-tm-tint-gold'/)
 })
 

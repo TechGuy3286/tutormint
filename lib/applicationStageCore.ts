@@ -360,25 +360,25 @@ type Query = Record<string, string | string[] | undefined>
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)
 
 /**
- * The new address for an old Applications link (Follow-ups → Applications, or
- * Applicants to forward), keeping its filters. The old `show=mine|all|
- * unassigned` becomes `staff=`, `show=<stage>` stays a stage chip, and
- * view=forward / fwd= stay as they are.
+ * The new address for an old Applications link (Follow-ups → Applications,
+ * Applicants to forward, or the retired "Forward to parents" tab), keeping
+ * its filters. The old `show=mine|all|unassigned` becomes `staff=`,
+ * `show=<stage>` stays a stage chip. The Forward to parents tab is gone
+ * (owner, 22 Oct 2026, Applications v3): `view=forward`, `fwd=` and the old
+ * sub-tabs land on the Applications page — each tuition group's "Forward to
+ * parents" button opens the panel.
  */
 export function legacyApplicationsHref(sp: Query): string {
   const q = new URLSearchParams()
   const show = one(sp.show)
   if (show === 'mine' || show === 'all' || show === 'unassigned') q.set('staff', show)
   else if (isStage(show)) q.set('show', show)
-  for (const k of ['staff', 'view', 'fwd', 'q']) {
+  for (const k of ['staff', 'q', 'tab', 'view']) {
     const v = one(sp[k])
-    if (v) q.set(k, v)
-  }
-  // Applicants to forward's own sub-tabs.
-  const tab = one(sp.tab)
-  if (tab === 'to_forward' || tab === 'forwarded' || tab === 'outcome') {
-    q.set('view', 'forward')
-    if (tab !== 'to_forward') q.set('fwd', tab)
+    if (!v) continue
+    if (k === 'tab' && (v === 'todo' || v === 'sent')) q.set(k, v)
+    else if (k === 'view' && v === 'tutor') q.set(k, v)
+    else if (k === 'staff' || k === 'q') q.set(k, v)
   }
   const s = q.toString()
   return s ? `${APPLICATIONS_PATH}?${s}` : APPLICATIONS_PATH

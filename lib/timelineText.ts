@@ -137,6 +137,15 @@ export function timelineSentence(event: string, meta: TimelineMeta = {}): string
       const by = str(meta.by) === 'parent' ? 'the parent' : 'staff'
       return stage ? `Application moved to ${stage} by ${by}` : `Application stage changed by ${by}`
     }
+    case 'application_follow_up':
+      // Applications v3 (owner, 22 Oct 2026): who it went to, by type only.
+      return str(meta.kind) === 'tutor_update'
+        ? 'Staff sent an update on their applications on WhatsApp'
+        : str(meta.recipient) === 'tutor'
+          ? 'Staff sent a WhatsApp message to the tutor about an application'
+          : 'Staff sent a WhatsApp message to the parent about an application'
+    case 'application_follow_up_undone':
+      return 'An application follow-up was undone (not sent)'
     case 'demo_requested':
       return 'Requested a demo'
     case 'demo_accepted':

@@ -89,6 +89,10 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   // tuitions they own; reassigning is the Owner's alone.
   'applications/stage': 'mixed',
   'applications/owner': 'owner',
+  // Applications v3 follow-ups (owner, 22 Oct 2026): every role that opens the page.
+  'applications/follow-up': 'edit',
+  'applications/follow-up/undo': 'edit',
+  'applications/tutor-update': 'edit',
   // City owners (owner, 22 Oct 2026): the site Owner only.
   'city-owners': 'owner',
   'blog/cover': 'view',

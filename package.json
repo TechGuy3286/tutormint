@@ -181,7 +181,8 @@
     "test:financeitems": "tsx --test scripts/test-finance-items.ts",
     "test:followupreasons": "tsx --test scripts/test-follow-ups-reasons.ts",
     "test:followupflags:live": "tsx --env-file-if-exists=.env.local --test scripts/test-follow-ups-flags-live.ts",
-    "test:applicationsv2": "tsx --test scripts/test-applications-v2.ts"
+    "test:applicationsv2": "tsx --test scripts/test-applications-v2.ts",
+    "test:applicationsv3": "tsx --test scripts/test-applications-v3.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

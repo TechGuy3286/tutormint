@@ -1,9 +1,9 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Check, ExternalLink, Loader2, MessageCircle, Phone, Search } from 'lucide-react'
+import { Check, ExternalLink, Loader2, MessageCircle, Phone } from 'lucide-react'
 
 import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
@@ -21,124 +21,58 @@ import {
   buildForwardMessage,
   forwardWaLink,
   forwardedLine,
-  type ForwardTab,
   type OutcomeKind,
 } from '@/lib/applicantForwardCore'
 
-// Follow-ups → Applications → Forward to parents (was Marketplace → Applicants
-// to forward, owner, 10 Oct 2026). One card per
-// tuition: the tuition, its parent's contact (as staff see it), and every PAID
-// tutor who applied or viewed the number. Same grid as the Overview lists:
-// search, 48 at a time, "Show more". A view-only Partner sees every card and no
-// action button; the APIs refuse them as well.
+// The "Forward to parents" panel (owner, 22 Oct 2026, Applications v3). It
+// replaced the separate Forward to parents tab: the button on each tuition
+// group on Admin → Tuitions → Applications opens this panel for that tuition.
+// Everything the old card did is here — the tuition, its parent (masked
+// number), every PAID tutor who applied or viewed the number (photo or grey
+// silhouette, name, badges, subjects, city, profile link, a tick box; new ones
+// pre-ticked, earlier ones "already sent"), WhatsApp parent with the
+// "Applicants to forward" template, Call parent, Mark as forwarded (moves the
+// ticked tutors' applications to Forwarded and records a parent follow-up on
+// each, so they go to Sent), "Add parent number", and "What did the parent
+// say?". A view-only role sees no action; the APIs refuse them as well.
 
-const STEP = 48
-// The board lives on Follow-ups → Applications → Forward to parents (owner,
-// 22 Oct 2026); /admin/jobs/applicants redirects here.
-const FORWARD_HREF = '/admin/applications?view=forward'
 const BTN = 'inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl px-2 text-[11px] font-bold'
-const TABS: { key: ForwardTab; label: string }[] = [
-  { key: 'to_forward', label: 'To forward' },
-  { key: 'forwarded', label: 'Forwarded' },
-  { key: 'outcome', label: 'Outcome' },
-]
 
-export default function ForwardToParents({
-  cards,
-  counts,
+export default function ForwardPanel({
+  card,
   template,
-  tab,
   canOpenMembers,
   nowMs,
+  title,
+  onClose,
 }: {
-  cards: ForwardCard[]
-  counts: { toForward: number; forwarded: number; outcome: number }
+  /** The tuition's forward card, or null when no paid tutor applied or viewed the number. */
+  card: ForwardCard | null
   template: string
-  tab: ForwardTab
-  /** Tuitions staff cannot open member or tutor admin pages; hide those links. */
   canOpenMembers: boolean
-  /** The server's clock, so "2 days ago" is the same text on both renders. */
   nowMs: number
+  title: string
+  onClose: () => void
 }) {
-  const [q, setQ] = useState('')
-  const [shown, setShown] = useState(STEP)
-
-  const inTab = useMemo(() => cards.filter((c) => c.state.tab === tab), [cards, tab])
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase()
-    if (!needle) return inTab
-    return inTab.filter((c) =>
-      [c.ref, c.title, c.level, c.place, c.parent.name, c.parent.phoneLabel, ...c.subjects, ...c.tutors.map((t) => t.name)].some((v) =>
-        (v ?? '').toLowerCase().includes(needle),
-      ),
-    )
-  }, [inTab, q])
-  const visible = filtered.slice(0, shown)
-  const left = filtered.length - visible.length
-  const count: Record<ForwardTab, number> = { to_forward: counts.toForward, forwarded: counts.forwarded, outcome: counts.outcome }
-
   return (
-    <div className="space-y-3">
-      <nav aria-label="Applicants to forward" className="flex flex-wrap gap-2">
-        {TABS.map((t) => (
-          <Link
-            key={t.key}
-            href={t.key === 'to_forward' ? FORWARD_HREF : `${FORWARD_HREF}&fwd=${t.key}`}
-            aria-current={t.key === tab ? 'page' : undefined}
-            className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-xs font-bold ${
-              t.key === tab ? 'bg-tm-navy text-white' : 'border border-gray-200 bg-white text-slate-700 hover:border-tm-navy'
-            }`}
-          >
-            {t.label}
-            <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${t.key === tab ? 'bg-white text-tm-navy' : 'bg-tm-tint-navy text-tm-navy'}`}>{count[t.key]}</span>
-          </Link>
-        ))}
-      </nav>
-
-      <label className="relative block">
-        <span className="sr-only">Search this list</span>
-        <Search aria-hidden size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-        <input
-          type="search"
-          value={q}
-          onChange={(e) => { setQ(e.target.value); setShown(STEP) }}
-          placeholder="Search by TM number, tuition, parent or tutor"
-          className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white pl-9 pr-3 text-xs outline-none focus:border-tm-navy"
-        />
-      </label>
-      {q.trim() && (
-        <p className="text-[11px] font-semibold text-gray-600">
-          {filtered.length} of {inTab.length} match “{q.trim()}”
-        </p>
-      )}
-
-      {filtered.length === 0 ? (
-        <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-600">
-          {q.trim()
-            ? 'Nothing here matches that search.'
-            : tab === 'to_forward'
-              ? 'No tuition is waiting. A card appears here when a tutor who has paid the Verification Fee applies to a tuition or views its number.'
-              : tab === 'forwarded'
-                ? 'Nothing is waiting on a parent’s answer.'
-                : 'No outcomes recorded yet.'}
-        </p>
-      ) : (
-        <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {visible.map((c) => (
-            <ForwardCardView key={c.jobId} card={c} template={template} canOpenMembers={canOpenMembers} nowMs={nowMs} />
-          ))}
-        </ul>
-      )}
-
-      {left > 0 && (
-        <button
-          type="button"
-          onClick={() => setShown((n) => n + STEP)}
-          className="mx-auto flex min-h-[44px] items-center rounded-xl border border-tm-navy px-4 text-xs font-bold text-tm-navy hover:bg-tm-tint-navy"
-        >
-          Show more ({left} left)
-        </button>
-      )}
+    <div role="dialog" aria-modal="true" aria-label={`Forward to parents: ${title}`} className="fixed inset-0 z-50 flex justify-end bg-tm-black/50" onClick={onClose}>
+      <div className="h-full w-full max-w-lg overflow-y-auto bg-tm-bg p-3" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h2 className="text-sm font-black text-tm-navy">Forward to parents</h2>
+          <button type="button" onClick={onClose} className="inline-flex min-h-[40px] items-center rounded-lg border border-gray-200 bg-white px-3 text-xs font-bold text-slate-700">
+            Close
+          </button>
+        </div>
+        {card ? (
+          <ul>
+            <ForwardCardView card={card} template={template} canOpenMembers={canOpenMembers} nowMs={nowMs} />
+          </ul>
+        ) : (
+          <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-600">
+            No tutor who has paid the Verification Fee has applied to this tuition or viewed its number yet, so there is nobody to forward.
+          </p>
+        )}
+      </div>
     </div>
   )
 }

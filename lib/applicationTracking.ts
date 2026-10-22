@@ -27,13 +27,15 @@ import { maskMobile } from '@/lib/smsHealthCore'
 import { tuitionPath } from '@/lib/slugs'
 import { maskTuitionText } from '@/lib/maskTuition'
 import { loadSocialEligibleTutors } from '@/lib/social/eligibility'
+import { normalisePkMobile } from '@/lib/phone'
+import { loadFollowUps, parentContacts } from '@/lib/applicationFollowUps'
+import { dueState, todoBadgeCount, type FollowUpRecord } from '@/lib/applicationFollowUpCore'
 import {
   ENDED_STAGES,
   isOpenStage,
   mayEditStage,
   mayReassign,
   otherOpenOnJob,
-  overdueBadgeCount,
   STAGE_LABEL,
   tallyStages,
   type BoardItem,
@@ -122,7 +124,16 @@ export const overdueApplicationsCount = cache(async (actor: AdminActor): Promise
   if (!admin) return 0
   try {
     const { counted, owners, jobCreated } = await loadCounted(admin)
-    return overdueBadgeCount(counted.map((a) => toItem(a, owners, jobCreated)), actor, Date.now())
+    // Applications v3 (owner, 22 Oct 2026): overdue To do items only.
+    const fus = await loadFollowUps(admin, counted.map((a) => a.id))
+    const now = Date.now()
+    return todoBadgeCount(
+      counted.map((a) => {
+        const item = toItem(a, owners, jobCreated)
+        return { ...item, due: dueState(item, fus.get(a.id) ?? [], now) }
+      }),
+      actor,
+    )
   } catch {
     return 0
   }
@@ -146,6 +157,10 @@ export type BoardRow = BoardItem & {
   ownerName: string | null
   stageChangedByName: string | null
   workedByName: string | null
+  /** Follow-ups not undone (v3) — recipient type and message key only, no numbers. */
+  followUps: FollowUpRecord[]
+  /** The tuition has a usable parent number (the number itself never leaves the server). */
+  hasParentNumber: boolean
 }
 
 export type StaffOption = { id: string; name: string }
@@ -164,7 +179,7 @@ export async function loadApplicationBoard(): Promise<ApplicationBoard> {
   const tutorIds = [...new Set(counted.map((a) => a.tutor_id))]
   const jobIds = [...new Set(counted.map((a) => a.job_id))]
 
-  const [people, tps, jobs, staff, eligible] = await Promise.all([
+  const [people, tps, jobs, staff, eligible, fus, parents] = await Promise.all([
     pageAllIn<{ id: string; full_name: string | null; phone_number: string | null; whatsapp: string | null }, string>(tutorIds, (ids, from, to) =>
       admin.from('profiles').select('id, full_name, phone_number, whatsapp').in('id', ids).order('id').range(from, to),
     ),
@@ -177,6 +192,8 @@ export async function loadApplicationBoard(): Promise<ApplicationBoard> {
     ),
     loadStaffOptions(admin),
     loadSocialEligibleTutors(admin).catch(() => new Map()),
+    loadFollowUps(admin, counted.map((a) => a.id)),
+    parentContacts(admin, jobIds),
   ])
   const personBy = new Map(people.map((p) => [p.id, p]))
   const slugBy = new Map(tps.map((t) => [t.id, t.slug]))
@@ -211,6 +228,8 @@ export async function loadApplicationBoard(): Promise<ApplicationBoard> {
       ownerName: owner ? (staffName.get(owner) ?? 'Former staff') : null,
       stageChangedByName: a.stage_changed_by_name,
       workedByName: a.worked_by_name,
+      followUps: fus.get(a.id) ?? [],
+      hasParentNumber: !!normalisePkMobile(parents.get(a.job_id)?.raw ?? null),
     }
   })
   return { rows, staff, ownerNames: Object.fromEntries(staffName) }
