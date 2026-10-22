@@ -249,6 +249,17 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
   // that subject in the job's city when one exists, the browse filter otherwise.
   const linker = await getLandingLinker()
 
+  // "<n> tutors applied" (owner, 22 Oct 2026): a count only, from the
+  // SECURITY DEFINER job_applied_counts() (withdrawn applications and staff /
+  // test accounts left out). Tolerant — no count on any failure.
+  const appliedBy = new Map<string, number>()
+  try {
+    const { data: counts } = await supabase.rpc('job_applied_counts', { job_ids: jobIds })
+    for (const c of (counts ?? []) as { job_id: string; applied: number }[]) appliedBy.set(c.job_id, Number(c.applied) || 0)
+  } catch {
+    /* decoration only */
+  }
+
   return rawJobs.map((j) => {
     const f = facts.get(j.parent_id as string)
     const city = (j.city as string) ?? null
@@ -312,6 +323,7 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       id: j.id as string,
       job_tx_id: (j.job_tx_id as string) ?? null,
       ref_id: (j.ref_id as string) ?? null,
+      applied_count: appliedBy.get(j.id as string) ?? 0,
       public_slug: (j.public_slug as string) ?? null,
       status: (j.status as string) ?? 'open',
       // CARD title: the composed field list (masked defensively — the stored

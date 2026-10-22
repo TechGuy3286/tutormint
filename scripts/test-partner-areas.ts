@@ -85,6 +85,10 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   'ads': 'view',
   'applicant-forwards/forward': 'edit',
   'applicant-forwards/outcome': 'edit',
+  // Application tracking (owner, 22 Oct 2026): a Partner changes stages on the
+  // tuitions they own; reassigning is the Owner's alone.
+  'applications/stage': 'mixed',
+  'applications/owner': 'owner',
   'blog/cover': 'view',
   'blog/generate-cover': 'view',
   'blog/generate': 'view',

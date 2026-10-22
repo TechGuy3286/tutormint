@@ -15,6 +15,8 @@
 // and two jobs posted in the same millisecond are ordinary on a busy board.
 
 import { pageAll, pageAllIn } from '@/lib/pageAll'
+import { stageTallies } from '@/lib/applicationTracking'
+import { adminStageLine } from '@/lib/applicationStageCore'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sanitizeOrTerm } from '@/lib/pgFilter'
 import { decodeCursor, encodeCursor } from '@/lib/cursor'
@@ -40,6 +42,8 @@ export type AdminJobRow = {
    *  than by a real parent — splits the two admin tabs. */
   postedByTeam: boolean
   applicantCount: number
+  /** "6 applied · 2 forwarded · 1 hired" — live, staff/test tutors left out (owner, 22 Oct 2026); null with none. */
+  stageLine: string | null
   hiredTutorId: string | null
 }
 
@@ -148,11 +152,12 @@ export async function adminJobPage({
     new Set(page.map((j) => j.parent_id as string | null).filter(Boolean) as string[]),
   )
 
-  const [{ data: apps }, { data: parents }] = await Promise.all([
+  const [{ data: apps }, { data: parents }, tallies] = await Promise.all([
     admin.from('applications').select('job_id').in('job_id', jobIds),
     parentIds.length > 0
       ? admin.from('profiles').select('id, full_name').in('id', parentIds)
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+    stageTallies(jobIds),
   ])
 
   const applicants = new Map<string, number>()
@@ -180,6 +185,7 @@ export async function adminJobPage({
       parentName: parentName.get(j.parent_id as string) ?? '—',
       postedByTeam: teamId != null && (j.parent_id as string) === teamId,
       applicantCount: applicants.get(j.id as string) ?? 0,
+      stageLine: adminStageLine(tallies.get(j.id as string) ?? { applied: 0, forwarded: 0, hired: 0 }),
       hiredTutorId: (j.hired_tutor_id as string) ?? null,
     })),
     nextCursor: hasMore

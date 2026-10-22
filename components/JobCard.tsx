@@ -2,6 +2,7 @@
 
 import { postGated } from '@/lib/gatedFetch'
 import TimeAgo from '@/components/TimeAgo'
+import { publicAppliedLine } from '@/lib/applicationStageCore'
 import { budgetLabel } from '@/lib/feeBands'
 import { tuitionPath } from '@/lib/slugs'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
@@ -47,6 +48,9 @@ export type JobCardData = {
   /** The human-readable reference (TM-1001), shown so a tutor can quote it over
    *  the phone. Generated server-side, never editable (migration 82). */
   ref_id?: string | null
+  /** How many tutors applied (owner, 22 Oct 2026): a COUNT only — never a name,
+   *  a stage or "Hired". Shown as "<n> tutors applied" when 1 or more. */
+  applied_count?: number | null
   /** The public tuition page's address. Set once at posting, never changes. */
   public_slug: string | null
   status: string
@@ -335,6 +339,12 @@ export default function JobCard({
                 <>
                   <span aria-hidden="true">·</span>
                   <span className="font-semibold tabular-nums text-slate-700">{job.ref_id}</span>
+                </>
+              )}
+              {publicAppliedLine(job.applied_count) && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span className="font-semibold text-slate-700">{publicAppliedLine(job.applied_count)}</span>
                 </>
               )}
               {!job.posted_by_team && job.parent_name && (

@@ -134,6 +134,7 @@
     "test:defaultavatar": "tsx --test scripts/test-default-avatar.ts",
     "test:docreview": "tsx --test scripts/test-document-review.ts",
     "test:applicantforwards": "tsx --test scripts/test-applicant-forwards.ts",
+    "test:applicationtracking": "tsx --test scripts/test-application-tracking.ts",
     "test:paychoice": "tsx --test scripts/test-pay-choice.ts",
     "test:seosc": "tsx --test scripts/test-seo-search-console.ts",
     "audit:seo": "node scripts/audit-seo-live.mjs",

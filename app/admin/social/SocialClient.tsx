@@ -54,16 +54,21 @@ const FORMATS = [
 // caption versions with "Next caption", and the group post (a city, then 4–6 of
 // its verified tutors, defaulting to the most recently verified).
 
-export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
-  const [slug, setSlug] = useState(tutors[0]?.slug ?? '')
+/** Preselected from the address — Follow-ups → Applications sends a Hired row
+ *  here with the Success story template (owner, 22 Oct 2026). */
+export type SocialInitial = { slug?: string | null; template?: SocialTemplate | null; success?: 'verified' | 'hired' | null }
+
+export default function SocialClient({ tutors, initial }: { tutors: PickerTutor[]; initial?: SocialInitial }) {
+  const initialSlug = initial?.slug && tutors.some((t) => t.slug === initial.slug) ? initial.slug : null
+  const [slug, setSlug] = useState(initialSlug ?? tutors[0]?.slug ?? '')
   const [query, setQuery] = useState('')
-  const [template, setTemplate] = useState<SocialTemplate>(DEFAULT_SOCIAL_TEMPLATE)
+  const [template, setTemplate] = useState<SocialTemplate>((initialSlug && initial?.template) || DEFAULT_SOCIAL_TEMPLATE)
   const [variant, setVariant] = useState(0)
   const [format, setFormat] = useState<'square' | 'story' | 'wide'>('square')
   const [headline, setHeadline] = useState('')
   const [subhead, setSubhead] = useState('')
   const [dateLabel, setDateLabel] = useState('')
-  const [successKind, setSuccessKind] = useState<'verified' | 'hired'>('verified')
+  const [successKind, setSuccessKind] = useState<'verified' | 'hired'>((initialSlug && initial?.success) || 'verified')
   const [captionIndex, setCaptionIndex] = useState(0)
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState(false)

@@ -43,6 +43,7 @@ import { preferHumanTitle } from '@/lib/jobDisplayTitle'
 import { isSubjectSlug, resolveLandingAny, landingIndexable, getLandingLinker } from '@/lib/landing'
 import LandingView from '@/components/landing/LandingView'
 import ApplyPanel from './ApplyPanel'
+import { publicAppliedLine } from '@/lib/applicationStageCore'
 import { areaWithoutCity } from '@/lib/place'
 import { areaWithLandmark } from '@/lib/staffAreaCore'
 import { applyBlocksFor } from '@/lib/applyBlockServer'
@@ -556,6 +557,13 @@ export default async function TuitionPage({ params }: { params: Params }) {
               <>
                 <span aria-hidden>·</span>
                 <span className="font-semibold tabular-nums text-slate-700">Ref {job.ref_id}</span>
+              </>
+            )}
+            {/* A count only (owner, 22 Oct 2026) — never names, stages or "Hired". */}
+            {publicAppliedLine(job.applied_count) && (
+              <>
+                <span aria-hidden>·</span>
+                <span className="font-semibold text-slate-700">{publicAppliedLine(job.applied_count)}</span>
               </>
             )}
           </p>

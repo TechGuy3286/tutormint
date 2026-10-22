@@ -51,7 +51,7 @@ export const TIMELINE_GROUPS: Record<Exclude<TimelineGroup, 'all'>, string[]> = 
     'admin_message_received', 'password_changed', 'terms_accepted', 'profile_claimed',
   ],
   activity: [
-    'job_posted', 'job_edited', 'job_closed', 'application_submitted', 'application_withdrawn',
+    'job_posted', 'job_edited', 'job_closed', 'application_submitted', 'application_withdrawn', 'application_stage_changed',
     'demo_requested', 'demo_accepted', 'demo_declined', 'demo_completed', 'message_sent',
     'shortlist_added', 'shortlist_removed', 'profile_viewed', 'search_performed',
     'saved_job_added', 'saved_job_removed', 'cv_downloaded',

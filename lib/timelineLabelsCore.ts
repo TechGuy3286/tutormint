@@ -138,6 +138,10 @@ export const AUDIT_LABELS: Record<string, string> = {
   'job.contact_message': 'Messaged a tuition contact',
   'applicants.forward': 'Sent applicants to the parent',
   'applicants.outcome': 'Recorded the result with the parent',
+  // Application tracking (owner, 22 Oct 2026).
+  'application.stage': 'Changed an application stage',
+  'application.whatsapp_open': 'Opened a WhatsApp check-in with a tutor',
+  'job.owner_assign': 'Changed the owner of a tuition',
 
   // Places and search
   'location.area_add': 'Added an area',

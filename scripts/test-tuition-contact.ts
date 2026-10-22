@@ -230,7 +230,7 @@ test('B. Resume requires a number — every resume path, and the screens ask for
   const ui = read('app', 'admin', 'jobs', 'paused', 'PausedClient.tsx')
   assert.ok(ui.includes('No contact number') && ui.includes('<AddParentNumber jobId={r.id} resumeOnSave'))
   assert.ok(ui.includes('<th className="p-2">Reason</th>'))
-  const fwd = read('app', 'admin', 'jobs', 'applicants', 'ApplicantsClient.tsx')
+  const fwd = read('app', 'admin', 'follow-ups', 'ForwardToParents.tsx')
   assert.ok(fwd.includes('Add parent number') && fwd.includes('<AddParentNumber jobId={card.jobId} offerResume />'))
   assert.ok(fwd.includes('{!readOnly && !!card.parent.msisdn && ('), 'WhatsApp / Call only when there is a number')
   assert.ok(read('components', 'admin', 'AddParentNumber.tsx').includes('Resume now'))
@@ -252,7 +252,7 @@ test('B. posting, editing and resuming go through the role check; signed out is 
   assert.ok(auth.includes('!roleMayWrite(actor.adminRole, allowed)) && !opts.self'))
   assert.ok(auth.includes("status: 401, error: 'Admin access required.'"))
   // And the screens show the Partner no button.
-  for (const f of [['app', 'admin', 'jobs', 'paused', 'PausedClient.tsx'], ['app', 'admin', 'jobs', 'applicants', 'ApplicantsClient.tsx']]) {
+  for (const f of [['app', 'admin', 'jobs', 'paused', 'PausedClient.tsx'], ['app', 'admin', 'follow-ups', 'ForwardToParents.tsx']]) {
     assert.ok(read(...f).includes('useAdminReadOnly()'), f.join('/'))
   }
 })

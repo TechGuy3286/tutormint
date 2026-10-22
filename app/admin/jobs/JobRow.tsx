@@ -79,7 +79,8 @@ export default function JobRow({ row }: { row: AdminJobRow }) {
           <dd aria-hidden>·</dd>
           <dd className="inline-flex items-center gap-1">
             <Users size={11} aria-hidden />
-            {row.applicantCount} {row.applicantCount === 1 ? 'applicant' : 'applicants'}
+            {/* Live stage counts (owner, 22 Oct 2026). */}
+            {row.stageLine ?? 'No applications yet'}
           </dd>
           <dd aria-hidden>·</dd>
           <dd>

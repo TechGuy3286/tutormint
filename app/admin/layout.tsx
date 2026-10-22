@@ -1,4 +1,4 @@
-import { applicantsToForwardCount } from '@/lib/applicantForwards'
+import { overdueApplicationsCount } from '@/lib/applicationTracking'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
@@ -8,7 +8,7 @@ import { peopleWaitingCount } from '@/lib/peopleDirectory'
 import AdminSignOut from '@/components/admin/AdminSignOut'
 import BridgeBanner from '@/components/admin/BridgeBanner'
 import NotificationBell from '@/components/notifications/NotificationBell'
-import { getAdminActor, alwaysNeedsTwoFactor, roleBadge, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { getAdminActor, alwaysNeedsTwoFactor, roleBadge, roleSatisfies, SCREEN_ACCESS, type AdminActor } from '@/lib/adminAuth'
 import { canApprove } from '@/lib/adminAccessCore'
 import { AdminReadOnlyProvider, ViewOnlyChip } from '@/components/admin/ReadOnly'
 import { NAV_GROUPS, type NavGroup } from '@/lib/adminNav'
@@ -22,12 +22,13 @@ import { receiptsWaitingCount } from '@/lib/payments/receipt'
 // Small sidebar count badges (owner PR9 §6.5): tutors with a document waiting,
 // and open reports. Cheap head-count reads; a zero shows no badge (the shell
 // omits it). Payments counts the bank-transfer receipts waiting for approval.
-async function navBadges(): Promise<Record<string, number>> {
+async function navBadges(actor: AdminActor): Promise<Record<string, number>> {
   const admin = createAdminClient()
   if (!admin) return {}
-  const [toForward, reports, waiting, receipts] = await Promise.all([
-    // Marketplace → Applicants to forward: the "To forward" tab's count.
-    applicantsToForwardCount(),
+  const [overdue, reports, waiting, receipts] = await Promise.all([
+    // Follow-ups: overdue applications on this staff member's own tuitions —
+    // every overdue application for the Owner (owner, 22 Oct 2026).
+    overdueApplicationsCount(actor),
     admin.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'open'),
     // Documents waiting for the Owner, tutors and parents together — the People
     // tabs' own Waiting chips (owner, 21 Oct 2026; lib/peopleDirectory). Only
@@ -39,7 +40,7 @@ async function navBadges(): Promise<Record<string, number>> {
   return {
     '/admin/reports': reports.count ?? 0,
     '/admin/payments': receipts,
-    '/admin/jobs/applicants': toForward,
+    '/admin/follow-ups': overdue,
     '/admin/users': waiting,
   }
 }
@@ -96,7 +97,7 @@ export default async function AdminLayout({
   })).filter((g) => g.items.length > 0)
 
   const jar = await cookies()
-  const [unread, badges] = await Promise.all([unreadCount(), navBadges()])
+  const [unread, badges] = await Promise.all([unreadCount(), navBadges(actor)])
 
   // The header "Find a member" box commits to /admin/users, which tuitions_staff
   // cannot open (server-refused). Hide it for that role so it isn't offered a

@@ -130,6 +130,11 @@ export function timelineSentence(event: string, meta: TimelineMeta = {}): string
       return 'Applied to a tuition'
     case 'application_withdrawn':
       return 'Withdrew an application'
+    case 'application_stage_changed': {
+      // Staff moved an application (owner, 22 Oct 2026); meta.stage is the label.
+      const stage = str(meta.stage)
+      return stage ? `Application moved to ${stage} by staff` : 'Application stage changed by staff'
+    }
     case 'demo_requested':
       return 'Requested a demo'
     case 'demo_accepted':

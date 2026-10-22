@@ -17,6 +17,7 @@
 //     what the page rendered.
 
 import { PARENT_MOBILE_GATE_MESSAGE, PARENT_MOBILE_HREF } from '@/lib/parentGate'
+import { recordPoster } from '@/lib/applicationTracking'
 import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { createClient } from '@/lib/supabase/server'
 import { sanitizeGradeSubjects, gradesWithoutIds, unionMasterIds } from '@/lib/gradeSubjects'
@@ -596,6 +597,10 @@ export async function createTeamJob(
   }
 
   await writeScheduleSlots(admin, job.id as string, input.scheduleSlots)
+
+  // The staff member who posts a tuition owns its applications (owner, 22 Oct
+  // 2026; lib/applicationTracking). Only the Owner reassigns it later.
+  await recordPoster(admin, job.id as string, actor.id)
 
   // Abusive tuition text was withheld and flagged before the insert (PR41 §2),
   // so a posted team job here contains no flagged wording.

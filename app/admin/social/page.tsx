@@ -4,6 +4,7 @@ import { resolveSubjectLabelsBatch } from '@/lib/social/data'
 import { badgesForPlan, type BadgeName } from '@/lib/planBadges'
 import { loadVerifiedBadgeOk } from '@/lib/badgeFacts'
 import SocialClient, { type PickerTutor } from './SocialClient'
+import { isSocialTemplate } from '@/lib/social/copy'
 import { formatName } from '@/lib/formatName'
 import { loadSocialEligibleTutors } from '@/lib/social/eligibility'
 import { chunk } from '@/lib/pageAll'
@@ -35,7 +36,7 @@ import { chunk } from '@/lib/pageAll'
 
 export const dynamic = 'force-dynamic'
 
-export default async function AdminSocialPage() {
+export default async function AdminSocialPage({ searchParams }: { searchParams: Promise<{ tutor?: string; template?: string; success?: string }> }) {
   await requireAdminRole(...SCREEN_ACCESS.social)
 
   const admin = createAdminClient()
@@ -131,5 +132,14 @@ export default async function AdminSocialPage() {
     })
   }
 
-  return <SocialClient tutors={rows} />
+  // ?tutor=<slug>&template=success&success=hired preselects a post (owner, 22 Oct
+  // 2026). An unknown slug (not verified) or template is simply ignored.
+  const sp = await searchParams
+  const initial = {
+    slug: sp.tutor ?? null,
+    template: sp.template && isSocialTemplate(sp.template) ? sp.template : null,
+    success: sp.success === 'hired' || sp.success === 'verified' ? sp.success : null,
+  } as const
+
+  return <SocialClient tutors={rows} initial={initial} />
 }

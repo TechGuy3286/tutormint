@@ -186,7 +186,7 @@ test('who can act: owner, Partner, admin, operations and tuitions staff', () => 
   }
   assert.match(code('lib/adminAuth.ts'), /alwaysNeedsTwoFactor/)
   // The UI offers a Partner no action: buttons, tick boxes and the outcome form sit behind !readOnly.
-  const ui = code('app/admin/jobs/applicants/ApplicantsClient.tsx')
+  const ui = code('app/admin/follow-ups/ForwardToParents.tsx')
   // WhatsApp / Call need a number on the tuition (owner, 12 Oct 2026); without one the card offers "Add parent number".
   assert.match(ui, /\{!readOnly && !!card\.parent\.msisdn && \(\s*<div className="mt-auto space-y-2">/)
   assert.match(ui, /canSelect=\{!readOnly\}/)
@@ -197,13 +197,14 @@ test('who can act: owner, Partner, admin, operations and tuitions staff', () => 
   assert.match(lib, /action: 'applicants\.forward',\s*targetType: 'job'/)
   assert.match(lib, /action: 'applicants\.outcome',\s*targetType: 'job'/)
   assert.match(code('app/admin/jobs/[id]/page.tsx'), /\.eq\('target_type', 'job'\)/)
-  // Nothing about it reaches a member: no notify, no member timeline, no email.
+  // Nothing is sent to a member: no notify, no email. (Since 22 Oct 2026 a
+  // forward moves each included application to Forwarded, which is on the
+  // tutor's timeline — lib/applicationTracking, not here.)
   assert.doesNotMatch(lib, /notify\(|logActivity\(|deliverEmail\(/)
-  // The sidebar item sits under Tuitions, and its badge is the To-forward count.
-  const nav = read('lib/adminNav.ts')
-  assert.match(nav, /href: '\/admin\/jobs\/applicants', label: 'Applicants to forward', icon: '\w+', screen: 'applicantForwards'/)
-  assert.ok(nav.indexOf("'/admin/jobs/applicants'") > nav.indexOf("title: 'Tuitions'") && nav.indexOf("'/admin/jobs/applicants'") < nav.indexOf("title: 'Marketplace'"))
-  assert.match(read('app/admin/layout.tsx'), /'\/admin\/jobs\/applicants': toForward/)
+  // The board moved into Follow-ups → Applications → Forward to parents (owner,
+  // 22 Oct 2026); the old sidebar item is gone and its address redirects.
+  assert.doesNotMatch(read('lib/adminNav.ts'), /'\/admin\/jobs\/applicants'/)
+  assert.match(read('app/admin/jobs/applicants/page.tsx'), /permanentRedirect/)
   // Unpaid, paused, banned and test tutors are dropped where the paid set is built.
   assert.match(lib, /!!t\.verified_fee_paid_at && !blocked\.has\(t\.id\)/)
 })

@@ -39,6 +39,8 @@ export type ActivityEvent =
   | 'job_closed'
   | 'application_submitted'
   | 'application_withdrawn'
+  // Staff moved an application to a new stage (owner, 22 Oct 2026).
+  | 'application_stage_changed'
   | 'demo_requested'
   | 'demo_accepted'
   | 'demo_declined'

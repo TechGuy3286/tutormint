@@ -22,11 +22,13 @@ import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { logAdminAction } from '@/lib/auditLog'
+import { advanceForwarded } from '@/lib/applicationTracking'
 import type { AdminActor } from '@/lib/adminAuth'
 import { fetchTaxonomyTables, buildTaxonomy } from '@/lib/taxonomyBuild'
 import { loadVerifiedBadgeOk } from '@/lib/badgeFacts'
 import { formatName } from '@/lib/formatName'
 import { normalisePkMobile } from '@/lib/phone'
+import { maskMobile } from '@/lib/smsHealthCore'
 import { placeLabel, areaWithoutCity } from '@/lib/place'
 import { tutorPath, tuitionPath } from '@/lib/slugs'
 import { absoluteUrl } from '@/lib/siteUrl'
@@ -312,7 +314,8 @@ export async function loadForwardBoard(): Promise<ForwardBoard> {
       parent: {
         name: teamPosted ? (contact?.contact_name ?? null) : formatName(parent?.full_name) || null,
         msisdn,
-        phoneLabel: msisdn ? rawPhone : null,
+        // Masked in the list (owner, 22 Oct 2026): 0321•••••22, never the full number.
+        phoneLabel: msisdn ? maskMobile(rawPhone) : null,
         teamPosted,
       },
       pausedForNumber: job.status === 'paused' && job.pause_source === NO_CONTACT_SOURCE,
@@ -372,6 +375,9 @@ export async function recordForward(args: { actor: AdminActor; jobId: string; ch
     targetId: args.jobId,
     detail: { forwardId: data.id, channel: args.channel, tutorIds, tutorCount: tutorIds.length },
   })
+  // Each included tutor's application moves from Applied to Forwarded (owner,
+  // 22 Oct 2026). Later stages are left alone.
+  await advanceForwarded(args.actor, args.jobId, tutorIds)
   return { ok: true }
 }
 

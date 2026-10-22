@@ -111,8 +111,7 @@ export const NAV_GROUPS: NavGroup[] = [
       // Auto-paused tuitions with Resume (owner, 8 Oct 2026): the roles that post.
       { href: '/admin/jobs/paused', label: 'Paused tuitions', icon: 'pause', screen: 'pausedTuitions' },
       { href: '/admin/jobs/duplicates', label: 'Duplicates', icon: 'copy', screen: 'duplicates' },
-      // Paid tutors who applied or viewed a number — one card per tuition (owner, 10 Oct 2026).
-      { href: '/admin/jobs/applicants', label: 'Applicants to forward', icon: 'userPlus', screen: 'applicantForwards' },
+      // Applicants to forward moved into Follow-ups → Applications (owner, 22 Oct 2026).
       // ONE page for staff numbers (owner, 15 Oct 2026): it replaced Staff
       // activity (People) and Tuition posting activity. Paid sign-ups first; the
       // Verifications & messages tab is checked separately (staffActivity).

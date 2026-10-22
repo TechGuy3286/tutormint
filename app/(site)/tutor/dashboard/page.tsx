@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { Send, MessageSquare, Video, Briefcase, Eye, Heart, Search, Clapperboard } from 'lucide-react'
+import { Send, MessageSquare, Video, Briefcase, Eye, Heart, Search, Clapperboard, Trophy } from 'lucide-react'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
 import CvCard from '@/components/tutor/CvCard'
@@ -36,6 +36,8 @@ import { showNewOnboarding } from '@/lib/onboardingMode'
 import VerifiedOnceBanner from '@/components/tutor/VerifiedOnceBanner'
 import { firstVerifiedVisit } from '@/lib/verifiedBanner'
 import { applyBlocksFor } from '@/lib/applyBlockServer'
+import MyApplicationsSection from '@/components/tutor/MyApplicationsSection'
+import { tutorApplicationCards } from '@/lib/applicationTracking'
 
 // The tutor dashboard — one profile card and a few (PR19).
 //
@@ -124,6 +126,10 @@ export default async function TutorDashboardPage() {
     ])
 
   const liveApps = (apps ?? []).filter((a) => !a.withdrawn_at)
+  // My applications, with each one's stage, and the Hired count — on the
+  // tutor's OWN dashboard only (owner, 22 Oct 2026).
+  const myApplications = await tutorApplicationCards(userId)
+  const hiredCount = myApplications.filter((a) => a.stage === 'hired').length
   // Why Apply is inactive on each saved tuition (owner, 5 Oct 2026).
   const savedApplyBlocks = await applyBlocksFor(supabase, userId, ent, savedJobs)
   const appliedJobIds = liveApps.map((a) => a.job_id as string)
@@ -177,6 +183,7 @@ export default async function TutorDashboardPage() {
     { key: 'messages', icon: <MessageSquare aria-hidden size={22} />, value: unread, label: 'Messages', note: 'unread', href: '/tutor/dashboard/messages', tone: 'navy', badge: unread, tip: 'Unread messages from parents' },
     { key: 'demos', icon: <Video aria-hidden size={22} />, value: liveDemos, label: 'Demo requests', href: '/tutor/dashboard/demos', tone: 'red', highlight: liveDemos > 0, tip: 'Demo lessons parents have asked you for' },
     { key: 'tuitions', icon: <Briefcase aria-hidden size={22} />, value: boardCount, label: 'Tuitions for you', href: '/browse/tuitions', tone: 'gold', tip: tutorScope ? 'Open tuitions in your city and areas' : 'Open tuitions — add your area in Settings to narrow this' },
+    { key: 'hired', icon: <Trophy aria-hidden size={22} />, value: hiredCount, label: 'Hired', href: '#my-applications', tone: 'green', tip: 'Tuitions you got through TutorMint' },
     { key: 'views', icon: <Eye aria-hidden size={22} />, value: views.thisWeek, label: 'Profile views', note: 'this week', href: '/tutor/dashboard/views', tone: 'teal', tip: 'Parents who viewed your profile this week' },
     { key: 'saved', icon: <Heart aria-hidden size={22} />, value: savedJobs.length, label: 'Saved tuitions', href: '#saved-tuitions', tone: 'violet', tip: 'Tuitions you saved to look at later' },
     // Optional, no pressure — a label-only action tile opening the existing
@@ -280,6 +287,11 @@ export default async function TutorDashboardPage() {
             <span lang="ur" dir="rtl" className="ms-1.5 font-semibold text-gray-500">مزید درخواستیں حاصل کریں</span>
           </Link>
         )}
+
+        {/* My applications and where each stands (owner, 22 Oct 2026). */}
+        <div id="my-applications-list" className="scroll-mt-3">
+          <MyApplicationsSection cards={myApplications} hired={hiredCount} />
+        </div>
 
         {/* 3.3 Your CV. */}
         <CvCard canDownload={canDownloadCv(ent)} />

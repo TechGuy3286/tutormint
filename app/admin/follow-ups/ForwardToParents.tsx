@@ -25,13 +25,17 @@ import {
   type OutcomeKind,
 } from '@/lib/applicantForwardCore'
 
-// Marketplace → Applicants to forward (owner, 10 Oct 2026). One card per
+// Follow-ups → Applications → Forward to parents (was Marketplace → Applicants
+// to forward, owner, 10 Oct 2026). One card per
 // tuition: the tuition, its parent's contact (as staff see it), and every PAID
 // tutor who applied or viewed the number. Same grid as the Overview lists:
 // search, 48 at a time, "Show more". A view-only Partner sees every card and no
 // action button; the APIs refuse them as well.
 
 const STEP = 48
+// The board lives on Follow-ups → Applications → Forward to parents (owner,
+// 22 Oct 2026); /admin/jobs/applicants redirects here.
+const FORWARD_HREF = '/admin/follow-ups?tab=applications&view=forward'
 const BTN = 'inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl px-2 text-[11px] font-bold'
 const TABS: { key: ForwardTab; label: string }[] = [
   { key: 'to_forward', label: 'To forward' },
@@ -39,7 +43,7 @@ const TABS: { key: ForwardTab; label: string }[] = [
   { key: 'outcome', label: 'Outcome' },
 ]
 
-export default function ApplicantsClient({
+export default function ForwardToParents({
   cards,
   counts,
   template,
@@ -79,7 +83,7 @@ export default function ApplicantsClient({
         {TABS.map((t) => (
           <Link
             key={t.key}
-            href={t.key === 'to_forward' ? '/admin/jobs/applicants' : `/admin/jobs/applicants?tab=${t.key}`}
+            href={t.key === 'to_forward' ? FORWARD_HREF : `${FORWARD_HREF}&fwd=${t.key}`}
             aria-current={t.key === tab ? 'page' : undefined}
             className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-xs font-bold ${
               t.key === tab ? 'bg-tm-navy text-white' : 'border border-gray-200 bg-white text-slate-700 hover:border-tm-navy'

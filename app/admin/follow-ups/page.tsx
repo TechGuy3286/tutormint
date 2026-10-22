@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
-import { requireAdminRole, roleMayWrite, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, roleMayWrite, roleSatisfies, SCREEN_ACCESS, type AdminActor } from '@/lib/adminAuth'
 import { canApprove } from '@/lib/adminAccessCore'
 import { loadNotInterested } from '@/lib/followUpDismissals'
 import { loadDirectory } from '@/lib/peopleDirectory'
@@ -41,7 +41,14 @@ import {
 } from '@/lib/followUpsPageCore'
 import QueueSearch from '@/components/admin/QueueSearch'
 
+import { loadApplicationBoard } from '@/lib/applicationTracking'
+import { loadForwardBoard } from '@/lib/applicantForwards'
+import type { ForwardTab } from '@/lib/applicantForwardCore'
+import { boardCounts, matchesFilter, parseFilter, sortBoard, STAGE_LABEL, STAGES, type BoardFilter } from '@/lib/applicationStageCore'
+
 import UnpaidSignupRow from './UnpaidSignupRow'
+import ApplicationsClient from './ApplicationsClient'
+import ForwardToParents from './ForwardToParents'
 import SignupsClient from './SignupsClient'
 import OrphansSection from './OrphansSection'
 
@@ -72,7 +79,7 @@ const SIGNED_UP: { key: SignupWindow; label: string }[] = [
 
 const SIGNUP_TEMPLATE_KEYS = ['signup_email_unconfirmed', 'signup_profile_unfinished'] as const
 
-type SP = { tab?: string; filter?: string; scope?: string; chip?: string; q?: string }
+type SP = { tab?: string; filter?: string; scope?: string; chip?: string; q?: string; view?: string; fwd?: string; show?: string }
 
 export default async function FollowUpsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const actor = await requireAdminRole(...SCREEN_ACCESS.unpaidSignups)
@@ -115,6 +122,7 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
           isOwner={canApprove(actor.adminRole)}
         />
       )}
+      {tab === 'applications' && <ApplicationsTab actor={actor} view={sp.view} fwd={sp.fwd} show={sp.show} />}
       {tab === 'parents' && <ParentsTab showNotInterested={sp.scope === 'not_interested'} />}
       {tab === 'orphans' && <OrphansTab />}
     </div>
@@ -294,4 +302,103 @@ const groupPill = (on: boolean) =>
 async function OrphansTab() {
   const orphans = await loadOrphanedAccounts()
   return <OrphansSection rows={orphans.rows} ok={orphans.ok} />
+}
+
+// ------------------------------------------------------------- Applications
+
+const FORWARD_TABS: ForwardTab[] = ['to_forward', 'forwarded', 'outcome']
+
+async function ApplicationsTab({ actor, view, fwd, show }: { actor: AdminActor; view?: string; fwd?: string; show?: string }) {
+  const forward = view === 'forward'
+  const subPill = (on: boolean) =>
+    `inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-xs font-bold ${
+      on ? 'bg-tm-navy text-white' : 'border border-gray-200 bg-white text-slate-700 hover:border-tm-navy'
+    }`
+  const now = nowMs()
+
+  if (forward) {
+    const board = await loadForwardBoard()
+    const fwdTab = (FORWARD_TABS as string[]).includes(fwd ?? '') ? (fwd as ForwardTab) : 'to_forward'
+    return (
+      <div className="space-y-4">
+        <ApplicationsHeader />
+        <nav aria-label="Applications view" className="flex flex-wrap gap-2">
+          <Link href={followUpsHref('applications')} className={subPill(false)}>
+            Applications
+          </Link>
+          <Link href={followUpsHref('applications', { view: 'forward' })} aria-current="page" className={subPill(true)}>
+            Forward to parents <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] text-tm-navy">{board.counts.toForward}</span>
+          </Link>
+        </nav>
+        <p className="text-xs text-slate-700">
+          Tutors who paid the Verification Fee and applied to a tuition or viewed its number. Tell the parent once per tuition, then mark
+          it as forwarded — each included application moves to Forwarded. The WhatsApp text is the “Applicants to forward” template (Team
+          inbox → Templates).
+        </p>
+        <ForwardToParents
+          cards={board.cards}
+          counts={board.counts}
+          template={board.template}
+          tab={fwdTab}
+          canOpenMembers={roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutors)}
+          nowMs={now}
+        />
+      </div>
+    )
+  }
+
+  const [board, forwardBoard] = await Promise.all([loadApplicationBoard(), loadForwardBoard()])
+  const filter: BoardFilter = parseFilter(show, actor)
+  const counts = boardCounts(board.rows, actor.id)
+  const rows = sortBoard(
+    board.rows.filter((r) => matchesFilter(r, filter, actor.id)),
+    now,
+  )
+  const chips: { key: BoardFilter; label: string }[] = [
+    { key: 'mine', label: 'Mine' },
+    { key: 'all', label: 'All' },
+    { key: 'unassigned', label: 'Unassigned' },
+    ...STAGES.map((s) => ({ key: s as BoardFilter, label: STAGE_LABEL[s] })),
+  ]
+
+  return (
+    <div className="space-y-4">
+      <ApplicationsHeader />
+      <nav aria-label="Applications view" className="flex flex-wrap gap-2">
+        <Link href={followUpsHref('applications')} aria-current="page" className={subPill(true)}>
+          Applications
+        </Link>
+        <Link href={followUpsHref('applications', { view: 'forward' })} className={subPill(false)}>
+          Forward to parents{' '}
+          <span className="rounded-full bg-tm-tint-navy px-1.5 py-0.5 text-[10px] text-tm-navy">{forwardBoard.counts.toForward}</span>
+        </Link>
+      </nav>
+      <nav aria-label="Filter applications" className="flex flex-wrap gap-2">
+        {chips.map((c) => (
+          <Link
+            key={c.key}
+            href={followUpsHref('applications', { show: c.key })}
+            aria-current={c.key === filter ? 'page' : undefined}
+            className={groupPill(c.key === filter)}
+          >
+            {c.label} <span className={c.key === filter ? 'text-white' : 'text-gray-500'}>{counts[c.key]}</span>
+          </Link>
+        ))}
+      </nav>
+      <ApplicationsClient rows={rows} staff={board.staff} actor={{ id: actor.id, adminRole: actor.adminRole }} nowMs={now} />
+    </div>
+  )
+}
+
+function ApplicationsHeader() {
+  return (
+    <header className="space-y-1">
+      <h2 className="text-lg font-black text-tm-navy">Applications</h2>
+      <p className="text-xs text-gray-500">
+        Every application and where it stands: Applied, Forwarded, Contacted, Demo/interview, Hired — or Not selected / No response. A
+        tuition&apos;s applications belong to the staff member who posted it. “Forward overdue”: Applied for more than 1 day. “Check in”: no
+        update for more than 3 days. Staff and test accounts are left out.
+      </p>
+    </header>
+  )
 }
