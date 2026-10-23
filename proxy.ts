@@ -26,6 +26,7 @@ import { METHOD_HEADER } from '@/lib/requestMethod'
 import { NEW_VISITOR_HEADER } from '@/lib/searchCountCore'
 import { ANON_ID_HEADER } from '@/lib/searchBeaconCore'
 import { areaHubRedirectPath } from '@/lib/areaHubRedirect'
+import { convertedTutorRedirectPath } from '@/lib/convertedTutorRedirect'
 
 // /pay/* is the checkout journey (gateway hand-off, transfer instructions,
 // return screen). Every page under it reads the signed-in member's own
@@ -213,6 +214,20 @@ export async function proxy(request: NextRequest) {
     if (moved) {
       const target = request.nextUrl.clone()
       target.pathname = moved
+      return NextResponse.redirect(target, 301)
+    }
+  }
+
+  // A tutor profile hidden because the account was changed to a parent
+  // account (owner, 23 Oct 2026): a 301 to Browse tutors for their city. The
+  // list behind it is held in memory for a minute (lib/convertedTutorRedirect).
+  if (request.nextUrl.pathname.startsWith('/tutor/')) {
+    const moved = await convertedTutorRedirectPath(request.nextUrl.pathname)
+    if (moved) {
+      const target = request.nextUrl.clone()
+      const [path, query] = moved.split('?')
+      target.pathname = path
+      target.search = query ? `?${query}` : ''
       return NextResponse.redirect(target, 301)
     }
   }

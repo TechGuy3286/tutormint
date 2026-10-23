@@ -83,8 +83,10 @@ test('Applications is its own item in the Tuitions group, after Post a tuition, 
   assert.equal(SECTION_LABELS.applications, 'Applications')
   const layout = code('app/admin/layout.tsx')
   assert.match(layout, /'\/admin\/applications': overdue/)
-  // The Follow-ups badge no longer counts applications.
-  assert.doesNotMatch(layout, /'\/admin\/follow-ups':/)
+  // The Follow-ups badge never counts applications: since 23 Oct 2026 it is its
+  // own count, overdue Follow-ups → Tutors To do items.
+  assert.match(layout, /'\/admin\/follow-ups': followUps/)
+  assert.doesNotMatch(layout, /'\/admin\/follow-ups': overdue/)
 })
 
 test('the badge: own overdue items, all for the Owner; Older tuitions never count', () => {

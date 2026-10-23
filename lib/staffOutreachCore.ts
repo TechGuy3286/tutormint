@@ -117,7 +117,7 @@ export const TUTOR_SCOPES = ['recent', 'older', 'paid_unfinished', 'not_interest
 /** 'started_payment' (owner, 16 Oct 2026): every tutor with a checkout started
  *  and not finished — reached from the "Started payment, didn't finish" chip,
  *  not shown as a group of its own. */
-export type TutorScope = (typeof TUTOR_SCOPES)[number] | 'started_payment'
+export type TutorScope = (typeof TUTOR_SCOPES)[number] | 'started_payment' | 'open'
 
 export const TUTOR_SCOPE_LABEL: Record<TutorScope, string> = {
   recent: `Last ${UNPAID_WINDOW_DAYS} days`,
@@ -125,6 +125,7 @@ export const TUTOR_SCOPE_LABEL: Record<TutorScope, string> = {
   paid_unfinished: 'Paid, not finished',
   not_interested: 'Not interested',
   started_payment: "Started payment, didn't finish",
+  open: 'Everyone not finished',
 }
 
 export function parseTutorScope(v: string | null | undefined): TutorScope {
@@ -146,6 +147,8 @@ export function tutorInScope(
   if (scope === 'not_interested') return !!t.notInterested
   if (t.notInterested) return false
   if (scope === 'started_payment') return !!t.startedPayment
+  // 'open' (owner, 23 Oct 2026): every group at once — the Follow-ups badge.
+  if (scope === 'open') return true
   if (scope === 'paid_unfinished') return t.feeStamped || !!t.feeApproved
   // The default group also carries every tutor with a checkout started and not
   // finished, whenever they joined — the "Started payment" chip (20 Oct 2026).

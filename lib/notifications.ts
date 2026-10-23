@@ -138,6 +138,8 @@ export type NotificationKind =
   // PR54 §B — a parent tried to send a hiring/demo request to a tutor who has
   // reached this month's free limit. No parent name or details.
   | 'incoming_request_capped'
+  // Staff changed the account type, Parent ↔ Tutor (owner, 23 Oct 2026).
+  | 'account_type_changed'
 
 export async function notify(params: {
   userId: string

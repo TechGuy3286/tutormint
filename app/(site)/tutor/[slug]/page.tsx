@@ -35,6 +35,7 @@ import { tutorMetaDescription } from '@/lib/tutorMeta'
 import { shareImagePath, shareImageVersion, tutorOgDescription, tutorOgTitle } from '@/lib/seo/tutorOg'
 import { getLandingLinker } from '@/lib/landing'
 import { currentSlugForRetired } from '@/lib/tutorSlug'
+import { convertedTutorRedirect } from '@/lib/convertAccountCore'
 import { formatName } from '@/lib/formatName'
 import { distinctAreaLabels } from '@/lib/place'
 import { withAreaCities } from '@/lib/tutorAreaCities'
@@ -413,6 +414,17 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 
 /** Does ANY tutor_profiles row carry this slug (public or not)? Service role —
  *  the table is owner-or-admin under RLS. Decides 200+noindex vs a real 404. */
+/** A tutor profile hidden by a change to a parent account → its city. */
+async function convertedTutorCity(slug: string): Promise<{ city: string | null } | null> {
+  const admin = createAdminClient()
+  if (!admin) return null
+  const { data } = await admin.from('tutor_profiles').select('id, city, converted_to_parent_at').eq('slug', slug).maybeSingle()
+  if (!data?.converted_to_parent_at) return null
+  const { data: p } = await admin.from('profiles').select('role, city').eq('id', data.id as string).maybeSingle()
+  if (!p || p.role === 'tutor') return null
+  return { city: ((data.city as string | null) || (p.city as string | null)) ?? null }
+}
+
 async function tutorSlugExists(slug: string): Promise<boolean> {
   const admin = createAdminClient()
   if (!admin) return false
@@ -704,6 +716,11 @@ export default async function TutorPublicProfile({ params }: { params: Params })
   if (!tutor) {
     const moved = await currentSlugForRetired(slug)
     if (moved && moved !== slug) permanentRedirect(`/tutor/${moved}`)
+    // Hidden because the account became a parent account (owner, 23 Oct 2026).
+    // proxy.ts answers this with a 301; this is the backstop for its minute
+    // of cache.
+    const converted = await convertedTutorCity(slug)
+    if (converted) permanentRedirect(convertedTutorRedirect(converted.city))
     // A PAUSED (suspended), banned, hidden or unclaimed tutor's slug exists but
     // is not public: keep 200 + noindex with the branded not-found body (owner,
     // 5 Oct 2026, item 4 — "as now"), so an indexed URL never flaps. A slug that

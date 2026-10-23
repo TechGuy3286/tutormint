@@ -40,6 +40,7 @@ import {
   pickFollowUpTab,
 } from '@/lib/followUpsPageCore'
 import QueueSearch from '@/components/admin/QueueSearch'
+import { parseFuTab, tabCounts, type FuTab } from '@/lib/tutorFollowUpTabsCore'
 
 import { legacyApplicationsHref } from '@/lib/applicationStageCore'
 
@@ -74,7 +75,7 @@ const SIGNED_UP: { key: SignupWindow; label: string }[] = [
 
 const SIGNUP_TEMPLATE_KEYS = ['signup_email_unconfirmed', 'signup_profile_unfinished'] as const
 
-type SP = { tab?: string; filter?: string; scope?: string; chip?: string; q?: string; view?: string; fwd?: string; show?: string }
+type SP = { tab?: string; filter?: string; scope?: string; chip?: string; q?: string; view?: string; fwd?: string; show?: string; fu?: string }
 
 export default async function FollowUpsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams
@@ -115,6 +116,7 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
           chip={parseFollowChip(sp.chip)}
           window={isSignupWindow(sp.filter) ? sp.filter : null}
           q={(sp.q ?? '').trim()}
+          fuTab={parseFuTab(sp.fu)}
           // The roles that see payment amounts (Owner, Partner) — the route checks too.
           canCheckPayment={roleMayWrite(actor.adminRole, ['partner'])}
           isOwner={canApprove(actor.adminRole)}
@@ -133,6 +135,7 @@ async function TutorsTab({
   chip,
   window,
   q,
+  fuTab,
   canCheckPayment,
   isOwner,
 }: {
@@ -140,6 +143,7 @@ async function TutorsTab({
   chip: ChipFilter
   window: SignupWindow | null
   q: string
+  fuTab: FuTab
   canCheckPayment: boolean
   isOwner: boolean
 }) {
@@ -150,19 +154,30 @@ async function TutorsTab({
   if (window) all = all.filter((r) => !r.feePaid && signedUpIn(r.joinedAt, window, now))
   const needle = q.toLowerCase()
   if (needle) all = all.filter((r) => [r.name, r.city].some((v) => (v ?? '').toLowerCase().includes(needle)))
+  // To do / Sent (owner, 23 Oct 2026): counted over the group, search and chip.
   const items = all.map((r) => ({ row: r, chips: new Set<FollowChip>(r.chips), primary: r.primary }))
   const counts = chipCounts(items)
-  const rows = rowsForChip(items, chip).map((x) => x.row)
-  const shares = await loadProfileShares(rows.map((r) => r.id))
-  const href = (o: { scope?: TutorScope; chip?: ChipFilter; window?: SignupWindow | null }) => {
+  const chipRows = rowsForChip(items, chip).map((x) => x.row)
+  const tabTotals = tabCounts(chipRows.map((r) => r.state))
+  const inTab = chipRows.filter((r) => r.state.tab === fuTab)
+  // To do: overdue first, then the rest in the chip's order. Sent: soonest due first.
+  const rows =
+    fuTab === 'todo'
+      ? [...inTab.filter((r) => r.state.overdue), ...inTab.filter((r) => !r.state.overdue)]
+      : inTab.filter((r) => r.state.section === 'sent').sort((a, b) => Date.parse(a.state.dueAt ?? '') - Date.parse(b.state.dueAt ?? ''))
+  const noReply = fuTab === 'sent' ? inTab.filter((r) => r.state.section === 'no_reply') : []
+  const shares = await loadProfileShares([...rows, ...noReply].map((r) => r.id))
+  const href = (o: { scope?: TutorScope; chip?: ChipFilter; window?: SignupWindow | null; fu?: FuTab }) => {
     const sc = o.scope ?? scope
     const ch = o.chip ?? chip
     const win = o.window === undefined ? window : o.window
+    const tb = o.fu ?? fuTab
     return followUpsHref('tutors', {
       scope: sc === 'recent' ? undefined : sc,
       chip: ch === 'all' ? undefined : ch,
       filter: win ?? undefined,
       q: q || undefined,
+      fu: tb === 'todo' ? undefined : tb,
     })
   }
   const pill = (on: boolean) =>
@@ -197,7 +212,7 @@ async function TutorsTab({
         basePath="/admin/follow-ups"
         initialQuery={q}
         filter={window ?? ''}
-        keep={{ scope: scope === 'recent' ? undefined : scope, chip: chip === 'all' ? undefined : chip }}
+        keep={{ scope: scope === 'recent' ? undefined : scope, chip: chip === 'all' ? undefined : chip, fu: fuTab === 'todo' ? undefined : fuTab }}
         placeholder="Search by name or city"
         ariaLabel="Search tutors"
       />
@@ -226,14 +241,44 @@ async function TutorsTab({
         </nav>
       )}
 
-      {rows.length === 0 ? (
+      <nav aria-label="To do or sent" className="flex flex-wrap gap-1 border-b border-gray-200">
+        {(['todo', 'sent'] as FuTab[]).map((t) => (
+          <Link
+            key={t}
+            href={href({ fu: t })}
+            aria-current={t === fuTab ? 'page' : undefined}
+            className={`-mb-px min-h-[44px] border-b-2 px-3 py-2.5 text-xs font-bold ${
+              t === fuTab ? 'border-tm-red text-tm-navy' : 'border-transparent text-gray-600 hover:text-tm-navy'
+            }`}
+          >
+            {t === 'todo' ? 'To do' : 'Sent'} <span className="text-gray-500">{t === 'todo' ? tabTotals.todo : tabTotals.sent}</span>
+          </Link>
+        ))}
+      </nav>
+      <p className="text-[11px] text-gray-500">
+        {fuTab === 'todo'
+          ? 'Tutors to message now. A tutor moves to Sent when you message them and comes back here 3 days later, or straight away when they finish a new step. Waiting on us items stay here until the documents are reviewed.'
+          : 'Tutors messaged in the last 3 days, soonest due first. After 3 messages with no progress they go to “No reply after 3 messages” and are no longer due.'}
+      </p>
+
+      {rows.length === 0 && noReply.length === 0 ? (
         <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">Nobody here right now.</p>
       ) : (
         <ul className="space-y-3">
           {rows.map((r) => (
-            <UnpaidSignupRow key={r.id} row={r} share={shares.get(r.id) ?? null} canCheckPayment={canCheckPayment} isOwner={isOwner} />
+            <UnpaidSignupRow key={r.id} row={r} share={shares.get(r.id) ?? null} canCheckPayment={canCheckPayment} isOwner={isOwner} nowMs={now} />
           ))}
         </ul>
+      )}
+      {noReply.length > 0 && (
+        <details className="rounded-2xl border border-gray-200 bg-tm-bg p-3">
+          <summary className="min-h-[36px] cursor-pointer text-xs font-black text-tm-navy">No reply after 3 messages ({noReply.length})</summary>
+          <ul className="mt-3 space-y-3">
+            {noReply.map((r) => (
+              <UnpaidSignupRow key={r.id} row={r} share={shares.get(r.id) ?? null} canCheckPayment={canCheckPayment} isOwner={isOwner} nowMs={now} />
+            ))}
+          </ul>
+        </details>
       )}
     </div>
   )

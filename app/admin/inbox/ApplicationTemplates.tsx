@@ -15,7 +15,8 @@ import { RotateCcw } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import type { AdminTemplate } from '@/lib/adminMessaging'
-import { APPLICATIONS_GROUP, type GroupTemplateInfo } from '@/lib/templateRules'
+import { APPLICATIONS_GROUP, FOLLOW_UPS_GROUP, type GroupTemplateInfo } from '@/lib/templateRules'
+import { fillFollowUp, FU_PLACEHOLDER_HELP } from '@/lib/followUpTemplatesCore'
 import {
   PLACEHOLDER_HELP,
   SAMPLE_VALUES,
@@ -32,6 +33,22 @@ const RECIPIENT_CHIP = {
 } as const
 
 function preview(info: GroupTemplateInfo, body: string, support: string): string {
+  if (FOLLOW_UPS_GROUP.some((t) => t.key === info.key)) {
+    return fillFollowUp(
+      body,
+      {
+        firstName: SAMPLE_VALUES.tutor_first_name,
+        completion: 60,
+        nextStep: 'add your profile photo',
+        continueLink: SAMPLE_VALUES.dashboard_link,
+        payLink: 'https://www.tutormint.org/pay/choose?plan=verified',
+        document: 'selfie',
+        reason: 'Reason: face not clear.',
+        supportWhatsapp: support,
+      },
+      info.key === 'payment_not_finished' ? 'pay' : 'continue',
+    )
+  }
   if (info.key === APPLICANTS_FORWARD_TEMPLATE_KEY) {
     return buildForwardMessage({
       template: body,
@@ -49,23 +66,31 @@ export default function ApplicationTemplates({
   supportDisplay,
   isOwner,
   defaultOpen = false,
+  group = 'applications',
 }: {
   templates: AdminTemplate[]
   supportDisplay: string
   isOwner: boolean
   defaultOpen?: boolean
+  /** Follow-ups (owner, 23 Oct 2026): the messages Follow-ups → Tutors pre-fills. */
+  group?: 'applications' | 'follow_ups'
 }) {
   const byKey = useMemo(() => new Map(templates.map((t) => [t.key, t])), [templates])
-  const items = APPLICATIONS_GROUP.map((info) => ({ info, t: byKey.get(info.key) })).filter(
+  const isFu = group === 'follow_ups'
+  const items = (isFu ? FOLLOW_UPS_GROUP : APPLICATIONS_GROUP).map((info) => ({ info, t: byKey.get(info.key) })).filter(
     (x): x is { info: GroupTemplateInfo; t: AdminTemplate } => !!x.t,
   )
   return (
-    <details open={defaultOpen} className="rounded-xl border border-tm-navy/30 bg-tm-bg p-3" id="applications-templates">
-      <summary className="cursor-pointer text-sm font-black text-tm-navy">Applications ({items.length})</summary>
+    <details open={defaultOpen} className="rounded-xl border border-tm-navy/30 bg-tm-bg p-3" id={isFu ? 'follow-ups-templates' : 'applications-templates'}>
+      <summary className="cursor-pointer text-sm font-black text-tm-navy">
+        {isFu ? 'Follow-ups' : 'Applications'} ({items.length})
+      </summary>
       <div className="space-y-3 pt-2">
         <p className="text-[11px] text-gray-600">
-          The messages Tuitions → Applications pre-fills. Edit the wording; the placeholders in {'{braces}'} fill in when staff tap the
-          WhatsApp button.
+          {isFu
+            ? 'The messages Follow-ups → Tutors pre-fills, one per reason a tutor is stuck. Some were already in use and are shared here as they are. '
+            : 'The messages Tuitions → Applications pre-fills. '}
+          Edit the wording; the placeholders in {'{braces}'} fill in when staff tap the WhatsApp button.
         </p>
         <SupportNumber display={supportDisplay} isOwner={isOwner} />
         {items.length === 0 && <p className="text-xs text-gray-500">These templates are not set up yet.</p>}
@@ -216,7 +241,7 @@ function TemplateCard({ info, template, support }: { info: GroupTemplateInfo; te
             {info.placeholders.map((p) => (
               <li key={p}>
                 <code className="font-bold text-tm-navy">{`{${p}}`}</code>
-                <span className="block text-gray-600">{PLACEHOLDER_HELP[p] ?? ''}</span>
+                <span className="block text-gray-600">{PLACEHOLDER_HELP[p] ?? (FU_PLACEHOLDER_HELP as Record<string, string>)[p] ?? ''}</span>
               </li>
             ))}
           </ul>

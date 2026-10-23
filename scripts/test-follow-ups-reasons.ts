@@ -177,7 +177,8 @@ test('no WhatsApp button on Waiting on us; "Review" for the Owner instead', () =
   assert.equal(showWhatsApp([...chipsFor({ ...base, docsWaiting: true }, NOW)]), false)
   assert.equal(showWhatsApp([...chipsFor(base, NOW)]), true)
   const card = readFileSync('app/admin/follow-ups/UnpaidSignupRow.tsx', 'utf8')
-  assert.match(card, /waHref=\{chase \? row\.waHref : null\}/)
+  // The WhatsApp button exists only when chase is true (owner, 23 Oct 2026).
+  assert.match(card, /\{chase \? \(\s*<TutorFollowUpButtons/)
   assert.match(card, /!chase && isOwner/)
   assert.match(card, />\s*<ClipboardCheck aria-hidden size=\{13\} \/> Review/)
   assert.match(card, /\{row\.reason\}/)

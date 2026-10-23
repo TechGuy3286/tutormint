@@ -13,7 +13,9 @@ import { planLabel } from '@/lib/display'
 import { CONTACT_OUTCOMES, OUTCOME_LABEL, type ContactOutcome } from '@/lib/staffOutreachCore'
 import { FOLLOW_CHIP_LABEL, PRIORITY, showWhatsApp, startedLine } from '@/lib/tutorFollowUpCore'
 import type { TutorFollowRow } from '@/lib/tutorFollowUps'
-import FollowUpActions, { MarkFollowedUp } from '@/components/admin/FollowUpActions'
+import TutorFollowUpButtons from '@/components/admin/TutorFollowUpButtons'
+import { daysAgo } from '@/lib/followUpCore'
+import { sentLine } from '@/lib/tutorFollowUpTabsCore'
 import ProfileShareButtons from '@/components/admin/ProfileShareButtons'
 import NotInterestedButton from '@/components/admin/NotInterestedButton'
 import type { ProfileShare } from '@/lib/profileShareCore'
@@ -38,6 +40,7 @@ export default function UnpaidSignupRow({
   share = null,
   canCheckPayment = false,
   isOwner = false,
+  nowMs,
 }: {
   row: TutorFollowRow
   /** Copy profile link / Share on WhatsApp (owner, 20 Oct 2026). */
@@ -46,6 +49,8 @@ export default function UnpaidSignupRow({
   canCheckPayment?: boolean
   /** The Owner gets "Review" on a card that is waiting on us. */
   isOwner?: boolean
+  /** The request clock, from the server (no clock in a client render). */
+  nowMs: number
 }) {
   const router = useRouter()
   const toast = useToast()
@@ -138,24 +143,51 @@ export default function UnpaidSignupRow({
       {others.length > 0 && (
         <p className="text-[10px] font-semibold text-gray-500">Also: {others.map((c) => FOLLOW_CHIP_LABEL[c]).join(' · ')}</p>
       )}
-      {row.contacted && <p className="text-[11px] font-semibold text-tm-green-deep">{row.contacted}</p>}
+      {row.state.action && (
+        <p className="text-xs font-bold text-tm-navy">
+          Action needed:{' '}
+          <Link href={row.state.action.href} className="text-tm-red underline">
+            {row.state.action.label}
+          </Link>
+        </p>
+      )}
+      {row.state.tab === 'sent' && row.state.last ? (
+        <p className="text-[11px] font-semibold text-tm-green-deep">
+          {sentLine({
+            templateTitle: row.lastTemplateTitle,
+            staffName: row.state.last.staffName ?? null,
+            ago: daysAgo(row.state.last.at, nowMs),
+            nextDue: row.state.dueAt ? formatDate(row.state.dueAt) : null,
+          })}
+          {row.state.unanswered > 0 && ` · ${row.state.unanswered} ${row.state.unanswered === 1 ? 'message' : 'messages'} with no progress`}
+        </p>
+      ) : (
+        row.contacted && <p className="text-[11px] font-semibold text-tm-green-deep">{row.contacted}</p>
+      )}
+      {row.fuTemplateTitle && chase && <p className="text-[10px] text-gray-500">Message: {row.fuTemplateTitle}</p>}
       {checkLine && <p className="text-[11px] font-bold text-tm-navy">{checkLine}</p>}
 
       {share && <ProfileShareButtons share={share} />}
 
       <div className="flex flex-wrap gap-2">
-        <FollowUpActions
-          memberId={row.id}
-          source="unpaid"
-          templateKey={row.templateKey}
-          waHref={chase ? row.waHref : null}
-          telHref={row.telHref}
-          tab={row.contacted ? 'sent' : 'stuck'}
-          toastText="Follow-up recorded"
-          onMoved={refresh}
-          onRestored={refresh}
-          btnClass="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-4 text-xs font-bold"
-        />
+        {chase ? (
+          <TutorFollowUpButtons
+            memberId={row.id}
+            reason={row.followReason}
+            templateKey={row.fuTemplateKey}
+            progress={row.progress}
+            waHref={row.waHref}
+            telHref={row.telHref}
+            sent={row.state.tab === 'sent'}
+            onChanged={refresh}
+          />
+        ) : (
+          row.telHref && (
+            <a href={row.telHref} className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700 hover:border-tm-navy">
+              Call
+            </a>
+          )
+        )}
         {canCheckPayment && sp?.provider === 'paypro' && (
           <button
             type="button"
@@ -177,9 +209,6 @@ export default function UnpaidSignupRow({
         {!row.waHref && !row.telHref && <span className="self-center text-[11px] text-gray-500">No mobile number on file.</span>}
       </div>
       <div className="flex flex-wrap items-center gap-x-4">
-        {chase && (
-          <MarkFollowedUp memberId={row.id} source="unpaid" templateKey={null} tab="sent" toastText="Follow-up recorded" onMoved={refresh} onRestored={refresh} />
-        )}
         <NotInterestedButton memberId={row.id} marked={!!row.notInterested} />
       </div>
 

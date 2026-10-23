@@ -282,6 +282,16 @@ export const SCREEN_ACCESS = {
   // the Partner views (roleMayWrite refuses them, the list names nobody).
   cityOwners: [] as AdminRole[],
   users: ['admin', 'operations', 'partner'] as AdminRole[],
+  // The Activity tab on a member's admin page (owner, 23 Oct 2026): every role
+  // that works tutors — Tuitions staff too, because Paid tutors opens it — and
+  // "Log a call or note" (the Partner may write here).
+  memberActivity: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
+  // Tuitions → Paid tutors (owner, 23 Oct 2026): has every paid tutor been served?
+  paidTutors: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
+  // Convert account type, Parent ↔ Tutor (owner, 23 Oct 2026): the site Owner
+  // ONLY. `[]` lets the Partner view the page (roleSatisfies) but the route
+  // refuses everyone but the Owner (refuseUnlessOwnerApproval).
+  convertAccount: [] as AdminRole[],
   // Team activity → "Verifications & messages" tab, its API and the per-staff
   // detail pages: the Owner, the Project Managers and Admin, view only (owner,
   // 15 Oct 2026). Operations and Tuitions staff are refused (403 on the API).

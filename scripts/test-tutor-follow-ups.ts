@@ -239,8 +239,10 @@ test('message: a rejected document comes first', () => {
 
 test('every WhatsApp tap is a follow-up with its message type', () => {
   const card = read('app/admin/follow-ups/UnpaidSignupRow.tsx')
-  assert.ok(card.includes('templateKey={row.templateKey}'), 'the message type is stored with the follow-up')
-  assert.ok(read('lib/tutorFollowUps.ts').includes('waLink(r.msisdn, msg.text)'))
+  // Since 23 Oct 2026 the tap stores the REASON, the template and the progress
+  // snapshot (lib/tutorFollowUpTabsCore; scripts/test-tutor-journey.ts).
+  assert.ok(card.includes('templateKey={row.fuTemplateKey}') && card.includes('reason={row.followReason}'), 'the message type is stored with the follow-up')
+  assert.ok(read('lib/tutorFollowUps.ts').includes('waLink(r.msisdn, fuText)'))
   // My sign-ups: the same builder for unpaid tutors, and the tap logs the type.
   const my = read('lib/mySignups.ts')
   assert.ok(my.includes('followUpMessage(') && my.includes('detail: { nextStep, messageType, creditedTo: credit.staff_id }'))

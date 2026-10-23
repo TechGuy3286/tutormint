@@ -12,6 +12,7 @@ import type { AdminRole } from '@/lib/adminAuth'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import { absoluteUrl } from '@/lib/siteUrl'
+import { undoProblem, UNDO_TEXT } from '@/lib/tutorFollowUpTabsCore'
 import {
   STUCK_TEMPLATE_KEY,
   followUpState,
@@ -64,8 +65,14 @@ export async function recordFollowUp(params: {
   templateKey: string | null
   source: FollowUpSource
   actor: Actor
+  /** Follow-ups → Tutors (owner, 23 Oct 2026): why they were messaged and the
+   *  progress snapshot when it was sent (lib/tutorFollowUpTabsCore). */
+  reason?: string | null
+  progress?: string | null
 }): Promise<{ ok: true; id: string } | { ok: false; status: number; error: string }> {
   const { memberId, channel, templateKey, source, actor } = params
+  const reason = params.reason ?? null
+  const progress = params.progress ?? null
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes.' }
   const { data: member } = await admin.auth.admin.getUserById(memberId).catch(() => ({ data: null }))
@@ -81,6 +88,8 @@ export async function recordFollowUp(params: {
       staff_id: actor.id,
       staff_email: actor.email,
       staff_name: (me?.full_name as string | null) ?? null,
+      ...(reason ? { reason } : {}),
+      ...(progress ? { progress } : {}),
     })
     .select('id')
     .single()
@@ -92,14 +101,14 @@ export async function recordFollowUp(params: {
     action: 'member.follow_up',
     targetType: 'profile',
     targetId: memberId,
-    detail: { followUpId: data.id, channel, templateKey, source },
+    detail: { followUpId: data.id, channel, templateKey, source, ...(reason ? { reason } : {}) },
   })
   await logActivity({
     userId: memberId,
     event: 'follow_up_sent',
     targetType: 'profile',
     targetId: memberId,
-    meta: { channel, templateKey, source },
+    meta: { channel, templateKey, source, ...(reason ? { reason } : {}) },
   })
   return { ok: true, id: data.id as string }
 }
@@ -128,4 +137,20 @@ export async function undoFollowUp(id: string, actor: Actor): Promise<{ ok: true
   })
   await logActivity({ userId: row.member_id as string, event: 'follow_up_undone', targetType: 'profile', targetId: row.member_id as string, meta: { followUpId: id } })
   return { ok: true }
+}
+
+/** Undo from Follow-ups → Tutors (owner, 23 Oct 2026): only the person who
+ *  sent it, and only just after (lib/tutorFollowUpTabsCore undoProblem). */
+export async function undoTutorFollowUp(id: string, actor: Actor): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes.' }
+  const { data: row } = await admin.from('member_follow_ups').select('id, staff_id, created_at, undone_at').eq('id', id).maybeSingle()
+  const problem = undoProblem(
+    row ? { staffId: (row.staff_id as string | null) ?? null, createdAt: row.created_at as string, undoneAt: (row.undone_at as string | null) ?? null } : null,
+    actor.id,
+    Date.now(),
+  )
+  if (problem === 'already_undone') return { ok: true }
+  if (problem) return { ok: false, status: problem === 'not_found' ? 404 : problem === 'not_yours' ? 403 : 409, error: UNDO_TEXT[problem] }
+  return undoFollowUp(id, actor)
 }

@@ -6,6 +6,7 @@ import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
 import TimeAgo from '@/components/TimeAgo'
 import { requireAdminRole, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
+import { postedAsParent } from '@/lib/convertAccountCore'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { listedTutorIds } from '@/lib/directoryStatus'
 import { badgesForPlan } from '@/lib/entitlements'
@@ -77,7 +78,7 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
       .order('created_at', { ascending: false }),
     admin
       .from('profiles')
-      .select('id, full_name, email, avatar_url, city, cnic_verified_at, address_verified_at, is_suspended, is_team_account, profile_completion')
+      .select('id, role, full_name, email, avatar_url, city, cnic_verified_at, address_verified_at, is_suspended, is_team_account, profile_completion')
       .eq('id', job.parent_id as string)
       .maybeSingle(),
     admin
@@ -288,6 +289,10 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
                   {formatName(parent.full_name as string | null)}
                 </Link>
                 {parentBadges.length > 0 && <BadgeRow badges={parentBadges} size="sm" />}
+                {/* The account was later changed to a tutor account (owner, 23 Oct 2026). */}
+                {postedAsParent(parent.role as string | null) && (
+                  <span className="rounded-full bg-tm-tint-gold px-2 py-0.5 text-[10px] font-bold text-tm-gold-ink">Posted as a parent</span>
+                )}
                 {parent.is_suspended && (
                   <span className="rounded-full bg-tm-tint-red px-2 py-0.5 text-[10px] font-black text-tm-red">
                     Suspended

@@ -22,6 +22,7 @@ import {
   type TemplateRecipient,
 } from '@/lib/applicationTemplatesCore'
 import { APPLICANTS_FORWARD_DEFAULT, APPLICANTS_FORWARD_TEMPLATE_KEY } from '@/lib/applicantForwardCore'
+import { FU_PLACEHOLDERS, FU_TEMPLATES } from '@/lib/followUpTemplatesCore'
 
 export type GroupTemplateInfo = {
   key: string
@@ -44,8 +45,17 @@ export const APPLICATIONS_GROUP: readonly GroupTemplateInfo[] = [
   FORWARD_TEMPLATE_INFO,
 ]
 
+/** The Follow-ups group (owner, 23 Oct 2026): one message per reason a tutor
+ *  is stuck — four new templates and four reused stored ones. */
+export const FOLLOW_UPS_GROUP: readonly GroupTemplateInfo[] = FU_TEMPLATES.map((t) => ({
+  key: t.key,
+  recipient: 'tutor' as const,
+  placeholders: FU_PLACEHOLDERS,
+  defaultBody: t.defaultBody,
+}))
+
 export function groupTemplateInfo(key: string): GroupTemplateInfo | null {
-  return APPLICATIONS_GROUP.find((t) => t.key === key) ?? null
+  return APPLICATIONS_GROUP.find((t) => t.key === key) ?? FOLLOW_UPS_GROUP.find((t) => t.key === key) ?? null
 }
 
 /** The built-in default, or null for a template that has none. */

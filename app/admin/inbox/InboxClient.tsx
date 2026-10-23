@@ -154,6 +154,7 @@ export default function InboxClient({
       {showTemplates && (
         <div className="space-y-3">
           <ApplicationTemplates templates={templates} supportDisplay={supportDisplay} isOwner={isOwner} defaultOpen={initialShowTemplates} />
+          <ApplicationTemplates templates={templates} supportDisplay={supportDisplay} isOwner={isOwner} group="follow_ups" />
           <TemplatesEditor templates={templates.filter((t) => !groupTemplateInfo(t.key))} />
         </div>
       )}
@@ -252,7 +253,7 @@ export default function InboxClient({
                   className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold"
                 >
                   <option value="">Start from a template…</option>
-                  {templates.filter((t) => !isAppTemplateKey(t.key)).map((t) => (
+                  {templates.filter((t) => !isAppTemplateKey(t.key) && !t.key.startsWith('fu_')).map((t) => (
                     <option key={t.key} value={t.key}>
                       {t.title}
                     </option>

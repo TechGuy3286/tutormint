@@ -33,6 +33,8 @@ const EDIT: Key[] = [
   'tutors', 'parents', 'users', 'signups', 'orphans', 'unpaidSignups', 'featuredWhatsapp',
   'jobs', 'jobsMutate', 'jobsPost', 'pausedTuitions', 'duplicates', 'duplicatesMerge', 'applicantForwards',
   'inbox', 'reports', 'tuitionPosting', 'tutorEdit', 'tutorSlug', 'videoVisibility', 'documentUnlock', 'documentRotate', 'cnicRead',
+  // Tutor journey (owner, 23 Oct 2026): notes on the Activity tab; Paid tutors (read only, no write route).
+  'memberActivity', 'paidTutors',
 ]
 
 test('the Partner may open every screen, and change only the tutor, parent and tuition areas', () => {
@@ -48,6 +50,8 @@ test('every view-only area refuses a Partner write; the Owner is unaffected', ()
     'paymentGateways', 'smsHealth', 'emailHealth', 'reconciliation', 'plans', 'plansMutate', 'subjectsCore', 'secondRole', 'team', 'audit', 'seo', 'unmetSearches',
     'ads', 'social', 'import', 'cleanup', 'blog', 'blogPublish', 'blogApprove', 'blogQueue', 'blogGenerate', 'staffActivity', 'signupFunnel', 'usersExport', 'overview',
     'staffSignupsAll', 'staffSignupClaim', 'staffClaimsReview', 'mySignups', 'cityOwners', 'supportNumber',
+    // Convert account type (owner, 23 Oct 2026): the site Owner only.
+    'convertAccount',
   ]
   for (const key of VIEW) {
     assert.equal(roleMayWrite('partner', SCREEN_ACCESS[key]), false, key)
@@ -112,6 +116,12 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   // "Not interested" / undo on Follow-ups (owner, 21 Oct 2026): the list's own
   // access (unpaidSignups / signups), both of which name the Partner.
   'follow-ups/not-interested': 'edit',
+  // Follow-ups → Tutors taps and the sender-only Undo (owner, 23 Oct 2026).
+  'follow-ups/tutor': 'edit',
+  // Log a call or note / withdraw a note on the Activity tab (owner, 23 Oct 2026).
+  'members/notes': 'edit',
+  // Convert account type (owner, 23 Oct 2026): refuseUnlessOwnerApproval — the site Owner only.
+  'members/convert': 'owner',
   'import': 'view',
   // Reply (POST) is an edit; editing a template (PUT) is refused inside the route.
   'inbox': 'mixed',

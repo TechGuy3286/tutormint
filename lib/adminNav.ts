@@ -53,6 +53,7 @@ export type AdminScreen =
   | 'featuredWhatsapp'
   | 'pausedTuitions'
   | 'applicantForwards'
+  | 'paidTutors'
   | 'cityOwners'
   | 'jobsPost'
   | 'tuitionPosting'
@@ -113,6 +114,9 @@ export const NAV_GROUPS: NavGroup[] = [
       // badge: overdue applications on the viewer's own tuitions — all of them
       // for the site Owner. Applications on tuitions over 30 days old never count.
       { href: '/admin/applications', label: 'Applications', icon: 'inbox', screen: 'applicantForwards' },
+      // Has every paid tutor been served? (owner, 23 Oct 2026). Its badge: red
+      // rows in the viewer's own cities — every red row for the site Owner.
+      { href: '/admin/paid-tutors', label: 'Paid tutors', icon: 'userCheck', screen: 'paidTutors' },
       // Auto-paused tuitions with Resume (owner, 8 Oct 2026): the roles that post.
       { href: '/admin/jobs/paused', label: 'Paused tuitions', icon: 'pause', screen: 'pausedTuitions' },
       { href: '/admin/jobs/duplicates', label: 'Duplicates', icon: 'copy', screen: 'duplicates' },

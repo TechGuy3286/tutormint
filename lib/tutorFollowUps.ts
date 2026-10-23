@@ -18,7 +18,7 @@ import { loadFollowUpStates } from '@/lib/followUps'
 import { loadTutorDocSummaries } from '@/lib/tutorDocSummaries'
 import { formatDate } from '@/lib/datetime'
 import { staffLabel } from '@/lib/followUpCore'
-import { waLink, type TutorScope } from '@/lib/staffOutreachCore'
+import { firstNameOf, waLink, type TutorScope } from '@/lib/staffOutreachCore'
 import { fillPaymentNotFinished, payAgainLink, PAYMENT_NOT_FINISHED_FALLBACK, PAYMENT_NOT_FINISHED_KEY } from '@/lib/startedPaymentCore'
 import {
   chipsFor,
@@ -36,7 +36,13 @@ import {
   type WaitChip,
   type MessageType,
   type TutorFollowFacts,
+  nextPhrase,
 } from '@/lib/tutorFollowUpCore'
+import { asAppDef, documentWords, fillFollowUp, followReasonFor, fuTemplateDef, FU_TEMPLATE_KEYS, REASON_TEMPLATE, reasonSentence, type FollowReason } from '@/lib/followUpTemplatesCore'
+import { resolveBody } from '@/lib/applicationTemplatesCore'
+import { fuBadgeCount, progressKey, tabState, type ContactRecord, type TabState } from '@/lib/tutorFollowUpTabsCore'
+import { loadSupportWhatsApp } from '@/lib/applicationTemplates'
+import { siteLink } from '@/lib/waLinkCore'
 
 export type TutorFollowRow = UnpaidRow & {
   chips: FollowChip[]
@@ -54,6 +60,74 @@ export type TutorFollowRow = UnpaidRow & {
   /** The prefilled WhatsApp text's type, and the key stored with the follow-up. */
   messageType: MessageType
   templateKey: string
+  /** Why they are stuck, the template that reason sends (null = waiting on us,
+   *  not a message) and its title (owner, 23 Oct 2026). */
+  followReason: FollowReason
+  fuTemplateKey: string | null
+  fuTemplateTitle: string | null
+  /** The progress snapshot stored with the next tap. */
+  progress: string
+  /** To do / Sent, due date, unanswered count (lib/tutorFollowUpTabsCore). */
+  state: TabState
+  /** The title of the template last sent, for the Sent line. */
+  lastTemplateTitle: string | null
+}
+
+/** Every contact with each tutor, newest first: Follow-ups taps (with their
+ *  progress snapshot), logged calls and call / WhatsApp notes (no snapshot). */
+export async function loadContacts(ids: string[]): Promise<Map<string, ContactRecord[]>> {
+  const out = new Map<string, ContactRecord[]>()
+  const admin = createAdminClient()
+  if (!admin || ids.length === 0) return out
+  const push = (id: string, c: ContactRecord) => out.set(id, [...(out.get(id) ?? []), c])
+  const [fus, calls, notes] = await Promise.all([
+    pageAllIn(ids, (part, from, to) =>
+      admin
+        .from('member_follow_ups')
+        .select('id, member_id, created_at, progress, template_key, staff_name, staff_email')
+        .in('member_id', part)
+        .is('undone_at', null)
+        .order('id')
+        .range(from, to),
+    ).catch(() => []),
+    pageAllIn(ids, (part, from, to) =>
+      admin.from('tutor_contact_logs').select('id, tutor_id, created_at, staff_email').in('tutor_id', part).order('id').range(from, to),
+    ).catch(() => []),
+    pageAllIn(ids, (part, from, to) =>
+      admin
+        .from('member_notes')
+        .select('id, member_id, created_at, kind, staff_name')
+        .in('member_id', part)
+        .in('kind', ['call', 'whatsapp'])
+        .is('withdrawn_at', null)
+        .order('id')
+        .range(from, to),
+    ).catch(() => []),
+  ])
+  for (const r of fus)
+    push(r.member_id as string, {
+      at: r.created_at as string,
+      progress: (r.progress as string | null) ?? null,
+      staffName: staffLabel(r.staff_name as string | null, r.staff_email as string | null),
+      templateKey: (r.template_key as string | null) ?? null,
+    })
+  for (const r of calls) push(r.tutor_id as string, { at: r.created_at as string, progress: null, staffName: staffLabel(null, r.staff_email as string | null) })
+  for (const r of notes) push(r.member_id as string, { at: r.created_at as string, progress: null, staffName: staffLabel(r.staff_name as string | null, null) })
+  return out
+}
+
+/** The Follow-ups templates' stored bodies and titles. */
+async function loadFuTemplates(): Promise<Map<string, { body: string; title: string }>> {
+  const out = new Map<string, { body: string; title: string }>()
+  const admin = createAdminClient()
+  if (!admin) return out
+  try {
+    const { data } = await admin.from('admin_message_templates').select('key, title, body').in('key', [...FU_TEMPLATE_KEYS])
+    for (const r of data ?? []) out.set(r.key as string, { body: (r.body as string | null) ?? '', title: (r.title as string | null) ?? '' })
+  } catch {
+    /* every message falls back to its default */
+  }
+  return out
 }
 
 async function planMessageBody(): Promise<string> {
@@ -86,7 +160,16 @@ export const loadTutorFollowUps = cache(async (scope: TutorScope = 'recent'): Pr
   const rows = await loadUnpaidSignups(now, scope)
   if (rows.length === 0) return []
   const ids = rows.map((r) => r.id)
-  const [states, docs, planBody, seen] = await Promise.all([loadFollowUpStates(ids, now), loadTutorDocSummaries(ids), planMessageBody(), lastSeenFor(ids)])
+  const [states, docs, planBody, seen, contacts, fuTemplates, support] = await Promise.all([
+    loadFollowUpStates(ids, now),
+    loadTutorDocSummaries(ids),
+    planMessageBody(),
+    lastSeenFor(ids),
+    loadContacts(ids),
+    loadFuTemplates(),
+    loadSupportWhatsApp(),
+  ])
+  const titleOf = (key: string | null | undefined) => (key ? (fuTemplates.get(key)?.title || fuTemplateDef(key)?.title || null) : null)
   const nowMs = now.getTime()
   const out: TutorFollowRow[] = []
   for (const r of rows) {
@@ -115,9 +198,42 @@ export const loadTutorFollowUps = cache(async (scope: TutorScope = 'recent'): Pr
       : null
     const msg = followUpMessage(facts, r.name, nowMs, planMessage)
     const reason = followReason(facts, nowMs, r.startedPayment ? planLabel(r.startedPayment.planCode ?? 'verified') : null)
+    // The reason-based template (owner, 23 Oct 2026).
+    const why = followReasonFor(facts)
+    const key = REASON_TEMPLATE[why]
+    const def = key ? fuTemplateDef(key) : null
+    const progress = progressKey({ stoppedStep: facts.stoppedStep, completion: facts.completion, feePaid: facts.feePaid, docsApproved: facts.docsApproved })
+    const fuText = def
+      ? fillFollowUp(
+          resolveBody(fuTemplates.get(def.key)?.body, asAppDef(def)),
+          {
+            firstName: firstNameOf(r.name),
+            completion: facts.completion,
+            nextStep: nextPhrase(facts),
+            continueLink: siteLink('/tutor/dashboard'),
+            payLink: payAgainLink(r.startedPayment?.planCode ?? 'verified'),
+            document: documentWords(facts.rejected),
+            reason: reasonSentence(facts.rejected),
+            supportWhatsapp: support,
+          },
+          why === 'payment' ? 'pay' : 'continue',
+        )
+      : null
+    const cs = contacts.get(r.id) ?? []
+    const state = tabState(
+      { joinedAt: r.joinedAt, progress, waitingOnUs: why === 'waiting', contacts: cs, reviewHref: `/admin/users/${r.id}#documents` },
+      nowMs,
+    )
     out.push({
       ...r,
-      waHref: r.msisdn ? waLink(r.msisdn, msg.text) : null,
+      // Waiting on us is not a message; the card offers the review instead.
+      waHref: r.msisdn && fuText ? waLink(r.msisdn, fuText) : r.msisdn ? waLink(r.msisdn, msg.text) : null,
+      followReason: why,
+      fuTemplateKey: def?.key ?? null,
+      fuTemplateTitle: titleOf(def?.key),
+      progress,
+      state,
+      lastTemplateTitle: titleOf(state.last?.templateKey),
       chips: [...chips],
       primary: primaryChip(chips),
       next: nextLabel(facts),
@@ -137,3 +253,13 @@ export const loadTutorFollowUps = cache(async (scope: TutorScope = 'recent'): Pr
 export async function tutorsWithChip(chip: FollowChip): Promise<TutorFollowRow[]> {
   return (await loadTutorFollowUps('recent')).filter((r) => r.chips.includes(chip))
 }
+
+/** The red Follow-ups badge (owner, 23 Oct 2026): overdue To do items across
+ *  every group but "Not interested". Tolerant — 0 on any failure. */
+export const followUpsOverdueCount = cache(async (): Promise<number> => {
+  try {
+    return fuBadgeCount((await loadTutorFollowUps('open')).map((r) => r.state))
+  } catch {
+    return 0
+  }
+})

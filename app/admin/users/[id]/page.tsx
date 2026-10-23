@@ -39,6 +39,9 @@ import PaymentFollowUp from './PaymentFollowUp'
 import LinkBankCredit from '@/components/admin/LinkBankCredit'
 import { selfiePhotoMatchUsers } from '@/lib/selfieMatch'
 import { canApprove } from '@/lib/adminAccessCore'
+import MemberTabs from '@/components/admin/MemberTabs'
+import ConvertAccountCard from '@/components/admin/ConvertAccountCard'
+import { postedAsParent } from '@/lib/convertAccountCore'
 
 // One member, everything about them in one place.
 //
@@ -347,6 +350,7 @@ export default async function AdminMemberPage({
           </div>
         </div>
       </header>
+      <MemberTabs memberId={id} current="profile" showProfile />
 
       {profile.is_banned && (
         <p className="rounded-2xl border border-tm-red/30 bg-tm-tint-red p-3 text-xs leading-relaxed text-tm-red">
@@ -494,6 +498,12 @@ export default async function AdminMemberPage({
         }
       />
 
+      {/* Convert account type, Parent ↔ Tutor (owner, 23 Oct 2026): the site
+          Owner only — nobody else sees it, and the route refuses them. */}
+      {canApprove(actor.adminRole) && (profile.role === 'tutor' || profile.role === 'parent') && (
+        <ConvertAccountCard memberId={id} role={profile.role as 'tutor' | 'parent'} />
+      )}
+
       {/* ---------------------------------------------- staff activity --- */}
       {staffCounts && (
         <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
@@ -512,7 +522,7 @@ export default async function AdminMemberPage({
               key={j.id as string}
               href={`/admin/jobs/${j.id as string}`}
               main={j.title as string}
-              sub={`${(j.job_tx_id as string) ?? ''} · ${jobStatus(j.status as string)}${j.is_featured ? ' · featured' : ''} · ${formatDate(j.created_at as string)}`}
+              sub={`${(j.job_tx_id as string) ?? ''} · ${jobStatus(j.status as string)}${j.is_featured ? ' · featured' : ''} · ${formatDate(j.created_at as string)}${postedAsParent(profile.role as string) ? ' · posted as a parent' : ''}`}
             />
           ))}
         </Panel>

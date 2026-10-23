@@ -43,6 +43,7 @@ export type TemplateId =
   | 'staff_invite'
   | 'confirm_email'
   | 'switched_tutor_signin'
+  | 'account_type_changed'
   | 'tuition_paused'
   | 'sms_alert'
 
@@ -274,6 +275,7 @@ export type TemplateInput =
   // ONE-TIME (owner, 13 Oct 2026): the email-only tutors switched that day can
   // sign in and were never told. Plain and short — no marketing, no prices.
   | { id: 'switched_tutor_signin'; name: string; supportWhatsapp: string }
+  | { id: 'account_type_changed'; name: string; to: 'tutor' | 'parent'; supportWhatsapp: string }
   | { id: 'tuition_paused'; title: string }
   // The hourly SMS health check (owner, 15 Oct 2026). Staff-facing, essential.
   | { id: 'sms_alert'; message: string; reasons: string[] }
@@ -662,6 +664,27 @@ export function render(input: TemplateInput): RenderedEmail {
         ],
         true,
         { label: 'Sign in', href: '/login' },
+      )
+    }
+
+    case 'account_type_changed': {
+      // Staff changed the account type, Parent ↔ Tutor (owner, 23 Oct 2026).
+      const name = properName(input.name)
+      const isTutor = input.to === 'tutor'
+      return build(
+        isTutor ? 'Your TutorMint account is now a Tutor account' : 'Your TutorMint account is now a Parent account',
+        `${name ? name + ', your' : 'Your'} account is now a ${isTutor ? 'Tutor' : 'Parent'} account`,
+        [
+          isTutor
+            ? 'We changed your TutorMint account to a Tutor account, as you asked. You sign in the same way as before.'
+            : 'We changed your TutorMint account to a Parent account, as you asked. You sign in the same way as before.',
+          isTutor
+            ? 'Your next step is to finish your tutor profile from your dashboard, so parents can find you.'
+            : 'You can now post a tuition and contact tutors from your dashboard.',
+          `Need help? Message our support team on WhatsApp: ${input.supportWhatsapp}.`,
+        ],
+        true,
+        { label: 'Open your dashboard', href: isTutor ? '/tutor/dashboard' : '/parent/dashboard' },
       )
     }
 
