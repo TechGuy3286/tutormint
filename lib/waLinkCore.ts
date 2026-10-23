@@ -84,3 +84,56 @@ export function linkOnOwnLine(text: string): string {
 export function finishWaText(text: string): string {
   return linkOnOwnLine(fullSiteLinks(text.trim()))
 }
+
+// ------------------------------------------------- the WhatsApp link itself
+//
+// Why not https://wa.me/… (owner, 23 Oct 2026): WhatsApp's own wa.me address
+// redirects to api.whatsapp.com/send and, on the way, turns EVERY emoji in the
+// text into "�" (U+FFFD) — checked on 23 Oct 2026: wa.me/…?text=%F0%9F%99%82
+// and …%E2%9C%85 both redirect with text=%EF%BF%BD, while Urdu passes through.
+// That is the "�" before "You can continue here:" (the 🙂 in the follow-up
+// message). The direct address keeps the text byte for byte, and opens the
+// same chat on Android, iPhone, WhatsApp Desktop and WhatsApp Web.
+
+export const WA_SEND_URL = 'https://api.whatsapp.com/send'
+
+/** The text WhatsApp gets: a lone half of an emoji (a surrogate with no
+ *  partner) or a "�" is dropped rather than sent; everything else — emoji with
+ *  skin tones and joiners, Urdu — is kept exactly. */
+export function waSafeText(text: string): string {
+  let out = ''
+  for (let i = 0; i < text.length; i++) {
+    const u = text.charCodeAt(i)
+    if (u >= 0xd800 && u <= 0xdbff) {
+      const next = text.charCodeAt(i + 1)
+      if (next >= 0xdc00 && next <= 0xdfff) {
+        out += text[i] + text[i + 1]
+        i++
+      }
+      continue
+    }
+    if (u >= 0xdc00 && u <= 0xdfff) continue
+    if (u === 0xfffd) continue
+    out += text[i]
+  }
+  return out
+}
+
+/** At most `max` characters, never cutting an emoji or a letter in half. */
+export function safeSlice(text: string, max: number): string {
+  const chars = Array.from(text)
+  return chars.length <= max ? text : chars.slice(0, max).join('')
+}
+
+/**
+ * THE pre-filled WhatsApp link (every Follow-ups, Applications, By-tutor and
+ * member-page message): https://api.whatsapp.com/send?phone=92…&text=…
+ * `msisdn` is digits only (92…); null/empty = no number (WhatsApp then asks
+ * who to send it to). The text is not changed here — callers that want links
+ * tidied run finishWaText first.
+ */
+export function waSendHref(msisdn: string | null | undefined, text: string): string {
+  const phone = (msisdn ?? '').replace(/\D/g, '')
+  const params = [phone ? `phone=${phone}` : '', `text=${encodeURIComponent(waSafeText(text))}`].filter(Boolean)
+  return `${WA_SEND_URL}?${params.join('&')}`
+}

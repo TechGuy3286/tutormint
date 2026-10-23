@@ -31,7 +31,7 @@ import { loadActivitySummary } from '@/lib/adminActivity'
 import { docSummary } from '@/lib/tutorDocSummaryCore'
 import { documentsFact, emptySectionsLine, parentDocKind, tutorStatusFact, videoFact, type MemberBox } from '@/lib/memberPageCore'
 import { paymentLabel, paymentNeedsFollowUp, paymentPlanName, type PaymentFacts } from '@/lib/paymentLabelCore'
-import { finishWaText } from '@/lib/waLinkCore'
+import { finishWaText, waSendHref } from '@/lib/waLinkCore'
 import { fillPaymentNotFinished, payAgainLink, PAYMENT_NOT_FINISHED_FALLBACK, PAYMENT_NOT_FINISHED_KEY } from '@/lib/startedPaymentCore'
 import { normalisePkMobile } from '@/lib/phone'
 import { ExternalLink } from 'lucide-react'
@@ -273,7 +273,7 @@ export default async function AdminMemberPage({
   }
   const followUpHref = (planCode: string | null) =>
     memberMsisdn
-      ? `https://wa.me/${memberMsisdn}?text=${encodeURIComponent(finishWaText(fillPaymentNotFinished(notFinishedBody, { name: formatName(profile.full_name as string | null), payLink: payAgainLink(planCode) })))}`
+      ? waSendHref(memberMsisdn, finishWaText(fillPaymentNotFinished(notFinishedBody, { name: formatName(profile.full_name as string | null), payLink: payAgainLink(planCode) })))
       : null
 
   // Only the boxes with something in them; the rest on one grey line.

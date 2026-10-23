@@ -20,6 +20,8 @@
 //     "Check with parent";
 //   - the message is built from the template; it never carries a phone number.
 
+import { waSendHref } from '@/lib/waLinkCore'
+
 export type InterestKind = 'applied' | 'viewed'
 export type InterestEvent = { jobId: string; tutorId: string; kind: InterestKind; at: string }
 export type ForwardRow = { jobId: string; tutorIds: string[]; at: string; staffName: string | null; channel: string }
@@ -209,9 +211,9 @@ export function buildForwardMessage(args: {
   return text.trim()
 }
 
-/** wa.me link with the text prefilled, or null with no usable number. */
+/** The pre-filled WhatsApp link (waSendHref), or null with no usable number. */
 export function forwardWaLink(msisdn: string | null, message: string): string | null {
-  return msisdn ? `https://wa.me/${msisdn}?text=${encodeURIComponent(message)}` : null
+  return msisdn ? waSendHref(msisdn, message) : null
 }
 
 /** What a forward may record: only tutors who are on the card (paid, interested). */

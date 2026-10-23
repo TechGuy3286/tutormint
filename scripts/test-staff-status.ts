@@ -79,7 +79,7 @@ const signup = (i: number): ReportSignup => ({ name: `Member Number ${i}`, role:
 test('the WhatsApp link is correctly URL-encoded and decodes back to the message', () => {
   const text = buildDailyReport('16 Oct 2026', [tuition(1)], [{ name: 'Ali & Sons?', role: 'tutor', staff: 'Zubia #1' }])
   const href = whatsappReportLink(text)
-  assert.ok(href.startsWith('https://wa.me/923215872222?text='))
+  assert.ok(href.startsWith('https://wa.me/923215872222?text=') || href.startsWith('https://api.whatsapp.com/send?phone=923215872222&text='))
   const q = href.split('?text=')[1]
   assert.ok(!/[\s&?#]/.test(q), 'no raw space, newline, & ? or # in the encoded text')
   assert.ok(q.includes('%0A'))

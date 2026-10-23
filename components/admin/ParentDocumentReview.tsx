@@ -18,6 +18,7 @@ import { cnicSideNote } from '@/lib/tutorDocQueueCore'
 import { UnlockedNote, useUnlockDoc } from '@/components/admin/UnlockDocButton'
 import DocChangeMenu from '@/components/admin/DocChangeMenu'
 import { changeMenuOptions } from '@/lib/docChangeMenuCore'
+import { waSendHref } from '@/lib/waLinkCore'
 
 // A parent's documents (owner, 8 Oct 2026): CNIC front + back and the typed
 // address, each approved or rejected on its own. The member page's Documents
@@ -213,7 +214,7 @@ function ReviewItem({
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.tutormint.org'
     const link = `${origin}/parent/verify`
     const text = rejectionWhatsAppText({ what, reason, link, audience: 'parent' })
-    return `https://wa.me/${waMsisdn}?text=${encodeURIComponent(text)}`
+    return waSendHref(waMsisdn, text)
   })()
 
   const act = async (decision: 'approve' | 'reject') => {

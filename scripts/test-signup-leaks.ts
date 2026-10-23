@@ -154,7 +154,7 @@ test('documents_approved picks the right version and fills it', () => {
   for (const t of [unpaid, paid]) assert.ok(!/rs\.?\s*\d|pkr|\d{3}\s*(rupees|rs)/i.test(t), 'no fee amount')
   assert.equal(allDocumentsApproved({ cnic: 'approved', profilePic: 'approved', selfie: 'approved' }), true)
   assert.equal(allDocumentsApproved({ cnic: 'approved', profilePic: 'pending', selfie: 'approved' }), false)
-  assert.equal(waMeHref('923001234567', 'hi there'), 'https://wa.me/923001234567?text=hi%20there')
+  assert.equal(waMeHref('923001234567', 'hi there'), 'https://api.whatsapp.com/send?phone=923001234567&text=hi%20there')
   assert.equal(waMeHref('03001234567', 'x'), null)
   // Migration 191 (21 Oct 2026) moved the link onto its own line; the stored
   // rows and the fallback carry exactly the same wording.

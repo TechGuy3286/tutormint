@@ -129,7 +129,7 @@ test('reject reasons: a short list per item, plus Other (free text)', () => {
   assert.match(ui, /<textarea/)
   const wa = ui.slice(ui.indexOf('const whatsappHref'), ui.indexOf('const act'))
   assert.ok(!/cnicNumber/.test(wa), 'no CNIC number in the WhatsApp message')
-  assert.match(wa, /wa\.me\/\$\{waMsisdn\}\?text=/)
+  assert.match(wa, /waSendHref\(waMsisdn, text\)/)
 })
 
 test('roles: owner/admin/operations review; Partner view-only; Tuitions staff never', () => {

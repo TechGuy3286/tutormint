@@ -40,7 +40,7 @@ import {
   pickFollowUpTab,
 } from '@/lib/followUpsPageCore'
 import QueueSearch from '@/components/admin/QueueSearch'
-import { parseFuTab, tabCounts, type FuTab } from '@/lib/tutorFollowUpTabsCore'
+import { FU_TAB_LABEL, parseFuTab, tabCounts, type FuTab } from '@/lib/tutorFollowUpTabsCore'
 
 import { legacyApplicationsHref } from '@/lib/applicationStageCore'
 
@@ -154,13 +154,13 @@ async function TutorsTab({
   if (window) all = all.filter((r) => !r.feePaid && signedUpIn(r.joinedAt, window, now))
   const needle = q.toLowerCase()
   if (needle) all = all.filter((r) => [r.name, r.city].some((v) => (v ?? '').toLowerCase().includes(needle)))
-  // To do / Sent (owner, 23 Oct 2026): counted over the group, search and chip.
+  // To do / Followed up (owner, 23 Oct 2026): counted over the group, search and chip.
   const items = all.map((r) => ({ row: r, chips: new Set<FollowChip>(r.chips), primary: r.primary }))
   const counts = chipCounts(items)
   const chipRows = rowsForChip(items, chip).map((x) => x.row)
   const tabTotals = tabCounts(chipRows.map((r) => r.state))
   const inTab = chipRows.filter((r) => r.state.tab === fuTab)
-  // To do: overdue first, then the rest in the chip's order. Sent: soonest due first.
+  // To do: overdue first, then the rest in the chip's order. Followed up: soonest due first.
   const rows =
     fuTab === 'todo'
       ? [...inTab.filter((r) => r.state.overdue), ...inTab.filter((r) => !r.state.overdue)]
@@ -241,7 +241,7 @@ async function TutorsTab({
         </nav>
       )}
 
-      <nav aria-label="To do or sent" className="flex flex-wrap gap-1 border-b border-gray-200">
+      <nav aria-label="To do or followed up" className="flex flex-wrap gap-1 border-b border-gray-200">
         {(['todo', 'sent'] as FuTab[]).map((t) => (
           <Link
             key={t}
@@ -251,18 +251,18 @@ async function TutorsTab({
               t === fuTab ? 'border-tm-red text-tm-navy' : 'border-transparent text-gray-600 hover:text-tm-navy'
             }`}
           >
-            {t === 'todo' ? 'To do' : 'Sent'} <span className="text-gray-500">{t === 'todo' ? tabTotals.todo : tabTotals.sent}</span>
+            {FU_TAB_LABEL[t]} <span className="text-gray-500">{t === 'todo' ? tabTotals.todo : tabTotals.sent}</span>
           </Link>
         ))}
       </nav>
       <p className="text-[11px] text-gray-500">
         {fuTab === 'todo'
-          ? 'Tutors to message now. A tutor moves to Sent when you message them and comes back here 3 days later, or straight away when they finish a new step. Waiting on us items stay here until the documents are reviewed.'
-          : 'Tutors messaged in the last 3 days, soonest due first. After 3 messages with no progress they go to “No reply after 3 messages” and are no longer due.'}
+          ? 'Tutors to message now. A tutor moves to Followed up when you message them and comes back here 3 days later, even if they finish a new step meanwhile; they then get the message for where they are now. Waiting on us items stay here until the documents are reviewed.'
+          : 'Tutors followed up in the last 3 days, soonest due first. After 3 messages with no progress they go to “No reply after 3 messages” and are no longer due.'}
       </p>
 
       {rows.length === 0 && noReply.length === 0 ? (
-        <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">Nobody here right now.</p>
+        <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">{fuTab === 'todo' ? 'Nobody to message right now.' : 'Nobody followed up in the last 3 days.'}</p>
       ) : (
         <ul className="space-y-3">
           {rows.map((r) => (

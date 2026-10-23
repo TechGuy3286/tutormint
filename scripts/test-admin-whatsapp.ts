@@ -2,7 +2,9 @@
  * scripts/test-admin-whatsapp.ts — npm run test:adminwhatsapp
  *
  * Every admin WhatsApp button opens a chat WITH a pre-filled message (owner,
- * 20 Oct 2026). Checks: the one builder makes https://wa.me/92…?text=<encoded>
+ * 20 Oct 2026). Checks: the one builder makes
+ * https://api.whatsapp.com/send?phone=92…&text=<encoded> (wa.me broke emoji —
+ * 23 Oct 2026)
  * with emoji and line breaks encoded; numbers in any typed shape become 92…;
  * every member state gets a non-empty message; the other link builders admin
  * uses encode the same way; and no admin source file builds a bare wa.me link
@@ -36,8 +38,8 @@ const TEXT = 'Line one 🙂\nLine two & ?=#+ %'
 
 function assertGoodLink(href: string | null, expectedText?: string) {
   assert.ok(href, 'a link')
-  const m = /^https:\/\/wa\.me\/(92\d{10})\?text=([^\s]+)$/.exec(href!)
-  assert.ok(m, `wa.me/92…?text= form: ${href}`)
+  const m = /^https:\/\/api\.whatsapp\.com\/send\?phone=(92\d{10})&text=([^\s]+)$/.exec(href!)
+  assert.ok(m, `api.whatsapp.com/send?phone=92…&text= form: ${href}`)
   const raw = m![2]
   assert.ok(raw.length > 0, 'text= is not empty')
   assert.ok(!/[\s\n#&?+]/.test(raw), 'nothing unencoded in the text value')
@@ -61,7 +63,7 @@ function facts(over: Partial<TutorFollowFacts> = {}): TutorFollowFacts {
 
 test('numbers are normalised to 92… (no +, spaces or dashes)', () => {
   for (const raw of ['+92 300-1234567', '0300 1234567', '03001234567', '00923001234567', '923001234567', '3001234567']) {
-    assert.equal(adminWaLink(raw, 'hi'), 'https://wa.me/923001234567?text=hi')
+    assert.equal(adminWaLink(raw, 'hi'), 'https://api.whatsapp.com/send?phone=923001234567&text=hi')
   }
   assert.equal(adminWaLink('12345', 'hi'), null)
   assert.equal(adminWaLink(null, 'hi'), null)

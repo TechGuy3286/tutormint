@@ -39,6 +39,23 @@ import { croppedPortrait } from '../lib/social/crop'
 import { fitWords, accentTail, splitsAccent, textWidth } from '../lib/social/fit'
 import { contactSheet } from './socialContactSheet'
 
+// The render matrix below draws about 200 PNGs and takes ~12 minutes in one
+// process. It is split into shards that run as separate processes (node runs
+// test FILES in parallel): this file is shard 0 and also holds every other
+// test; scripts/test-social-verified-render-<n>.ts set SOCIAL_RENDER_SHARD and
+// load this file to register only their share of the matrix. Writing samples
+// (SOCIAL_SAMPLES_DIR) needs the whole matrix in one process for the contact
+// sheets, so it always runs unsharded.
+/** How many processes share the render matrix (this file + the -render-<n> files). */
+export const SOCIAL_RENDER_SHARDS = 4
+const SHARD = process.env.SOCIAL_SAMPLES_DIR ? { index: 0, count: 1 } : parseShard(process.env.SOCIAL_RENDER_SHARD)
+function parseShard(v: string | undefined): { index: number; count: number } {
+  const m = /^(\d+)\/(\d+)$/.exec(v ?? '')
+  return m && Number(m[1]) < Number(m[2]) ? { index: Number(m[1]), count: Number(m[2]) } : { index: 0, count: SOCIAL_RENDER_SHARDS }
+}
+/** Tests outside the matrix run in shard 0 only. */
+const mainTest: typeof test = SHARD.index === 0 ? test : ((() => undefined) as unknown as typeof test)
+
 const root = path.join(__dirname, '..')
 const src = (f: string) => readFileSync(path.join(root, f), 'utf8')
 
@@ -52,11 +69,11 @@ const verified: SocialEligibilityFacts = {
   selfieApproved: true,
 }
 
-test('a verified tutor may be posted', () => {
+mainTest('a verified tutor may be posted', () => {
   assert.equal(socialEligible(verified), true)
 })
 
-test('an unverified tutor is left out — each missing step on its own', () => {
+mainTest('an unverified tutor is left out — each missing step on its own', () => {
   assert.equal(socialIneligibleReason({ ...verified, feePaid: false }), 'fee_unpaid')
   assert.equal(socialIneligibleReason({ ...verified, cnicApproved: false }), 'cnic_not_approved')
   assert.equal(socialIneligibleReason({ ...verified, photoApproved: false }), 'photo_not_approved')
@@ -70,13 +87,13 @@ test('an unverified tutor is left out — each missing step on its own', () => {
   assert.equal(socialEligible({ ...verified, cnicApproved: false, photoApproved: false, selfieApproved: false }), false)
 })
 
-test('a newly verified tutor appears: the last approval flips them in', () => {
+mainTest('a newly verified tutor appears: the last approval flips them in', () => {
   const before = { ...verified, selfieApproved: false }
   assert.equal(socialEligible(before), false)
   assert.equal(socialEligible({ ...before, selfieApproved: true }), true)
 })
 
-test('the rows map to facts: an Owner-granted fee counts, an approved CNIC needs number + image', () => {
+mainTest('the rows map to facts: an Owner-granted fee counts, an approved CNIC needs number + image', () => {
   const row = {
     id: 'x',
     role: 'tutor',
@@ -97,7 +114,7 @@ test('the rows map to facts: an Owner-granted fee counts, an approved CNIC needs
   assert.equal(socialEligible(toFacts({ ...row, is_banned: true }, { verified_fee_paid_at: '2026-10-02' })), false)
 })
 
-test('the picker and the render route both use the rule, uncached', () => {
+mainTest('the picker and the render route both use the rule, uncached', () => {
   const page = src('app/admin/social/page.tsx')
   assert.match(page, /loadSocialEligibleTutors\(admin\)/)
   assert.match(page, /export const dynamic = 'force-dynamic'/)
@@ -119,7 +136,7 @@ test('the picker and the render route both use the rule, uncached', () => {
 
 // ---- Part C: hidden photos --------------------------------------------------
 
-test('the silhouettes match public/avatars exactly', () => {
+mainTest('the silhouettes match public/avatars exactly', () => {
   for (const k of ['male', 'female', 'neutral'] as const) {
     assert.equal(SILHOUETTE_SVG[k], readFileSync(path.join(root, 'public/avatars', `${k}.svg`), 'utf8').trim())
   }
@@ -127,7 +144,7 @@ test('the silhouettes match public/avatars exactly', () => {
 
 const decode = (uri: string) => Buffer.from(uri.split(',')[1], 'base64').toString('utf8')
 
-test('a hidden photo gets the gender silhouette, never the real photo', () => {
+mainTest('a hidden photo gets the gender silhouette, never the real photo', () => {
   const real = 'https://example.supabase.co/storage/v1/object/public/avatars/u/photo.jpg'
   assert.equal(decode(socialPortraitSrc(real, true, 'female')), SILHOUETTE_SVG.female)
   assert.equal(decode(socialPortraitSrc(real, true, 'Male')), SILHOUETTE_SVG.male)
@@ -160,7 +177,7 @@ function data(over: Partial<SocialData> = {}): SocialData {
 
 const PRICE = /\b(rs\.?|pkr|rupees?)\s*\d|\d\s*(rs|pkr|rupees?)\b|₨|\b(199|499|999)\b|\bfee\b/i
 
-test('no template or caption carries a price, a fee or a superlative', () => {
+mainTest('no template or caption carries a price, a fee or a superlative', () => {
   for (const t of SOCIAL_TEMPLATES) {
     const lines = [...socialText(t, data()), buildCaption(t, data())]
     for (const line of lines) {
@@ -170,7 +187,7 @@ test('no template or caption carries a price, a fee or a superlative', () => {
   }
 })
 
-test('the verified template is the default; the Headline field replaces the sub-line', () => {
+mainTest('the verified template is the default; the Headline field replaces the sub-line', () => {
   assert.equal(DEFAULT_SOCIAL_TEMPLATE, 'verified')
   assert.equal(SOCIAL_TEMPLATES[0], 'verified')
   assert.equal(verifiedSubline(''), VERIFIED_SUBLINE)
@@ -184,7 +201,7 @@ test('the verified template is the default; the Headline field replaces the sub-
 
 // ---- PR C2: text fitting ----------------------------------------------------
 
-test('the headline keeps "Verified Tutor" together and never exceeds two lines', () => {
+mainTest('the headline keeps "Verified Tutor" together and never exceeds two lines', () => {
   const words = accentTail("I'm a Verified Tutor", 2)
   // The three formats' real headline boxes (square, story, wide).
   for (const [max, maxWidth] of [[92, 805], [124, 769], [66, 620]]) {
@@ -201,7 +218,7 @@ test('the headline keeps "Verified Tutor" together and never exceeds two lines',
 
 // ---- PR C2: the crop is for this post only ---------------------------------
 
-test('the default crop favours the face: a full-length photo is cropped tight from the top', () => {
+mainTest('the default crop favours the face: a full-length photo is cropped tight from the top', () => {
   const tall = cropBox(600, 1200)
   assert.ok(tall.size < 600, 'zoomed in on a full-length photo')
   assert.ok(tall.top < 200, 'taken from the upper part')
@@ -215,14 +232,14 @@ test('the default crop favours the face: a full-length photo is cropped tight fr
   assert.ok(z.left + z.size <= 600 && z.top + z.size <= 1200 && z.left >= 0 && z.top >= 0)
 })
 
-test('crop controls are read from the URL, clamped, and default to nothing', () => {
+mainTest('crop controls are read from the URL, clamped, and default to nothing', () => {
   assert.deepEqual(parseCropAdjust(new URLSearchParams('')), NO_ADJUST)
   assert.deepEqual(parseCropAdjust(new URLSearchParams('zoom=9&x=-40&y=abc')), { zoom: 3, x: -5, y: 0 })
   assert.deepEqual(cropQuery(NO_ADJUST), {})
   assert.deepEqual(cropQuery({ zoom: 1.5, x: 0, y: -2 }), { zoom: '1.5', y: '-2' })
 })
 
-test('the crop changes only the post: nothing is saved to the profile', () => {
+mainTest('the crop changes only the post: nothing is saved to the profile', () => {
   const route = src('app/api/admin/social/image/route.tsx')
   assert.match(route, /parseCropAdjust\(url\.searchParams\)/)
   assert.match(src('lib/social/postTutor.ts'), /croppedPortrait\(/)
@@ -234,7 +251,7 @@ test('the crop changes only the post: nothing is saved to the profile', () => {
   assert.doesNotMatch(client, /\/api\/(profile|tutor)/)
 })
 
-test('a hidden photo is never cropped from the real photo — the silhouette passes through', async () => {
+mainTest('a hidden photo is never cropped from the real photo — the silhouette passes through', async () => {
   const sil = silhouetteDataUri('female')
   assert.equal(await croppedPortrait(sil), sil)
 })
@@ -350,9 +367,12 @@ const sheet: Record<string, Buffer[]> = {}
 /** Templates that draw no photo of the one tutor. */
 const NO_SOLO_PHOTO = new Set<SocialTemplate>(['justverified', 'group'])
 
+let matrixIndex = 0
 for (const template of SOCIAL_TEMPLATES) {
   for (const variant of Array.from({ length: variantCount(template) }, (_, i) => i)) {
     for (const format of SOCIAL_FORMATS) {
+      // Every combination runs in exactly one shard.
+      if (matrixIndex++ % SHARD.count !== SHARD.index) continue
       const label = `${template}${variant ? ` (look ${variant + 1})` : ''} × ${format}`
       test(`${label}: renders at size with nothing in the safe margins`, async () => {
         const photo = await solidPng(MAGENTA)
@@ -398,14 +418,14 @@ if (samples) {
 
 // ---- PR C3: the double tick, the ID card, own words, the group -------------
 
-test('"I\'m a Verified Tutor" has no tick in the headline — the ✓ badge on the ring is the only one', () => {
+mainTest('"I\'m a Verified Tutor" has no tick in the headline — the ✓ badge on the ring is the only one', () => {
   const h = headlineFor('verified', data())
   assert.equal(h.text, "I'm a Verified Tutor")
   assert.equal(h.tail, undefined)
   assert.doesNotMatch(h.text, /✓/)
 })
 
-test('the ID card shows no CNIC, date of birth or phone, and nothing like a government ID', () => {
+mainTest('the ID card shows no CNIC, date of birth or phone, and nothing like a government ID', () => {
   const d = data({ headline: null })
   const text = socialText('idcard', d).join('\n')
   assert.match(text, /Verified by TutorMint/)
@@ -418,7 +438,7 @@ test('the ID card shows no CNIC, date of birth or phone, and nothing like a gove
   assert.doesNotMatch(loader.replace(/loadSocialTutorFacts|SocialTutorFacts/g, ''), /cnic_number|date_of_birth|\bdob\b|phone|whatsapp|\.email/i)
 })
 
-test("Tutor's own words is disabled without a profile headline", () => {
+mainTest("Tutor's own words is disabled without a profile headline", () => {
   assert.equal(templateUnavailable('quote', { headline: null }), 'No headline on profile')
   assert.equal(templateUnavailable('quote', { headline: '   ' }), 'No headline on profile')
   assert.equal(templateUnavailable('quote', { headline: 'Maths made simple' }), null)
@@ -431,7 +451,7 @@ test("Tutor's own words is disabled without a profile headline", () => {
   assert.match(route, /return new Response\(NO_HEADLINE_MESSAGE, \{ status: 409 \}\)/)
 })
 
-test('the group grid draws hidden photos as grey silhouettes, never the real photo', async () => {
+mainTest('the group grid draws hidden photos as grey silhouettes, never the real photo', async () => {
   const photo = await solidPng(MAGENTA)
   // Half the tutors hid their photo: the route hands their silhouettes.
   const tutors = groupOf(photo).map((t, i) => (i % 2 ? { ...t, avatar_url: socialPortraitSrc(photo, true, t.gender) } : t))
@@ -455,7 +475,7 @@ function seq(...xs: number[]) {
   return () => xs[i++ % xs.length]
 }
 
-test('Shuffle never repeats the previous template and never offers the group post', () => {
+mainTest('Shuffle never repeats the previous template and never offers the group post', () => {
   for (const previous of [...SOCIAL_TEMPLATES, null]) {
     for (let r = 0; r < 1; r += 0.07) {
       const pick = shufflePick({ format: 'square', photoHidden: false, hasHeadline: true, previous: previous as SocialTemplate | null, rand: seq(r, r) })
@@ -472,7 +492,7 @@ test('Shuffle never repeats the previous template and never offers the group pos
   for (let r = 0; r < 1; r += 0.05) assert.notEqual(shufflePick({ format: 'square', photoHidden: false, hasHeadline: false, previous: null, rand: () => r }).template, 'quote')
 })
 
-test('Shuffle respects a hidden photo: only photo-free templates, Just verified among them', () => {
+mainTest('Shuffle respects a hidden photo: only photo-free templates, Just verified among them', () => {
   const seen = new Set<SocialTemplate>()
   let prev: SocialTemplate | null = null
   for (let r = 0; r < 1; r += 0.01) {
@@ -490,7 +510,7 @@ test('Shuffle respects a hidden photo: only photo-free templates, Just verified 
 
 const PRICE_C = /\b(rs\.?|pkr|rupees?)\s*\d|\d\s*(rs|pkr|rupees?)\b|₨|\b(199|499|999)\b|\bfee\b/i
 
-test('every template has 3 distinct captions: same link, hashtags and tagline, no price or superlative', () => {
+mainTest('every template has 3 distinct captions: same link, hashtags and tagline, no price or superlative', () => {
   const d = data({ headline: 'New verified tutors this month', tutorHeadline: 'Physics made simple', group: { city: 'Lahore', tutors: GROUP_NAMES.map((n, i) => ({ name: n, subject: GROUP_SUBJECTS[i] })) }, subjectParts: [{ level: 'Matric', subject: 'Mathematics' }] })
   for (const t of SOCIAL_TEMPLATES) {
     const caps = captionVariants(t, d)
@@ -513,7 +533,7 @@ test('every template has 3 distinct captions: same link, hashtags and tagline, n
 
 // ---- PR C3: the tutor profile link preview ---------------------------------------
 
-test('the profile og:title fits ~60 characters and is cut at a whole word or subject', () => {
+mainTest('the profile og:title fits ~60 characters and is cut at a whole word or subject', () => {
   const long = tutorOgTitle({
     name: 'Ayesha Khan',
     subjects: ['English', 'General Knowledge', 'General Science', 'Urdu', 'Mathematics'],
@@ -541,14 +561,14 @@ test('the profile og:title fits ~60 characters and is cut at a whole word or sub
   assert.doesNotMatch(tutorOgTitle({ name: 'Ayesha', subjects: ['English', 'General Knowledge', 'General Science'], levels: [], city: 'Lahore' }), /General(?! Knowledge| Science)/)
 })
 
-test('the profile og:description is at most 155 characters and ends with the tagline', () => {
+mainTest('the profile og:description is at most 155 characters and ends with the tagline', () => {
   const d = tutorOgDescription({ headline: LONG_OWN + ' ' + LONG_OWN, subjects: [], city: 'Lahore' })
   assert.ok(d.length <= 155, String(d.length))
   assert.ok(d.endsWith('Free to join. No commission. No middleman.'))
   assert.equal(tutorOgDescription({ headline: null, subjects: ['Physics', 'Chemistry'], city: 'Lahore' }), 'Teaches Physics, Chemistry in Lahore. Free to join. No commission. No middleman.')
 })
 
-test('the profile og:image never says Verified for an unverified tutor, never uses a hidden photo, and refreshes', async () => {
+mainTest('the profile og:image never says Verified for an unverified tutor, never uses a hidden photo, and refreshes', async () => {
   // The unverified look's words.
   const d = data({ headline: null, tutorHeadline: 'Verified maths tutor with 10 years' })
   for (const line of bodyTextLines('profile', d)) assert.doesNotMatch(line, /verif/i, line)
@@ -589,4 +609,15 @@ test('the profile og:image never says Verified for an unverified tutor, never us
     writeFileSync(path.join(samples, 'og-profile-verified-hidden-photo.png'), hidden)
     writeFileSync(path.join(samples, 'og-profile-verified.png'), await render('verified', 'wide', tutor({ avatar_url: photo }), 'Physics and maths made simple'))
   }
+})
+
+mainTest('the render matrix runs whole: every shard file exists and the test script runs them all', () => {
+  const pkg = JSON.parse(src('package.json')).scripts['test:socialverified'] as string
+  assert.ok(pkg.includes('scripts/test-social-verified.ts'))
+  for (let n = 1; n < SOCIAL_RENDER_SHARDS; n++) {
+    const file = `scripts/test-social-verified-render-${n}.ts`
+    assert.ok(pkg.includes(file), `${file} is in the test script`)
+    assert.ok(src(file).includes(`SOCIAL_RENDER_SHARD = '${n}/${SOCIAL_RENDER_SHARDS}'`), `${file} runs shard ${n}`)
+  }
+  assert.ok(matrixIndex > 0, 'the matrix was registered')
 })

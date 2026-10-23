@@ -16,6 +16,12 @@
 //   no_photo        fu_no_photo
 //   reupload        fu_reupload
 //   paid_unfinished fu_paid_unfinished
+// One saved reply that is not a reason (owner, 23 Oct 2026):
+//   About the Verification Fee   fu_fee_reply — staff send it when a tutor asks
+//                                "Do I have to pay anything?". It states the
+//                                fee's amount (a private reply to the tutor), so
+//                                the price warning does not apply to it. It is
+//                                recorded and counted like any other message.
 // "Waiting on us" (documents waiting for the Owner) is not a message: it stays
 // in To do with the action to take, and has no template.
 //
@@ -78,6 +84,7 @@ export type FuTemplateKey =
   | 'fu_no_photo'
   | 'fu_reupload'
   | 'fu_paid_unfinished'
+  | 'fu_fee_reply'
 
 /** The template each reason sends; null = not a message (waiting on us). */
 export const REASON_TEMPLATE: Record<FollowReason, FuTemplateKey | null> = {
@@ -147,7 +154,24 @@ export const FU_REUSED_DEFAULTS: Record<'signup_mobile_unverified' | 'profile_co
     "Hi {name},\n\nYou're almost there. The one-time verification fee is the last step to become a verified tutor. You can complete it from the Get verified step in your profile.\n\nThe TutorMint Team\n\n— — —\n\nالسلام علیکم {name}،\n\nآپ بس ایک قدم کی دوری پر ہیں۔ تصدیق شدہ ٹیوٹر بننے کے لیے ایک بار کی ویریفیکیشن فیس آخری مرحلہ ہے۔ آپ اسے اپنی پروفائل میں ”تصدیق کروائیں“ کے مرحلے سے مکمل کر سکتے ہیں۔\n\nٹیوٹر منٹ ٹیم",
 }
 
-export type FuTemplateDef = { key: FuTemplateKey; title: string; reason: FollowReason; isNew: boolean; defaultBody: string }
+/** "About the Verification Fee" — the saved reply to "Do I have to pay anything?".
+ *  Seeded by migration 197 with exactly this text (owner, 23 Oct 2026). */
+export const FU_FEE_REPLY_KEY = 'fu_fee_reply' as const
+export const FU_FEE_REPLY_DEFAULT =
+  'Joining TutorMint is free — no commission, no middleman. To apply to tuitions, tutors pay a one-time Verification Fee of Rs 199. We check your CNIC and selfie, and your profile gets the Verified badge so parents can trust you. You can pay here: {pay_link}. Any questions, message us on WhatsApp {support_whatsapp}.'
+/** Where the fee reply sends the tutor: the payment choice screen. */
+export const FEE_REPLY_PAY_PATH = '/pay/choose'
+
+export type FuTemplateDef = {
+  key: FuTemplateKey
+  title: string
+  /** The reason that sends it; null = a saved reply staff pick by hand. */
+  reason: FollowReason | null
+  isNew: boolean
+  defaultBody: string
+  /** The message states a price on purpose: no price warning in the editor. */
+  priceExpected?: boolean
+}
 
 /** The Follow-ups group, in the order the reasons run. */
 export const FU_TEMPLATES: readonly FuTemplateDef[] = [
@@ -159,6 +183,7 @@ export const FU_TEMPLATES: readonly FuTemplateDef[] = [
   { key: 'fu_no_photo', title: 'Follow-ups — photo or selfie not added', reason: 'no_photo', isNew: true, defaultBody: FU_NEW_DEFAULTS.fu_no_photo },
   { key: 'fu_paid_unfinished', title: 'Follow-ups — paid, profile not finished', reason: 'paid_unfinished', isNew: true, defaultBody: FU_NEW_DEFAULTS.fu_paid_unfinished },
   { key: 'profile_completion_nudge', title: 'Finish your profile', reason: 'profile', isNew: false, defaultBody: FU_REUSED_DEFAULTS.profile_completion_nudge },
+  { key: FU_FEE_REPLY_KEY, title: 'About the Verification Fee', reason: null, isNew: true, defaultBody: FU_FEE_REPLY_DEFAULT, priceExpected: true },
 ]
 
 export const FU_TEMPLATE_KEYS: readonly string[] = FU_TEMPLATES.map((t) => t.key)

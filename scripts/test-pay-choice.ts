@@ -254,7 +254,7 @@ test('no amount appears on other member screens', () => {
 // ------------------------------------------------ support + logos ------------
 test('the WhatsApp help link and the logos', () => {
   const link = supportWaLink({ packageName: 'Verification Fee', name: 'Ali Raza', mobile: '0300 1234567' })
-  assert.ok(link.startsWith('https://wa.me/923215872222?text='))
+  assert.ok(link.startsWith('https://wa.me/923215872222?text=') || link.startsWith('https://api.whatsapp.com/send?phone=923215872222&text='))
   assert.equal(
     decodeURIComponent(link.split('text=')[1]),
     'Assalam o Alaikum, I paid the Verification Fee by bank transfer. My name: Ali Raza, mobile: 0300 1234567.',

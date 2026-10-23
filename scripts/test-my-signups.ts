@@ -111,7 +111,7 @@ test('steps and next steps — tutors', () => {
   assert.equal(stepOf(tutor({ onboardedAt: null })), 'mobile_verified')
   assert.equal(stepOf(tutor()), 'onboarded')
   assert.equal(row(tutor()).nextStepLabel, 'Pay Verification Fee')
-  assert.match(row(tutor()).waLink ?? '', /^https:\/\/wa\.me\/923001234567\?text=Hi%20Ayesha/)
+  assert.match(row(tutor()).waLink ?? '', /^https:\/\/api\.whatsapp\.com\/send\?phone=923001234567&text=Hi%20Ayesha/)
 })
 
 test('steps and next steps — parents', () => {

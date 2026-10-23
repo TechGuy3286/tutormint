@@ -70,7 +70,7 @@ test('the Featured message: greeting, up to 5 tuitions with links, Apply line, U
   assert.ok(m.includes('Apply on TutorMint.'))
   assert.ok(/[؀-ۿ]/.test(m))
   assert.ok(!/\b03\d{9}\b|\+92|@/.test(m), 'no phone or email in the message')
-  assert.ok(waLink('923001234567', m).startsWith('https://wa.me/923001234567?text='))
+  assert.ok(waLink('923001234567', m).startsWith('https://api.whatsapp.com/send?phone=923001234567&text='))
 })
 
 test('stuck-in-onboarding breakdown by step ("Subjects 3 · Contact 3"), payment excluded', () => {

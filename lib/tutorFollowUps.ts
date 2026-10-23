@@ -38,7 +38,21 @@ import {
   type TutorFollowFacts,
   nextPhrase,
 } from '@/lib/tutorFollowUpCore'
-import { asAppDef, documentWords, fillFollowUp, followReasonFor, fuTemplateDef, FU_TEMPLATE_KEYS, REASON_TEMPLATE, reasonSentence, type FollowReason } from '@/lib/followUpTemplatesCore'
+import {
+  asAppDef,
+  documentWords,
+  FEE_REPLY_PAY_PATH,
+  fillFollowUp,
+  followReasonFor,
+  fuTemplateDef,
+  FU_FEE_REPLY_KEY,
+  FU_TEMPLATE_KEYS,
+  REASON_TEMPLATE,
+  reasonSentence,
+  type FollowReason,
+} from '@/lib/followUpTemplatesCore'
+
+const feeReplyDef = fuTemplateDef(FU_FEE_REPLY_KEY)!
 import { resolveBody } from '@/lib/applicationTemplatesCore'
 import { fuBadgeCount, progressKey, tabState, type ContactRecord, type TabState } from '@/lib/tutorFollowUpTabsCore'
 import { loadSupportWhatsApp } from '@/lib/applicationTemplates'
@@ -63,6 +77,9 @@ export type TutorFollowRow = UnpaidRow & {
   /** Why they are stuck, the template that reason sends (null = waiting on us,
    *  not a message) and its title (owner, 23 Oct 2026). */
   followReason: FollowReason
+  /** "Fee reply": the "About the Verification Fee" message as a WhatsApp
+   *  link, or null with no number. */
+  feeReplyHref: string | null
   fuTemplateKey: string | null
   fuTemplateTitle: string | null
   /** The progress snapshot stored with the next tap. */
@@ -219,6 +236,22 @@ export const loadTutorFollowUps = cache(async (scope: TutorScope = 'recent'): Pr
           why === 'payment' ? 'pay' : 'continue',
         )
       : null
+    // "Fee reply" (owner, 23 Oct 2026): the saved "About the Verification Fee"
+    // message, on every row with a number. Recorded and counted like any other.
+    const feeText = r.msisdn
+      ? fillFollowUp(
+          resolveBody(fuTemplates.get(FU_FEE_REPLY_KEY)?.body, asAppDef(feeReplyDef)),
+          {
+            firstName: firstNameOf(r.name),
+            completion: facts.completion,
+            nextStep: nextPhrase(facts),
+            continueLink: siteLink('/tutor/dashboard'),
+            payLink: siteLink(FEE_REPLY_PAY_PATH),
+            supportWhatsapp: support,
+          },
+          'pay',
+        )
+      : null
     const cs = contacts.get(r.id) ?? []
     const state = tabState(
       { joinedAt: r.joinedAt, progress, waitingOnUs: why === 'waiting', contacts: cs, reviewHref: `/admin/users/${r.id}#documents` },
@@ -228,6 +261,7 @@ export const loadTutorFollowUps = cache(async (scope: TutorScope = 'recent'): Pr
       ...r,
       // Waiting on us is not a message; the card offers the review instead.
       waHref: r.msisdn && fuText ? waLink(r.msisdn, fuText) : r.msisdn ? waLink(r.msisdn, msg.text) : null,
+      feeReplyHref: r.msisdn && feeText ? waLink(r.msisdn, feeText) : null,
       followReason: why,
       fuTemplateKey: def?.key ?? null,
       fuTemplateTitle: titleOf(def?.key),

@@ -118,9 +118,9 @@ test('the prefilled message fills every placeholder and never carries a phone nu
   assert.match(bare, /^Assalam o Alaikum, this is TutorMint about your tuition: Maths tutor\./)
   // An edited template keeps working, and an unknown placeholder is dropped.
   assert.equal(buildForwardMessage({ template: 'Hi {parent_name} — {tutor_list} {mystery}', parentName: 'Z', tuitionTitle: 't', area: 'a', tutors: [{ name: 'A', profileUrl: null }] }), 'Hi Z — A')
-  // The wa.me link carries the text; no number, no link.
+  // The WhatsApp link carries the text; no number, no link.
   assert.equal(forwardWaLink(null, msg), null)
-  assert.match(forwardWaLink('923001234567', 'Hi there')!, /^https:\/\/wa\.me\/923001234567\?text=Hi%20there$/)
+  assert.match(forwardWaLink('923001234567', 'Hi there')!, /^https:\/\/api\.whatsapp\.com\/send\?phone=923001234567&text=Hi%20there$/)
   // The seeded template is the same text as the default.
   const seed = read('supabase/migrations/161_applicant_forwards_avatar_rotation.sql')
   assert.match(seed, /'applicants_forward'/)

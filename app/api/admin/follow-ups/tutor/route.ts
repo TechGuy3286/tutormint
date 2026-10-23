@@ -2,14 +2,17 @@ import { NextResponse } from 'next/server'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { recordFollowUp, undoTutorFollowUp } from '@/lib/followUps'
-import { isFollowReason } from '@/lib/followUpTemplatesCore'
+import { FU_FEE_REPLY_KEY, isFollowReason } from '@/lib/followUpTemplatesCore'
 import { parseBody, z, uuid } from '@/lib/validate'
 
 // POST /api/admin/follow-ups/tutor (owner, 23 Oct 2026) — Follow-ups → Tutors.
 //
 //   { action: 'record', memberId, channel, reason, templateKey, progress }
 //       one tap: the tutor, why they were messaged, the template, the progress
-//       snapshot, the staff member and the time. The tutor moves to Sent.
+//       snapshot, the staff member and the time. The tutor moves to Followed
+//       up. templateKey 'fu_fee_reply' is the "Fee reply" (the saved "About the
+//       Verification Fee" message): allowed for any tutor, waiting on us
+//       included, and counted like any other message.
 //   { action: 'undo', id }
 //       the 10-second Undo — only the person who sent it, only just after.
 //
@@ -45,7 +48,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true })
   }
 
-  if (!isFollowReason(b.reason) || b.reason === 'waiting') {
+  const feeReply = b.channel === 'whatsapp' && b.templateKey === FU_FEE_REPLY_KEY
+  if (!isFollowReason(b.reason)) return NextResponse.json({ error: 'That follow-up reason is not known.' }, { status: 400 })
+  if (b.reason === 'waiting' && !feeReply) {
     return NextResponse.json({ error: 'That tutor is waiting on us — there is nothing to send.' }, { status: 400 })
   }
   const res = await recordFollowUp({

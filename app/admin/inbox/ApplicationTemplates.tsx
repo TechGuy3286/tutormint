@@ -15,13 +15,13 @@ import { RotateCcw } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import type { AdminTemplate } from '@/lib/adminMessaging'
-import { APPLICATIONS_GROUP, FOLLOW_UPS_GROUP, type GroupTemplateInfo } from '@/lib/templateRules'
-import { fillFollowUp, FU_PLACEHOLDER_HELP } from '@/lib/followUpTemplatesCore'
+import { APPLICATIONS_GROUP, FOLLOW_UPS_GROUP, warningsFor, type GroupTemplateInfo } from '@/lib/templateRules'
+import { FEE_REPLY_PAY_PATH, fillFollowUp, FU_FEE_REPLY_KEY, FU_PLACEHOLDER_HELP } from '@/lib/followUpTemplatesCore'
+import { siteLink } from '@/lib/waLinkCore'
 import {
   PLACEHOLDER_HELP,
   SAMPLE_VALUES,
   fillTemplate,
-  templateWarnings,
   unknownPlaceholderError,
   unknownPlaceholders,
 } from '@/lib/applicationTemplatesCore'
@@ -41,12 +41,12 @@ function preview(info: GroupTemplateInfo, body: string, support: string): string
         completion: 60,
         nextStep: 'add your profile photo',
         continueLink: SAMPLE_VALUES.dashboard_link,
-        payLink: 'https://www.tutormint.org/pay/choose?plan=verified',
+        payLink: info.key === FU_FEE_REPLY_KEY ? siteLink(FEE_REPLY_PAY_PATH) : 'https://www.tutormint.org/pay/choose?plan=verified',
         document: 'selfie',
         reason: 'Reason: face not clear.',
         supportWhatsapp: support,
       },
-      info.key === 'payment_not_finished' ? 'pay' : 'continue',
+      info.key === 'payment_not_finished' || info.key === FU_FEE_REPLY_KEY ? 'pay' : 'continue',
     )
   }
   if (info.key === APPLICANTS_FORWARD_TEMPLATE_KEY) {
@@ -162,7 +162,7 @@ function TemplateCard({ info, template, support }: { info: GroupTemplateInfo; te
   const [body, setBody] = useState(template.body)
   const [busy, setBusy] = useState<'save' | 'reset' | null>(null)
   const unknown = unknownPlaceholders(body, info.placeholders)
-  const warnings = templateWarnings(body)
+  const warnings = warningsFor(info.key, body)
   const isDefault = body === info.defaultBody
 
   async function put(payload: object, kind: 'save' | 'reset') {

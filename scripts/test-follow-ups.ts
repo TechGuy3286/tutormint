@@ -57,8 +57,8 @@ test('the prefilled text fills every placeholder and carries the continue link',
   // A template with its own {link} gets it in place, not appended.
   assert.equal(followUpText('Hi {name}, continue: {link}', { name: 'A', step: null, link }), `Hi A, continue: ${link}`)
   const wa = followUpWaLink('923001234567', text)
-  assert.ok(wa.startsWith('https://wa.me/923001234567?text='))
-  assert.equal(decodeURIComponent(wa.split('?text=')[1]), text)
+  assert.ok(wa.startsWith('https://api.whatsapp.com/send?phone=923001234567&text='))
+  assert.equal(new URL(wa).searchParams.get('text'), text)
 })
 
 test('recording a follow-up moves the card to Follow-up sent, with the line', () => {

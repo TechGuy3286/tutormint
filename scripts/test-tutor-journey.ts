@@ -81,12 +81,33 @@ test('A: after 3 messages with no progress the tutor stops being due ("No reply"
   assert.equal(unansweredCount([...three.slice(1), { at: ago(0.5), progress: null }], P), 2)
 })
 
-test('A: a new step finished resets the count and returns the tutor to To do', () => {
-  const later = progressKey({ stoppedStep: 'selfie', completion: 47, feePaid: false, docsApproved: false })
+test('A: a new step finished resets the count but does not skip the 3-day wait (owner, 23 Oct 2026)', () => {
+  // The real case: messaged at 53%, made progress to 73% two hours later.
+  const at53 = progressKey({ stoppedStep: 'cnic_photos', completion: 53, feePaid: false, docsApproved: false })
+  const at73 = progressKey({ stoppedStep: 'selfie', completion: 73, feePaid: false, docsApproved: false })
+  const messaged = [{ at: ago(2 / 24), progress: at53 }]
+  const twoHours = tabState({ joinedAt: ago(10), progress: at73, waitingOnUs: false, contacts: messaged }, NOW)
+  assert.equal(twoHours.tab, 'sent', 'stays in Followed up after progress')
+  assert.equal(twoHours.unanswered, 0, 'the count started again')
+  assert.equal(twoHours.dueAt, new Date(Date.parse(messaged[0].at) + DUE_AGAIN_DAYS * DAY).toISOString(), 'due 3 days after the message')
+  // Just before 3 days: still Followed up. At 3 days (still stuck): To do.
+  assert.equal(tabState({ joinedAt: ago(10), progress: at73, waitingOnUs: false, contacts: [{ at: ago(2.9), progress: at53 }] }, NOW).tab, 'sent')
+  const due = tabState({ joinedAt: ago(10), progress: at73, waitingOnUs: false, contacts: [{ at: ago(3), progress: at53 }] }, NOW)
+  assert.equal(due.tab, 'todo')
+  assert.equal(due.overdue, false, 'due today, not overdue yet')
+  assert.equal(tabState({ joinedAt: ago(10), progress: at73, waitingOnUs: false, contacts: [{ at: ago(4.5), progress: at53 }] }, NOW).overdue, true)
+  // Three messages at the old progress, then progress: the count is 0, not
+  // "No reply", and the wait still holds for 3 days after the last one.
   const three = [ago(9), ago(6), ago(1)].map((at) => ({ at, progress: P }))
+  const later = progressKey({ stoppedStep: 'selfie', completion: 47, feePaid: false, docsApproved: false })
   const s = tabState({ joinedAt: ago(10), progress: later, waitingOnUs: false, contacts: three }, NOW)
-  assert.equal(s.tab, 'todo', 'still stuck after progress: back in To do at once')
   assert.equal(s.unanswered, 0)
+  assert.equal(s.section, 'sent', 'Followed up, not "No reply"')
+  // When the wait is up they get the message for their NEW reason: the reason
+  // is worked out from where they are now, not from the last message.
+  const stuckAtSelfie = { rejected: [], docsWaiting: false, startedPayment: null, feePaid: false, docsApproved: false, stoppedStep: 'selfie' as const }
+  assert.equal(followReasonFor({ ...stuckAtSelfie, stoppedStep: 'cnic_photos' }), 'no_cnic')
+  assert.equal(followReasonFor(stuckAtSelfie), 'no_photo')
 })
 
 test('A: Waiting on us stays in To do with the action, and is never in the badge', () => {

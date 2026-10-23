@@ -8,7 +8,9 @@
 //                        of placeholders (unknown → BLOCKED) and a built-in
 //                        default ("Reset to default", and the fallback when
 //                        a stored body is empty).
-//   every template       a price or a superlative is a WARNING, never a block.
+//   every template       a price or a superlative is a WARNING, never a block —
+//                        except the price warning on a template that states the
+//                        price on purpose ("About the Verification Fee").
 //
 // Other templates keep their own placeholders ({name}, {job_title}, …) and are
 // not placeholder-checked: they were written before this rule.
@@ -29,6 +31,8 @@ export type GroupTemplateInfo = {
   recipient: TemplateRecipient
   placeholders: readonly string[]
   defaultBody: string
+  /** States a price on purpose: the price warning is not shown. */
+  priceExpected?: boolean
 }
 
 /** The forward panel's message, shown in the Applications group too. */
@@ -52,6 +56,7 @@ export const FOLLOW_UPS_GROUP: readonly GroupTemplateInfo[] = FU_TEMPLATES.map((
   recipient: 'tutor' as const,
   placeholders: FU_PLACEHOLDERS,
   defaultBody: t.defaultBody,
+  priceExpected: t.priceExpected === true,
 }))
 
 export function groupTemplateInfo(key: string): GroupTemplateInfo | null {
@@ -63,6 +68,14 @@ export function templateDefault(key: string): string | null {
   return groupTemplateInfo(key)?.defaultBody ?? null
 }
 
+/** The warnings for a body — without the price warning for a template that
+ *  states its price on purpose. */
+export function warningsFor(key: string, body: string): string[] {
+  const all = templateWarnings(body)
+  return groupTemplateInfo(key)?.priceExpected ? all.filter((w) => !PRICE_WARNING_START.test(w)) : all
+}
+const PRICE_WARNING_START = /^This message mentions a price/
+
 export type SaveCheck = { ok: true; warnings: string[] } | { ok: false; error: string; unknown: string[] }
 
 export function templateSaveCheck(key: string, body: string): SaveCheck {
@@ -72,7 +85,7 @@ export function templateSaveCheck(key: string, body: string): SaveCheck {
     const unknown = unknownPlaceholders(body, info.placeholders)
     if (unknown.length) return { ok: false, error: unknownPlaceholderError(unknown), unknown }
   }
-  return { ok: true, warnings: templateWarnings(body) }
+  return { ok: true, warnings: warningsFor(key, body) }
 }
 
 export { appTemplateDef }

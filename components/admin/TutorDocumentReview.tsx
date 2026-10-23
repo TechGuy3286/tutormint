@@ -20,6 +20,7 @@ import { allDocumentsApproved } from '@/lib/documentsApprovedCore'
 import RejectReasonPicker from '@/components/admin/RejectReasonPicker'
 import SelfieMatchWarning from '@/components/admin/SelfieMatchWarning'
 import { buildRejectReason, rejectionWhatsAppText, type RejectTarget } from '@/lib/rejectReasonsCore'
+import { waSendHref } from '@/lib/waLinkCore'
 
 /** The admin lock facts for the card (lib/docLocks loadAdminLockInfo). */
 export type ReviewLockInfo = {
@@ -311,7 +312,7 @@ function ReviewItem({
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.tutormint.org'
     const link = `${origin}/tutor/dashboard/settings#identity`
     const text = rejectionWhatsAppText({ what: whatName, reason, link, audience: 'tutor' })
-    return `https://wa.me/${waMsisdn}?text=${encodeURIComponent(text)}`
+    return waSendHref(waMsisdn, text)
   })()
 
   const act = async (decision: 'approve' | 'reject') => {

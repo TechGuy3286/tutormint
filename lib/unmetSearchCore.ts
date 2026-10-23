@@ -10,6 +10,8 @@
 //   • "Mark done" moves a card to Done. The same search made again LATER is
 //     newer than the done time, so it makes a new card.
 
+import { waSendHref } from '@/lib/waLinkCore'
+
 export type UnmetRow = {
   id: number
   query: string
@@ -160,7 +162,8 @@ export function hiringPost(template: string | null | undefined, city: string, jo
     .replace(/\{join_link\}/g, joinLink || 'https://www.tutormint.org/register')
 }
 
-/** A WhatsApp share link with the text prefilled (no number: the sender picks the group). */
+/** A WhatsApp share link with the text prefilled (no number: the sender picks the
+ *  group). Built by waSendHref so an emoji in the editable template survives. */
 export function whatsappShareLink(text: string): string {
-  return `https://wa.me/?text=${encodeURIComponent(text)}`
+  return waSendHref(null, text)
 }

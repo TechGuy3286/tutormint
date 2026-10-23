@@ -8,7 +8,7 @@
 //                              public profile link.
 // No fee amount is ever written in the message.
 
-import { finishWaText } from '@/lib/waLinkCore'
+import { finishWaText, waSendHref } from '@/lib/waLinkCore'
 
 export const DOCUMENTS_APPROVED_KEY = 'documents_approved'
 export const DOCUMENTS_APPROVED_PAID_KEY = 'documents_approved_paid'
@@ -50,5 +50,5 @@ export function fillDocumentsApproved(
 export function waMeHref(msisdn: string | null | undefined, text: string): string | null {
   const digits = (msisdn ?? '').replace(/\D/g, '')
   if (!/^92\d{10}$/.test(digits)) return null
-  return `https://wa.me/${digits}?text=${encodeURIComponent(finishWaText(text))}`
+  return waSendHref(digits, finishWaText(text))
 }

@@ -1,26 +1,30 @@
 // lib/tutorFollowUpTabsCore.ts
 //
 // PURE, client-safe. Follow-ups → Tutors works like Applications (owner,
-// 23 Oct 2026): every tutor is in "To do" or "Sent".
+// 23 Oct 2026): every tutor is in "To do" or "Followed up" (the tab was
+// called "Sent" until 23 Oct 2026; its internal value is still 'sent').
 //
 //   Waiting on us     documents waiting for the Owner. Not a message: stays in
 //                     To do with the action to take ("Documents to review") and
 //                     a link, until it is done. Never counted in the badge.
 //   No reply          3 messages at the SAME progress (the snapshot taken on
-//                     each tap) with nothing new done → Sent, in a collapsed
-//                     "No reply after 3 messages" section, no longer due.
-//   Sent              the last message was sent at the current progress less
-//                     than 3 days ago; due again 3 days after it.
-//   To do             everything else. A tutor who finished a new step since the
-//                     last message is back in To do at once, and the count of
-//                     unanswered messages starts again.
+//                     each tap) with nothing new done → Followed up, in a
+//                     collapsed "No reply after 3 messages" section, no longer
+//                     due.
+//   Followed up       the last contact was less than 3 days ago; due again 3
+//                     days after it. Progress does NOT skip the wait (owner,
+//                     23 Oct 2026): a tutor who finished a new step stays here
+//                     until the 3 days are up, and only then returns to To do —
+//                     with the message for their NEW reason, and the count of
+//                     unanswered messages started again.
+//   To do             everything else.
 //
 // Overdue (the red Follow-ups badge): in To do, not waiting on us, and due for
 // MORE than 1 day — never contacted and signed up more than a day ago, or the
 // 3 days since the last message ran out more than a day ago.
 //
 // A contact recorded some other way (a logged call, a note) carries no progress
-// snapshot: it counts as a contact (Sent for 3 days) but never towards "3
+// snapshot: it counts as a contact (Followed up for 3 days) but never towards "3
 // messages with no progress". The same is true of follow-ups recorded before
 // this change.
 //
@@ -111,14 +115,14 @@ export function tabState(f: TabFacts, nowMs: number): TabState {
   }
   if (unanswered >= NO_REPLY_AFTER) return { tab: 'sent', section: 'no_reply', dueAt: null, overdue: false, unanswered, last, action: null }
   if (last) {
-    // A message sent before the tutor finished a new step does not hold them
-    // in Sent: they are due again now.
-    const sameProgress = last.progress === null || last.progress === f.progress
+    // Progress does not skip the wait: whatever the tutor did since, they stay
+    // in Followed up until 3 days after the last contact. (unansweredCount has
+    // already started the count again if they made progress.)
     const lastAt = t(last.at)
-    if (sameProgress && nowMs - lastAt < DUE_AGAIN_DAYS * DAY) {
+    if (nowMs - lastAt < DUE_AGAIN_DAYS * DAY) {
       return { tab: 'sent', section: 'sent', dueAt: new Date(lastAt + DUE_AGAIN_DAYS * DAY).toISOString(), overdue: false, unanswered, last, action: null }
     }
-    const dueSince = sameProgress ? lastAt + DUE_AGAIN_DAYS * DAY : lastAt
+    const dueSince = lastAt + DUE_AGAIN_DAYS * DAY
     return { tab: 'todo', section: 'todo', dueAt: null, overdue: nowMs - dueSince > OVERDUE_AFTER_DAYS * DAY, unanswered, last, action: null }
   }
   const joined = t(f.joinedAt)
@@ -133,7 +137,7 @@ export function tabState(f: TabFacts, nowMs: number): TabState {
   }
 }
 
-/** Counts per tab (Sent includes the collapsed No-reply section). */
+/** Counts per tab (Followed up includes the collapsed No-reply section). */
 export function tabCounts(states: TabState[]): { todo: number; sent: number; noReply: number } {
   return {
     todo: states.filter((s) => s.tab === 'todo').length,
@@ -146,6 +150,9 @@ export function tabCounts(states: TabState[]): { todo: number; sent: number; noR
 export function fuBadgeCount(states: TabState[]): number {
   return states.filter((s) => s.tab === 'todo' && s.overdue && !s.action).length
 }
+
+/** The tab names staff see. Applications keeps its own "Sent". */
+export const FU_TAB_LABEL: Record<FuTab, string> = { todo: 'To do', sent: 'Followed up' }
 
 export function parseFuTab(v: string | null | undefined): FuTab {
   return v === 'sent' ? 'sent' : 'todo'

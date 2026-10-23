@@ -13,7 +13,7 @@
 // the admin tuition card, the public "<n> tutors applied" line, the tutor
 // dashboard and the tests — one file, so none of them can disagree.
 
-import { siteLink } from '@/lib/waLinkCore'
+import { safeSlice, siteLink } from '@/lib/waLinkCore'
 
 export const STAGES = ['applied', 'forwarded', 'contacted', 'demo', 'hired', 'not_selected', 'no_response'] as const
 export type Stage = (typeof STAGES)[number]
@@ -447,10 +447,11 @@ export function groupCountLine(stages: Stage[]): string {
 /** A title cut at a whole word, with an ellipsis. */
 export function shortTitle(title: string, max = 60): string {
   const t = title.replace(/\s+/g, ' ').trim()
-  if (t.length <= max) return t
-  const cut = t.slice(0, max + 1)
+  if (Array.from(t).length <= max) return t
+  // Counted and cut by character, never splitting an emoji in half.
+  const cut = safeSlice(t, max + 1)
   const sp = cut.lastIndexOf(' ')
-  const head = sp > max / 2 ? cut.slice(0, sp) : t.slice(0, max)
+  const head = sp > max / 2 ? cut.slice(0, sp) : safeSlice(t, max)
   return `${head.replace(/[\s,|·–-]+$/u, '')}…`
 }
 

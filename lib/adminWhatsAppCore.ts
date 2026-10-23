@@ -16,13 +16,14 @@
 //                                payment, docs done & fee due, next step)
 //   anyone else                → a plain "how can we help"
 //
-// The link is https://wa.me/<92…, digits only>?text=<encodeURIComponent(text)>
-// — the form Android, iPhone, WhatsApp Desktop and WhatsApp Web all open.
+// The link is https://api.whatsapp.com/send?phone=<92…>&text=<encoded text>
+// (lib/waLinkCore waSendHref) — wa.me turns every emoji into "�" on its
+// redirect (23 Oct 2026). Android, iPhone, Desktop and Web all open it.
 //
 // Unit-tested by scripts/test-admin-whatsapp.ts.
 
 import { normalisePkMobile } from '@/lib/phone'
-import { finishWaText, siteLink } from '@/lib/waLinkCore'
+import { finishWaText, siteLink, waSendHref } from '@/lib/waLinkCore'
 import {
   DOC_WORD,
   firstNameOf,
@@ -38,13 +39,13 @@ export type AdminMessageType = MessageType | 'docs_waiting' | 'doc_rejected' | '
 
 export const DASHBOARD_LINK = siteLink('/tutor/dashboard')
 
-/** https://wa.me/92…?text=… — or null with no usable number or no text. The
+/** api.whatsapp.com/send?phone=92…&text=… — or null with no usable number or no text. The
  *  number may be typed any way (+92, 0300-…, spaces); it is reduced to 92…. */
 export function adminWaLink(rawNumber: string | null | undefined, text: string | null | undefined): string | null {
   const msisdn = normalisePkMobile(rawNumber)
   const body = finishWaText(text ?? '')
   if (!msisdn || !body) return null
-  return `https://wa.me/${msisdn}?text=${encodeURIComponent(body)}`
+  return waSendHref(msisdn, body)
 }
 
 export function documentsWaitingMessage(name: string, phrase: string): string {

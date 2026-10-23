@@ -1,5 +1,5 @@
 // scripts/report-tutor-journey.ts — READ ONLY. The numbers for the tutor
-// journey PR (owner, 23 Oct 2026): Follow-ups → Tutors To do / Sent per group,
+// journey PR (owner, 23 Oct 2026): Follow-ups → Tutors To do / Followed up per group,
 // Paid tutors (how many, how many red and why, per city owner), and the
 // Activity-tab lines rebuilt from records, per event type, over every tutor
 // and parent. Prints counts and staff names only — never a member's name,
@@ -21,7 +21,7 @@ async function main() {
   for (const scope of TUTOR_SCOPES) {
     const rows = await loadTutorFollowUps(scope)
     const c = tabCounts(rows.map((r) => r.state))
-    console.log(`  ${TUTOR_SCOPE_LABEL[scope].padEnd(24)} To do ${c.todo}  ·  Sent ${c.sent} (no reply after 3: ${c.noReply})`)
+    console.log(`  ${TUTOR_SCOPE_LABEL[scope].padEnd(24)} To do ${c.todo}  ·  Followed up ${c.sent} (no reply after 3: ${c.noReply})`)
   }
   const open = await loadTutorFollowUps('open')
   const reasons = new Map<FollowReason, number>()

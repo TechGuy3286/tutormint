@@ -196,7 +196,7 @@ test('the hiring post template fills {city}, with a copy button and a WhatsApp s
   assert.equal(hiringPost('', 'Sahiwal'), hiringPost(HIRING_TEMPLATE_DEFAULT, 'Sahiwal'), 'an empty template falls back')
   assert.equal(hiringPost(null, 'Sahiwal'), hiringPost(HIRING_TEMPLATE_DEFAULT, 'Sahiwal'))
   const link = whatsappShareLink('Hiring tutors in Sahiwal! Apply: https://tutormint.org/apply')
-  assert.ok(link.startsWith('https://wa.me/?text=') && link.includes('Sahiwal') && !link.includes(' '))
+  assert.ok(link.startsWith('https://api.whatsapp.com/send?text=') && link.includes('Sahiwal') && !link.includes(' '))
 
   // Editable with the other templates (Team inbox → Templates lists every row).
   const sql = read('supabase', 'migrations', '163_photo_crop_unmet_actions.sql')

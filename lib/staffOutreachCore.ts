@@ -10,7 +10,7 @@
 
 import { genderApplyBlocked } from '@/lib/genderPref'
 import { isOnlineType, matchVisibility } from '@/lib/matchChip'
-import { finishWaText } from '@/lib/waLinkCore'
+import { finishWaText, waSendHref } from '@/lib/waLinkCore'
 
 // ------------------------------------------------------------ test accounts
 /** A test/fixture account by NAME — the rule the owner's test-account pause
@@ -217,9 +217,9 @@ export function featuredMessage(firstName: string, tuitions: WaTuition[]): strin
   return lines.join('\n')
 }
 
-/** wa.me link for a Pakistani MSISDN (923001234567) with a prefilled text. */
+/** The pre-filled WhatsApp link (waSendHref) for a Pakistani MSISDN (923001234567). */
 export function waLink(msisdn: string, text: string): string {
-  return `https://wa.me/${msisdn}?text=${encodeURIComponent(finishWaText(text))}`
+  return waSendHref(msisdn, finishWaText(text))
 }
 
 export function firstNameOf(full: string | null | undefined): string {

@@ -13,7 +13,7 @@ import { planLabel } from '@/lib/display'
 import { CONTACT_OUTCOMES, OUTCOME_LABEL, type ContactOutcome } from '@/lib/staffOutreachCore'
 import { FOLLOW_CHIP_LABEL, PRIORITY, showWhatsApp, startedLine } from '@/lib/tutorFollowUpCore'
 import type { TutorFollowRow } from '@/lib/tutorFollowUps'
-import TutorFollowUpButtons from '@/components/admin/TutorFollowUpButtons'
+import TutorFollowUpButtons, { FeeReplyButton } from '@/components/admin/TutorFollowUpButtons'
 import { daysAgo } from '@/lib/followUpCore'
 import { sentLine } from '@/lib/tutorFollowUpTabsCore'
 import ProfileShareButtons from '@/components/admin/ProfileShareButtons'
@@ -178,15 +178,19 @@ export default function UnpaidSignupRow({
             progress={row.progress}
             waHref={row.waHref}
             telHref={row.telHref}
+            feeReplyHref={row.feeReplyHref}
             sent={row.state.tab === 'sent'}
             onChanged={refresh}
           />
         ) : (
-          row.telHref && (
+          <>
+          <FeeReplyButton memberId={row.id} reason={row.followReason} progress={row.progress} feeReplyHref={row.feeReplyHref} onChanged={refresh} />
+          {row.telHref && (
             <a href={row.telHref} className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700 hover:border-tm-navy">
               Call
             </a>
-          )
+          )}
+          </>
         )}
         {canCheckPayment && sp?.provider === 'paypro' && (
           <button
