@@ -6,6 +6,7 @@ import { loadForwardBoard } from '@/lib/applicantForwards'
 import { legacyApplicationsHref, parseStaffFilter, parseStageFilter } from '@/lib/applicationStageCore'
 
 import ApplicationsClient from './ApplicationsClient'
+import { loadAppTemplates, loadSupportWhatsApp } from '@/lib/applicationTemplates'
 
 // Tuitions → Applications (owner, 22 Oct 2026; Applications v3).
 //   - two tabs: "To do" (the next follow-up is due) and "Sent" (followed up,
@@ -30,17 +31,22 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
   if (sp.view === 'forward' || sp.fwd) permanentRedirect(legacyApplicationsHref(sp))
   const actor = await requireAdminRole(...SCREEN_ACCESS.applicantForwards)
   const now = Date.now()
-  const [board, forward] = await Promise.all([loadApplicationBoard(), loadForwardBoard()])
+  const [board, forward, templates, supportDisplay] = await Promise.all([
+    loadApplicationBoard(),
+    loadForwardBoard(),
+    loadAppTemplates(),
+    loadSupportWhatsApp(),
+  ])
   return (
     <div className="space-y-3">
       <header className="space-y-1">
         <h2 className="text-lg font-black text-tm-navy">Applications</h2>
         <p className="text-xs text-gray-500">
           <b>To do</b>: the next follow-up is due. <b>Sent</b>: followed up and not due again yet — it comes back to To do on its due date.
-          Applied is due now (“Forward overdue” after 1 day); Forwarded, Contacted and Demo/interview are due 3 days after the last
+          Applied is due now (“Forward overdue” after 1 day) — sending its WhatsApp to the parent shares the tutor’s profile, so it moves to Forwarded; Forwarded, Contacted and Demo/interview are due 3 days after the last
           follow-up or stage change (“Check in”); Hired, Not selected and No response need one message. The WhatsApp button writes to the
           parent or the tutor, depending on the stage. Tuitions posted more than 30 days ago are under “Older”. Staff and test accounts are
-          left out.
+          left out. The wording of every message is in Team inbox → Templates → Applications.
         </p>
       </header>
       <ApplicationsClient
@@ -58,6 +64,8 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
         forwardTemplate={forward.template}
         canOpenMembers={roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutors)}
         initialPreview={sp.preview ?? null}
+        tutorUpdateTemplate={templates.get('app_tutor_update') ?? null}
+        supportDisplay={supportDisplay}
       />
     </div>
   )

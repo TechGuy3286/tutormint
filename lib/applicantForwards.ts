@@ -151,7 +151,7 @@ async function loadInputs(admin: Admin) {
 
   const [fwd, out] = await Promise.all([
     pageAll<{ job_id: string; tutor_ids: string[] | null; created_at: string; staff_name: string | null; channel: string }>((from, to) =>
-      admin.from('applicant_forwards').select('job_id, tutor_ids, created_at, staff_name, channel').order('created_at').order('id').range(from, to),
+      admin.from('applicant_forwards').select('job_id, tutor_ids, created_at, staff_name, channel').is('undone_at', null).order('created_at').order('id').range(from, to),
     ),
     pageAll<{ job_id: string; outcome: OutcomeKind; tutor_id: string | null; note: string | null; created_at: string; staff_name: string | null }>((from, to) =>
       admin.from('applicant_forward_outcomes').select('job_id, outcome, tutor_id, note, created_at, staff_name').order('created_at').order('id').range(from, to),

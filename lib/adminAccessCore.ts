@@ -245,6 +245,9 @@ export const SCREEN_ACCESS = {
   // Admin → Settings → Payment gateways (owner, 6 Oct 2026, item 19): owner
   // ONLY, enforced on the server (an admin or staff role gets 403).
   paymentGateways: [] as AdminRole[],
+  // The support WhatsApp number every Applications message ends with
+  // (app_settings 'support.whatsapp'; owner, 23 Oct 2026): Owner only.
+  supportNumber: [] as AdminRole[],
   // Admin → Settings → SMS (owner, 15 Oct 2026): Owner only; the Partner views
   // (roleSatisfies admits them) but cannot send a test (roleMayWrite is false).
   smsHealth: [] as AdminRole[],

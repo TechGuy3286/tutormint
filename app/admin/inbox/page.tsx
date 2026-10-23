@@ -8,6 +8,7 @@ import {
 } from '@/lib/adminMessaging'
 import InboxClient from './InboxClient'
 import { formatName } from '@/lib/formatName'
+import { loadSupportWhatsApp } from '@/lib/applicationTemplates'
 
 // The official TutorMint Team ↔ member inbox. owner / manager / support.
 //
@@ -22,12 +23,12 @@ export const dynamic = 'force-dynamic'
 export default async function AdminInboxPage({
   searchParams,
 }: {
-  searchParams: Promise<{ to?: string }>
+  searchParams: Promise<{ to?: string; templates?: string }>
 }) {
   const actor = await requireAdminRole(...SCREEN_ACCESS.inbox)
-  const { to } = await searchParams
+  const { to, templates: openTemplates } = await searchParams
 
-  const [threads, templates] = await Promise.all([loadInboxThreads(), loadTemplates()])
+  const [threads, templates, supportDisplay] = await Promise.all([loadInboxThreads(), loadTemplates(), loadSupportWhatsApp()])
 
   // The selected member: the ?to param (a fresh compose from a member page) or
   // the first thread. A ?to member may have no messages yet.
@@ -63,6 +64,9 @@ export default async function AdminInboxPage({
       selectedHasMobile={selectedHasMobile}
       conversation={conversation}
       canEditTemplates={roleMayWrite(actor.adminRole, ['admin'])}
+      supportDisplay={supportDisplay}
+      isOwner={actor.adminRole === 'owner'}
+      initialShowTemplates={openTemplates === '1' && roleMayWrite(actor.adminRole, ['admin'])}
       suggestedTemplateKey={threads.find((t) => t.memberId === selectedId)?.tag?.templateKey ?? ''}
     />
   )

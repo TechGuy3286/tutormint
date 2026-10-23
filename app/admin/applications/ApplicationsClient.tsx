@@ -101,6 +101,8 @@ export default function ApplicationsClient({
   forwardTemplate,
   canOpenMembers,
   initialPreview = null,
+  tutorUpdateTemplate = null,
+  supportDisplay = null,
 }: {
   rows: BoardRow[]
   staff: StaffOption[]
@@ -118,6 +120,10 @@ export default function ApplicationsClient({
   canOpenMembers: boolean
   /** ?preview=<tutor id> opens that tutor's message preview (By tutor). */
   initialPreview?: string | null
+  /** The stored By-tutor template (Team inbox → Templates) for the preview. */
+  tutorUpdateTemplate?: string | null
+  /** The support WhatsApp number from settings. */
+  supportDisplay?: string | null
 }) {
   const router = useRouter()
   const toast = useToast()
@@ -368,7 +374,7 @@ export default function ApplicationsClient({
             type="button"
             disabled={!hasNumber || busy === `fu:${r.id}`}
             onClick={() =>
-              void send('/api/admin/applications/follow-up', { applicationId: r.id }, `fu:${r.id}`, `${MESSAGE_LABEL[STAGE_MESSAGE[r.stage]]} to ${RECIPIENT_LABEL[recipient]} recorded — ${r.tutorName}.`)
+              void send('/api/admin/applications/follow-up', { applicationId: r.id }, `fu:${r.id}`, r.stage === 'applied' ? `Profile shared with the parent — ${r.tutorName} moved to Forwarded.` : `${MESSAGE_LABEL[STAGE_MESSAGE[r.stage]]} to ${RECIPIENT_LABEL[recipient]} recorded — ${r.tutorName}.`)
             }
             className={`${SMALL_BTN} ${hasNumber ? 'bg-tm-green-deep text-white' : 'border border-gray-200 bg-white text-gray-500'}`}
           >
@@ -426,6 +432,7 @@ export default function ApplicationsClient({
     const message = tutorUpdateMessage(
       head.tutorName,
       active.map((r) => ({ ref: r.jobRef, title: r.jobTitle, stage: r.stage })),
+      { template: tutorUpdateTemplate, supportWhatsApp: supportDisplay },
     )
     const canSend = !!head.tutorPhone && active.length > 0
     return (

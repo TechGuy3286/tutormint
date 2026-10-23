@@ -279,9 +279,11 @@ async function actorName(admin: Admin, actor: AdminActor): Promise<string | null
 
 /** Write one stage change: the row, its history, the tuition's audit trail and
  *  the tutor's timeline. The caller has already decided it is allowed. */
-async function writeStage(admin: Admin, actor: AdminActor, name: string | null, app: AppRow, to: Stage, reason: string): Promise<boolean> {
+export async function writeStage(admin: Admin, actor: AdminActor, name: string | null, app: Pick<AppRow, 'id' | 'job_id' | 'tutor_id' | 'stage'>, to: Stage, reason: string, at?: string): Promise<boolean> {
   if (app.stage === to) return false
-  const now = new Date().toISOString()
+  // `at`: the Applied message (v3.1) stamps the stage, the forward and the
+  // follow-up with ONE time, so its Undo can tell nothing changed since.
+  const now = at ?? new Date().toISOString()
   const { error } = await admin
     .from('applications')
     .update({

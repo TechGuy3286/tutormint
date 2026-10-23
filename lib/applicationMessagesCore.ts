@@ -1,9 +1,9 @@
 // lib/applicationMessagesCore.ts
 //
 // PURE, client-safe. Every WhatsApp message Admin → Tuitions → Applications
-// pre-fills (owner, 22 Oct 2026, Applications v3). ONE FILE so the wording is
-// easy to edit later: change a line here and every button, the preview and the
-// tests follow.
+// pre-fills (owner, 22 Oct 2026, Applications v3). Since v3.1 (23 Oct 2026)
+// the wording is an editable template in Team inbox → Templates
+// (lib/applicationTemplatesCore holds the defaults); this file fills them.
 //
 // Rules for every message:
 //   - plain English, no Urdu added;
@@ -16,9 +16,13 @@
 
 import { siteLink } from '@/lib/waLinkCore'
 import { TUTOR_STAGE_TEXT, type Stage } from '@/lib/applicationStageCore'
+import { SUPPORT_WHATSAPP_DISPLAY } from '@/lib/supportContacts'
+import { STAGE_TEMPLATE, appTemplateDef, fillTemplate, resolveBody } from '@/lib/applicationTemplatesCore'
 
-/** The support line every message ends with. */
-export const SUPPORT_LINE = 'Need help? WhatsApp us on 0321 5872222.'
+/** The support line every default message ends with, with the fallback
+ *  number. The live number comes from settings (app_settings
+ *  'support.whatsapp') and fills {support_whatsapp}. */
+export const SUPPORT_LINE = `Need help? WhatsApp us on ${SUPPORT_WHATSAPP_DISPLAY}.`
 
 export type Recipient = 'parent' | 'tutor'
 
@@ -77,6 +81,8 @@ export type StageMessageInput = {
   tutorProfilePath: string | null
   /** The tutor's city — for the "open tuitions" link. */
   tutorCity: string | null
+  /** The tuition's city — {city}. */
+  jobCity?: string | null
 }
 
 function firstName(name: string | null | undefined, fallback: string): string {
@@ -103,58 +109,39 @@ export function openTuitionsPath(city: string | null | undefined): string {
   return c ? `/browse/tuitions?city=${encodeURIComponent(c)}` : '/browse/tuitions'
 }
 
-function compose(lines: (string | null)[]): string {
-  return [...lines.filter((l): l is string => l !== null), '', SUPPORT_LINE].join('\n')
+/** Optional: the stored template body and the support number from settings. */
+export type MessageOptions = {
+  /** The stored template body (Team inbox → Templates). Empty/invalid → default. */
+  template?: string | null
+  /** The support WhatsApp number as a person reads it ("0321 5872222"). */
+  supportWhatsApp?: string | null
 }
 
-/** The pre-filled message for a row's WhatsApp button, by stage. */
-export function stageMessage(i: StageMessageInput): string {
-  const tuition = tuitionLabel(i.ref, i.title)
-  const tutor = clean(i.tutorName) || 'the tutor'
-  const parentHi = `Assalam o Alaikum ${clean(firstName(i.parentName, ''))}`.trim()
-  const tutorHi = `Assalam o Alaikum ${clean(firstName(i.tutorName, ''))}`.trim()
-  const profile = i.tutorProfilePath ? siteLink(i.tutorProfilePath) : null
-  switch (i.stage) {
-    case 'applied':
-      return compose([
-        `${parentHi}, this is TutorMint about your tuition ${tuition}.`,
-        `${tutor} has applied.${profile ? ' You can see their TutorMint profile here:' : ''}`,
-        profile,
-        'Reply here if you would like to talk to them.',
-      ])
-    case 'forwarded':
-      return compose([
-        `${parentHi}, this is TutorMint about your tuition ${tuition}.`,
-        `We shared ${tutor}'s profile with you. Did you get a chance to contact them?`,
-      ])
-    case 'contacted':
-      return compose([
-        `${parentHi}, this is TutorMint about your tuition ${tuition}.`,
-        `Would you like to arrange a demo lesson or an interview with ${tutor}? We can help set it up.`,
-      ])
-    case 'demo':
-      return compose([
-        `${parentHi}, this is TutorMint about your tuition ${tuition}.`,
-        `How did the demo or interview with ${tutor} go? Would you like to go ahead with them?`,
-      ])
-    case 'hired':
-      return compose([
-        `${tutorHi}, congratulations on getting the tuition ${tuition}!`,
-        'Could you send us a short line about your experience with TutorMint? We would love to share it as a success story.',
-      ])
-    case 'not_selected':
-      return compose([
-        `${tutorHi}, thank you for applying to ${tuition}.`,
-        'The parent chose another tutor this time. New tuitions are posted every day — here are the open ones in your city:',
-        siteLink(openTuitionsPath(i.tutorCity)),
-      ])
-    case 'no_response':
-      return compose([
-        `${tutorHi}, thank you for applying to ${tuition}.`,
-        'The parent has not replied to us. New tuitions are posted every day — here are the open ones in your city:',
-        siteLink(openTuitionsPath(i.tutorCity)),
-      ])
+function supportValue(opts?: MessageOptions): string {
+  return (opts?.supportWhatsApp ?? '').trim() || SUPPORT_WHATSAPP_DISPLAY
+}
+
+/** The values a stage template is filled with (every one cleaned). */
+export function stageValues(i: StageMessageInput, opts?: MessageOptions): Record<string, string> {
+  return {
+    parent_name: clean(firstName(i.parentName, '')),
+    tutor_name: clean(i.tutorName) || 'the tutor',
+    tutor_first_name: clean(firstName(i.tutorName, '')),
+    tm_number: clean(i.ref),
+    tuition_title: clean(i.title) || 'your tuition',
+    city: clean(i.jobCity),
+    profile_link: i.tutorProfilePath ? siteLink(i.tutorProfilePath) : '',
+    open_tuitions_link: siteLink(openTuitionsPath(i.tutorCity)),
+    dashboard_link: siteLink('/tutor/dashboard'),
+    support_whatsapp: supportValue(opts),
   }
+}
+
+/** The pre-filled message for a row's WhatsApp button, by stage — the stage's
+ *  template (Team inbox → Templates), else the built-in default. */
+export function stageMessage(i: StageMessageInput, opts?: MessageOptions): string {
+  const def = appTemplateDef(STAGE_TEMPLATE[i.stage])!
+  return fillTemplate(resolveBody(opts?.template, def), stageValues(i, opts))
 }
 
 export type TutorUpdateItem = { ref: string | null; title: string; stage: Stage }
@@ -162,17 +149,23 @@ export type TutorUpdateItem = { ref: string | null; title: string; stage: Stage 
 /** Active = still moving (Applied → Demo/interview). */
 export const ACTIVE_STAGES: readonly Stage[] = ['applied', 'forwarded', 'contacted', 'demo']
 
+/** One line per active application, in the dashboard's words. */
+export function applicationsList(items: TutorUpdateItem[]): string {
+  return items.map((i) => `• ${tuitionLabel(i.ref, i.title)}: ${TUTOR_STAGE_TEXT[i.stage]}`).join('\n')
+}
+
 /** The By-tutor message: every active application, in the dashboard's words. */
-export function tutorUpdateMessage(tutorName: string | null, items: TutorUpdateItem[]): string {
-  const hi = `Assalam o Alaikum ${clean(firstName(tutorName, ''))}`.trim()
-  const lines = items.map((i) => `• ${tuitionLabel(i.ref, i.title)}: ${TUTOR_STAGE_TEXT[i.stage]}`)
-  return compose([
-    `${hi}, here is an update on your TutorMint applications:`,
-    ...lines,
-    '',
-    'You can see them all on your dashboard:',
-    siteLink('/tutor/dashboard'),
-  ])
+export function tutorUpdateMessage(tutorName: string | null, items: TutorUpdateItem[], opts?: MessageOptions & { tutorCity?: string | null }): string {
+  const def = appTemplateDef('app_tutor_update')!
+  return fillTemplate(resolveBody(opts?.template, def), {
+    tutor_name: clean(tutorName) || 'the tutor',
+    tutor_first_name: clean(firstName(tutorName, '')),
+    city: clean(opts?.tutorCity),
+    applications_list: applicationsList(items),
+    open_tuitions_link: siteLink(openTuitionsPath(opts?.tutorCity)),
+    dashboard_link: siteLink('/tutor/dashboard'),
+    support_whatsapp: supportValue(opts),
+  })
 }
 
 // The forward panel's parent message is the admin-editable "Applicants to

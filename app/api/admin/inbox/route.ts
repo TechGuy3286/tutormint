@@ -1,13 +1,16 @@
 import { NextResponse } from 'next/server'
 
 import { checkAdminRole, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
-import { sendAdminMessage, saveTemplate } from '@/lib/adminMessaging'
+import { sendAdminMessage, saveTemplate, loadTemplates } from '@/lib/adminMessaging'
 import { parseBody, z, uuid } from '@/lib/validate'
+import { logAdminAction } from '@/lib/auditLog'
+import { templateSaveCheck, templateDefault } from '@/lib/templateRules'
 
 // The admin side of the official TutorMint Team channel.
 //
 //   POST { memberId, body, templateKey? }  — send a message to a member
 //   PUT  { key, title, subject, body }      — edit a template (owner/manager)
+//   PUT  { key, reset: true }                — back to the built-in default
 //
 // owner / manager / support may send; only owner/manager may edit the library.
 
@@ -18,12 +21,16 @@ const SendBody = z.object({
   channel: z.enum(['inapp', 'whatsapp']).optional(),
 })
 
-const TemplateBody = z.object({
-  key: z.string().min(1).max(64),
-  title: z.string().min(1).max(200),
-  subject: z.string().min(1).max(200),
-  body: z.string().min(1).max(4000),
-})
+const TemplateBody = z.union([
+  z.object({
+    key: z.string().min(1).max(64),
+    title: z.string().min(1).max(200),
+    subject: z.string().min(1).max(200),
+    body: z.string().min(1).max(4000),
+  }),
+  // "Reset to default" (Applications templates and the forward message).
+  z.object({ key: z.string().min(1).max(64), reset: z.literal(true) }),
+])
 
 export async function POST(request: Request) {
   const gate = await checkAdminRole(...SCREEN_ACCESS.inbox)
@@ -56,11 +63,33 @@ export async function PUT(request: Request) {
   const parsed = await parseBody(request, TemplateBody)
   if (!parsed.ok) return parsed.response
   const t = parsed.data
+  const current = (await loadTemplates()).find((x) => x.key === t.key)
+  if (!current) return NextResponse.json({ error: 'That template was not found. Reload the page.' }, { status: 404 })
 
-  const result = await saveTemplate(
-    { key: t.key!, title: t.title!, subject: t.subject!, body: t.body! },
-    gate.actor.id,
-  )
+  let next = current
+  if ('reset' in t) {
+    const def = templateDefault(t.key)
+    if (def === null) return NextResponse.json({ error: 'This template has no built-in default.' }, { status: 400 })
+    next = { ...current, body: def }
+  } else {
+    next = { key: t.key, title: t.title, subject: t.subject, body: t.body }
+  }
+  // Unknown placeholders are BLOCKED; a price or superlative is a warning.
+  const check = templateSaveCheck(next.key, next.body)
+  if (!check.ok) return NextResponse.json({ error: check.error, unknown: check.unknown }, { status: 400 })
+
+  const result = await saveTemplate(next, gate.actor.id)
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 })
-  return NextResponse.json({ success: true })
+  // Every edit is logged with who and when (Audit; the row also carries
+  // updated_by / updated_at). The body is template wording, never member data.
+  await logAdminAction({
+    actorId: gate.actor.id,
+    actorRole: gate.actor.adminRole,
+    actorEmail: gate.actor.email,
+    action: 'reset' in t ? 'template.reset' : 'template.edit',
+    targetType: 'admin_message_template',
+    targetId: next.key,
+    detail: { key: next.key, titleChanged: next.title !== current.title, bodyChanged: next.body !== current.body, length: next.body.length, warnings: check.warnings.length },
+  })
+  return NextResponse.json({ success: true, body: next.body, warnings: check.warnings })
 }

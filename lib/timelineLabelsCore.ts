@@ -137,6 +137,7 @@ export const AUDIT_LABELS: Record<string, string> = {
   'job.contact_number': 'Added the parent’s contact number',
   'job.contact_message': 'Messaged a tuition contact',
   'applicants.forward': 'Sent applicants to the parent',
+  'applicants.forward_undo': 'Undid sending a tutor to the parent',
   'applicants.outcome': 'Recorded the result with the parent',
   // Application tracking (owner, 22 Oct 2026).
   'application.stage': 'Changed an application stage',
@@ -188,6 +189,9 @@ export const AUDIT_LABELS: Record<string, string> = {
   'ad.status': 'Changed an ad’s status',
   'social.generate': 'Made a social media post',
   'settings.update': 'Changed a site setting',
+  'settings.support_whatsapp': 'Changed the support WhatsApp number',
+  'template.edit': 'Edited a message template',
+  'template.reset': 'Reset a message template to its default',
   'onboarding.mode': 'Changed the tutor sign-up steps setting',
   'sms.test': 'Sent a test SMS',
 }

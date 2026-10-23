@@ -165,3 +165,52 @@ export function sentLine(args: { messageLabel: string; recipientLabel: string; s
   const by = args.staffName ? ` by ${args.staffName}` : ''
   return `${args.messageLabel} sent to ${args.recipientLabel}${by}, ${args.ago} · ${args.nextDue ? `next due ${args.nextDue}` : 'Done'}`
 }
+
+// ------------------------------------------------- v3.1: Applied = forward --
+
+/**
+ * Applications v3.1 (owner, 23 Oct 2026): sending the Applied-stage message to
+ * the parent IS forwarding that tutor. The application moves to Forwarded,
+ * the forward is recorded on the tuition, and the parent follow-up is
+ * recorded at the Forwarded stage — so it goes to Sent, due again 3 days
+ * later under the Forwarded rule. All three carry ONE time stamp.
+ *
+ * Undo (10 seconds in the browser, sender only) reverses all of it — only
+ * while nothing else has touched the application since.
+ */
+export const APPLIED_FORWARD_MESSAGE: MessageKey = 'share_profile'
+/** The server's grace for the 10-second Undo (network and clock slack). */
+export const FORWARD_UNDO_MS = 60_000
+export const UNDO_CHANGED = "Can't undo, the application has changed since"
+
+export type ForwardUndoFacts = {
+  actorId: string
+  nowMs: number
+  followUp: { staffId: string | null; at: string; undoneAt: string | null }
+  app: { stage: string; stageChangedAt: string | null; workedAt: string | null; withdrawnAt: string | null } | null
+  /** Other follow-ups (not undone) on this application made at or after it. */
+  laterFollowUps: number
+}
+
+export type ForwardUndoProblem = 'not_yours' | 'already_undone' | 'too_late' | 'changed'
+
+const same = (a: string | null | undefined, b: string | null | undefined) => !!a && !!b && Date.parse(a) === Date.parse(b)
+
+/** null = the Undo may go ahead. */
+export function forwardUndoProblem(f: ForwardUndoFacts): ForwardUndoProblem | null {
+  if (f.followUp.staffId !== f.actorId) return 'not_yours'
+  if (f.followUp.undoneAt) return 'already_undone'
+  if (f.nowMs - Date.parse(f.followUp.at) > FORWARD_UNDO_MS) return 'too_late'
+  const a = f.app
+  if (!a || a.withdrawnAt || a.stage !== 'forwarded') return 'changed'
+  if (!same(a.stageChangedAt, f.followUp.at) || !same(a.workedAt, f.followUp.at)) return 'changed'
+  if (f.laterFollowUps > 0) return 'changed'
+  return null
+}
+
+export const FORWARD_UNDO_TEXT: Record<ForwardUndoProblem, string> = {
+  not_yours: 'Only the person who sent it can undo it.',
+  already_undone: 'That was already undone.',
+  too_late: "Can't undo, it is too late now.",
+  changed: UNDO_CHANGED,
+}

@@ -10,6 +10,9 @@ import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { formatDateTime } from '@/lib/datetime'
 import type { AdminMessage, AdminTemplate, InboxThread } from '@/lib/adminMessaging'
 import { INBOX_TAG_CLASS, type InboxTag } from '@/lib/inboxTags'
+import { isAppTemplateKey } from '@/lib/applicationTemplatesCore'
+import { groupTemplateInfo } from '@/lib/templateRules'
+import ApplicationTemplates from './ApplicationTemplates'
 
 const TEAM = 'TutorMint Team'
 
@@ -42,6 +45,9 @@ export default function InboxClient({
   conversation,
   canEditTemplates,
   suggestedTemplateKey = '',
+  supportDisplay,
+  isOwner = false,
+  initialShowTemplates = false,
 }: {
   threads: InboxThread[]
   templates: AdminTemplate[]
@@ -51,6 +57,11 @@ export default function InboxClient({
   selectedHasMobile: boolean
   conversation: AdminMessage[]
   canEditTemplates: boolean
+  /** The support WhatsApp number from settings, as a person reads it. */
+  supportDisplay: string
+  isOwner?: boolean
+  /** ?templates=1 opens the editor with the Applications group. */
+  initialShowTemplates?: boolean
   /** The template the selected member's status tag maps to (PR105 §6) — preselected. */
   suggestedTemplateKey?: string
 }) {
@@ -69,7 +80,7 @@ export default function InboxClient({
     suggested ? fill(suggested.body, { name: selectedName || 'there', jobTitle: '', reason: '' }) : '',
   )
   const [busy, setBusy] = useState(false)
-  const [showTemplates, setShowTemplates] = useState(false)
+  const [showTemplates, setShowTemplates] = useState(initialShowTemplates)
 
   const chosen = templates.find((t) => t.key === templateKey) ?? null
   const needsJob = !!chosen && chosen.body.includes('{job_title}')
@@ -140,7 +151,12 @@ export default function InboxClient({
         )}
       </header>
 
-      {showTemplates && <TemplatesEditor templates={templates} />}
+      {showTemplates && (
+        <div className="space-y-3">
+          <ApplicationTemplates templates={templates} supportDisplay={supportDisplay} isOwner={isOwner} defaultOpen={initialShowTemplates} />
+          <TemplatesEditor templates={templates.filter((t) => !groupTemplateInfo(t.key))} />
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
         {/* --------------------------------------------------- thread list --- */}
@@ -236,7 +252,7 @@ export default function InboxClient({
                   className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold"
                 >
                   <option value="">Start from a template…</option>
-                  {templates.map((t) => (
+                  {templates.filter((t) => !isAppTemplateKey(t.key)).map((t) => (
                     <option key={t.key} value={t.key}>
                       {t.title}
                     </option>
@@ -343,6 +359,7 @@ function TemplatesEditor({ templates }: { templates: AdminTemplate[] }) {
 
   return (
     <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
+      <p className="text-xs font-black text-tm-navy">Other templates</p>
       <p className="text-[11px] text-gray-500">
         Placeholders {'{name}'}, {'{job_title}'} and {'{reason}'} fill in when you send.
       </p>
