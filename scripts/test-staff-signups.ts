@@ -190,9 +190,10 @@ test('the link credit survives the return-to through register and onboarding', (
   assert.equal(safeReturnTo(next), next)
   assert.equal(newTutorDestination(next), `/tutor/onboarding?next=${encodeURIComponent(next)}`)
   assert.equal(safeReturnTo('//evil.com'), null)
-  // The form has the optional field.
+  // The box is gone (owner, 23 Oct 2026); a ?ref or old ?code is sent hidden.
   const form = read('app/(site)/register/RegisterForm.tsx')
-  assert.ok(form.includes('Staff code (if someone helped you)'))
+  assert.ok(!form.includes('Staff code (if someone helped you)'))
+  assert.ok(form.includes('...(refCode ? { refCode } : {})'))
 })
 
 test('milestones: counted on the day they happened; list = board number', () => {
@@ -242,6 +243,6 @@ test('no prices or amounts on the board; mobiles masked', () => {
   }
   // The lists behind the numbers show the same columns as My sign-ups (owner,
   // 16 Oct 2026) — the full phone, never a CNIC, document or payment detail.
-  assert.ok(read('app/admin/team-activity/accounts/page.tsx').includes('rowsForAccounts(result.accounts)'))
+  assert.ok(read('app/admin/team-activity/accounts/page.tsx').includes('rowsForAccounts(result.accounts, await senderRefCode(actor.id))'))
   assert.ok(read('app/admin/team-activity/claims/page.tsx').includes('maskMobile(c.memberMobile)'))
 })

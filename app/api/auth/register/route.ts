@@ -17,8 +17,8 @@ import { ensureProfile } from '@/lib/ensureProfile'
 import { startPendingSignup, PENDING_COOKIE } from '@/lib/pendingSignup'
 import { CODE_TTL_MS } from '@/lib/otp'
 import { formatName } from '@/lib/formatName'
-import { creditNewAccount, staffCodeVisit } from '@/lib/staffSignups'
-import { CREDIT_MS, STAFF_REF_COOKIE } from '@/lib/staffSignupsCore'
+import { creditNewAccount, refLinkVisit, staffCodeVisit } from '@/lib/staffSignups'
+import { STAFF_REF_COOKIE, staffRefCookieOptions } from '@/lib/staffSignupsCore'
 
 // Signup.
 //
@@ -57,6 +57,9 @@ const RegisterBody = z.object({
   // "Staff code (if someone helped you)" (owner, 15 Oct 2026). Optional; an
   // unknown code is ignored and never stops the sign-up.
   staffCode: z.string().trim().max(40).optional(),
+  // Staff links (owner, 23 Oct 2026): the ?ref=<code> the page was opened
+  // with. Same rules as the code; recorded as source "link".
+  refCode: z.string().trim().max(40).optional(),
 })
 
 // Neutral message when a signup is refused because the identifier is on the
@@ -116,17 +119,18 @@ export async function POST(request: Request) {
   // for an email sign-up, at /api/auth/register/verify for a mobile one.
   const refJar = await cookies()
   let staffVisitId: string | null = refJar.get(STAFF_REF_COOKIE)?.value ?? null
-  if (body.staffCode) {
-    const fromCode = await staffCodeVisit(body.staffCode, staffVisitId).catch(() => null)
+  // Staff links (owner, 23 Oct 2026): a ?ref link (source "link") is tried
+  // before an old code-box value (source "code"); each gives credit only when
+  // there is none yet.
+  for (const [value, record] of [
+    [body.refCode, refLinkVisit],
+    [body.staffCode, staffCodeVisit],
+  ] as const) {
+    if (!value) continue
+    const fromCode = await record(value, staffVisitId).catch(() => null)
     if (fromCode?.recorded && fromCode.visit) {
       staffVisitId = fromCode.visit.id
-      refJar.set(STAFF_REF_COOKIE, fromCode.visit.id, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-        path: '/',
-        maxAge: Math.floor(CREDIT_MS / 1000),
-      })
+      refJar.set(STAFF_REF_COOKIE, fromCode.visit.id, staffRefCookieOptions())
     }
   }
 

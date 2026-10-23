@@ -229,6 +229,8 @@ export type CreditedAccount = {
   name: string
   mobile: string | null
   at: Partial<Record<Step, string | null>>
+  /** How the credit was given (link, the old code box, or an approved claim). */
+  source?: 'link' | 'code' | 'claim'
 }
 
 /** The furthest step reached, in words. */
@@ -450,4 +452,95 @@ export function pendingSplit(accounts: CreditedAccount[], r: Range): { tutors: n
  *  the follow-up backlog ("All unpaid" on a target card). */
 export function allUnpaid(accounts: CreditedAccount[]): CreditedAccount[] {
   return accounts.filter((a) => !a.at.paid)
+}
+
+// ---------------------------------------------------------- staff links
+//
+// Staff links with a hidden code (owner, 23 Oct 2026). Any tutormint.org page
+// opened with ?ref=<code> stores a first-touch credit (the same visit and
+// httpOnly cookie as /join/<slug>), and the address bar is cleaned. The
+// personal link is /join?ref=<code>; the Staff code box is gone from /register.
+
+export const REF_PARAM = 'ref'
+
+/** The personal link's path: /join?ref=AQSA. */
+export function joinRefPath(code: string): string {
+  return `/join?${REF_PARAM}=${encodeURIComponent(code.toUpperCase())}`
+}
+
+/** The ref in a query string (any case of the value; the name is "ref"). */
+export function refFromSearch(search: string): string | null {
+  const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
+  return normaliseStaffCode(params.get(REF_PARAM))
+}
+
+/** The address with ?ref removed (other parameters and the #fragment kept). */
+export function withoutRef(pathname: string, search: string, hash = ''): string {
+  const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
+  params.delete(REF_PARAM)
+  const q = params.toString()
+  return `${pathname}${q ? `?${q}` : ''}${hash}`
+}
+
+export type MyLinkCounts = {
+  last7: { tutors: number; parents: number; tutorsPaid: number }
+  last30: { tutors: number; parents: number; tutorsPaid: number }
+}
+
+/** [start, end) of the last N days in Pakistan time, today included. */
+export function lastDaysRange(days: number, nowMs: number): Range {
+  return { start: pktDayStartMs(nowMs) - (days - 1) * DAY_MS, end: nowMs + 1 }
+}
+
+/** The "My link" card's numbers for one staff member: sign-ups by the day they
+ *  signed up, tutors who paid by the day they paid. */
+export function myLinkCounts(accounts: CreditedAccount[], staffId: string, nowMs: number): MyLinkCounts {
+  const mine = accounts.filter((a) => a.staffId === staffId)
+  const count = (days: number) => {
+    const r = lastDaysRange(days, nowMs)
+    return {
+      tutors: mine.filter((a) => a.role === 'tutor' && inRange(a.at.signed_up, r)).length,
+      parents: mine.filter((a) => a.role === 'parent' && inRange(a.at.signed_up, r)).length,
+      tutorsPaid: mine.filter((a) => a.role === 'tutor' && inRange(a.at.paid, r)).length,
+    }
+  }
+  return { last7: count(7), last30: count(30) }
+}
+
+export type CreditSource = 'link' | 'code' | 'claim'
+
+export type SourceRow = {
+  staffId: string
+  name: string
+  link: number
+  code: number
+  claim: number
+  total: number
+  paid7: number
+  paid30: number
+  paidAll: number
+}
+
+/** Sign-ups by source (all time) and tutors paid (7 / 30 days / all time) for
+ *  one staff member. */
+export function sourceRow(staffId: string, name: string, accounts: CreditedAccount[], nowMs: number): SourceRow {
+  const mine = staffId === 'team' ? accounts : accounts.filter((a) => a.staffId === staffId)
+  const by = (s: CreditSource) => mine.filter((a) => (a.source ?? 'link') === s).length
+  const paid = (r: Range | null) => mine.filter((a) => a.role === 'tutor' && a.at.paid && (!r || inRange(a.at.paid, r))).length
+  return {
+    staffId,
+    name,
+    link: by('link'),
+    code: by('code'),
+    claim: by('claim'),
+    total: mine.length,
+    paid7: paid(lastDaysRange(7, nowMs)),
+    paid30: paid(lastDaysRange(30, nowMs)),
+    paidAll: paid(null),
+  }
+}
+
+/** The cookie that holds the stored credit's id (first-party, httpOnly, 30 days). */
+export function staffRefCookieOptions(): { httpOnly: true; sameSite: 'lax'; secure: boolean; path: '/'; maxAge: number } {
+  return { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: Math.floor(CREDIT_MS / 1000) }
 }

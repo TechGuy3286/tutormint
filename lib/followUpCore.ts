@@ -144,6 +144,6 @@ export function followUpText(templateBody: string, v: { name: string; step: stri
 }
 
 /** The pre-filled WhatsApp link (waSendHref) — msisdn already in 92… form. */
-export function followUpWaLink(msisdn: string, text: string): string {
-  return waSendHref(msisdn, finishWaText(text))
+export function followUpWaLink(msisdn: string, text: string, refCode?: string | null): string {
+  return waSendHref(msisdn, finishWaText(text, refCode))
 }

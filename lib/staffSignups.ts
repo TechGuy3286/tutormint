@@ -16,6 +16,8 @@ import 'server-only'
 //   • An approved claim (decideClaim).
 // Every credit, claim and decision writes admin_audit_log.
 
+import { cache } from 'react'
+
 import { createAdminClient } from '@/lib/supabase/admin'
 import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { normalisePkMobile, looksLikeEmail } from '@/lib/phone'
@@ -31,7 +33,7 @@ import {
   creditRefusal,
   isActiveParticipant,
   isParticipantRole,
-  joinPath,
+  joinRefPath,
   linkCreditRefusal,
   mayDecideClaim,
   mayViewStaff,
@@ -56,6 +58,7 @@ import {
 } from '@/lib/staffSignupsCore'
 import { accountsInRange, allUnpaid, inProgressIn, isInProgressStepFor, statusIn, type Range, type StaffStatus } from '@/lib/staffSignupsCore'
 import { firstPaidAt, type PaymentFacts } from '@/lib/staffTargetsCore'
+import { myLinkCounts, sourceRow, type MyLinkCounts, type SourceRow } from '@/lib/staffSignupsCore'
 import { notify } from '@/lib/notifications'
 import { MY_SIGNUPS_PATH, newSignupNoticeTitle } from '@/lib/mySignupsCore'
 
@@ -98,7 +101,7 @@ function contactsOf(staff: StaffRow[]): StaffContacts {
 // -------------------------------------------------------------- join links
 
 function toLink(r: { staff_id: string; slug: string; code: string }): JoinLink {
-  return { staffId: r.staff_id, slug: r.slug, code: r.code, url: absoluteUrl(joinPath(r.slug)) }
+  return { staffId: r.staff_id, slug: r.slug, code: r.code, url: absoluteUrl(joinRefPath(r.code)) }
 }
 
 /** Every participating staff member gets a link and code; a role given later is
@@ -199,6 +202,9 @@ export async function staffCodeVisit(
   rawCode: string | null | undefined,
   cookieValue: string | null | undefined,
   nowMs = Date.now(),
+  /** "code" for the old Staff code box; "link" for a ?ref=<code> link
+   *  (owner, 23 Oct 2026). */
+  source: 'link' | 'code' = 'code',
 ): Promise<{ visit: Visit | null; recorded: boolean }> {
   const admin = createAdminClient()
   if (!admin) return { visit: null, recorded: false }
@@ -208,9 +214,30 @@ export async function staffCodeVisit(
   if (!code) return { visit: null, recorded: false }
   const staffId = await activeParticipantBy(admin, 'code', code)
   if (!staffId) return { visit: null, recorded: false }
-  const visit = await insertVisit(admin, staffId, 'code', nowMs)
+  const visit = await insertVisit(admin, staffId, source, nowMs)
   return { visit, recorded: !!visit }
 }
+
+/** A ?ref=<code> on any page (owner, 23 Oct 2026): the same first-link-wins
+ *  rule as /join/<slug>, recorded as source "link". */
+export function refLinkVisit(rawCode: string | null | undefined, cookieValue: string | null | undefined, nowMs = Date.now()) {
+  return staffCodeVisit(rawCode, cookieValue, nowMs, 'link')
+}
+
+/**
+ * The code a staff member adds to the links they send, or null when they carry
+ * none (the site Owner, a Project Manager) or no longer earn credit (removed or
+ * paused). Never a mobile, email or name.
+ */
+export const senderRefCode = cache(async (staffId: string | null | undefined): Promise<string | null> => {
+  if (!staffId) return null
+  const admin = createAdminClient()
+  if (!admin) return null
+  const { data: p } = await admin.from('profiles').select('role, admin_role, is_suspended').eq('id', staffId).maybeSingle()
+  if (!p || !isActiveParticipant({ role: p.role as string, adminRole: p.admin_role as string | null, suspended: p.is_suspended as boolean | null })) return null
+  const link = await joinLinkFor(staffId)
+  return link?.code ?? null
+})
 
 // -------------------------------------------------------------- account facts
 
@@ -519,7 +546,7 @@ export async function loadCreditedAccounts(): Promise<CreditedAccount[]> {
   const admin = createAdminClient()
   if (!admin) return []
   const credits = await pageAll((from, to) =>
-    admin.from('staff_signup_credits').select('member_id, staff_id, member_role').order('member_id').range(from, to),
+    admin.from('staff_signup_credits').select('member_id, staff_id, member_role, source').order('member_id').range(from, to),
   )
   if (credits.length === 0) return []
   const ids = credits.map((c) => c.member_id as string)
@@ -586,6 +613,7 @@ export async function loadCreditedAccounts(): Promise<CreditedAccount[]> {
       memberId: id,
       staffId: c.staff_id as string,
       role,
+      source: (c.source as CreditedAccount['source']) ?? 'link',
       name: formatName((p.full_name as string | null) ?? '') || '—',
       mobile: ((p.phone_number as string | null) ?? (p.whatsapp as string | null)) || null,
       at,
@@ -694,4 +722,70 @@ export async function loadSignupList(
     (a, b) => Date.parse(b.at[step] ?? '') - Date.parse(a.at[step] ?? ''),
   )
   return { ok: true, staffName, accounts }
+}
+
+// -------------------------------------------------------------- My link card
+
+/** Members that never count (the People page rule, checked again at read time
+ *  in case an account was marked test or hidden after it was credited). */
+async function excludedMemberIds(admin: Admin, ids: string[]): Promise<Set<string>> {
+  if (ids.length === 0) return new Set()
+  const rows = await pageAllIn(ids, (part, from, to) =>
+    admin
+      .from('profiles')
+      .select('id, role, is_test_name, hidden_from_public, is_seed, is_team_account')
+      .in('id', part)
+      .order('id')
+      .range(from, to),
+  )
+  return new Set(
+    rows
+      .filter((p) => p.role === 'admin' || p.is_test_name || p.hidden_from_public || p.is_seed || p.is_team_account)
+      .map((p) => p.id as string),
+  )
+}
+
+/** Credited accounts with staff and test accounts left out. */
+export async function countableCreditedAccounts(): Promise<CreditedAccount[]> {
+  const admin = createAdminClient()
+  if (!admin) return []
+  const all = await loadCreditedAccounts()
+  const out = await excludedMemberIds(admin, all.map((a) => a.memberId))
+  return all.filter((a) => !out.has(a.memberId))
+}
+
+export type MyLinkCard = { link: JoinLink; counts: MyLinkCounts }
+
+/** The "My link" card (owner, 23 Oct 2026): only for a staff member who
+ *  carries a code and still earns credit. */
+export async function loadMyLinkCard(staffId: string, nowMs = Date.now()): Promise<MyLinkCard | null> {
+  const code = await senderRefCode(staffId)
+  if (!code) return null
+  const link = await joinLinkFor(staffId)
+  if (!link) return null
+  const accounts = await countableCreditedAccounts()
+  return { link, counts: myLinkCounts(accounts, staffId, nowMs) }
+}
+
+export type SourceTable = { rows: SourceRow[]; total: SourceRow | null }
+
+/** Sign-ups by source and tutors paid, per staff member (owner, 23 Oct 2026).
+ *  Owner, Project Managers and Admin see everyone and the total; others their
+ *  own row only. */
+export async function loadSourceTable(viewer: { id: string; adminRole: string | null }, nowMs = Date.now()): Promise<SourceTable> {
+  const admin = createAdminClient()
+  if (!admin) return { rows: [], total: null }
+  const everyone = seesEveryone(viewer.adminRole)
+  const [staff, accounts] = await Promise.all([loadStaff(admin), countableCreditedAccounts()])
+  const credited = new Set(accounts.map((a) => a.staffId))
+  const rows: SourceRow[] = []
+  for (const s of staff) {
+    if (!everyone && s.id !== viewer.id) continue
+    const active = isActiveParticipant({ adminRole: s.admin_role, suspended: s.is_suspended })
+    if (!active && !credited.has(s.id)) continue
+    rows.push(sourceRow(s.id, formatName(s.full_name ?? '') || '—', accounts, nowMs))
+  }
+  rows.sort((a, b) => b.paidAll - a.paidAll || b.total - a.total || a.name.localeCompare(b.name))
+  const visible = everyone ? accounts : accounts.filter((a) => a.staffId === viewer.id)
+  return { rows, total: everyone ? sourceRow('team', 'Team total', visible, nowMs) : null }
 }

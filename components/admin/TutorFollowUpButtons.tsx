@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { MessageCircle, Phone, Receipt } from 'lucide-react'
 
 import { adminFetch } from '@/components/admin/adminFetch'
-import { useAdminReadOnly } from '@/components/admin/ReadOnly'
+import { useAdminReadOnly, useStaffRefCode } from '@/components/admin/ReadOnly'
+import { waHrefWithRef } from '@/lib/waLinkCore'
 import { useToast } from '@/components/ui/Toast'
 import { UNDO_MS } from '@/lib/tutorFollowUpTabsCore'
 import { FU_FEE_REPLY_KEY } from '@/lib/followUpTemplatesCore'
@@ -73,11 +74,13 @@ function useRecorder(p: Pick<Props, 'memberId' | 'reason' | 'progress' | 'onChan
  *  (waiting on us), so every row with a number has it. */
 export function FeeReplyButton(p: Pick<Props, 'memberId' | 'reason' | 'progress' | 'feeReplyHref' | 'onChanged'>) {
   const readOnly = useAdminReadOnly()
+  // The viewer's staff code on every site link in the text (owner, 23 Oct 2026).
+  const refCode = useStaffRefCode()
   const { busy, record } = useRecorder(p)
   if (readOnly || !p.feeReplyHref) return null
   return (
     <a
-      href={p.feeReplyHref}
+      href={waHrefWithRef(p.feeReplyHref, refCode) ?? undefined}
       target="_blank"
       rel="noopener noreferrer"
       onClick={() => void record('whatsapp', FU_FEE_REPLY_KEY)}
@@ -92,6 +95,8 @@ export function FeeReplyButton(p: Pick<Props, 'memberId' | 'reason' | 'progress'
 
 export default function TutorFollowUpButtons(p: Props) {
   const readOnly = useAdminReadOnly()
+  // The viewer's staff code on every site link in the text (owner, 23 Oct 2026).
+  const refCode = useStaffRefCode()
   const { busy, record } = useRecorder(p)
   if (readOnly) return null
 
@@ -99,7 +104,7 @@ export default function TutorFollowUpButtons(p: Props) {
     <>
       {p.waHref && (
         <a
-          href={p.waHref}
+          href={waHrefWithRef(p.waHref, refCode) ?? undefined}
           target="_blank"
           rel="noopener noreferrer"
           onClick={() => void record('whatsapp', p.templateKey)}

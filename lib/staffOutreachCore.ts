@@ -218,8 +218,8 @@ export function featuredMessage(firstName: string, tuitions: WaTuition[]): strin
 }
 
 /** The pre-filled WhatsApp link (waSendHref) for a Pakistani MSISDN (923001234567). */
-export function waLink(msisdn: string, text: string): string {
-  return waSendHref(msisdn, finishWaText(text))
+export function waLink(msisdn: string, text: string, refCode?: string | null): string {
+  return waSendHref(msisdn, finishWaText(text, refCode))
 }
 
 export function firstNameOf(full: string | null | undefined): string {

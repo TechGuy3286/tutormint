@@ -49,8 +49,14 @@ const ROLES: { value: Role; label: string; helper?: string }[] = [
 export default function RegisterForm({
   next,
   initialRole = 'tutor',
+  initialRefCode,
+  initialStaffCode,
 }: {
   next?: string
+  /** A ?ref=<code> in the address (staff links, owner 23 Oct 2026). */
+  initialRefCode?: string
+  /** An old ?code=<code> link (the box on the form is gone). */
+  initialStaffCode?: string
   /** Which card starts checked. Tutor by default; parent for a parent action
    *  (owner PR33 §3). Decided on the server (see lib/authRoutes.defaultRegisterRole). */
   initialRole?: Role
@@ -63,8 +69,11 @@ export default function RegisterForm({
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [acceptedTerms, setAcceptedTerms] = useState(false)
-  // Optional (owner, 15 Oct 2026): the code of the staff member who helped.
-  const [staffCode, setStaffCode] = useState('')
+  // Staff links (owner, 23 Oct 2026): no code box on the form. A ?ref=<code> or an
+  // old ?code=<code> in the address is sent with the form so the staff member
+  // who shared the link is credited (the server keeps any credit already stored).
+  const staffCode = (initialStaffCode ?? '').trim()
+  const refCode = (initialRefCode ?? '').trim()
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [errorUr, setErrorUr] = useState<string | null>(null)
@@ -141,7 +150,8 @@ export default function RegisterForm({
       identifier,
       password,
       acceptedTerms,
-      ...(staffCode.trim() ? { staffCode: staffCode.trim() } : {}),
+      ...(refCode ? { refCode } : {}),
+      ...(staffCode ? { staffCode } : {}),
     })
 
     if (!ok) {
@@ -300,26 +310,6 @@ export default function RegisterForm({
             {fieldErrors.password && (
               <p className="text-[11px] font-bold text-tm-red">{fieldErrors.password}</p>
             )}
-          </div>
-
-          {/* Sign-ups by staff (owner, 15 Oct 2026): optional; an unknown code
-              is ignored and never stops the sign-up. */}
-          <div className="space-y-1">
-            <label htmlFor="staffCode" className="text-xs font-bold text-tm-navy">
-              Staff code (if someone helped you)
-            </label>
-            <input
-              id="staffCode"
-              type="text"
-              autoComplete="off"
-              autoCapitalize="characters"
-              spellCheck={false}
-              maxLength={40}
-              value={staffCode}
-              onChange={(e) => setStaffCode(e.target.value)}
-              placeholder="Optional"
-              className={fieldClass('staffCode')}
-            />
           </div>
 
           {/* PR106-G §4: one short consent line. The photo-use consent and the

@@ -1,3 +1,5 @@
+import { senderRefCode } from '@/lib/staffSignups'
+import { waHrefWithRef } from '@/lib/waLinkCore'
 import Link from 'next/link'
 import { permanentRedirect, redirect } from 'next/navigation'
 
@@ -120,6 +122,7 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
           // The roles that see payment amounts (Owner, Partner) — the route checks too.
           canCheckPayment={roleMayWrite(actor.adminRole, ['partner'])}
           isOwner={canApprove(actor.adminRole)}
+          refCode={await senderRefCode(actor.id)}
         />
       )}
       {tab === 'parents' && <ParentsTab showNotInterested={sp.scope === 'not_interested'} />}
@@ -138,6 +141,7 @@ async function TutorsTab({
   fuTab,
   canCheckPayment,
   isOwner,
+  refCode,
 }: {
   scope: TutorScope
   chip: ChipFilter
@@ -146,9 +150,15 @@ async function TutorsTab({
   fuTab: FuTab
   canCheckPayment: boolean
   isOwner: boolean
+  /** The viewer's staff code: added to every site link in the WhatsApp texts. */
+  refCode: string | null
 }) {
   const now = nowMs()
-  let all = await loadTutorFollowUps(scope)
+  // The rows are cached per request for every viewer; the viewer's ref is added
+  // to the ready-made WhatsApp links here (owner, 23 Oct 2026).
+  let all = (await loadTutorFollowUps(scope)).map((r) =>
+    refCode ? { ...r, waHref: waHrefWithRef(r.waHref, refCode), feeReplyHref: waHrefWithRef(r.feeReplyHref, refCode) } : r,
+  )
   // "Signed up today, not paid" (the Overview card): the fee-unpaid tutors who
   // joined in the window — its number is the length of "Today".
   if (window) all = all.filter((r) => !r.feePaid && signedUpIn(r.joinedAt, window, now))

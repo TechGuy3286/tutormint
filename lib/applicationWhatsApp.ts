@@ -15,6 +15,7 @@ import { tuitionPath } from '@/lib/slugs'
 
 export async function applicationCheckInLink(
   applicationId: string,
+  refCode: string | null = null,
 ): Promise<{ href: string; jobId: string; tutorId: string; stage: Stage } | null> {
   const admin = createAdminClient()
   if (!admin) return null
@@ -34,6 +35,6 @@ export async function applicationCheckInLink(
       ? tuitionPath({ public_slug: job.public_slug as string | null, city: job.city as string | null, job_tx_id: job.job_tx_id as string | null, id: job.id as string })
       : null,
   })
-  const href = adminWaLink((person?.whatsapp as string | null) || (person?.phone_number as string | null), text)
+  const href = adminWaLink((person?.whatsapp as string | null) || (person?.phone_number as string | null), text, refCode)
   return href ? { href, jobId: app.job_id as string, tutorId: app.tutor_id as string, stage } : null
 }

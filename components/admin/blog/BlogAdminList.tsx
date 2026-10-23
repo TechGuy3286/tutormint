@@ -11,6 +11,8 @@ import { SITE_URL } from '@/lib/siteUrl'
 import type { AdminPostRow } from '@/lib/blogFeed'
 import { ListRowSkeletons } from '@/components/Skeletons'
 import { needsReview } from '@/lib/blogApproval'
+import { addRefToUrl } from '@/lib/waLinkCore'
+import { useStaffRefCode } from '@/components/admin/ReadOnly'
 
 // The admin blog list: filters (status, cluster, title search) and infinite
 // scroll. Self-fetching — an admin screen is not an organic-search surface, so
@@ -49,10 +51,12 @@ export default function BlogAdminList({
   const [loading, setLoading] = useState(false)
   const firstRender = useRef(true)
   const toast = useToast()
+  const refCode = useStaffRefCode()
 
   const copyUrl = async (url: string) => {
     try {
-      await navigator.clipboard?.writeText(url)
+      // The staff member's code on the copied link (owner, 23 Oct 2026).
+      await navigator.clipboard?.writeText(addRefToUrl(url, refCode))
       toast.success('URL copied.')
     } catch {
       toast.error('Could not copy the URL.')

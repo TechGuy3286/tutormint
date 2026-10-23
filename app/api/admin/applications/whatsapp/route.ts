@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { logAdminAction } from '@/lib/auditLog'
 import { applicationCheckInLink } from '@/lib/applicationWhatsApp'
+import { senderRefCode } from '@/lib/staffSignups'
 import { recordCheckInTap } from '@/lib/applicationTracking'
 import { uuid } from '@/lib/validate'
 
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
   const id = uuid.safeParse(new URL(request.url).searchParams.get('applicationId'))
   if (!id.success) return NextResponse.json({ error: 'Something in that request was missing. Reload the page and try again.' }, { status: 400 })
 
-  const wa = await applicationCheckInLink(id.data)
+  const wa = await applicationCheckInLink(id.data, await senderRefCode(gate.actor.id))
   if (!wa) return NextResponse.json({ error: 'This tutor has no mobile or WhatsApp number on file.' }, { status: 404 })
   await logAdminAction({
     actorId: gate.actor.id,

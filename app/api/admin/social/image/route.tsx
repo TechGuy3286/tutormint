@@ -4,6 +4,8 @@ import { NOT_VERIFIED_MESSAGE } from '@/lib/social/eligibilityCore'
 import { parseCropAdjust } from '@/lib/social/cropCore'
 import { getAdminActor, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { cvQrDataUri } from '@/lib/cv/assets'
+import { addRefToUrl } from '@/lib/waLinkCore'
+import { senderRefCode } from '@/lib/staffSignups'
 import { DEFAULT_SOCIAL_TEMPLATE, isSocialFormat, isSocialTemplate, NO_HEADLINE_MESSAGE, ownWords, cityTutorsUrl } from '@/lib/social/copy'
 import { clampVariant, GROUP_MAX, GROUP_MIN } from '@/lib/social/templates'
 import { loadPostTutor } from '@/lib/social/postTutor'
@@ -33,6 +35,7 @@ export async function GET(request: Request) {
   // <img> is worse than a plain status.
   const actor = await getAdminActor()
   if (!actor) return new Response('Sign in.', { status: 401 })
+  const refCode = await senderRefCode(actor.id)
   if (!roleSatisfies(actor.adminRole, SCREEN_ACCESS.social)) {
     return new Response('Not allowed.', { status: 403 })
   }
@@ -72,7 +75,7 @@ export async function GET(request: Request) {
       return new Response(`Every tutor must be in ${city}.`, { status: 400 })
     }
     const first = tutors[0]!
-    const qrDataUri = await cvQrDataUri(cityTutorsUrl(city))
+    const qrDataUri = await cvQrDataUri(addRefToUrl(cityTutorsUrl(city), refCode))
     return renderSocialBanner({
       tutor: { ...first.tutor, city },
       badges: ['Verified'],
@@ -103,7 +106,9 @@ export async function GET(request: Request) {
     return new Response(NO_HEADLINE_MESSAGE, { status: 409 })
   }
 
-  const qrDataUri = await cvQrDataUri(post.profileUrl)
+  // The QR carries the posting staff member's code (owner, 23 Oct 2026); the
+  // address printed on the image stays clean.
+  const qrDataUri = await cvQrDataUri(addRefToUrl(post.profileUrl, refCode))
   return renderSocialBanner({
     tutor: post.tutor,
     badges: post.badges,

@@ -212,8 +212,8 @@ export function buildForwardMessage(args: {
 }
 
 /** The pre-filled WhatsApp link (waSendHref), or null with no usable number. */
-export function forwardWaLink(msisdn: string | null, message: string): string | null {
-  return msisdn ? waSendHref(msisdn, message) : null
+export function forwardWaLink(msisdn: string | null, message: string, refCode?: string | null): string | null {
+  return msisdn ? waSendHref(msisdn, message, refCode) : null
 }
 
 /** What a forward may record: only tutors who are on the card (paid, interested). */

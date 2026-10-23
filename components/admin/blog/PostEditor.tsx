@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { AlertCircle, AlertTriangle, CheckCircle2, Copy, Eye, Image as ImageIcon, Lightbulb, Lock, Pencil, Shuffle, Sparkles, X } from 'lucide-react'
 
 import FileUpload from '@/components/FileUpload'
-import { useAdminReadOnly } from '@/components/admin/ReadOnly'
+import { useAdminReadOnly, useStaffRefCode } from '@/components/admin/ReadOnly'
+import { addRefToUrl } from '@/lib/waLinkCore'
 import { compressImage } from '@/lib/imageCompress'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
@@ -179,6 +180,7 @@ export default function PostEditor({
   const [fixing, setFixing] = useState<number | 'all' | null>(null)
   const [proposal, setProposal] = useState<{ scope: number | 'all'; edits: AppliedEdit[] } | null>(null)
   const toast = useToast()
+  const refCode = useStaffRefCode()
   const confirm = useConfirm()
   // The in-progress "confirm with a source" input, keyed by figure.
   const [confirmDraft, setConfirmDraft] = useState<Record<string, string>>({})
@@ -1268,7 +1270,7 @@ export default function PostEditor({
             type="button"
             onClick={async () => {
               try {
-                await navigator.clipboard?.writeText(`${SITE_URL}${postPath(post.slug)}`)
+                await navigator.clipboard?.writeText(addRefToUrl(`${SITE_URL}${postPath(post.slug)}`, refCode))
                 toast.success('URL copied.')
               } catch {
                 toast.error('Could not copy the URL.')

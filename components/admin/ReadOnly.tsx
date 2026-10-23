@@ -28,24 +28,38 @@ const PartnerContext = createContext(false)
 // (lib/ownerGuard refuseUnlessOwnerApproval) and migration 176 refuses a
 // direct database write.
 const ApproveContext = createContext(false)
+// Staff links (owner, 23 Oct 2026): the signed-in staff member's code, added
+// to every tutormint.org link they copy or send. Null for staff with no code
+// (the site Owner, a Project Manager).
+const StaffRefContext = createContext<string | null>(null)
 
 export const PARTNER_VIEW_ONLY_TEXT = 'View only. Your account cannot change this.'
 
 export function AdminReadOnlyProvider({
   readOnly,
   canApprove = false,
+  refCode = null,
   children,
 }: {
   readOnly: boolean
   /** The session may approve or reject (the Owner only). */
   canApprove?: boolean
+  /** The signed-in staff member's code, or null. */
+  refCode?: string | null
   children: React.ReactNode
 }) {
   return (
     <PartnerContext.Provider value={readOnly}>
-      <ApproveContext.Provider value={canApprove}>{children}</ApproveContext.Provider>
+      <ApproveContext.Provider value={canApprove}>
+        <StaffRefContext.Provider value={refCode}>{children}</StaffRefContext.Provider>
+      </ApproveContext.Provider>
     </PartnerContext.Provider>
   )
+}
+
+/** The signed-in staff member's code (for ?ref on copied and sent links), or null. */
+export function useStaffRefCode(): string | null {
+  return useContext(StaffRefContext)
 }
 
 /** True only for the Owner: approve / reject / re-upload / unlock / CNIC number

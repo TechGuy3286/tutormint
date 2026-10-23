@@ -4,6 +4,7 @@ import { ArrowRight, BadgeCheck, Briefcase, GraduationCap, UserPlus, Users, Wall
 import { Fragment, type ComponentType } from 'react'
 
 import AccessDeniedNotice from '@/components/admin/AccessDeniedNotice'
+import MyLinkCard from '@/components/admin/MyLinkCard'
 import { requireAdminRole, roleBadge, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadOverviewList, type OverviewList } from '@/lib/overviewItems'
 import { OVERVIEW_ITEMS, SIGNUPS_TODAY_HREF, type OverviewItemKey } from '@/lib/overviewItemsCore'
@@ -136,6 +137,9 @@ export default async function AdminHome({
           </p>
         )}
       </div>
+
+      {/* Staff links (owner, 23 Oct 2026): only staff who carry a code see it. */}
+      <MyLinkCard staffId={actor.id} />
 
       {tiles.length === 0 ? (
         <div className="space-y-1 rounded-2xl border border-gray-200 bg-white p-6 text-center">

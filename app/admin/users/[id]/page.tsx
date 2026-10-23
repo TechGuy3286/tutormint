@@ -32,6 +32,7 @@ import { docSummary } from '@/lib/tutorDocSummaryCore'
 import { documentsFact, emptySectionsLine, parentDocKind, tutorStatusFact, videoFact, type MemberBox } from '@/lib/memberPageCore'
 import { paymentLabel, paymentNeedsFollowUp, paymentPlanName, type PaymentFacts } from '@/lib/paymentLabelCore'
 import { finishWaText, waSendHref } from '@/lib/waLinkCore'
+import { senderRefCode } from '@/lib/staffSignups'
 import { fillPaymentNotFinished, payAgainLink, PAYMENT_NOT_FINISHED_FALLBACK, PAYMENT_NOT_FINISHED_KEY } from '@/lib/startedPaymentCore'
 import { normalisePkMobile } from '@/lib/phone'
 import { ExternalLink } from 'lucide-react'
@@ -68,6 +69,8 @@ export default async function AdminMemberPage({
   searchParams: Promise<{ group?: string }>
 }) {
   const actor = await requireAdminRole(...SCREEN_ACCESS.users)
+  // The viewer's staff code on every site link in a WhatsApp text (owner, 23 Oct 2026).
+  const senderCode = await senderRefCode(actor.id)
   const { id } = await params
   const group = parseTimelineGroup((await searchParams).group)
 
@@ -273,7 +276,7 @@ export default async function AdminMemberPage({
   }
   const followUpHref = (planCode: string | null) =>
     memberMsisdn
-      ? waSendHref(memberMsisdn, finishWaText(fillPaymentNotFinished(notFinishedBody, { name: formatName(profile.full_name as string | null), payLink: payAgainLink(planCode) })))
+      ? waSendHref(memberMsisdn, finishWaText(fillPaymentNotFinished(notFinishedBody, { name: formatName(profile.full_name as string | null), payLink: payAgainLink(planCode) }), senderCode))
       : null
 
   // Only the boxes with something in them; the rest on one grey line.

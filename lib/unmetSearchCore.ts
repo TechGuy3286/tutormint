@@ -164,6 +164,6 @@ export function hiringPost(template: string | null | undefined, city: string, jo
 
 /** A WhatsApp share link with the text prefilled (no number: the sender picks the
  *  group). Built by waSendHref so an emoji in the editable template survives. */
-export function whatsappShareLink(text: string): string {
-  return waSendHref(null, text)
+export function whatsappShareLink(text: string, refCode?: string | null): string {
+  return waSendHref(null, text, refCode)
 }

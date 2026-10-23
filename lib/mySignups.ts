@@ -33,7 +33,7 @@ import { loadStartedNotFinished } from '@/lib/startedPayment'
 import { loadFollowUpStates } from '@/lib/followUps'
 import { docFactsFrom, followUpMessage } from '@/lib/tutorFollowUpCore'
 import { fillPaymentNotFinished, payAgainLink, PAYMENT_NOT_FINISHED_KEY } from '@/lib/startedPaymentCore'
-import { loadCreditedAccounts, joinLinkFor, type JoinLink } from '@/lib/staffSignups'
+import { loadCreditedAccounts, joinLinkFor, senderRefCode, type JoinLink } from '@/lib/staffSignups'
 import { loadTargetBoard, type TargetCard } from '@/lib/staffTargets'
 import { mayViewStaff, type CreditedAccount, type MemberRole } from '@/lib/staffSignupsCore'
 import { isQualifyingPayment, monthKeyOf, type MonthKey } from '@/lib/staffTargetsCore'
@@ -49,7 +49,7 @@ async function templateBodies(admin: Admin): Promise<Record<string, string>> {
 }
 
 /** The rows for a set of credited accounts (any staff member's). */
-export async function rowsForAccounts(accounts: CreditedAccount[]): Promise<MySignupRow[]> {
+export async function rowsForAccounts(accounts: CreditedAccount[], refCode: string | null = null): Promise<MySignupRow[]> {
   const admin = createAdminClient()
   if (!admin || accounts.length === 0) return []
   const ids = accounts.map((a) => a.memberId)
@@ -160,6 +160,7 @@ export async function rowsForAccounts(accounts: CreditedAccount[]): Promise<MySi
       templateBodies: bodies,
       siteUrl: absoluteUrl,
       tutorMessage: tutorMessage(a, p as Record<string, unknown> | undefined),
+      refCode,
     })
   })
 }
@@ -171,7 +172,8 @@ export async function loadMySignups(staffId: string, accountsIn?: CreditedAccoun
   if (!admin) return []
   const all = accountsIn ?? (await loadCreditedAccounts())
   const mine = all.filter((a) => a.staffId === staffId)
-  const rows = await rowsForAccounts(mine)
+  // The person sending from My sign-ups is that staff member.
+  const rows = await rowsForAccounts(mine, await senderRefCode(staffId))
   const credited = new Set(mine.map((a) => a.memberId))
 
   const { data: claims } = await admin

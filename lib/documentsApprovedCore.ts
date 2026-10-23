@@ -47,8 +47,8 @@ export function fillDocumentsApproved(
 }
 
 /** wa.me needs digits only, country code first (923001234567). */
-export function waMeHref(msisdn: string | null | undefined, text: string): string | null {
+export function waMeHref(msisdn: string | null | undefined, text: string, refCode?: string | null): string | null {
   const digits = (msisdn ?? '').replace(/\D/g, '')
   if (!/^92\d{10}$/.test(digits)) return null
-  return waSendHref(digits, finishWaText(text))
+  return waSendHref(digits, finishWaText(text, refCode))
 }

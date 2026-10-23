@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { Check, Link2, MessageCircle } from 'lucide-react'
 
 import { whatsappShareHref, type ProfileShare } from '@/lib/profileShareCore'
+import { addRefToUrl } from '@/lib/waLinkCore'
+import { useStaffRefCode } from '@/components/admin/ReadOnly'
 
 // "Copy profile link" + "Share on WhatsApp" (owner, 20 Oct 2026). Both carry
 // the clean public profile address. When the profile is not public both are
@@ -14,7 +16,10 @@ const BTN =
 
 export default function ProfileShareButtons({ share, className = '' }: { share: ProfileShare; className?: string }) {
   const [copied, setCopied] = useState(false)
-  const url = share.url
+  // The signed-in staff member's code rides on the copied and shared link
+  // (owner, 23 Oct 2026).
+  const refCode = useStaffRefCode()
+  const url = share.url ? addRefToUrl(share.url, refCode) : share.url
 
   const copy = async () => {
     if (!url) return

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Check, Copy, Megaphone, School } from 'lucide-react'
 
 import { adminFetch } from '@/components/admin/adminFetch'
-import { useAdminReadOnly } from '@/components/admin/ReadOnly'
+import { useAdminReadOnly, useStaffRefCode } from '@/components/admin/ReadOnly'
 import ThreeWayReview from '@/components/admin/ThreeWayReview'
 import { useToast } from '@/components/ui/Toast'
 import { formatDateTime } from '@/lib/datetime'
@@ -53,6 +53,8 @@ export default function UnmetSearchesClient({
   const router = useRouter()
   const toast = useToast()
   const readOnly = useAdminReadOnly()
+  // The staff member's code on the hiring post's links (owner, 23 Oct 2026).
+  const refCode = useStaffRefCode()
   const [open, setOpen] = useState<{ key: string; panel: Panel } | null>(null)
   const [busy, setBusy] = useState(false)
   const [word, setWord] = useState('')
@@ -366,7 +368,7 @@ export default function UnmetSearchesClient({
                   <button type="button" onClick={() => void copy(post)} className={BUTTON}>
                     <Copy aria-hidden size={14} /> Copy
                   </button>
-                  <a href={whatsappShareLink(post)} target="_blank" rel="noopener noreferrer" className={GHOST}>
+                  <a href={whatsappShareLink(post, refCode)} target="_blank" rel="noopener noreferrer" className={GHOST}>
                     Share on WhatsApp
                   </a>
                   <button type="button" onClick={() => setOpen(null)} className={GHOST}>

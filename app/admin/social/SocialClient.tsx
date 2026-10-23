@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Copy, Download, RotateCcw, Shuffle } from 'lucide-react'
 import Typeahead from '@/components/search/Typeahead'
 import { useToast } from '@/components/ui/Toast'
+import { useStaffRefCode } from '@/components/admin/ReadOnly'
 import { captionVariants, DEFAULT_SOCIAL_TEMPLATE, SOCIAL_TEMPLATES, type SocialData, type SocialTemplate } from '@/lib/social/copy'
 import { cropQuery, MOVE_STEPS, NO_ADJUST, ZOOM_MAX, ZOOM_MIN, type CropAdjust } from '@/lib/social/cropCore'
 import { defaultGroup, GROUP_MAX, GROUP_MIN, shufflePick, TEMPLATE_INFO, templateUnavailable } from '@/lib/social/templates'
@@ -73,6 +74,8 @@ export default function SocialClient({ tutors, initial }: { tutors: PickerTutor[
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState(false)
   const toast = useToast()
+  // The signed-in staff member's code on the caption link (owner, 23 Oct 2026).
+  const refCode = useStaffRefCode()
   // The last Shuffle pick per tutor, so the next one is always different.
   const lastShuffle = useRef(new Map<string, SocialTemplate>())
 
@@ -191,6 +194,7 @@ export default function SocialClient({ tutors, initial }: { tutors: PickerTutor[
         city: groupCity,
         area: null,
         profileUrl: SITE_ORIGIN,
+        refCode,
         group: { city: groupCity, tutors: members.map((m) => ({ name: m.name, subject: m.subjects[0] ?? null })) },
       }
       return captionVariants('group', data)
@@ -209,6 +213,7 @@ export default function SocialClient({ tutors, initial }: { tutors: PickerTutor[
       city: tutor.city,
       area: tutor.area,
       profileUrl: `${SITE_ORIGIN}/tutor/${tutor.slug}`,
+      refCode,
       successKind,
       headline: info.usesHeadline ? headline.trim() || null : null,
     }

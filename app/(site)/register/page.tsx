@@ -22,9 +22,9 @@ import RegisterForm from './RegisterForm'
 export default async function RegisterPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; role?: string }>
+  searchParams: Promise<{ next?: string; role?: string; ref?: string; code?: string }>
 }) {
-  const { next, role } = await searchParams
+  const { next, role, ref, code } = await searchParams
   // Somebody with a session is not creating an account. Before this they saw
   // the form, filled it in and were told the mobile number was already taken --
   // by themselves.
@@ -34,5 +34,10 @@ export default async function RegisterPage({
   // is in the shipped HTML — the page is the platform's main conversion surface
   // and must not depend on JS to show the right default.
   const initialRole = defaultRegisterRole(role, next)
-  return <RegisterForm next={next} initialRole={initialRole} />
+  // Staff links (owner, 23 Oct 2026): ?ref (a staff link) and an old ?code
+  // link are passed to the form, which sends them with the sign-up. Only a
+  // string of the code shape survives (normaliseStaffCode on the server).
+  const refCode = typeof ref === 'string' ? ref.slice(0, 40) : undefined
+  const staffCode = typeof code === 'string' ? code.slice(0, 40) : undefined
+  return <RegisterForm next={next} initialRole={initialRole} initialRefCode={refCode} initialStaffCode={staffCode} />
 }

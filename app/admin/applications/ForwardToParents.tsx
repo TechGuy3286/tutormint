@@ -9,7 +9,7 @@ import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
 import StatusChip from '@/components/admin/StatusChip'
 import { adminFetch } from '@/components/admin/adminFetch'
-import { useAdminReadOnly } from '@/components/admin/ReadOnly'
+import { useAdminReadOnly, useStaffRefCode } from '@/components/admin/ReadOnly'
 import { useToast } from '@/components/ui/Toast'
 import { formatDate } from '@/lib/datetime'
 import TimeAgo from '@/components/TimeAgo'
@@ -79,6 +79,7 @@ export default function ForwardPanel({
 
 function ForwardCardView({ card, template, canOpenMembers, nowMs }: { card: ForwardCard; template: string; canOpenMembers: boolean; nowMs: number }) {
   const readOnly = useAdminReadOnly()
+  const refCode = useStaffRefCode()
   const toast = useToast()
   const router = useRouter()
   const { state } = card
@@ -98,7 +99,7 @@ function ForwardCardView({ card, template, canOpenMembers, nowMs }: { card: Forw
     area: card.place || card.area,
     tutors: chosen.map((t) => ({ name: t.name, profileUrl: t.profileUrl })),
   })
-  const waHref = chosen.length > 0 ? forwardWaLink(card.parent.msisdn, message) : null
+  const waHref = chosen.length > 0 ? forwardWaLink(card.parent.msisdn, message, refCode) : null
   const telHref = card.parent.msisdn ? `tel:+${card.parent.msisdn}` : null
 
   const toggle = (id: string) =>

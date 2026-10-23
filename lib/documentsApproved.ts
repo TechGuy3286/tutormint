@@ -24,7 +24,7 @@ export type DocumentsApprovedMessage =
   | { ok: true; templateKey: string; text: string; href: string | null; feePaid: boolean }
   | { ok: false; status: number; error: string }
 
-export async function documentsApprovedMessage(tutorId: string): Promise<DocumentsApprovedMessage> {
+export async function documentsApprovedMessage(tutorId: string, refCode: string | null = null): Promise<DocumentsApprovedMessage> {
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes.' }
 
@@ -44,7 +44,7 @@ export async function documentsApprovedMessage(tutorId: string): Promise<Documen
     name: (p.full_name as string | null) ?? '',
     payLink: `${SITE_URL}/pay/choose?plan=verified`,
     profileLink: slug ? `${SITE_URL}/tutor/${slug}` : null,
-  }))
+  }), refCode)
   const msisdn = normalisePkMobile((p.whatsapp as string | null) ?? '') ?? normalisePkMobile((p.phone_number as string | null) ?? '')
-  return { ok: true, templateKey, text, href: waMeHref(msisdn, text), feePaid }
+  return { ok: true, templateKey, text, href: waMeHref(msisdn, text, refCode), feePaid }
 }

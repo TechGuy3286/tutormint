@@ -40,6 +40,7 @@ import {
 import { STAGE_TEMPLATE } from '@/lib/applicationTemplatesCore'
 import { loadAppTemplates, loadSupportWhatsApp } from '@/lib/applicationTemplates'
 import { writeStage } from '@/lib/applicationTracking'
+import { senderRefCode } from '@/lib/staffSignups'
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>
 
@@ -223,7 +224,7 @@ export async function sendStageFollowUp(actor: AdminActor, applicationId: string
     },
     { template: templates.get(STAGE_TEMPLATE[stage]) ?? null, supportWhatsApp: support },
   )
-  const href = adminWaLink(raw, text)
+  const href = adminWaLink(raw, text, await senderRefCode(actor.id))
   if (!href) return { ok: false, status: 400, error: 'That number cannot receive WhatsApp.' }
   const name = await actorName(admin, actor)
   try {
@@ -341,7 +342,7 @@ export async function sendTutorUpdate(actor: AdminActor, tutorId: string): Promi
     items.map(({ a, j }) => ({ ref: j?.ref_id ?? null, title: j?.title ?? 'Tuition', stage: a.stage as Stage })),
     { template: templates.get('app_tutor_update') ?? null, supportWhatsApp: support, tutorCity: (tp?.city as string | null) ?? null },
   )
-  const href = adminWaLink(raw, text)
+  const href = adminWaLink(raw, text, await senderRefCode(actor.id))
   if (!href) return { ok: false, status: 400, error: 'That number cannot receive WhatsApp.' }
   try {
     const ids = await insertFollowUps(

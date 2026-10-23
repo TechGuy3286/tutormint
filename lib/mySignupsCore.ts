@@ -213,8 +213,8 @@ export function whatsAppText(templateBody: string, name: string, link: string): 
   return followUpText(templateBody, { name: firstName(name), step: null, link })
 }
 
-export function whatsAppLink(msisdn: string | null, text: string): string | null {
-  return msisdn ? followUpWaLink(msisdn, text) : null
+export function whatsAppLink(msisdn: string | null, text: string, refCode?: string | null): string | null {
+  return msisdn ? followUpWaLink(msisdn, text, refCode) : null
 }
 
 /** A credited person's row. `templateBodies` maps template key → body. */
@@ -233,6 +233,8 @@ export function creditRow(input: {
   /** An unpaid tutor's message from their own state (lib/tutorFollowUpCore,
    *  the same text as Follow-ups). Used in place of the step template. */
   tutorMessage?: { text: string; type: string } | null
+  /** The sending staff member's code, added to every site link (owner, 23 Oct 2026). */
+  refCode?: string | null
 }): MySignupRow {
   const f = input.facts
   const step = stepOf(f)
@@ -263,7 +265,7 @@ export function creditRow(input: {
     paid: !!f.paidAt,
     paidAt: f.paidAt,
     staffId: input.staffId,
-    waLink: text ? whatsAppLink(input.waNumber, text) : null,
+    waLink: text ? whatsAppLink(input.waNumber, text, input.refCode) : null,
     messageType: own ? own.type : text ? tpl.key : null,
   }
 }

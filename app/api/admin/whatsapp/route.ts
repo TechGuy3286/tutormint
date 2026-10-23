@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { logAdminAction } from '@/lib/auditLog'
 import { adminWhatsAppFor } from '@/lib/adminWhatsApp'
+import { senderRefCode } from '@/lib/staffSignups'
 import { parseWhatsAppFrom } from '@/lib/adminWhatsAppCore'
 import { uuid } from '@/lib/validate'
 
@@ -24,7 +25,8 @@ export async function GET(request: Request) {
   const id = uuid.safeParse(params.get('memberId'))
   if (!id.success) return NextResponse.json({ error: 'Something in that request was missing. Reload the page and try again.' }, { status: 400 })
 
-  const wa = await adminWhatsAppFor(id.data)
+  // The sender's staff code goes on every site link (owner, 23 Oct 2026).
+  const wa = await adminWhatsAppFor(id.data, new Date(), await senderRefCode(gate.actor.id))
   if (!wa.href) {
     return NextResponse.json({ error: 'This member has no mobile or WhatsApp number on file.' }, { status: 404 })
   }

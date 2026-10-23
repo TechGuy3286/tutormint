@@ -9,6 +9,7 @@ import { pageAll, pageAllIn } from '@/lib/pageAll'
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { senderRefCode } from '@/lib/staffSignups'
 import { logAdminAction } from '@/lib/auditLog'
 import type { AdminRole } from '@/lib/adminAuth'
 import { flowStateByTutor, type TutorFlowState } from '@/lib/onboardingStop'
@@ -408,5 +409,5 @@ export async function recordFeaturedSend(
     targetId: tutorId,
     detail: { tuitions: sendNow.map((m) => m.refId ?? m.jobId) },
   })
-  return { ok: true, href: waLink(row.msisdn, featuredMessage(firstNameOf(row.name), sendNow)), sentAt }
+  return { ok: true, href: waLink(row.msisdn, featuredMessage(firstNameOf(row.name), sendNow), await senderRefCode(actor.id)), sentAt }
 }

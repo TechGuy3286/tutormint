@@ -13,6 +13,7 @@ import NotificationBell from '@/components/notifications/NotificationBell'
 import { getAdminActor, alwaysNeedsTwoFactor, roleBadge, roleSatisfies, SCREEN_ACCESS, type AdminActor } from '@/lib/adminAuth'
 import { canApprove } from '@/lib/adminAccessCore'
 import { AdminReadOnlyProvider, ViewOnlyChip } from '@/components/admin/ReadOnly'
+import { senderRefCode } from '@/lib/staffSignups'
 import { NAV_GROUPS, type NavGroup } from '@/lib/adminNav'
 import { unreadCount } from '@/lib/notificationFeed'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -106,7 +107,7 @@ export default async function AdminLayout({
   })).filter((g) => g.items.length > 0)
 
   const jar = await cookies()
-  const [unread, badges] = await Promise.all([unreadCount(), navBadges(actor)])
+  const [unread, badges, refCode] = await Promise.all([unreadCount(), navBadges(actor), senderRefCode(actor.id)])
 
   // The header "Find a member" box commits to /admin/users, which tuitions_staff
   // cannot open (server-refused). Hide it for that role so it isn't offered a
@@ -144,7 +145,7 @@ export default async function AdminLayout({
         </>
       }
     >
-      <AdminReadOnlyProvider readOnly={readOnly} canApprove={canApprove(actor.adminRole)}>
+      <AdminReadOnlyProvider readOnly={readOnly} canApprove={canApprove(actor.adminRole)} refCode={refCode}>
         <ViewOnlyChip />
         {children}
       </AdminReadOnlyProvider>

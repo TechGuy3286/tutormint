@@ -12,6 +12,7 @@
 import { levelLabel, jobType } from '@/lib/display'
 import { isOnlineType } from '@/lib/matchChip'
 import { withArticle } from '@/lib/article'
+import { addRefToUrl } from '@/lib/waLinkCore'
 
 export type SocialTemplate =
   | 'verified'
@@ -75,6 +76,9 @@ export type SocialData = {
   city: string | null
   area: string | null
   profileUrl: string
+  /** The posting staff member's code: the caption link carries ?ref=<code>
+   *  (staff links, owner 23 Oct 2026). Null = no ref. */
+  refCode?: string | null
   /** success only: what the card celebrates. */
   successKind?: 'verified' | 'hired'
   /** The admin's Headline field (max 90). */
@@ -448,7 +452,7 @@ export function captionLeads(template: SocialTemplate, data: SocialData): [strin
     handles and five hashtags. The link and the hashtags are the same on all
     three; only the lead's wording changes. */
 export function captionVariants(template: SocialTemplate, data: SocialData): [string, string, string] {
-  const link = template === 'group' && data.group?.city ? cityTutorsUrl(data.group.city) : data.profileUrl
+  const link = addRefToUrl(template === 'group' && data.group?.city ? cityTutorsUrl(data.group.city) : data.profileUrl, data.refCode)
   const tail = [TAGLINE, link, `${HANDLE} · ${X_HANDLE}`, hashtags(data).join(' ')]
   return captionLeads(template, data).map((lead) => [lead, ...tail].join('\n')) as [string, string, string]
 }

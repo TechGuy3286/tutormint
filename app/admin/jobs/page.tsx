@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import MyLinkCard from '@/components/admin/MyLinkCard'
 import AccessDeniedNotice from '@/components/admin/AccessDeniedNotice'
 import { adminJobFacets, adminJobPage, adminPosterFacets, type AdminJobFilters } from '@/lib/adminJobs'
 
@@ -30,7 +31,7 @@ export default async function AdminJobsPage({
 }: {
   searchParams: Promise<{ q?: string; status?: string; city?: string; subject?: string; featured?: string; postedBy?: string; poster?: string; denied?: string }>
 }) {
-  await requireAdminRole(...SCREEN_ACCESS.jobs)
+  const actor = await requireAdminRole(...SCREEN_ACCESS.jobs)
 
   const sp = await searchParams
   // Shown when a restricted role was redirected here from a screen it cannot open.
@@ -69,6 +70,8 @@ export default async function AdminJobsPage({
   return (
     <div className="space-y-4">
       {denied && <AccessDeniedNotice />}
+      {/* Tuitions staff land here (their admin home): their My link card. */}
+      {actor.adminRole === 'tuitions_staff' && <MyLinkCard staffId={actor.id} />}
       <header className="flex items-start justify-between gap-3">
         <p className="text-xs text-gray-500">
           {total} {total === 1 ? 'tuition' : 'tuitions'}

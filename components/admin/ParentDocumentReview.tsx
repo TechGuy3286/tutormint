@@ -10,7 +10,7 @@ import DocumentViewer, { ViewerThumb as Zoomable, type ViewerImage } from '@/com
 import { SavedCnicDuplicate } from '@/components/admin/AdminCnicNumberBox'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
-import { OwnerOnlyNote, useAdminReadOnly, useCanApprove } from '@/components/admin/ReadOnly'
+import { OwnerOnlyNote, useAdminReadOnly, useCanApprove, useStaffRefCode } from '@/components/admin/ReadOnly'
 import { PARENT_REJECT_PRESETS, type ParentDocItem, type ParentItemState } from '@/lib/parentDocsCore'
 import { buildRejectReason, rejectionWhatsAppText } from '@/lib/rejectReasonsCore'
 import RejectReasonPicker from '@/components/admin/RejectReasonPicker'
@@ -175,6 +175,7 @@ function ReviewItem({
   const readOnly = useAdminReadOnly()
   // Approvals are the Owner's alone (owner, 15 Oct 2026); other staff view.
   const ownerApproves = useCanApprove()
+  const refCode = useStaffRefCode()
   const canReview = canReviewProp && !readOnly && ownerApproves
   const viewOnlyNote = canReviewProp && !ownerApproves && state.hasUpload
   const [status, setStatus] = useState(state.status)
@@ -214,7 +215,7 @@ function ReviewItem({
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.tutormint.org'
     const link = `${origin}/parent/verify`
     const text = rejectionWhatsAppText({ what, reason, link, audience: 'parent' })
-    return waSendHref(waMsisdn, text)
+    return waSendHref(waMsisdn, text, refCode)
   })()
 
   const act = async (decision: 'approve' | 'reject') => {

@@ -19,7 +19,7 @@ import { adminMemberMessage, adminWaLink, type AdminMessageType } from '@/lib/ad
 
 export type AdminWhatsApp = { href: string; type: AdminMessageType } | { href: null; type: null }
 
-export async function adminWhatsAppFor(memberId: string, now = new Date()): Promise<AdminWhatsApp> {
+export async function adminWhatsAppFor(memberId: string, now = new Date(), refCode: string | null = null): Promise<AdminWhatsApp> {
   const admin = createAdminClient()
   if (!admin) return { href: null, type: null }
   const [{ data: p }, { data: tp }] = await Promise.all([
@@ -60,6 +60,6 @@ export async function adminWhatsAppFor(memberId: string, now = new Date()): Prom
   }
 
   const msg = adminMemberMessage({ role, name, tutor, nowMs: now.getTime() })
-  const href = adminWaLink(number, msg.text)
+  const href = adminWaLink(number, msg.text, refCode)
   return href ? { href, type: msg.type } : { href: null, type: null }
 }

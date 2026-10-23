@@ -15,7 +15,7 @@ import { absoluteUrl } from '@/lib/siteUrl'
 import { citySegment } from '@/lib/slugs'
 import type { AdminRole } from '@/lib/adminAuth'
 import { formatName } from '@/lib/formatName'
-import { joinLinkFor } from '@/lib/staffSignups'
+import { joinLinkFor, senderRefCode } from '@/lib/staffSignups'
 import { fillJoinLink } from '@/lib/staffSignupsCore'
 
 // The official TutorMint Team ↔ member channel (owner, Sunday 6 Sep).
@@ -291,7 +291,8 @@ export async function sendAdminMessage(params: {
         error: 'This member has no mobile number on file, so there is no WhatsApp to send to.',
       }
     }
-    waHref = whatsappHref(msisdn, body)
+    // The sending staff member's code on every site link (owner, 23 Oct 2026).
+    waHref = whatsappHref(msisdn, body, await senderRefCode(params.actor.id))
   }
 
   const { error } = await admin.from('admin_messages').insert({
@@ -408,7 +409,7 @@ export async function messageSeededParent(
   // no link of their own send the plain sign-up page.
   const filled = fillJoinLink(body, (await joinLinkFor(actor.id))?.url, absoluteUrl('/register'))
 
-  const waHref = whatsappHref(msisdn, filled)
+  const waHref = whatsappHref(msisdn, filled, await senderRefCode(actor.id))
   if (!waHref) return { ok: false, status: 400, error: 'Could not build the WhatsApp link.' }
 
   await logAdminAction({

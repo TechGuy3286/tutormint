@@ -4,6 +4,7 @@ import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadProfileShares } from '@/lib/profileShare'
 import { loadSignupList } from '@/lib/staffSignups'
 import { rowsForAccounts } from '@/lib/mySignups'
+import { senderRefCode } from '@/lib/staffSignups'
 import SignupRows from '@/components/admin/SignupRows'
 import { PERIODS, isInProgressStep, isStaffStatus, isInProgressStepFor, isListStep, parsePeriod, stepsFor, type MemberRole, type Step } from '@/lib/staffSignupsCore'
 import { isMonthKey, monthLabel, monthRange } from '@/lib/staffTargetsCore'
@@ -63,7 +64,7 @@ export default async function SignupListPage({
   const n = result.accounts.length
   // The same columns as My sign-ups (owner, 16 Oct 2026): full phone, email,
   // city, step, next step, counted — the viewer may open this list.
-  const rows = await rowsForAccounts(result.accounts)
+  const rows = await rowsForAccounts(result.accounts, await senderRefCode(actor.id))
   const shares = Object.fromEntries(
     await loadProfileShares(rows.filter((r) => r.kind === 'credit' && r.role === 'tutor').map((r) => r.memberId)),
   )

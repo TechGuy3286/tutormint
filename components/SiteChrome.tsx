@@ -7,6 +7,7 @@ import { unreadMessageCount } from '@/lib/messaging'
 import { getSupportContact, supportContactFromEnv, whatsappHref } from '@/lib/support'
 import { getCompany } from '@/lib/company'
 import { jsonLdScript, siteGraphJsonLd } from '@/lib/seo'
+import StaffRefCapture from '@/components/StaffRefCapture'
 
 // The public site's chrome: header, main, footer — plus (PR 4) the desktop
 // messages dock. The floating WhatsApp support button was removed (PR21 — it
@@ -67,6 +68,9 @@ export default async function SiteChrome({ children }: { children: React.ReactNo
       <Navbar />
       {/* Signed-out page views feed the daily sign-up funnel (owner, 15 Oct 2026). */}
       {!session && <VisitBeacon />}
+      {/* A staff link (?ref=<code>) on any page: saved for 30 days, then taken
+          out of the address bar (owner, 23 Oct 2026). */}
+      <StaffRefCapture />
       <main className="flex-1">{children}</main>
       <Footer />
       {isMember && (

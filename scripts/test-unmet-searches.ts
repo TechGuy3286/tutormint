@@ -206,7 +206,7 @@ test('the hiring post template fills {city}, with a copy button and a WhatsApp s
   assert.ok(read('lib', 'unmetSearches.ts').includes(".eq('key', HIRING_TEMPLATE_KEY)"))
   const ui = read('app', 'admin', 'overview', 'todo-unmet', 'UnmetSearchesClient.tsx')
   assert.ok(ui.includes('Hiring post for {c.city}') && ui.includes('{c.city && ('), 'only when the search named a city')
-  assert.ok(ui.includes('whatsappShareLink(post)') && ui.includes('Copy'))
+  assert.ok(ui.includes('whatsappShareLink(post, refCode)') && ui.includes('Copy'))
 })
 
 test('the Overview number is the To review tab; owner, Partner, admin and operations act', () => {

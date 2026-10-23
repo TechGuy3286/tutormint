@@ -81,8 +81,8 @@ export function linkOnOwnLine(text: string): string {
 }
 
 /** What every admin WhatsApp message goes through before it is sent. */
-export function finishWaText(text: string): string {
-  return linkOnOwnLine(fullSiteLinks(text.trim()))
+export function finishWaText(text: string, refCode?: string | null): string {
+  return linkOnOwnLine(withStaffRef(fullSiteLinks(text.trim()), refCode))
 }
 
 // ------------------------------------------------- the WhatsApp link itself
@@ -132,8 +132,70 @@ export function safeSlice(text: string, max: number): string {
  * who to send it to). The text is not changed here — callers that want links
  * tidied run finishWaText first.
  */
-export function waSendHref(msisdn: string | null | undefined, text: string): string {
+export function waSendHref(msisdn: string | null | undefined, text: string, refCode?: string | null): string {
   const phone = (msisdn ?? '').replace(/\D/g, '')
-  const params = [phone ? `phone=${phone}` : '', `text=${encodeURIComponent(waSafeText(text))}`].filter(Boolean)
+  // withStaffRef never adds a second ref, so a text finishWaText already
+  // tidied with the same code is unchanged.
+  const body = withStaffRef(text, refCode)
+  const params = [phone ? `phone=${phone}` : '', `text=${encodeURIComponent(waSafeText(body))}`].filter(Boolean)
   return `${WA_SEND_URL}?${params.join('&')}`
+}
+
+// ------------------------------------------------- the sender's staff code
+//
+// Staff links (owner, 23 Oct 2026): every tutormint.org link inside a message a
+// staff member sends carries ?ref=<their code>, so a sign-up that comes from it
+// is credited to them. A link that already has a ref keeps it; a sender with no
+// code (the site Owner, a Project Manager) adds nothing.
+
+/** A staff code as it goes in a link: capitals and digits, or null. */
+export function refCodeParam(code: string | null | undefined): string | null {
+  const v = (code ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+  return v.length >= 2 && v.length <= 24 ? v : null
+}
+
+/** One site link with ?ref=<code> added (before any #fragment). A link that
+ *  already has a ref is returned unchanged. */
+export function addRefToUrl(url: string, code: string | null | undefined): string {
+  const c = refCodeParam(code)
+  if (!c) return url
+  const hashAt = url.indexOf('#')
+  const base = hashAt >= 0 ? url.slice(0, hashAt) : url
+  const hash = hashAt >= 0 ? url.slice(hashAt) : ''
+  const q = base.indexOf('?')
+  const query = q >= 0 ? base.slice(q + 1) : ''
+  if (query.split('&').some((p) => /^ref=/i.test(p))) return url
+  const sep = q < 0 ? '?' : base.endsWith('?') || base.endsWith('&') ? '' : '&'
+  return `${base}${sep}ref=${c}${hash}`
+}
+
+/** Every tutormint.org link in a text with the sender's ref added once. */
+export function withStaffRef(text: string, code: string | null | undefined): string {
+  if (!refCodeParam(code)) return text
+  return text.replace(SITE_LINK, (raw) => {
+    const tail = raw.match(TRAILING)?.[0] ?? ''
+    const bare = tail ? raw.slice(0, -tail.length) : raw
+    return addRefToUrl(bare, code) + tail
+  })
+}
+
+/** A pre-filled WhatsApp link (api.whatsapp.com/send or wa.me) rebuilt with the
+ *  sender's ref on every site link in its text — for rows built and cached
+ *  before the viewer is known. Anything else is returned unchanged. */
+export function waHrefWithRef(href: string | null | undefined, code: string | null | undefined): string | null {
+  if (!href) return href ?? null
+  if (!refCodeParam(code)) return href
+  let u: URL
+  try {
+    u = new URL(href)
+  } catch {
+    return href
+  }
+  const isSend = u.hostname === 'api.whatsapp.com' && u.pathname === '/send'
+  const isWaMe = u.hostname === 'wa.me'
+  if (!isSend && !isWaMe) return href
+  const text = u.searchParams.get('text')
+  if (!text) return href
+  const phone = isSend ? u.searchParams.get('phone') : u.pathname.replace(/\D/g, '')
+  return waSendHref(phone, text, code)
 }

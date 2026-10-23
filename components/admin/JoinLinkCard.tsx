@@ -18,8 +18,8 @@ export default function JoinLinkCard({
     <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
       <h2 className="text-sm font-black text-tm-navy">{title}</h2>
       <p className="text-xs text-gray-600">
-        Share this link, or ask people to type the code when they sign up. You get the credit for the tutors and
-        parents who join through it for the next 30 days.
+        Share this link. Any TutorMint page opened with ?ref={code} works the same way. You get the credit for the
+        tutors and parents who join through it for the next 30 days.
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <code className="min-w-0 break-all rounded-lg bg-tm-bg px-2 py-1 text-xs font-bold text-slate-800">{url}</code>

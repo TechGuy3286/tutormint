@@ -15,6 +15,7 @@ import ClaimForm from './ClaimForm'
 import CumulativeChart from './CumulativeChart'
 import MonthPicker from './MonthPicker'
 import SetTargetsPanel from './SetTargetsPanel'
+import SourceTable from './SourceTable'
 
 // Team activity → "Paid sign-ups" (owner, 16 Oct 2026). A month at a time:
 //   a) the team strip (target-list staff only): paid · target · % · status ·
@@ -76,6 +77,8 @@ export default async function PaidTab({ actor, month }: { actor: AdminActor; mon
           </Link>
         )}
       </div>
+
+      <SourceTable actor={actor} />
 
       {board.setPanel && (
         <SetTargetsPanel key={month} month={month} monthLabel={label} rows={board.setPanel} countingStarts={board.countingStarts} />

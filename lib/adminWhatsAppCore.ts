@@ -41,9 +41,9 @@ export const DASHBOARD_LINK = siteLink('/tutor/dashboard')
 
 /** api.whatsapp.com/send?phone=92…&text=… — or null with no usable number or no text. The
  *  number may be typed any way (+92, 0300-…, spaces); it is reduced to 92…. */
-export function adminWaLink(rawNumber: string | null | undefined, text: string | null | undefined): string | null {
+export function adminWaLink(rawNumber: string | null | undefined, text: string | null | undefined, refCode?: string | null): string | null {
   const msisdn = normalisePkMobile(rawNumber)
-  const body = finishWaText(text ?? '')
+  const body = finishWaText(text ?? '', refCode)
   if (!msisdn || !body) return null
   return waSendHref(msisdn, body)
 }

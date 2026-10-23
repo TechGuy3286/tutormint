@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { MessageCircle, Phone } from 'lucide-react'
 
 import { useToast } from '@/components/ui/Toast'
-import { useAdminReadOnly } from '@/components/admin/ReadOnly'
+import { useAdminReadOnly, useStaffRefCode } from '@/components/admin/ReadOnly'
+import { waHrefWithRef } from '@/lib/waLinkCore'
 import { adminFetch } from '@/components/admin/adminFetch'
 import type { FollowUpChannel, FollowUpSource } from '@/lib/followUpCore'
 
@@ -81,6 +82,8 @@ export function useFollowUp({ memberId, source, templateKey, tab, onMoved, onRes
 
 export default function FollowUpActions(p: FollowUpProps) {
   const readOnly = useAdminReadOnly()
+  // The viewer's staff code on every site link in the text (owner, 23 Oct 2026).
+  const refCode = useStaffRefCode()
   const { record, busy } = useFollowUp(p)
   const btn = p.btnClass ?? BTN
   if (readOnly) return null
@@ -88,7 +91,7 @@ export default function FollowUpActions(p: FollowUpProps) {
     <>
       {p.waHref && (
         <a
-          href={p.waHref}
+          href={waHrefWithRef(p.waHref, refCode) ?? undefined}
           target="_blank"
           rel="noopener noreferrer"
           // The link opens WhatsApp in a new tab (never blocked as a popup);
