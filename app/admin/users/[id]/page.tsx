@@ -42,6 +42,8 @@ import { selfiePhotoMatchUsers } from '@/lib/selfieMatch'
 import { canApprove } from '@/lib/adminAccessCore'
 import MemberTabs from '@/components/admin/MemberTabs'
 import ConvertAccountCard from '@/components/admin/ConvertAccountCard'
+import RestoreStaffCard from '@/components/admin/RestoreStaffCard'
+import { canRestore as canRestoreStaff } from '@/lib/formerStaffCore'
 import { postedAsParent } from '@/lib/convertAccountCore'
 
 // One member, everything about them in one place.
@@ -86,7 +88,7 @@ export default async function AdminMemberPage({
   const { data: profile } = await admin
     .from('profiles')
     .select(
-      'id, full_name, email, phone_number, whatsapp, avatar_url, role, admin_role, city, profile_completion, cnic_verified_at, address_verified_at, verification_state, is_suspended, suspension_reason, suspended_at, suspended_by, is_banned, banned_reason, paused_by_user_at, phone_verified_via, phone_verified_at, created_at, utm_source, utm_medium, utm_campaign, utm_content, linked_account_id',
+      'id, full_name, email, phone_number, whatsapp, avatar_url, role, admin_role, city, profile_completion, cnic_verified_at, address_verified_at, verification_state, is_suspended, suspension_reason, suspended_at, suspended_by, is_banned, banned_reason, paused_by_user_at, phone_verified_via, phone_verified_at, created_at, utm_source, utm_medium, utm_campaign, utm_content, linked_account_id, former_staff_at, former_staff_role',
     )
     .eq('id', id)
     .maybeSingle()
@@ -500,6 +502,17 @@ export default async function AdminMemberPage({
           ) : null
         }
       />
+
+      {/* Former staff (owner, 24 Oct 2026): the Owner's "Restore staff access".
+          Everyone else sees only the label. */}
+      {profile.former_staff_at && (
+        <RestoreStaffCard
+          memberId={id}
+          formerAt={profile.former_staff_at as string}
+          formerRole={(profile.former_staff_role as string | null) ?? null}
+          canRestore={canApprove(actor.adminRole) && canRestoreStaff(profile as never)}
+        />
+      )}
 
       {/* Convert account type, Parent ↔ Tutor (owner, 23 Oct 2026): the site
           Owner only — nobody else sees it, and the route refuses them. */}

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { refuseSupervisorApplication } from '@/lib/supervisorScope'
 import { logAdminAction } from '@/lib/auditLog'
 import { applicationCheckInLink } from '@/lib/applicationWhatsApp'
 import { senderRefCode } from '@/lib/staffSignups'
@@ -23,6 +24,9 @@ export async function GET(request: Request) {
   const id = uuid.safeParse(new URL(request.url).searchParams.get('applicationId'))
   if (!id.success) return NextResponse.json({ error: 'Something in that request was missing. Reload the page and try again.' }, { status: 400 })
 
+  // A Supervisor changes only their own tuitions and cities (owner, 24 Oct 2026).
+  const scope = await refuseSupervisorApplication(gate.actor, id.data)
+  if (scope) return scope
   const wa = await applicationCheckInLink(id.data, await senderRefCode(gate.actor.id))
   if (!wa) return NextResponse.json({ error: 'This tutor has no mobile or WhatsApp number on file.' }, { status: 404 })
   await logAdminAction({

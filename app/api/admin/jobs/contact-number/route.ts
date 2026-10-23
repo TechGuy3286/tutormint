@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { refuseSupervisorTuitions } from '@/lib/supervisorScope'
 import { saveTuitionContactNumber } from '@/lib/tuitionContact'
 import { parseBody, z } from '@/lib/validate'
 
@@ -24,6 +25,9 @@ export async function POST(request: Request) {
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
   const parsed = await parseBody(request, Body)
   if (!parsed.ok) return parsed.response
+  // A Supervisor changes only their own tuitions and cities (owner, 24 Oct 2026).
+  const scope = await refuseSupervisorTuitions(gate.actor, [parsed.data.jobId])
+  if (scope) return scope
   const result = await saveTuitionContactNumber({ actor: gate.actor, jobId: parsed.data.jobId, phone: parsed.data.phone, resume: parsed.data.resume })
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
   return NextResponse.json({ success: true, resumed: result.resumed, canResume: result.canResume })

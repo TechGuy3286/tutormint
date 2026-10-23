@@ -25,7 +25,7 @@ export type StaffRow = {
   id: string
   name: string
   email: string
-  adminRole: 'owner' | 'admin' | 'operations' | 'tuitions_staff' | 'partner'
+  adminRole: 'owner' | 'admin' | 'supervisor' | 'operations' | 'tuitions_staff' | 'partner'
   suspended: boolean
   suspensionReason: string | null
   mustChangePassword: boolean
@@ -42,6 +42,7 @@ const ROLES = [
   // Approvals are the Owner's alone (owner, 15 Oct 2026): documents, CNIC
   // numbers, bank-transfer receipts and staff sign-up claims.
   { code: 'admin', label: 'Admin', blurb: 'Day-to-day management; no Team, Finance, Plans or payment settings; approvals are Owner only' },
+  { code: 'supervisor', label: 'Supervisor', blurb: "Sees every staff member's lists; changes only their own tuitions and cities; approvals are Owner only" },
   { code: 'operations', label: 'Operations', blurb: 'Posting tuitions, assisting, marketing, SEO; can view verification queues; approvals are Owner only' },
   { code: 'tuitions_staff', label: 'Tuitions staff', blurb: 'Tuitions only — the board, posting, and their own activity' },
   // Shown as "Project Manager" (owner, 13 Oct 2026); the internal role is 'partner'.
@@ -54,6 +55,7 @@ const ROLE_BADGE: Record<string, string> = {
   // The Owner and the Partner are both shown as "Project Manager".
   owner: 'Project Manager',
   admin: 'Admin',
+  supervisor: 'Supervisor',
   operations: 'Operations',
   tuitions_staff: 'Tuitions',
   partner: 'Project Manager',

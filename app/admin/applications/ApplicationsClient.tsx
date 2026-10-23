@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
+import { NO_LONGER_AVAILABLE } from '@/lib/hiddenTuitionCore'
 import { useRouter } from 'next/navigation'
 import { ChevronDown, Eye, Loader2, MessageCircle, Search, Send, Sparkles } from 'lucide-react'
 
@@ -291,6 +292,8 @@ export default function ApplicationsClient({
 
   function statusLine(r: Row): string {
     const d = r.due
+    // The parent account is hidden, test, suspended or banned (owner, 24 Oct 2026).
+    if (d.unavailable) return NO_LONGER_AVAILABLE
     if (d.last) {
       return sentLine({
         messageLabel: MESSAGE_LABEL[d.last.messageKey],
@@ -307,11 +310,11 @@ export default function ApplicationsClient({
   }
 
   function rowView(r: Row, context: View) {
-    const editable = mayEditStage(actor, r.ownerId)
+    const editable = mayEditStage(actor, r.ownerId) && !r.unavailable
     const hit = hits.has(r.id)
     const story = successStoryAction(r)
     const recipient = STAGE_RECIPIENT[r.stage]
-    const hasNumber = recipient === 'parent' ? r.hasParentNumber : !!r.tutorPhone
+    const hasNumber = !r.unavailable && (recipient === 'parent' ? r.hasParentNumber : !!r.tutorPhone)
     const tu = lastTutorUpdate(r.followUps)
     return (
       <li

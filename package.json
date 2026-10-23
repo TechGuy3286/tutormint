@@ -186,7 +186,8 @@
     "test:applicationsv3": "tsx --test scripts/test-applications-v3.ts",
     "test:applicationsv31": "tsx --test scripts/test-applications-v31.ts",
     "test:tutorjourney": "tsx --test scripts/test-tutor-journey.ts",
-    "test:followupspolish": "tsx --test scripts/test-followups-polish.ts"
+    "test:followupspolish": "tsx --test scripts/test-followups-polish.ts",
+    "test:staffcleanup": "tsx --test scripts/test-staff-cleanup.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

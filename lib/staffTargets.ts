@@ -11,6 +11,7 @@ import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { formatName } from '@/lib/formatName'
+import { formerStaffName } from '@/lib/formerStaffCore'
 import { logAdminAction } from '@/lib/auditLog'
 import type { AdminRole } from '@/lib/adminAccessCore'
 import { ensureJoinLinks, loadCreditedAccounts, type JoinLink } from '@/lib/staffSignups'
@@ -214,6 +215,14 @@ export async function loadTargetBoard(viewer: Viewer, month: MonthKey, nowMs = D
     byStaff.set(a.staffId, l)
   }
   const nameOf = new Map(staff.map((s) => [s.id, s.name]))
+  // A former staff member's past credits still show, under their name
+  // labelled "former staff" (owner, 24 Oct 2026).
+  const missing = [...byStaff.keys()].filter((id) => !nameOf.has(id))
+  if (missing.length) {
+    const admin = createAdminClient()
+    const { data: gone } = admin ? await admin.from('profiles').select('id, full_name').in('id', missing) : { data: [] }
+    for (const g of gone ?? []) nameOf.set(g.id as string, formerStaffName(formatName((g.full_name as string | null) ?? '') || 'Staff', 'former'))
+  }
   const mineOf = (id: string) => byStaff.get(id) ?? []
 
   // Cards and the team: target-list staff only.

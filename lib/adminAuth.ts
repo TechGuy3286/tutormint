@@ -47,6 +47,7 @@ import { METHOD_HEADER, isReadMethod } from '@/lib/requestMethod'
 // is unit-testable). Re-exported here so every existing `@/lib/adminAuth`
 // importer is unchanged.
 export { type AdminRole, roleSatisfies, roleMayWrite, partnerEditsPath, PARTNER_VIEW_ONLY, PROJECT_MANAGER, PARTNER_ROLE_OPTION, adminHomeFor, isReadOnlyRole, alwaysNeedsTwoFactor, ownerProtection, staffChangeProblem, roleBadge, seesRealRoles, ROLE_LABEL, SCREEN_ACCESS }
+export { seesAllStaffLists, supervisorMayChangeTuition, supervisorMayChangeCity, SUPERVISOR_OWN_ONLY } from '@/lib/adminAccessCore'
 
 /** The words a view-only account sees when a write is refused. */
 export const PARTNER_READ_ONLY = PARTNER_VIEW_ONLY

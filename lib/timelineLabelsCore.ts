@@ -106,6 +106,8 @@ export const AUDIT_LABELS: Record<string, string> = {
   // Staff
   'staff.create': 'Added to staff',
   'staff.remove': 'Removed from staff',
+  'staff.former': 'Staff access removed (former staff)',
+  'staff.restore': 'Staff access restored',
   'staff.role_change': 'Staff role changed',
   'staff.grant_existing': 'Given a staff role',
   'staff.invite_resend': 'Staff invite sent again',

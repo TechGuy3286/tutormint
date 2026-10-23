@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { refuseSupervisorMember } from '@/lib/supervisorScope'
 import { recordFollowUp, undoTutorFollowUp } from '@/lib/followUps'
 import { FU_FEE_REPLY_KEY, isFollowReason } from '@/lib/followUpTemplatesCore'
 import { parseBody, z, uuid } from '@/lib/validate'
@@ -48,6 +49,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true })
   }
 
+  // A Supervisor changes only their own tuitions and cities (owner, 24 Oct 2026).
+  const scope = await refuseSupervisorMember(gate.actor, b.memberId)
+  if (scope) return scope
   const feeReply = b.channel === 'whatsapp' && b.templateKey === FU_FEE_REPLY_KEY
   if (!isFollowReason(b.reason)) return NextResponse.json({ error: 'That follow-up reason is not known.' }, { status: 400 })
   if (b.reason === 'waiting' && !feeReply) {

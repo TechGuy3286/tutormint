@@ -52,6 +52,8 @@ test('every view-only area refuses a Partner write; the Owner is unaffected', ()
     'staffSignupsAll', 'staffSignupClaim', 'staffClaimsReview', 'mySignups', 'cityOwners', 'supportNumber',
     // Convert account type (owner, 23 Oct 2026): the site Owner only.
     'convertAccount',
+    // Team overview (owner, 24 Oct 2026): a read-only card.
+    'teamOverview',
   ]
   for (const key of VIEW) {
     assert.equal(roleMayWrite('partner', SCREEN_ACCESS[key]), false, key)
@@ -122,6 +124,7 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   'members/notes': 'edit',
   // Convert account type (owner, 23 Oct 2026): refuseUnlessOwnerApproval — the site Owner only.
   'members/convert': 'owner',
+  'members/restore-staff': 'owner',
   'import': 'view',
   // Reply (POST) is an edit; editing a template (PUT) is refused inside the route.
   'inbox': 'mixed',
@@ -283,7 +286,7 @@ test('"Project Manager" is a label only: Owner and Partner both read it; roles a
   assert.ok(team.includes("s.isMe && s.adminRole === 'owner' && viewerRole === 'owner'"))
   assert.ok(team.includes('(account owner)'))
   // The stored role names did not change.
-  assert.ok(read('lib', 'staff.ts').includes("ASSIGNABLE_ROLES: AdminRole[] = ['admin', 'operations', 'tuitions_staff', 'partner']"))
+  assert.ok(read('lib', 'staff.ts').includes("ASSIGNABLE_ROLES: AdminRole[] = ['admin', 'supervisor', 'operations', 'tuitions_staff', 'partner']"))
 })
 
 test('the database keeps a Partner out of the view-only tables (migration 170)', () => {

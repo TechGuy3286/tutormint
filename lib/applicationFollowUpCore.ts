@@ -51,6 +51,8 @@ export type DueState = {
   last: FollowUpRecord | null
   done: boolean
   older: boolean
+  /** The tuition is no longer available (hidden parent): Sent, done, never due. */
+  unavailable?: boolean
 }
 
 const t = (v: string | null | undefined) => {
@@ -82,6 +84,7 @@ export function lastTutorUpdate(records: FollowUpRecord[]): FollowUpRecord | nul
 export function dueState(item: BoardItem, records: FollowUpRecord[], nowMs: number): DueState {
   const older = isOlderTuition(item.jobCreatedAt, nowMs)
   const last = lastFollowUp(item, records)
+  if (item.unavailable) return { tab: 'sent', dueAt: null, overdue: null, last, done: true, older: false, unavailable: true }
   const stageAt = t(item.stageChangedAt ?? item.createdAt) || nowMs
   let dueAt: number | null
   let overdue: OverdueFlag | null = null

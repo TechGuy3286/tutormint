@@ -28,6 +28,7 @@
 // rendered rather than shown as a dead link (CLAUDE.md rule 7).
 
 import Image from 'next/image'
+import { PARENT_SIGNUP_HREF } from '@/lib/signupLinks'
 import { indexableCityPages, cityPagePath } from '@/lib/cityJobs'
 import HideOnHome from '@/components/HideOnHome'
 import Link from 'next/link'
@@ -108,7 +109,8 @@ function linkColumns(signedIn: boolean, cityLinks: FooterLink[] = []): LinkColum
       heading: 'For Parents',
       links: [
         { label: 'Find Tutors', href: '/browse/tutors' },
-        ...auth,
+        // Parents' sign-up opens with Parent selected (owner, 24 Oct 2026).
+        ...auth.map((l) => (l.href === '/register' ? { ...l, href: PARENT_SIGNUP_HREF } : l)),
         { label: 'Dashboard', href: '/parent/dashboard' },
         { label: 'Membership Plans', href: '/membership-plans?for=parents' },
       ],

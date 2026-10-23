@@ -30,7 +30,7 @@ test('b) two cards directly below the buttons, from lib/siteIdentity, with real 
   assert.deepEqual(HOME_CARDS[1].points, ['Get verified', 'Find tuitions near you', 'No commission'])
   assert.deepEqual(HOME_CARDS[0].links, [
     { label: 'Browse tutors', href: '/browse/tutors' },
-    { label: 'Post a tuition', href: '/parent/dashboard/post-job' },
+    { label: 'Post a tuition', href: '/register?next=%2Fparent%2Fdashboard%2Fpost-job&role=parent' },
   ])
   assert.deepEqual(HOME_CARDS[1].links, [
     { label: 'Become a tutor', href: '/register' },
@@ -52,7 +52,7 @@ test('c) the link block: city links once, up to six tutor pages, and four links'
   assert.ok(block.includes("filter((p) => p.kind === 'tutors')") && block.includes('.sort((a, b) => b.count - a.count'))
   assert.ok(block.includes('HOME_TUTOR_PAGES_MAX = 6') && block.includes('.slice(0, HOME_TUTOR_PAGES_MAX)'))
   assert.deepEqual(HOME_MORE_LINKS.map((l) => l.label), ['Browse tutors', 'Post a tuition', 'Become a tutor', 'Blog'])
-  assert.deepEqual(HOME_MORE_LINKS.map((l) => l.href), ['/browse/tutors', '/parent/dashboard/post-job', '/register', '/blog'])
+  assert.deepEqual(HOME_MORE_LINKS.map((l) => l.href), ['/browse/tutors', '/register?next=%2Fparent%2Fdashboard%2Fpost-job&role=parent', '/register', '/blog'])
   // Each city link once: the homepage lists them, so the footer leaves its copy out THERE.
   const footer = read('components/Footer.tsx')
   assert.ok(footer.includes('hideOnHome: true') && footer.includes('<HideOnHome'))

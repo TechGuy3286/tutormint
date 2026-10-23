@@ -122,7 +122,8 @@ test('signup role choice is two radios, nothing preselected (PR106-G §4 superse
   const r = read('app/(site)/register/RegisterForm.tsx')
   assert.ok(!/rolePicking/.test(r), 'the collapse state is gone')
   assert.ok(!/Signing up as a/.test(r), 'the collapsed summary line is gone')
-  assert.match(r, /useState<Role \| null>\(null\)/, 'nothing preselected')
+  // Superseded 24 Oct 2026: the form starts on the server-decided role (Tutor, or Parent from ?role=parent).
+  assert.match(r, /useState<Role \| null>\(initialRole\)/, 'starts on the server-decided role')
 })
 
 // ------------------------------------------------ §14 draft + reuse ------------

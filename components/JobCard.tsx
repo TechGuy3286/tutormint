@@ -115,6 +115,9 @@ export type JobCardData = {
    * "Posted by TutorMint" marker so a tutor can always tell.
    */
   posted_by_team?: boolean
+  /** The parent's public card renders — the name links to it only then, so no
+   *  card links to a 404 (lib/hiddenTuitionCore parentCardResolves). */
+  parent_public?: boolean
   /**
    * The posting parent is a seed/fixture account (profiles.is_seed). Used only
    * to keep fixture tuitions out of Google (noindex + no JobPosting JSON-LD);
@@ -353,7 +356,7 @@ export default function JobCard({
                   {/* Every member name is a link. relative z-10 so the card's
                       own stretched link does not swallow it -- same reason the
                       four buttons on a TutorCard carry it. */}
-                  {job.parent_id ? (
+                  {job.parent_id && job.parent_public ? (
                     <Link
                       prefetch={false}
                       href={`/parent/${job.parent_id}`}

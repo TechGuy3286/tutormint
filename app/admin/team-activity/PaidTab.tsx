@@ -12,6 +12,7 @@ import { PACE_LABEL, monthLabel, perDayLabel, type MonthKey, type Pace, type Pac
 import type { AdminActor } from '@/lib/adminAuth'
 
 import ClaimForm from './ClaimForm'
+import { CLAIMS_OPEN } from '@/lib/staffSignupsCore'
 import CumulativeChart from './CumulativeChart'
 import MonthPicker from './MonthPicker'
 import SetTargetsPanel from './SetTargetsPanel'
@@ -170,7 +171,9 @@ export default async function PaidTab({ actor, month }: { actor: AdminActor; mon
         once on the day it was approved (Pakistan time). A refund removes it from that month. Free grants do not count.
       </p>
 
-      {isParticipant && <ClaimForm />}
+      {/* New claims are closed (owner, 24 Oct 2026): a sign-up with no staff
+          link is credited to Admin. Claims already made stay listed below. */}
+      {isParticipant && CLAIMS_OPEN && <ClaimForm />}
 
       {isParticipant && myClaims.length > 0 && (
         <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">

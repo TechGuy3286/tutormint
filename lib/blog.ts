@@ -11,6 +11,7 @@
 // browser.
 
 import { scaffoldViolations, promptLeakViolations } from '@/lib/ai/blogBrief'
+import { POST_TUITION_HREF } from '@/lib/signupLinks'
 import { contradictionViolations } from '@/lib/ai/platformFacts'
 
 export type PostStatus = 'draft' | 'reviewed' | 'scheduled' | 'published' | 'unpublished'
@@ -204,7 +205,7 @@ export function ctasFor(audience: PostAudience): PostCta[] {
     audience: 'parents',
     heading: 'Looking for a verified tutor?',
     body: 'Post what you need and let identity-checked tutors come to you. Free to post.',
-    href: '/parent/dashboard/post-job',
+    href: POST_TUITION_HREF,
     label: 'Post a tuition',
   }
   const tutors: PostCta = {

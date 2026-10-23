@@ -113,7 +113,8 @@ export function timeAtStage(changedAt: string | null, nowMs: number): string {
 export type BoardFilter = 'mine' | 'all' | 'unassigned' | Stage
 
 export function defaultFilter(actor: ActorLike | null | undefined): 'mine' | 'all' {
-  return actor?.adminRole === 'owner' ? 'all' : 'mine'
+  // The Owner, the Project Managers and Supervisors open on every staff member's list (owner, 24 Oct 2026).
+  return actor?.adminRole === 'owner' || actor?.adminRole === 'partner' || actor?.adminRole === 'supervisor' ? 'all' : 'mine'
 }
 
 export function parseFilter(v: string | null | undefined, actor: ActorLike | null | undefined): BoardFilter {
@@ -131,6 +132,10 @@ export type BoardItem = {
   workedAt?: string | null
   /** When the tuition was posted — over 30 days ago it is in the Older section. */
   jobCreatedAt?: string | null
+  /** The tuition is hidden because its parent account was hidden, test,
+   *  suspended or banned (owner, 24 Oct 2026): the application reads "Tuition
+   *  no longer available", is never overdue and never in To do or a badge. */
+  unavailable?: boolean
 }
 
 export function matchesFilter(item: BoardItem, filter: BoardFilter, actorId: string): boolean {
@@ -300,6 +305,7 @@ export function isOlderTuition(jobCreatedAt: string | null | undefined, nowMs: n
 
 /** Overdue, counted from the last activity. An Older tuition is never overdue. */
 export function itemOverdue(i: BoardItem, nowMs: number): OverdueFlag | null {
+  if (i.unavailable) return null
   if (isOlderTuition(i.jobCreatedAt, nowMs)) return null
   return overdueFlag(i.stage, lastActivityAt(i), nowMs)
 }

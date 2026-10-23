@@ -1,4 +1,5 @@
 import { Briefcase, GraduationCap, LifeBuoy } from 'lucide-react'
+import { POST_TUITION_HREF } from '@/lib/signupLinks'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import Breadcrumbs from '@/components/Breadcrumbs'
@@ -63,7 +64,7 @@ export default async function AboutPage() {
           </ol>
           <p className="flex flex-wrap gap-x-4 gap-y-1 pt-1">
             <Link href="/browse/tutors" className="font-bold text-tm-red hover:underline">Find tutors</Link>
-            <Link href="/parent/dashboard/post-job" className="font-bold text-tm-red hover:underline">Post a tuition</Link>
+            <Link href={POST_TUITION_HREF} className="font-bold text-tm-red hover:underline">Post a tuition</Link>
           </p>
         </div>
         <div className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4 text-sm leading-relaxed text-slate-700 sm:p-5">

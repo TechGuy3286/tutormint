@@ -9,6 +9,12 @@
 //   owner           everything, plus the Team screen and every approval
 //                   (OWNER-ONLY APPROVALS below, owner 15 Oct 2026).
 //   admin           everything except Team and approvals.
+//   supervisor      (owner, 24 Oct 2026) every screen Operations opens, plus
+//                   the tuition actions; SEES every staff member's lists in
+//                   Applications, Follow-ups, Paid tutors and Tuitions (the
+//                   Staff filter opens on All) but CHANGES only items on their
+//                   own tuitions and in their own cities (supervisorScope).
+//                   Owner-only actions stay owner-only.
 //   operations      office staff: tuitions, assisting, marketing, SEO; views
 //                   the verification queues (approvals are Owner only).
 //   tuitions_staff  RESTRICTED: the Tuitions group (the board, Post a tuition,
@@ -31,7 +37,7 @@
 // 'owner' satisfies every check, so callers list the OTHER roles that qualify
 // and never have to remember to add owner.
 
-export type AdminRole = 'owner' | 'admin' | 'operations' | 'tuitions_staff' | 'partner'
+export type AdminRole = 'owner' | 'admin' | 'supervisor' | 'operations' | 'tuitions_staff' | 'partner'
 
 export function roleSatisfies(actorRole: AdminRole, allowed: AdminRole[]): boolean {
   return actorRole === 'owner' || actorRole === 'partner' || allowed.includes(actorRole)
@@ -81,7 +87,7 @@ export function isReadOnlyRole(role: AdminRole | null | undefined): boolean {
 /** Roles that must ALWAYS have two-factor on — no grace window, and no admin
  *  request is served to a session that has not passed it. Every staff role
  *  since 15 Oct 2026 (owner: "same flow as Partner"); it was the Partner only. */
-export const STAFF_ROLES: AdminRole[] = ['owner', 'admin', 'operations', 'tuitions_staff', 'partner']
+export const STAFF_ROLES: AdminRole[] = ['owner', 'admin', 'supervisor', 'operations', 'tuitions_staff', 'partner']
 export function alwaysNeedsTwoFactor(role: AdminRole | null | undefined): boolean {
   return !!role && STAFF_ROLES.includes(role)
 }
@@ -166,6 +172,7 @@ export const ROLE_LABEL: Record<AdminRole, string> = {
   owner: PROJECT_MANAGER,
   partner: PROJECT_MANAGER,
   admin: 'Admin',
+  supervisor: 'Supervisor',
   operations: 'Operations',
   tuitions_staff: 'Tuitions staff',
 }
@@ -204,7 +211,7 @@ export function adminHomeFor(role: AdminRole): string {
  * jobs/jobsPost/jobsMutate and staffActivity (self-scoped in the page), so
  * every other screen's guard fails for it.
  */
-export const SCREEN_ACCESS = {
+export const SCREEN_ACCESS = withSupervisor({
   // The Overview landing and its figures. Every full role sees it; the
   // restricted tuitions_staff does NOT (its figures are refused), so this key
   // keeps it out of that role's nav and redirects it away from /admin.
@@ -362,7 +369,50 @@ export const SCREEN_ACCESS = {
   blogApprove: ['admin'] as AdminRole[],
   blogQueue: ['admin', 'operations'] as AdminRole[],
   blogGenerate: ['admin', 'operations'] as AdminRole[],
+  // The Team overview card (owner, 24 Oct 2026): per staff member, overdue
+  // Applications, red Paid tutors and follow-ups sent. The Owner (and so the
+  // Partner) and Supervisors.
+  teamOverview: ['supervisor'] as AdminRole[],
+})
+
+/**
+ * The Supervisor role (owner, 24 Oct 2026) opens every screen Operations
+ * opens — added here once rather than in each list — and the tuition actions
+ * (close / pause / resume), which it may use on its OWN tuitions only.
+ */
+function withSupervisor<T extends Record<string, AdminRole[]>>(lists: T): T {
+  const out = {} as Record<string, AdminRole[]>
+  for (const [key, roles] of Object.entries(lists)) {
+    out[key] = roles.includes('operations') || key === 'jobsMutate' ? [...roles, 'supervisor'] : roles
+  }
+  return out as T
 }
+
+// ---------------------------------------------------------------------------
+// SUPERVISOR SCOPE (owner, 24 Oct 2026). A Supervisor SEES every staff
+// member's lists; they CHANGE only what is theirs — a tuition they own
+// (tuition_owners.staff_id) or a tutor in a city they own (city_owners).
+// ---------------------------------------------------------------------------
+
+/** Roles whose Staff filters open on "All" (every staff member's lists). */
+export function seesAllStaffLists(role: AdminRole | null | undefined): boolean {
+  return role === 'owner' || role === 'partner' || role === 'supervisor'
+}
+
+/** A Supervisor may change a tuition only when they own it; every other role
+ *  keeps the rule its own screen already applies. */
+export function supervisorMayChangeTuition(actor: { id: string; adminRole: AdminRole | null | undefined }, ownerId: string | null | undefined): boolean {
+  if (actor.adminRole !== 'supervisor') return true
+  return !!ownerId && ownerId === actor.id
+}
+
+/** A Supervisor may change a tutor's follow-ups only in a city they own. */
+export function supervisorMayChangeCity(actor: { id: string; adminRole: AdminRole | null | undefined }, cityOwnerId: string | null | undefined): boolean {
+  if (actor.adminRole !== 'supervisor') return true
+  return !!cityOwnerId && cityOwnerId === actor.id
+}
+
+export const SUPERVISOR_OWN_ONLY = 'Supervisors can change only their own tuitions and the tutors in their own cities.'
 
 /** A stored role (an Audit row's actor_role, a staff row) in the words a screen
  *  shows: the Owner and the Partner both read "Project Manager"; anything that

@@ -1,4 +1,5 @@
 import { Globe, Plus } from 'lucide-react'
+import { postTuitionHref } from '@/lib/signupLinks'
 import { browseTutorsMeta, browseTuitionsMeta } from '@/lib/browseMeta'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import TrackSearch from '@/components/TrackSearch'
@@ -274,7 +275,8 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
   const facetSubject = subjectId ? [subjectId] : q ? ((await resolveSmartQuery(q).catch(() => null))?.masterIds ?? null) : null
   const facets = await tutorFacets({ city: city || parsed?.city || null, area: area || null, masterIds: facetSubject })
   // A zero result never ends the page: a way to post, and a way to be told.
-  const postHref = `/parent/dashboard/post-job${city || area ? `?${new URLSearchParams({ ...(city ? { city } : {}), ...(area ? { area } : {}) })}` : ''}`
+  // Through sign-up with Parent selected, the city and area carried on (owner, 24 Oct 2026).
+  const postHref = postTuitionHref({ city, area })
 
   const label = await subjectLabel(subjectId)
   // "Find tutors" (owner, 5 Oct 2026) — the list holds verified tutors first and

@@ -42,7 +42,7 @@ test('header: Join free and Login for a signed-out visitor only, never where the
   assert.deepEqual(headerAuthButtons('/register'), { join: false, login: true })
   assert.deepEqual(headerAuthButtons('/login'), { join: true, login: false })
   const cta = read('components/AuthCTA.tsx')
-  assert.ok(cta.includes('href="/register"') && cta.includes('Join free') && cta.includes('href="/login"'))
+  assert.ok(cta.includes('href={joinHref}') && cta.includes('Join free') && cta.includes('href="/login"'))
   // Join free is the primary (red) button, Login the secondary (outline).
   assert.ok(cta.indexOf('bg-tm-red') < cta.indexOf('border-tm-navy'))
   // The Navbar renders AuthCTA only in the no-session branch.

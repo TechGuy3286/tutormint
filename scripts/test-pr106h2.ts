@@ -108,17 +108,17 @@ test('no admin route is left without a role check (the one gap is closed)', () =
   for (const f of ['app/api/admin/mfa/backup/route.ts', 'app/api/admin/mfa/backup-codes/route.ts']) {
     // checkAdminSelf (8 Oct 2026): every staff role, the Partner included, may
     // manage its OWN two-factor.
-    assert.match(read(f), /checkAdminSelf\('admin', 'operations', 'tuitions_staff'\)/, `${f} admits all staff`)
+    assert.match(read(f), /checkAdminSelf\('admin', 'supervisor', 'operations', 'tuitions_staff'\)/, `${f} admits all staff`)
   }
 })
 
 // -------------------------------------------- Team + notification (STEP 2/3) -
 test('tuitions_staff is assignable in Team, everywhere the role list is read', () => {
-  assert.match(read('lib/staff.ts'), /ASSIGNABLE_ROLES: AdminRole\[\] = \['admin', 'operations', 'tuitions_staff', 'partner'\]/)
-  assert.match(read('app/api/admin/team/route.ts'), /z\.enum\(\['owner', 'admin', 'operations', 'tuitions_staff', 'partner'\]\)/)
+  assert.match(read('lib/staff.ts'), /ASSIGNABLE_ROLES: AdminRole\[\] = \['admin', 'supervisor', 'operations', 'tuitions_staff', 'partner'\]/)
+  assert.match(read('app/api/admin/team/route.ts'), /z\.enum\(\['owner', 'admin', 'supervisor', 'operations', 'tuitions_staff', 'partner'\]\)/)
   const client = read('app/admin/team/TeamClient.tsx')
   assert.match(client, /code: 'tuitions_staff', label: 'Tuitions staff'/, 'selectable with a plain label')
-  assert.match(client, /'owner' \| 'admin' \| 'operations' \| 'tuitions_staff' \| 'partner'/, 'the row type allows it')
+  assert.match(client, /'owner' \| 'admin' \| 'supervisor' \| 'operations' \| 'tuitions_staff' \| 'partner'/, 'the row type allows it')
 })
 
 test('a role change stays SILENT — no email, no in-app notification (STEP 2)', () => {

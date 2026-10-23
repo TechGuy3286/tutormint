@@ -100,7 +100,7 @@ test('the button says who it goes to, and is disabled with no number', () => {
   assert.equal(buttonLabel('parent', false), 'No parent number')
   assert.equal(buttonLabel('tutor', false), 'No tutor number')
   const ui = code('app/admin/applications/ApplicationsClient.tsx')
-  assert.ok(ui.includes("const hasNumber = recipient === 'parent' ? r.hasParentNumber : !!r.tutorPhone"))
+  assert.ok(ui.includes("const hasNumber = !r.unavailable && (recipient === 'parent' ? r.hasParentNumber : !!r.tutorPhone)"))
   assert.ok(ui.includes('disabled={!hasNumber'))
   // The server refuses too.
   const lib = code('lib/applicationFollowUps.ts')

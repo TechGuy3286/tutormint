@@ -26,7 +26,17 @@ export const NO_CONTACT_DAYS = 7
 export const OLDER_TUITION_DAYS = 30
 const DAY = 86_400_000
 
-export type PaidApp = { jobId: string; stage: string; createdAt: string; stageChangedAt: string | null; jobCreatedAt: string | null; forwarded: boolean }
+export type PaidApp = {
+  jobId: string
+  stage: string
+  createdAt: string
+  stageChangedAt: string | null
+  jobCreatedAt: string | null
+  forwarded: boolean
+  /** The tuition was hidden with its parent's account (owner, 24 Oct 2026):
+   *  never waiting to be forwarded, never a red rule. */
+  unavailable?: boolean
+}
 
 export type PaidTutorFacts = {
   id: string
@@ -62,7 +72,7 @@ export function paidCounts(apps: PaidApp[]): PaidCounts {
   let hired = 0
   for (const a of apps) {
     if (SHARED.has(a.stage) || (a.stage === 'applied' && a.forwarded)) forwarded++
-    else if (a.stage === 'applied') waiting++
+    else if (a.stage === 'applied' && !a.unavailable) waiting++
     if (a.stage === 'hired') hired++
   }
   return { applied: apps.length, forwarded, waitingToForward: waiting, hired }
@@ -70,6 +80,7 @@ export function paidCounts(apps: PaidApp[]): PaidCounts {
 
 /** Waiting to be forwarded for MORE than 1 day (Older tuitions never count). */
 export function forwardOverdue(a: PaidApp, nowMs: number): boolean {
+  if (a.unavailable) return false
   if (a.stage !== 'applied' || a.forwarded) return false
   const job = ms(a.jobCreatedAt)
   if (Number.isFinite(job) && nowMs - job > OLDER_TUITION_DAYS * DAY) return false

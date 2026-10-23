@@ -173,7 +173,7 @@ test('the "Check with parent" tag appears 3 days after a forward with no outcome
 })
 
 test('who can act: owner, Partner, admin, operations and tuitions staff', () => {
-  assert.deepEqual([...SCREEN_ACCESS.applicantForwards].sort(), ['admin', 'operations', 'partner', 'tuitions_staff'])
+  assert.deepEqual([...SCREEN_ACCESS.applicantForwards].sort(), ['admin', 'operations', 'partner', 'supervisor', 'tuitions_staff'])
   for (const role of ['owner', 'admin', 'operations', 'tuitions_staff'] as const) {
     assert.ok(roleSatisfies(role, SCREEN_ACCESS.applicantForwards), `${role} may act`)
   }
@@ -301,7 +301,7 @@ test('the uploaded photo file is never changed, and the saved rotation reaches e
   const route = code('app/api/admin/profile-photo/rotate/route.ts')
   assert.match(route, /export async function POST/)
   assert.match(route, /checkAdminRole\(\.\.\.SCREEN_ACCESS\.documentRotate\)/)
-  assert.deepEqual([...SCREEN_ACCESS.documentRotate].sort(), ['admin', 'operations', 'partner'])
+  assert.deepEqual([...SCREEN_ACCESS.documentRotate].sort(), ['admin', 'operations', 'partner', 'supervisor'])
   const migration = read('supabase/migrations/161_applicant_forwards_avatar_rotation.sql')
   assert.match(migration, /create table if not exists public\.avatar_rotations/)
   assert.match(migration, /rotation\s+smallint not null default 0 check \(rotation in \(0, 90, 180, 270\)\)/)

@@ -117,7 +117,7 @@ test('no credit for pre-existing, staff, test or duplicate accounts; one credit 
   const sql = read('supabase/migrations/175_staff_signups.sql')
   assert.ok(/staff_signup_credits \(\s*member_id\s+uuid primary key/.test(sql))
   const lib = read('lib/staffSignups.ts')
-  assert.equal((lib.match(/onConflict: 'member_id', ignoreDuplicates: true/g) ?? []).length, 2)
+  assert.equal((lib.match(/onConflict: 'member_id', ignoreDuplicates: true/g) ?? []).length, 3) // claims, links, direct (24 Oct 2026)
 })
 
 test('claims: only accounts from the last 30 days with no credit; nobody decides their own claim', () => {

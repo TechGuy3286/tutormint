@@ -17,6 +17,8 @@ import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
 import { jobByPublicSlug, similarOpenTuitions } from '@/lib/jobFeed'
 import { peekTuitionContact } from '@/lib/contactReveal'
+import { isHiddenTuition } from '@/lib/hiddenTuitionCore'
+import { hiddenTuitionTargetFor } from '@/lib/hiddenTuition'
 import { tuitionPublicState, pauseCountdownLabel, pauseDueAtMs } from '@/lib/tuitionStatus'
 import { isFixtureTuition } from '@/lib/fixtures'
 import { tuitionIndexable } from '@/lib/seo/indexable'
@@ -145,7 +147,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   // Only a slug that does not exist is a 404 (PR28). The body renders 200 for a
   // paused/closed/hired tuition; here we give the missing case a generic noindex
   // title. `follow` keeps the onward links worth something.
-  if (!job) {
+  if (!job || isHiddenTuition(job.status)) {
     return { title: pageTitle('Tuition'), robots: { index: false, follow: true } }
   }
 
@@ -235,6 +237,11 @@ export default async function TuitionPage({ params }: { params: Params }) {
   // tuition renders 200 with a plain status banner — never a 404, so an indexed
   // URL that auto-pauses does not flap 200↔404 and no state is a dead end.
   if (!job) notFound()
+
+  // A tuition whose parent account is hidden, test, suspended or banned
+  // (owner, 24 Oct 2026): proxy.ts answers a 301 to the city's tuition page;
+  // this is the backstop when its one-minute cache has not caught up yet.
+  if (isHiddenTuition(job.status)) permanentRedirect(await hiddenTuitionTargetFor(job.city))
 
   // The public state of the page: open accepts applications, is indexable, emits
   // JobPosting and sits in the sitemap; paused/closed/hired do none of those and
@@ -718,12 +725,18 @@ export default async function TuitionPage({ params }: { params: Params }) {
             <div className="min-w-0 space-y-1">
               {/* PR106-D §3 — name + badges on ONE wrapping line. */}
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <Link
-                  href={`/parent/${job.parent_id}`}
-                  className="inline-flex min-h-[24px] items-center gap-1.5 text-sm font-black text-tm-navy hover:text-tm-red hover:underline"
-                >
-                  {job.parent_name}
-                </Link>
+                {/* Linked only when the parent's card renders — no live page
+                    links to a 404 (lib/hiddenTuitionCore parentCardResolves). */}
+                {job.parent_public ? (
+                  <Link
+                    href={`/parent/${job.parent_id}`}
+                    className="inline-flex min-h-[24px] items-center gap-1.5 text-sm font-black text-tm-navy hover:text-tm-red hover:underline"
+                  >
+                    {job.parent_name}
+                  </Link>
+                ) : (
+                  <span className="inline-flex min-h-[24px] items-center gap-1.5 text-sm font-black text-tm-navy">{job.parent_name}</span>
+                )}
                 {job.parent_badges.length > 0 && <BadgeRow badges={job.parent_badges} size="sm" />}
               </div>
               <p className="text-[11px] leading-relaxed text-gray-500">

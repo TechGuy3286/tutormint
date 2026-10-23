@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { POST_TUITION_HREF } from '@/lib/signupLinks'
 import { GraduationCap, Briefcase, Plus, UserPlus } from 'lucide-react'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
@@ -217,7 +218,7 @@ export default async function LandingView({ combo }: { combo: LandingCombo }) {
             <p className="text-sm font-black text-tm-navy">Looking for {article(subjectName)} {subjectName} tutor in {city}?</p>
             <p className="text-xs text-gray-500">Post your tuition and let verified tutors come to you.</p>
             <Link
-              href="/parent/dashboard/post-job"
+              href={POST_TUITION_HREF}
               className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-xl bg-tm-navy px-4 text-xs font-bold text-white hover:bg-tm-navy-hover"
             >
               <Plus aria-hidden size={14} /> Post your tuition

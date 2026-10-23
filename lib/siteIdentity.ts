@@ -15,6 +15,7 @@
 // anywhere is computed from the database by the page that shows it.
 
 import { SITE_URL, absoluteUrl } from '@/lib/siteUrl'
+import { POST_TUITION_HREF } from '@/lib/signupLinks'
 import { SUPPORT_EMAIL_FALLBACK, SUPPORT_PHONE_SCHEMA, SUPPORT_WHATSAPP_DISPLAY } from '@/lib/supportContacts'
 
 export const SITE_NAME = 'TutorMint'
@@ -94,7 +95,7 @@ export const HOME_CARDS: { title: string; points: string[]; links: { label: stri
     points: ['Find verified tutors free', 'Post a tuition free', 'Contact tutors directly'],
     links: [
       { label: 'Browse tutors', href: '/browse/tutors' },
-      { label: 'Post a tuition', href: '/parent/dashboard/post-job' },
+      { label: 'Post a tuition', href: POST_TUITION_HREF },
     ],
   },
   {
@@ -110,7 +111,7 @@ export const HOME_CARDS: { title: string; points: string[]; links: { label: stri
 /** The plain links beside the homepage's city and tutor-page links. */
 export const HOME_MORE_LINKS: { label: string; href: string }[] = [
   { label: 'Browse tutors', href: '/browse/tutors' },
-  { label: 'Post a tuition', href: '/parent/dashboard/post-job' },
+  { label: 'Post a tuition', href: POST_TUITION_HREF },
   { label: 'Become a tutor', href: '/register' },
   { label: 'Blog', href: '/blog' },
 ]

@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   // below). checkAdminRole() with no args is owner-only, which wrongly denied
   // non-owner staff their backup codes (PR106-H2) — list every staff role so
   // owner/admin/operations/tuitions_staff all qualify.
-  const gate = await checkAdminSelf('admin', 'operations', 'tuitions_staff')
+  const gate = await checkAdminSelf('admin', 'supervisor', 'operations', 'tuitions_staff')
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
 
   let regenerate = false

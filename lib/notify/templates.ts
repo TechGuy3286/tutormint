@@ -323,6 +323,8 @@ export function render(input: TemplateInput): RenderedEmail {
       const roleName =
         input.role.toLowerCase() === 'admin'
           ? 'Admin'
+          : input.role.toLowerCase() === 'supervisor'
+            ? 'Supervisor'
           : input.role.toLowerCase() === 'operations'
             ? 'Operations team member'
             : input.role.toLowerCase() === 'tuitions_staff'

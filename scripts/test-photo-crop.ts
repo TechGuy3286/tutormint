@@ -221,7 +221,7 @@ test('the viewer: "Crop / adjust" for profile pictures only, with Save crop, Res
 })
 
 test('owner, Partner, admin and operations can crop — the same access as rotate', () => {
-  assert.deepEqual(SCREEN_ACCESS.documentRotate, ['admin', 'operations', 'partner'])
+  assert.deepEqual(SCREEN_ACCESS.documentRotate, ['admin', 'operations', 'partner', 'supervisor'])
   for (const r of ['owner', 'admin', 'operations'] as const) assert.equal(roleSatisfies(r, SCREEN_ACCESS.documentRotate), true, r)
   assert.equal(roleSatisfies('tuitions_staff', SCREEN_ACCESS.documentRotate), false)
   assert.equal(isReadOnlyRole('partner'), false) // full management since 13 Oct 2026 (was view-only)

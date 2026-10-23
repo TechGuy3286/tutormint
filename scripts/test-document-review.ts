@@ -177,7 +177,7 @@ test('a rotation saves as a setting on the document row; the stored file is unch
 
 test('rotate and read: owner, Partner, admin and operations', () => {
   for (const key of ['documentRotate', 'cnicRead'] as const) {
-    assert.deepEqual([...SCREEN_ACCESS[key]].sort(), ['admin', 'operations', 'partner'])
+    assert.deepEqual([...SCREEN_ACCESS[key]].sort(), ['admin', 'operations', 'partner', 'supervisor'])
   }
   // Both are POST routes behind checkAdminRole, which refuses a Partner on any write.
   const rotate = code('app/api/admin/documents/rotate/route.ts')

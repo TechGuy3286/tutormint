@@ -22,6 +22,7 @@
 // fee filter bands stay, as does the tutor-side Meta ad-spend comparison.
 
 import { SUPPORT_EMAIL_FALLBACK, SUPPORT_WHATSAPP_DISPLAY } from '@/lib/supportContacts'
+import { PARENT_SIGNUP_HREF, POST_TUITION_HREF } from '@/lib/signupLinks'
 
 export type FaqLink = { label: string; href: string }
 
@@ -103,8 +104,8 @@ export const FAQ_GROUPS: FaqGroup[] = [
         q: 'How do I post a tuition?',
         a: 'Sign up as a parent, verify your mobile number with a one-time code, then choose Post a tuition. Pick the level, the subjects, your city and area, home or online, and a budget. It is free, and tutors who match can apply or message you.',
         links: [
-          { label: 'Create an account', href: '/register' },
-          { label: 'Post a tuition', href: '/parent/dashboard/post-job' },
+          { label: 'Create an account', href: PARENT_SIGNUP_HREF },
+          { label: 'Post a tuition', href: POST_TUITION_HREF },
         ],
       },
       {
@@ -132,7 +133,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
         a: 'Only a verified mobile number. Verify it with a one-time code and you can post tuitions, message tutors and request demo lessons straight away. Sending your CNIC and home address is optional: once our team approves both, you get the green Verified badge, which tells a tutor — often a woman travelling alone to a stranger’s house — that the person who posted is a real, identifiable household. Browsing needs nothing at all.',
         links: [
           { label: 'Verify your mobile', href: '/parent/dashboard/settings?open=mobile' },
-          { label: 'Post a tuition', href: '/parent/dashboard/post-job' },
+          { label: 'Post a tuition', href: POST_TUITION_HREF },
         ],
       },
       {
@@ -179,8 +180,8 @@ export const FAQ_GROUPS: FaqGroup[] = [
         q: 'Can a school or academy use TutorMint?',
         a: 'Yes. Schools and academies register exactly as a parent does and get an ordinary parent account with the same rights, the same plans and the same prices. There is no separate institution tier and nothing is priced differently — you post the tuitions you need filled and hire the same way a family does.',
         links: [
-          { label: 'Create an account', href: '/register' },
-          { label: 'Post a tuition', href: '/parent/dashboard/post-job' },
+          { label: 'Create an account', href: PARENT_SIGNUP_HREF },
+          { label: 'Post a tuition', href: POST_TUITION_HREF },
         ],
       },
     ],
@@ -257,7 +258,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
         a: 'It depends on the level and the area more than on the city. On TutorMint tutors set their own monthly fee and the filters group them into four bands — under Rs 5,000, Rs 5,000 to 10,000, Rs 10,000 to 20,000, and over Rs 20,000 — so the honest answer is the one in the directory rather than an average we made up. Primary and Middle tuition sits at the lower end; O and A Level, Matric science and test preparation sit higher, and a tutor travelling to DHA or Bahria Town usually asks more than one teaching online. Filter by your subject and area and you are looking at real asking fees, not an estimate. Whatever you agree is what you pay: we take no commission from it.',
         links: [
           { label: 'Tutors in Lahore', href: '/browse/tutors?city=Lahore' },
-          { label: 'Post a tuition and let tutors apply', href: '/parent/dashboard/post-job' },
+          { label: 'Post a tuition and let tutors apply', href: POST_TUITION_HREF },
         ],
       },
       {
@@ -293,7 +294,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
           // level-and-subject pair, and there is no "all of O Level" id to
           // link to. The picker on that page is where the level is chosen.
           { label: 'Choose a level and browse', href: '/browse/tutors' },
-          { label: 'Post a tuition at your level', href: '/parent/dashboard/post-job' },
+          { label: 'Post a tuition at your level', href: POST_TUITION_HREF },
         ],
       },
       {
@@ -309,7 +310,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
         a: 'Most families start with two to four hours a week per subject and adjust after the first month, which is the only figure worth trusting because it comes from the child rather than from a table. Two hours suits a student who is keeping up and wants to stay there; four suits one who is behind or preparing for board exams. More than that is usually a sign the problem is not time — it is the subject basics, or the timing of the session. Agree the hours with the tutor after a demo rather than before it, and change them when the result says to.',
         links: [
           { label: 'Request a demo lesson', href: '/browse/tutors' },
-          { label: 'Post a tuition', href: '/parent/dashboard/post-job' },
+          { label: 'Post a tuition', href: POST_TUITION_HREF },
         ],
       },
       {
@@ -333,7 +334,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
         a: 'Fees sheher se ziyada level aur ilaqay par depend karti hai. TutorMint par tutor apni monthly fee khud rakhte hain, aur filter unhein chaar bands mein dikhata hai: Rs 5,000 se kam, Rs 5,000 se 10,000, Rs 10,000 se 20,000, aur Rs 20,000 se ooper. Primary aur Middle ki tuition kam band mein hoti hai; O Level, A Level, Matric science aur test preparation ooper. Apna subject aur ilaqa filter karein aur asli maangi gayi fees dekhein — hum koi average nahi banate. Jo fee aap tutor se tay karte hain, poori unhi ki hai: hum us mein se kuch nahi lete.',
         links: [
           { label: 'Lahore ke tutors', href: '/browse/tutors?city=Lahore' },
-          { label: 'Tuition post karein', href: '/parent/dashboard/post-job' },
+          { label: 'Tuition post karein', href: POST_TUITION_HREF },
         ],
       },
       {
@@ -360,7 +361,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
         a: 'Sirf verified mobile number. Ek code se number verify karein aur foran tuitions post karein, tutors ko message karein aur demo maangein. CNIC aur ghar ka address bhejna ikhtiyari hai: dono approve hone par aap ko hara Verified badge milta hai, jo tutor ko batata hai ke post karne wala ek asli, pehchane jaane wala ghar hai. Browse karne ke liye kuch nahi chahiye.',
         links: [
           { label: 'Mobile verify karein', href: '/parent/dashboard/settings?open=mobile' },
-          { label: 'Tuition post karein', href: '/parent/dashboard/post-job' },
+          { label: 'Tuition post karein', href: POST_TUITION_HREF },
         ],
       },
       {

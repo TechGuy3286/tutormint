@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { checkAdminRole, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
+import { refuseSupervisorMember } from '@/lib/supervisorScope'
 import { recordFollowUp, undoFollowUp } from '@/lib/followUps'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { parseBody, z, uuid } from '@/lib/validate'
@@ -54,6 +55,9 @@ export async function POST(request: Request) {
   if (!roleMayWrite(gate.actor.adminRole, screenFor(b.source))) {
     return NextResponse.json({ error: 'You do not have access to that list.' }, { status: 403 })
   }
+  // A Supervisor changes only their own tuitions and cities (owner, 24 Oct 2026).
+  const scope = await refuseSupervisorMember(gate.actor, b.memberId)
+  if (scope) return scope
   const res = await recordFollowUp({
     memberId: b.memberId,
     channel: b.channel,

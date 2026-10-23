@@ -100,7 +100,7 @@ type Admin = NonNullable<ReturnType<typeof createAdminClient>>
 
 /** Interest events + the paid set + forwards + outcomes: the inputs to the rules. */
 async function loadInputs(admin: Admin) {
-  const [apps, access, reveals] = await Promise.all([
+  const [apps, access, reveals, hiddenRows] = await Promise.all([
     pageAll<{ job_id: string; tutor_id: string; created_at: string; withdrawn_at: string | null }>((from, to) =>
       admin.from('applications').select('job_id, tutor_id, created_at, withdrawn_at').order('id').range(from, to),
     ),
@@ -116,16 +116,21 @@ async function loadInputs(admin: Admin) {
         .order('tutor_id')
         .range(from, to),
     ),
+    // Tuitions hidden with their parent's account (owner, 24 Oct 2026) are
+    // never forwarded: they leave the board and its badge.
+    pageAll<{ id: string }>((from, to) => admin.from('jobs').select('id').eq('status', 'hidden').order('id').range(from, to)),
   ])
+  const hiddenJobs = new Set(hiddenRows.map((h) => h.id))
 
   const applied = new Set<string>()
   const events: InterestEvent[] = []
   for (const a of apps) {
-    if (a.withdrawn_at) continue
+    if (a.withdrawn_at || hiddenJobs.has(a.job_id)) continue
     applied.add(`${a.job_id}:${a.tutor_id}`)
     events.push({ jobId: a.job_id, tutorId: a.tutor_id, kind: 'applied', at: a.created_at })
   }
   for (const v of access) {
+    if (hiddenJobs.has(v.job_id)) continue
     if (applied.has(`${v.job_id}:${v.tutor_id}`)) continue
     events.push({ jobId: v.job_id, tutorId: v.tutor_id, kind: 'viewed', at: v.created_at })
   }

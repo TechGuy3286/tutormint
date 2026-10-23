@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { refuseSupervisorTuitions } from '@/lib/supervisorScope'
 import { messageSeededParent } from '@/lib/adminMessaging'
 
 // WhatsApp a seeded tuition's real parent that their post is live (owner).
@@ -18,6 +19,9 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
 
   const { id } = await params
+  // A Supervisor changes only their own tuitions and cities (owner, 24 Oct 2026).
+  const scope = await refuseSupervisorTuitions(gate.actor, [id])
+  if (scope) return scope
   const result = await messageSeededParent(id, {
     id: gate.actor.id,
     adminRole: gate.actor.adminRole,

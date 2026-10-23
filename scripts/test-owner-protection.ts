@@ -81,7 +81,7 @@ test('every route that changes a member account applies the Owner guard (403)', 
   assert.ok(team.includes('staffChangeProblem(actor.adminRole, target.admin_role as string, null)'))
   const staff = read('lib', 'staff.ts')
   assert.equal(staff.split('staffChangeProblem(params.actor.adminRole').length - 1, 2, 'role change and resend invite')
-  assert.ok(staff.includes("ASSIGNABLE_ROLES: AdminRole[] = ['admin', 'operations', 'tuitions_staff', 'partner']"), 'owner is never assignable')
+  assert.ok(staff.includes("ASSIGNABLE_ROLES: AdminRole[] = ['admin', 'supervisor', 'operations', 'tuitions_staff', 'partner']"), 'owner is never assignable')
   // The moderation helpers already refuse the Owner outright.
   const mod = read('lib', 'moderation.ts')
   assert.ok(mod.includes('The owner account cannot be suspended.'))

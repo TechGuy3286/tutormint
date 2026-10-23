@@ -22,6 +22,7 @@ import { sanitizeOrTerm } from '@/lib/pgFilter'
 import { decodeCursor, encodeCursor } from '@/lib/cursor'
 import { teamParentId } from '@/lib/teamAccount'
 import { formatName } from '@/lib/formatName'
+import { formerStaffName } from '@/lib/formerStaffCore'
 
 export type AdminJobRow = {
   id: string
@@ -220,8 +221,8 @@ export async function adminPosterFacets(): Promise<PosterOption[]> {
   const count = new Map<string, number>()
   for (const r of rows) if (r.posted_by) count.set(r.posted_by, (count.get(r.posted_by) ?? 0) + 1)
   if (count.size === 0) return []
-  const { data } = await admin.from('profiles').select('id, full_name').in('id', [...count.keys()])
-  const name = new Map((data ?? []).map((p) => [p.id as string, formatName(p.full_name as string | null) || 'Former staff']))
+  const { data } = await admin.from('profiles').select('id, full_name, former_staff_at').in('id', [...count.keys()])
+  const name = new Map((data ?? []).map((p) => [p.id as string, formerStaffName(formatName(p.full_name as string | null) || 'Staff', p.former_staff_at as string | null)]))
   return [...count.entries()]
     .map(([id, n]) => ({ id, name: name.get(id) ?? 'Former staff', count: n }))
     .sort((a, b) => a.name.localeCompare(b.name))

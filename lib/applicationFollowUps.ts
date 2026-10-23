@@ -9,6 +9,7 @@
 // carry the recipient TYPE only), and never logged.
 
 import 'server-only'
+import { isHiddenTuition, NO_LONGER_AVAILABLE_STAFF } from '@/lib/hiddenTuitionCore'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { pageAllIn } from '@/lib/pageAll'
@@ -199,13 +200,14 @@ export async function sendStageFollowUp(actor: AdminActor, applicationId: string
   const stage = app.stage
   const recipient = STAGE_RECIPIENT[stage]
   const [{ data: job }, { data: tutor }, { data: tp }, contacts, templates, support] = await Promise.all([
-    admin.from('jobs').select('id, ref_id, title, city').eq('id', app.job_id).maybeSingle(),
+    admin.from('jobs').select('id, ref_id, title, city, status').eq('id', app.job_id).maybeSingle(),
     admin.from('profiles').select('full_name, phone_number, whatsapp').eq('id', app.tutor_id).maybeSingle(),
     admin.from('tutor_profiles').select('slug, city').eq('id', app.tutor_id).maybeSingle(),
     parentContacts(admin, [app.job_id]),
     loadAppTemplates(admin),
     loadSupportWhatsApp(admin),
   ])
+  if (isHiddenTuition(job?.status as string | null)) return { ok: false, status: 400, error: NO_LONGER_AVAILABLE_STAFF }
   const parent = contacts.get(app.job_id)
   const raw = recipient === 'parent' ? (parent?.raw ?? null) : ((tutor?.whatsapp as string | null) || (tutor?.phone_number as string | null))
   if (!normalisePkMobile(raw)) {
@@ -325,11 +327,13 @@ export async function sendTutorUpdate(actor: AdminActor, tutorId: string): Promi
   if (active.length === 0) return { ok: false, status: 400, error: 'This tutor has no applications in progress.' }
   const raw = (person.whatsapp as string | null) || (person.phone_number as string | null)
   if (!normalisePkMobile(raw)) return { ok: false, status: 400, error: 'No tutor number on file.' }
-  const jobs = await pageAllIn<{ id: string; ref_id: string | null; title: string | null; created_at: string }, string>([...new Set(active.map((a) => a.job_id))], (ids, from, to) =>
-    admin.from('jobs').select('id, ref_id, title, created_at').in('id', ids).order('id').range(from, to),
+  const jobs = await pageAllIn<{ id: string; ref_id: string | null; title: string | null; created_at: string; status: string | null }, string>([...new Set(active.map((a) => a.job_id))], (ids, from, to) =>
+    admin.from('jobs').select('id, ref_id, title, created_at, status').in('id', ids).order('id').range(from, to),
   )
   const jobBy = new Map(jobs.map((j) => [j.id, j]))
+  // A tuition hidden with its parent's account is no longer "in progress".
   const items = active
+    .filter((a) => !isHiddenTuition(jobBy.get(a.job_id)?.status))
     .map((a) => ({ a, j: jobBy.get(a.job_id) }))
     .sort((x, y) => (Date.parse(y.j?.created_at ?? '') || 0) - (Date.parse(x.j?.created_at ?? '') || 0))
   const [templates, support, { data: tp }] = await Promise.all([

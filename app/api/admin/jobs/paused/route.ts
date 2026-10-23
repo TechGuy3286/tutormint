@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { refuseSupervisorTuitions } from '@/lib/supervisorScope'
 import { resumeTuitionsAsStaff } from '@/lib/pausedTuitions'
 import { parseBody, z } from '@/lib/validate'
 import { CONTACT_NUMBER_MESSAGE } from '@/lib/tuitionContactCore'
@@ -15,6 +16,9 @@ export async function POST(request: Request) {
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
   const parsed = await parseBody(request, Body)
   if (!parsed.ok) return parsed.response
+  // A Supervisor changes only their own tuitions and cities (owner, 24 Oct 2026).
+  const scope = await refuseSupervisorTuitions(gate.actor, parsed.data.ids)
+  if (scope) return scope
   const { resumed, skipped, needNumber } = await resumeTuitionsAsStaff(gate.actor, parsed.data.ids)
   // A tuition with no parent contact number is never resumed (owner, 12 Oct 2026).
   if (resumed.length === 0 && needNumber.length > 0) {

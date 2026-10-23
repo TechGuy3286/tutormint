@@ -2,6 +2,7 @@ import Link from 'next/link'
 
 import { formatDate } from '@/lib/datetime'
 import { TUTOR_STAGE_TEXT, type Stage } from '@/lib/applicationStageCore'
+import { NO_LONGER_AVAILABLE_TUTOR } from '@/lib/hiddenTuitionCore'
 
 // The tutor's own applications on their dashboard (owner, 22 Oct 2026): one
 // card per application — the tuition, its city, when they applied and where
@@ -14,6 +15,8 @@ export type MyApplicationCard = {
   city: string | null
   appliedAt: string
   stage: Stage
+  /** Hidden with its parent's account: "This tuition is no longer available". */
+  unavailable?: boolean
   path: string | null
 }
 
@@ -52,7 +55,11 @@ export default function MyApplicationsSection({ cards, hired }: { cards: MyAppli
             <p className="text-[11px] text-gray-600">
               {c.city ? `${c.city} · ` : ''}Applied {formatDate(c.appliedAt)}
             </p>
-            <p className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${TONE[c.stage]}`}>{TUTOR_STAGE_TEXT[c.stage]}</p>
+            {c.unavailable ? (
+              <p className="inline-flex rounded-full bg-tm-bg px-2 py-0.5 text-[11px] font-bold text-slate-700">{NO_LONGER_AVAILABLE_TUTOR}</p>
+            ) : (
+              <p className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${TONE[c.stage]}`}>{TUTOR_STAGE_TEXT[c.stage]}</p>
+            )}
           </li>
         ))}
       </ul>

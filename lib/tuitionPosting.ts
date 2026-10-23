@@ -21,7 +21,7 @@ import {
 } from '@/lib/tuitionPostingCore'
 
 /** Roles whose members post tuitions; all of them appear even with zero. */
-const POSTING_ROLES = new Set(['tuitions_staff', 'operations'])
+const POSTING_ROLES = new Set(['tuitions_staff', 'operations', 'supervisor'])
 
 export async function loadTuitionPosting(nowMs = Date.now()): Promise<{ rows: PostingRow[]; total: PostingRow }> {
   const empty = { rows: [], total: totalRow([]) }

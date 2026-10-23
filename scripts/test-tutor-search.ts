@@ -102,7 +102,7 @@ test('zero results never end the page: closest tutors, a free request, and Notif
   assert.equal(page.split('<NotifyMe').length - 1, 2, 'in both zero-result states')
   assert.ok(!/>\s*Not found\s*</.test(page), 'never a bare "Not found"')
   // The request button carries what was searched.
-  assert.ok(page.includes('/parent/dashboard/post-job${city || area'))
+  assert.ok(page.includes('postTuitionHref({ city, area })'))
   // The opt-in renders, and is not pre-ticked.
   const html = renderToStaticMarkup(createElement(NotifyMe, { q: 'astronomy', city: 'Gilgit' }))
   assert.ok(html.includes('Notify me when a matching tutor joins'))

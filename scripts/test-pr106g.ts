@@ -43,8 +43,8 @@ test('sign-in page: no explanation text, outlined Create-account button, exactly
 
 test('signup page: two radios nothing preselected, no helper text, one consent line, outlined Sign in, no WhatsApp', () => {
   const s = read('app/(site)/register/RegisterForm.tsx')
-  assert.match(s, /useState<Role \| null>\(null\)/, 'nothing preselected')
-  assert.match(s, /disabled=\{loading \|\| !acceptedTerms \|\| !role\}/, 'Create disabled until a role is chosen')
+  assert.match(s, /useState<Role \| null>\(initialRole\)/, 'starts on the server-decided role (24 Oct 2026)')
+  assert.match(s, /disabled=\{loading \|\| !ready\}/, 'Create disabled until a role is chosen')
   assert.ok(!/Signing up as a/.test(s), 'the PR106-F collapse line is gone')
   assert.ok(!/Free to join/.test(s), 'the "Free to join" helper removed')
   assert.ok(!/Use a mobile number or an email/.test(s), 'the identifier helper removed')

@@ -23,6 +23,8 @@ import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import type { AdminActor } from '@/lib/adminAuth'
 import { formatName } from '@/lib/formatName'
+import { formerStaffName } from '@/lib/formerStaffCore'
+import { isHiddenTuition, NO_LONGER_AVAILABLE_STAFF } from '@/lib/hiddenTuitionCore'
 import { maskMobile } from '@/lib/smsHealthCore'
 import { tuitionPath } from '@/lib/slugs'
 import { maskTuitionText } from '@/lib/maskTuition'
@@ -93,12 +95,15 @@ async function loadCounted(admin: Admin, jobIds?: string[]) {
   const countedJobs = [...new Set(counted.map((a) => a.job_id))]
   const [owners, posted] = await Promise.all([
     loadOwners(admin, countedJobs),
-    pageAllIn<{ id: string; created_at: string }, string>(countedJobs, (ids, from, to) =>
-      admin.from('jobs').select('id, created_at').in('id', ids).order('id').range(from, to),
+    pageAllIn<{ id: string; created_at: string; status: string | null }, string>(countedJobs, (ids, from, to) =>
+      admin.from('jobs').select('id, created_at, status').in('id', ids).order('id').range(from, to),
     ),
   ])
   const jobCreated = new Map(posted.map((j) => [j.id, j.created_at]))
-  return { counted, owners, jobCreated }
+  // A tuition hidden because its parent is hidden, test, suspended or banned
+  // (owner, 24 Oct 2026): its applications stay, marked no longer available.
+  const hiddenJobs = new Set(posted.filter((j) => isHiddenTuition(j.status)).map((j) => j.id))
+  return { counted, owners, jobCreated, hiddenJobs }
 }
 
 async function loadOwners(admin: Admin, jobIds: string[]): Promise<Map<string, string | null>> {
@@ -108,7 +113,7 @@ async function loadOwners(admin: Admin, jobIds: string[]): Promise<Map<string, s
   return new Map(rows.map((r) => [r.job_id, r.staff_id]))
 }
 
-const toItem = (a: AppRow, owners: Map<string, string | null>, jobCreated: Map<string, string>): BoardItem => ({
+const toItem = (a: AppRow, owners: Map<string, string | null>, jobCreated: Map<string, string>, hiddenJobs?: Set<string>): BoardItem => ({
   id: a.id,
   stage: a.stage,
   stageChangedAt: a.stage_changed_at,
@@ -116,20 +121,39 @@ const toItem = (a: AppRow, owners: Map<string, string | null>, jobCreated: Map<s
   createdAt: a.created_at,
   workedAt: a.worked_at,
   jobCreatedAt: jobCreated.get(a.job_id) ?? null,
+  unavailable: hiddenJobs?.has(a.job_id) ?? false,
 })
+
+/** Overdue To do applications (not Older, not hidden) per tuition owner — the
+ *  Team overview card (owner, 24 Oct 2026). The same rule as the badge. */
+export async function overdueApplicationsByOwner(): Promise<Map<string, number>> {
+  const out = new Map<string, number>()
+  const admin = createAdminClient()
+  if (!admin) return out
+  const { counted, owners, jobCreated, hiddenJobs } = await loadCounted(admin)
+  const fus = await loadFollowUps(admin, counted.map((a) => a.id))
+  const now = Date.now()
+  for (const a of counted) {
+    const item = toItem(a, owners, jobCreated, hiddenJobs)
+    const due = dueState(item, fus.get(a.id) ?? [], now)
+    if (due.tab !== 'todo' || due.older || !due.overdue || !item.ownerId) continue
+    out.set(item.ownerId, (out.get(item.ownerId) ?? 0) + 1)
+  }
+  return out
+}
 
 /** The Follow-ups red badge for this staff member. Tolerant — 0 on any failure. */
 export const overdueApplicationsCount = cache(async (actor: AdminActor): Promise<number> => {
   const admin = createAdminClient()
   if (!admin) return 0
   try {
-    const { counted, owners, jobCreated } = await loadCounted(admin)
+    const { counted, owners, jobCreated, hiddenJobs } = await loadCounted(admin)
     // Applications v3 (owner, 22 Oct 2026): overdue To do items only.
     const fus = await loadFollowUps(admin, counted.map((a) => a.id))
     const now = Date.now()
     return todoBadgeCount(
       counted.map((a) => {
-        const item = toItem(a, owners, jobCreated)
+        const item = toItem(a, owners, jobCreated, hiddenJobs)
         return { ...item, due: dueState(item, fus.get(a.id) ?? [], now) }
       }),
       actor,
@@ -175,7 +199,7 @@ export type ApplicationBoard = {
 export async function loadApplicationBoard(): Promise<ApplicationBoard> {
   const admin = createAdminClient()
   if (!admin) return { rows: [], staff: [], ownerNames: {} }
-  const { counted, owners, jobCreated } = await loadCounted(admin)
+  const { counted, owners, jobCreated, hiddenJobs } = await loadCounted(admin)
   const tutorIds = [...new Set(counted.map((a) => a.tutor_id))]
   const jobIds = [...new Set(counted.map((a) => a.job_id))]
 
@@ -202,10 +226,10 @@ export async function loadApplicationBoard(): Promise<ApplicationBoard> {
   // An owner who is no longer on the team still shows by name.
   const missingOwners = [...new Set([...owners.values()].filter((v): v is string => !!v && !staffName.has(v)))]
   if (missingOwners.length) {
-    const extra = await pageAllIn<{ id: string; full_name: string | null }, string>(missingOwners, (ids, from, to) =>
-      admin.from('profiles').select('id, full_name').in('id', ids).order('id').range(from, to),
+    const extra = await pageAllIn<{ id: string; full_name: string | null; former_staff_at: string | null }, string>(missingOwners, (ids, from, to) =>
+      admin.from('profiles').select('id, full_name, former_staff_at').in('id', ids).order('id').range(from, to),
     )
-    for (const p of extra) staffName.set(p.id, formatName(p.full_name) || 'Former staff')
+    for (const p of extra) staffName.set(p.id, formerStaffName(formatName(p.full_name) || 'Staff', p.former_staff_at ?? 'former'))
   }
 
   const rows: BoardRow[] = counted.map((a) => {
@@ -214,7 +238,7 @@ export async function loadApplicationBoard(): Promise<ApplicationBoard> {
     const owner = owners.get(a.job_id) ?? null
     const phone = p?.whatsapp || p?.phone_number || null
     return {
-      ...toItem(a, owners, jobCreated),
+      ...toItem(a, owners, jobCreated, hiddenJobs),
       jobId: a.job_id,
       tutorId: a.tutor_id,
       tutorName: formatName(p?.full_name) || 'Tutor',
@@ -339,6 +363,8 @@ export async function changeStage(args: { actor: AdminActor; applicationId: stri
   if (!app) return { ok: false, status: 404, error: 'That application was not found. Reload the page.' }
   const row = app as AppRow
   if (row.withdrawn_at) return { ok: false, status: 400, error: 'The tutor withdrew this application.' }
+  const { data: jobRow } = await admin.from('jobs').select('status').eq('id', row.job_id).maybeSingle()
+  if (isHiddenTuition(jobRow?.status as string | null)) return { ok: false, status: 400, error: NO_LONGER_AVAILABLE_STAFF }
   const owners = await loadOwners(admin, [row.job_id])
   const ownerId = owners.get(row.job_id) ?? null
   if (!mayEditStage(args.actor, ownerId)) {
@@ -556,6 +582,8 @@ export type TutorApplicationCard = {
   city: string | null
   appliedAt: string
   stage: Stage
+  /** The tuition was hidden with its parent's account (owner, 24 Oct 2026). */
+  unavailable: boolean
   path: string | null
 }
 
@@ -571,9 +599,9 @@ export async function tutorApplicationCards(tutorId: string): Promise<TutorAppli
     .order('created_at', { ascending: false })
   const list = (apps ?? []).filter((a) => a.job_id)
   if (list.length === 0) return []
-  const jobs = await pageAllIn<{ id: string; title: string | null; city: string | null; public_slug: string | null; job_tx_id: string | null }, string>(
+  const jobs = await pageAllIn<{ id: string; title: string | null; city: string | null; public_slug: string | null; job_tx_id: string | null; status: string | null }, string>(
     [...new Set(list.map((a) => a.job_id as string))],
-    (ids, from, to) => admin.from('jobs').select('id, title, city, public_slug, job_tx_id').in('id', ids).order('id').range(from, to),
+    (ids, from, to) => admin.from('jobs').select('id, title, city, public_slug, job_tx_id, status').in('id', ids).order('id').range(from, to),
   )
   const jobBy = new Map(jobs.map((j) => [j.id, j]))
   return list.map((a) => {
@@ -585,7 +613,10 @@ export async function tutorApplicationCards(tutorId: string): Promise<TutorAppli
       city: j?.city ?? null,
       appliedAt: a.created_at as string,
       stage: ((a.stage as Stage) ?? 'applied') as Stage,
-      path: j ? tuitionPath({ public_slug: j.public_slug, city: j.city, job_tx_id: j.job_tx_id, id: j.id }) : null,
+      // A tuition hidden with its parent's account (owner, 24 Oct 2026): the
+      // dashboard says it is no longer available, and links nowhere.
+      unavailable: isHiddenTuition(j?.status),
+      path: j && !isHiddenTuition(j.status) ? tuitionPath({ public_slug: j.public_slug, city: j.city, job_tx_id: j.job_tx_id, id: j.id }) : null,
     }
   })
 }

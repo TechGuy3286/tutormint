@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, SCREEN_ACCESS, seesAllStaffLists } from '@/lib/adminAuth'
 import { formatDate } from '@/lib/datetime'
 import { loadPaidTutors } from '@/lib/paidTutors'
 import {
@@ -29,7 +29,7 @@ export default async function PaidTutorsPage({ searchParams }: { searchParams: P
   const actor = await requireAdminRole(...SCREEN_ACCESS.paidTutors)
   const sp = await searchParams
   const show = parsePaidFilter(sp.show)
-  const staff = sp.staff ?? (actor.adminRole === 'owner' || actor.adminRole === 'partner' ? 'all' : actor.id)
+  const staff = sp.staff ?? (seesAllStaffLists(actor.adminRole) ? 'all' : actor.id)
   const q = (sp.q ?? '').trim()
   const { rows: all, staff: owners } = await loadPaidTutors()
   const scoped = all.filter((r) => matchesStaff(r, staff) && matchesSearch(r, q))

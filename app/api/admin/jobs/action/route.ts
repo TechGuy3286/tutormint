@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/errorResponse'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { refuseSupervisorTuitions } from '@/lib/supervisorScope'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
 import { notify } from '@/lib/notifications'
@@ -52,6 +53,9 @@ export async function POST(request: Request) {
   const parsed = await parseBody(request, ActionBody)
   if (!parsed.ok) return parsed.response
   const { jobId, action } = parsed.data
+  // A Supervisor changes only their own tuitions and cities (owner, 24 Oct 2026).
+  const scope = await refuseSupervisorTuitions(gate.actor, [jobId])
+  if (scope) return scope
   const reason = (parsed.data.reason ?? '').trim()
 
   // Refresh (owner, 6 Oct 2026, item 16): same URL, top of Browse, fresh 20 days,

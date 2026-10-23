@@ -18,6 +18,7 @@ function Row({ r, total = false }: { r: SourceRow; total?: boolean }) {
       <td className={NUM}>{r.link}</td>
       <td className={NUM}>{r.code}</td>
       <td className={NUM}>{r.claim}</td>
+      <td className={NUM}>{r.direct}</td>
       <td className={`${NUM} font-bold`}>{r.total}</td>
       <td className={NUM}>{r.paid7}</td>
       <td className={NUM}>{r.paid30}</td>
@@ -33,17 +34,18 @@ export default async function SourceTable({ actor }: { actor: AdminActor }) {
     <details className="rounded-2xl border border-gray-200 bg-white p-4">
       <summary className="cursor-pointer text-sm font-black text-tm-navy">Sign-ups by source</summary>
       <p className="mt-1 text-xs text-gray-600">
-        All sign-ups credited to each person, by how they were credited. Tutors paid is counted on the day the
-        Verification Fee was approved.
+        All sign-ups credited to each person, by how they were credited. A sign-up with no valid staff link is
+        credited to Admin (Direct). Tutors paid is counted on the day the Verification Fee was approved.
       </p>
       <div className="mt-3 overflow-x-auto">
-        <table className="w-full min-w-[560px] text-xs">
+        <table className="w-full min-w-[640px] text-xs">
           <thead>
             <tr className="text-gray-600">
               <th scope="col" className="px-2 py-1 text-left font-bold">Staff</th>
               <th scope="col" className="px-2 py-1 text-right font-bold">Link</th>
               <th scope="col" className="px-2 py-1 text-right font-bold">Code</th>
               <th scope="col" className="px-2 py-1 text-right font-bold">Claim</th>
+              <th scope="col" className="px-2 py-1 text-right font-bold">Direct (Admin)</th>
               <th scope="col" className="px-2 py-1 text-right font-bold">All sources</th>
               <th scope="col" className="px-2 py-1 text-right font-bold">Tutors paid · 7 days</th>
               <th scope="col" className="px-2 py-1 text-right font-bold">30 days</th>

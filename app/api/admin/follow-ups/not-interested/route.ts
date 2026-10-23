@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { checkAdminRole, roleMayWrite, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { refuseSupervisorMember } from '@/lib/supervisorScope'
 import { markNotInterested, undoNotInterested } from '@/lib/followUpDismissals'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { parseBody, uuid, z } from '@/lib/validate'
@@ -35,6 +36,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'You do not have access to that list.' }, { status: 403 })
   }
 
+  // A Supervisor changes only their own tuitions and cities (owner, 24 Oct 2026).
+  const scope = await refuseSupervisorMember(gate.actor, b.memberId)
+  if (scope) return scope
   const res = b.undo ? await undoNotInterested(b.memberId, gate.actor) : await markNotInterested(b.memberId, b.note ?? null, gate.actor)
   if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status })
   return NextResponse.json({ success: true })

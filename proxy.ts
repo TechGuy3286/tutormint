@@ -27,6 +27,7 @@ import { NEW_VISITOR_HEADER } from '@/lib/searchCountCore'
 import { ANON_ID_HEADER } from '@/lib/searchBeaconCore'
 import { areaHubRedirectPath } from '@/lib/areaHubRedirect'
 import { convertedTutorRedirectPath } from '@/lib/convertedTutorRedirect'
+import { hiddenTuitionRedirectPath } from '@/lib/hiddenTuitionRedirect'
 
 // /pay/* is the checkout journey (gateway hand-off, transfer instructions,
 // return screen). Every page under it reads the signed-in member's own
@@ -214,6 +215,19 @@ export async function proxy(request: NextRequest) {
     if (moved) {
       const target = request.nextUrl.clone()
       target.pathname = moved
+      return NextResponse.redirect(target, 301)
+    }
+  }
+
+  // A tuition hidden because its parent account was hidden, marked test,
+  // suspended or banned (owner, 24 Oct 2026): a 301 to the city's public
+  // tuition page. The list is held in memory for a minute (lib/hiddenTuitionRedirect).
+  if (request.nextUrl.pathname.startsWith('/tuitions/')) {
+    const moved = await hiddenTuitionRedirectPath(request.nextUrl.pathname)
+    if (moved) {
+      const target = request.nextUrl.clone()
+      target.pathname = moved
+      target.search = ''
       return NextResponse.redirect(target, 301)
     }
   }

@@ -1,4 +1,5 @@
 import { Briefcase } from 'lucide-react'
+import { isHiddenTuition, NO_LONGER_AVAILABLE_TUTOR } from '@/lib/hiddenTuitionCore'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
 
@@ -109,7 +110,9 @@ export default async function TutorApplicationsPage() {
               const job = jobs.get(a.job_id as string)
               const st = a.withdrawn_at
                 ? { label: 'Withdrawn', className: 'bg-tm-bg text-gray-500' }
-                : (STATUS[a.status as string] ?? {
+                : isHiddenTuition(job?.status)
+                  ? { label: NO_LONGER_AVAILABLE_TUTOR, className: 'bg-tm-bg text-slate-700' }
+                  : (STATUS[a.status as string] ?? {
                     label: a.status as string,
                     className: 'bg-tm-bg text-gray-500',
                   })

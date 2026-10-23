@@ -33,7 +33,7 @@ export const CLAIM_WINDOW_MS = CLAIM_WINDOW_DAYS * 86_400_000
 
 /** Roles that take part (owner, 15 Oct 2026). The Owner and the Project
  *  Managers manage the board; they do not carry a join link. */
-export const PARTICIPANT_ROLES = ['tuitions_staff', 'operations', 'admin'] as const
+export const PARTICIPANT_ROLES = ['tuitions_staff', 'operations', 'supervisor', 'admin'] as const
 
 export function isParticipantRole(role: string | null | undefined): boolean {
   return !!role && (PARTICIPANT_ROLES as readonly string[]).includes(role)
@@ -229,8 +229,9 @@ export type CreditedAccount = {
   name: string
   mobile: string | null
   at: Partial<Record<Step, string | null>>
-  /** How the credit was given (link, the old code box, or an approved claim). */
-  source?: 'link' | 'code' | 'claim'
+  /** How the credit was given (link, the old code box, an approved claim, or
+   *  'direct' — no valid staff link, credited to Admin). */
+  source?: 'link' | 'code' | 'claim' | 'direct'
 }
 
 /** The furthest step reached, in words. */
@@ -507,7 +508,19 @@ export function myLinkCounts(accounts: CreditedAccount[], staffId: string, nowMs
   return { last7: count(7), last30: count(30) }
 }
 
-export type CreditSource = 'link' | 'code' | 'claim'
+export type CreditSource = 'link' | 'code' | 'claim' | 'direct'
+
+/** The staffId of sign-ups credited to Admin (no valid staff link). */
+export const ADMIN_STAFF_ID = 'admin'
+export const ADMIN_DIRECT_NAME = 'Admin (direct)'
+
+/**
+ * Claiming a sign-up that came without a link is closed (owner, 24 Oct 2026):
+ * such a sign-up is credited to Admin. Claims already made stay in Claims to
+ * review unchanged.
+ */
+export const CLAIMS_OPEN = false
+export const CLAIMS_CLOSED = 'Claims are closed. A sign-up without a staff link is credited to Admin.'
 
 export type SourceRow = {
   staffId: string
@@ -515,6 +528,8 @@ export type SourceRow = {
   link: number
   code: number
   claim: number
+  /** Sign-ups with no valid staff link, credited to Admin (the Admin row only). */
+  direct: number
   total: number
   paid7: number
   paid30: number
@@ -533,6 +548,7 @@ export function sourceRow(staffId: string, name: string, accounts: CreditedAccou
     link: by('link'),
     code: by('code'),
     claim: by('claim'),
+    direct: by('direct'),
     total: mine.length,
     paid7: paid(lastDaysRange(7, nowMs)),
     paid30: paid(lastDaysRange(30, nowMs)),

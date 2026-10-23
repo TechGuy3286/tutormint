@@ -44,6 +44,7 @@ import { resolveSmartQuery } from '@/lib/smartSearch'
 import { TEAM_DISPLAY_NAME } from '@/lib/teamAccount'
 import type { JobCardData } from '@/components/JobCard'
 import { formatName } from '@/lib/formatName'
+import { parentCardResolves } from '@/lib/hiddenTuitionCore'
 
 type ParentFacts = {
   name: string | null
@@ -61,6 +62,9 @@ type ParentFacts = {
   /** PR92: the parent has a non-synthetic email (a rough teaser signal — the
    *  reveal does the authoritative confirmed-email check). */
   hasContactEmail: boolean
+  /** The parent's public card (/parent/[id]) renders — links are drawn only
+   *  then (lib/hiddenTuitionCore parentCardResolves). */
+  publicCard: boolean
 }
 
 async function parentFacts(ids: string[]): Promise<Map<string, ParentFacts>> {
@@ -73,7 +77,7 @@ async function parentFacts(ids: string[]): Promise<Map<string, ParentFacts>> {
   const [{ data: profiles }, { data: subs }, { data: plans }] = await Promise.all([
     admin
       .from('profiles')
-      .select('id, full_name, avatar_url, profile_completion, cnic_verified_at, address_verified_at, is_team_account, is_seed, phone_number, phone_verified_at, email')
+      .select('id, full_name, avatar_url, profile_completion, cnic_verified_at, address_verified_at, is_team_account, is_seed, phone_number, phone_verified_at, email, role, is_suspended, is_banned, hidden_from_public')
       .in('id', ids),
     admin
       .from('subscriptions')
@@ -127,6 +131,7 @@ async function parentFacts(ids: string[]): Promise<Map<string, ParentFacts>> {
           : null,
       hasContactEmail:
         !team && !!(p.email as string | null) && !(p.email as string).endsWith('@users.tutormint.org'),
+      publicCard: parentCardResolves(p as Parameters<typeof parentCardResolves>[0]),
     })
   }
 
@@ -377,6 +382,7 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       parent_badges: f?.badges ?? [],
       parent_can_hire: f?.canHire ?? false,
       posted_by_team: f?.team ?? false,
+      parent_public: f?.publicCard ?? false,
       poster_is_seed: f?.isSeed ?? false,
       gender_preference: (j.gender_preference as string | null) ?? null,
       // PR73 §A: the schedule as the short slot line (timings holds it after sync).

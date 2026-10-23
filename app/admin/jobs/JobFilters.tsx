@@ -85,6 +85,7 @@ export default function JobFilters({
             <option value="">Any status</option>
             <option value="open">Open</option>
             <option value="paused">Paused</option>
+            <option value="hidden">Hidden (parent account hidden)</option>
             <option value="hired">Hired</option>
             <option value="closed">Closed</option>
           </select>

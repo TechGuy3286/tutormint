@@ -6,6 +6,7 @@
 // SCREEN_ACCESS.paidTutors first. Never returns a phone number, CNIC or email.
 
 import 'server-only'
+import { isHiddenTuition } from '@/lib/hiddenTuitionCore'
 
 import { cache } from 'react'
 
@@ -51,8 +52,9 @@ export const loadPaidTutors = cache(async (): Promise<PaidTutorsData> => {
   const tpBy = new Map(tps.map((t) => [t.id as string, t]))
   const liveApps = apps.filter((a) => !a.withdrawn_at && a.job_id)
   const jobIds = [...new Set(liveApps.map((a) => a.job_id as string))]
-  const jobs = await pageAllIn(jobIds, (part, f, t) => admin.from('jobs').select('id, created_at').in('id', part).order('id').range(f, t))
+  const jobs = await pageAllIn(jobIds, (part, f, t) => admin.from('jobs').select('id, created_at, status').in('id', part).order('id').range(f, t))
   const jobCreated = new Map(jobs.map((j) => [j.id as string, j.created_at as string]))
+  const hiddenJobs = new Set(jobs.filter((j) => isHiddenTuition(j.status as string | null)).map((j) => j.id as string))
   const forwardedPairs = new Set<string>()
   for (const fw of forwards) for (const tid of (fw.tutor_ids as string[] | null) ?? []) forwardedPairs.add(`${fw.job_id}|${tid}`)
 
@@ -79,6 +81,7 @@ export const loadPaidTutors = cache(async (): Promise<PaidTutorsData> => {
         stageChangedAt: (a.stage_changed_at as string | null) ?? null,
         jobCreatedAt: jobCreated.get(a.job_id as string) ?? null,
         forwarded: forwardedPairs.has(`${a.job_id}|${tid}`),
+        unavailable: hiddenJobs.has(a.job_id as string),
       },
     ])
   }

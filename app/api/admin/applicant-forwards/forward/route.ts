@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { refuseSupervisorTuitions } from '@/lib/supervisorScope'
 import { recordForward } from '@/lib/applicantForwards'
 import { parseBody, z, uuid } from '@/lib/validate'
 
@@ -24,6 +25,9 @@ export async function POST(request: Request) {
   const parsed = await parseBody(request, Body)
   if (!parsed.ok) return parsed.response
 
+  // A Supervisor changes only their own tuitions and cities (owner, 24 Oct 2026).
+  const scope = await refuseSupervisorTuitions(gate.actor, [parsed.data.jobId])
+  if (scope) return scope
   const result = await recordForward({ actor: gate.actor, ...parsed.data })
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
   return NextResponse.json({ success: true })

@@ -58,7 +58,8 @@ import {
 } from '@/lib/staffSignupsCore'
 import { accountsInRange, allUnpaid, inProgressIn, isInProgressStepFor, statusIn, type Range, type StaffStatus } from '@/lib/staffSignupsCore'
 import { firstPaidAt, type PaymentFacts } from '@/lib/staffTargetsCore'
-import { myLinkCounts, sourceRow, type MyLinkCounts, type SourceRow } from '@/lib/staffSignupsCore'
+import { ADMIN_DIRECT_NAME, ADMIN_STAFF_ID, CLAIMS_CLOSED, CLAIMS_OPEN, myLinkCounts, sourceRow, type MyLinkCounts, type SourceRow } from '@/lib/staffSignupsCore'
+import { formerStaffName } from '@/lib/formerStaffCore'
 import { notify } from '@/lib/notifications'
 import { MY_SIGNUPS_PATH, newSignupNoticeTitle } from '@/lib/mySignupsCore'
 
@@ -143,8 +144,10 @@ export async function joinLinkFor(staffId: string): Promise<JoinLink | null> {
 
 /** The ACTIVE participant a slug or code belongs to, or null. */
 async function activeParticipantBy(admin: Admin, field: 'slug' | 'code', value: string): Promise<string | null> {
-  const { data: link } = await admin.from('staff_join_links').select('staff_id').eq(field, value).maybeSingle()
-  if (!link) return null
+  const { data: link } = await admin.from('staff_join_links').select('staff_id, deactivated_at').eq(field, value).maybeSingle()
+  // A former staff member's link still opens the site, but credits nobody
+  // (the sign-up is credited to Admin) — owner, 24 Oct 2026.
+  if (!link || link.deactivated_at) return null
   const { data: p } = await admin
     .from('profiles')
     .select('role, admin_role, is_suspended')
@@ -294,21 +297,22 @@ export async function creditNewAccount(
   memberId: string,
   visitId: string | null | undefined,
   nowMs = Date.now(),
-): Promise<{ credited: boolean; reason?: string }> {
+): Promise<{ credited: boolean; reason?: string; direct?: boolean }> {
   try {
     const admin = createAdminClient()
     if (!admin) return { credited: false, reason: 'no_admin' }
     const visit = await loadVisit(admin, visitId)
-    if (!visit || !visitValid(visit, nowMs)) return { credited: false, reason: 'no_credit' }
+    if (!visit || !visitValid(visit, nowMs)) return creditDirect(admin, memberId, 'no_credit')
     const staff = await loadStaff(admin)
     const referrer = staff.find((s) => s.id === visit.staffId)
-    if (!referrer || !isActiveParticipant({ adminRole: referrer.admin_role, suspended: referrer.is_suspended })) {
-      return { credited: false, reason: 'staff_inactive' }
+    const { data: link } = await admin.from('staff_join_links').select('deactivated_at').eq('staff_id', visit.staffId).maybeSingle()
+    if (!referrer || link?.deactivated_at || !isActiveParticipant({ adminRole: referrer.admin_role, suspended: referrer.is_suspended })) {
+      return creditDirect(admin, memberId, 'staff_inactive')
     }
     const facts = await accountFacts(admin, memberId)
     if (!facts) return { credited: false, reason: 'not_member' }
     const refusal = linkCreditRefusal(facts, visit, contactsOf(staff))
-    if (refusal) return { credited: false, reason: refusal }
+    if (refusal) return creditDirect(admin, memberId, refusal)
     const source = await visitSource(admin, visit.id)
     const { data: inserted } = await admin
       .from('staff_signup_credits')
@@ -343,6 +347,29 @@ export async function creditNewAccount(
   } catch (e) {
     console.error('[staff-signups] credit failed:', e instanceof Error ? e.message : e)
     return { credited: false, reason: 'error' }
+  }
+}
+
+/**
+ * A sign-up with no valid, unexpired staff link (owner, 24 Oct 2026): credited
+ * to Admin — a 'direct' row with no staff id. Never for a staff, test, seed or
+ * team account, and never over an existing credit. Silent; returns why the
+ * staff credit was not given.
+ */
+async function creditDirect(admin: Admin, memberId: string, reason: string): Promise<{ credited: false; reason: string; direct: boolean }> {
+  try {
+    const facts = await accountFacts(admin, memberId)
+    if (!facts || facts.isTest || facts.alreadyCredited || (facts.role !== 'tutor' && facts.role !== 'parent')) {
+      return { credited: false, reason, direct: false }
+    }
+    const { data } = await admin
+      .from('staff_signup_credits')
+      .upsert({ member_id: memberId, staff_id: null, member_role: facts.role, source: 'direct' }, { onConflict: 'member_id', ignoreDuplicates: true })
+      .select('member_id')
+    return { credited: false, reason, direct: (data ?? []).length > 0 }
+  } catch (e) {
+    console.error('[staff-signups] direct credit failed:', e instanceof Error ? e.message : e)
+    return { credited: false, reason, direct: false }
   }
 }
 
@@ -395,6 +422,8 @@ export async function submitClaim(
   note: string,
   nowMs = Date.now(),
 ): Promise<{ ok: true; claimId: string } | { ok: false; status: number; error: string }> {
+  // New claims are closed (owner, 24 Oct 2026).
+  if (!CLAIMS_OPEN) return { ok: false, status: 410, error: CLAIMS_CLOSED }
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes.' }
   const staff = await loadStaff(admin)
@@ -548,6 +577,34 @@ export async function loadCreditedAccounts(): Promise<CreditedAccount[]> {
   const credits = await pageAll((from, to) =>
     admin.from('staff_signup_credits').select('member_id, staff_id, member_role, source').order('member_id').range(from, to),
   )
+  // A 'direct' credit (no valid staff link — credited to Admin, owner 24 Oct
+  // 2026) belongs to no staff member: it is counted by loadAdminDirectAccounts.
+  return buildAccounts(admin, credits.filter((c) => !!c.staff_id && c.source !== 'direct'))
+}
+
+/**
+ * Sign-ups credited to Admin (owner, 24 Oct 2026): every tutor and parent
+ * account with no staff credit — a 'direct' credit written since then, or an
+ * older sign-up that was never credited (its record is not rewritten). Same
+ * milestones as a staff credit; staffId is ADMIN_STAFF_ID. Staff, test, seed,
+ * team and hidden accounts are left out (the countable rule).
+ */
+export async function loadAdminDirectAccounts(): Promise<CreditedAccount[]> {
+  const admin = createAdminClient()
+  if (!admin) return []
+  const [members, credits] = await Promise.all([
+    pageAll((from, to) => admin.from('profiles').select('id, role').in('role', ['tutor', 'parent']).order('id').range(from, to)),
+    pageAll((from, to) => admin.from('staff_signup_credits').select('member_id, staff_id, source').order('member_id').range(from, to)),
+  ])
+  const toStaff = new Set(credits.filter((c) => !!c.staff_id && c.source !== 'direct').map((c) => c.member_id as string))
+  const rows = members
+    .filter((m) => !toStaff.has(m.id as string))
+    .map((m) => ({ member_id: m.id, staff_id: ADMIN_STAFF_ID, member_role: m.role, source: 'direct' }))
+  const out = await excludedMemberIds(admin, rows.map((r) => r.member_id as string))
+  return buildAccounts(admin, rows.filter((r) => !out.has(r.member_id as string)))
+}
+
+async function buildAccounts(admin: Admin, credits: Record<string, unknown>[]): Promise<CreditedAccount[]> {
   if (credits.length === 0) return []
   const ids = credits.map((c) => c.member_id as string)
   const [profiles, tutors, payments, jobs] = await Promise.all([
@@ -776,16 +833,26 @@ export async function loadSourceTable(viewer: { id: string; adminRole: string | 
   const admin = createAdminClient()
   if (!admin) return { rows: [], total: null }
   const everyone = seesEveryone(viewer.adminRole)
-  const [staff, accounts] = await Promise.all([loadStaff(admin), countableCreditedAccounts()])
+  const [staff, accounts, direct] = await Promise.all([loadStaff(admin), countableCreditedAccounts(), everyone ? loadAdminDirectAccounts() : Promise.resolve([])])
   const credited = new Set(accounts.map((a) => a.staffId))
   const rows: SourceRow[] = []
+  const seen = new Set<string>()
   for (const s of staff) {
     if (!everyone && s.id !== viewer.id) continue
     const active = isActiveParticipant({ adminRole: s.admin_role, suspended: s.is_suspended })
     if (!active && !credited.has(s.id)) continue
+    seen.add(s.id)
     rows.push(sourceRow(s.id, formatName(s.full_name ?? '') || '—', accounts, nowMs))
   }
+  // Former staff keep their past credits, labelled (owner, 24 Oct 2026).
+  const gone = [...credited].filter((id) => !seen.has(id) && (everyone || id === viewer.id))
+  if (gone.length) {
+    const { data } = await admin.from('profiles').select('id, full_name').in('id', gone)
+    for (const g of data ?? []) rows.push(sourceRow(g.id as string, formerStaffName(formatName((g.full_name as string | null) ?? '') || 'Staff', 'former'), accounts, nowMs))
+  }
   rows.sort((a, b) => b.paidAll - a.paidAll || b.total - a.total || a.name.localeCompare(b.name))
-  const visible = everyone ? accounts : accounts.filter((a) => a.staffId === viewer.id)
-  return { rows, total: everyone ? sourceRow('team', 'Team total', visible, nowMs) : null }
+  // Sign-ups with no valid staff link are credited to Admin (owner, 24 Oct 2026).
+  if (everyone) rows.push(sourceRow(ADMIN_STAFF_ID, ADMIN_DIRECT_NAME, direct, nowMs))
+  const visible = everyone ? [...accounts, ...direct] : accounts.filter((a) => a.staffId === viewer.id)
+  return { rows, total: everyone ? sourceRow('team', 'Total', visible, nowMs) : null }
 }

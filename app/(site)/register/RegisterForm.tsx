@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { BUTTON_NOT_READY, BUTTON_READY, registerHint, registerReady } from '@/lib/registerFormCore'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { authHref, newTutorDestination, safeReturnTo } from '@/lib/returnTo'
@@ -61,10 +62,10 @@ export default function RegisterForm({
    *  (owner PR33 §3). Decided on the server (see lib/authRoutes.defaultRegisterRole). */
   initialRole?: Role
 }) {
-  // PR106-G §4: two radio buttons on one line, NOTHING preselected — Create
-  // Account stays disabled until a role is picked. (Supersedes PR106-F's
-  // role-card collapse.) `initialRole` is no longer used to preselect.
-  const [role, setRole] = useState<Role | null>(null)
+  // Tutor is selected by default; a parent action sends /register?role=parent
+  // and Parent starts selected (owner, 24 Oct 2026 — supersedes PR106-G's
+  // "nothing preselected"). Decided on the server (defaultRegisterRole).
+  const [role, setRole] = useState<Role | null>(initialRole)
   const [fullName, setFullName] = useState('')
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
@@ -81,6 +82,9 @@ export default function RegisterForm({
   const [errorSignIn, setErrorSignIn] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [stuckHref, setStuckHref] = useState<string | null>(null)
+  const fields = { role, fullName, identifier, password, acceptedTerms }
+  const ready = registerReady(fields)
+  const hint = registerHint(fields)
 
   const router = useRouter()
 
@@ -229,7 +233,7 @@ export default function RegisterForm({
             options and a screen reader announces "1 of 2" without any of it
             being simulated.
           */}
-          {/* PR106-G §4: two radio buttons on one line, nothing preselected. */}
+          {/* Two radio buttons on one line; Tutor (or Parent, from ?role=parent) selected. */}
           <fieldset>
             <legend className="mb-2 text-xs font-bold text-tm-navy">I am a…</legend>
             <div className="grid grid-cols-2 gap-2">
@@ -334,14 +338,21 @@ export default function RegisterForm({
             </span>
           </label>
 
-          {/* PR106-G §4: Create account disabled until a role is chosen. */}
+          {/* Create account (owner, 24 Oct 2026): a clear disabled grey with a
+              short line naming what is missing; brand red once the form is ready. */}
           <button
             type="submit"
-            disabled={loading || !acceptedTerms || !role}
-            className="w-full min-h-[44px] py-3.5 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs rounded-xl shadow-md transition-all disabled:opacity-50"
+            disabled={loading || !ready}
+            aria-describedby={hint ? 'register-hint' : undefined}
+            className={`w-full min-h-[44px] py-3.5 font-bold text-xs rounded-xl transition-colors ${ready ? BUTTON_READY : BUTTON_NOT_READY}`}
           >
             {loading ? 'Creating account…' : 'Create account'}
           </button>
+          {hint && (
+            <p id="register-hint" className="text-center text-[11px] text-slate-700">
+              {hint}
+            </p>
+          )}
 
           {/* A full-width outlined "Sign in" under it (no WhatsApp icon on signup). */}
           <Link

@@ -94,6 +94,7 @@ const C = {
   gray300: '#D1D5DB',
   gray500: '#6B7280',
   gray100: '#F3F4F6',
+  gray200: '#E5E7EB',
   gray700: '#374151',
   // The two added tile tones (PR32 §2). Defined in app/globals.css @theme;
   // repeated here because the pair list needs their hex to check them, exactly
@@ -155,6 +156,7 @@ const PAIRS: Pair[] = [
   { fg: 'greenDeep', bg: 'tintGreen', where: 'success panels, homepage pill' },
   { fg: 'greenDeep', bg: 'tintGreen', where: '"CNIC verified" chip on tutor cards and profiles (owner, 17 Oct 2026)' },
   { fg: 'slate700', bg: 'slate200', where: 'initials avatar when a tutor hides their photo (owner, 17 Oct 2026)' },
+  { fg: 'slate700', bg: 'gray200', where: 'sign-up Create account button before the form is ready (owner, 24 Oct 2026)' },
   { fg: 'goldInk', bg: 'white', where: 'Featured badge label, warnings' },
   { fg: 'goldInk', bg: 'bg', where: 'quota and expiry warnings' },
   { fg: 'goldInk', bg: 'tintGold', where: 'warning panels' },

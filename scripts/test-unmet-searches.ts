@@ -211,7 +211,7 @@ test('the hiring post template fills {city}, with a copy button and a WhatsApp s
 
 test('the Overview number is the To review tab; owner, Partner, admin and operations act', () => {
   assert.equal(OVERVIEW_ITEMS['todo-unmet'].screen, 'unmetSearches')
-  assert.deepEqual(SCREEN_ACCESS.unmetSearches, ['admin', 'operations'])
+  assert.deepEqual(SCREEN_ACCESS.unmetSearches, ['admin', 'operations', 'supervisor'])
   assert.deepEqual(SCREEN_ACCESS.unmetSearches, SCREEN_ACCESS.seo, 'the roles that could already open the list')
   for (const r of ['owner', 'admin', 'operations'] as const) assert.equal(roleSatisfies(r, SCREEN_ACCESS.unmetSearches), true, r)
   assert.equal(roleSatisfies('tuitions_staff', SCREEN_ACCESS.unmetSearches), false)
