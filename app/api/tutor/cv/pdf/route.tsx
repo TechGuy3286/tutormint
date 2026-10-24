@@ -5,7 +5,7 @@ import { getEntitlements } from '@/lib/entitlements'
 import { buildGate } from '@/lib/gate'
 import { logActivity } from '@/lib/activityLog'
 import { buildCvRaw } from '@/lib/cv/build'
-import { toCvModel, isCvTemplate, type CvTemplate } from '@/lib/cv/model'
+import { toCvModel, isCvTemplate, isCvAccent, cvFileName, DEFAULT_ACCENT, type CvTemplate } from '@/lib/cv/model'
 import { canDownloadCv } from '@/lib/cv/access'
 import { cvQrDataUri, fetchImageDataUri } from '@/lib/cv/assets'
 import { renderCvPdf } from '@/lib/cv/pdf'
@@ -42,29 +42,33 @@ export async function GET(request: Request) {
   const url = new URL(request.url)
   const template: CvTemplate = isCvTemplate(url.searchParams.get('template'))
     ? (url.searchParams.get('template') as CvTemplate)
-    : 'classic'
+    : 'modern'
   const includeContact = url.searchParams.get('contact') !== '0'
+  // The fee is OFF unless the tutor ticked it; the photo is ON unless unticked.
+  const includeFee = url.searchParams.get('fee') === '1'
+  const includePhoto = url.searchParams.get('photo') !== '0'
 
   const raw = await buildCvRaw(user.id)
-  const model = toCvModel(raw, { includeContact })
+  const model = toCvModel(raw, { includeContact, includeFee, includePhoto, template })
+  const accentParam = url.searchParams.get('accent')
+  const accent = isCvAccent(accentParam) ? accentParam : raw.accent ?? DEFAULT_ACCENT
 
   const [qrDataUri, photoDataUri] = await Promise.all([
     cvQrDataUri(model.profileUrl),
     // model.photoUrl is already validated to our avatar buckets; fetch it into
     // the PDF's bytes so the render never depends on a live image request.
-    fetchImageDataUri(model.photoUrl),
+    model.photo?.kind === 'photo' ? fetchImageDataUri(model.photo.url) : Promise.resolve(null),
   ])
 
-  const pdf = await renderCvPdf({ model, template, qrDataUri, photoDataUri })
+  const pdf = await renderCvPdf({ model, template, accent, qrDataUri, photoDataUri })
 
-  await logActivity({ userId: user.id, event: 'cv_downloaded', meta: { template } })
+  await logActivity({ userId: user.id, event: 'cv_downloaded', meta: { template, accent, includeContact, includeFee, includePhoto } })
 
-  const safeName = model.name.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'Tutor'
   return new NextResponse(new Uint8Array(pdf), {
     status: 200,
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${safeName}-Tutor-CV-TutorMint.pdf"`,
+      'Content-Disposition': `attachment; filename="${cvFileName(model.name)}"`,
       'Cache-Control': 'no-store',
     },
   })

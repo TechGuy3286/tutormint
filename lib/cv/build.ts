@@ -5,6 +5,8 @@ import { absoluteUrl, SITE_URL } from '@/lib/siteUrl'
 import { avatarShown } from '@/lib/showAvatar'
 import type { CvRaw, CvSubjectGroup } from '@/lib/cv/model'
 import { formatName } from '@/lib/formatName'
+import { loadVerifiedBadgeOk } from '@/lib/badgeFacts'
+import { isCvAccent } from '@/lib/cv/model'
 
 // Reads a tutor's OWN profile into a CvRaw — the base tables, not the
 // tutor_public_page RPC, because that RPC returns nothing for a tutor under
@@ -57,7 +59,7 @@ async function resolveSubjectGroups(
 export async function buildCvRaw(userId: string): Promise<CvRaw> {
   const supabase = await createClient()
 
-  const [{ data: profile }, { data: tp }, { data: subs }] = await Promise.all([
+  const [{ data: profile }, { data: tp }, { data: subs }, { data: areaRows }, verifiedSet] = await Promise.all([
     supabase
       .from('profiles')
       .select('full_name, avatar_url, city, phone_number, whatsapp, email, profile_completion')
@@ -65,10 +67,15 @@ export async function buildCvRaw(userId: string): Promise<CvRaw> {
       .maybeSingle(),
     supabase
       .from('tutor_profiles')
-      .select('slug, headline, bio, area, experience_years, teaching_mode, job_types, degrees, phone_number, whatsapp_number, hourly_rate_pkr, fee_min_pkr, fee_max_pkr')
+      .select('slug, headline, bio, area, gender, experience_years, teaching_mode, job_types, degrees, phone_number, whatsapp_number, hourly_rate_pkr, fee_min_pkr, fee_max_pkr, cv_accent')
       .eq('id', userId)
       .maybeSingle(),
     supabase.from('tutor_subjects').select('master_id').eq('tutor_id', userId),
+    // Every area the tutor chose (owner-readable via tutor_areas_self), in the
+    // order they were added — the CV shows them all.
+    supabase.from('tutor_areas').select('area, city').eq('tutor_id', userId).order('created_at').order('id'),
+    // The site's Verified badge rule (lib/badgeRule) — the footer and the ✓.
+    loadVerifiedBadgeOk([userId]).catch(() => new Set<string>()),
   ])
 
   const masterIds = [...new Set((subs ?? []).map((s) => s.master_id as number))]
@@ -77,13 +84,18 @@ export async function buildCvRaw(userId: string): Promise<CvRaw> {
   const slug = (tp?.slug as string | null) ?? null
 
   // The CV is a shareable artifact (a parent downloads it), so it honours the
-  // "show my picture to parents" toggle (PR70): hidden → initials, like every
-  // other non-staff surface. Tolerant of the not-yet-applied migration.
+  // "show my picture to parents" toggle (PR70): hidden → the grey silhouette (owner,
+  // 24 Oct 2026); the real URL never leaves this file. Tolerant of the not-yet-applied migration.
   const showPhoto = await avatarShown(supabase, userId)
 
   return {
     fullName: formatName(profile?.full_name as string | null) || 'Tutor',
     avatarUrl: showPhoto ? ((profile?.avatar_url as string | null) ?? null) : null,
+    photoHidden: !showPhoto,
+    gender: (tp?.gender as string | null) ?? null,
+    areas: ((areaRows ?? []) as { area: string | null; city: string | null }[])
+      .filter((r) => (r.area ?? '').trim())
+      .map((r) => ({ area: r.area as string, city: r.city ?? null })),
     city: (profile?.city as string | null) ?? null,
     area: (tp?.area as string | null) ?? null,
     headline: (tp?.headline as string | null) ?? null,
@@ -103,5 +115,7 @@ export async function buildCvRaw(userId: string): Promise<CvRaw> {
     slug,
     profileUrl: slug ? absoluteUrl(`/tutor/${slug}`) : SITE_URL,
     completion: (profile?.profile_completion as number | null) ?? 0,
+    verified: verifiedSet.has(userId),
+    accent: isCvAccent(tp?.cv_accent) ? tp.cv_accent : null,
   }
 }

@@ -19,7 +19,7 @@ export async function cvQrDataUri(url: string): Promise<string> {
 /**
  * Fetch a (validated, public) avatar URL into a data URI for the PDF. Bounded
  * and defensive: a slow or failed fetch, a non-image, or an oversized file
- * yields null and the CV falls back to the initials disc — a missing photo must
+ * yields null and the CV falls back to the silhouette — a missing photo must
  * never fail the whole download.
  */
 export async function fetchImageDataUri(url: string | null): Promise<string | null> {
@@ -30,8 +30,13 @@ export async function fetchImageDataUri(url: string | null): Promise<string | nu
     const contentType = res.headers.get('content-type') || 'image/jpeg'
     if (!contentType.startsWith('image/')) return null
     const buf = Buffer.from(await res.arrayBuffer())
-    if (buf.length === 0 || buf.length > 3_000_000) return null
-    return `data:${contentType};base64,${buf.toString('base64')}`
+    if (buf.length === 0 || buf.length > 6_000_000) return null
+    // react-pdf draws JPEG and PNG only, so a WebP (or any other) avatar is
+    // re-encoded: a square JPEG, upright, cropped on the face area, small
+    // enough to keep the PDF light.
+    const sharp = (await import('sharp')).default
+    const jpeg = await sharp(buf).rotate().resize(480, 480, { fit: 'cover', position: 'attention' }).jpeg({ quality: 85 }).toBuffer()
+    return `data:image/jpeg;base64,${jpeg.toString('base64')}`
   } catch {
     return null
   }

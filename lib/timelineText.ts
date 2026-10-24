@@ -240,6 +240,8 @@ export function timelineSentence(event: string, meta: TimelineMeta = {}): string
       return 'Added by bulk import'
     case 'cv_downloaded':
       return 'Downloaded their CV'
+    case 'cv_accent_changed':
+      return 'Changed their CV colour'
     case 'follow_up_sent': {
       // The shared follow-up record (owner, 9 Oct 2026).
       const ch = meta.channel === 'whatsapp' ? 'on WhatsApp' : meta.channel === 'email' ? 'by email' : 'by call'

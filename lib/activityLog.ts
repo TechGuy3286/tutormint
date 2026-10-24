@@ -109,6 +109,8 @@ export type ActivityEvent =
   | 'email_preferences_changed'
   // A tutor downloaded their CV PDF (the Verified-gated conversion feature).
   | 'cv_downloaded'
+  // A tutor chose their CV accent colour (owner, 24 Oct 2026).
+  | 'cv_accent_changed'
   // A tutor saved / unsaved a tuition (the tutor-side shortlist).
   | 'saved_job_added'
   | 'saved_job_removed'

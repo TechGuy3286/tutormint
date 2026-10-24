@@ -410,6 +410,19 @@ const PAIRS: Pair[] = [
   { fg: 'slate700', bg: 'white', where: 'blog cover brand line, white text column' },
   { fg: 'red', bg: 'white', where: 'blog cover tagline + wordmark "Mint", white text column' },
   { fg: 'black', bg: 'white', where: 'blog cover wordmark "Tutor" (when the logo image is missing)' },
+
+  // Tutor CV (owner, 24 Oct 2026): the Modern sidebar and the Classic header
+  // band take the chosen accent (navy / green / charcoal) with WHITE text; the
+  // main column puts the accent as section titles on white. lib/cv/pdfDocument
+  // ACCENT_HEX and components/cv/CvPreview ACCENT are the same three colours.
+  { fg: 'white', bg: 'navy', where: 'CV sidebar / header text, navy accent' },
+  { fg: 'white', bg: 'greenDeep', where: 'CV sidebar / header text, green accent' },
+  { fg: 'white', bg: 'slate800', where: 'CV sidebar / header text, charcoal accent' },
+  { fg: 'navy', bg: 'white', where: 'CV section titles + footer, navy accent' },
+  { fg: 'greenDeep', bg: 'white', where: 'CV section titles + footer, green accent; the subject level labels' },
+  { fg: 'slate800', bg: 'white', where: 'CV section titles + footer, charcoal accent' },
+  { fg: 'slate700', bg: 'white', where: 'CV body text and title line' },
+  { fg: 'red', bg: 'white', where: 'CV Minimal section titles' },
 ]
 
 // ----------------------------------------------------------------- run ------
