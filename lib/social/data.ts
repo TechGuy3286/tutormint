@@ -2,6 +2,7 @@ import 'server-only'
 
 import { levelLabel } from '@/lib/display'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { mergeSubjectChips } from '@/lib/social/subjectChips'
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>
 
@@ -9,6 +10,10 @@ type Admin = NonNullable<ReturnType<typeof createAdminClient>>
 // applied (the SAME lib/display mapper the profile and the CV use). The
 // tutor_directory.subjects column is not populated, so the social banner
 // resolves them from tutor_subjects → taxonomy, exactly like the CV does.
+//
+// Neighbouring grades are merged with the CV's grouping (owner, 26 Oct 2026 —
+// lib/social/subjectChips): "Grade 9–10 · English", one chip, not two. The
+// limit applies AFTER merging.
 
 export async function resolveSubjectLabels(admin: Admin, tutorId: string, limit = 6): Promise<string[]> {
   return (await resolveSubjectParts(admin, tutorId, limit)).map((x) => x.label)
@@ -44,19 +49,11 @@ export async function resolveSubjectParts(admin: Admin, tutorId: string, limit =
   const levelName = new Map((levels ?? []).map((l) => [l.slug as string, l.name as string]))
   const subjectName = new Map((subjects ?? []).map((s) => [s.slug as string, s.name as string]))
 
-  const out: SubjectPart[] = []
-  const seen = new Set<string>()
-  for (const m of rows) {
-    const level = levelLabel(levelName.get(m.level_slug) ?? '')
-    const subject = m.subject_slug ? (subjectName.get(m.subject_slug) ?? null) : null
-    const label = (subject ? `${level} ${subject}` : level).trim()
-    if (label && !seen.has(label)) {
-      seen.add(label)
-      out.push({ level, subject, label })
-    }
-    if (out.length >= limit) break
-  }
-  return out
+  const raw = rows.map((m) => ({
+    level: levelLabel(levelName.get(m.level_slug) ?? ''),
+    subject: m.subject_slug ? (subjectName.get(m.subject_slug) ?? null) : null,
+  }))
+  return mergeSubjectChips(raw).slice(0, limit)
 }
 
 /** The same, batched across many tutors — one set of queries for the admin
@@ -104,21 +101,16 @@ export async function resolveSubjectLabelsBatch(
   const subjectName = new Map((subjects ?? []).map((s) => [s.slug as string, s.name as string]))
 
   for (const [tid, mids] of rowsByTutor) {
-    const out: string[] = []
-    const seen = new Set<string>()
+    const raw: { level: string; subject: string | null }[] = []
     for (const mid of mids) {
       const m = masterById.get(mid)
       if (!m) continue
-      const level = levelLabel(levelName.get(m.level_slug) ?? '')
-      const subject = m.subject_slug ? subjectName.get(m.subject_slug) : null
-      const label = (subject ? `${level} ${subject}` : level).trim()
-      if (label && !seen.has(label)) {
-        seen.add(label)
-        out.push(label)
-      }
-      if (out.length >= limit) break
+      raw.push({
+        level: levelLabel(levelName.get(m.level_slug) ?? ''),
+        subject: m.subject_slug ? (subjectName.get(m.subject_slug) ?? null) : null,
+      })
     }
-    result.set(tid, out)
+    result.set(tid, mergeSubjectChips(raw).slice(0, limit).map((c) => c.label))
   }
   return result
 }

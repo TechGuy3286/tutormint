@@ -120,8 +120,9 @@ test('staff and test accounts use the People page rule on both tabs', () => {
   const loader = readFileSync('lib/staffOutreach.ts', 'utf8')
   assert.match(loader, /loadDirectory\(\)/)
   assert.match(loader, /excluded !== null/)
-  const page = readFileSync('app/admin/follow-ups/page.tsx', 'utf8')
-  assert.match(page, /excluded !== null/)
+  // The Parents tab reads lib/parentFollowUps (owner, 26 Oct 2026): the same rule.
+  const parents = readFileSync('lib/parentFollowUps.ts', 'utf8')
+  assert.match(parents, /p\.excluded === null && !p\.suspended && !p\.banned/)
 })
 
 // ------------------------------------------------------------ Part B

@@ -27,6 +27,8 @@ import { NEW_VISITOR_HEADER } from '@/lib/searchCountCore'
 import { ANON_ID_HEADER } from '@/lib/searchBeaconCore'
 import { areaHubRedirectPath } from '@/lib/areaHubRedirect'
 import { convertedTutorRedirectPath } from '@/lib/convertedTutorRedirect'
+import { mergedTutorRedirectPath } from '@/lib/mergedTutorRedirect'
+import { readTicket, VIEW_AS_COOKIE, VIEW_AS_EXIT_PATH, VIEW_AS_READ_ONLY, viewAsDecision } from '@/lib/viewAsCore'
 import { hiddenTuitionRedirectPath } from '@/lib/hiddenTuitionRedirect'
 
 // /pay/* is the checkout journey (gateway hand-off, transfer instructions,
@@ -183,6 +185,24 @@ function captureAnon(request: NextRequest, response: NextResponse): void {
 }
 
 export async function proxy(request: NextRequest) {
+  // "View as" (owner, 26 Oct 2026 — lib/viewAsCore): while the Owner views a
+  // member's account, every change is refused here (403), and when the 30
+  // minutes are up the next page goes to the exit route.
+  const viewAs = readTicket(request.cookies.get(VIEW_AS_COOKIE)?.value, process.env.SUPABASE_SERVICE_ROLE_KEY)
+  if (viewAs) {
+    const decision = viewAsDecision(viewAs, { method: request.method, pathname: request.nextUrl.pathname }, Date.now())
+    const isApi = request.nextUrl.pathname.startsWith('/api/')
+    if (decision === 'block' || (decision === 'exit' && isApi)) {
+      return NextResponse.json({ error: VIEW_AS_READ_ONLY, viewAs: true }, { status: 403 })
+    }
+    if (decision === 'exit') {
+      const target = request.nextUrl.clone()
+      target.pathname = VIEW_AS_EXIT_PATH
+      target.search = '?expired=1'
+      return NextResponse.redirect(target, 303)
+    }
+  }
+
   // /apply — the short link on "Hiring tutors" posts (owner, 7 Oct 2026). Any
   // capitalisation (/Apply, /APPLY) sends a TEMPORARY 307 to /register with
   // every query parameter kept, so utm_* reach /register and the signup records
@@ -236,6 +256,14 @@ export async function proxy(request: NextRequest) {
   // account (owner, 23 Oct 2026): a 301 to Browse tutors for their city. The
   // list behind it is held in memory for a minute (lib/convertedTutorRedirect).
   if (request.nextUrl.pathname.startsWith('/tutor/')) {
+    // A merged tutor account's profile (owner, 26 Oct 2026): 301 to the kept one.
+    const kept = await mergedTutorRedirectPath(request.nextUrl.pathname)
+    if (kept) {
+      const target = request.nextUrl.clone()
+      target.pathname = kept
+      target.search = ''
+      return NextResponse.redirect(target, 301)
+    }
     const moved = await convertedTutorRedirectPath(request.nextUrl.pathname)
     if (moved) {
       const target = request.nextUrl.clone()

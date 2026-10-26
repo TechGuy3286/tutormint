@@ -56,12 +56,12 @@ test('"Copy all details" is one tidy message with numbers unspaced', () => {
   )
 })
 
-test('"Copied ✓" stays 2 seconds; the page has a Copy all button and big tap targets', () => {
+test('"Copied ✓" stays 2 seconds; big tap targets; "Copy all details" removed (owner, 26 Oct 2026)', () => {
   assert.equal(COPIED_MS, 2000)
   const src = readFileSync('app/(site)/pay/choose/PayChoice.tsx', 'utf8')
   assert.match(src, /Copied ✓/)
-  assert.match(src, /Copy all details/)
-  assert.match(src, /copyAllText\(bank, amount\)/)
+  assert.doesNotMatch(src, /Copy all details/)
+  assert.doesNotMatch(src, /copyAllText\(bank, amount\)/)
   assert.match(src, /min-h-\[48px\] min-w-\[88px\]/)
 })
 

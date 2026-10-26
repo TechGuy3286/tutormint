@@ -3,10 +3,8 @@ import { waHrefWithRef } from '@/lib/waLinkCore'
 import Link from 'next/link'
 import { permanentRedirect, redirect } from 'next/navigation'
 
-import { requireAdminRole, roleMayWrite, roleSatisfies, SCREEN_ACCESS, type AdminActor } from '@/lib/adminAuth'
+import { requireAdminRole, roleMayWrite, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { canApprove } from '@/lib/adminAccessCore'
-import { loadNotInterested } from '@/lib/followUpDismissals'
-import { loadDirectory } from '@/lib/peopleDirectory'
 import { loadProfileShares } from '@/lib/profileShare'
 import {
   isSignupWindow,
@@ -18,11 +16,7 @@ import {
   type SignupWindow,
   type TutorScope,
 } from '@/lib/staffOutreachCore'
-import { loadFollowUpStates } from '@/lib/followUps'
-import { followUpLine } from '@/lib/followUpCore'
-import { loadAbandonedSignups } from '@/lib/abandonedSignups'
 import { loadOrphanedAccounts } from '@/lib/adminOrphans'
-import { loadTemplates } from '@/lib/adminMessaging'
 import { loadTutorFollowUps } from '@/lib/tutorFollowUps'
 import {
   chipCounts,
@@ -38,7 +32,6 @@ import {
   FOLLOW_UP_TABS,
   followUpTabsFor,
   followUpsHref,
-  onParentsTab,
   pickFollowUpTab,
 } from '@/lib/followUpsPageCore'
 import QueueSearch from '@/components/admin/QueueSearch'
@@ -47,7 +40,9 @@ import { FU_TAB_LABEL, parseFuTab, tabCounts, type FuTab } from '@/lib/tutorFoll
 import { legacyApplicationsHref } from '@/lib/applicationStageCore'
 
 import UnpaidSignupRow from './UnpaidSignupRow'
-import SignupsClient from './SignupsClient'
+import ParentFollowUpsBoard, { type ParentCard } from './ParentFollowUpsBoard'
+import { loadParentFollowUps } from '@/lib/parentFollowUps'
+import { PARENT_CHIP_LABEL, parentChipMatch, parseParentChip, type ParentChip } from '@/lib/parentFollowUpCore'
 import OrphansSection from './OrphansSection'
 
 // People → Follow-ups (owner, 15 Oct 2026): ONE page in place of Unpaid signups
@@ -74,8 +69,6 @@ const SIGNED_UP: { key: SignupWindow; label: string }[] = [
   { key: 'yesterday', label: 'Yesterday' },
   { key: 'week', label: 'Last 7 days' },
 ]
-
-const SIGNUP_TEMPLATE_KEYS = ['signup_email_unconfirmed', 'signup_profile_unfinished'] as const
 
 type SP = { tab?: string; filter?: string; scope?: string; chip?: string; q?: string; view?: string; fwd?: string; show?: string; fu?: string }
 
@@ -125,7 +118,7 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
           refCode={await senderRefCode(actor.id)}
         />
       )}
-      {tab === 'parents' && <ParentsTab showNotInterested={sp.scope === 'not_interested'} />}
+      {tab === 'parents' && <ParentsTab showNotInterested={sp.scope === 'not_interested'} fuTab={parseFuTab(sp.fu)} chip={parseParentChip(sp.chip)} />}
       {tab === 'orphans' && <OrphansTab />}
     </div>
   )
@@ -296,50 +289,70 @@ async function TutorsTab({
 
 // ---------------------------------------------- Parents & email not confirmed
 
-async function ParentsTab({ showNotInterested }: { showNotInterested: boolean }) {
-  const [{ rows: allRows, ok }, templates, directory, dismissed] = await Promise.all([
-    loadAbandonedSignups(),
-    loadTemplates(),
-    loadDirectory(),
-    loadNotInterested(),
-  ])
-  // Staff and test accounts are left out by the People page's rule; tutors are
-  // on the Tutors tab, never on two tabs.
-  const excluded = new Set(directory.people.filter((p) => p.excluded !== null).map((p) => p.id))
-  const listed = allRows.filter((r) => onParentsTab(r) && !excluded.has(r.userId))
-  const rows = listed.filter((r) => dismissed.has(r.userId) === showNotInterested)
-  const notInterestedCount = listed.filter((r) => dismissed.has(r.userId)).length
-
-  // Pass only the signup templates the client needs, as a plain map.
-  const bodies: Record<string, string> = {}
-  for (const t of templates) {
-    if ((SIGNUP_TEMPLATE_KEYS as readonly string[]).includes(t.key)) bodies[t.key] = t.body
-  }
-
-  // The shared follow-up record (owner, 9 Oct 2026).
-  const now = nowMs()
-  const states = await loadFollowUpStates(rows.map((r) => r.userId))
-  const followUps: Record<string, { sent: boolean; line: string | null; tag: string | null }> = {}
-  for (const r of rows) {
-    const st = states.get(r.userId)
-    if (st) followUps[r.userId] = { sent: st.sent, line: followUpLine(st, now), tag: st.tag }
-  }
+async function ParentsTab({ showNotInterested, fuTab, chip }: { showNotInterested: boolean; fuTab: 'todo' | 'sent'; chip: ParentChip }) {
+  // The same To do / Followed up board as Tutors (owner, 26 Oct 2026 —
+  // lib/parentFollowUpCore): one situation per parent and its own message.
+  const { rows: all } = await loadParentFollowUps()
+  const notInterestedCount = all.filter((r) => r.notInterested).length
+  const group = all.filter((r) => r.notInterested === showNotInterested)
+  const chipped = group.filter((r) => parentChipMatch(chip, r))
+  const toCard = (r: (typeof all)[number]): ParentCard => ({
+    id: r.id,
+    name: r.name,
+    city: r.city,
+    joinedAt: r.joinedAt,
+    reason: r.reason,
+    tuition: r.tuition ? { title: r.tuition.title, path: r.tuition.path } : null,
+    state: r.state,
+    hasNumber: r.hasNumber,
+    hasEmail: r.hasEmail,
+    notInterested: r.notInterested,
+  })
+  const todo = chipped.filter((r) => r.state.tab === 'todo').sort((a, b) => Number(b.state.overdue) - Number(a.state.overdue) || a.joinedAt.localeCompare(b.joinedAt))
+  const sent = chipped.filter((r) => r.state.section === 'sent')
+  const noReply = chipped.filter((r) => r.state.section === 'no_reply')
+  const shown = fuTab === 'todo' ? todo : sent
+  const base = { scope: showNotInterested ? 'not_interested' : undefined, chip: chip === 'all' ? undefined : chip }
 
   return (
     <div className="space-y-3">
       <nav aria-label="Which parents" className="flex flex-wrap gap-2">
-        <Link href={followUpsHref('parents')} aria-current={!showNotInterested ? 'page' : undefined} className={groupPill(!showNotInterested)}>
+        <Link href={followUpsHref('parents', { chip: base.chip })} aria-current={!showNotInterested ? 'page' : undefined} className={groupPill(!showNotInterested)}>
           Not finished
         </Link>
         <Link
-          href={followUpsHref('parents', { scope: 'not_interested' })}
+          href={followUpsHref('parents', { scope: 'not_interested', chip: base.chip })}
           aria-current={showNotInterested ? 'page' : undefined}
           className={groupPill(showNotInterested)}
         >
           Not interested <span className={showNotInterested ? 'text-white' : 'text-gray-500'}>{notInterestedCount}</span>
         </Link>
       </nav>
-      <SignupsClient rows={rows} ok={ok} templateBodies={bodies} followUps={followUps} notInterested={showNotInterested} />
+      <nav aria-label="To do or followed up" className="flex flex-wrap gap-1 border-b border-gray-200" data-parent-tabs="">
+        {(['todo', 'sent'] as const).map((t) => (
+          <Link
+            key={t}
+            href={followUpsHref('parents', { ...base, fu: t === 'sent' ? 'sent' : undefined })}
+            aria-current={fuTab === t ? 'page' : undefined}
+            className={`-mb-px min-h-[44px] border-b-2 px-3 py-2.5 text-xs font-bold ${fuTab === t ? 'border-tm-red text-tm-navy' : 'border-transparent text-gray-600 hover:text-tm-navy'}`}
+          >
+            {FU_TAB_LABEL[t]} <span className="text-gray-500">{t === 'todo' ? todo.length : sent.length + noReply.length}</span>
+          </Link>
+        ))}
+      </nav>
+      <nav aria-label="Filter parents" className="flex flex-wrap gap-2">
+        {(Object.keys(PARENT_CHIP_LABEL) as ParentChip[]).map((c) => (
+          <Link
+            key={c}
+            href={followUpsHref('parents', { ...base, chip: c === 'all' ? undefined : c, fu: fuTab === 'sent' ? 'sent' : undefined })}
+            aria-current={chip === c ? 'page' : undefined}
+            className={groupPill(chip === c)}
+          >
+            {PARENT_CHIP_LABEL[c]} <span className={chip === c ? 'text-white' : 'text-gray-500'}>{group.filter((r) => parentChipMatch(c, r)).length}</span>
+          </Link>
+        ))}
+      </nav>
+      <ParentFollowUpsBoard cards={shown.map(toCard)} noReply={fuTab === 'sent' ? noReply.map(toCard) : []} />
     </div>
   )
 }

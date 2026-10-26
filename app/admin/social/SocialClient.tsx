@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/Toast'
 import { useStaffRefCode } from '@/components/admin/ReadOnly'
 import { captionVariants, DEFAULT_SOCIAL_TEMPLATE, SOCIAL_TEMPLATES, type SocialData, type SocialTemplate } from '@/lib/social/copy'
 import { cropQuery, MOVE_STEPS, NO_ADJUST, ZOOM_MAX, ZOOM_MIN, type CropAdjust } from '@/lib/social/cropCore'
+import { imageVersionKey, type ImageProfileFacts } from '@/lib/social/imageVersionCore'
 import { defaultGroup, GROUP_MAX, GROUP_MIN, shufflePick, TEMPLATE_INFO, templateUnavailable } from '@/lib/social/templates'
 
 const SITE_ORIGIN = 'https://www.tutormint.org'
@@ -34,6 +35,9 @@ export type PickerTutor = {
   badges: ('Verified' | 'Premium' | 'Featured')[]
   /** When they became verified (the group post defaults to the most recent). */
   verifiedAt: string | null
+  /** The live profile facts the image's version key is built from (owner,
+   *  26 Oct 2026 — lib/social/imageVersionCore). */
+  imageFacts: ImageProfileFacts | null
 }
 
 const FORMATS = [
@@ -173,8 +177,10 @@ export default function SocialClient({ tutors, initial }: { tutors: PickerTutor[
     if (isAnnouncement && dateLabel.trim()) p.set('date', dateLabel.trim())
     if (isSuccess) p.set('kind', successKind)
     for (const [k, v] of Object.entries(cropQuery(crop))) p.set(k, v)
+    // The version key: a changed profile or drawing is a new URL.
+    if (tutor?.imageFacts) p.set('k', imageVersionKey(tutor.imageFacts, { template, format, variant, crop }))
     return `/api/admin/social/image?${p}`
-  }, [slug, format, template, variant, headline, subhead, dateLabel, isAnnouncement, isSuccess, isGroup, successKind, crop, groupCity, groupSlugs, info.usesHeadline])
+  }, [tutor, slug, format, template, variant, headline, subhead, dateLabel, isAnnouncement, isSuccess, isGroup, successKind, crop, groupCity, groupSlugs, info.usesHeadline])
 
   // The captions are built from the SAME copy module the creative renders from,
   // so what is pasted and what is drawn cannot diverge. Three versions: the same

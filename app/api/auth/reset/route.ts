@@ -8,6 +8,7 @@ import { parseBody, z, pkMobile } from '@/lib/validate'
 import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 import { sendOtp, verifyOtp, RESET_MESSAGES, type VerifyResult } from '@/lib/otp'
 import { restoreSelfPauseOnSignIn } from '@/lib/selfPause'
+import { MERGED_LOGIN_MESSAGE } from '@/lib/memberMergeCore'
 import { homeForRole, type Role } from '@/lib/authRoutes'
 import { whatsappHref, SUPPORT_WHATSAPP_FALLBACK } from '@/lib/supportContacts'
 
@@ -161,6 +162,11 @@ export async function POST(request: Request) {
     targetId: userId,
     meta: { changed: 'password_reset_by_sms' },
   })
+
+  // A MERGED account (owner, 26 Oct 2026) is never signed in: the message
+  // points at the account it was merged into.
+  const { data: mergedRow } = await admin.from('profiles').select('merged_into').eq('id', userId).maybeSingle()
+  if (mergedRow?.merged_into) return NextResponse.json({ error: MERGED_LOGIN_MESSAGE, merged: true }, { status: 403 })
 
   // Sign the member in here: an admin magic-link token verified on the
   // cookie-backed client (the same mechanism the signup verify route uses), so

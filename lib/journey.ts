@@ -60,6 +60,11 @@ const AUDIT_ACTIONS = new Set([
   'member.not_interested_undo',
   'plan.grant',
   'plan.revoke',
+  // Merges and View as (owner, 26 Oct 2026).
+  'member.merge',
+  'member.merge_undo',
+  'member.view_as_start',
+  'member.view_as_end',
 ])
 
 const kindOfAudit = (a: string): RawLine['kind'] => {
@@ -82,6 +87,10 @@ function auditText(action: string, detail: R | null): string {
   if (action === 'member.unsuspend') return 'Account reinstated by staff'
   if (action === 'member.not_interested') return 'Marked "Not interested" on Follow-ups'
   if (action === 'member.not_interested_undo') return '"Not interested" undone'
+  if (action === 'member.merge') return detail?.side === 'merged' ? 'Merged into another account' : 'Another account was merged into this one'
+  if (action === 'member.merge_undo') return 'Merge undone'
+  if (action === 'member.view_as_start') return 'The Owner viewed this account as the member (read only)'
+  if (action === 'member.view_as_end') return 'The Owner stopped viewing this account'
   return auditSentence(action, detail)
 }
 

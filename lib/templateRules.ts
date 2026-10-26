@@ -25,6 +25,8 @@ import {
 } from '@/lib/applicationTemplatesCore'
 import { APPLICANTS_FORWARD_DEFAULT, APPLICANTS_FORWARD_TEMPLATE_KEY } from '@/lib/applicantForwardCore'
 import { FU_PLACEHOLDERS, FU_TEMPLATES } from '@/lib/followUpTemplatesCore'
+import { PARENT_DEFAULTS, PARENT_PLACEHOLDERS, PARENT_TEMPLATES } from '@/lib/parentFollowUpCore'
+import { STATUS_IMAGE_DEFAULT, STATUS_IMAGE_TEMPLATE_KEY, STATUS_PLACEHOLDERS, statusSaveProblem } from '@/lib/social/statusImageCore'
 
 export type GroupTemplateInfo = {
   key: string
@@ -33,6 +35,8 @@ export type GroupTemplateInfo = {
   defaultBody: string
   /** States a price on purpose: the price warning is not shown. */
   priceExpected?: boolean
+  /** Must never carry a link (the status image message, owner 26 Oct 2026). */
+  noLinks?: boolean
 }
 
 /** The forward panel's message, shown in the Applications group too. */
@@ -59,8 +63,28 @@ export const FOLLOW_UPS_GROUP: readonly GroupTemplateInfo[] = FU_TEMPLATES.map((
   priceExpected: t.priceExpected === true,
 }))
 
+/** Follow-ups → Parents (owner, 26 Oct 2026): one message per situation. */
+export const PARENTS_GROUP: readonly GroupTemplateInfo[] = PARENT_TEMPLATES.map((t) => ({
+  key: t.key,
+  recipient: 'parent' as const,
+  placeholders: PARENT_PLACEHOLDERS,
+  defaultBody: PARENT_DEFAULTS[t.key],
+}))
+
+/** The "Send status image" message (owner, 26 Oct 2026): link placeholders are
+ *  blocked (only {tutor_first_name} is known) and no address may be typed in. */
+export const STATUS_GROUP: readonly GroupTemplateInfo[] = [
+  { key: STATUS_IMAGE_TEMPLATE_KEY, recipient: 'tutor', placeholders: STATUS_PLACEHOLDERS, defaultBody: STATUS_IMAGE_DEFAULT, noLinks: true },
+]
+
 export function groupTemplateInfo(key: string): GroupTemplateInfo | null {
-  return APPLICATIONS_GROUP.find((t) => t.key === key) ?? FOLLOW_UPS_GROUP.find((t) => t.key === key) ?? null
+  return (
+    APPLICATIONS_GROUP.find((t) => t.key === key) ??
+    FOLLOW_UPS_GROUP.find((t) => t.key === key) ??
+    PARENTS_GROUP.find((t) => t.key === key) ??
+    STATUS_GROUP.find((t) => t.key === key) ??
+    null
+  )
 }
 
 /** The built-in default, or null for a template that has none. */
@@ -84,6 +108,10 @@ export function templateSaveCheck(key: string, body: string): SaveCheck {
     if (!body.trim()) return { ok: false, error: 'Write the message, or use Reset to default.', unknown: [] }
     const unknown = unknownPlaceholders(body, info.placeholders)
     if (unknown.length) return { ok: false, error: unknownPlaceholderError(unknown), unknown }
+    if (info.noLinks) {
+      const problem = statusSaveProblem(body)
+      if (problem) return { ok: false, error: problem, unknown: [] }
+    }
   }
   return { ok: true, warnings: warningsFor(key, body) }
 }

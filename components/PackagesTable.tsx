@@ -81,6 +81,9 @@ const PARENT_FEATURES: Feature[] = [
   { label: () => 'Your jobs shown first', level: (p) => (p.search_rank >= 3 ? 3 : 0) },
 ]
 
+/** The Urdu line under Activation (owner's exact text, 26 Oct 2026). */
+export const ACTIVATION_URDU = 'ادائیگی بینک ٹرانسفر کے ذریعے کریں — JazzCash، Easypaisa یا کسی بھی بینک ایپ سے Raast کے ذریعے — اور رسید اپ لوڈ کریں۔ تصدیق کے بعد آپ کا اکاؤنٹ فعال کر دیا جائے گا۔'
+
 // The tutor free (Basic) card is a FIXED list (owner PR14 §4.1) — no "Start a
 // conversation", no "Listed in search results". The two "a month" figures are
 // the plan's own displayed quota (from the row), never a hard-coded number.
@@ -286,7 +289,7 @@ export default function PackagesTable({
           receipt. Our team confirms it, usually within a few hours. You will get a notification the
           moment your plan starts.
           <span lang="ur" dir="rtl" className="mt-0.5 block text-gray-500">
-            آن لائن ادائیگی (جاز کیش، ایزی پیسہ، کارڈ) خود بخود فعال ہو جاتی ہے۔ بینک ٹرانسفر کی تصدیق ہماری ٹیم عموماً چند گھنٹوں میں کرتی ہے۔
+            {ACTIVATION_URDU}
           </span>
         </p>
         {audience === 'tutor' && (

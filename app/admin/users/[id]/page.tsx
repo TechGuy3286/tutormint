@@ -42,6 +42,13 @@ import { selfiePhotoMatchUsers } from '@/lib/selfieMatch'
 import { canApprove } from '@/lib/adminAccessCore'
 import MemberTabs from '@/components/admin/MemberTabs'
 import ConvertAccountCard from '@/components/admin/ConvertAccountCard'
+import MaskedContact from '@/components/admin/MaskedContact'
+import UndoMergeButton from '@/components/admin/UndoMergeButton'
+import ViewAsButton from '@/components/admin/ViewAsButton'
+import { liveMergeFor } from '@/lib/memberMerge'
+import SendStatusImageButton from '@/components/admin/SendStatusImageButton'
+import { statusImageFacts } from '@/lib/social/statusImage'
+import { maskEmailDisplay, maskPhoneDisplay } from '@/lib/contactMaskCore'
 import RestoreStaffCard from '@/components/admin/RestoreStaffCard'
 import { canRestore as canRestoreStaff } from '@/lib/formerStaffCore'
 import { postedAsParent } from '@/lib/convertAccountCore'
@@ -88,7 +95,7 @@ export default async function AdminMemberPage({
   const { data: profile } = await admin
     .from('profiles')
     .select(
-      'id, full_name, email, phone_number, whatsapp, avatar_url, role, admin_role, city, profile_completion, cnic_verified_at, address_verified_at, verification_state, is_suspended, suspension_reason, suspended_at, suspended_by, is_banned, banned_reason, paused_by_user_at, phone_verified_via, phone_verified_at, created_at, utm_source, utm_medium, utm_campaign, utm_content, linked_account_id, former_staff_at, former_staff_role',
+      'id, full_name, email, phone_number, whatsapp, avatar_url, role, admin_role, city, profile_completion, cnic_verified_at, address_verified_at, verification_state, is_suspended, suspension_reason, suspended_at, suspended_by, is_banned, banned_reason, paused_by_user_at, phone_verified_via, phone_verified_at, created_at, utm_source, utm_medium, utm_campaign, utm_content, linked_account_id, former_staff_at, former_staff_role, merged_into, merged_at',
     )
     .eq('id', id)
     .maybeSingle()
@@ -281,6 +288,16 @@ export default async function AdminMemberPage({
       ? waSendHref(memberMsisdn, finishWaText(fillPaymentNotFinished(notFinishedBody, { name: formatName(profile.full_name as string | null), payLink: payAgainLink(planCode) }), senderCode))
       : null
 
+  const statusImage = isTutor ? await statusImageFacts(admin, id) : null
+  // Merges (owner, 26 Oct 2026): "Merged into <name>" on the merged account,
+  // and "Undo merge" on either side of a live merge.
+  const merge = await liveMergeFor(admin, id)
+  const mergedIntoName = profile.merged_into
+    ? formatName(((await admin.from('profiles').select('full_name').eq('id', profile.merged_into as string).maybeSingle()).data?.full_name as string | null) ?? null) || 'another account'
+    : null
+  const headerPhone = maskPhoneDisplay(((profile.phone_number as string | null) ?? (profile.whatsapp as string | null)) ?? null)
+  const headerEmail = maskEmailDisplay(profile.email as string | null)
+
   // Only the boxes with something in them; the rest on one grey line.
   const boxes: Record<MemberBox, number> = {
     jobs: (jobs ?? []).length,
@@ -319,14 +336,31 @@ export default async function AdminMemberPage({
                   </span>
                 )}
                 <ProfileShareButtons share={share} />
+                {statusImage?.allowed && statusImage.key && roleSatisfies(actor.adminRole, SCREEN_ACCESS.statusImage) && (
+                  <SendStatusImageButton memberId={id} name={formatName(profile.full_name as string | null)} imageKey={statusImage.key} />
+                )}
               </div>
             )}
-            <p className="truncate text-xs text-gray-500">
-              {profile.email as string}
-              {profile.phone_number ? ` · ${profile.phone_number}` : ''}
-            </p>
+            {/* Masked, with a logged Show (owner, 26 Oct 2026). The auto-made
+                @users.tutormint.org address is never shown; Call and WhatsApp
+                below still work without showing the number. */}
+            {(headerPhone || headerEmail) && (
+              <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500" data-member-header-contact="">
+                {headerPhone && <MaskedContact memberId={id} field="phone" masked={headerPhone} />}
+                {headerEmail && <MaskedContact memberId={id} field="email" masked={headerEmail} />}
+              </p>
+            )}
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+            {mergedIntoName && (
+              <a href={`/admin/users/${profile.merged_into as string}`} className="rounded-full bg-tm-tint-red px-2 py-0.5 text-[10px] font-black text-tm-red hover:underline">
+                Merged into {mergedIntoName}
+              </a>
+            )}
+            {merge && <UndoMergeButton mergeId={merge.id} />}
+            {canApprove(actor.adminRole) && (profile.role === 'tutor' || profile.role === 'parent') && !profile.merged_into && (
+              <ViewAsButton memberId={id} />
+            )}
             {profile.is_banned && (
               <span className="rounded-full bg-tm-tint-red px-2 py-0.5 text-[10px] font-black uppercase text-tm-red">
                 banned

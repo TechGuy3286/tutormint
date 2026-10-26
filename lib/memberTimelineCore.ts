@@ -64,7 +64,7 @@ export const TIMELINE_GROUPS: Record<Exclude<TimelineGroup, 'all'>, string[]> = 
     'blocked', 'blocked_by', 'unblocked', 'reported', 'reported_by', 'report_resolved',
     'warned', 'suspended', 'unsuspended', 'banned', 'unbanned', 'staff_created',
     'staff_role_changed', 'staff_suspended', 'staff_reactivated', 'document_unlocked',
-    'follow_up_sent', 'follow_up_undone',
+    'follow_up_sent', 'follow_up_undone', 'account_merged', 'account_merge_undone',
   ],
 }
 

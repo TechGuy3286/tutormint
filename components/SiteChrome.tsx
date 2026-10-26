@@ -8,6 +8,8 @@ import { getSupportContact, supportContactFromEnv, whatsappHref } from '@/lib/su
 import { getCompany } from '@/lib/company'
 import { jsonLdScript, siteGraphJsonLd } from '@/lib/seo'
 import StaffRefCapture from '@/components/StaffRefCapture'
+import ViewAsBanner from '@/components/ViewAsBanner'
+import { currentViewAs } from '@/lib/viewAs'
 
 // The public site's chrome: header, main, footer — plus (PR 4) the desktop
 // messages dock. The floating WhatsApp support button was removed (PR21 — it
@@ -58,6 +60,9 @@ export default async function SiteChrome({ children }: { children: React.ReactNo
   // the homepage no longer emits its own. The legal facts and the support number
   // come from app_settings (env fallback), never from page source.
   const [company, support] = await Promise.all([getCompany(), getSupportContact()])
+  // "View as" (owner, 26 Oct 2026): the read-only banner while the Owner views
+  // this member's account.
+  const viewAs = isMember ? await currentViewAs() : null
 
   return (
     <>
@@ -65,6 +70,7 @@ export default async function SiteChrome({ children }: { children: React.ReactNo
         type="application/ld+json"
         dangerouslySetInnerHTML={jsonLdScript(siteGraphJsonLd(company, support.whatsapp))}
       />
+      {viewAs && <ViewAsBanner name={viewAs.name} />}
       <Navbar />
       {/* Signed-out page views feed the daily sign-up funnel (owner, 15 Oct 2026). */}
       {!session && <VisitBeacon />}

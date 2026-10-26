@@ -260,6 +260,6 @@ test('AI-assistant sign-ups are one source, with the exact site kept', () => {
   assert.deepEqual(rows.find((r) => r.group === 'direct')!.counts, { today: 1, yesterday: 0, last7: 1, month: 1 })
   // No new Overview card: the sources are a table under the daily funnel.
   const overview = read('app/admin/page.tsx')
-  assert.match(overview, /<SignupSources rows=\{sources\} \/>/)
+  assert.match(overview, /<SignupSources rows=\{sources\} ai=\{aiTotals\} \/>/)
   assert.match(read('app/admin/users/[id]/page.tsx'), /describeSource\(/)
 })

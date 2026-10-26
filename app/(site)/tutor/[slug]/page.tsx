@@ -33,6 +33,8 @@ import JobTypesChip from '@/components/JobTypesChip'
 import { jsonLdScript, pageDescription, pageTitle, socialMeta, tutorProfileJsonLd, seoDescription } from '@/lib/seo'
 import { tutorMetaDescription } from '@/lib/tutorMeta'
 import { shareImagePath, shareImageVersion, tutorOgDescription, tutorOgTitle } from '@/lib/seo/tutorOg'
+import { loadImageProfileFacts } from '@/lib/social/imageVersion'
+import { imageVersionKey, ogDrawFacts } from '@/lib/social/imageVersionCore'
 import { getLandingLinker } from '@/lib/landing'
 import { currentSlugForRetired } from '@/lib/tutorSlug'
 import { convertedTutorRedirect } from '@/lib/convertAccountCore'
@@ -368,6 +370,25 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     }),
   )
 
+  // The preview image's version key (owner, 26 Oct 2026 — lib/social/
+  // imageVersionCore): read from the live rows by the SAME reader the image route
+  // checks against, so an unchanged profile keeps its cached picture and any
+  // change (name, photo, hidden photo, subjects, city, headline, verification)
+  // is a new URL that WhatsApp fetches fresh.
+  const ogAdmin = createAdminClient()
+  const ogFacts = ogAdmin ? (await loadImageProfileFacts(ogAdmin, [tutor.id])).get(tutor.id) ?? null : null
+  const ogVersion = ogFacts
+    ? imageVersionKey(ogFacts, ogDrawFacts(ogFacts.verified))
+    : shareImageVersion({
+        avatar: tutor.avatar_url,
+        photoShown: !!publicPhoto(tutor.avatar_url, { hidden: flags.photoHidden }),
+        name: tutor.full_name,
+        verified: flags.verified && flags.cnicApproved && flags.profilePicApproved && flags.selfieApproved,
+        city: tutor.city,
+        subjects: ogSubjects.slice(0, 3),
+        headline: tutor.headline,
+      })
+
   return {
     title,
     description,
@@ -393,19 +414,8 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       title,
       description: tutorOgDescription({ headline: tutor.headline, subjects: ogSubjects, city: tutor.city }),
       path: `/tutor/${tutor.slug}`,
-      image: shareImagePath(
-        tutor.slug,
-        shareImageVersion({
-          avatar: tutor.avatar_url,
-          // A hidden photo never reaches a share preview (owner, 17 Oct 2026).
-          photoShown: !!publicPhoto(tutor.avatar_url, { hidden: flags.photoHidden }),
-          name: tutor.full_name,
-          verified: flags.verified && flags.cnicApproved && flags.profilePicApproved && flags.selfieApproved,
-          city: tutor.city,
-          subjects: ogSubjects.slice(0, 3),
-          headline: tutor.headline,
-        }),
-      ),
+      // A hidden photo never reaches a share preview (owner, 17 Oct 2026).
+      image: shareImagePath(tutor.slug, ogVersion),
       imageAlt: `${tutor.full_name} on TutorMint`,
       type: 'profile',
     }),

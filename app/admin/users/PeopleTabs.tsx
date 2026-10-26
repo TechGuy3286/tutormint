@@ -6,6 +6,7 @@ import { formatDate } from '@/lib/datetime'
 import { loadMemberCards } from '@/lib/overviewCards'
 import { loadProfileShares } from '@/lib/profileShare'
 import { duplicateTags, inTab, loadDirectory, loadDirectoryDocs, type DirectoryPerson } from '@/lib/peopleDirectory'
+import { openTags } from '@/lib/memberDuplicates'
 import {
   DUP_WORDS,
   EXCLUDE_WORDS,
@@ -60,6 +61,14 @@ export default async function PeopleTabs({ tab, showAll, role }: { tab: PeopleTa
             className="inline-flex min-h-[40px] items-center rounded-full border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy"
           >
             {showAll ? 'Hide staff & test accounts' : `Show staff & test accounts (${hiddenCount})`}
+          </Link>
+        )}
+        {roleSatisfies(role, SCREEN_ACCESS.memberMerge) && (
+          <Link
+            href="/admin/users/duplicates"
+            className="inline-flex min-h-[40px] items-center rounded-full border border-tm-red/30 bg-white px-4 text-xs font-bold text-tm-red hover:border-tm-red"
+          >
+            Possible duplicates
           </Link>
         )}
         {roleMayWrite(role, SCREEN_ACCESS.cleanup) && (
@@ -133,7 +142,8 @@ export default async function PeopleTabs({ tab, showAll, role }: { tab: PeopleTa
     loadMemberCards(ids),
     tab === 'tutors' ? loadDirectoryDocs() : Promise.resolve(null),
     tab === 'tutors' ? loadProfileShares(ids) : Promise.resolve(null),
-    duplicateTags(viewPeople),
+    // "Not a duplicate" hides a pair for good (owner, 26 Oct 2026).
+    duplicateTags(viewPeople).then(openTags),
   ])
 
   const badgeFor = (p: DirectoryPerson) => (p.banned ? 'Banned' : p.suspended ? 'Paused' : p.excluded ? EXCLUDE_WORDS[p.excluded] : null)
@@ -169,7 +179,7 @@ export default async function PeopleTabs({ tab, showAll, role }: { tab: PeopleTa
             lastActive: p.parent.lastActive,
           }
         : null,
-      dupes: (dupes.get(p.id) ?? []).map((l) => ({ id: l.id, name: l.name, reason: DUP_WORDS[l.reason] })),
+      dupes: (dupes.get(p.id) ?? []).map((l) => ({ id: l.id, name: l.name, reason: DUP_WORDS[l.reason], reasonKey: l.reason })),
     }
   })
 

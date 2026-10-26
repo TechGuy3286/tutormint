@@ -76,7 +76,7 @@ export type Directory = {
 }
 
 const PROFILE_COLS =
-  'id, role, admin_role, full_name, email, phone_number, whatsapp, city, created_at, is_seed, is_team_account, is_test_name, hidden_from_public, is_suspended, is_banned, linked_account_id, cnic_number, phone_verified_at, verification_state, cnic_verified_at, address, address_status, address_verified_at'
+  'id, role, admin_role, full_name, email, phone_number, whatsapp, city, created_at, is_seed, is_team_account, is_test_name, hidden_from_public, is_suspended, is_banned, linked_account_id, cnic_number, phone_verified_at, verification_state, cnic_verified_at, address, address_status, address_verified_at, merged_into'
 
 type Row = Record<string, unknown>
 
@@ -222,6 +222,7 @@ export const loadDirectory = cache(async (): Promise<Directory> => {
         hidden: p.hidden_from_public as boolean,
         staffLinked: isStaffLinked(p),
         activity,
+        mergedInto: (p.merged_into as string | null) ?? null,
       }),
       suspended: !!p.is_suspended,
       banned: !!p.is_banned,

@@ -4,6 +4,8 @@ import { cvQrDataUri } from '@/lib/cv/assets'
 import { loadPostTutor } from '@/lib/social/postTutor'
 import { PROFILE_CTA, SITE } from '@/lib/social/copy'
 import { renderSocialBanner } from '@/app/api/admin/social/image/render'
+import { liveImageKey } from '@/lib/social/imageVersion'
+import { imageCacheControl, ogDrawFacts } from '@/lib/social/imageVersionCore'
 
 // The link-preview image of a tutor profile (og:image / twitter:image) — owner,
 // 21 Oct 2026, PR C3. 1200 × 630, the C2 Wide design with the tutor's photo, or
@@ -23,7 +25,7 @@ import { renderSocialBanner } from '@/app/api/admin/social/image/render'
 
 export const runtime = 'nodejs'
 
-export async function GET(_request: Request, { params }: { params: Promise<{ slug: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const admin = createAdminClient()
   if (!admin) return new Response('Server not configured.', { status: 503 })
@@ -54,11 +56,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
     cta: { label: PROFILE_CTA, site: SITE },
   })
   const body = await res.arrayBuffer()
+  // Cached only while the URL's version key is the live one (owner, 26 Oct
+  // 2026); an old key is drawn live and never cached.
+  const live = (await liveImageKey(admin, visible.id as string, ogDrawFacts(verified))) ?? ''
   return new Response(body, {
     status: 200,
     headers: {
       'Content-Type': 'image/png',
-      'Cache-Control': 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800',
+      'Cache-Control': imageCacheControl(new URL(request.url).searchParams.get('v'), live, 'public'),
     },
   })
 }

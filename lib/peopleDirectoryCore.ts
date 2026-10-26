@@ -35,7 +35,7 @@ export function pickPeopleTab(v: string | null | undefined): PeopleTab {
 // Who counts
 // ---------------------------------------------------------------------------
 
-export type ExcludeReason = 'staff' | 'seed' | 'team' | 'test'
+export type ExcludeReason = 'staff' | 'seed' | 'team' | 'test' | 'merged'
 
 export type PersonFacts = {
   role: string | null
@@ -49,10 +49,13 @@ export type PersonFacts = {
   staffLinked?: boolean
   /** Real tutor or parent activity (see `hasActivity`). */
   activity?: boolean
+  /** profiles.merged_into — "Merged into <name>" (owner, 26 Oct 2026). */
+  mergedInto?: string | null
 }
 
 export function excludedReason(f: PersonFacts): ExcludeReason | null {
   if (f.role === 'admin') return 'staff'
+  if (f.mergedInto) return 'merged'
   if (f.isSeed) return 'seed'
   if (f.isTeam) return 'team'
   if (f.isTestName || f.hidden) return 'test'
@@ -65,6 +68,7 @@ export const EXCLUDE_WORDS: Record<ExcludeReason, string> = {
   seed: 'Seed account',
   team: 'Team account',
   test: 'Test account',
+  merged: 'Merged account',
 }
 
 /** Real activity. A tutor: paid the Verification Fee, finished onboarding or

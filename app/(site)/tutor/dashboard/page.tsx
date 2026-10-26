@@ -35,6 +35,9 @@ import { getOnboardingMode } from '@/lib/onboardingModeServer'
 import { showNewOnboarding } from '@/lib/onboardingMode'
 import VerifiedOnceBanner from '@/components/tutor/VerifiedOnceBanner'
 import { firstVerifiedVisit } from '@/lib/verifiedBanner'
+import ShareStatusButton, { StatusShareCard } from '@/components/tutor/ShareStatusButton'
+import { statusImageFacts } from '@/lib/social/statusImage'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { applyBlocksFor } from '@/lib/applyBlockServer'
 import MyApplicationsSection from '@/components/tutor/MyApplicationsSection'
 import { tutorApplicationCards } from '@/lib/applicationTracking'
@@ -86,6 +89,14 @@ export default async function TutorDashboardPage() {
   // The "You're verified" banner shows ONCE — the first dashboard visit after the
   // badge is assigned; this call records the showing (owner, 5 Oct 2026).
   const showVerifiedOnce = await firstVerifiedVisit(userId, !!ent.verified)
+  // The WhatsApp status image (owner, 26 Oct 2026): a "Share on WhatsApp Status"
+  // button for a tutor with the Verified badge, and a one-time card they dismiss.
+  const statusSvc = createAdminClient()
+  const statusImg = statusSvc ? await statusImageFacts(statusSvc, userId) : null
+  const statusCardOpen =
+    !!statusImg?.allowed && statusSvc
+      ? !((await statusSvc.from('tutor_profiles').select('status_card_dismissed_at').eq('id', userId).maybeSingle()).data?.status_card_dismissed_at)
+      : false
   const showValueCard = staffNew && !ent.verified
   // A bank-transfer receipt for the fee is with staff (owner, 11 Oct 2026): the
   // dashboard says "Payment under review" in place of every pay prompt, and a
@@ -259,6 +270,14 @@ export default async function TutorDashboardPage() {
              already recorded it, so it never returns on any device. */
           <VerifiedOnceBanner />
         ) : null}
+
+        {statusImg?.allowed && statusImg.key && (statusCardOpen ? (
+          <StatusShareCard imageKey={statusImg.key} name={statusImg.firstName} />
+        ) : (
+          <div className="flex justify-end">
+            <ShareStatusButton imageKey={statusImg.key} name={statusImg.firstName} />
+          </div>
+        ))}
 
         {/* Action bar — the main thing a tutor comes back to do (PR42 §2). */}
         <DashboardActionBar

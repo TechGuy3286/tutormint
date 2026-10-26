@@ -250,6 +250,10 @@ export function timelineSentence(event: string, meta: TimelineMeta = {}): string
     }
     case 'follow_up_undone':
       return 'A staff follow-up was undone'
+    case 'account_merged':
+      return meta.side === 'merged' ? 'This account was merged into another account' : 'Another account was merged into this one'
+    case 'account_merge_undone':
+      return 'A merge of this account was undone'
     case 'account_self_paused':
       return 'Paused their own account'
     case 'account_self_restored':

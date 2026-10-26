@@ -7,6 +7,7 @@ import { ExternalLink, FileCheck2, MessageCircle, Phone, Search } from 'lucide-r
 
 import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
+import DuplicateActions from '@/components/admin/DuplicateActions'
 import { formatDate } from '@/lib/datetime'
 import type { BadgeName } from '@/lib/planBadges'
 import FollowUpActions, { MarkFollowedUp } from '@/components/admin/FollowUpActions'
@@ -82,7 +83,7 @@ export type GridItem = {
   /** Parents tab: the parent's own facts. */
   parent?: GridParent | null
   /** "Possible duplicate" — the other accounts that look like the same person. */
-  dupes?: { id: string; name: string; reason: string }[]
+  dupes?: { id: string; name: string; reason: string; reasonKey?: string }[]
 }
 
 export type GridParent = {
@@ -320,8 +321,13 @@ function MemberBody({
       <div className="flex items-start gap-3">
         <Avatar name={m.name} src={m.avatarUrl} gender={m.gender} decorative className="h-12 w-12 shrink-0 text-sm" px={48} />
         <div className="min-w-0 flex-1 space-y-1">
-          <p className="truncate text-sm font-black text-tm-navy">{m.name}</p>
-          {m.badges.length > 0 && <BadgeRow badges={m.badges} size="sm" showUrdu={false} />}
+          {/* The name and its badges on ONE line (owner, 26 Oct 2026): the badge
+              sits right after the name, never on its own line; a long name is
+              cut, the badge never wraps, and every card's line is the same height. */}
+          <p className="flex min-h-[20px] min-w-0 items-center gap-1.5" data-name-row="">
+            <span className="min-w-0 truncate text-sm font-black text-tm-navy">{m.name}</span>
+            {m.badges.length > 0 && <BadgeRow badges={m.badges} size="sm" showUrdu={false} className="shrink-0" nowrap />}
+          </p>
           <p className="text-[11px] text-gray-600">
             {ROLE_WORD[m.role]}
             {m.city ? ` · ${m.city}` : ''}
@@ -373,6 +379,7 @@ function MemberBody({
                 {d.name}
               </Link>{' '}
               ({d.reason})
+              <DuplicateActions aId={it.memberId ?? it.id} bId={d.id} reason={d.reasonKey ?? null} />
             </span>
           ))}
         </p>

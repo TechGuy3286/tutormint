@@ -11,6 +11,8 @@ import { clampVariant, GROUP_MAX, GROUP_MIN } from '@/lib/social/templates'
 import { loadPostTutor } from '@/lib/social/postTutor'
 
 import { renderSocialBanner } from './render'
+import { liveImageKey } from '@/lib/social/imageVersion'
+import { imageCacheControl, withImageCache } from '@/lib/social/imageVersionCore'
 
 // Who may generate a promotional PNG, and which tutor (or tutors) it is about.
 //
@@ -76,7 +78,8 @@ export async function GET(request: Request) {
     }
     const first = tutors[0]!
     const qrDataUri = await cvQrDataUri(addRefToUrl(cityTutorsUrl(city), refCode))
-    return renderSocialBanner({
+    // A group post is always drawn live from the six profiles (never cached).
+    return withImageCache(renderSocialBanner({
       tutor: { ...first.tutor, city },
       badges: ['Verified'],
       subjects: [],
@@ -91,7 +94,7 @@ export async function GET(request: Request) {
         city,
         tutors: tutors.map((t) => ({ slug: t!.tutor.slug, name: t!.tutor.full_name, subject: t!.subjects[0] ?? null, avatar_url: t!.tutor.avatar_url ?? '', gender: t!.tutor.gender })),
       },
-    })
+    }), 'private, no-store')
   }
 
   // ---- one tutor ----------------------------------------------------------------
@@ -109,7 +112,10 @@ export async function GET(request: Request) {
   // The QR carries the posting staff member's code (owner, 23 Oct 2026); the
   // address printed on the image stays clean.
   const qrDataUri = await cvQrDataUri(addRefToUrl(post.profileUrl, refCode))
-  return renderSocialBanner({
+  // Kept in the browser only while the URL's version key (k=) is the live one
+  // (owner, 26 Oct 2026 — lib/social/imageVersionCore).
+  const live = (await liveImageKey(admin, post.tutor.id, { template, format, variant, crop })) ?? ''
+  const res = renderSocialBanner({
     tutor: post.tutor,
     badges: post.badges,
     subjects: post.subjects,
@@ -127,4 +133,5 @@ export async function GET(request: Request) {
     // Every tutor here passed the verified-only rule above.
     verified: true,
   })
+  return withImageCache(res, imageCacheControl(url.searchParams.get('k'), live, 'private'))
 }

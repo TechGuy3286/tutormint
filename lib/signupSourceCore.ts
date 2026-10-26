@@ -144,3 +144,52 @@ export function countSources(
       : {}),
   }))
 }
+
+// ------------------------------------------- AI assistants summary (26 Oct 2026)
+
+export type AiWindowKey = 'last7' | 'last30' | 'all'
+export const AI_WINDOW_LABEL: Record<AiWindowKey, string> = { last7: 'Last 7 days', last30: 'Last 30 days', all: 'All time' }
+
+export type AiTotals = {
+  signups: Record<AiWindowKey, number>
+  /** Of those sign-ups, the tutors who have paid the Verification Fee. */
+  paidTutors: Record<AiWindowKey, number>
+  sites: { site: string; signups: Record<AiWindowKey, number>; paidTutors: Record<AiWindowKey, number> }[]
+}
+
+const zeroAi = (): Record<AiWindowKey, number> => ({ last7: 0, last30: 0, all: 0 })
+
+/**
+ * The "AI assistants" source group (owner, 26 Oct 2026): sign-ups whose first
+ * touch was an AI-assistant site (chatgpt.com, gemini, perplexity, copilot,
+ * claude.ai and similar), and how many of those are tutors who paid — for the
+ * last 7 days, the last 30 days and all time, by sign-up date.
+ */
+export function aiAssistantTotals(
+  signups: { createdAtMs: number; utmSource: string | null; role: string | null; paid: boolean }[],
+  nowMs: number,
+): AiTotals {
+  const DAY = 86_400_000
+  const from: Record<AiWindowKey, number> = { last7: nowMs - 7 * DAY, last30: nowMs - 30 * DAY, all: -Infinity }
+  const total: AiTotals = { signups: zeroAi(), paidTutors: zeroAi(), sites: [] }
+  const bySite = new Map<string, { signups: Record<AiWindowKey, number>; paidTutors: Record<AiWindowKey, number> }>()
+  for (const s of signups) {
+    const site = aiAssistantSite(s.utmSource)
+    if (!site) continue
+    const row = bySite.get(site) ?? { signups: zeroAi(), paidTutors: zeroAi() }
+    for (const k of Object.keys(from) as AiWindowKey[]) {
+      if (s.createdAtMs < from[k] || s.createdAtMs > nowMs) continue
+      total.signups[k] += 1
+      row.signups[k] += 1
+      if (s.role === 'tutor' && s.paid) {
+        total.paidTutors[k] += 1
+        row.paidTutors[k] += 1
+      }
+    }
+    bySite.set(site, row)
+  }
+  total.sites = [...bySite.entries()]
+    .sort((a, b) => b[1].signups.all - a[1].signups.all || a[0].localeCompare(b[0]))
+    .map(([site, r]) => ({ site, ...r }))
+  return total
+}

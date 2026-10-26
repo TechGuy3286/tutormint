@@ -14,16 +14,17 @@ import {
   type BankDetails,
   type ReceiptState,
 } from '@/lib/payments/receiptCore'
-import { bankCopyRows, copyAllText, COPIED_MS } from '@/lib/payments/bankCopyCore'
+import { bankCopyRows, COPIED_MS } from '@/lib/payments/bankCopyCore'
 import { PAY_BY_TRANSFER_LINE } from '@/lib/payments/payproRetireCore'
 
 // The payment screen (owner, 11 Oct 2026; PayPro retired 26 Oct 2026).
 //
 // One way to pay: bank transfer. The bank panel shows the owner's account
-// details, each on its own row with its own Copy button (numbers shown in
-// groups of 4, copied without spaces — lib/payments/bankCopyCore), a
-// "Copy all details" button, three short steps, and the receipt upload to
-// /api/payments/receipt. No PayPro option is shown anywhere. Once a receipt is in, this renders the "received"
+// details, each on its own row (numbers shown in groups of 4; a Copy button on
+// the account number and IBAN only, copied without spaces —
+// lib/payments/bankCopyCore), the Urdu steps line, and the receipt upload to
+// /api/payments/receipt (no transaction ID box since 26 Oct 2026; the server
+// still accepts one and keeps old values). No PayPro option is shown anywhere. Once a receipt is in, this renders the "received"
 // status and nothing to pay with — the server refuses a second one too.
 
 const URDU_FONT =
@@ -63,7 +64,9 @@ function useCopy(): [boolean, (text: string) => void] {
   return [done, copy]
 }
 
-function CopyValue({ label, display, copy }: { label: string; display: string; copy: string }) {
+/** A bank detail row. Only the account number and IBAN carry a Copy button
+ *  (owner, 26 Oct 2026 — bankCopyCore `copyable`). */
+function CopyValue({ label, display, copy, copyable }: { label: string; display: string; copy: string; copyable: boolean }) {
   const [done, doCopy] = useCopy()
   return (
     <div className="flex items-center justify-between gap-3 border-b border-gray-100 py-2.5 last:border-0" data-copy-row={label}>
@@ -71,7 +74,7 @@ function CopyValue({ label, display, copy }: { label: string; display: string; c
         <dt className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{label}</dt>
         <dd className="break-words font-mono text-base font-bold tracking-wide text-tm-navy" data-bank-value="">{display}</dd>
       </div>
-      <button
+      {copyable && <button
         type="button"
         onClick={() => doCopy(copy)}
         aria-label={`Copy ${label.toLowerCase()}`}
@@ -79,29 +82,17 @@ function CopyValue({ label, display, copy }: { label: string; display: string; c
       >
         {done ? <Check aria-hidden size={16} className="text-tm-green-deep" /> : <Copy aria-hidden size={16} />}
         {done ? 'Copied ✓' : 'Copy'}
-      </button>
+      </button>}
     </div>
   )
 }
 
-function CopyAll({ text }: { text: string }) {
-  const [done, doCopy] = useCopy()
-  return (
-    <button
-      type="button"
-      onClick={() => doCopy(text)}
-      className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl border border-tm-navy bg-white px-4 text-sm font-bold text-tm-navy hover:bg-tm-tint-navy"
-    >
-      {done ? <Check aria-hidden size={16} className="text-tm-green-deep" /> : <Copy aria-hidden size={16} />}
-      {done ? 'Copied ✓' : 'Copy all details'}
-    </button>
-  )
-}
+/** The help button label (owner, 26 Oct 2026; it used to start with "Need help?"). */
+export const WHATSAPP_US = 'WhatsApp us'
 
 // The second way to pay (owner, 17 Oct 2026). Exported so the test can check them.
 export const OTHER_METHODS_TITLE = 'Other methods'
 export const OTHER_METHODS_SUB = 'Any bank app, Easypaisa or ATM transfer — activated after we check your receipt'
-export const ANY_BANK_LINE = 'You can pay from any bank or wallet app. You don’t need a Faysal Bank account.'
 
 export default function PayChoice({
   planCode,
@@ -129,7 +120,6 @@ export default function PayChoice({
   const backToTuition = afterFeeReturnPath(returnTo, 'receipt')
   const [state, setState] = useState<ReceiptState>(receipt)
   const [file, setFile] = useState<File | null>(null)
-  const [txn, setTxn] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -139,11 +129,12 @@ export default function PayChoice({
       href={waHref}
       target="_blank"
       rel="noreferrer"
-      className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-green-deep"
+      data-whatsapp-button=""
+      className="flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-tm-green-deep bg-white px-4 text-sm font-bold text-tm-green-deep hover:bg-tm-tint-green"
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- the site's own WhatsApp mark */}
       <img src="/whatsapp.png" alt="" className="h-5 w-5" />
-      Need help? WhatsApp us
+      {WHATSAPP_US}
     </a>
   )
 
@@ -197,7 +188,6 @@ export default function PayChoice({
       const form = new FormData()
       form.set('planCode', planCode)
       form.set('receipt', file)
-      form.set('transactionId', txn.trim())
       if (returnTo) form.set('returnTo', returnTo)
       const res = await fetch('/api/payments/receipt', { method: 'POST', body: form, signal: submitSignal(UPLOAD_TIMEOUT_MS) })
       const data = (await res.json().catch(() => null)) as { success?: boolean; error?: string; code?: string; message?: string } | null
@@ -245,22 +235,15 @@ export default function PayChoice({
         <section className="space-y-4 rounded-2xl border border-gray-200 bg-white p-4" data-bank-panel="">
           <h2 className="text-sm font-black text-tm-navy">Pay by bank transfer</h2>
           <p className="text-xs font-bold leading-relaxed text-tm-navy">{PAY_BY_TRANSFER_LINE}</p>
-          <p className="text-xs leading-relaxed text-slate-700">{ANY_BANK_LINE}</p>
           <dl>
             {bankCopyRows(bank, amount).map((r) => (
-              <CopyValue key={r.key} label={r.label} display={r.display} copy={r.copy} />
+              <CopyValue key={r.key} label={r.label} display={r.display} copy={r.copy} copyable={r.copyable} />
             ))}
           </dl>
-          <CopyAll text={copyAllText(bank, amount)} />
 
-          <ol className="space-y-1 text-xs leading-relaxed text-slate-700">
-            <li>1. Send {amount} to this account from any bank app, JazzCash or Easypaisa.</li>
-            <li>2. Take a screenshot of the receipt.</li>
-            <li>3. Upload it below.</li>
-            <li className="list-none">
-              <Ur>کسی بھی بینک ایپ، جاز کیش یا ایزی پیسہ سے اس اکاؤنٹ میں رقم بھیجیں، رسید کا اسکرین شاٹ لیں اور نیچے اپ لوڈ کریں۔</Ur>
-            </li>
-          </ol>
+          <p className="text-xs leading-relaxed text-slate-700" data-urdu-steps="">
+            <Ur>کسی بھی بینک ایپ، جاز کیش یا ایزی پیسہ سے اس اکاؤنٹ میں رقم بھیجیں، رسید کا اسکرین شاٹ لیں اور نیچے اپ لوڈ کریں۔</Ur>
+          </p>
 
           <div className="space-y-2">
             <input
@@ -278,19 +261,6 @@ export default function PayChoice({
               <Upload aria-hidden size={16} />
               <span className="min-w-0 truncate">{file ? file.name : 'Upload receipt'}</span>
             </button>
-            <p className="text-[11px] text-gray-500">A photo (JPG, PNG, WebP) or PDF, up to 5 MB.</p>
-
-            <label className="block space-y-1">
-              <span className="text-xs font-bold text-tm-navy">Transaction ID / reference (optional)</span>
-              <input
-                value={txn}
-                onChange={(e) => setTxn(e.target.value)}
-                maxLength={80}
-                autoComplete="off"
-                className="min-h-[44px] w-full rounded-xl border border-gray-200 px-3 text-sm text-slate-700 focus:border-tm-navy focus:outline-none"
-              />
-            </label>
-
             {error && (
               <p role="alert" className="rounded-xl bg-tm-tint-red p-3 text-xs font-semibold leading-relaxed text-tm-red">
                 <TwoLine text={error} />

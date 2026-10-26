@@ -76,6 +76,12 @@ export const AUDIT_LABELS: Record<string, string> = {
   'profile_photo.crop': 'Cropped the profile picture',
   'profile_photo.crop_reset': 'Reset the profile picture crop',
   'cnic.reveal': 'Showed the full CNIC number',
+  'member.contact_reveal': 'Showed the phone or email in the header',
+  'member.not_duplicate': 'Marked two accounts as not a duplicate',
+  'member.merge': 'Merged two accounts of the same person',
+  'member.merge_undo': 'Undid a merge of two accounts',
+  'member.view_as_start': 'Started viewing the account as the member (read only)',
+  'member.view_as_end': 'Stopped viewing the account as the member',
   'video.visibility': 'Changed who can see the video',
 
   // Money

@@ -15,7 +15,8 @@ import { TILE_TONE, type TileTone } from '@/lib/tileTones'
 import { smsProviderLabel } from '@/lib/sms'
 import { pkr } from '@/lib/reconciliationCore'
 import { loadSignupFunnel, type FunnelWindowResult } from '@/lib/siteVisits'
-import { loadSignupSources } from '@/lib/signupSources'
+import { loadAiAssistantTotals, loadSignupSources } from '@/lib/signupSources'
+import { AI_WINDOW_LABEL, type AiTotals, type AiWindowKey } from '@/lib/signupSourceCore'
 import type { SourceRow } from '@/lib/signupSourceCore'
 import { orderOverviewSections } from '@/lib/overviewOrderCore'
 import { loadReaderState } from '@/lib/bankEmailReader'
@@ -116,7 +117,7 @@ export default async function AdminHome({
   // Managers only (SCREEN_ACCESS.signupFunnel is []).
   const dailyFunnel = roleSatisfies(actor.adminRole, SCREEN_ACCESS.signupFunnel) ? await loadSignupFunnel() : null
   // Where sign-ups came from (owner, 17 Oct 2026): the same people as the funnel.
-  const sources = dailyFunnel ? await loadSignupSources() : null
+  const [sources, aiTotals] = dailyFunnel ? await Promise.all([loadSignupSources(), loadAiAssistantTotals()]) : [null, null]
   const counts = STEP_KEYS.map((k) => lists.get(k)?.rows.length ?? 0)
   const funnel = funnelSteps(counts, STEP_KEYS.map((k) => OVERVIEW_ITEMS[k].title))
 
@@ -320,7 +321,7 @@ export default async function AdminHome({
     ) },
     { key: 'sources', node: (
       <>
-      {sources && sources.length > 0 && <SignupSources rows={sources} />}
+      {sources && sources.length > 0 && <SignupSources rows={sources} ai={aiTotals} />}
       </>
     ) },
     { key: 'myLink', node: (
@@ -402,7 +403,7 @@ function DailySignupFunnel({ windows }: { windows: FunnelWindowResult[] }) {
  * every AI-assistant site (chatgpt.com, gemini.google.com, perplexity.ai…),
  * with one line per site under it. Pakistan time.
  */
-function SignupSources({ rows }: { rows: SourceRow[] }) {
+function SignupSources({ rows, ai }: { rows: SourceRow[]; ai?: AiTotals | null }) {
   const cols: { key: keyof SourceRow['counts']; label: string }[] = [
     { key: 'today', label: 'Today' },
     { key: 'yesterday', label: 'Yesterday' },
@@ -449,6 +450,52 @@ function SignupSources({ rows }: { rows: SourceRow[] }) {
           </tbody>
         </table>
       </div>
+      {ai && <AiAssistantsTable ai={ai} />}
     </section>
+  )
+}
+
+/** The AI assistants source group (owner, 26 Oct 2026): sign-ups whose first
+ *  link was an AI assistant, and the tutors among them who paid. */
+function AiAssistantsTable({ ai }: { ai: AiTotals }) {
+  const cols = Object.keys(AI_WINDOW_LABEL) as AiWindowKey[]
+  return (
+    <div className="space-y-1.5" data-ai-assistants="">
+      <h3 className="text-xs font-black text-tm-navy">AI assistants</h3>
+      <p className="text-[11px] text-gray-500">ChatGPT, Gemini, Perplexity, Copilot, Claude and similar. By sign-up date; paid = tutors who paid the Verification Fee.</p>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[420px] text-xs">
+          <thead>
+            <tr className="text-left text-[11px] font-black uppercase tracking-wide text-gray-500">
+              <th className="py-1.5 pr-2"></th>
+              {cols.map((c) => (
+                <th key={c} className="py-1.5 pl-2 text-right">{AI_WINDOW_LABEL[c]}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-t border-gray-100">
+              <td className="py-1.5 pr-2 font-bold text-tm-navy">Sign-ups</td>
+              {cols.map((c) => <td key={c} className="py-1.5 pl-2 text-right font-bold tabular-nums text-tm-navy">{ai.signups[c]}</td>)}
+            </tr>
+            <tr>
+              <td className="py-1.5 pr-2 font-bold text-tm-navy">Paid tutors</td>
+              {cols.map((c) => <td key={c} className="py-1.5 pl-2 text-right font-bold tabular-nums text-tm-navy">{ai.paidTutors[c]}</td>)}
+            </tr>
+            {ai.sites.map((s) => (
+              <tr key={s.site}>
+                <td className="py-1 pl-4 pr-2 text-slate-700">{s.site}</td>
+                {cols.map((c) => (
+                  <td key={c} className="py-1 pl-2 text-right tabular-nums text-slate-700">
+                    {s.signups[c]}
+                    {s.paidTutors[c] > 0 ? ` · ${s.paidTutors[c]} paid` : ''}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   )
 }

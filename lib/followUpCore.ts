@@ -28,7 +28,7 @@ const DAY = 86_400_000
 export const STUCK_TEMPLATE_KEY = 'profile_completion_nudge'
 
 export type FollowUpChannel = 'whatsapp' | 'call' | 'email'
-export type FollowUpSource = 'stuck' | 'unpaid' | 'abandoned' | 'documents'
+export type FollowUpSource = 'stuck' | 'unpaid' | 'abandoned' | 'documents' | 'status_image' | 'parents'
 
 export type FollowUpRecord = {
   id: string

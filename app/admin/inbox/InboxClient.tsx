@@ -155,6 +155,8 @@ export default function InboxClient({
         <div className="space-y-3">
           <ApplicationTemplates templates={templates} supportDisplay={supportDisplay} isOwner={isOwner} defaultOpen={initialShowTemplates} />
           <ApplicationTemplates templates={templates} supportDisplay={supportDisplay} isOwner={isOwner} group="follow_ups" />
+          <ApplicationTemplates templates={templates} supportDisplay={supportDisplay} isOwner={isOwner} group="parents" />
+          <ApplicationTemplates templates={templates} supportDisplay={supportDisplay} isOwner={isOwner} group="status" />
           <TemplatesEditor templates={templates.filter((t) => !groupTemplateInfo(t.key))} />
         </div>
       )}

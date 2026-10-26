@@ -1,5 +1,6 @@
 import { overdueApplicationsCount } from '@/lib/applicationTracking'
 import { followUpsOverdueCount } from '@/lib/tutorFollowUps'
+import { cachedParentOverdueCount } from '@/lib/parentFollowUpsBadge'
 import { paidTutorsBadgeCount } from '@/lib/paidTutors'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
@@ -28,7 +29,7 @@ import { receiptsWaitingCount } from '@/lib/payments/receipt'
 async function navBadges(actor: AdminActor): Promise<Record<string, number>> {
   const admin = createAdminClient()
   if (!admin) return {}
-  const [overdue, reports, waiting, receipts, followUps, paidRed] = await Promise.all([
+  const [overdue, reports, waiting, receipts, followUps, paidRed, parentFollowUps] = await Promise.all([
     // Applications: overdue applications on this staff member's own tuitions —
     // every overdue application for the Owner (owner, 22 Oct 2026); tuitions
     // over 30 days old never count.
@@ -44,13 +45,15 @@ async function navBadges(actor: AdminActor): Promise<Record<string, number>> {
     roleSatisfies(actor.adminRole, SCREEN_ACCESS.unpaidSignups) ? followUpsOverdueCount() : Promise.resolve(0),
     // Paid tutors: red rows in the viewer's cities, all for the Owner.
     roleSatisfies(actor.adminRole, SCREEN_ACCESS.paidTutors) ? paidTutorsBadgeCount(actor) : Promise.resolve(0),
+    // Follow-ups → Parents: overdue To do items only (owner, 26 Oct 2026).
+    roleSatisfies(actor.adminRole, SCREEN_ACCESS.signups) ? cachedParentOverdueCount() : Promise.resolve(0),
   ])
   return {
     '/admin/reports': reports.count ?? 0,
     '/admin/payments': receipts,
     '/admin/applications': overdue,
     '/admin/users': waiting,
-    '/admin/follow-ups': followUps,
+    '/admin/follow-ups': followUps + parentFollowUps,
     '/admin/paid-tutors': paidRed,
   }
 }

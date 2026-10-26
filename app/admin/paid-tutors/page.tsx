@@ -15,6 +15,10 @@ import {
   type PaidFilter,
 } from '@/lib/paidTutorsCore'
 import QueueSearch from '@/components/admin/QueueSearch'
+import SendStatusImageButton from '@/components/admin/SendStatusImageButton'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { loadImageProfileFacts } from '@/lib/social/imageVersion'
+import { imageVersionKey, STATUS_DRAW } from '@/lib/social/imageVersionCore'
 
 // Tuitions → Paid tutors (owner, 23 Oct 2026; rules lib/paidTutorsCore, reads
 // lib/paidTutors). One row per paid tutor: applied, forwarded, waiting to
@@ -37,6 +41,14 @@ export default async function PaidTutorsPage({ searchParams }: { searchParams: P
   const rows = scoped.filter((r) => matchesPaidFilter(r, show))
   const redWait = scoped.filter((r) => r.red.includes('waiting_to_forward')).length
   const redContact = scoped.filter((r) => r.red.includes('no_contact')).length
+  // "Send status image" (owner, 26 Oct 2026): only for a tutor with the
+  // Verified badge; the key makes the image URL follow the live profile.
+  const svc = createAdminClient()
+  const imageFacts = svc ? await loadImageProfileFacts(svc, rows.map((r) => r.id)) : new Map()
+  const statusKey = (id: string): string | null => {
+    const f = imageFacts.get(id)
+    return f?.verified ? imageVersionKey(f, STATUS_DRAW) : null
+  }
 
   const href = (o: { staff?: string; show?: PaidFilter }) => {
     const p = new URLSearchParams()
@@ -143,6 +155,11 @@ export default async function PaidTutorsPage({ searchParams }: { searchParams: P
                     </div>
                   </dl>
                 </Link>
+                {statusKey(r.id) && (
+                  <div className="mt-1 flex justify-end px-1">
+                    <SendStatusImageButton memberId={r.id} name={r.name} imageKey={statusKey(r.id)!} compact />
+                  </div>
+                )}
               </li>
             )
           })}

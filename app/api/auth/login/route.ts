@@ -10,6 +10,7 @@ import { needsBridgeReverify } from '@/lib/sms'
 import { restoreSelfPauseOnSignIn } from '@/lib/selfPause'
 import { PERSIST_COOKIE } from '@/lib/sessionCookies'
 import { BANNED_LOGIN_MESSAGE } from '@/lib/authMessages'
+import { MERGED_LOGIN_MESSAGE } from '@/lib/memberMergeCore'
 import { needsPhoneGate } from '@/lib/phoneGate'
 import { accountsOnMobile, linkedRoles } from '@/lib/secondRole'
 
@@ -120,7 +121,7 @@ export async function POST(request: Request) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, must_change_password, is_suspended, is_banned, phone_verified_via, phone_gate_required, phone_verified_at')
+    .select('role, must_change_password, is_suspended, is_banned, phone_verified_via, phone_gate_required, phone_verified_at, merged_into')
     .eq('id', signedIn.id)
     .maybeSingle()
 
@@ -134,6 +135,13 @@ export async function POST(request: Request) {
       { error: BANNED_MESSAGE, errorUr: BANNED_MESSAGE_UR, banned: true, supportHref: '/support' },
       { status: 403 },
     )
+  }
+
+  // A MERGED account (owner, 26 Oct 2026) signs in to nothing: no session, and
+  // the message points at the other account it was merged into.
+  if (profile?.merged_into) {
+    await supabase.auth.signOut()
+    return NextResponse.json({ error: MERGED_LOGIN_MESSAGE, merged: true }, { status: 403 })
   }
 
   await logActivity({ userId: signedIn.id, event: 'login', meta: { via: looksLikeEmail(identifier) ? 'email' : 'mobile' } })

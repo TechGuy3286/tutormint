@@ -30,6 +30,9 @@ export type ActivityEvent =
   // Staff followed up a stuck sign-up on WhatsApp / by call (9 Oct 2026).
   | 'follow_up_sent'
   | 'follow_up_undone'
+  // Two accounts of the same person merged / the merge undone (owner, 26 Oct 2026).
+  | 'account_merged'
+  | 'account_merge_undone'
   | 'video_submitted'
   | 'verification_submitted'
   | 'verification_decision_received'

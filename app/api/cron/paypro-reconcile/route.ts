@@ -7,6 +7,7 @@ import { confirmPayproOrder } from '@/lib/payments/payproReconcile'
 import { publishDuePosts } from '@/lib/blogPublish'
 import { sweepTutorAlerts } from '@/lib/tutorAlerts'
 import { runBankReader } from '@/lib/bankEmailReader'
+import { endExpiredViews } from '@/lib/viewAs'
 
 // Backup reconcile (PR65 §5). PayPro's "Mark as Paid" callback can be missed, so
 // this re-checks pending PayPro orders via the ONE confirm path (PR104:
@@ -56,7 +57,10 @@ export async function GET(request: Request) {
   const bankReader = await runBankReader()
     .then((r) => (r.ran ? { status: r.status, ...(r.result && r.result.status === 'ok' ? { added: r.result.added, read: r.result.read } : {}) } : { status: r.why }))
     .catch(() => ({ status: 'error' }))
-  if (!pproConfigured()) return NextResponse.json({ ok: true, skipped: 'paypro_not_configured', blog, indexing, alerts, bankReader })
+  // "View as" (owner, 26 Oct 2026): a view whose 30 minutes ran out is ended
+  // here even when the browser never comes back.
+  const viewAsEnded = await endExpiredViews().catch(() => 0)
+  if (!pproConfigured()) return NextResponse.json({ ok: true, skipped: 'paypro_not_configured', blog, indexing, alerts, bankReader, viewAsEnded })
 
   const admin = createAdminClient()
   if (!admin) return NextResponse.json({ ok: true, skipped: 'no_admin_client' })

@@ -152,10 +152,10 @@ test('the Faysal Bank logo and name are not on the "Other methods" option row', 
   assert.ok(!/name="pay-via"/.test(choice), 'no method radio row')
   assert.match(choice, /OTHER_METHODS_TITLE = 'Other methods'/)
   assert.match(choice, /OTHER_METHODS_SUB = 'Any bank app, Easypaisa or ATM transfer — activated after we check your receipt'/)
-  assert.match(choice, /ANY_BANK_LINE = 'You can pay from any bank or wallet app\. You don’t need a Faysal Bank account\.'/)
-  // The line sits above the account details, inside the bank panel.
+  // The any-bank line was removed (owner, 26 Oct 2026); the transfer line stays above the details.
+  assert.doesNotMatch(choice, /ANY_BANK_LINE/)
   const panel = choice.slice(choice.indexOf('data-bank-panel'))
-  assert.ok(panel.indexOf('ANY_BANK_LINE') < panel.indexOf('<dl>'))
+  assert.ok(panel.indexOf('PAY_BY_TRANSFER_LINE') < panel.indexOf('<dl>'))
   assert.ok(!/faysal-bank/.test(read('app/(site)/pay/choose/page.tsx')), 'the bank logo is no longer passed')
   // PayPro retired: no JazzCash (PayPro) option and no "activates automatically".
   assert.doesNotMatch(choice, /JazzCash \(PayPro\)|Activates automatically/)

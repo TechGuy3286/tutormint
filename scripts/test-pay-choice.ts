@@ -260,7 +260,8 @@ test('the WhatsApp help link and the logos', () => {
     decodeURIComponent(link.split('text=')[1]),
     'Assalam o Alaikum, I paid the Verification Fee by bank transfer. My name: Ali Raza, mobile: 0300 1234567.',
   )
-  assert.match(CHOICE, /Need help\? WhatsApp us/)
+  // "Need help? WhatsApp us" became a "WhatsApp us" button (owner, 26 Oct 2026).
+  assert.match(CHOICE, /export const WHATSAPP_US = 'WhatsApp us'/)
   assert.ok(existsSync(join(ROOT, 'public/whatsapp.png')))
 
   assert.equal(payLogoSrcFrom('', 'jazzcash'), null, 'no file → text label only')

@@ -29,7 +29,8 @@ test('tuitions_staff may open ONLY the Tuitions group and the two outreach tabs'
   // Applicants to forward (owner, 10 Oct 2026): tuitions staff act there too.
   // Paid tutors and a tutor's Activity tab (owner, 23 Oct 2026): Tuitions staff
   // open both — Paid tutors is in the Tuitions group and opens the Activity tab.
-  assert.deepEqual(satisfiedKeys('tuitions_staff'), ['applicantForwards', 'duplicates', 'featuredWhatsapp', 'jobs', 'jobsMutate', 'jobsPost', 'memberActivity', 'mySignups', 'paidTutors', 'pausedTuitions', 'staffSignupClaim', 'tuitionPosting', 'unpaidSignups'])
+  // statusImage (owner, 26 Oct 2026): "Send status image" sits on the Paid tutors rows Tuitions staff work.
+  assert.deepEqual(satisfiedKeys('tuitions_staff'), ['applicantForwards', 'duplicates', 'featuredWhatsapp', 'jobs', 'jobsMutate', 'jobsPost', 'memberActivity', 'mySignups', 'paidTutors', 'pausedTuitions', 'staffSignupClaim', 'statusImage', 'tuitionPosting', 'unpaidSignups'])
 })
 
 test('every other screen is refused for tuitions_staff', () => {

@@ -35,6 +35,9 @@ const EDIT: Key[] = [
   'inbox', 'reports', 'tuitionPosting', 'tutorEdit', 'tutorSlug', 'videoVisibility', 'documentUnlock', 'documentRotate', 'cnicRead',
   // Tutor journey (owner, 23 Oct 2026): notes on the Activity tab; Paid tutors (read only, no write route).
   'memberActivity', 'paidTutors',
+  // Send status image (Paid tutors rows, the member page) and the logged Show on
+  // the member page header (owner, 26 Oct 2026).
+  'statusImage', 'memberContactReveal',
 ]
 
 test('the Partner may open every screen, and change only the tutor, parent and tuition areas', () => {
@@ -54,6 +57,8 @@ test('every view-only area refuses a Partner write; the Owner is unaffected', ()
     'convertAccount',
     // Team overview (owner, 24 Oct 2026): a read-only card.
     'teamOverview',
+    // Merge duplicates / Not a duplicate / View as (owner, 26 Oct 2026): the site Owner only.
+    'memberMerge',
   ]
   for (const key of VIEW) {
     assert.equal(roleMayWrite('partner', SCREEN_ACCESS[key]), false, key)
@@ -122,6 +127,18 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   'follow-ups/tutor': 'edit',
   // Log a call or note / withdraw a note on the Activity tab (owner, 23 Oct 2026).
   'members/notes': 'edit',
+  // Follow-ups → Parents taps and Undo; Send status image; the header's Show
+  // (owner, 26 Oct 2026).
+  'follow-ups/parent': 'edit',
+  'follow-ups/status-image': 'edit',
+  'members/reveal-contact': 'edit',
+  // Merge, Not a duplicate and View as (owner, 26 Oct 2026): refuseUnlessOwnerApproval.
+  'members/merge': 'owner',
+  'members/duplicates': 'owner',
+  'view-as/start': 'owner',
+  // Ends a View as: called by the member session it swapped in (no admin gate;
+  // it only removes that session and puts the Owner's own back).
+  'view-as/exit': 'self',
   // Convert account type (owner, 23 Oct 2026): refuseUnlessOwnerApproval — the site Owner only.
   'members/convert': 'owner',
   'members/restore-staff': 'owner',

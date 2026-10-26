@@ -61,6 +61,9 @@ const UNLOCKS: Record<string, { en: string; ur: string }> = {
   },
 }
 
+/** The fee's package card line (owner, 26 Oct 2026; the amount is on the Amount row). */
+const FEE_CARD_TITLE = 'One-Time Verification Fee'
+
 export default async function PayChoosePage({
   searchParams,
 }: {
@@ -157,12 +160,15 @@ export default async function PayChoosePage({
   return (
     <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8">
       <div className="mx-auto max-w-lg space-y-4">
-        <Breadcrumbs items={[{ label: isFee ? 'Tutor dashboard' : 'Membership Plans', href: isFee ? dashboard : plansHref }, { label: 'Payment' }]} />
+        {/* The breadcrumb stays; its "Back to …" link above the title is gone (owner, 26 Oct 2026). */}
+        <Breadcrumbs showBack={false} items={[{ label: isFee ? 'Tutor dashboard' : 'Membership Plans', href: isFee ? dashboard : plansHref }, { label: 'Payment' }]} />
         <h1 className="text-xl font-black text-tm-navy sm:text-2xl">
           {isFee ? 'Complete your verification' : 'Complete your payment'}
-          <span lang="ur" dir="rtl" className="mt-0.5 block text-xs font-semibold text-gray-500">
-            {isFee ? 'اپنی تصدیق مکمل کریں' : 'اپنی ادائیگی مکمل کریں'}
-          </span>
+          {!isFee && (
+            <span lang="ur" dir="rtl" className="mt-0.5 block text-xs font-semibold text-gray-500">
+              اپنی ادائیگی مکمل کریں
+            </span>
+          )}
         </h1>
 
         {stopped && (
@@ -174,7 +180,7 @@ export default async function PayChoosePage({
         {/* The package card — the ONE place the amount is shown. */}
         <section className="space-y-1.5 rounded-2xl border border-tm-navy/15 bg-tm-tint-navy p-4" data-package-card="">
           <p className="text-sm font-black text-tm-navy">
-            {packageName} — {priceLine(price)}
+            {isFee ? FEE_CARD_TITLE : <>{packageName} — {priceLine(price)}</>}
           </p>
           {unlocks && (
             <p className="text-xs leading-relaxed text-tm-navy">
@@ -182,9 +188,7 @@ export default async function PayChoosePage({
               <span lang="ur" dir="rtl" className="mt-0.5 block text-[11px] font-semibold">{unlocks.ur}</span>
             </p>
           )}
-          <p className="text-[11px] font-semibold text-tm-navy">
-            {isFee ? 'One-time. Non-refundable.' : 'Runs for 30 days. Non-refundable.'}
-          </p>
+          {!isFee && <p className="text-[11px] font-semibold text-tm-navy">Runs for 30 days. Non-refundable.</p>}
         </section>
 
         <PayChoice

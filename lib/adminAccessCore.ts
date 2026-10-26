@@ -373,6 +373,16 @@ export const SCREEN_ACCESS = withSupervisor({
   // Applications, red Paid tutors and follow-ups sent. The Owner (and so the
   // Partner) and Supervisors.
   teamOverview: ['supervisor'] as AdminRole[],
+  // "Send status image" on a tutor's admin page and Paid tutors row (owner,
+  // 26 Oct 2026): every staff role that works tutors, and the Owner.
+  statusImage: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
+  // Merge duplicates and "Not a duplicate" (owner, 26 Oct 2026): the site Owner
+  // ONLY — `[]` lets the Partner view; every route also calls
+  // refuseUnlessOwnerApproval.
+  memberMerge: [] as AdminRole[],
+  // "Show" on the masked phone / email in a member page's header (owner, 26 Oct
+  // 2026) — the roles that open the member page; every Show is in Audit.
+  memberContactReveal: ['admin', 'operations', 'partner'] as AdminRole[],
 })
 
 /**

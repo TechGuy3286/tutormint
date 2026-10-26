@@ -25,6 +25,7 @@ export default function BadgeRow({
   showLabel = false,
   showUrdu = true,
   className = '',
+  nowrap = false,
 }: {
   badges: BadgeName[]
   size?: BadgeSize
@@ -33,12 +34,14 @@ export default function BadgeRow({
    *  passes false — PR106-B §1). Every other surface keeps it. */
   showUrdu?: boolean
   className?: string
+  /** Keep the badges on one line (inline after a name — owner, 26 Oct 2026). */
+  nowrap?: boolean
 }) {
   const granted = ORDER.filter((b) => badges.includes(b))
   if (granted.length === 0) return null
 
   return (
-    <span className={`inline-flex flex-wrap items-center gap-x-3 gap-y-1 ${className}`}>
+    <span className={`inline-flex ${nowrap ? 'flex-nowrap' : 'flex-wrap'} items-center gap-x-3 gap-y-1 ${className}`}>
       {granted.map((b) => (
         <span key={b} className="relative inline-flex" data-tip={TIP[b]}>
           {b === 'Verified' ? (

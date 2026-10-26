@@ -8,6 +8,7 @@ import { isSocialTemplate } from '@/lib/social/copy'
 import { formatName } from '@/lib/formatName'
 import { loadSocialEligibleTutors } from '@/lib/social/eligibility'
 import { chunk } from '@/lib/pageAll'
+import { loadImageProfileFacts } from '@/lib/social/imageVersion'
 
 // The social post generator. owner / admin / operations.
 //
@@ -86,6 +87,8 @@ export default async function AdminSocialPage({ searchParams }: { searchParams: 
   const planByUser = new Map((subs ?? []).map((s) => [s.user_id as string, s.plan_code as string]))
   // PR105-B §1 — the Verified badge needs staff-approved CNIC+photo+selfie.
   const verifiedOkSet = await loadVerifiedBadgeOk(ids)
+  // The image version key's profile half, from the same reader the image route checks.
+  const imageFacts = await loadImageProfileFacts(admin, ids)
   const subjectCount = new Map<string, number>()
   for (const l of subjectLinks ?? []) {
     const k = l.tutor_id as string
@@ -129,6 +132,7 @@ export default async function AdminSocialPage({ searchParams }: { searchParams: 
       // When they became verified — the later of the fee and the CNIC approval
       // (the group post defaults to the most recently verified, PR C3).
       verifiedAt: [t.verified_fee_paid_at as string | null, p.cnic_verified_at].filter(Boolean).sort().pop() ?? null,
+      imageFacts: imageFacts.get(id) ?? null,
     })
   }
 

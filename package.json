@@ -193,7 +193,12 @@
     "test:payproretire": "tsx --test scripts/test-paypro-retire.ts",
     "test:payloop": "tsx --test scripts/test-pay-loop.ts",
     "test:bankcopy": "tsx --test scripts/test-bank-copy.ts",
-    "test:bankreader": "tsx --test scripts/test-bank-reader.ts"
+    "test:bankreader": "tsx --test scripts/test-bank-reader.ts",
+    "test:paypagecleanup": "tsx --test scripts/test-pay-page-cleanup.ts",
+    "test:statusimage": "tsx --test scripts/test-status-image.ts",
+    "test:membermerge": "tsx --test scripts/test-member-merge.ts",
+    "test:parentfollowups": "tsx --test scripts/test-parent-follow-ups.ts",
+    "test:viewas": "tsx --test scripts/test-view-as-and-fixes.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",
