@@ -83,20 +83,32 @@ export function activeChangeError(target: GatewayId, configured: Record<GatewayI
   return null
 }
 
-/** Online (PayPro) checkout is offered only when PayPro is the active gateway
- *  and its online method is on. */
+/**
+ * PayPro is RETIRED (owner, 26 Oct 2026). Payments are Faysal Bank transfer only
+ * (Raast / IBFT + a receipt). No setting can turn PayPro checkout back on: a new
+ * PayPro order is refused everywhere, and bank transfer is always offered. The
+ * PayPro listener still confirms orders started before the change until the
+ * cut-off in lib/payments/payproRetireCore.ts. Our own JazzCash / Easypaisa
+ * gateways come later, in their own change.
+ */
+export const PAYPRO_RETIRED = true
+
+/** Online (PayPro) checkout. Always false while PAYPRO_RETIRED. */
 export function onlineCheckoutOn(s: GatewaySettings): boolean {
+  if (PAYPRO_RETIRED) return false
   return s.active === 'paypro' && s.methods.paypro_online
 }
 
+/** Bank transfer is the one way to pay, so it is always on while PayPro is retired. */
 export function bankTransferOn(s: GatewaySettings): boolean {
+  if (PAYPRO_RETIRED) return true
   return s.methods.bank_transfer
 }
 
 /** What a checkout screen may offer, derived from the settings. Client-safe. */
 export type CheckoutMethods = { online: boolean; bankTransfer: boolean; payLater: boolean }
 
-export const DEFAULT_CHECKOUT_METHODS: CheckoutMethods = { online: true, bankTransfer: false, payLater: false }
+export const DEFAULT_CHECKOUT_METHODS: CheckoutMethods = { online: false, bankTransfer: true, payLater: false }
 
 export function checkoutMethodsOf(s: GatewaySettings): CheckoutMethods {
   return { online: onlineCheckoutOn(s), bankTransfer: bankTransferOn(s), payLater: s.payLater }

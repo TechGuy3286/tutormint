@@ -209,7 +209,7 @@ test('message: started payment', () => {
   assert.equal(m.type, 'payment_unfinished')
   assert.equal(
     m.text,
-    "Assalam o Alaikum Fabiha, you started your Rs 199 Verification Fee but it didn't complete. If JazzCash gave a problem, choose 'Other methods' to pay from any bank app or Easypaisa. Reply here if you need help. 🙂 You can finish it here:\nhttps://www.tutormint.org/pay/choose",
+    "Assalam o Alaikum Fabiha, you started your Rs 199 Verification Fee but it didn't complete. You can pay from JazzCash, Easypaisa or any bank app using Raast or bank transfer, then upload your receipt. Reply here if you need help. 🙂 You can finish it here:\nhttps://www.tutormint.org/pay/choose",
   )
   // A plan checkout (not the fee) never gets the Rs 199 wording.
   const plan = followUpMessage(base({ startedPayment: { planCode: 'premium', startedAt: ago(0.2) } }), 'X', NOW, 'Stored plan text')

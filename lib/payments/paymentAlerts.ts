@@ -34,12 +34,12 @@ function nowPkt(): string {
 }
 
 /** One alert per confirmed payment (the caller guarantees it runs once). */
-export async function sendPaymentAlert(input: { memberName: string; role: string; what: string; amountPkr: number }): Promise<void> {
+export async function sendPaymentAlert(input: { memberName: string; role: string; what: string; amountPkr: number; via?: string }): Promise<void> {
   const to = await paymentAlertEmails()
   for (const email of to) {
     const r = await deliverEmail(
       { email },
-      { id: 'payment_alert', memberName: input.memberName || 'A member', role: input.role, what: input.what, amountPkr: input.amountPkr, whenPkt: nowPkt() },
+      { id: 'payment_alert', memberName: input.memberName || 'A member', role: input.role, what: input.what, amountPkr: input.amountPkr, whenPkt: nowPkt(), via: input.via },
     )
     if (!r.ok) console.info('[payment-alert] not sent to', email, '-', r.reason)
   }

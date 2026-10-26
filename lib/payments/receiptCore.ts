@@ -47,6 +47,8 @@ export type BankDetails = {
   accountTitle: string | null
   accountNumber: string | null
   iban: string | null
+  /** Optional; shown only when set (owner, 26 Oct 2026). */
+  raastId?: string | null
 }
 
 /** The details are "filled in" when a member could actually send money with

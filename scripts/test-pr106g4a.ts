@@ -131,12 +131,13 @@ test('Get verified screen is clean (no CNIC card / Continue / Pay later clutter)
 test('the dashboard still shows "Complete your payment" to non-staff for an unpaid, unexpired invoice', () => {
   const page = read('app/(site)/tutor/dashboard/page.tsx')
   assert.match(page, /!staffNew && !ent\.verified \? await pendingPayproInvoice\(userId\)/, 'non-staff + unverified only')
-  assert.match(page, /\{pendingInvoice && <CompletePaymentPrompt url=\{pendingInvoice\.url\}/, 'rendered only when an invoice exists')
+  // PayPro retired (owner, 26 Oct 2026): the prompt opens the bank-transfer page for that plan.
+  assert.match(page, /\{pendingInvoice && <CompletePaymentPrompt url=\{`\/pay\/choose\?plan=/, 'rendered only when an invoice exists')
   const helper = read('lib/payments/pendingInvoice.ts')
   assert.match(helper, /status', 'pending'/, 'only pending orders')
   assert.match(helper, /ageMs < DAY_MS && click2pay/, 'only < 24h with a Click2Pay link')
   const prompt = read('components/tutor/CompletePaymentPrompt.tsx')
-  assert.match(prompt, /Complete payment/, 'red button reopening the invoice')
+  assert.match(prompt, /Pay by bank transfer/, 'red button opening the bank-transfer page (PayPro retired, 26 Oct 2026)')
   assert.match(prompt, /href=\{url\}/, 'links to the same invoice url')
 })
 

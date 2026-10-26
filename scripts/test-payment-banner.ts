@@ -142,13 +142,11 @@ test('/pay/choose with no plan', () => {
 })
 
 test('the Faysal Bank logo and name are not on the "Other methods" option row', () => {
+  // PayPro retired (owner, 26 Oct 2026): there is no option row any more — the
+  // bank panel shows straight away. Still no bank logo anywhere on the screen.
   const choice = read('app/(site)/pay/choose/PayChoice.tsx')
-  const start = choice.indexOf('{bank && (\n          <label')
-  const row = choice.slice(start, choice.indexOf('</label>', start))
-  assert.ok(start > 0)
-  assert.ok(!/<Logo/.test(row), 'no logo on the row')
-  assert.ok(!/bankName|Faysal/.test(row), 'no bank name on the row')
-  assert.match(row, /OTHER_METHODS_TITLE/)
+  assert.ok(!/<Logo|<img src=\{logos/.test(choice), 'no bank logo')
+  assert.ok(!/name="pay-via"/.test(choice), 'no method radio row')
   assert.match(choice, /OTHER_METHODS_TITLE = 'Other methods'/)
   assert.match(choice, /OTHER_METHODS_SUB = 'Any bank app, Easypaisa or ATM transfer — activated after we check your receipt'/)
   assert.match(choice, /ANY_BANK_LINE = 'You can pay from any bank or wallet app\. You don’t need a Faysal Bank account\.'/)
@@ -156,6 +154,6 @@ test('the Faysal Bank logo and name are not on the "Other methods" option row', 
   const panel = choice.slice(choice.indexOf('data-bank-panel'))
   assert.ok(panel.indexOf('ANY_BANK_LINE') < panel.indexOf('<dl>'))
   assert.ok(!/faysal-bank/.test(read('app/(site)/pay/choose/page.tsx')), 'the bank logo is no longer passed')
-  assert.match(choice, /JazzCash \(PayPro\)/)
-  assert.match(choice, /Activates automatically/)
+  // PayPro retired: no JazzCash (PayPro) option and no "activates automatically".
+  assert.doesNotMatch(choice, /JazzCash \(PayPro\)|Activates automatically/)
 })

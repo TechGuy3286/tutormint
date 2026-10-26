@@ -1,7 +1,11 @@
-import { CreditCard } from 'lucide-react'
+import { Landmark } from 'lucide-react'
+import { PAY_BY_TRANSFER_LINE } from '@/lib/payments/payproRetireCore'
 
 // The dashboard "Complete your payment" prompt (PR106-G4a §5). Shown to any
-// tutor who has a started-but-unpaid PayPro invoice still within its 24h life
+// tutor who has a started-but-unpaid PayPro invoice still within its 24h life.
+// PayPro is retired (26 Oct 2026), so the button now opens the bank-transfer
+// instructions on /pay/choose for that plan instead of the PayPro link.
+//
 // (lib/payments/pendingInvoice) — a red button reopens that SAME invoice's
 // Click2Pay link, so they finish where they left off rather than starting over.
 // It disappears on its own once the order is paid (the payment flips out of
@@ -14,7 +18,7 @@ export default function CompletePaymentPrompt({ url }: { url: string }) {
       <p className="text-sm font-black text-tm-navy">Complete your payment</p>
       <p lang="ur" dir="rtl" className="mt-0.5 text-xs font-bold text-gray-700">اپنی ادائیگی مکمل کریں</p>
       <p className="mt-1.5 text-xs leading-relaxed text-gray-700">
-        Your verification payment is not finished yet. Tap below to complete it on the secure payment page.
+        Your verification payment is not finished yet. Online payment through PayPro has closed, so please pay by bank transfer instead: {PAY_BY_TRANSFER_LINE}
       </p>
       <p lang="ur" dir="rtl" className="mt-0.5 text-xs leading-relaxed text-gray-700">
         آپ کی تصدیق کی ادائیگی ابھی مکمل نہیں ہوئی۔ اسے مکمل کرنے کے لیے نیچے دبائیں۔
@@ -23,7 +27,7 @@ export default function CompletePaymentPrompt({ url }: { url: string }) {
         href={url}
         className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-red px-5 text-sm font-bold text-white hover:bg-tm-red-hover"
       >
-        <CreditCard size={16} aria-hidden /> Complete payment
+        <Landmark size={16} aria-hidden /> Pay by bank transfer
       </a>
     </div>
   )

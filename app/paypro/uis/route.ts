@@ -77,7 +77,9 @@ async function processOrder(
     provider_ref: row.provider_ref as string,
     raw: row.raw,
   })
-  if (r.activated || r.alreadyActive) {
+  // After the PayPro cut-off a paid order is recorded for the Owner, not
+  // activated; PayPro is still told it was received, so it stops retrying.
+  if (r.activated || r.alreadyActive || r.recordedLate) {
     return { StatusCode: '00', InvoiceID: id, Description: 'Invoice successfully marked as paid' }
   }
   return { StatusCode: '02', InvoiceID: id, Description: 'Service Failure' }

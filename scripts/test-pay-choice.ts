@@ -57,9 +57,10 @@ test('the choice screen shows the amount from the plans row, never a typed figur
 })
 
 // ------------------------------------------------ PayPro path unchanged ------
-test('JazzCash (PayPro) is the same checkout as before and still activates on its own', () => {
-  assert.match(CHOICE, /useVerifyCheckout\(planCode, returnTo\)/, 'the choice screen starts the same checkout hook')
-  assert.match(CHOICE, /Continue to JazzCash/, 'the button label')
+test('PayPro is retired: no JazzCash (PayPro) option; the checkout hook is unchanged for orders already started', () => {
+  // Owner, 26 Oct 2026: the choice screen offers bank transfer only.
+  assert.doesNotMatch(CHOICE, /useVerifyCheckout\(/, 'the choice screen starts no PayPro checkout')
+  assert.doesNotMatch(CHOICE, /Continue to JazzCash|JazzCash \(PayPro\)/, 'no PayPro option')
   const hook = read('components/tutor/useVerifyCheckout.ts')
   assert.match(hook, /fetch\('\/api\/payments\/checkout'/, 'same endpoint')
   assert.match(hook, /body: JSON\.stringify\(returnTo \? \{ planCode, returnTo \} : \{ planCode \}\)/, 'no payment method → the online (PayPro) path')
@@ -101,7 +102,7 @@ test('"Other method" is hidden when the bank details are empty or the switch is 
   assert.equal(bankTransferVisible(true, { ...BANK, bankName: '' }), false, 'details empty')
 
   assert.match(read('lib/payments/receipt.ts'), /bankTransferVisible\(bankTransferOn\(settings\), details\) \? details : null/)
-  assert.match(CHOICE, /\{bank && \(\s*<label/, 'the option renders only with details')
+  assert.match(CHOICE, /if \(!bank\) \{/, 'the bank panel renders only with details')
   assert.match(RECEIPT_ROUTE, /if \(!\(await loadBankPanel\(\)\)\)/, 'the server refuses it too')
   // The details come from the owner's settings, not from the code.
   for (const src of [PAGE, CHOICE]) {

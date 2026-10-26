@@ -4,6 +4,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getPayproOrderStatus, payProIdFromRow } from '@/lib/payments/paypro'
 import { payproOrderAccepted } from '@/lib/payments/payproVerify'
 import { activatePayment } from '@/lib/payments/activate'
+import { loadPayproCutoff } from '@/lib/payments/payproCutoff'
+import { payproMayActivate } from '@/lib/payments/payproRetireCore'
+import { recordFinanceAlert } from '@/lib/financeAlerts'
 
 // The ONE "confirm a PayPro order and activate it" path (PR104). The callback,
 // the return page and the reconcile cron all call this, so the amount rule
@@ -35,6 +38,9 @@ export type ConfirmResult = {
   amountPaid?: number
   /** The ggos failure description (PayPro's text or an HTTP status) — no secret. */
   ggosError?: string
+  /** Paid at PayPro AFTER the cut-off (pay.paypro.cutoff): recorded under
+   *  Finance → Needs attention, nobody activated. */
+  recordedLate?: boolean
 }
 
 export async function confirmPayproOrder(row: PayproRow): Promise<ConfirmResult> {
@@ -55,6 +61,21 @@ export async function confirmPayproOrder(row: PayproRow): Promise<ConfirmResult>
   )
   if (!verdict.accepted) {
     return { activated: false, alreadyActive: false, accepted: false, ggosOk: true, reason: verdict.reason, ...facts }
+  }
+
+  // PayPro is retired (owner, 26 Oct 2026). Through the cut-off day an order
+  // started before the change still activates; after it, the order is only
+  // recorded for the Owner (Finance → Needs attention) — nobody is activated.
+  if (!payproMayActivate(new Date(), await loadPayproCutoff())) {
+    await recordFinanceAlert({
+      kind: 'paypro_late',
+      ref: row.provider_ref,
+      title: `PayPro order ${row.provider_ref} was paid after the cut-off`,
+      detail: 'Not activated. Check the member and grant or refund by hand.',
+      amountPkr: Number(row.amount_pkr),
+      happenedAt: new Date().toISOString(),
+    }).catch(() => {})
+    return { activated: false, alreadyActive: false, accepted: true, ggosOk: true, reason: 'after_cutoff', recordedLate: true, ...facts }
   }
 
   // Record what PayPro reported, for finance — amount_pkr stays OUR price.

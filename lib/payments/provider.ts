@@ -45,6 +45,8 @@ export type ManualInstructions = {
   /** The plain account number (PR98 §4), shown alongside the IBAN. */
   accountNumber: string | null
   iban: string | null
+  /** Optional Raast ID; null = not shown. */
+  raastId: string | null
   /** Storage path of an optional QR image in the private payment-proofs bucket;
    *  null hides the QR block. Served only through /api/payments/bank-qr. */
   qrPath: string | null

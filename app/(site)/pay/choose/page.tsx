@@ -4,11 +4,8 @@ import { redirect } from 'next/navigation'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
-import { getGatewaySettings, onlineCheckoutOn } from '@/lib/payments/gatewaySettings'
-import { pproVisibleFor } from '@/lib/payments/paypro'
 import { loadBankPanel, loadReceiptState } from '@/lib/payments/receipt'
 import { priceLine, rupees, supportWaLink } from '@/lib/payments/receiptCore'
-import { payLogoSrc } from '@/lib/payments/logos'
 import { FEE_LABEL } from '@/lib/display'
 import { formatName } from '@/lib/formatName'
 import { formatPkMobile } from '@/lib/phone'
@@ -116,12 +113,10 @@ export default async function PayChoosePage({ searchParams }: { searchParams: Pr
     if (!isFee && !feePaid) redirect(`/tutor/complete-profile?step=verify&next=${encodeURIComponent(here)}`)
   }
 
-  const [settings, bank, receipt] = await Promise.all([
-    getGatewaySettings(),
+  const [bank, receipt] = await Promise.all([
     loadBankPanel(),
     loadReceiptState(userId, plan.code as string),
   ])
-  const online = onlineCheckoutOn(settings) && pproVisibleFor(profile)
 
   const packageName = isFee ? FEE_LABEL : `${plan.name} plan`
   const price = { code: plan.code as string, price_pkr: plan.price_pkr as number }
@@ -160,7 +155,6 @@ export default async function PayChoosePage({ searchParams }: { searchParams: Pr
           isFee={isFee}
           returnTo={isFee ? returnTo : null}
           amount={rupees(price.price_pkr)}
-          online={online}
           bank={bank}
           receipt={receipt}
           waHref={supportWaLink({
@@ -168,7 +162,6 @@ export default async function PayChoosePage({ searchParams }: { searchParams: Pr
             name: formatName(profile.full_name as string | null),
             mobile,
           })}
-          logos={{ jazzcash: payLogoSrc('jazzcash') }}
         />
 
         {/* No "Pay later" on the payment screen (owner, 17 Oct 2026): Back alone,

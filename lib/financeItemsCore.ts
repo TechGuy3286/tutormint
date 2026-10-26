@@ -17,7 +17,7 @@ export type FinanceGroup = 'attention' | 'good'
 export type FinanceItem = {
   /** Unique across the list: credit:<id> · order:<number> · receipt:<id> · missing:<ref>. */
   key: string
-  kind: 'credit' | 'order' | 'receipt' | 'missing'
+  kind: 'credit' | 'order' | 'receipt' | 'missing' | 'alert'
   group: FinanceGroup
   /** The plain label, e.g. "Money in the bank, not linked yet". */
   label: string
@@ -30,12 +30,36 @@ export type FinanceItem = {
   orderNumber?: string
   receiptId?: string
   ref?: string
+  /** A credit: read from the bank's email, or entered by hand. */
+  source?: 'Email' | 'Manual'
+  /** An alert (finance_alerts): its id and plain detail. */
+  alertId?: string
+  detail?: string | null
 }
+
+/** A Finance → Needs attention item that is not money (migration 200). */
+export type AlertInput = { id: string; title: string; detail: string | null; amountPkr: number | null; happenedAt: string | null; createdAt: string }
 
 const days = (n: number | null | undefined) => (n === null || n === undefined ? '' : ` (${n} day${n === 1 ? '' : 's'})`)
 
-export function financeItems(view: MonthView): FinanceItem[] {
+export function financeItems(view: MonthView, alerts: readonly AlertInput[] = []): FinanceItem[] {
   const out: FinanceItem[] = []
+
+  // Alerts first: a late PayPro callback, a bank email that could not be read
+  // or verified, a mailbox that is not bank-only, the reader failing.
+  for (const a of alerts) {
+    out.push({
+      key: `alert:${a.id}`,
+      kind: 'alert',
+      group: 'attention',
+      label: a.title,
+      amount: a.amountPkr,
+      day: (a.happenedAt ?? a.createdAt).slice(0, 10),
+      red: true,
+      alertId: a.id,
+      detail: a.detail,
+    })
+  }
 
   for (const c of view.credits) {
     const mismatch = c.state === 'matched' && c.match?.status === 'amount_mismatch'
@@ -50,7 +74,7 @@ export function financeItems(view: MonthView): FinanceItem[] {
             : c.state === 'held'
               ? 'Money in the bank, unlinked by hand'
               : 'Money in the bank, not linked yet'
-    out.push({ key: `credit:${c.id}`, kind: 'credit', group, label, amount: c.amountPkr, day: c.date, red: group === 'attention', creditId: c.id })
+    out.push({ key: `credit:${c.id}`, kind: 'credit', group, label, amount: c.amountPkr, day: c.date, red: group === 'attention', creditId: c.id, source: c.source === 'email' ? 'Email' : 'Manual' })
   }
 
   for (const o of view.orders) {

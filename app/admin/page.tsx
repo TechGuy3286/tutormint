@@ -1,7 +1,7 @@
 import { OVERVIEW_KEY_PEOPLE } from '@/lib/peopleDirectoryCore'
 import Link from 'next/link'
 import { ArrowRight, BadgeCheck, Briefcase, GraduationCap, UserPlus, Users, Wallet } from 'lucide-react'
-import { Fragment, type ComponentType } from 'react'
+import { Fragment, type ComponentType, type ReactNode } from 'react'
 
 import AccessDeniedNotice from '@/components/admin/AccessDeniedNotice'
 import MyLinkCard from '@/components/admin/MyLinkCard'
@@ -17,6 +17,9 @@ import { pkr } from '@/lib/reconciliationCore'
 import { loadSignupFunnel, type FunnelWindowResult } from '@/lib/siteVisits'
 import { loadSignupSources } from '@/lib/signupSources'
 import type { SourceRow } from '@/lib/signupSourceCore'
+import { orderOverviewSections } from '@/lib/overviewOrderCore'
+import { loadReaderState } from '@/lib/bankEmailReader'
+import { readerFailingAlert } from '@/lib/bankEmailCore'
 
 // Each Overview card a distinct colour (PR32 §2), keyed on the item key.
 // Short card titles (owner, 17 Oct 2026). The list pages keep their own titles.
@@ -120,31 +123,18 @@ export default async function AdminHome({
   // The SMS/OTP delivery provider (owner PR5b §1.1) — owner, Partner and admin,
   // and only ever the provider NAME, never a credential.
   const seesDelivery = roleSatisfies(actor.adminRole, ['admin'])
+  // The bank email reader failing for over an hour (owner, 26 Oct 2026): a red
+  // row at the top of Today's to-do, for those who see Finance.
+  const readerState = roleSatisfies(actor.adminRole, SCREEN_ACCESS.finance) ? await loadReaderState() : null
+  const readerRed = !!readerState && readerFailingAlert(readerState, new Date())
   const smsProvider = seesDelivery ? smsProviderLabel() : null
 
-  return (
-    <div className="space-y-6">
-      {denied && <AccessDeniedNotice />}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-gray-500">
-          Signed in as {actor.email} · role <strong>{roleBadge(actor.adminRole)}</strong>
-        </p>
-        {smsProvider && (
-          <p className="text-xs text-gray-500">
-            Delivery:{' '}
-            <strong className={smsProvider === 'unconfigured' ? 'text-tm-red' : 'text-tm-navy'}>
-              {smsProvider}
-            </strong>
-          </p>
-        )}
-      </div>
-
-      {/* Staff links (owner, 23 Oct 2026): only staff who carry a code see it. */}
-      <MyLinkCard staffId={actor.id} />
-
-      {/* Team overview (owner, 24 Oct 2026): the Owner, the Project Managers and Supervisors. */}
-      {roleSatisfies(actor.adminRole, SCREEN_ACCESS.teamOverview) && <TeamOverviewCard />}
-
+  // The Overview order (owner, 26 Oct 2026): ONE constant, lib/overviewOrderCore.
+  // Each section is listed with its key; orderOverviewSections puts the fixed six
+  // first and everything else below.
+  const sections: { key: string; node: ReactNode }[] = [
+    { key: 'cards', node: (
+      <>
       {tiles.length === 0 ? (
         <div className="space-y-1 rounded-2xl border border-gray-200 bg-white p-6 text-center">
           <p className="text-sm font-bold text-tm-navy">Nothing here yet for your role</p>
@@ -199,8 +189,24 @@ export default async function AdminHome({
           })}
         </div>
       )}
-
+      </>
+    ) },
+    { key: 'todo', node: (
+      <>
       {/* ------------------------------------------------------ today's to-do */}
+      {readerRed && (
+        <Link
+          href="/admin/finance/settings"
+          role="alert"
+          data-reader-alert=""
+          className="flex min-h-[56px] items-center gap-3 rounded-2xl border border-tm-red/30 bg-tm-tint-red px-4 py-3 text-xs font-bold text-tm-red sm:px-5"
+        >
+          <span className="min-w-0 flex-1">
+            Bank email reader has not worked for over an hour{readerState?.lastError ? ` — ${readerState.lastError}` : ''}. New bank credits are not being added.
+          </span>
+          <ArrowRight aria-hidden size={16} className="shrink-0" />
+        </Link>
+      )}
       {todo.length > 0 && (
         <section className="rounded-2xl border border-gray-200 bg-white">
           <div className="border-b border-gray-200 px-4 py-3 sm:px-5">
@@ -238,12 +244,21 @@ export default async function AdminHome({
           </ul>
         </section>
       )}
-      {seesMembers && todo.length === 0 && (
+      {seesMembers && todo.length === 0 && !readerRed && (
         <p className="rounded-2xl border border-gray-200 bg-white p-4 text-center text-xs font-bold text-tm-green-deep">
           Nothing waiting on you today.
         </p>
       )}
-
+      </>
+    ) },
+    { key: 'team', node: (
+      <>
+      {/* Team overview (owner, 24 Oct 2026): the Owner, the Project Managers and Supervisors. */}
+      {roleSatisfies(actor.adminRole, SCREEN_ACCESS.teamOverview) && <TeamOverviewCard />}
+      </>
+    ) },
+    { key: 'signupToPayment', node: (
+      <>
       {/* --------------------------------------------------- signup to payment */}
       {seesMembers && (
         <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
@@ -295,10 +310,47 @@ export default async function AdminHome({
           </ol>
         </section>
       )}
-
+      </>
+    ) },
+    { key: 'dailyFunnel', node: (
+      <>
       {/* ------------------------------------------- daily sign-up funnel */}
       {dailyFunnel && <DailySignupFunnel windows={dailyFunnel} />}
+      </>
+    ) },
+    { key: 'sources', node: (
+      <>
       {sources && sources.length > 0 && <SignupSources rows={sources} />}
+      </>
+    ) },
+    { key: 'myLink', node: (
+      <>
+      {/* Staff links (owner, 23 Oct 2026): only staff who carry a code see it. */}
+      <MyLinkCard staffId={actor.id} />
+      </>
+    ) },
+  ]
+
+  return (
+    <div className="space-y-6">
+      {denied && <AccessDeniedNotice />}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-gray-500">
+          Signed in as {actor.email} · role <strong>{roleBadge(actor.adminRole)}</strong>
+        </p>
+        {smsProvider && (
+          <p className="text-xs text-gray-500">
+            Delivery:{' '}
+            <strong className={smsProvider === 'unconfigured' ? 'text-tm-red' : 'text-tm-navy'}>
+              {smsProvider}
+            </strong>
+          </p>
+        )}
+      </div>
+
+      {orderOverviewSections(sections).map((sec) => (
+        <Fragment key={sec.key}>{sec.node}</Fragment>
+      ))}
     </div>
   )
 }

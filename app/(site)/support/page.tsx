@@ -115,7 +115,7 @@ const GROUPS: FaqGroup[] = [
       },
       {
         q: 'I paid by bank transfer. When does my plan start?',
-        a: 'Bank, JazzCash and Easypaisa transfers are confirmed by a person, usually within a few hours. Card payments through our gateway activate straight away. You will get an email either way.',
+        a: 'Pay from JazzCash, Easypaisa or any bank app using Raast or bank transfer, then upload your receipt. A person confirms it, usually within a few hours, and you will get an email when your plan starts.',
       },
       {
         q: 'What happens when my plan expires?',

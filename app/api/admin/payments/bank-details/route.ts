@@ -26,6 +26,7 @@ const TEXT_FIELDS: { field: string; key: string; label: string }[] = [
   { field: 'bankBranch', key: SETTING_KEYS.bankBranch, label: 'Branch' },
   { field: 'accountNumber', key: SETTING_KEYS.accountNumber, label: 'Account number' },
   { field: 'iban', key: SETTING_KEYS.iban, label: 'IBAN' },
+  { field: 'raastId', key: SETTING_KEYS.raastId, label: 'Raast ID' },
 ]
 
 export async function POST(request: Request) {

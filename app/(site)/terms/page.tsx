@@ -245,10 +245,9 @@ const SECTIONS: LegalSection[] = [
     body: (
       <>
         <p>
-          You can pay by card or wallet through our payment gateway, which activates the plan
-          straight away, or by bank transfer, JazzCash or Easypaisa, which a member of our team
-          confirms by hand — usually within a few hours. We never describe a manual transfer as
-          instant.
+          You pay by bank transfer — from JazzCash, Easypaisa or any bank app, using Raast or a
+          bank transfer — and upload your receipt. A member of our team confirms it by hand,
+          usually within a few hours. We never describe a manual transfer as instant.
         </p>
         <p>
           <strong>

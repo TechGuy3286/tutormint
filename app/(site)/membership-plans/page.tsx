@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getViewerEntitlements } from '@/lib/entitlements'
 import { getProvider } from '@/lib/payments'
 import { checkoutVisibleFor, onlinePaymentOpen } from '@/lib/payments/paypro'
-import { checkoutMethodsOf, getGatewaySettings } from '@/lib/payments/gatewaySettings'
+import { checkoutMethodsOf, getGatewaySettings, PAYPRO_RETIRED } from '@/lib/payments/gatewaySettings'
 import PackagesTable, { type PlanRow } from '@/components/PackagesTable'
 import PackagesTabs from '@/components/membership-plans/PackagesTabs'
 import VerifiedPreview from '@/components/membership-plans/VerifiedPreview'
@@ -53,13 +53,16 @@ export default async function PackagesPage({
   ])
 
   const provider = getProvider()
-  const instant = provider.id !== 'manual'
+  // PayPro is retired (26 Oct 2026): every purchase is a bank transfer checked
+  // by the team, so nothing activates instantly.
+  const instant = !PAYPRO_RETIRED && provider.id !== 'manual'
 
   // PR106-C0 §1/§4: the Buy buttons use the ONE shared open check — the PayPro
   // gateway being LIVE. When live, Buy is open to everyone (a signed-out visitor
   // sees Buy → sign-in via BuyButton); in sandbox, only owner/staff/seed/test
   // accounts can check out.
-  let checkoutOpen = onlinePaymentOpen()
+  // PayPro retired (26 Oct 2026): Buy opens the bank-transfer page for everyone.
+  let checkoutOpen = PAYPRO_RETIRED || onlinePaymentOpen()
   let paymentBanner: Banner | null = null
   if (ent) {
     const { data: me } = await supabase

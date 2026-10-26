@@ -16,6 +16,7 @@ type Initial = {
   bankBranch: string
   accountNumber: string
   iban: string
+  raastId: string
   hasQr: boolean
 }
 
@@ -25,6 +26,7 @@ const FIELDS: { name: keyof Omit<Initial, 'hasQr'>; label: string }[] = [
   { name: 'bankBranch', label: 'Branch (optional, not shown to members)' },
   { name: 'accountNumber', label: 'Account number' },
   { name: 'iban', label: 'IBAN' },
+  { name: 'raastId', label: 'Raast ID (optional — shown only when filled in)' },
 ]
 
 export default function BankDetailsForm({ initial }: { initial: Initial }) {

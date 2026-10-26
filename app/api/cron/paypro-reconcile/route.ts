@@ -6,6 +6,7 @@ import { pproConfigured, markPayproOrderBlocked } from '@/lib/payments/paypro'
 import { confirmPayproOrder } from '@/lib/payments/payproReconcile'
 import { publishDuePosts } from '@/lib/blogPublish'
 import { sweepTutorAlerts } from '@/lib/tutorAlerts'
+import { runBankReader } from '@/lib/bankEmailReader'
 
 // Backup reconcile (PR65 §5). PayPro's "Mark as Paid" callback can be missed, so
 // this re-checks pending PayPro orders via the ONE confirm path (PR104:
@@ -50,7 +51,12 @@ export async function GET(request: Request) {
   const indexing = await drainIndexingQueue(INDEXING_DAILY_LIMIT, 20_000).catch(() => ({ sent: 0, failed: 0, left: -1 }))
   // "Notify me when a matching tutor joins": one message per request, then closed.
   const alerts = await sweepTutorAlerts().catch(() => ({ open: 0, sent: 0, expired: 0, failed: 0 }))
-  if (!pproConfigured()) return NextResponse.json({ ok: true, skipped: 'paypro_not_configured', blog, indexing, alerts })
+  // The Faysal Bank email reader (owner, 26 Oct 2026): does nothing while the
+  // Owner's switch is off. Counts only in the reply — never an email or a value.
+  const bankReader = await runBankReader()
+    .then((r) => (r.ran ? { status: r.status, ...(r.result && r.result.status === 'ok' ? { added: r.result.added, read: r.result.read } : {}) } : { status: r.why }))
+    .catch(() => ({ status: 'error' }))
+  if (!pproConfigured()) return NextResponse.json({ ok: true, skipped: 'paypro_not_configured', blog, indexing, alerts, bankReader })
 
   const admin = createAdminClient()
   if (!admin) return NextResponse.json({ ok: true, skipped: 'no_admin_client' })
@@ -133,5 +139,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, checked, activated, notPaid, blocked, diag })
+  return NextResponse.json({ ok: true, checked, activated, notPaid, blocked, diag, bankReader })
 }

@@ -76,6 +76,17 @@ export default function SettlementsBoard({
   const toast = useToast()
   const readOnly = useAdminReadOnly()
   const { view } = data
+
+  // A Needs-attention alert dealt with (Owner): marked, never deleted.
+  const resolveAlert = async (id: string) => {
+    const res = await adminFetch('/api/admin/finance/alerts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id }) })
+    if (!res.ok) {
+      toast.error('That did not save. Please try again.')
+      return
+    }
+    toast.success('Marked as dealt with.')
+    router.refresh()
+  }
   const counts = financeCounts(items)
   const cards = financeCards(view, items)
   const [group, setGroup] = useUrlState<FinanceGroup>('f', counts.attention > 0 ? 'attention' : 'good', isGroup)
@@ -169,6 +180,8 @@ export default function SettlementsBoard({
           {c.senderBank ? ` · ${c.senderBank}` : ''}
         </p>
         <p className="break-all text-[11px] text-gray-600">
+          <span className="font-bold" data-credit-source="">Source: {c.source === 'email' ? 'Email' : 'Manual'}</span>
+          {' · '}
           {c.reference ? `Ref ${c.reference} · ` : ''}
           {c.isPaypro ? 'PayPro payout' : 'Bank transfer from a member'}
           {c.note ? ` · ${c.note}` : ''}
@@ -291,6 +304,25 @@ export default function SettlementsBoard({
   )
 
   const itemRow = (it: FinanceItem) => {
+    if (it.kind === 'alert' && it.alertId) {
+      return (
+        <li key={it.key} className={CARD} data-finance-alert="">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="text-xs font-bold text-tm-red">{it.label}</p>
+            {it.amount !== null && <p className="text-xs font-black text-tm-navy">{pkr(it.amount)}</p>}
+          </div>
+          {it.detail && <p className="text-[11px] leading-relaxed text-slate-700">{it.detail}</p>}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[11px] text-gray-600">{it.day ? formatDate(it.day) : ''}</p>
+            {!readOnly && (
+              <button type="button" className={GHOST} onClick={() => void resolveAlert(it.alertId!)}>
+                Mark as dealt with
+              </button>
+            )}
+          </div>
+        </li>
+      )
+    }
     if (it.kind === 'credit' && it.creditId) {
       const c = creditById.get(it.creditId)
       if (c) return creditCard(c, it.label)

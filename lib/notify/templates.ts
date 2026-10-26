@@ -282,7 +282,7 @@ export type TemplateInput =
   // STAFF-facing alerts (PR106-H1 §2). English only (no member Urdu); essential.
   // NEVER a CNIC number, phone, card detail or document image — member name,
   // role, what was bought, amount, provider, PKT time and an admin link only.
-  | { id: 'payment_alert'; memberName: string; role: string; what: string; amountPkr: number; whenPkt: string }
+  | { id: 'payment_alert'; memberName: string; role: string; what: string; amountPkr: number; whenPkt: string; via?: string }
   | { id: 'bank_transfer_pending'; memberName: string; role: string; amountPkr: number }
   | { id: 'documents_reuploaded'; memberName: string; href: string }
   | { id: 'duplicate_cnic'; memberName: string; href: string }
@@ -514,7 +514,7 @@ export function render(input: TemplateInput): RenderedEmail {
         'New payment received',
         [
           `${input.memberName} (${input.role}) paid for: ${input.what}.`,
-          `Amount: Rs ${input.amountPkr.toLocaleString('en-PK')} · via PayPro · ${input.whenPkt} (PKT).`,
+          `Amount: Rs ${input.amountPkr.toLocaleString('en-PK')} · via ${input.via ?? 'bank transfer'} · ${input.whenPkt} (PKT).`,
           'Open it in Admin → Payments to review and action their documents.',
         ],
         true,

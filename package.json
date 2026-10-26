@@ -188,16 +188,23 @@
     "test:applicationsv31": "tsx --test scripts/test-applications-v31.ts",
     "test:tutorjourney": "tsx --test scripts/test-tutor-journey.ts",
     "test:followupspolish": "tsx --test scripts/test-followups-polish.ts",
-    "test:staffcleanup": "tsx --test scripts/test-staff-cleanup.ts"
+    "test:staffcleanup": "tsx --test scripts/test-staff-cleanup.ts",
+    "test:overvieworder": "tsx --test scripts/test-overview-order.ts",
+    "test:payproretire": "tsx --test scripts/test-paypro-retire.ts",
+    "test:bankcopy": "tsx --test scripts/test-bank-copy.ts",
+    "test:bankreader": "tsx --test scripts/test-bank-reader.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
     "bcryptjs": "^3.0.3",
+    "exceljs": "^4.4.0",
     "googleapis": "^176.0.0",
+    "imapflow": "2.3.0",
     "jszip": "^3.10.1",
     "lucide-react": "^1.38.0",
+    "mailparser": "3.9.37",
     "next": "16.3.0",
     "qrcode": "^1.5.4",
     "react": "19.2.8",
@@ -205,11 +212,11 @@
     "recharts": "^3.10.1",
     "server-only": "^0.0.1",
     "sharp": "^0.35.3",
-    "zod": "^4.5.4",
-    "exceljs": "^4.4.0"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/mailparser": "3.9.0",
     "@types/node": "^20",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19",

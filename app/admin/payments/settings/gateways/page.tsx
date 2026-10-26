@@ -107,6 +107,7 @@ export default async function PaymentGatewaysPage({
           initial={{
             ...bank,
             bankBranch: stored.get(SETTING_KEYS.bankBranch) ?? '',
+            raastId: stored.get(SETTING_KEYS.raastId) ?? '',
             hasQr: !!(stored.get(SETTING_KEYS.qrPath) ?? ''),
           }}
         />

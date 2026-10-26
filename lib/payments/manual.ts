@@ -26,6 +26,8 @@ export const SETTING_KEYS = {
   bankBranch: 'pay.bank_branch',
   accountNumber: 'pay.account_number',
   iban: 'pay.iban',
+  /** Optional Raast ID (owner, 26 Oct 2026); empty = not shown. */
+  raastId: 'pay.raast_id',
   qrPath: 'pay.qr_path',
   jazzcash: 'pay.jazzcash',
   easypaisa: 'pay.easypaisa',
@@ -53,6 +55,7 @@ export async function manualInstructions(): Promise<ManualInstructions> {
     bankBranch: pick(SETTING_KEYS.bankBranch, process.env.MANUAL_PAY_BANK_BRANCH),
     accountNumber: pick(SETTING_KEYS.accountNumber, process.env.MANUAL_PAY_ACCOUNT_NUMBER),
     iban: pick(SETTING_KEYS.iban, process.env.MANUAL_PAY_IBAN),
+    raastId: stored.get(SETTING_KEYS.raastId) ?? null,
     // Storage path only; never a URL. null when unset → the QR block is hidden.
     qrPath: stored.get(SETTING_KEYS.qrPath) ?? null,
     jazzcash: pick(SETTING_KEYS.jazzcash, process.env.MANUAL_PAY_JAZZCASH),

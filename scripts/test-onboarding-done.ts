@@ -218,7 +218,8 @@ test('return-to after PayPro success and after a bank-transfer receipt (wiring)'
   const choose = read('app/(site)/pay/choose/page.tsx')
   assert.match(choose, /const returnTo = safeReturnTo\(next\)/)
   const payChoice = read('app/(site)/pay/choose/PayChoice.tsx')
-  assert.match(payChoice, /useVerifyCheckout\(planCode, returnTo\)/)
+  // PayPro retired (owner, 26 Oct 2026): the bank-transfer receipt carries the return-to.
+  assert.doesNotMatch(payChoice, /useVerifyCheckout\(/)
   assert.match(payChoice, /form\.set\('returnTo', returnTo\)/)
   assert.match(payChoice, /afterFeeReturnPath\(returnTo, 'receipt'\)/)
   assert.match(read('components/tutor/useVerifyCheckout.ts'), /JSON\.stringify\(returnTo \? \{ planCode, returnTo \} : \{ planCode \}\)/)

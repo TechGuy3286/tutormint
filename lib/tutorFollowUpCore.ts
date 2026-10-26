@@ -246,7 +246,7 @@ export function followUpMessage(
       `Assalam o Alaikum ${first}, your TutorMint payment didn't complete. You can try again on the plans page. Reply here if you need help. 🙂\n\n${siteLink('/membership-plans')}`
   } else if (primary === 'started') {
     type = 'payment_unfinished'
-    body = `Assalam o Alaikum ${first}, you started your Rs 199 Verification Fee but it didn't complete. If JazzCash gave a problem, choose 'Other methods' to pay from any bank app or Easypaisa. Reply here if you need help. 🙂 You can finish it here:\n${siteLink('/pay/choose')}`
+    body = `Assalam o Alaikum ${first}, you started your Rs 199 Verification Fee but it didn't complete. You can pay from JazzCash, Easypaisa or any bank app using Raast or bank transfer, then upload your receipt. Reply here if you need help. 🙂 You can finish it here:\n${siteLink('/pay/choose')}`
   } else if (primary === 'docs_done') {
     type = 'fee_due'
     body = `Assalam o Alaikum ${first}, your documents are approved ✅. The last step is the one-time Rs 199 Verification Fee. After that you get the Verified badge and can apply to tuitions. Reply here if you need help. 🙂 Pay here:\n${siteLink('/pay/choose')}`

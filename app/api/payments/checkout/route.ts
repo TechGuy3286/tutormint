@@ -10,7 +10,8 @@ import { parseBody, z, text } from '@/lib/validate'
 import { paymentReturnTo } from '@/lib/returnTo'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
-import { bankTransferOn, getGatewaySettings, onlineCheckoutOn, recordGatewayEvent } from '@/lib/payments/gatewaySettings'
+import { bankTransferOn, getGatewaySettings, onlineCheckoutOn, PAYPRO_RETIRED, recordGatewayEvent } from '@/lib/payments/gatewaySettings'
+import { PAYPRO_CLOSED_MESSAGE } from '@/lib/payments/payproRetireCore'
 import { RELOAD_AND_RETRY } from '@/lib/tutorSubjectCap'
 
 // node:https (PayPro) needs the Node runtime, not edge.
@@ -185,6 +186,12 @@ export async function POST(request: Request) {
       },
       { status: 400 },
     )
+  }
+  // PayPro is retired (owner, 26 Oct 2026): no new PayPro checkout, whatever
+  // the gateway settings say. Orders started before the change still confirm
+  // through /paypro/uis until the cut-off (lib/payments/payproRetireCore).
+  if (!wantsTransfer && PAYPRO_RETIRED) {
+    return NextResponse.json({ error: PAYPRO_CLOSED_MESSAGE, code: 'use_transfer' }, { status: 409 })
   }
   if (!wantsTransfer && !onlineCheckoutOn(gateways)) {
     return NextResponse.json(

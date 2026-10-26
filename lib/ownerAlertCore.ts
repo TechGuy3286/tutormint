@@ -22,7 +22,7 @@ export function maskAccount(value: string | null | undefined): string {
 }
 
 /** Fields whose values are account identifiers and must be masked. */
-export const MASKED_BANK_FIELDS = ['accountNumber', 'iban'] as const
+export const MASKED_BANK_FIELDS = ['accountNumber', 'iban', 'raastId'] as const
 
 export type AlertChange = { label: string; before: string; after: string }
 

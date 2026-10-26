@@ -119,6 +119,9 @@ export type Credit = {
   note: string | null
   /** A PayPro payout (true) or a member's own bank transfer (false). */
   isPaypro: boolean
+  /** Where the credit came from: read from the bank's alert email, or typed in
+   *  (by hand or a file). Optional so older callers and tests stay valid. */
+  source?: 'email' | 'manual'
 }
 
 /** One of OUR PayPro payments (by reference). */

@@ -225,6 +225,7 @@ export async function activatePayment(params: {
       role: 'Tutor',
       what: 'Verification Fee',
       amountPkr: (payment.amount_pkr as number) ?? 0,
+      via: payment.provider === 'paypro' ? 'PayPro' : 'bank transfer',
     })
 
     await logActivity({
@@ -368,6 +369,7 @@ export async function activatePayment(params: {
     role: audience === 'tutor' ? 'Tutor' : 'Parent',
     what: `${plan.name} plan`,
     amountPkr: (payment.amount_pkr as number) ?? 0,
+    via: payment.provider === 'paypro' ? 'PayPro' : 'bank transfer',
   })
 
   await logActivity({

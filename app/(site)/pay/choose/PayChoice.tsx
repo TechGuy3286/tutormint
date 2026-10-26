@@ -3,7 +3,6 @@
 import { useRef, useState } from 'react'
 import { Check, Copy, Loader2, Upload } from 'lucide-react'
 
-import { useVerifyCheckout, CHECKOUT_FAIL_MESSAGES } from '@/components/tutor/useVerifyCheckout'
 import { useToast } from '@/components/ui/Toast'
 import Link from 'next/link'
 import { afterFeeReturnPath } from '@/lib/returnTo'
@@ -15,13 +14,16 @@ import {
   type BankDetails,
   type ReceiptState,
 } from '@/lib/payments/receiptCore'
+import { bankCopyRows, copyAllText, COPIED_MS } from '@/lib/payments/bankCopyCore'
+import { PAY_BY_TRANSFER_LINE } from '@/lib/payments/payproRetireCore'
 
-// The two ways to pay on the payment choice screen (owner, 11 Oct 2026).
+// The payment screen (owner, 11 Oct 2026; PayPro retired 26 Oct 2026).
 //
-// JazzCash (PayPro) posts to the same /api/payments/checkout as before and
-// follows its redirect. "Other methods" opens the bank panel: the owner's
-// account details (each with Copy), three short steps, and the receipt upload
-// to /api/payments/receipt. Once a receipt is in, this renders the "received"
+// One way to pay: bank transfer. The bank panel shows the owner's account
+// details, each on its own row with its own Copy button (numbers shown in
+// groups of 4, copied without spaces — lib/payments/bankCopyCore), a
+// "Copy all details" button, three short steps, and the receipt upload to
+// /api/payments/receipt. No PayPro option is shown anywhere. Once a receipt is in, this renders the "received"
 // status and nothing to pay with — the server refuses a second one too.
 
 const URDU_FONT =
@@ -46,43 +48,55 @@ function TwoLine({ text }: { text: string }) {
   )
 }
 
-function CopyValue({ label, value }: { label: string; value: string }) {
+/** Copy text, then show "Copied ✓" for two seconds. */
+function useCopy(): [boolean, (text: string) => void] {
   const [done, setDone] = useState(false)
+  const copy = (text: string) => {
+    navigator.clipboard
+      ?.writeText(text)
+      .then(() => {
+        setDone(true)
+        setTimeout(() => setDone(false), COPIED_MS)
+      })
+      .catch(() => {})
+  }
+  return [done, copy]
+}
+
+function CopyValue({ label, display, copy }: { label: string; display: string; copy: string }) {
+  const [done, doCopy] = useCopy()
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-gray-100 py-2 last:border-0">
+    <div className="flex items-center justify-between gap-3 border-b border-gray-100 py-2.5 last:border-0" data-copy-row={label}>
       <div className="min-w-0">
         <dt className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{label}</dt>
-        <dd className="break-all text-sm font-bold text-tm-navy">{value}</dd>
+        <dd className="break-words font-mono text-base font-bold tracking-wide text-tm-navy" data-bank-value="">{display}</dd>
       </div>
       <button
         type="button"
-        onClick={() => {
-          navigator.clipboard
-            ?.writeText(value)
-            .then(() => {
-              setDone(true)
-              setTimeout(() => setDone(false), 1500)
-            })
-            .catch(() => {})
-        }}
+        onClick={() => doCopy(copy)}
         aria-label={`Copy ${label.toLowerCase()}`}
-        className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-slate-700 hover:border-tm-navy"
+        className="inline-flex min-h-[48px] min-w-[88px] shrink-0 items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-sm font-bold text-slate-700 hover:border-tm-navy"
       >
-        {done ? <Check aria-hidden size={14} className="text-tm-green-deep" /> : <Copy aria-hidden size={14} />}
-        {done ? 'Copied' : 'Copy'}
+        {done ? <Check aria-hidden size={16} className="text-tm-green-deep" /> : <Copy aria-hidden size={16} />}
+        {done ? 'Copied ✓' : 'Copy'}
       </button>
     </div>
   )
 }
 
-function Logo({ src, alt }: { src: string | null; alt: string }) {
-  if (!src) return null
-  // A fixed height and an automatic width: the logo keeps its own shape, never stretched.
-  // eslint-disable-next-line @next/next/no-img-element -- a small static logo from public/payments
-  return <img src={src} alt={alt} className="h-7 w-auto max-w-[120px] shrink-0 object-contain" />
+function CopyAll({ text }: { text: string }) {
+  const [done, doCopy] = useCopy()
+  return (
+    <button
+      type="button"
+      onClick={() => doCopy(text)}
+      className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl border border-tm-navy bg-white px-4 text-sm font-bold text-tm-navy hover:bg-tm-tint-navy"
+    >
+      {done ? <Check aria-hidden size={16} className="text-tm-green-deep" /> : <Copy aria-hidden size={16} />}
+      {done ? 'Copied ✓' : 'Copy all details'}
+    </button>
+  )
 }
-
-type Method = 'jazzcash' | 'bank'
 
 // The second way to pay (owner, 17 Oct 2026). Exported so the test can check them.
 export const OTHER_METHODS_TITLE = 'Other methods'
@@ -93,32 +107,26 @@ export default function PayChoice({
   planCode,
   isFee,
   amount,
-  online,
   bank,
   receipt,
   returnTo = null,
   waHref,
-  logos,
 }: {
   planCode: string
   isFee: boolean
   /** The package price as text, from the plans row, passed by the page. Never typed here. */
   amount: string
-  online: boolean
   /** null = "Other methods" is not offered (switch off or details empty). */
   bank: BankDetails | null
   receipt: ReceiptState
   /** The tuition to go back to after paying the fee (owner, 15 Oct 2026). */
   returnTo?: string | null
   waHref: string
-  logos: { jazzcash: string | null }
 }) {
   const toast = useToast()
-  const { start, busy, reason } = useVerifyCheckout(planCode, returnTo)
   // After a bank-transfer receipt: back to the tuition, with the note that
   // applying unlocks once the receipt is approved.
   const backToTuition = afterFeeReturnPath(returnTo, 'receipt')
-  const [method, setMethod] = useState<Method>(online ? 'jazzcash' : 'bank')
   const [state, setState] = useState<ReceiptState>(receipt)
   const [file, setFile] = useState<File | null>(null)
   const [txn, setTxn] = useState('')
@@ -160,7 +168,7 @@ export default function PayChoice({
     )
   }
 
-  if (!online && !bank) {
+  if (!bank) {
     return (
       <div className="space-y-3">
         <p className="rounded-2xl border border-gray-200 bg-white p-4 text-xs leading-relaxed text-slate-700">
@@ -233,66 +241,17 @@ export default function PayChoice({
         </section>
       )}
 
-      <fieldset className="space-y-2">
-        <legend className="mb-2 text-sm font-black text-tm-navy">
-          Pay via
-          <Ur>ادائیگی کا طریقہ</Ur>
-        </legend>
-
-        {online && (
-          <label className={option(method === 'jazzcash')}>
-            <input type="radio" name="pay-via" className="h-5 w-5 accent-tm-navy" checked={method === 'jazzcash'} onChange={() => setMethod('jazzcash')} />
-            <Logo src={logos.jazzcash} alt="JazzCash" />
-            <span className="min-w-0 text-sm font-bold text-tm-navy">
-              JazzCash (PayPro)
-              <span className="block text-[11px] font-semibold text-gray-500">Activates automatically</span>
-            </span>
-          </label>
-        )}
-
-        {bank && (
-          <label className={option(method === 'bank')}>
-            <input type="radio" name="pay-via" className="h-5 w-5 accent-tm-navy" checked={method === 'bank'} onChange={() => setMethod('bank')} />
-            {/* No bank logo or bank name here (owner, 17 Oct 2026): tutors read
-                them as "you need an account at that bank". The bank details show
-                only once this option is chosen. */}
-            <span className="min-w-0 text-sm font-bold text-tm-navy">
-              {OTHER_METHODS_TITLE}
-              <span className="block text-[11px] font-semibold text-gray-500">{OTHER_METHODS_SUB}</span>
-            </span>
-          </label>
-        )}
-      </fieldset>
-
-      {method === 'jazzcash' && online && (
-        <div className="space-y-2">
-          <button
-            type="button"
-            onClick={() => void start()}
-            disabled={busy}
-            className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-tm-red px-6 text-sm font-bold text-white hover:bg-tm-red-hover disabled:opacity-60"
-          >
-            {busy && <Loader2 aria-hidden size={16} className="animate-spin" />}
-            {busy ? 'Starting…' : 'Continue to JazzCash'}
-          </button>
-          {reason && (
-            <p role="alert" className="px-2 text-center text-xs font-semibold leading-relaxed text-tm-red">
-              {CHECKOUT_FAIL_MESSAGES[reason]}
-            </p>
-          )}
-        </div>
-      )}
-
-      {method === 'bank' && bank && (
+      {(
         <section className="space-y-4 rounded-2xl border border-gray-200 bg-white p-4" data-bank-panel="">
-          <p className="text-xs font-bold leading-relaxed text-tm-navy">{ANY_BANK_LINE}</p>
+          <h2 className="text-sm font-black text-tm-navy">Pay by bank transfer</h2>
+          <p className="text-xs font-bold leading-relaxed text-tm-navy">{PAY_BY_TRANSFER_LINE}</p>
+          <p className="text-xs leading-relaxed text-slate-700">{ANY_BANK_LINE}</p>
           <dl>
-            {bank.bankName && <CopyValue label="Bank" value={bank.bankName} />}
-            {bank.accountTitle && <CopyValue label="Account title" value={bank.accountTitle} />}
-            {bank.accountNumber && <CopyValue label="Account number" value={bank.accountNumber} />}
-            {bank.iban && <CopyValue label="IBAN" value={bank.iban} />}
-            <CopyValue label="Amount" value={amount} />
+            {bankCopyRows(bank, amount).map((r) => (
+              <CopyValue key={r.key} label={r.label} display={r.display} copy={r.copy} />
+            ))}
           </dl>
+          <CopyAll text={copyAllText(bank, amount)} />
 
           <ol className="space-y-1 text-xs leading-relaxed text-slate-700">
             <li>1. Send {amount} to this account from any bank app, JazzCash or Easypaisa.</li>

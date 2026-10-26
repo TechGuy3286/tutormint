@@ -35,7 +35,8 @@ test('the PayPro request (now sent from the choice screen) matches the working c
   assert.match(HOOK, /fetch\('\/api\/payments\/checkout'/, 'same endpoint as the verify flow')
   // The package (+ the page to come back to, 15 Oct 2026), no payment method → the online path.
   assert.match(HOOK, /body: JSON\.stringify\(returnTo \? \{ planCode, returnTo \} : \{ planCode \}\)/, 'the package, no payment method → the online path')
-  assert.match(read('app/(site)/pay/choose/PayChoice.tsx'), /useVerifyCheckout\(planCode, returnTo\)/, 'the choice screen is the caller')
+  // PayPro retired (owner, 26 Oct 2026): the choice screen no longer starts a PayPro checkout.
+  assert.doesNotMatch(read('app/(site)/pay/choose/PayChoice.tsx'), /useVerifyCheckout\(/, 'the choice screen starts no PayPro checkout')
   // reuse/replace of a pending invoice is the route's job (unchanged, proven)
   assert.match(ROUTE, /startPayproCheckout\(/, 'routes through startPayproCheckout (reuses a < 24h pending invoice)')
 })
@@ -74,10 +75,7 @@ test('the checkout route has room for a slow PayPro (no opaque 504)', () => {
 
 test('the error line fits 360px and the button carries no amount', () => {
   const g = fnBody(FLOW, 'GetVerifiedStep')
-  // error line (now on the choice screen): centred, side padding, wraps
-  const choice = read('app/(site)/pay/choose/PayChoice.tsx')
-  assert.match(choice, /px-2 text-center text-xs font-semibold leading-relaxed text-tm-red/, 'error line wraps within 360px with padding')
-  assert.match(choice, /CHECKOUT_FAIL_MESSAGES\[reason\]/, 'uses the shared reason message')
+  // The PayPro error line left the choice screen with PayPro (owner, 26 Oct 2026).
   // button carries no amount (PR106-G6 §13 removed "Rs 199" from the fee line too)
   assert.match(g, /Get verified now/, 'button label has no amount')
   assert.equal((g.match(/Rs 199/g) || []).length, 0, 'no amount anywhere on the final screen')

@@ -153,6 +153,9 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   'payments/alert-emails': 'view',
   'payments/bank-details': 'view',
   'payments/bank-link': 'view',
+  // Finance alerts + the bank email reader switch (owner, 26 Oct 2026): Owner only.
+  'finance/alerts': 'view',
+  'finance/bank-reader': 'view',
   'payments/decide': 'view',
   'payments/gateways': 'view',
   'sms/test': 'view',

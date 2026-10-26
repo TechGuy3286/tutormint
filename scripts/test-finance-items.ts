@@ -121,7 +121,7 @@ test('three cards; the default filter; the numbers come from the settlement view
   assert.equal(pickFinanceGroup(undefined, { attention: 0, good: 5 }), 'good')
   assert.equal(pickFinanceGroup('good', { attention: 2, good: 1 }), 'good')
   // Layout only: the matching rules are not touched.
-  assert.ok(read('app/admin/finance/settlement/SettlementTab.tsx').includes('items={financeItems(board.view)}'))
+  assert.ok(read('app/admin/finance/settlement/SettlementTab.tsx').includes('items={financeItems(board.view, alerts)}'))
 })
 
 test('"Link" replaces both old buttons and keeps Owner-only and the password re-check', () => {

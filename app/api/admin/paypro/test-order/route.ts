@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getAdminActor } from '@/lib/adminAuth'
+import { PAYPRO_RETIRED } from '@/lib/payments/gatewaySettingsCore'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   pproAuthHealth,
@@ -27,6 +28,12 @@ export async function POST() {
   const actor = await getAdminActor()
   if (!actor || actor.adminRole !== 'owner') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  // PayPro is retired (owner, 26 Oct 2026): no new order is created at PayPro,
+  // not even a test one.
+  if (PAYPRO_RETIRED) {
+    return NextResponse.json({ error: 'PayPro is retired. No new orders are created.', code: 'paypro_retired' }, { status: 409 })
   }
 
   const health = await pproAuthHealth() // { ok, error?, sandbox, host }

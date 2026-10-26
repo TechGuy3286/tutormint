@@ -42,6 +42,7 @@ export async function loadBankPanel(): Promise<BankDetails | null> {
     accountTitle: i.accountTitle,
     accountNumber: i.accountNumber,
     iban: i.iban,
+    raastId: i.raastId,
   }
   return bankTransferVisible(bankTransferOn(settings), details) ? details : null
 }

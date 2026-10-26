@@ -28,7 +28,8 @@ test('the bank panel reads every value from the owner’s settings — no hardco
   const p = 'app/(site)/pay/choose/PayChoice.tsx'
   assert.ok(existsSync(join(ROOT, p)), 'component present')
   const src = read(p)
-  assert.ok(/bank\.accountNumber/.test(src) && /bank\.iban/.test(src), 'renders fields from the prop')
+  // Copy rows built from the prop (owner, 26 Oct 2026 — lib/payments/bankCopyCore).
+  assert.ok(/bankCopyRows\(bank, amount\)/.test(src), 'renders fields from the prop')
   assert.ok(read('lib/payments/receipt.ts').includes('manualInstructions()'), 'the one source: manualInstructions()')
   // No literal Pakistani account/phone numbers baked in (the support line aside).
   assert.ok(!/\b03\d{2}[- ]?\d{7}\b/.test(src.replace(/0321 5872222/g, '')), 'no hardcoded mobile-wallet number')

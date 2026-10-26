@@ -20,9 +20,10 @@ import {
 import { SCREEN_ACCESS, roleSatisfies } from '../lib/adminAccessCore'
 import { TUITION_ACTIVITY_ACTIONS, isTuitionActivityAction, tuitionActionLabel } from '../lib/staffActivityCore'
 
-test('missing settings read as today’s state: PayPro on, bank transfer and Pay later off', () => {
+test('missing settings read as today’s state: PayPro retired, bank transfer on, Pay later off', () => {
   assert.deepEqual(parseGatewaySettings([]), DEFAULT_GATEWAY_SETTINGS)
-  assert.deepEqual(checkoutMethodsOf(parseGatewaySettings([])), { online: true, bankTransfer: false, payLater: false })
+  // PayPro retired (owner, 26 Oct 2026): online off, bank transfer on, whatever is stored.
+  assert.deepEqual(checkoutMethodsOf(parseGatewaySettings([])), { online: false, bankTransfer: true, payLater: false })
 })
 
 test('settings parse from app_settings rows', () => {

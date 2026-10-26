@@ -5,6 +5,10 @@ import { loadSettlement, type SettlementView } from '@/lib/settlement'
 import { loadSettlementsBoard } from '@/lib/settlementMatch'
 import { financeItems } from '@/lib/financeItemsCore'
 import { pkDayKey } from '@/lib/datetime'
+import Link from 'next/link'
+import { loadOpenFinanceAlerts } from '@/lib/financeAlerts'
+import { loadReaderState } from '@/lib/bankEmailReader'
+import { readerFailingAlert, READER_STATUS_LABEL } from '@/lib/bankEmailCore'
 import SettlementCheck from './SettlementCheck'
 import SettlementsBoard from './SettlementsBoard'
 
@@ -30,7 +34,8 @@ export default async function SettlementTab({ sp, extra }: { sp: { from?: string
   let to = sp.to && ISO_DAY.test(sp.to) ? sp.to : today
   if (from > to) [from, to] = [to, from]
 
-  const [board, health] = await Promise.all([loadSettlementsBoard(month), loadGatewayHealth()])
+  const [board, health, alerts, reader] = await Promise.all([loadSettlementsBoard(month), loadGatewayHealth(), loadOpenFinanceAlerts(), loadReaderState()])
+  const readerRed = readerFailingAlert(reader, new Date())
   const views: { id: string; name: string; view: SettlementView }[] = []
   for (const g of health.gateways) {
     if (!g.connected) continue
@@ -61,13 +66,24 @@ export default async function SettlementTab({ sp, extra }: { sp: { from?: string
       <header className="space-y-1">
         <h1 className="text-lg font-black text-tm-navy">Finance</h1>
         <p className="text-xs text-gray-500">What customers paid, and what has reached the bank — Pakistan time.</p>
+        <p className="text-xs">
+          <Link href="/admin/finance/settings" className="font-bold text-tm-red underline">Finance settings</Link>
+          <span className="text-gray-500"> · Bank email reader: {READER_STATUS_LABEL[reader.status]}</span>
+        </p>
       </header>
+
+      {readerRed && (
+        <section role="alert" className="rounded-2xl border border-tm-red/30 bg-tm-tint-red p-4 text-xs font-bold text-tm-red" data-reader-alert="">
+          The bank email reader has not worked for over an hour ({reader.lastError ?? READER_STATUS_LABEL[reader.status]}). New bank credits are not being added.{' '}
+          <Link href="/admin/finance/settings" className="underline">Open Finance settings</Link>
+        </section>
+      )}
 
       {board ? (
         <SettlementsBoard
           key={month}
           data={board}
-          items={financeItems(board.view)}
+          items={financeItems(board.view, alerts)}
           detailsOpen={ranged || sp.show === 'details'}
           details={
             <>

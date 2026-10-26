@@ -233,7 +233,7 @@ export default async function TutorDashboardPage() {
             today's "Complete your payment" prompt. Both are hidden once the fee
             is paid (ent.verified). */}
         {showValueCard && <GetVerifiedValueCard count={boardCount} city={city} underReview={feeUnderReview} />}
-        {pendingInvoice && <CompletePaymentPrompt url={pendingInvoice.url} />}
+        {pendingInvoice && <CompletePaymentPrompt url={`/pay/choose?plan=${encodeURIComponent(pendingInvoice.planCode)}`} />}
 
         {/* PR106-H4 §2: a required document was rejected — the badge is paused and
             new activity is blocked. ONE screen, naming the document, with a button
