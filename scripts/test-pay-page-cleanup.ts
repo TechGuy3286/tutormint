@@ -29,8 +29,8 @@ test('every removal from the payment page', () => {
 })
 
 test('every change and what stays', () => {
-  assert.match(PAGE, /const FEE_CARD_TITLE = 'One-Time Verification Fee'/)
-  assert.match(PAGE, /\{isFee \? FEE_CARD_TITLE :/)
+  // The fee card heading changed again on 27 Oct 2026 — see test-fee-card.
+  assert.match(PAGE, /\{FEE_CARD_TITLE\}/)
   assert.match(NAV, /<span>Back<\/span>/)
   assert.doesNotMatch(NAV, /واپس/, '"Back واپس" is now "Back"')
   assert.match(CHOICE, /export const WHATSAPP_US = 'WhatsApp us'/)

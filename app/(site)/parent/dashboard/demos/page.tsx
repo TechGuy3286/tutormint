@@ -3,7 +3,6 @@ import Breadcrumbs from '@/components/Breadcrumbs'
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { reviewableEngagements } from '@/lib/reviews'
 
 import DemoInbox, { type DemoRow } from '../DemoInbox'
 import { formatName } from '@/lib/formatName'
@@ -52,8 +51,6 @@ export default async function ParentDemosPage() {
     }
   }
 
-  const reviewable = await reviewableEngagements(userId)
-
   const rows: DemoRow[] = (demos ?? []).map((d) => ({
     id: d.id as string,
     tutorId: d.tutor_id as string,
@@ -64,7 +61,6 @@ export default async function ParentDemosPage() {
     proposedTime: (d.proposed_time as string) ?? null,
     declineReason: (d.decline_reason as string) ?? null,
     createdAt: d.created_at as string,
-    reviewed: reviewable.reviewedDemoIds.has(d.id as string),
   }))
 
   return (

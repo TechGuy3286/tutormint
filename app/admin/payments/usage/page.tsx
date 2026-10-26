@@ -1,3 +1,4 @@
+import { shownEmail } from '@/lib/actorLabelCore'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -133,7 +134,7 @@ export default async function AdminUsagePage({
             {rows.map((r) => (
               <li key={r.userId} className="space-y-1 rounded-2xl border border-gray-200 bg-white p-3">
                 <p className="truncate text-xs font-black text-tm-navy">{r.name}</p>
-                <p className="truncate text-[11px] text-gray-500">{r.email}</p>
+                <p className="truncate text-[11px] text-gray-500">{shownEmail(r.email)}</p>
                 <p className="text-[11px] font-semibold text-tm-navy">
                   {r.planName ?? 'No plan'} · {r.field === 'jobs_applied' ? 'applications' : 'job posts'}
                 </p>
@@ -158,7 +159,7 @@ export default async function AdminUsagePage({
                   <tr key={r.userId} className="border-b border-gray-100 last:border-0">
                     <td className="p-3">
                       <span className="block font-bold text-tm-navy">{r.name}</span>
-                      <span className="block text-[11px] text-gray-500">{r.email}</span>
+                      <span className="block text-[11px] text-gray-500">{shownEmail(r.email)}</span>
                     </td>
                     <td className="p-3 capitalize text-gray-500">{r.role}</td>
                     <td className="p-3 font-semibold">{r.planName ?? 'No plan'}</td>

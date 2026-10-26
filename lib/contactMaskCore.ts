@@ -33,4 +33,4 @@ export function realEmail(email: string | null | undefined): string | null {
   return e && e.includes('@') && !isSyntheticEmail(e) ? e : null
 }
 
-export type RevealField = 'phone' | 'email'
+export type RevealField = 'phone' | 'email' | 'whatsapp'

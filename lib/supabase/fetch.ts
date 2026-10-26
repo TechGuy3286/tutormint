@@ -20,6 +20,8 @@
 // Pure apart from the fetch and sleep it is given, so the rules are unit-tested
 // (scripts/test-hotfix-errors.ts).
 
+import { guardFetch, VIEW_AS_HEADER } from '@/lib/viewAsGuardCore'
+
 export const SUPABASE_TIMEOUT_MS = 25_000
 export const SUPABASE_STORAGE_TIMEOUT_MS = 120_000
 export const SUPABASE_RETRY_DELAY_MS = 400
@@ -78,7 +80,22 @@ export function makeSupabaseFetch(
   }) as FetchFn
 }
 
-export const supabaseFetch: FetchFn = makeSupabaseFetch()
+/** True while this server request was made under "View as" (proxy.ts stamps
+ *  VIEW_AS_HEADER). Outside a request (cron, scripts, the proxy itself) there
+ *  are no headers to read, so nothing is refused. */
+async function requestIsViewAs(): Promise<boolean> {
+  try {
+    const { headers } = await import('next/headers')
+    return (await headers()).get(VIEW_AS_HEADER) === '1'
+  } catch {
+    return false
+  }
+}
+
+// "View as" (owner, 27 Oct 2026; lib/viewAsGuardCore): every server Supabase
+// client goes through this fetch, so while the Owner views a member's account
+// no write of any kind — database, storage, auth — leaves the server.
+export const supabaseFetch: FetchFn = guardFetch(makeSupabaseFetch(), requestIsViewAs)
 
 /** A Supabase error message fit for a log or a thrown Error: an HTML gateway
  *  page (Cloudflare 502) becomes one plain line instead of the whole page. */

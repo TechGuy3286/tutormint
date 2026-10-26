@@ -32,7 +32,14 @@ import { getSmsProvider, devOtpCode, bridgeOtpCode } from '@/lib/sms'
 import { recordSms, sendSms } from '@/lib/smsLog'
 import type { SmsPurpose } from '@/lib/smsHealthCore'
 
-export type OtpPurpose = 'verify' | 'reset'
+export type OtpPurpose = 'verify' | 'reset' | 'erase'
+
+/** Codes with the RESET rules: 10-minute expiry, 3 per mobile per day, a new
+ *  code replaces the old one. 'erase' = confirming Delete my account (owner,
+ *  27 Oct 2026). */
+export function isTimedPurpose(p: OtpPurpose): p is 'reset' | 'erase' {
+  return p === 'reset' || p === 'erase'
+}
 
 /**
  * The exact SMS body (PR93 Part A.4): "Your TutorMint verification code is
@@ -174,7 +181,7 @@ export async function deliverCode(
    *  pre-auth signup code, else the purpose itself. */
   recordAs?: SmsPurpose,
 ): Promise<DeliverResult> {
-  const logPurpose: SmsPurpose = recordAs ?? purpose
+  const logPurpose: SmsPurpose = recordAs ?? (purpose === 'erase' ? 'verify' : purpose)
   // Dev bypass: nothing to deliver, and no bill run up.
   if (devOtpCode()) {
     reportSend({ purpose, phone, channel: 'dev-bypass', ok: true })
@@ -262,16 +269,16 @@ export async function sendOtp(opts: {
   // The separate rule set (owner hotfix, 5 Oct 2026): 3 per mobile per day, a
   // new code cancels the old one, 10-minute expiry, decoy for non-members. The
   // signup/verify path below is untouched.
-  if (opts.purpose === 'reset') {
+  if (isTimedPurpose(opts.purpose)) {
     const dayAgo = new Date(now - 24 * 60 * 60 * 1000).toISOString()
     const { count } = await admin
       .from('phone_otps')
       .select('id', { count: 'exact', head: true })
       .eq('phone', opts.phone)
-      .eq('purpose', 'reset')
+      .eq('purpose', opts.purpose)
       .gte('created_at', dayAgo)
     if (resetDailyCapReached(count ?? 0)) {
-      reportSend({ purpose: 'reset', phone: opts.phone, channel: opts.silent ? 'decoy' : 'provider', ok: false, error: 'daily limit' })
+      reportSend({ purpose: opts.purpose, phone: opts.phone, channel: opts.silent ? 'decoy' : 'provider', ok: false, error: 'daily limit' })
       return { ok: false, status: 429, error: RESET_MESSAGES.dailyLimit.en, dailyLimit: true }
     }
 
@@ -281,14 +288,14 @@ export async function sendOtp(opts: {
       .from('phone_otps')
       .update({ consumed_at: new Date(now).toISOString() })
       .eq('phone', opts.phone)
-      .eq('purpose', 'reset')
+      .eq('purpose', opts.purpose)
       .is('consumed_at', null)
 
     const code = String(Math.floor(100000 + Math.random() * 900000))
     const { error: insertError } = await admin.from('phone_otps').insert({
       phone: opts.phone,
       code: hashOtp(code),
-      purpose: 'reset',
+      purpose: opts.purpose,
       user_id: opts.userId ?? null,
       expires_at: new Date(now + RESET_CODE_TTL_MS).toISOString(),
       attempts: 0,
@@ -296,10 +303,10 @@ export async function sendOtp(opts: {
     if (insertError) return { ok: false, status: 500, error: 'Could not send a code right now.', detail: insertError.message }
 
     if (opts.silent) {
-      reportSend({ purpose: 'reset', phone: opts.phone, channel: 'decoy', ok: true })
+      reportSend({ purpose: opts.purpose, phone: opts.phone, channel: 'decoy', ok: true })
       return { ok: true, channel: 'decoy', devBypassActive: !!devOtpCode(), alreadySent: false }
     }
-    const delivered = await deliverCode(opts.phone, code, 'reset')
+    const delivered = await deliverCode(opts.phone, code, opts.purpose, opts.purpose === 'erase' ? 'verify' : undefined)
     if (!delivered.ok) return delivered
     return { ok: true, channel: delivered.channel, devBypassActive: delivered.devBypassActive, provider: delivered.provider, alreadySent: false }
   }
@@ -491,15 +498,15 @@ export async function verifyOtp(opts: {
     return {
       ok: false,
       status: 400,
-      error: opts.purpose === 'reset' ? RESET_MESSAGES.expired.en : 'No code for this number. Contact support to verify.',
-      expired: opts.purpose === 'reset' ? true : undefined,
+      error: isTimedPurpose(opts.purpose) ? RESET_MESSAGES.expired.en : 'No code for this number. Contact support to verify.',
+      expired: isTimedPurpose(opts.purpose) ? true : undefined,
     }
   }
 
   // RESET codes expire after 10 minutes and a locked one is simply replaced by
   // requesting a new code (owner hotfix, 5 Oct 2026). Signup codes keep PR16 §3:
   // no expiry, and a lock goes to support.
-  const isReset = opts.purpose === 'reset'
+  const isReset = isTimedPurpose(opts.purpose)
   const lockedMessage = isReset ? RESET_MESSAGES.locked.en : LOCKED_MESSAGE
   if (isReset) {
     const state = resetCodeState({

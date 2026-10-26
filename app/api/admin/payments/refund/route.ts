@@ -4,6 +4,7 @@ import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { requireFreshAuth } from '@/lib/reauth'
 import { recordRefund } from '@/lib/payments/refund'
 import { REFUND_METHODS, REFUND_REASONS, type RefundMethod } from '@/lib/payments/refundCore'
+import { UPLOAD_MAX_BYTES, tooLargeMessage } from '@/lib/uploadLimitCore'
 
 // Record a refund against an approved payment (PR106-H4 §4). Owner only
 // (SCREEN_ACCESS.paymentsRefund — owner only since 8 Oct 2026; was the same as approving a
@@ -46,14 +47,16 @@ export async function POST(request: Request) {
   if (file && typeof file === 'object' && 'arrayBuffer' in file) {
     const f = file as File
     if (f.size > 0) {
-      if (f.size > 5 * 1024 * 1024) return NextResponse.json({ error: 'The screenshot must be under 5 MB.' }, { status: 400 })
+      if (f.size > UPLOAD_MAX_BYTES) return NextResponse.json({ error: tooLargeMessage('screenshot') }, { status: 413 })
       const admin = createAdminClient()
       if (admin) {
         const ext = (f.type.split('/')[1] || 'jpg').replace(/[^a-z0-9]/gi, '')
         const path = `refunds/${paymentId}-${Date.now()}.${ext}`
         const buf = Buffer.from(await f.arrayBuffer())
         const { error } = await admin.storage.from('payment-proofs').upload(path, buf, { contentType: f.type || 'image/jpeg', upsert: false })
-        if (!error) proofPath = path
+        // A screenshot that did not save is said in words; nothing is recorded.
+        if (error) return NextResponse.json({ error: 'The screenshot did not save because of a problem on our side, so the refund was not recorded. Please try again.' }, { status: 500 })
+        proofPath = path
       }
     }
   }

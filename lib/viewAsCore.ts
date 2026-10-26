@@ -1,17 +1,18 @@
 // lib/viewAsCore.ts — PURE apart from node:crypto. "View as" (owner, 26 Oct 2026).
 //
-// The Owner opens a member's dashboard exactly as they see it: the browser is
-// given a session for the member (minted server-side, never a password or a
-// code), with a fixed banner "Viewing as <name> — read only · Exit". While it
-// lasts:
+// The Owner opens a member's dashboard exactly as they see it, read only, with
+// a fixed banner "Viewing as <name> — read only · Exit". Reworked 27 Oct 2026:
+// NOBODY is signed in as the member. The Owner keeps their own session; the
+// server answers "who is this?" with the member and reads their data with the
+// service role (lib/viewAsContext, lib/supabase/server). While it lasts:
 //
 //   - every change is refused on the server (403): proxy.ts refuses any request
 //     that is not GET / HEAD, and any /api/auth or /api/admin request, except
-//     the exit route; and the database refuses every write made with the
-//     minted session (migration 201's restrictive policies), so a browser that
-//     writes to Supabase directly is refused too;
-//   - it ends after 30 minutes or on Exit; the minted session is then removed
-//     and the Owner's own session put back;
+//     the exit route; and every Supabase write made for the page — database,
+//     storage, auth — is refused before it leaves the server or the browser
+//     (lib/viewAsGuardCore);
+//   - the member's last sign-in never moves and no visit is recorded as theirs;
+//   - it ends after 30 minutes or on Exit;
 //   - start and end are written to Audit and the member's Activity tab.
 //
 // The ticket (cookie tm_view_as) is "<id>.<expires ms>.<hmac>": the server
@@ -22,9 +23,11 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 export const VIEW_AS_MINUTES = 30
 export const VIEW_AS_MS = VIEW_AS_MINUTES * 60_000
 export const VIEW_AS_COOKIE = 'tm_view_as'
-/** The Owner's own refresh token while viewing — sent only to the exit route. */
+/** A view started before 27 Oct 2026 kept the Owner's own refresh token here
+ *  (sent only to the exit route). Read only so such a view can still end cleanly. */
 export const VIEW_AS_OWNER_COOKIE = 'tm_view_as_owner'
-/** A readable marker so the browser client can refuse account changes too. */
+/** Readable by the browser: the member's id, so the browser client answers as
+ *  the member and refuses every write too. */
 export const VIEW_AS_UI_COOKIE = 'tm_view_as_ui'
 export const VIEW_AS_EXIT_PATH = '/api/admin/view-as/exit'
 export const VIEW_AS_READ_ONLY = 'Viewing as this member — read only. Exit to make changes.'

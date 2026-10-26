@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, IdCard, Image as ImageIcon, MapPin, Smartphone, UserSquare2, BookOpen } from 'lucide-react'
+import { ChevronDown, IdCard, Image as ImageIcon, MapPin, Smartphone, UserSquare2, BookOpen, User } from 'lucide-react'
 
 import MobileNumberInput from '@/components/auth/MobileNumberInput'
 import CnicCapture, { type CnicCaptureState } from '@/components/identity/CnicCapture'
@@ -18,6 +18,8 @@ import { resolveMasterIds } from '@/lib/taxonomy'
 import { subjectChangeAllowed, subjectKeysOfNames } from '@/lib/subjectLimitCore'
 import SubjectLimitNote from '@/components/tutor/SubjectLimitNote'
 import { compressUnder1MB } from '@/lib/imageCompress'
+import NameEditForm from '@/components/admin/NameEditForm'
+import SlugField from './SlugField'
 
 // PR83 (Part B) — staff edit of a tutor's locked step-1 fields, on
 // /admin/tutors/[id]. Rendered only when the actor is admin/operations
@@ -44,7 +46,7 @@ function Section({
 }: {
   icon: React.ReactNode
   title: string
-  titleUr: string
+  titleUr?: string
   open: boolean
   onToggle: () => void
   children: React.ReactNode
@@ -62,9 +64,11 @@ function Section({
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-xs font-black text-tm-navy">{title}</span>
-          <span lang="ur" dir="rtl" className="tm-ur-cap block text-[11px] font-bold text-gray-500">
-            {titleUr}
-          </span>
+          {titleUr && (
+            <span lang="ur" dir="rtl" className="tm-ur-cap block text-[11px] font-bold text-gray-500">
+              {titleUr}
+            </span>
+          )}
         </span>
         <ChevronDown
           aria-hidden
@@ -101,9 +105,19 @@ export default function TutorFieldEditor({
   tutorId,
   currentCity,
   cnicNumberMasked = null,
+  currentName = '',
+  nameOwnerOnly = false,
+  slug = null,
+  canSlugEdit = false,
 }: {
   tutorId: string
   currentCity: string | null
+  /** The name on file (formatted). */
+  currentName?: string
+  /** A verified tutor (CNIC approved): only the Owner may change the name. */
+  nameOwnerOnly?: boolean
+  slug?: string | null
+  canSlugEdit?: boolean
   /** The masked number on file (never the real one), or null. */
   cnicNumberMasked?: string | null
 }) {
@@ -218,6 +232,17 @@ export default function TutorFieldEditor({
           Staff-only. Every change needs a reason and is kept in the history below.
         </p>
       </div>
+
+      {/* Name (owner, 27 Oct 2026) */}
+      <Section icon={<User size={16} />} title="Name" open={open === 'name'} onToggle={() => toggle('name')}>
+        <NameEditForm
+          memberId={tutorId}
+          currentName={currentName}
+          ownerOnly={nameOwnerOnly}
+          isOwner={ownerApproves}
+          afterSave={<SlugField tutorId={tutorId} initialSlug={slug} canEdit={canSlugEdit} />}
+        />
+      </Section>
 
       {/* Mobile */}
       <Section icon={<Smartphone size={16} />} title="Mobile number" titleUr="موبائل نمبر" open={open === 'mobile'} onToggle={() => toggle('mobile')}>

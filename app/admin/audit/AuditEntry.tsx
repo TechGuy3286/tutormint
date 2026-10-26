@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { formatDateTime } from '@/lib/datetime'
 import { roleWord } from '@/lib/adminAccessCore'
+import { shownEmail } from '@/lib/actorLabelCore'
 
 // One audit row, rendered the same whether the server drew it or the browser
 // appended it. Extracted for that reason: a second copy of this markup would be
@@ -8,7 +9,10 @@ import { roleWord } from '@/lib/adminAccessCore'
 
 export type AuditRow = {
   id: string
+  actor_id?: string | null
   actor_email: string | null
+  /** Resolved server-side: 'Staff — Khizra Danish'. Never an auto-made address. */
+  actor_label?: string | null
   actor_role: string | null
   action: string
   target_type: string | null
@@ -34,7 +38,7 @@ export default function AuditEntry({ entry }: { entry: AuditRow }) {
             never shrinks. */}
         <span className="flex min-w-0 flex-1 items-baseline gap-1">
           <span className="min-w-0 truncate text-xs font-semibold text-tm-navy">
-            {entry.actor_email ?? 'system'}
+            {entry.actor_label ?? shownEmail(entry.actor_email) ?? 'System'}
           </span>
           <span className="shrink-0 text-xs font-normal text-gray-500">
             ({roleWord(entry.actor_role)})

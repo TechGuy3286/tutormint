@@ -1,5 +1,7 @@
 'use client'
 
+import { shownEmail } from '@/lib/actorLabelCore'
+
 import { Suspense, useEffect, useId, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -423,7 +425,7 @@ export default function AdminShell({
                   already on the account menu; the trail is the only thing on
                   this row that says where you are. */}
               <span className="hidden max-w-[180px] truncate text-[11px] text-gray-500 2xl:block">
-                {email}
+                {shownEmail(email)}
               </span>
               {bell}
               {signOut}

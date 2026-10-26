@@ -1,4 +1,7 @@
 'use client'
+
+import { prepareUploadImage, uploadErrorMessage, uploadFileProblem } from '@/lib/uploadLimitCore'
+import { compressImage } from '@/lib/imageCompress'
 import { Pause, Trash2, Undo2 } from 'lucide-react'
 
 import { submitSignal } from '@/lib/submit'
@@ -89,12 +92,16 @@ export default function AdsClient({
     setError(null)
     try {
       const res = await fetch('/api/admin/ads', { signal: submitSignal(), method: 'POST', body })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'That did not work.')
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        const hasImage = body.get('image') instanceof File
+        throw new Error(hasImage ? uploadErrorMessage({ status: res.status, error: json.error }, 'image') : (json.error ?? 'That did not work.'))
+      }
       router.refresh()
       return json
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'That did not work.'
+      const network = e instanceof TypeError && body.get('image') instanceof File
+      const message = network ? uploadErrorMessage({ network: true }, 'image') : e instanceof Error ? e.message : 'That did not work.'
       setError(message)
       toast.error(message)
       return null
@@ -107,7 +114,17 @@ export default function AdsClient({
     const fd = new FormData()
     fd.set('action', 'create')
     for (const [k, v] of Object.entries(form)) fd.set(k, v)
-    if (file) fd.set('image', file)
+    if (file) {
+      // Shrink in the browser, then the 4 MB limit (owner, 27 Oct 2026).
+      const img = await prepareUploadImage(file, compressImage)
+      const problem = uploadFileProblem(img, 'image')
+      if (problem) {
+        setError(problem)
+        toast.error(problem)
+        return
+      }
+      fd.set('image', img)
+    }
     const json = await post(fd, 'new')
     if (json) {
       setForm(EMPTY)

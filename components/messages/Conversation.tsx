@@ -1,5 +1,9 @@
 'use client'
 
+import { prepareUploadImage, uploadErrorMessage, uploadFileProblem } from '@/lib/uploadLimitCore'
+import { looksLikeImage } from '@/lib/payments/receiptPrepare'
+import { compressImage } from '@/lib/imageCompress'
+
 import { COMPOSER_HINT, isSendKey } from '@/lib/composerKeys'
 import { reportSilentFailure } from '@/lib/silentFailure'
 import { submitSignal } from '@/lib/submit'
@@ -268,27 +272,34 @@ export default function Conversation({
     const file = e.target.files?.[0]
     e.target.value = '' // allow re-picking the same file
     if (!file) return
-    if (!['image/jpeg', 'image/png'].includes(file.type)) {
-      toast.error('Send a JPG or PNG.')
-      return
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('That photo is larger than 5 MB.')
+    if (!looksLikeImage(file)) {
+      toast.error('Send a JPG or PNG photo.')
       return
     }
     setUploading(true)
     try {
-      const form = new FormData()
-      form.append('file', file)
-      const res = await fetch('/api/messages/media', { method: 'POST', body: form, signal: submitSignal() })
-      const json = await res.json()
-      if (!res.ok) {
-        toast.error(json.error ?? 'Could not upload that photo.')
+      // Shrink in the browser first, then the 4 MB limit (owner, 27 Oct 2026).
+      const photo = await prepareUploadImage(file, compressImage)
+      if (!['image/jpeg', 'image/png'].includes(photo.type)) {
+        toast.error('Send a JPG or PNG photo.')
         return
       }
-      setPending({ path: json.path, w: json.w, h: json.h, bytes: json.bytes, url: URL.createObjectURL(file) })
+      const tooBig = uploadFileProblem(photo, 'photo')
+      if (tooBig) {
+        toast.error(tooBig)
+        return
+      }
+      const form = new FormData()
+      form.append('file', photo)
+      const res = await fetch('/api/messages/media', { method: 'POST', body: form, signal: submitSignal() })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(uploadErrorMessage({ status: res.status, error: json.error }, 'photo'))
+        return
+      }
+      setPending({ path: json.path, w: json.w, h: json.h, bytes: json.bytes, url: URL.createObjectURL(photo) })
     } catch {
-      toast.error('Could not upload that photo.')
+      toast.error(uploadErrorMessage({ network: true }, 'photo'))
     } finally {
       setUploading(false)
     }

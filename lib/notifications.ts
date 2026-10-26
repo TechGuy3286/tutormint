@@ -140,6 +140,8 @@ export type NotificationKind =
   | 'incoming_request_capped'
   // Staff changed the account type, Parent ↔ Tutor (owner, 23 Oct 2026).
   | 'account_type_changed'
+  // A parent review was approved or not (owner, 27 Oct 2026).
+  | 'review_decided'
 
 export async function notify(params: {
   userId: string

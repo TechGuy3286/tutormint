@@ -60,10 +60,19 @@ export function parentAddressState(f: ParentDocFacts): ParentItemState {
   let status: ParentDocStatus = 'none'
   if (filled(f.address_verified_at)) status = 'approved'
   else if (s === 'rejected') status = 'rejected'
-  // A typed address on a parent who submitted for review is waiting even
-  // before address_status was introduced (backfilled by migration 152).
-  else if (hasUpload && (s === 'pending' || (f.verification_state ?? '').toLowerCase() === 'submitted')) status = 'pending'
+  // A typed address that is neither approved nor rejected is WAITING for
+  // review — whatever address_status says (owner, 27 Oct 2026: the chip read
+  // 'Not provided' for an address entered and waiting).
+  else if (hasUpload) status = 'pending'
   return { status, reason: status === 'rejected' ? (f.address_reason ?? null) : null, hasUpload }
+}
+
+/** The parent admin page's Home address chip, in words (owner, 27 Oct 2026). */
+export function addressChipLabel(state: Pick<ParentItemState, 'status'>): 'Waiting for review' | 'Approved' | 'Rejected' | 'Not provided' {
+  if (state.status === 'approved') return 'Approved'
+  if (state.status === 'rejected') return 'Rejected'
+  if (state.status === 'pending') return 'Waiting for review'
+  return 'Not provided'
 }
 
 /** The items waiting for a staff decision, by label, in display order. */

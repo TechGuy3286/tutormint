@@ -40,6 +40,7 @@ export type AdminScreen =
   | 'duplicates'
   | 'plans'
   | 'reports'
+  | 'reviews'
   | 'inbox'
   | 'audit'
   | 'ads'
@@ -153,6 +154,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       // ONE page, tabs Reports | Flagged messages (owner, 15 Oct 2026).
       { href: '/admin/reports', label: 'Reports & flags', icon: 'flag', screen: 'reports' },
+      { href: '/admin/reviews', label: 'Reviews', icon: 'star', screen: 'reviews' },
       { href: '/admin/inbox', label: 'Team inbox', icon: 'mail', screen: 'inbox' },
       { href: '/admin/audit', label: 'Audit', icon: 'scroll', screen: 'audit' },
     ],
@@ -211,6 +213,7 @@ export const SECTION_LABELS: Record<string, string> = {
   plans: 'Plans',
   reports: 'Reports & flags',
   flags: 'Reports & flags',
+  reviews: 'Reviews',
   'follow-ups': 'Follow-ups',
   applications: 'Applications',
   'city-owners': 'City owners',

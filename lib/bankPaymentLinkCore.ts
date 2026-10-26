@@ -42,6 +42,44 @@ export function creditLinkable(state: string | null | undefined, match?: CreditM
   return (LINKABLE_CREDIT_STATES as readonly string[]).includes(state ?? '') || autoReceiptMatch(state, match)
 }
 
+// ------------------------------------------------- the credit picker (27 Oct)
+
+/** The largest credit "Record a bank payment" offers. A member's own payment
+ *  is a fee or a monthly plan; anything bigger is a payout or something else. */
+export const PICKER_MAX_PKR = 5000
+
+export type PickerCreditFacts = {
+  state: string | null | undefined
+  isPaypro: boolean
+  amountPkr: number
+  date: string
+  time: string | null
+}
+
+/**
+ * May the member page's "Record a bank payment" picker offer this credit?
+ * (owner, 27 Oct 2026) Only an UNLINKED credit: not matched by any rule (the
+ * 21 Oct automatic-receipt-guess exception is NOT offered here — that stays on
+ * the credit's own "Link to member" on Finance), not a PayPro payout, and no
+ * more than Rs 5,000. An ignored ("not a sale") credit is never offered.
+ */
+export function pickerOffers(c: PickerCreditFacts): boolean {
+  return (LINKABLE_CREDIT_STATES as readonly string[]).includes(c.state ?? '') && !c.isPaypro && c.amountPkr > 0 && c.amountPkr <= PICKER_MAX_PKR
+}
+
+/** The picker's order: credits for exactly the selected amount on top, then
+ *  newest first (date, then time). */
+export function sortPickerCredits<T extends Pick<PickerCreditFacts, 'amountPkr' | 'date' | 'time'>>(credits: T[], selectedAmount: number | null | undefined): T[] {
+  const sel = selectedAmount && selectedAmount > 0 ? selectedAmount : null
+  const hit = (c: T) => (sel !== null && Math.abs(c.amountPkr - sel) < 0.005 ? 1 : 0)
+  return [...credits].sort((a, b) => hit(b) - hit(a) || b.date.localeCompare(a.date) || (b.time ?? '').localeCompare(a.time ?? ''))
+}
+
+/** The one rule: filter, then order. */
+export function pickerCredits<T extends PickerCreditFacts>(credits: T[], selectedAmount: number | null | undefined): T[] {
+  return sortPickerCredits(credits.filter(pickerOffers), selectedAmount)
+}
+
 /**
  * The instant the money arrived, from the bank credit's date and time (both
  * Pakistan time). No time recorded → noon that day, so the payment still falls

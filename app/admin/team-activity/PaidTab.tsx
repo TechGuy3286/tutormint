@@ -9,7 +9,7 @@ import { changeLabel, type Change } from '@/lib/tuitionPostingCore'
 import { allUnpaidHref } from '@/lib/teamActivityCore'
 import { isParticipantRole, type MemberRole, type StaffStatus, type Step } from '@/lib/staffSignupsCore'
 import { PACE_LABEL, monthLabel, perDayLabel, type MonthKey, type Pace, type PaceStatus } from '@/lib/staffTargetsCore'
-import type { AdminActor } from '@/lib/adminAuth'
+import { roleSatisfies, SCREEN_ACCESS, type AdminActor } from '@/lib/adminAuth'
 
 import ClaimForm from './ClaimForm'
 import { CLAIMS_OPEN } from '@/lib/staffSignupsCore'
@@ -58,10 +58,12 @@ const STATUS_BAR: Record<PaceStatus, string> = {
 export default async function PaidTab({ actor, month }: { actor: AdminActor; month: MonthKey }) {
   const board = await loadTargetBoard(actor, month)
   const everyone = board.scope === 'everyone'
+  // A Manager sees every row but does not review claims (Owner and Admin do).
+  const reviewsClaims = everyone && roleSatisfies(actor.adminRole, SCREEN_ACCESS.staffClaimsReview)
   const isParticipant = isParticipantRole(actor.adminRole)
   const [myClaims, pending] = await Promise.all([
     isParticipant ? loadClaims({ id: actor.id, adminRole: 'self' }) : Promise.resolve([]),
-    everyone ? pendingClaimCount() : Promise.resolve(0),
+    reviewsClaims ? pendingClaimCount() : Promise.resolve(0),
   ])
   const label = monthLabel(month)
   const current = board.tense === 'current'
@@ -72,7 +74,7 @@ export default async function PaidTab({ actor, month }: { actor: AdminActor; mon
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <MonthPicker month={month} options={board.months.map((m) => ({ key: m, label: monthLabel(m) }))} />
-        {everyone && (
+        {reviewsClaims && (
           <Link href="/admin/team-activity/claims" className="text-xs font-bold text-tm-red hover:underline">
             Claims to review ({pending})
           </Link>

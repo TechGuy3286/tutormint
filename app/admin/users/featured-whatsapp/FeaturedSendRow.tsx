@@ -1,5 +1,7 @@
 'use client'
 
+import { shownEmail } from '@/lib/actorLabelCore'
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { MessageCircle } from 'lucide-react'
@@ -65,7 +67,7 @@ export default function FeaturedSendRow({ row }: { row: FeaturedRow }) {
         {sent
           ? `Sent ${formatDateTime(sent)} by you`
           : row.lastSent
-            ? `Last sent ${formatDateTime(row.lastSent.at)} by ${row.lastSent.byEmail ?? 'staff'}`
+            ? `Last sent ${formatDateTime(row.lastSent.at)} by ${shownEmail(row.lastSent.byEmail) ?? 'staff'}`
             : 'Never sent on WhatsApp.'}
       </p>
       {readOnly ? null : row.msisdn ? (

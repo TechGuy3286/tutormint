@@ -4,6 +4,7 @@ import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
 import { safeTargetUrl } from '@/lib/ads'
+import { UPLOAD_MAX_BYTES, tooLargeMessage } from '@/lib/uploadLimitCore'
 
 // Advertisement CRUD. owner / manager.
 //
@@ -18,7 +19,7 @@ import { safeTargetUrl } from '@/lib/ads'
 
 export const runtime = 'nodejs'
 
-const MAX_BYTES = 5 * 1024 * 1024
+const MAX_BYTES = UPLOAD_MAX_BYTES // 4 MB (owner, 27 Oct 2026)
 
 export async function POST(request: Request) {
   const gate = await checkAdminRole(...SCREEN_ACCESS.ads)
@@ -125,7 +126,7 @@ export async function POST(request: Request) {
   let imagePath: string | null = null
   if (file instanceof File && file.size > 0) {
     if (file.size > MAX_BYTES) {
-      return NextResponse.json({ error: 'That image is larger than 5 MB.' }, { status: 400 })
+      return NextResponse.json({ error: tooLargeMessage('image') }, { status: 413 })
     }
     if (!file.type.startsWith('image/')) {
       return NextResponse.json({ error: 'The creative must be an image.' }, { status: 400 })

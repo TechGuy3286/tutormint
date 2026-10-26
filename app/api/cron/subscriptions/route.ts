@@ -11,6 +11,7 @@ import { purgeOldEmailSends } from '@/lib/emailHealth'
 import { sweepAbandonedVideos } from '@/lib/videoCleanup'
 import { pauseStaleTuitions } from '@/lib/tuitionPause'
 import { drainIndexingQueue, INDEXING_DAILY_LIMIT } from '@/lib/googleIndexing'
+import { runDueErasures } from '@/lib/accountErase'
 
 // Daily subscription sweep: remind at T-3, expire at zero.
 //
@@ -97,6 +98,8 @@ async function handle(request: Request) {
     (e) => ({ paused: 0, ids: [] as string[], error: String(e) }),
   )
   const indexing = await drainIndexingQueue(INDEXING_DAILY_LIMIT, 60_000).catch(() => ({ sent: 0, failed: 0, left: -1 }))
+  // Account erases whose 7-day grace is over (owner, 27 Oct 2026).
+  const erasures = await runDueErasures().catch(() => ({ due: 0, done: 0, failed: -1 }))
 
   // Errors are reported, not swallowed: a sweep that silently half-ran is how
   // a member keeps a plan they stopped paying for.
@@ -121,6 +124,7 @@ async function handle(request: Request) {
       videos,
       tuitions,
       indexing,
+      erasures,
     },
     { status },
   )

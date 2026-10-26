@@ -10,6 +10,7 @@ import { describeSource } from '@/lib/signupSourceCore'
 import { applicationStatus, jobStatus } from '@/lib/display'
 import { createAdminClient } from '@/lib/supabase/admin'
 import MemberActions from './MemberActions'
+import NameEditForm from '@/components/admin/NameEditForm'
 import { loadDirectoryStatus } from '@/lib/directoryStatus'
 import { loadStaffCountsFor } from '@/lib/staffActivity'
 import StaffActivityTable from '@/components/admin/StaffActivityTable'
@@ -42,6 +43,7 @@ import { selfiePhotoMatchUsers } from '@/lib/selfieMatch'
 import { canApprove } from '@/lib/adminAccessCore'
 import MemberTabs from '@/components/admin/MemberTabs'
 import ConvertAccountCard from '@/components/admin/ConvertAccountCard'
+import EraseAccountCard from '@/components/admin/EraseAccountCard'
 import MaskedContact from '@/components/admin/MaskedContact'
 import UndoMergeButton from '@/components/admin/UndoMergeButton'
 import ViewAsButton from '@/components/admin/ViewAsButton'
@@ -95,7 +97,7 @@ export default async function AdminMemberPage({
   const { data: profile } = await admin
     .from('profiles')
     .select(
-      'id, full_name, email, phone_number, whatsapp, avatar_url, role, admin_role, city, profile_completion, cnic_verified_at, address_verified_at, verification_state, is_suspended, suspension_reason, suspended_at, suspended_by, is_banned, banned_reason, paused_by_user_at, phone_verified_via, phone_verified_at, created_at, utm_source, utm_medium, utm_campaign, utm_content, linked_account_id, former_staff_at, former_staff_role, merged_into, merged_at',
+      'id, full_name, email, phone_number, whatsapp, avatar_url, role, admin_role, city, profile_completion, cnic_verified_at, address_verified_at, verification_state, is_suspended, suspension_reason, suspended_at, suspended_by, is_banned, banned_reason, paused_by_user_at, phone_verified_via, phone_verified_at, created_at, utm_source, utm_medium, utm_campaign, utm_content, linked_account_id, former_staff_at, former_staff_role, merged_into, merged_at, erased_at',
     )
     .eq('id', id)
     .maybeSingle()
@@ -507,6 +509,16 @@ export default async function AdminMemberPage({
         </section>
       )}
 
+      {/* Edit name (owner, 27 Oct 2026) — parents here; tutors on /admin/tutors/[id]. */}
+      {isParent && roleMayWrite(actor.adminRole, SCREEN_ACCESS.parents) && (
+        <details className="rounded-2xl border border-gray-200 bg-white p-4">
+          <summary className="cursor-pointer text-xs font-black text-tm-navy">Edit name</summary>
+          <div className="mt-3">
+            <NameEditForm memberId={id} currentName={formatName(profile.full_name as string | null)} ownerOnly={false} isOwner={actor.adminRole === 'owner'} />
+          </div>
+        </details>
+      )}
+
       <MemberActions
         userId={id}
         name={formatName(profile.full_name as string | null)}
@@ -537,6 +549,13 @@ export default async function AdminMemberPage({
         }
       />
 
+      {profile.erased_at && (
+        <p role="status" className="rounded-2xl border border-tm-red/30 bg-tm-tint-red p-4 text-xs font-bold text-tm-red-hover">
+          Account closed and personal data erased on request ·{' '}
+          {new Date(profile.erased_at as string).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Karachi' })}. Payments and history are kept with no personal details.
+        </p>
+      )}
+
       {/* Former staff (owner, 24 Oct 2026): the Owner's "Restore staff access".
           Everyone else sees only the label. */}
       {profile.former_staff_at && (
@@ -552,6 +571,11 @@ export default async function AdminMemberPage({
           Owner only — nobody else sees it, and the route refuses them. */}
       {canApprove(actor.adminRole) && (profile.role === 'tutor' || profile.role === 'parent') && (
         <ConvertAccountCard memberId={id} role={profile.role as 'tutor' | 'parent'} />
+      )}
+
+      {/* Close account and erase data (owner, 27 Oct 2026) — the Owner only. */}
+      {canApprove(actor.adminRole) && (profile.role === 'tutor' || profile.role === 'parent' || profile.role === 'academy') && !profile.admin_role && (
+        <EraseAccountCard memberId={id} />
       )}
 
       {/* ---------------------------------------------- staff activity --- */}

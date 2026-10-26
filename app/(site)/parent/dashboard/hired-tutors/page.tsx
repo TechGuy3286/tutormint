@@ -1,74 +1,43 @@
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
 import { getSessionUser } from '@/lib/auth'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import BadgeRow from '@/components/badges/BadgeRow'
 import { badgesForPlan } from '@/lib/entitlements'
 import { loadVerifiedBadgeOk } from '@/lib/badgeFacts'
-import { reviewableEngagements } from '@/lib/reviews'
+import { reviewableHires } from '@/lib/reviews'
+import { REVIEW_STATUS_LABEL } from '@/lib/reviewsCore'
 import ReviewForm from '@/components/ReviewForm'
 import { formatDate } from '@/lib/datetime'
-import { formatName } from '@/lib/formatName'
 
-// Tutors this parent has actually hired.
-//
-// The version this replaced queried the legacy parent_jobs table and then read
-// the hired tutor's id and NAME out of localStorage keys (`hired_tutor_<id>`),
-// so the list existed only in the browser that made the hire and vanished when
-// site data was cleared. Hires are rows now: jobs.status='hired' with
-// jobs.hired_tutor_id.
+// Tutors this parent has hired, and the review each hire earns (owner,
+// 27 Oct 2026 — lib/reviewsCore): one per hire, saved as pending until our
+// team approves it. A hire is an application at stage Hired on a tuition this
+// parent posted — whether the parent or staff moved it there.
 
 export const dynamic = 'force-dynamic'
 
 export default async function HiredTutorsPage() {
   const session = await getSessionUser()
   const userId = session!.user.id
-  const supabase = await createClient()
+  const hires = await reviewableHires(userId)
 
-  const reviewable = await reviewableEngagements(userId)
-
-  const { data: jobs } = await supabase
-    .from('jobs')
-    .select('id, job_tx_id, title, city, hired_tutor_id, hired_at')
-    .eq('parent_id', userId)
-    .eq('status', 'hired')
-    .order('hired_at', { ascending: false })
-
-  // Tutor names come through the service-role client: tutor_profiles is
-  // owner-or-admin under RLS. Only public-profile fields cross over.
+  // Badges through the service-role client: public-profile facts only.
   const admin = createAdminClient()
-  const tutors = new Map<string, { name: string; slug: string | null; plan: string | null; complete: boolean; verifiedOk: boolean }>()
-  const tutorIds = Array.from(
-    new Set((jobs ?? []).map((j) => j.hired_tutor_id as string).filter(Boolean)),
-  )
-
+  const facts = new Map<string, { plan: string | null; complete: boolean; verifiedOk: boolean }>()
+  const tutorIds = [...new Set(hires.map((h) => h.tutorId))]
   if (admin && tutorIds.length > 0) {
-    const [{ data: rows }, { data: subs }, { data: profiles }] = await Promise.all([
-      admin.from('tutor_profiles').select('id, full_name, slug').in('id', tutorIds),
-      admin
-        .from('subscriptions')
-        .select('user_id, plan_code')
-        .in('user_id', tutorIds)
-        .eq('status', 'active')
-        .gt('expires_at', new Date().toISOString()),
+    const [{ data: subs }, { data: profiles }, okSet] = await Promise.all([
+      admin.from('subscriptions').select('user_id, plan_code').in('user_id', tutorIds).eq('status', 'active').gt('expires_at', new Date().toISOString()),
       admin.from('profiles').select('id, profile_completion').in('id', tutorIds),
+      loadVerifiedBadgeOk(tutorIds),
     ])
-
     const planBy = new Map((subs ?? []).map((s) => [s.user_id as string, s.plan_code as string]))
-    const compBy = new Map(
-      (profiles ?? []).map((p) => [p.id as string, ((p.profile_completion as number) ?? 0) >= 100]),
-    )
-    // PR105-B §1 — the Verified badge needs staff-approved CNIC+photo+selfie.
-    const okSet = await loadVerifiedBadgeOk(tutorIds)
-
-    for (const t of rows ?? []) {
-      tutors.set(t.id as string, {
-        name: formatName(t.full_name as string | null) || 'Tutor',
-        slug: (t.slug as string) ?? null,
-        plan: planBy.get(t.id as string) ?? null,
-        complete: compBy.get(t.id as string) ?? false,
-        verifiedOk: okSet.has(t.id as string),
+    for (const p of profiles ?? []) {
+      facts.set(p.id as string, {
+        plan: planBy.get(p.id as string) ?? null,
+        complete: ((p.profile_completion as number) ?? 0) >= 100,
+        verifiedOk: okSet.has(p.id as string),
       })
     }
   }
@@ -81,52 +50,39 @@ export default async function HiredTutorsPage() {
           <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Hired tutors</h1>
         </header>
 
-        {(jobs ?? []).length === 0 ? (
+        {hires.length === 0 ? (
           <p className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-xs text-gray-500">
-            You have not hired anyone yet. Hire an applicant from one of your job posts.
+            You have not hired anyone yet. Hire an applicant from one of your tuitions.
           </p>
         ) : (
           <ul className="space-y-2">
-            {(jobs ?? []).map((j) => {
-              const t = tutors.get(j.hired_tutor_id as string)
+            {hires.map((h) => {
+              const f = facts.get(h.tutorId)
               return (
-                <li
-                  key={j.id as string}
-                  className="space-y-1 rounded-2xl border border-gray-200 bg-white p-4"
-                >
-                  {/* PR106-D §3 — badges directly after the name, same line. */}
+                <li key={h.applicationId} className="space-y-1 rounded-2xl border border-gray-200 bg-white p-4">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="text-xs font-black text-tm-navy">
-                      {t?.slug ? (
-                        <Link href={`/tutor/${t.slug}`} className="hover:underline">
-                          {t.name}
+                      {h.tutorSlug ? (
+                        <Link href={`/tutor/${h.tutorSlug}`} className="hover:underline">
+                          {h.tutorName}
                         </Link>
                       ) : (
-                        (t?.name ?? 'Tutor')
+                        h.tutorName
                       )}
                     </span>
-                    {t && <BadgeRow badges={badgesForPlan(t.plan, t.complete, t.verifiedOk)} size="sm" />}
+                    {f && <BadgeRow badges={badgesForPlan(f.plan, f.complete, f.verifiedOk)} size="sm" />}
                   </div>
                   <p className="text-[11px] text-gray-500">
-                    <Link href={`/parent/dashboard/job/${j.job_tx_id ?? j.id}`} className="hover:underline">
-                      {j.title as string}
-                    </Link>
-                    {j.city ? ` · ${j.city}` : ''}
-                    {j.hired_at
-                      ? ` · hired ${formatDate(j.hired_at as string)}`
-                      : ''}
+                    {h.tuitionTitle}
+                    {h.hiredAt ? ` · hired ${formatDate(h.hiredAt)}` : ''}
                   </p>
-
-                  {/* Offered only where it has been earned and not yet used. */}
-                  {reviewable.reviewedJobIds.has(j.id as string) ? (
-                    <p className="text-[11px] font-bold text-tm-green-deep">You reviewed this tutor</p>
+                  {h.review ? (
+                    <p className="text-[11px] font-bold text-tm-green-deep">
+                      You reviewed this tutor · {REVIEW_STATUS_LABEL[h.review.status]}
+                    </p>
                   ) : (
                     <div className="pt-1">
-                      <ReviewForm
-                        tutorId={j.hired_tutor_id as string}
-                        tutorName={t?.name ?? 'this tutor'}
-                        jobId={j.id as string}
-                      />
+                      <ReviewForm applicationId={h.applicationId} tutorName={h.tutorName} />
                     </div>
                   )}
                 </li>

@@ -177,7 +177,7 @@ test('approval and rejection notices: email + in-app on every decision, never an
   assert.ok(read('lib/notify/templates.ts').includes("case 'document_approved':"))
 })
 
-test('Today vs Yesterday compares to the same time of day (Pakistan time), and 0 reads —', () => {
+test('Posting windows are Pakistan time; change() reads — on 0 (columns changed 27 Oct — see test-tuitions-posted)', () => {
   // 15 Oct 2026, 11:00 Pakistan time = 06:00 UTC.
   const now = Date.parse('2026-10-15T06:00:00Z')
   assert.equal(new Date(pktDayStartMs(now)).toISOString(), '2026-10-14T19:00:00.000Z')
@@ -192,16 +192,16 @@ test('Today vs Yesterday compares to the same time of day (Pakistan time), and 0
     at('2026-10-05T08:00:00Z'), // the previous 7 days
   ]
   const c = countPosts(posts, w)
-  assert.deepEqual(c, { today: 2, yesterday: 2, yesterdayToTime: 1, last7: 5, prev7: 1 })
-  assert.equal(changeLabel(change(c.today, c.yesterdayToTime)), '▲ 100%')
+  assert.deepEqual(c, { today: 2, yesterday: 2, last7: 5, allTime: 6 })
+  assert.equal(changeLabel(change(2, 1)), '▲ 100%')
   assert.equal(changeLabel(change(1, 4)), '▼ 75%')
   assert.equal(changeLabel(change(3, 3)), '0%')
   assert.equal(change(5, 0), null)
   assert.equal(changeLabel(change(5, 0)), '—')
   assert.equal(changeLabel(change(0, 0)), '—')
   const rows = sortPostingRows([
-    { id: 'a', name: 'Zubia', counts: { ...emptyPostingCounts(), today: 1 }, repeats: 0 },
-    { id: 'b', name: 'Aseer', counts: { ...emptyPostingCounts(), today: 4 }, repeats: 2 },
+    { id: 'a', name: 'Zubia', counts: { ...emptyPostingCounts(), today: 1, last7: 1 }, repeats: 0 },
+    { id: 'b', name: 'Aseer', counts: { ...emptyPostingCounts(), today: 4, last7: 4 }, repeats: 2 },
   ])
   assert.deepEqual(rows.map((r) => r.id), ['b', 'a'])
   assert.deepEqual(totalRow(rows).counts.today, 5)

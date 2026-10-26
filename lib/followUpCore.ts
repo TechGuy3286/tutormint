@@ -64,7 +64,8 @@ export function staffLabel(name: string | null | undefined, email: string | null
   const n = (name ?? '').trim()
   if (n) return n.split(/\s+/)[0]
   const e = (email ?? '').trim()
-  return e ? e.split('@')[0] : 'staff'
+  // Never the auto-made <msisdn>@users.tutormint.org address (owner, 27 Oct 2026).
+  return e && !e.toLowerCase().endsWith('@users.tutormint.org') ? e.split('@')[0] : 'staff'
 }
 
 export function followUpState(records: FollowUpRecord[], nowMs: number): FollowUpState {

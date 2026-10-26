@@ -2,7 +2,8 @@
 
 import ChangePasswordCard from '@/components/account/ChangePasswordCard'
 import PauseAccountCard from '@/components/account/PauseAccountCard'
-import { PauseCircle } from 'lucide-react'
+import DeleteAccountCard from '@/components/account/DeleteAccountCard'
+import { PauseCircle, Trash2 } from 'lucide-react'
 import FileUpload from '@/components/FileUpload';
 import LiveSelfieCapture from '@/components/tutor/LiveSelfieCapture';
 import { compressUnder1MB } from '@/lib/imageCompress';
@@ -1044,6 +1045,13 @@ export default function TutorSettingsPage() {
       status: 'neutral',
       icon: <PauseCircle size={20} aria-hidden />,
       body: <PauseAccountCard />,
+    },
+    {
+      // "Delete my account" (owner, 27 Oct 2026) — after Pause.
+      key: 'delete',
+      status: 'neutral',
+      icon: <Trash2 size={20} aria-hidden />,
+      body: <DeleteAccountCard />,
     },
   ];
 

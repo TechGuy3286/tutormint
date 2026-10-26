@@ -4,7 +4,8 @@ import { redirect } from 'next/navigation'
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadTuitionPosting } from '@/lib/tuitionPosting'
 import { loadDailyReport } from '@/lib/dailyReport'
-import { change, changeLabel, type Change, type PostingRow } from '@/lib/tuitionPostingCore'
+import { POSTED_COLUMNS, type PostingRow } from '@/lib/tuitionPostingCore'
+import FormerStaffToggle from './FormerStaffToggle'
 import { parseMonth } from '@/lib/staffTargetsCore'
 import { TEAM_TABS, isRemovedTab, pickTab, tabsFor, teamActivityHref } from '@/lib/teamActivityCore'
 
@@ -86,39 +87,36 @@ function TabLink({ href, active, children }: { href: string; active: boolean; ch
 // ---------------------------------------------------------- Tuitions posted
 
 async function PostedTab({ detailLinks }: { detailLinks: boolean }) {
-  const { rows, total } = await loadTuitionPosting()
+  const { rows, former, formerTotal, total } = await loadTuitionPosting()
+  const empty = rows.length === 0 && former.length === 0
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-gray-600">
-        Tuitions posted by each member of staff, in Pakistan time. &ldquo;Today vs Yesterday&rdquo; compares today so far
-        with yesterday up to the same time of day.
-      </p>
+      <p className="text-xs text-gray-600">Tuitions posted by each member of staff, in Pakistan time. Highest Last 7 days first.</p>
       <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
-        <table className="w-full min-w-[640px] text-left text-xs">
+        <table className="w-full min-w-[560px] text-left text-xs">
           <thead className="bg-tm-bg text-[11px] font-bold text-gray-600">
             <tr>
-              <th className="px-3 py-2">Staff</th>
-              <th className="px-3 py-2 text-right">Today</th>
-              <th className="px-3 py-2 text-right">Yesterday</th>
-              <th className="px-3 py-2 text-right">Last 7 days</th>
-              <th className="px-3 py-2 text-right">Today vs Yesterday</th>
-              <th className="px-3 py-2 text-right">Last 7 days vs previous 7</th>
-              <th className="px-3 py-2 text-right">Repeated tuitions this week</th>
+              {POSTED_COLUMNS.map((c, i) => (
+                <th key={c} className={i === 0 ? 'px-3 py-2' : 'px-3 py-2 text-right'}>
+                  {c}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {rows.length === 0 && (
+            {empty && (
               <tr>
-                <td colSpan={7} className="px-3 py-4 text-gray-500">
-                  No staff have posted tuitions in the last two weeks.
+                <td colSpan={POSTED_COLUMNS.length} className="px-3 py-4 text-gray-500">
+                  No staff have posted tuitions yet.
                 </td>
               </tr>
             )}
             {rows.map((r) => (
               <PostedRow key={r.id} row={r} detailLinks={detailLinks} />
             ))}
-            {rows.length > 0 && <PostedRow row={total} strong />}
+            {formerTotal && <FormerStaffRows total={formerTotal} rows={former} detailLinks={detailLinks} />}
+            {!empty && <PostedRow row={total} strong />}
           </tbody>
         </table>
       </div>
@@ -126,28 +124,29 @@ async function PostedTab({ detailLinks }: { detailLinks: boolean }) {
   )
 }
 
-function PostedRow({ row, strong = false, detailLinks = false }: { row: PostingRow; strong?: boolean; detailLinks?: boolean }) {
+/** One collapsed "Former staff" row; the summary opens the people in it.
+ *  A <details> cannot live inside <tbody>, so the rows are a client toggle. */
+function FormerStaffRows({ total, rows, detailLinks }: { total: PostingRow; rows: PostingRow[]; detailLinks: boolean }) {
+  return (
+    <FormerStaffToggle
+      summary={<PostedCells row={total} />}
+      count={rows.length}
+    >
+      {rows.map((r) => (
+        <PostedRow key={r.id} row={r} detailLinks={detailLinks} indent />
+      ))}
+    </FormerStaffToggle>
+  )
+}
+
+function PostedCells({ row }: { row: PostingRow }) {
   const c = row.counts
   return (
-    <tr className={strong ? 'bg-tm-bg font-black text-tm-navy' : 'text-slate-800'}>
-      <td className="px-3 py-2 font-bold">
-        {detailLinks && !strong ? (
-          <Link href={`/admin/team-activity/${row.id}`} className="text-tm-navy hover:text-tm-red hover:underline">
-            {row.name}
-          </Link>
-        ) : (
-          row.name
-        )}
-      </td>
+    <>
       <td className="px-3 py-2 text-right tabular-nums">{c.today}</td>
       <td className="px-3 py-2 text-right tabular-nums">{c.yesterday}</td>
       <td className="px-3 py-2 text-right tabular-nums">{c.last7}</td>
-      <td className="px-3 py-2 text-right tabular-nums">
-        <ChangeCell value={change(c.today, c.yesterdayToTime)} />
-      </td>
-      <td className="px-3 py-2 text-right tabular-nums">
-        <ChangeCell value={change(c.last7, c.prev7)} />
-      </td>
+      <td className="px-3 py-2 text-right tabular-nums">{c.allTime}</td>
       <td className="px-3 py-2 text-right tabular-nums">
         {row.repeats > 0 ? (
           <Link href="/admin/jobs/duplicates" className="font-bold text-tm-red hover:underline">
@@ -157,11 +156,27 @@ function PostedRow({ row, strong = false, detailLinks = false }: { row: PostingR
           <span className="text-gray-500">0</span>
         )}
       </td>
-    </tr>
+    </>
   )
 }
 
-function ChangeCell({ value }: { value: Change }) {
-  const cls = !value || value.direction === 'same' ? 'text-gray-500' : value.direction === 'up' ? 'font-bold text-tm-green-deep' : 'font-bold text-tm-red'
-  return <span className={cls}>{changeLabel(value)}</span>
+function PostedRow({ row, strong = false, detailLinks = false, indent = false }: { row: PostingRow; strong?: boolean; detailLinks?: boolean; indent?: boolean }) {
+  return (
+    <tr className={strong ? 'bg-tm-bg font-black text-tm-navy' : 'text-slate-800'}>
+      <td className={indent ? 'py-2 pl-7 pr-3 font-bold' : 'px-3 py-2 font-bold'}>
+        {detailLinks && !strong ? (
+          <Link href={`/admin/team-activity/${row.id}`} className="text-tm-navy hover:text-tm-red hover:underline">
+            {row.name}
+            {indent && <span className="font-normal text-gray-500"> (former staff)</span>}
+          </Link>
+        ) : (
+          <>
+            {row.name}
+            {indent && <span className="font-normal text-gray-500"> (former staff)</span>}
+          </>
+        )}
+      </td>
+      <PostedCells row={row} />
+    </tr>
+  )
 }

@@ -1,14 +1,11 @@
 // lib/tuitionPostingCore.ts
 //
-// PURE. The Tuition posting activity board (owner, 15 Oct 2026): per staff
-// member, tuitions posted Today | Yesterday | Last 7 days, two comparisons and
-// the repeats this week. Pakistan time throughout (UTC+5, no daylight saving).
-//
-//   Today vs Yesterday   today SO FAR against yesterday UP TO THE SAME TIME OF
-//                        DAY — a fair race at 11 am, not "11 am vs all of
-//                        yesterday". "—" when yesterday-to-time is 0.
-//   Last 7 days          the last 7 Pakistan-time days including today, against
-//                        the 7 days before them. "—" when the earlier week is 0.
+// PURE. The Tuition posting activity board. Columns (owner, 27 Oct 2026):
+// Staff | Today | Yesterday | Last 7 days | All time | Repeated this week,
+// sorted by Last 7 days; the two comparison columns are gone. Former staff are
+// one collapsed "Former staff" row and count in the Team total. Pakistan time
+// throughout (UTC+5, no daylight saving). change()/changeLabel() stay: the Paid
+// sign-ups tab still uses them.
 
 const PKT_OFFSET_MS = 5 * 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -44,14 +41,13 @@ export function postingWindows(nowMs: number): PostingWindows {
 export type PostingCounts = {
   today: number
   yesterday: number
-  /** Yesterday from 00:00 up to the same time of day as now. */
-  yesterdayToTime: number
   last7: number
-  prev7: number
+  /** Every tuition this staff member ever posted. */
+  allTime: number
 }
 
 export function emptyPostingCounts(): PostingCounts {
-  return { today: 0, yesterday: 0, yesterdayToTime: 0, last7: 0, prev7: 0 }
+  return { today: 0, yesterday: 0, last7: 0, allTime: 0 }
 }
 
 /** Count one staff member's post times into the windows. */
@@ -59,13 +55,10 @@ export function countPosts(postedAtMs: number[], w: PostingWindows): PostingCoun
   const c = emptyPostingCounts()
   for (const t of postedAtMs) {
     if (!Number.isFinite(t) || t > w.now) continue
+    c.allTime++
     if (t >= w.todayStart) c.today++
-    if (t >= w.yesterdayStart && t < w.todayStart) {
-      c.yesterday++
-      if (t <= w.yesterdaySameTime) c.yesterdayToTime++
-    }
+    if (t >= w.yesterdayStart && t < w.todayStart) c.yesterday++
     if (t >= w.last7Start) c.last7++
-    else if (t >= w.prev7Start) c.prev7++
   }
   return c
 }
@@ -88,24 +81,36 @@ export function changeLabel(c: Change): string {
 
 export type PostingRow = { id: string; name: string; counts: PostingCounts; repeats: number }
 
-/** Highest Today first, then by the last 7 days, then by name. */
+/** Highest Last 7 days first (owner, 27 Oct 2026), then Today, then by name. */
 export function sortPostingRows(rows: PostingRow[]): PostingRow[] {
   return [...rows].sort(
-    (a, b) => b.counts.today - a.counts.today || b.counts.last7 - a.counts.last7 || a.name.localeCompare(b.name),
+    (a, b) => b.counts.last7 - a.counts.last7 || b.counts.today - a.counts.today || a.name.localeCompare(b.name),
   )
 }
 
-/** The Team total row: every column summed. */
-export function totalRow(rows: PostingRow[]): PostingRow {
+/** Every column summed, under one name (the Team total, or the Former staff row). */
+export function sumRows(rows: PostingRow[], id: string, name: string): PostingRow {
   const counts = emptyPostingCounts()
   let repeats = 0
   for (const r of rows) {
     counts.today += r.counts.today
     counts.yesterday += r.counts.yesterday
-    counts.yesterdayToTime += r.counts.yesterdayToTime
     counts.last7 += r.counts.last7
-    counts.prev7 += r.counts.prev7
+    counts.allTime += r.counts.allTime
     repeats += r.repeats
   }
-  return { id: 'team', name: 'Team total', counts, repeats }
+  return { id, name, counts, repeats }
 }
+
+/** The Team total row: current AND former staff, every column summed. */
+export function totalRow(rows: PostingRow[], former: PostingRow[] = []): PostingRow {
+  return sumRows([...rows, ...former], 'team', 'Team total')
+}
+
+/** The one collapsed "Former staff" row. */
+export function formerRow(former: PostingRow[]): PostingRow {
+  return sumRows(former, 'former', 'Former staff')
+}
+
+/** The table's columns, in order (owner, 27 Oct 2026). */
+export const POSTED_COLUMNS = ['Staff', 'Today', 'Yesterday', 'Last 7 days', 'All time', 'Repeated this week'] as const

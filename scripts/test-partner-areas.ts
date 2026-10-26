@@ -59,6 +59,8 @@ test('every view-only area refuses a Partner write; the Owner is unaffected', ()
     'teamOverview',
     // Merge duplicates / Not a duplicate / View as (owner, 26 Oct 2026): the site Owner only.
     'memberMerge',
+    // Trust → Reviews (owner, 27 Oct 2026): decisions are the site Owner's.
+    'reviews',
   ]
   for (const key of VIEW) {
     assert.equal(roleMayWrite('partner', SCREEN_ACCESS[key]), false, key)
@@ -132,6 +134,10 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   'follow-ups/parent': 'edit',
   'follow-ups/status-image': 'edit',
   'members/reveal-contact': 'edit',
+  // Edit name (owner, 27 Oct 2026): tutorEdit / parents, both name the Partner;
+  // a verified tutor's name is refused to anyone but the Owner inside the route.
+  'members/name': 'edit',
+  'members/erase': 'owner',
   // Merge, Not a duplicate and View as (owner, 26 Oct 2026): refuseUnlessOwnerApproval.
   'members/merge': 'owner',
   'members/duplicates': 'owner',
@@ -190,6 +196,8 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   'profile-photo/rotate': 'edit',
   'reauth': 'self',
   'reports': 'edit',
+  // Parent reviews (owner, 27 Oct 2026): approving / rejecting is the Owner's alone.
+  'reviews/decide': 'owner',
   'social': 'view',
   'staff-signups/claims': 'view',
   // Monthly targets (owner, 16 Oct 2026): Owner only by its own check

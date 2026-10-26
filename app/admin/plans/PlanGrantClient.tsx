@@ -1,4 +1,6 @@
 'use client'
+
+import { shownEmail } from '@/lib/actorLabelCore'
 import { Ban, Gift } from 'lucide-react'
 
 import { useMemo, useState } from 'react'
@@ -167,7 +169,7 @@ export default function PlanGrantClient({
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-black text-tm-navy truncate">{a.fullName}</p>
                 <p className="text-[11px] text-gray-500 truncate">
-                  {a.email} · {a.role}
+                  {[shownEmail(a.email), a.role].filter(Boolean).join(' · ')}
                 </p>
               </div>
               <span

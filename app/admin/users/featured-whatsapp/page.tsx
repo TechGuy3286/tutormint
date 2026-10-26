@@ -1,3 +1,4 @@
+import { shownEmail } from '@/lib/actorLabelCore'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadFeaturedWhatsapp } from '@/lib/staffOutreach'
 import { formatDateTime } from '@/lib/datetime'
@@ -47,7 +48,7 @@ export default async function FeaturedWhatsappPage() {
           <ul className="space-y-1 text-xs text-slate-700">
             {sentRecently.map((r) => (
               <li key={r.tutorId}>
-                {r.name} · Sent {formatDateTime(r.lastSent!.at)} by {r.lastSent!.byEmail ?? 'staff'}
+                {r.name} · Sent {formatDateTime(r.lastSent!.at)} by {shownEmail(r.lastSent!.byEmail) ?? 'staff'}
               </li>
             ))}
           </ul>

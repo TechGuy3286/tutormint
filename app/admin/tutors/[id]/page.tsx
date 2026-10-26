@@ -21,6 +21,7 @@ import TutorFieldEditor from './TutorFieldEditor'
 import TutorFieldHistory from './TutorFieldHistory'
 import { selfiePhotoMatchUsers } from '@/lib/selfieMatch'
 import { formatName } from '@/lib/formatName'
+import { nameOwnerOnly } from '@/lib/nameEditCore'
 
 // One tutor, as staff.
 //
@@ -223,6 +224,10 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
           tutorId={id}
           currentCity={(tutor.city as string | null) ?? null}
           cnicNumberMasked={maskCnicHeavy(profile.cnic_number as string | null)}
+          currentName={name}
+          nameOwnerOnly={nameOwnerOnly({ role: 'tutor', cnicVerifiedAt: profile.cnic_verified_at as string | null })}
+          slug={(tutor.slug as string | null) ?? null}
+          canSlugEdit={canEdit}
         />
       )}
 

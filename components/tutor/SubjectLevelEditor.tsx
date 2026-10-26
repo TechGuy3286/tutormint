@@ -10,6 +10,7 @@ import { deriveSelections, mergeSubjectSelections } from '@/lib/subjectMerge'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { ChipSkeletons } from '@/components/Skeletons'
 import SubjectLimitNote from '@/components/tutor/SubjectLimitNote'
+import SubjectCapBanner from '@/components/tutor/SubjectCapBanner'
 import { canAddSubject, subjectKeysOfNames } from '@/lib/subjectLimitCore'
 
 // PR84 — the tutor Settings subject editor, level-first, matching onboarding's
@@ -136,6 +137,7 @@ export default function SubjectLevelEditor({
         </span>
       </p>
 
+      <SubjectCapBanner count={keys.size} />
       <SubjectLimitNote count={keys.size} refused={limitHit} />
 
       {/* Search across the shown levels' subjects (instant, no button). */}

@@ -1,5 +1,7 @@
 'use client'
 
+import { shownEmail } from '@/lib/actorLabelCore'
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle } from 'lucide-react'
@@ -132,7 +134,7 @@ export default function CleanupClient({
                   />}
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-xs font-black text-tm-navy">
-                      {c.email ?? '(no email)'}
+                      {shownEmail(c.email) ?? '(no email)'}
                     </span>
                     <span className="block text-[11px] text-gray-500">{c.reason}</span>
                     <span className="block text-[11px] text-gray-500">

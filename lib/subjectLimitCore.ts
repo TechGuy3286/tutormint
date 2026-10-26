@@ -79,3 +79,12 @@ export function canAddSubject(current: ReadonlySet<string>, name: string): boole
   const k = subjectDisplayKey(name)
   return current.has(k) || current.size < SUBJECT_LIMIT
 }
+
+/** The dashboard / Settings banner for a tutor over the limit (owner, 27 Oct
+ *  2026), or null when they are within it. Nothing is trimmed: they may only
+ *  remove subjects until they are at 15 or fewer. */
+export function overCapBannerText(count: number): string | null {
+  if (count <= SUBJECT_LIMIT) return null
+  const extra = count - SUBJECT_LIMIT
+  return `You have ${count} subjects. Please reduce to ${SUBJECT_LIMIT} — remove ${extra} subject${extra === 1 ? '' : 's'}. You can remove subjects but not add new ones until you are at ${SUBJECT_LIMIT} or fewer.`
+}

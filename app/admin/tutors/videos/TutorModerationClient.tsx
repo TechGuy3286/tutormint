@@ -1,4 +1,6 @@
 'use client'
+
+import { shownEmail } from '@/lib/actorLabelCore'
 import { Ban, Check, Pause, RotateCcw } from 'lucide-react'
 
 import Avatar from '@/components/Avatar'
@@ -396,7 +398,7 @@ export default function TutorModerationClient({
                 >
                   {open.fullName}
                 </Link>
-                <p className="text-[11px] text-gray-500 truncate">{open.email}</p>
+                <p className="text-[11px] text-gray-500 truncate">{shownEmail(open.email)}</p>
               </div>
               <button onClick={() => setOpen(null)} className="text-gray-500 text-xl min-h-[44px] px-2" aria-label="Close">
                 ×

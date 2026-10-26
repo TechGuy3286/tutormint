@@ -38,8 +38,8 @@ import { clearLinks, loadAll, type Actor } from '@/lib/settlementMatch'
 import {
   autoReceiptMatch,
   bankPaymentRow,
-  creditLinkable,
   creditPaidAt,
+  pickerOffers,
   linkDecision,
   type ExistingPayment,
   type ExistingSub,
@@ -61,15 +61,18 @@ export type LinkableCredit = {
   replacesReceipts: string[]
 }
 
-/** Every bank credit that is not matched, or matched only by the automatic
- *  same-amount guess against bank-transfer receipts (21 Oct 2026), and not set
- *  aside as "not a sale", newest first. */
+/** The credits "Record a bank payment" may offer (owner, 27 Oct 2026): only
+ *  unlinked credits — never one already matched (by hand OR by the automatic
+ *  receipt guess), never a PayPro payout, never one above Rs 5,000 — newest
+ *  first. The picker puts credits for the selected amount on top
+ *  (lib/bankPaymentLinkCore pickerCredits). A credit's own "Link to member"
+ *  on Finance still offers an automatically matched credit (21 Oct). */
 export async function linkableCredits(): Promise<LinkableCredit[] | null> {
   const all = await loadAll()
   if (!all) return null
   const board = buildBoard({ ...all, nowIso: new Date().toISOString() })
   return board.credits
-    .filter((c) => creditLinkable(c.state, c.match))
+    .filter((c) => pickerOffers({ state: c.state, isPaypro: c.isPaypro, amountPkr: c.amountPkr, date: c.date, time: c.time }))
     .map((c) => ({
       id: c.id,
       date: c.date,

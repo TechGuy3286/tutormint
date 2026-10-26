@@ -61,8 +61,10 @@ const UNLOCKS: Record<string, { en: string; ur: string }> = {
   },
 }
 
-/** The fee's package card line (owner, 26 Oct 2026; the amount is on the Amount row). */
-const FEE_CARD_TITLE = 'One-Time Verification Fee'
+/** The fee's package card heading (owner, 27 Oct 2026 — exactly this text, in
+ *  the brand green; it replaced the English one-time-fee line). The amount is on the
+ *  Amount row. In this card the Urdu line comes first, the English under it. */
+export const FEE_CARD_TITLE = 'تصدیق کروانا کیوں ضروری ہے؟'
 
 export default async function PayChoosePage({
   searchParams,
@@ -179,10 +181,22 @@ export default async function PayChoosePage({
 
         {/* The package card — the ONE place the amount is shown. */}
         <section className="space-y-1.5 rounded-2xl border border-tm-navy/15 bg-tm-tint-navy p-4" data-package-card="">
-          <p className="text-sm font-black text-tm-navy">
-            {isFee ? FEE_CARD_TITLE : <>{packageName} — {priceLine(price)}</>}
-          </p>
-          {unlocks && (
+          {isFee ? (
+            <p lang="ur" dir="rtl" className="text-xl font-black leading-snug text-tm-green-deep" data-fee-card-title="">
+              {FEE_CARD_TITLE}
+            </p>
+          ) : (
+            <p className="text-sm font-black text-tm-navy">
+              {packageName} — {priceLine(price)}
+            </p>
+          )}
+          {unlocks && isFee && (
+            <p className="text-xs leading-relaxed text-tm-navy">
+              <span lang="ur" dir="rtl" className="block text-[11px] font-semibold">{unlocks.ur}</span>
+              <span className="mt-0.5 block">{unlocks.en}</span>
+            </p>
+          )}
+          {unlocks && !isFee && (
             <p className="text-xs leading-relaxed text-tm-navy">
               {unlocks.en}
               <span lang="ur" dir="rtl" className="mt-0.5 block text-[11px] font-semibold">{unlocks.ur}</span>

@@ -394,7 +394,7 @@ export function sortCards<T extends { name: string; pace: Pace }>(cards: T[]): T
 export type TargetScope = 'everyone' | 'target_self' | 'self'
 
 export function targetScope(adminRole: string | null | undefined, onListThisMonth: boolean): TargetScope {
-  if (adminRole === 'owner' || adminRole === 'partner' || adminRole === 'admin') return 'everyone'
+  if (adminRole === 'owner' || adminRole === 'partner' || adminRole === 'admin' || adminRole === 'supervisor') return 'everyone'
   return onListThisMonth ? 'target_self' : 'self'
 }
 

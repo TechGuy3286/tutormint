@@ -28,7 +28,9 @@ import { ANON_ID_HEADER } from '@/lib/searchBeaconCore'
 import { areaHubRedirectPath } from '@/lib/areaHubRedirect'
 import { convertedTutorRedirectPath } from '@/lib/convertedTutorRedirect'
 import { mergedTutorRedirectPath } from '@/lib/mergedTutorRedirect'
-import { readTicket, VIEW_AS_COOKIE, VIEW_AS_EXIT_PATH, VIEW_AS_READ_ONLY, viewAsDecision } from '@/lib/viewAsCore'
+import { erasedTutorRedirectPath } from '@/lib/erasedTutorRedirect'
+import { readTicket, ticketExpired, VIEW_AS_COOKIE, VIEW_AS_EXIT_PATH, VIEW_AS_READ_ONLY, viewAsDecision } from '@/lib/viewAsCore'
+import { VIEW_AS_HEADER } from '@/lib/viewAsGuardCore'
 import { hiddenTuitionRedirectPath } from '@/lib/hiddenTuitionRedirect'
 import { supabaseFetch } from '@/lib/supabase/fetch'
 
@@ -127,6 +129,13 @@ function forwardHeaders(request: NextRequest): { headers: Headers } {
   if (minted) headers.set(ANON_ID_HEADER, minted)
   else headers.delete(ANON_ID_HEADER)
   const { pathname } = request.nextUrl
+  // "View as" (owner, 27 Oct 2026 — lib/viewAsContext, lib/viewAsGuardCore):
+  // a live ticket marks the request, so the server answers it as the member and
+  // refuses every write. Never on the exit route, which must write to end it.
+  // Always overwritten or removed, so a client cannot supply its own.
+  const ticket = readTicket(request.cookies.get(VIEW_AS_COOKIE)?.value, process.env.SUPABASE_SERVICE_ROLE_KEY)
+  if (ticket && !ticketExpired(ticket, Date.now()) && pathname !== VIEW_AS_EXIT_PATH) headers.set(VIEW_AS_HEADER, '1')
+  else headers.delete(VIEW_AS_HEADER)
   if (pathname.startsWith('/tuitions/')) {
     const city = pathname.split('/')[2]
     if (city) headers.set(TUITION_CITY_HEADER, city)
@@ -263,6 +272,16 @@ export async function proxy(request: NextRequest) {
       const target = request.nextUrl.clone()
       target.pathname = kept
       target.search = ''
+      return NextResponse.redirect(target, 301)
+    }
+    // A tutor whose data was erased on request (owner, 27 Oct 2026): 301 to
+    // Browse tutors for their city (lib/erasedTutorRedirect, hashed addresses).
+    const erased = await erasedTutorRedirectPath(request.nextUrl.pathname)
+    if (erased) {
+      const target = request.nextUrl.clone()
+      const [path, query] = erased.split('?')
+      target.pathname = path
+      target.search = query ? `?${query}` : ''
       return NextResponse.redirect(target, 301)
     }
     const moved = await convertedTutorRedirectPath(request.nextUrl.pathname)

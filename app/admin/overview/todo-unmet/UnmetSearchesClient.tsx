@@ -1,5 +1,7 @@
 'use client'
 
+import { shownEmail } from '@/lib/actorLabelCore'
+
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -205,7 +207,7 @@ export default function UnmetSearchesClient({
           <li key={d.id} className="space-y-1 rounded-2xl border border-gray-200 bg-white p-3">
             <p className="break-words text-sm font-black text-tm-navy">&ldquo;{d.query}&rdquo;</p>
             <p className="text-[11px] text-slate-700">
-              {d.searches} search{d.searches === 1 ? '' : 'es'} · done by {d.done_by_name ?? d.done_by_email ?? 'staff'} · {formatDateTime(d.done_at)}
+              {d.searches} search{d.searches === 1 ? '' : 'es'} · done by {d.done_by_name ?? shownEmail(d.done_by_email) ?? 'staff'} · {formatDateTime(d.done_at)}
             </p>
             {d.note && <p className="break-words text-[11px] text-gray-600">Note: {d.note}</p>}
           </li>

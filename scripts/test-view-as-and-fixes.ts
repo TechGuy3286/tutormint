@@ -45,7 +45,8 @@ test('read only: every write answers 403 while viewing; the exit route passes', 
   assert.match(sql, /as restrictive for delete to authenticated/)
   assert.match(sql, /on storage\.objects as restrictive for insert/)
   // A password or email change from the browser is refused as well.
-  assert.match(read('lib/supabase/client.ts'), /tm_view_as_ui=1[\s\S]{0,500}updateUser = refuse/)
+  // (27 Oct: every browser write is refused — scripts/test-view-as-readonly.ts.)
+  assert.match(read('lib/supabase/client.ts'), /viewAsUiMemberId\(document\.cookie\)[\s\S]{0,1500}'updateUser'/)
 })
 
 test('it expires after 30 minutes, and a forged or stretched ticket is refused', () => {
@@ -66,7 +67,8 @@ test('start and end are logged (Audit and the member’s Activity tab); no passw
   const lib = read('lib/viewAs.ts')
   assert.match(lib, /action: 'member\.view_as_start'/)
   assert.match(lib, /action: 'member\.view_as_end'/)
-  assert.match(lib, /generateLink\(\{ type: 'magiclink', email \}\)/, 'a session is minted; nothing is typed or shown')
+  // 27 Oct 2026: no session is minted for the member at all.
+  assert.doesNotMatch(lib, /generateLink|verifyOtp|setSession\(/, 'nobody is signed in as the member')
   assert.doesNotMatch(lib, /console\.(log|warn|info)/)
   const journey = read('lib/journey.ts')
   assert.match(journey, /'member\.view_as_start',\s*'member\.view_as_end',/)

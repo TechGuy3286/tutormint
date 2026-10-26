@@ -6,6 +6,7 @@ import { getEntitlements } from '@/lib/entitlements'
 import { buildGate } from '@/lib/gate'
 import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
 import { isAllowedAttachment, mayAttachPhoto, ATTACHMENT_MAX_BYTES } from '@/lib/messagingRules'
+import { tooLargeMessage } from '@/lib/uploadLimitCore'
 
 // Upload a photo attachment to the private `message-media` bucket.
 //
@@ -50,11 +51,11 @@ export async function POST(request: Request) {
   }
   if (!file || file.size === 0) return NextResponse.json({ error: 'No photo received.' }, { status: 400 })
 
+  if (file.size > ATTACHMENT_MAX_BYTES) {
+    return NextResponse.json({ error: tooLargeMessage('photo') }, { status: 413 })
+  }
   if (!isAllowedAttachment(file.type, file.size)) {
-    return NextResponse.json(
-      { error: `Send a JPG or PNG under ${ATTACHMENT_MAX_BYTES / (1024 * 1024)} MB.` },
-      { status: 400 },
-    )
+    return NextResponse.json({ error: 'Send a JPG or PNG photo.' }, { status: 400 })
   }
 
   const input = new Uint8Array(await file.arrayBuffer())

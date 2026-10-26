@@ -112,7 +112,7 @@ test('"Mark done" moves the card to Done; the same search made later is a new ca
   assert.ok(lib.includes("'search_unmet.done'") && lib.includes('logAdminAction('), 'audited')
   assert.ok(!lib.includes('.delete('), 'nothing is deleted')
   const ui = read('app', 'admin', 'overview', 'todo-unmet', 'UnmetSearchesClient.tsx')
-  assert.ok(ui.includes('done by {d.done_by_name ?? d.done_by_email') && ui.includes('formatDateTime(d.done_at)'), 'the Done tab shows who and when')
+  assert.ok(ui.includes('done by {d.done_by_name ?? shownEmail(d.done_by_email)') && ui.includes('formatDateTime(d.done_at)'), 'the Done tab shows who and when')
   assert.ok(ui.includes('Note (optional)'))
 })
 

@@ -4,7 +4,7 @@
 // replaces a tutor's subject set calls subjectLimitRefusal() BEFORE it deletes
 // anything, so a refused save changes nothing. Rules: lib/subjectLimitCore.
 
-import { subjectLimitProblem } from '@/lib/subjectLimitCore'
+import { subjectLimitProblem, subjectKeysOfIds } from '@/lib/subjectLimitCore'
 
 type Q = PromiseLike<{ data: unknown; error: unknown }>
 type Client = { from: (t: string) => { select: (c: string) => { in: (col: string, v: (number | string)[]) => Q } } }
@@ -34,4 +34,14 @@ export async function subjectNamesOfIds(client: unknown, ids: number[]): Promise
 export async function subjectLimitRefusal(client: unknown, newIds: number[], savedIds: number[]): Promise<string | null> {
   const names = await subjectNamesOfIds(client, [...newIds, ...savedIds])
   return subjectLimitProblem(newIds, savedIds, (id) => names.get(id))
+}
+
+/** How many distinct subjects (the limit's own count) a tutor has saved. */
+export async function savedSubjectCount(client: unknown, tutorId: string): Promise<number> {
+  const db = client as { from: (t: string) => { select: (c: string) => { eq: (col: string, v: string) => PromiseLike<{ data: unknown }> } } }
+  const { data } = await db.from('tutor_subjects').select('master_id').eq('tutor_id', tutorId)
+  const ids = ((data as { master_id: number }[] | null) ?? []).map((r) => r.master_id)
+  if (ids.length === 0) return 0
+  const names = await subjectNamesOfIds(client, ids)
+  return subjectKeysOfIds(ids, (id) => names.get(id)).size
 }

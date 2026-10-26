@@ -105,7 +105,7 @@ export const loadParentFollowUps = cache(async (): Promise<Loaded> => {
   const appMsgs = new Map<string, string[]>()
   for (const part of chunk(jobIds, 100)) {
     const [{ data: as }, { data: afu }] = await Promise.all([
-      admin.from('applications').select('job_id, tutor_id, stage, stage_changed_at, status').in('job_id', part),
+      admin.from('applications').select('id, job_id, tutor_id, stage, stage_changed_at, status').in('job_id', part),
       admin.from('application_follow_ups').select('job_id, created_at').eq('recipient', 'parent').is('undone_at', null).in('job_id', part),
     ])
     apps.push(...((as ?? []) as Record<string, unknown>[]))
@@ -139,6 +139,7 @@ export const loadParentFollowUps = cache(async (): Promise<Loaded> => {
       waitingForward: list.filter((a) => a.stage === 'applied').length,
       hiredAt: hire ? ((hire.stage_changed_at as string | null) ?? null) : null,
       hiredTutorName: hire ? (tutorNames.get(hire.tutor_id as string) ?? null) : null,
+      hiredApplicationId: hire ? ((hire.id as string | null) ?? null) : null,
     }
     refBy.set(t.id, (j.ref_id as string | null) ?? null)
     const k = j.parent_id as string

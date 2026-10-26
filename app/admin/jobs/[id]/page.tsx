@@ -1,3 +1,4 @@
+import { shownEmail } from '@/lib/actorLabelCore'
 import Link from 'next/link'
 import { tuitionPath } from '@/lib/slugs'
 import { notFound } from 'next/navigation'
@@ -299,7 +300,7 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-gray-500">{parent.email as string}</p>
+              <p className="text-[11px] text-gray-500">{shownEmail(parent.email as string | null)}</p>
               <Link
                 href={`/parent/${parent.id}`}
                 className="inline-flex min-h-[28px] items-center gap-1 text-[11px] font-bold text-tm-red hover:underline"

@@ -34,7 +34,17 @@ type SaveResponse = { error?: string; results?: SaveResult[] }
 const EMPTY_HAND = { date: '', time: '', amountPkr: '', senderName: '', senderBank: '', reference: '', note: '', isPaypro: true }
 const creditsWord = (n: number) => `${n} credit${n === 1 ? '' : 's'}`
 
-export default function AddBankCredits({ onClose }: { onClose: () => void }) {
+export default function AddBankCredits({
+  onClose,
+  onSaved,
+  memberPayment = false,
+}: {
+  onClose: () => void
+  /** Called with the references just saved (Record a bank payment → "+ Add a credit", owner 27 Oct 2026). */
+  onSaved?: (references: string[]) => void
+  /** Opened from a member's payment: a typed credit defaults to "member's bank transfer", not a PayPro payout. */
+  memberPayment?: boolean
+}) {
   const router = useRouter()
   const toast = useToast()
   const confirm = useConfirm()
@@ -45,7 +55,8 @@ export default function AddBankCredits({ onClose }: { onClose: () => void }) {
   const [results, setResults] = useState<Record<string, SaveResult>>({})
   const [busy, setBusy] = useState(false)
   const [byHand, setByHand] = useState(false)
-  const [hand, setHand] = useState(EMPTY_HAND)
+  const blankHand = memberPayment ? { ...EMPTY_HAND, isPaypro: false } : EMPTY_HAND
+  const [hand, setHand] = useState(blankHand)
 
   const onText = (v: string) => {
     setText(v)
@@ -107,6 +118,7 @@ export default function AddBankCredits({ onClose }: { onClose: () => void }) {
     if (saved > 0) {
       toast.success(`${creditsWord(saved)} saved.`)
       router.refresh()
+      onSaved?.(got.filter((g) => g.ok).map((g) => g.reference))
     }
     if (!ok || saved < list.length) toast.error(data?.error ?? got.find((g) => !g.ok)?.error ?? 'That did not save. Please try again.')
     return saved
@@ -136,7 +148,7 @@ export default function AddBankCredits({ onClose }: { onClose: () => void }) {
     const yes = await confirm({ title: "Credits can't be deleted after saving. Save 1 credit?", confirmLabel: 'Save', cancelLabel: 'Cancel', destructive: false })
     if (!yes) return
     const saved = await send([{ ...hand, time: hand.time || null, senderName: hand.senderName || null, senderBank: hand.senderBank || null, note: hand.note || null }])
-    if (saved > 0) setHand(EMPTY_HAND)
+    if (saved > 0) setHand(blankHand)
   }
 
   const setEdit = (i: number, field: AlertField, v: string) => setEdits((e) => ({ ...e, [i]: { ...e[i], [field]: v } }))

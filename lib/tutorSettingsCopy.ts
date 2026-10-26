@@ -154,6 +154,11 @@ export const CARDS: Record<string, { title: Bilingual; hint?: Bilingual }> = {
     title: { en: 'Pause my account', ur: 'اپنا اکاؤنٹ روکیں' },
     hint: { en: 'Hide your profile for a while.', ur: 'کچھ وقت کے لیے اپنی پروفائل چھپائیں۔' },
   },
+  // Delete my account (owner, 27 Oct 2026). New text is English only.
+  delete: {
+    title: { en: 'Delete my account', ur: '' },
+    hint: { en: 'Close your account and delete your personal data.', ur: '' },
+  },
 }
 
 // Read-only status lines (fee, experience) — the item is done elsewhere, so the

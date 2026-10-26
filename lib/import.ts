@@ -24,6 +24,7 @@ import { normalisePkMobile, syntheticEmail } from '@/lib/phone'
 import { logActivity } from '@/lib/activityLog'
 import { ensureProfile } from '@/lib/ensureProfile'
 import { formatName } from '@/lib/formatName'
+import { SUBJECT_LIMIT, subjectLimitProblem, subjectKeysOfIds } from '@/lib/subjectLimitCore'
 
 export const TEMPLATE_HEADERS = [
   'name',
@@ -287,6 +288,13 @@ export async function validateRows(rows: ImportRow[]): Promise<RowVerdict[]> {
         }
       }
     }
+
+    // The 15-subject limit (owner, 21 + 27 Oct 2026) applies to an import too:
+    // a new tutor has no saved subjects, so any row naming more than 15
+    // distinct subjects is refused (lib/subjectLimitCore).
+    const idName = new Map(master.map((m) => [m.id, m.subject_name]))
+    const limit = subjectLimitProblem(Array.from(new Set(masterIds)), [], (id) => idName.get(id) ?? null)
+    if (limit) errors.push(`A tutor can have up to ${SUBJECT_LIMIT} subjects — this row has ${subjectKeysOfIds(new Set(masterIds), (id) => idName.get(id) ?? null).size}. Remove some and upload again.`)
 
     verdicts.push({
       line: row.line,

@@ -1,5 +1,7 @@
 'use client'
 
+import { shownEmail } from '@/lib/actorLabelCore'
+
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
@@ -198,7 +200,7 @@ export default function SignupRows({
                 {r.kind === 'credit' && (
                   <>
                     <dt className="text-gray-600">Email</dt>
-                    <dd className="break-all">{r.email ?? '—'}</dd>
+                    <dd className="break-all">{shownEmail(r.email) ?? '—'}</dd>
                     <dt className="text-gray-600">Signed up</dt>
                     <dd>{r.signedUpAt ? formatDate(r.signedUpAt) : '—'}</dd>
                   </>

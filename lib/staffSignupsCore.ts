@@ -394,7 +394,7 @@ export function sortBoardRows(rows: BoardRow[]): BoardRow[] {
 /** Owner, Project Managers and Admin see everyone and the Team total; every
  *  other participant sees only their own row and lists. */
 export function seesEveryone(adminRole: string | null | undefined): boolean {
-  return adminRole === 'owner' || adminRole === 'partner' || adminRole === 'admin'
+  return adminRole === 'owner' || adminRole === 'partner' || adminRole === 'admin' || adminRole === 'supervisor'
 }
 
 /** May this viewer open the lists for `staffId` ('team' = everyone)? */

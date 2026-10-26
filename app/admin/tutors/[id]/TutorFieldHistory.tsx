@@ -23,6 +23,7 @@ const FIELD_LABEL: Record<Step1Field, string> = {
   subjects: 'Subjects',
   city: 'City',
   areas: 'Areas',
+  name: 'Name',
 }
 
 const IMAGE_FIELDS = new Set<Step1Field>(['cnic_front', 'cnic_back', 'selfie', 'profile_picture'])
@@ -107,8 +108,7 @@ export default async function TutorFieldHistory({ tutorId }: { tutorId: string }
                 </span>
               </div>
               <p className="mt-1 text-[11px] text-gray-500">
-                {r.changed_by_role === 'staff' ? 'Staff' : 'Tutor'}
-                {r.changed_by_email ? ` · ${r.changed_by_email}` : ''}
+                {r.changed_by_label ?? (r.changed_by_role === 'staff' ? 'Staff' : 'Tutor')}
                 {r.reason ? ` · ${r.reason}` : ''}
               </p>
             </li>

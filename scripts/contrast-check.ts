@@ -385,6 +385,9 @@ const PAIRS: Pair[] = [
   { fg: 'red', bg: 'bg', where: 'social profile preview key word "TutorMint" + pin' },
   { fg: 'white', bg: 'navy', where: 'social C3 ID card band title + profile-preview CTA pill' },
   { fg: 'greenDeep', bg: 'tintNavy', where: 'social C3 ID card ground: green key word (headline only, 56px+ heavy)', large: true },
+  // /pay/choose fee card heading (owner, 27 Oct 2026): brand green on the card's
+  // navy tint is 4.21:1, so the heading is set at 20px heavy (large text).
+  { fg: 'greenDeep', bg: 'tintNavy', where: 'pay/choose fee card heading (Urdu, text-xl font-black)', large: true },
   { fg: 'slate700', bg: 'tintNavy', where: 'social C3 ID card ground: footer handles' },
   { fg: 'black', bg: 'tintNavy', where: 'social C3 ID card ground: wordmark "Tutor"' },
   { fg: 'red', bg: 'tintNavy', where: 'social C3 ID card ground: wordmark "Mint"' },

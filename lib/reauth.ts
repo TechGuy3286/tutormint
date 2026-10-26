@@ -42,7 +42,9 @@ export type ReauthCheck =
  * different requests, and conflating them sends the admin to the login page for
  * a session that is perfectly valid.
  */
-export async function requireFreshAuth(userId: string): Promise<ReauthCheck> {
+/** `maxAgeMs` shortens the window for one action — the account erase asks for
+ *  the password again unless it was confirmed in the last few minutes. */
+export async function requireFreshAuth(userId: string, maxAgeMs: number = REAUTH_WINDOW_MS): Promise<ReauthCheck> {
   const admin = createAdminClient()
   if (!admin) {
     return {
@@ -62,7 +64,7 @@ export async function requireFreshAuth(userId: string): Promise<ReauthCheck> {
 
   const last = data?.last_reauth_at ? new Date(data.last_reauth_at as string).getTime() : 0
 
-  if (Date.now() - last < REAUTH_WINDOW_MS) return { ok: true }
+  if (Date.now() - last < maxAgeMs) return { ok: true }
 
   return {
     ok: false,

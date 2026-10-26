@@ -1,179 +1,106 @@
-'use client'
-import { Send } from 'lucide-react'
+import Link from 'next/link'
+import { LogIn, Star } from 'lucide-react'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
-import { useState } from 'react'
+import ReviewForm from '@/components/ReviewForm'
+import { getSessionUser } from '@/lib/auth'
+import { reviewableHires } from '@/lib/reviews'
+import { REVIEW_STATUS_LABEL } from '@/lib/reviewsCore'
+import { formatDate } from '@/lib/datetime'
 
-export default function ReviewPage() {
-  const [reviewType, setReviewType] = useState<'parent-to-tutor' | 'tutor-to-parent'>('parent-to-tutor')
-  
-  // Parent to Tutor ratings
-  const [demoRating, setDemoRating] = useState(5)
-  const [methodRating, setMethodRating] = useState(5)
-  const [parentComment, setParentComment] = useState('')
+// /review — "Leave a review" (owner, 27 Oct 2026; rules lib/reviewsCore).
+//
+// Signed out: a sign-in prompt that returns here. A parent: every tutor they
+// hired on a tuition they posted, with a form for each hire not yet reviewed
+// (?application=<id> opens that one) and the status of each review left —
+// reviews are pending until our team approves them. Anyone else is told
+// reviews are left by parents. Nothing here is indexed (layout.tsx).
 
-  // Tutor to Parent ratings
-  const [parentReliabilityRating, setParentReliabilityRating] = useState(5)
-  const [tutorComment, setTutorComment] = useState('')
+export const dynamic = 'force-dynamic'
 
-  const [submitted, setSubmitted] = useState(false)
+const UUID = /^[0-9a-f-]{36}$/i
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setSubmitted(true)
-  }
+export default async function ReviewPage({ searchParams }: { searchParams: Promise<{ application?: string }> }) {
+  const sp = await searchParams
+  const focus = sp.application && UUID.test(sp.application) ? sp.application : null
+  const session = await getSessionUser()
+  const back = focus ? `/review?application=${focus}` : '/review'
 
   return (
-    <main className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-2xl mx-auto space-y-8">
+    <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
+      <div className="mx-auto max-w-2xl space-y-4">
         <Breadcrumbs items={[{ label: 'Leave a review' }]} />
-        
-        {/* Header */}
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 text-center space-y-3">
-          <span className="px-3 py-1 bg-tm-tint-green text-tm-green-deep text-xs font-bold rounded-full border border-tm-green-deep/30 uppercase tracking-widest">
-            Mutual Accountability System
-          </span>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Post-Tuition Feedback & Ratings</h1>
-          <p className="text-sm text-gray-500 max-w-md mx-auto">
-            Build community trust. Both parents and tutors review each other to maintain high standards across TutorMint.
-          </p>
-        </div>
+        <header className="space-y-1">
+          <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Leave a review</h1>
+          <p className="text-xs text-gray-500">Parents review the tutors they hired through TutorMint. Our team checks every review before it appears.</p>
+        </header>
 
-        {/* Switcher */}
-        <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-200 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => { setReviewType('parent-to-tutor'); setSubmitted(false); }}
-            className={`py-3 text-xs font-bold rounded-xl transition-all ${
-              reviewType === 'parent-to-tutor'
-                ? 'bg-slate-900 text-white shadow-md'
-                : 'bg-transparent text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Parent Reviewing Tutor
-          </button>
-          <button
-            type="button"
-            onClick={() => { setReviewType('tutor-to-parent'); setSubmitted(false); }}
-            className={`py-3 text-xs font-bold rounded-xl transition-all ${
-              reviewType === 'tutor-to-parent'
-                ? 'bg-slate-900 text-white shadow-md'
-                : 'bg-transparent text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Tutor Reviewing Parent
-          </button>
-        </div>
-
-        {!submitted ? (
-          <form onSubmit={handleSubmit} className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 space-y-6">
-            
-            {reviewType === 'parent-to-tutor' ? (
-              <>
-                <div className="border-b border-gray-100 pb-4">
-                  <h2 className="text-base font-bold text-slate-900">Reviewing: Sir Bilal Ahmed (TM-8821)</h2>
-                  <p className="text-xs text-gray-500 mt-0.5">Job ID: JOB-TM-4821</p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-2">1. Demo Class Experience Rating (1-5)</label>
-                  <select
-                    value={demoRating}
-                    onChange={(e) => setDemoRating(Number(e.target.value))}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-tm-green-deep outline-none"
-                  >
-                    <option value={5}>⭐⭐⭐⭐⭐ (5/5 - Exceptional & Punctual)</option>
-                    <option value={4}>⭐⭐⭐⭐ (4/5 - Good)</option>
-                    <option value={3}>⭐⭐⭐ (3/5 - Average)</option>
-                    <option value={2}>⭐⭐ (2/5 - Poor)</option>
-                    <option value={1}>⭐ (1/5 - Did Not Respond / Late)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-2">2. Teaching Method & Subject Mastery Rating (1-5)</label>
-                  <select
-                    value={methodRating}
-                    onChange={(e) => setMethodRating(Number(e.target.value))}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-tm-green-deep outline-none"
-                  >
-                    <option value={5}>⭐⭐⭐⭐⭐ (5/5 - Excellent Explanation & Engagement)</option>
-                    <option value={4}>⭐⭐⭐⭐ (4/5 - Very Good)</option>
-                    <option value={3}>⭐⭐⭐ (3/5 - Satisfactory)</option>
-                    <option value={2}>⭐⭐ (2/5 - Needs Improvement)</option>
-                    <option value={1}>⭐ (1/5 - Unsatisfactory)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-2">Detailed Parent Feedback</label>
-                  <textarea
-                    rows={4}
-                    required
-                    value={parentComment}
-                    onChange={(e) => setParentComment(e.target.value)}
-                    placeholder="Share how the tutor handled the sessions and student progress..."
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-tm-green-deep outline-none resize-none"
-                  />
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="border-b border-gray-100 pb-4">
-                  <h2 className="text-base font-bold text-slate-900">Reviewing Parent: Mr. Tariq Mahmood</h2>
-                  <p className="text-xs text-gray-500 mt-0.5">Job ID: JOB-TM-4821</p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-2">Parent Reliability & Environment Rating (1-5)</label>
-                  <select
-                    value={parentReliabilityRating}
-                    onChange={(e) => setParentReliabilityRating(Number(e.target.value))}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-tm-green-deep outline-none"
-                  >
-                    <option value={5}>⭐⭐⭐⭐⭐ (5/5 - Highly Professional & Respectful)</option>
-                    <option value={4}>⭐⭐⭐⭐ (4/5 - Good)</option>
-                    <option value={3}>⭐⭐⭐ (3/5 - Average)</option>
-                    <option value={2}>⭐⭐ (2/5 - Communication Issues)</option>
-                    <option value={1}>⭐ (1/5 - Unreliable)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-2">Tutor Feedback on Parent</label>
-                  <textarea
-                    rows={4}
-                    required
-                    value={tutorComment}
-                    onChange={(e) => setTutorComment(e.target.value)}
-                    placeholder="Share your experience teaching for this parent to guide future tutors..."
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-tm-green-deep outline-none resize-none"
-                  />
-                </div>
-              </>
-            )}
-
-            <button
-              type="submit"
-              className="inline-flex items-center gap-1.5 w-full py-4 bg-slate-900 hover:bg-tm-green-deep text-white font-bold text-xs rounded-xl shadow-lg transition-all"
+        {!session ? (
+          <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-6 text-center" data-review-signin="">
+            <p className="text-sm font-bold text-tm-navy">Sign in to review your tutor</p>
+            <p className="text-xs text-gray-500">Use the account you posted your tuition from.</p>
+            <Link
+              href={`/login?next=${encodeURIComponent(back)}`}
+              className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-red px-5 text-xs font-bold text-white hover:bg-tm-red-hover"
             >
-              <Send aria-hidden size={14} />
-              Submit Review & Publish to Profile
-            </button>
-          </form>
+              <LogIn aria-hidden size={14} />
+              Sign in
+            </Link>
+          </section>
+        ) : session.profile?.role !== 'parent' && session.profile?.role !== 'academy' ? (
+          <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
+            Reviews are left by parents after they hire a tutor through TutorMint.
+          </p>
         ) : (
-          <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 text-center space-y-4">
-            <div className="w-16 h-16 bg-tm-tint-green text-tm-green-deep rounded-full flex items-center justify-center text-2xl font-bold mx-auto">
-              ✓
-            </div>
-            <h2 className="text-xl font-bold text-slate-900">Review Submitted Successfully!</h2>
-            <p className="text-xs text-gray-500 max-w-md mx-auto">
-              Thank you for keeping TutorMint transparent and accountable. Your feedback is now reflected on the profile metrics.
-            </p>
-          </div>
+          <ParentReviews parentId={session.user.id} focus={focus} />
         )}
-
       </div>
     </main>
+  )
+}
+
+async function ParentReviews({ parentId, focus }: { parentId: string; focus: string | null }) {
+  const hires = await reviewableHires(parentId)
+  if (hires.length === 0) {
+    return (
+      <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
+        You can review a tutor after you hire them through TutorMint.{' '}
+        <Link href="/parent/dashboard" className="font-bold text-tm-red underline">
+          Go to your dashboard
+        </Link>
+      </p>
+    )
+  }
+  const ordered = focus ? [...hires].sort((a, b) => Number(b.applicationId === focus) - Number(a.applicationId === focus)) : hires
+  return (
+    <ul className="space-y-2">
+      {ordered.map((h) => (
+        <li key={h.applicationId} className="space-y-1 rounded-2xl border border-gray-200 bg-white p-4" data-review-hire="">
+          <p className="text-xs font-black text-tm-navy">
+            {h.tutorSlug ? (
+              <Link href={`/tutor/${h.tutorSlug}`} className="hover:underline">
+                {h.tutorName}
+              </Link>
+            ) : (
+              h.tutorName
+            )}
+          </p>
+          <p className="text-[11px] text-gray-500">
+            {h.tuitionTitle}
+            {h.hiredAt ? ` · hired ${formatDate(h.hiredAt)}` : ''}
+          </p>
+          {h.review ? (
+            <p className="inline-flex items-center gap-1 text-[11px] font-bold text-tm-green-deep">
+              <Star aria-hidden size={12} className="fill-tm-gold stroke-tm-gold" />
+              {h.review.rating} out of 5 · {REVIEW_STATUS_LABEL[h.review.status]}
+            </p>
+          ) : (
+            <div className="pt-1">
+              <ReviewForm applicationId={h.applicationId} tutorName={h.tutorName} startOpen={h.applicationId === focus} />
+            </div>
+          )}
+        </li>
+      ))}
+    </ul>
   )
 }

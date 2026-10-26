@@ -63,10 +63,11 @@ export function messageVisibleTo(
 
 // ---- attachments -----------------------------------------------------------
 
-export const ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024 // 5 MB
+// 4 MB (owner, 27 Oct 2026; lib/uploadLimitCore): under Vercel's ~4.5 MB body cap.
+export const ATTACHMENT_MAX_BYTES = 4 * 1024 * 1024
 export const ALLOWED_ATTACHMENT_TYPES = ['image/jpeg', 'image/png'] as const
 
-/** JPG/PNG up to 5 MB — the only thing the paperclip accepts. */
+/** JPG/PNG up to 4 MB — the only thing the paperclip accepts. */
 export function isAllowedAttachment(type: string, bytes: number): boolean {
   return (
     (ALLOWED_ATTACHMENT_TYPES as readonly string[]).includes(type) &&

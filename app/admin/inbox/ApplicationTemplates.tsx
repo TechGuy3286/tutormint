@@ -51,6 +51,7 @@ function preview(info: GroupTemplateInfo, body: string, support: string): string
       tuitionLink: 'https://www.tutormint.org/tuitions/lahore/sample-tuition-1a2b3c',
       postLink: siteLink('/parent/dashboard/post-job'),
       tutorName: SAMPLE_VALUES.tutor_name,
+      reviewLink: siteLink('/review'),
       supportWhatsapp: support,
     })
   }

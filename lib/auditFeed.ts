@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { decodeCursor, encodeCursor } from '@/lib/cursor'
 import type { AuditRow } from '@/app/admin/audit/AuditEntry'
 import { formatName } from '@/lib/formatName'
+import { actorLabel } from '@/lib/actorLabelCore'
 
 // One window of the audit trail, shared by the page and its load-more route.
 //
@@ -58,6 +59,19 @@ export async function auditPage({
   const targetIds = Array.from(new Set(rows.map((e) => e.target_id).filter(Boolean) as string[])).filter(
     (v) => /^[0-9a-f-]{36}$/i.test(v),
   )
+
+  // Who acted, by NAME and role (owner, 27 Oct 2026) — never the auto-made
+  // @users.tutormint.org address.
+  const actorIds = Array.from(new Set(rows.map((e) => e.actor_id).filter(Boolean) as string[]))
+  if (actorIds.length > 0) {
+    const { data: actors } = await admin.from('profiles').select('id, full_name, role').in('id', actorIds)
+    const byId = new Map((actors ?? []).map((p) => [p.id as string, p]))
+    for (const e of rows) {
+      const p = e.actor_id ? byId.get(e.actor_id) : undefined
+      e.actor_label = actorLabel({ name: p?.full_name as string | null, email: e.actor_email, role: p?.role as string | null, adminRole: e.actor_role })
+    }
+  }
+  for (const e of rows) if (!e.actor_label) e.actor_label = e.actor_email ? actorLabel({ email: e.actor_email, adminRole: e.actor_role }) : 'System'
 
   if (targetIds.length > 0) {
     const { data: people } = await admin.from('profiles').select('id, full_name').in('id', targetIds)

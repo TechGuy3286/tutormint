@@ -61,6 +61,8 @@ export type ParentTuition = {
   waitingForward: number
   hiredAt: string | null
   hiredTutorName: string | null
+  /** The hired application (its review link, owner 27 Oct 2026), or null. */
+  hiredApplicationId?: string | null
 }
 
 export type ParentFacts = {
@@ -159,7 +161,7 @@ export const PARENT_TEMPLATE_KEY: Record<Exclude<ParentReason, 'waiting_forward'
   hired: 'pf_hired',
 }
 
-export const PARENT_PLACEHOLDERS = ['first_name', 'tuition_title', 'tuition_link', 'post_link', 'tutor_name', 'support_whatsapp'] as const
+export const PARENT_PLACEHOLDERS = ['first_name', 'tuition_title', 'tuition_link', 'post_link', 'tutor_name', 'review_link', 'support_whatsapp'] as const
 
 export const PARENT_PLACEHOLDER_HELP: Record<(typeof PARENT_PLACEHOLDERS)[number], string> = {
   first_name: "The parent's first name",
@@ -167,12 +169,14 @@ export const PARENT_PLACEHOLDER_HELP: Record<(typeof PARENT_PLACEHOLDERS)[number
   tuition_link: 'The tuition’s page',
   post_link: 'Where they post a tuition',
   tutor_name: 'The tutor they hired (the "Tutor hired" message)',
+  review_link: 'Where they review the tutor they hired (the "Tutor hired" message)',
   support_whatsapp: 'Our support WhatsApp number (from settings)',
 }
 
 const SUPPORT = 'Need help? WhatsApp us on {support_whatsapp}'
 
-/** The five messages' built-in wording — exactly what migration 201 seeds.
+/** The five messages' built-in wording — what migration 201 seeds (pf_hired
+ *  gained the review link in migration 204, owner, 27 Oct 2026).
  *  Short, plain English, no prices, each ending with {support_whatsapp}. */
 export const PARENT_DEFAULTS: Record<string, string> = {
   pf_no_tuition:
@@ -184,7 +188,7 @@ export const PARENT_DEFAULTS: Record<string, string> = {
   pf_expired:
     'Assalam o Alaikum {first_name}, your tuition "{tuition_title}" is no longer live on TutorMint. Still looking? We can repost it — just reply to this message.\n\n' + SUPPORT,
   pf_hired:
-    'Assalam o Alaikum {first_name}, thank you for hiring {tutor_name} through TutorMint. We hope the lessons go well. Could you reply with a short review of the tutor? It helps other parents.\n\n' + SUPPORT,
+    'Assalam o Alaikum {first_name}, thank you for hiring {tutor_name} through TutorMint. We hope the lessons go well. Could you leave a short review of the tutor? It helps other parents.\nYou can leave it here:\n{review_link}\n\n' + SUPPORT,
 }
 
 export const PARENT_TEMPLATES: readonly { key: string; title: string; reason: ParentReason }[] = [
@@ -201,6 +205,7 @@ export type ParentValues = {
   tuitionLink?: string | null
   postLink: string
   tutorName?: string | null
+  reviewLink?: string | null
   supportWhatsapp: string
 }
 
@@ -212,6 +217,7 @@ export function fillParentFollowUp(body: string, v: ParentValues): string {
     tuition_link: v.tuitionLink ?? '',
     post_link: v.postLink,
     tutor_name: v.tutorName || 'your tutor',
+    review_link: v.reviewLink ?? '',
     support_whatsapp: v.supportWhatsapp,
   }
   return body

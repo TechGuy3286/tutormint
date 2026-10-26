@@ -36,6 +36,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ tab: raw, ...board })
   }
 
-  const { rows, total } = await loadTuitionPosting()
-  return NextResponse.json({ tab: raw, rows, total })
+  const board = await loadTuitionPosting()
+  return NextResponse.json({ tab: raw, ...board })
 }

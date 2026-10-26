@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getSessionUser, homeForRole } from '@/lib/auth'
+import ErasePendingBanner from '@/components/account/ErasePendingBanner'
 
 // Server-side gate for /parent/dashboard/*.
 // Parents and academies both live here: schools/academies are ordinary parent
@@ -25,5 +26,11 @@ export default async function ParentDashboardLayout({ children }: { children: Re
     redirect(homeForRole(role))
   }
 
-  return <>{children}</>
+  // While the account is set to be deleted (owner, 27 Oct 2026).
+  return (
+    <>
+      <ErasePendingBanner userId={session.user.id} />
+      {children}
+    </>
+  )
 }

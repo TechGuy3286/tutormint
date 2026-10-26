@@ -1,3 +1,4 @@
+import { shownEmail } from '@/lib/actorLabelCore'
 import { OVERVIEW_KEY_PEOPLE } from '@/lib/peopleDirectoryCore'
 import Link from 'next/link'
 import { ArrowRight, BadgeCheck, Briefcase, GraduationCap, UserPlus, Users, Wallet } from 'lucide-react'
@@ -337,7 +338,7 @@ export default async function AdminHome({
       {denied && <AccessDeniedNotice />}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-gray-500">
-          Signed in as {actor.email} · role <strong>{roleBadge(actor.adminRole)}</strong>
+          Signed in as {shownEmail(actor.email) ?? 'staff'} · role <strong>{roleBadge(actor.adminRole)}</strong>
         </p>
         {smsProvider && (
           <p className="text-xs text-gray-500">

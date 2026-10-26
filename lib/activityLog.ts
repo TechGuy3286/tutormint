@@ -117,6 +117,11 @@ export type ActivityEvent =
   // A tutor saved / unsaved a tuition (the tutor-side shortlist).
   | 'saved_job_added'
   | 'saved_job_removed'
+  // Parent reviews (owner, 27 Oct 2026): a parent left one (pending), and the
+  // Owner's decision on it reached the tutor / the parent.
+  | 'review_submitted'
+  | 'review_approved'
+  | 'review_rejected'
 
 export async function logActivity(params: {
   userId: string

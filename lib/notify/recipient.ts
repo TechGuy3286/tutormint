@@ -35,6 +35,9 @@ export function recipientProblem(address: string | null | undefined): string | n
   if (!labels.every((l) => LABEL.test(l))) return 'invalid domain'
   const tld = labels[labels.length - 1]
   if (!/^[A-Za-z]{2,63}$/.test(tld)) return 'invalid domain ending'
+  // An account erased on request (owner, 27 Oct 2026) is left this no-mailbox
+  // address; nothing is ever sent to it.
+  if (/^erased-/i.test(local) && /^users\.tutormint\.org$/i.test(domain)) return 'erased account (no mailbox)'
   return null
 }
 

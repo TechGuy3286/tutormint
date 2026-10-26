@@ -207,6 +207,12 @@ export async function unsuspendMember(params: {
   const target = await member(admin, params.userId)
   if (!target) return { ok: false, status: 404, error: 'Member not found.' }
   if (!target.is_suspended) return { ok: true, alreadyInState: true }
+  // An account whose data was erased on request (owner, 27 Oct 2026) stays
+  // closed: reinstating it would list a "Deleted user".
+  {
+    const { data: er } = await admin.from('profiles').select('erased_at').eq('id', params.userId).maybeSingle()
+    if (er?.erased_at) return { ok: false, status: 409, error: 'This account was closed and its data erased on request. It cannot be reinstated.' }
+  }
 
   const { error } = await admin
     .from('profiles')

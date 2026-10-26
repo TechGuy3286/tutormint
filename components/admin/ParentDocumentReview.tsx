@@ -11,7 +11,7 @@ import { SavedCnicDuplicate } from '@/components/admin/AdminCnicNumberBox'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { OwnerOnlyNote, useAdminReadOnly, useCanApprove, useStaffRefCode } from '@/components/admin/ReadOnly'
-import { PARENT_REJECT_PRESETS, type ParentDocItem, type ParentItemState } from '@/lib/parentDocsCore'
+import { PARENT_REJECT_PRESETS, addressChipLabel, type ParentDocItem, type ParentItemState } from '@/lib/parentDocsCore'
 import { buildRejectReason, rejectionWhatsAppText } from '@/lib/rejectReasonsCore'
 import RejectReasonPicker from '@/components/admin/RejectReasonPicker'
 import { cnicSideNote } from '@/lib/tutorDocQueueCore'
@@ -194,7 +194,7 @@ function ReviewItem({
   const [changing, setChanging] = useState(false)
 
   const unlocker = useUnlockDoc(parentId, 'cnic', !!unlock?.unlockOpen)
-  const s = STATUS_LABEL[status]
+  const s = item === 'address' ? { ...STATUS_LABEL[status], text: addressChipLabel(state) } : STATUS_LABEL[status]
   const decided = status === 'approved' || status === 'rejected'
   // One Change menu (owner, 20 Oct 2026) — Owner only, lib/docChangeMenuCore.
   const menu = changeMenuOptions({

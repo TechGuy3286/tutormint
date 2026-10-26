@@ -8,12 +8,15 @@
 //   • on the member page under Payments: "Record a bank payment" — pick one of
 //     the unmatched bank credits, so a payment is never recorded without a real
 //     credit behind it.
+// The member-page picker (owner, 27 Oct 2026) offers only unlinked credits up
+// to Rs 5,000, never PayPro payouts; the selected amount's credits come first;
+// "+ Add a credit" opens the Finance add form inline.
 // The amount is pre-filled from the credit. Owner only: the server refuses
 // everyone else (/api/admin/payments/bank-link); here it simply does not render.
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Landmark, UserPlus } from 'lucide-react'
+import { Landmark, Plus, UserPlus } from 'lucide-react'
 
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useCanApprove } from '@/components/admin/ReadOnly'
@@ -21,6 +24,9 @@ import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/Toast'
 import { formatDate } from '@/lib/datetime'
 import { pkr } from '@/lib/reconciliationCore'
+import { sortPickerCredits } from '@/lib/bankPaymentLinkCore'
+import { refKey } from '@/lib/settlementMatchCore'
+import AddBankCredits from '@/app/admin/finance/settlement/AddBankCredits'
 
 const INPUT =
   'min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-slate-800 focus:border-tm-navy focus:outline-none'
@@ -84,8 +90,16 @@ export default function LinkBankCredit(
   const [plans, setPlans] = useState<Plan[] | null>(null)
   const [planCode, setPlanCode] = useState('')
   const [amount, setAmount] = useState(fixedCredit ? String(fixedCredit.amountPkr) : '')
+  // "+ Add a credit" (owner, 27 Oct 2026): the Finance add form, inline; when it
+  // saves, the list reloads and the new credit is selected.
+  const [adding, setAdding] = useState(false)
+  const [reload, setReload] = useState(0)
+  const [wantRef, setWantRef] = useState<string | null>(null)
 
   const credit = fixedCredit ?? credits?.find((c) => c.id === creditId) ?? null
+  const selectedPrice = plans?.find((p) => p.code === planCode)?.pricePkr ?? null
+  // Unlinked credits only (the server already filtered); the selected amount on top, then newest.
+  const shown = credits ? sortPickerCredits(credits, selectedPrice) : null
 
   // Member search (from a credit).
   useEffect(() => {
@@ -124,12 +138,20 @@ export default function LinkBankCredit(
       setPlans(d.plans ?? [])
       setCredits(d.credits ?? [])
       setPlanCode((cur) => cur || (d.plans?.[0]?.code ?? ''))
+      if (wantRef) {
+        const added = (d.credits ?? []).find((c) => c.reference && refKey(c.reference) === refKey(wantRef))
+        if (added) {
+          setCreditId(added.id)
+          setAmount(String(added.amountPkr))
+        }
+        setWantRef(null)
+      }
     })()
     return () => {
       live = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is a stable API; re-running on it would loop
-  }, [open, member])
+  }, [open, member, reload])
 
   if (!canApprove) return null
 
@@ -234,14 +256,34 @@ export default function LinkBankCredit(
           </div>
         ))}
 
-      {member && !fixedCredit && credits && (
+      {member && !fixedCredit && shown && (
         <div className="space-y-1">
-          <span className={LABEL}>Which bank credit?</span>
-          {credits.length === 0 ? (
-            <p className="text-[11px] text-gray-600">No bank credit is free to link. Add the bank credit on Finance → Settlement check first.</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className={LABEL}>Which bank credit?</span>
+            {!adding && (
+              <button type="button" onClick={() => setAdding(true)} className="inline-flex min-h-[32px] items-center gap-1 text-[11px] font-bold text-tm-red hover:underline">
+                <Plus aria-hidden size={12} /> Add a credit
+              </button>
+            )}
+          </div>
+          {adding && (
+            <div className="rounded-xl border border-gray-200 bg-white p-2">
+              <AddBankCredits
+                memberPayment
+                onClose={() => setAdding(false)}
+                onSaved={(refs) => {
+                  setAdding(false)
+                  setWantRef(refs[0] ?? null)
+                  setReload((n) => n + 1)
+                }}
+              />
+            </div>
+          )}
+          {shown.length === 0 ? (
+            <p className="text-[11px] text-gray-600">No unlinked bank credit up to Rs 5,000. Use &ldquo;Add a credit&rdquo; to enter it.</p>
           ) : (
             <div className="max-h-48 space-y-1 overflow-y-auto">
-              {credits.map((c) => (
+              {shown.map((c) => (
                 <label key={c.id} className="flex min-h-[36px] items-center gap-2 break-all text-[11px] text-slate-700">
                   <input type="radio" name="bank-credit" checked={creditId === c.id} onChange={() => pickCredit(c)} />
                   {creditLine(c)}

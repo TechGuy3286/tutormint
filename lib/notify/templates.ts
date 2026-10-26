@@ -46,6 +46,7 @@ export type TemplateId =
   | 'account_type_changed'
   | 'tuition_paused'
   | 'sms_alert'
+  | 'account_erased'
 
 export type RenderedEmail = {
   subject: string
@@ -276,6 +277,9 @@ export type TemplateInput =
   // sign in and were never told. Plain and short — no marketing, no prices.
   | { id: 'switched_tutor_signin'; name: string; supportWhatsapp: string }
   | { id: 'account_type_changed'; name: string; to: 'tutor' | 'parent'; supportWhatsapp: string }
+  // Close account and erase data (owner, 27 Oct 2026). Sent BEFORE the address
+  // is erased; essential. No name is kept after this, so none is used.
+  | { id: 'account_erased'; supportWhatsapp: string }
   | { id: 'tuition_paused'; title: string }
   // The hourly SMS health check (owner, 15 Oct 2026). Staff-facing, essential.
   | { id: 'sms_alert'; message: string; reasons: string[] }
@@ -324,7 +328,7 @@ export function render(input: TemplateInput): RenderedEmail {
         input.role.toLowerCase() === 'admin'
           ? 'Admin'
           : input.role.toLowerCase() === 'supervisor'
-            ? 'Supervisor'
+            ? 'Manager'
           : input.role.toLowerCase() === 'operations'
             ? 'Operations team member'
             : input.role.toLowerCase() === 'tuitions_staff'
@@ -689,6 +693,17 @@ export function render(input: TemplateInput): RenderedEmail {
         { label: 'Open your dashboard', href: isTutor ? '/tutor/dashboard' : '/parent/dashboard' },
       )
     }
+
+    case 'account_erased':
+      return build(
+        'Your TutorMint account has been closed',
+        'Your account has been closed',
+        [
+          'Your TutorMint account has been closed and your personal data deleted.',
+          'You will not receive any more emails from us at this address.',
+        ],
+        true,
+      )
 
     case 'sms_alert':
       return build(

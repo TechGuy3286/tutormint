@@ -1,5 +1,7 @@
 'use client'
 
+import { shownEmail } from '@/lib/actorLabelCore'
+
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -42,7 +44,7 @@ const ROLES = [
   // Approvals are the Owner's alone (owner, 15 Oct 2026): documents, CNIC
   // numbers, bank-transfer receipts and staff sign-up claims.
   { code: 'admin', label: 'Admin', blurb: 'Day-to-day management; no Team, Finance, Plans or payment settings; approvals are Owner only' },
-  { code: 'supervisor', label: 'Supervisor', blurb: "Sees every staff member's lists; changes only their own tuitions and cities; approvals are Owner only" },
+  { code: 'supervisor', label: 'Manager', blurb: "Sees every staff member's lists; changes only their own tuitions and cities; approvals are Owner only" },
   { code: 'operations', label: 'Operations', blurb: 'Posting tuitions, assisting, marketing, SEO; can view verification queues; approvals are Owner only' },
   { code: 'tuitions_staff', label: 'Tuitions staff', blurb: 'Tuitions only — the board, posting, and their own activity' },
   // Shown as "Project Manager" (owner, 13 Oct 2026); the internal role is 'partner'.
@@ -55,7 +57,7 @@ const ROLE_BADGE: Record<string, string> = {
   // The Owner and the Partner are both shown as "Project Manager".
   owner: 'Project Manager',
   admin: 'Admin',
-  supervisor: 'Supervisor',
+  supervisor: 'Manager',
   operations: 'Operations',
   tuitions_staff: 'Tuitions',
   partner: 'Project Manager',
@@ -164,7 +166,7 @@ export default function TeamClient({ staff, viewerRole }: { staff: StaffRow[]; v
       }
       if (!ok) throw new Error(json.error ? `${json.error}${status ? ` (HTTP ${status})` : ''}` : 'That did not work.')
       toast.success(
-        `${c.fullName ?? c.email ?? 'That member'} is now ${grantRole}.` +
+        `${c.fullName ?? shownEmail(c.email) ?? 'That member'} is now ${grantRole}.` +
           (json.droppedTutor ? ' Their empty tutor profile was removed.' : ''),
       )
       setGrantOpen(false)
@@ -561,10 +563,10 @@ export default function TeamClient({ staff, viewerRole }: { staff: StaffRow[]; v
                 >
                   <div className="min-w-0">
                     <p className="truncate text-xs font-black text-tm-navy">
-                      {c.fullName ?? c.email ?? 'Member'}
+                      {c.fullName ?? shownEmail(c.email) ?? 'Member'}
                       <span className="ml-2 text-[10px] font-bold text-gray-500">{c.role}</span>
                     </p>
-                    <p className="truncate text-[11px] text-gray-500">{c.email}</p>
+                    <p className="truncate text-[11px] text-gray-500">{shownEmail(c.email)}</p>
                     {c.listedTutor && (
                       <p className="mt-0.5 text-[10px] font-bold text-tm-gold-ink">
                         Listed tutor — keeps their public profile
@@ -615,7 +617,7 @@ export default function TeamClient({ staff, viewerRole }: { staff: StaffRow[]; v
                     <span className="ml-2 text-[10px] font-semibold text-gray-500">(account owner)</span>
                   )}
                 </p>
-                <p className="truncate text-[11px] text-gray-500">{s.email}</p>
+                <p className="truncate text-[11px] text-gray-500">{shownEmail(s.email)}</p>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 {s.twoFactorOn ? (

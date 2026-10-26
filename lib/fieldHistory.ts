@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { actorLabel } from '@/lib/actorLabelCore'
 
 // PR83 (Part C) — best-effort recorder for changes to a tutor's "step 1" fields.
 //
@@ -27,6 +28,7 @@ export type Step1Field =
   | 'subjects'
   | 'city'
   | 'areas'
+  | 'name'
 
 export type FieldChange = {
   tutorId: string
@@ -113,8 +115,11 @@ export type FieldHistoryRow = {
   field: Step1Field
   old_value: string | null
   new_value: string | null
+  changed_by: string | null
   changed_by_role: 'tutor' | 'staff'
   changed_by_email: string | null
+  /** Resolved server-side: 'Tutor — Roha Azeem' / 'Staff — Khizra Danish'. */
+  changed_by_label?: string
   reason: string | null
   changed_at: string
 }
@@ -125,12 +130,23 @@ export async function loadFieldHistory(tutorId: string): Promise<FieldHistoryRow
     if (!admin) return []
     const { data, error } = await admin
       .from('tutor_field_history')
-      .select('id, field, old_value, new_value, changed_by_role, changed_by_email, reason, changed_at')
+      .select('id, field, old_value, new_value, changed_by, changed_by_role, changed_by_email, reason, changed_at')
       .eq('tutor_id', tutorId)
       .order('changed_at', { ascending: false })
       .limit(200)
     if (error || !data) return []
-    return data as FieldHistoryRow[]
+    const rows = data as FieldHistoryRow[]
+    const ids = [...new Set(rows.map((r) => r.changed_by).filter(Boolean) as string[])]
+    const people = new Map<string, { full_name: string | null; role: string | null; admin_role: string | null }>()
+    if (ids.length > 0) {
+      const { data: ps } = await admin.from('profiles').select('id, full_name, role, admin_role, former_staff_at').in('id', ids)
+      for (const p of ps ?? []) people.set(p.id as string, { full_name: p.full_name as string | null, role: p.role as string | null, admin_role: p.admin_role as string | null })
+    }
+    for (const r of rows) {
+      const p = r.changed_by ? people.get(r.changed_by) : undefined
+      r.changed_by_label = actorLabel({ name: p?.full_name, email: r.changed_by_email, role: p?.role, changedByRole: r.changed_by_role })
+    }
+    return rows
   } catch {
     return []
   }

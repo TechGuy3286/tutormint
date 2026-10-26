@@ -14,27 +14,42 @@ import { formatName } from '@/lib/formatName'
 import { recentRepeats } from '@/lib/duplicates'
 import {
   countPosts,
+  formerRow,
   postingWindows,
   sortPostingRows,
   totalRow,
   type PostingRow,
 } from '@/lib/tuitionPostingCore'
 
+export type TuitionPostingBoard = {
+  rows: PostingRow[]
+  /** Former staff (staff access removed), each with their own counts. */
+  former: PostingRow[]
+  /** The collapsed "Former staff" row (null when nobody former ever posted). */
+  formerTotal: PostingRow | null
+  /** Current AND former staff. */
+  total: PostingRow
+}
+
 /** Roles whose members post tuitions; all of them appear even with zero. */
 const POSTING_ROLES = new Set(['tuitions_staff', 'operations', 'supervisor'])
 
-export async function loadTuitionPosting(nowMs = Date.now()): Promise<{ rows: PostingRow[]; total: PostingRow }> {
-  const empty = { rows: [], total: totalRow([]) }
+export async function loadTuitionPosting(nowMs = Date.now()): Promise<TuitionPostingBoard> {
+  const empty: TuitionPostingBoard = { rows: [], former: [], formerTotal: null, total: totalRow([]) }
   const admin = createAdminClient()
   if (!admin) return empty
 
   const w = postingWindows(nowMs)
-  const { data: staff } = await admin
-    .from('profiles')
-    .select('id, full_name, email, admin_role, is_suspended')
-    .eq('role', 'admin')
-    .not('admin_role', 'is', null)
-  const staffRows = staff ?? []
+  const [{ data: staff }, { data: formerStaff }] = await Promise.all([
+    admin.from('profiles').select('id, full_name, email, admin_role, is_suspended').eq('role', 'admin').not('admin_role', 'is', null),
+    // Former staff (migration 198): staff access removed, history kept.
+    admin.from('profiles').select('id, full_name, email').not('former_staff_at', 'is', null),
+  ])
+  const formerIds = new Set((formerStaff ?? []).map((s) => s.id as string))
+  const staffRows = [
+    ...(staff ?? []).filter((s) => !formerIds.has(s.id as string)),
+    ...(formerStaff ?? []).map((s) => ({ ...s, admin_role: null, is_suspended: true, former: true })),
+  ] as { id: string; full_name: string | null; email: string | null; admin_role: string | null; is_suspended: boolean | null; former?: boolean }[]
   if (staffRows.length === 0) return empty
 
   const ids = staffRows.map((s) => s.id as string)
@@ -44,7 +59,6 @@ export async function loadTuitionPosting(nowMs = Date.now()): Promise<{ rows: Po
       .select('id, actor_id, created_at')
       .eq('action', 'job.post')
       .in('actor_id', ids)
-      .gte('created_at', new Date(w.prev7Start).toISOString())
       .order('id')
       .range(from, to),
   )
@@ -66,18 +80,30 @@ export async function loadTuitionPosting(nowMs = Date.now()): Promise<{ rows: Po
   }
 
   const rows: PostingRow[] = []
+  const former: PostingRow[] = []
   for (const s of staffRows) {
     const id = s.id as string
     const times = timesBy.get(id) ?? []
     const rawName = ((s.full_name as string | null) ?? '').trim()
     const email = ((s.email as string | null) ?? '').trim().toLowerCase()
     const reps = (repeatsBy.get(rawName.toLowerCase()) ?? 0) + (email ? repeatsBy.get(email) ?? 0 : 0)
+    const row = { id, name: formatName(rawName) || '—', counts: countPosts(times, w), repeats: reps }
+    if (s.former) {
+      if (times.length > 0 || reps > 0) former.push(row)
+      continue
+    }
     // A suspended staff member, or one whose role does not post, appears only
-    // when they actually posted in the last two weeks.
+    // when they actually posted (any time) or have repeats this week.
     const shows = times.length > 0 || reps > 0 || (!s.is_suspended && POSTING_ROLES.has(s.admin_role as string))
     if (!shows) continue
-    rows.push({ id, name: formatName(rawName) || email || '—', counts: countPosts(times, w), repeats: reps })
+    rows.push(row)
   }
   const sorted = sortPostingRows(rows)
-  return { rows: sorted, total: totalRow(sorted) }
+  const formerSorted = sortPostingRows(former)
+  return {
+    rows: sorted,
+    former: formerSorted,
+    formerTotal: formerSorted.length > 0 ? formerRow(formerSorted) : null,
+    total: totalRow(sorted, formerSorted),
+  }
 }

@@ -65,6 +65,7 @@ export async function POST(request: Request) {
     tuitionLink: row.tuition?.path ? siteLink(row.tuition.path) : null,
     postLink: siteLink('/parent/dashboard/post-job'),
     tutorName: hire?.hiredTutorName ?? null,
+    reviewLink: hire?.hiredApplicationId ? siteLink(`/review?application=${hire.hiredApplicationId}`) : siteLink('/review'),
     supportWhatsapp: support,
   })
 

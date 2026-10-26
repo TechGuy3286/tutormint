@@ -7,7 +7,6 @@ import { submitSignal } from '@/lib/submit'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import ReviewForm from '@/components/ReviewForm'
 import { formatDateTime } from '@/lib/datetime'
 import { demoMode, demoStatus } from '@/lib/display'
 
@@ -296,15 +295,8 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                 </div>
               )}
 
-              {/* A completed demo also earns a public review on the tutor's
-                  profile. Feedback above is private to the pair; this is not. */}
-              {role === 'parent' && d.status === 'completed' && (
-                d.reviewed ? (
-                  <p className="text-[11px] font-bold text-tm-green-deep">You reviewed this tutor</p>
-                ) : (
-                  <ReviewForm tutorId={d.tutorId} tutorName={d.tutorName} demoRequestId={d.id} />
-                )
-              )}
+              {/* Reviews come from a hire only (owner, 27 Oct 2026 — lib/reviewsCore):
+                  a demo no longer earns a public review. */}
             </li>
           )
         })}

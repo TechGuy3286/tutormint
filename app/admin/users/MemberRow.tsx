@@ -1,3 +1,4 @@
+import { shownEmail } from '@/lib/actorLabelCore'
 import Link from 'next/link'
 
 import StatusChip from '@/components/admin/StatusChip'
@@ -45,7 +46,7 @@ export default function MemberRow({ row: r }: { row: Row }) {
         {/* Mobile with a copy button, so an admin can grab the number without
             opening the member. */}
         <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-gray-500">
-          <span className="truncate">{r.email}</span>
+          <span className="truncate">{shownEmail(r.email)}</span>
           {r.phone && (
             <span className="inline-flex items-center gap-1">
               <span>· {r.phone}</span>

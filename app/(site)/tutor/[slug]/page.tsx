@@ -220,6 +220,8 @@ async function loadTutorPreview(userId: string): Promise<PublicTutor | null> {
     .from('reviews')
     .select('id, rating, comment, created_at, parent_id')
     .eq('tutor_id', userId)
+    // Only approved reviews are shown (owner, 27 Oct 2026 — migration 204).
+    .eq('status', 'approved')
     .order('created_at', { ascending: false })
   const parentIds = [...new Set((reviewRows ?? []).map((r) => r.parent_id as string).filter(Boolean))]
   const { data: parents } = parentIds.length

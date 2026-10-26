@@ -1,5 +1,7 @@
 'use client'
 
+import { shownEmail } from '@/lib/actorLabelCore'
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, ShieldCheck, KeyRound, Copy, Check } from 'lucide-react'
@@ -160,7 +162,7 @@ export default function MfaGate({ mode, email }: { mode: 'setup' | 'verify'; ema
           <ShieldCheck size={20} aria-hidden />
           <h1 className="text-base font-black">Protect your staff account</h1>
         </div>
-        {email && <p className="text-[11px] text-gray-500">Signed in as {email}</p>}
+        {shownEmail(email) && <p className="text-[11px] text-gray-500">Signed in as {shownEmail(email)}</p>}
 
         {/* ── the one-time backup codes, shown after setup ── */}
         {backupCodes ? (

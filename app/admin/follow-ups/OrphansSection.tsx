@@ -1,5 +1,7 @@
 'use client'
 
+import { shownEmail } from '@/lib/actorLabelCore'
+
 import { useState } from 'react'
 import { AlertTriangle, UserCheck } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
@@ -98,7 +100,7 @@ export default function OrphansSection({
                   return (
                     <tr key={r.id} className="align-middle">
                       <td className="p-3">
-                        <span className="block font-semibold text-tm-navy">{r.email ?? '—'}</span>
+                        <span className="block font-semibold text-tm-navy">{shownEmail(r.email) ?? '—'}</span>
                         {r.mobile && <span className="block text-gray-500">{r.mobile}</span>}
                       </td>
                       <td className="p-3">

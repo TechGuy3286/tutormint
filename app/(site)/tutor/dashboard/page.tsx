@@ -27,6 +27,8 @@ import { loadReceiptState } from '@/lib/payments/receipt'
 import PaymentReviewNotice from '@/components/payments/PaymentReviewNotice'
 import WhatsMissing from '@/components/tutor/WhatsMissing'
 import EmailConfirmReminder from '@/components/account/EmailConfirmReminder'
+import SubjectCapBanner from '@/components/tutor/SubjectCapBanner'
+import { savedSubjectCount } from '@/lib/subjectLimit'
 import { loadWhatsMissing } from '@/lib/whatsMissing'
 import { emailReminderNeeded } from '@/lib/emailConfirmCore'
 import { loadPaymentsHistory } from '@/lib/paymentsHistory'
@@ -68,9 +70,11 @@ export default async function TutorDashboardPage() {
   ])
 
   // "What's missing" and the email reminder (owner, 13 Oct 2026).
-  const [whatsMissing, { data: emailRow }] = await Promise.all([
+  const [whatsMissing, { data: emailRow }, subjectCount] = await Promise.all([
     loadWhatsMissing(userId),
     supabase.from('profiles').select('email, email_pending_confirm').eq('id', userId).maybeSingle(),
+    // Over the 15-subject limit? (owner, 27 Oct 2026) — a banner, never a trim.
+    savedSubjectCount(supabase, userId).catch(() => 0),
   ])
   const emailToConfirm = emailReminderNeeded({ email: emailRow?.email as string | null, pending: !!emailRow?.email_pending_confirm })
     ? ((emailRow?.email as string | null) ?? null)
@@ -225,6 +229,8 @@ export default async function TutorDashboardPage() {
 
         {/* A gentle reminder while the email waits for its link — it blocks nothing. */}
         {emailToConfirm && <EmailConfirmReminder email={emailToConfirm} />}
+
+        <SubjectCapBanner count={subjectCount} href="/tutor/dashboard/settings" />
 
         {feeReceipt && <PaymentReviewNotice receipt={feeReceipt} href="/pay/choose?plan=verified" />}
 

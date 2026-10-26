@@ -172,7 +172,7 @@ export const ROLE_LABEL: Record<AdminRole, string> = {
   owner: PROJECT_MANAGER,
   partner: PROJECT_MANAGER,
   admin: 'Admin',
-  supervisor: 'Supervisor',
+  supervisor: 'Manager',
   operations: 'Operations',
   tuitions_staff: 'Tuitions staff',
 }
@@ -187,6 +187,9 @@ export function roleBadge(role: string | null | undefined, viewer?: AdminRole | 
   if (!role) return ''
   if (seesRealRoles(viewer ?? null)) return ROLE_LABEL[role as AdminRole] ?? role
   if (role === 'owner' || role === 'partner') return PROJECT_MANAGER
+  // A Manager (internal 'supervisor', owner 27 Oct 2026) wears "Manager" for
+  // every viewer — before this it showed "Admin", like every other staff role.
+  if (role === 'supervisor') return ROLE_LABEL.supervisor
   return 'Admin'
 }
 
@@ -270,6 +273,10 @@ export const SCREEN_ACCESS = withSupervisor({
   // Staff management is the ONE thing an Admin does not get. `[]` = owner only.
   team: [] as AdminRole[],
   reports: ['admin', 'operations', 'partner'] as AdminRole[],
+  // Trust → Reviews (owner, 27 Oct 2026): parent reviews waiting for approval.
+  // Staff may READ the queue; only the Owner approves or rejects
+  // (refuseUnlessOwnerApproval in /api/admin/reviews/decide).
+  reviews: ['admin', 'operations'] as AdminRole[],
   inbox: ['admin', 'operations', 'partner'] as AdminRole[],
   // The tuition board. Operations and the restricted tuitions_staff work it
   // day-to-day. MUTATE is close / pause / resume / unfeature — nothing is
@@ -302,12 +309,12 @@ export const SCREEN_ACCESS = withSupervisor({
   // Team activity → "Verifications & messages" tab, its API and the per-staff
   // detail pages: the Owner, the Project Managers and Admin, view only (owner,
   // 15 Oct 2026). Operations and Tuitions staff are refused (403 on the API).
-  staffActivity: ['admin'] as AdminRole[],
+  staffActivity: ['admin', 'supervisor'] as AdminRole[],
   // Team activity → "Paid sign-ups" (owner, 15 Oct 2026). The tab opens for
   // every role on tuitionPosting; who sees EVERY row
   // and the Team total is staffSignupsAll (Owner, Project Managers, Admin) —
   // everyone else sees only their own row and lists (lib/staffSignupsCore).
-  staffSignupsAll: ['admin'] as AdminRole[],
+  staffSignupsAll: ['admin', 'supervisor'] as AdminRole[],
   // Claiming a sign-up that came without a link: the participants (Tuitions
   // staff, Operations, Admin). The Owner passes this list but carries no link,
   // so the server refuses; the Partner is refused by roleMayWrite.
@@ -422,7 +429,7 @@ export function supervisorMayChangeCity(actor: { id: string; adminRole: AdminRol
   return !!cityOwnerId && cityOwnerId === actor.id
 }
 
-export const SUPERVISOR_OWN_ONLY = 'Supervisors can change only their own tuitions and the tutors in their own cities.'
+export const SUPERVISOR_OWN_ONLY = 'Managers can change only their own tuitions and the tutors in their own cities.'
 
 /** A stored role (an Audit row's actor_role, a staff row) in the words a screen
  *  shows: the Owner and the Partner both read "Project Manager"; anything that

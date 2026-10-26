@@ -1,5 +1,8 @@
 'use client'
 
+import { prepareUploadImage, uploadErrorMessage, uploadFileProblem } from '@/lib/uploadLimitCore'
+import { compressImage } from '@/lib/imageCompress'
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { RotateCcw } from 'lucide-react'
@@ -46,8 +49,18 @@ export default function RefundControl({
     fd.set('method', method)
     fd.set('reason', reason === 'Other' ? otherReason : reason)
     fd.set('reference', reference)
-    if (proof) fd.set('proof', proof)
-    const { ok, data } = await adminFetch<{ error?: string; amount?: number }>('/api/admin/payments/refund', {
+    if (proof) {
+      // Shrink in the browser, then the 4 MB limit (owner, 27 Oct 2026).
+      const shot = await prepareUploadImage(proof, compressImage)
+      const problem = uploadFileProblem(shot, 'screenshot')
+      if (problem) {
+        setBusy(false)
+        toast.error(problem)
+        return
+      }
+      fd.set('proof', shot)
+    }
+    const { ok, data, status } = await adminFetch<{ error?: string; amount?: number }>('/api/admin/payments/refund', {
       method: 'POST',
       body: fd,
     })
@@ -57,7 +70,7 @@ export default function RefundControl({
       setOpen(false)
       router.refresh()
     } else {
-      toast.error(data?.error ?? 'Could not record the refund.')
+      toast.error(proof ? uploadErrorMessage({ status, error: data?.error }, 'screenshot') : (data?.error ?? 'Could not record the refund.'))
     }
   }
 

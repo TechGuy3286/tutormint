@@ -1,6 +1,7 @@
 import { MessageCircle } from 'lucide-react'
 
-import { formatPkMobile } from '@/lib/phone'
+import MaskedContact from '@/components/admin/MaskedContact'
+import { maskPhoneDisplay } from '@/lib/contactMaskCore'
 import { whatsappTarget } from '@/lib/tutorWhatsapp'
 import { adminWhatsAppRoute, type WhatsAppFrom } from '@/lib/adminWhatsAppCore'
 
@@ -55,7 +56,10 @@ export default function WhatsappChatButton({
   return (
     <div className={`space-y-1 ${className}`}>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-bold text-tm-navy">{formatPkMobile(target.msisdn)}</span>
+        {/* Masked, with a logged Show (owner, 27 Oct 2026); the button still opens the chat. */}
+        <span className="text-xs font-bold text-tm-navy">
+          <MaskedContact memberId={memberId} field="whatsapp" masked={maskPhoneDisplay(target.msisdn) ?? '••••'} />
+        </span>
         {button}
       </div>
       {!target.isWhatsapp && (

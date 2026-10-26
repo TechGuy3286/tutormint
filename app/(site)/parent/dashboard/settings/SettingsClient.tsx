@@ -16,8 +16,9 @@ import { usePhotoCropUpload } from '@/components/photo/usePhotoCropUpload'
 import { useToast } from '@/components/ui/Toast'
 import EmailCard from '@/components/account/EmailCard'
 import PauseAccountCard from '@/components/account/PauseAccountCard'
+import DeleteAccountCard from '@/components/account/DeleteAccountCard'
 import ChangePasswordCard from '@/components/account/ChangePasswordCard'
-import { Lock, PauseCircle } from 'lucide-react'
+import { Lock, PauseCircle, Trash2 } from 'lucide-react'
 import MobileNumberInput from '@/components/auth/MobileNumberInput'
 import OtpCodeEntry from '@/components/auth/OtpCodeEntry'
 import { whatsappHref, SUPPORT_WHATSAPP_FALLBACK } from '@/lib/supportContacts'
@@ -455,6 +456,15 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
       titleUr: 'اپنا اکاؤنٹ روکیں',
       status: 'neutral',
       body: <PauseAccountCard />,
+    },
+    {
+      // "Delete my account" (owner, 27 Oct 2026), after Pause. English only.
+      key: 'delete',
+      icon: <Trash2 aria-hidden size={20} />,
+      title: 'Delete my account',
+      titleUr: '',
+      status: 'neutral',
+      body: <DeleteAccountCard />,
     },
   ]
 
