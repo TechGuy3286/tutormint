@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { supabaseFetch } from '@/lib/supabase/fetch'
 import { PERSIST_COOKIE, persistOffFrom, applySessionPersistence } from '@/lib/sessionCookies'
 
 export async function createClient(opts?: { sessionOnly?: boolean }) {
@@ -20,6 +21,7 @@ export async function createClient(opts?: { sessionOnly?: boolean }) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     supabaseKey!,
     {
+      global: { fetch: supabaseFetch },
       cookies: {
         getAll() {
           return cookieStore.getAll()

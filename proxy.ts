@@ -30,6 +30,7 @@ import { convertedTutorRedirectPath } from '@/lib/convertedTutorRedirect'
 import { mergedTutorRedirectPath } from '@/lib/mergedTutorRedirect'
 import { readTicket, VIEW_AS_COOKIE, VIEW_AS_EXIT_PATH, VIEW_AS_READ_ONLY, viewAsDecision } from '@/lib/viewAsCore'
 import { hiddenTuitionRedirectPath } from '@/lib/hiddenTuitionRedirect'
+import { supabaseFetch } from '@/lib/supabase/fetch'
 
 // /pay/* is the checkout journey (gateway hand-off, transfer instructions,
 // return screen). Every page under it reads the signed-in member's own
@@ -292,6 +293,7 @@ export async function proxy(request: NextRequest) {
   }
 
   const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL, supabaseKey, {
+    global: { fetch: supabaseFetch },
     cookies: {
       getAll() {
         return request.cookies.getAll()

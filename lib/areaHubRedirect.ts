@@ -12,6 +12,9 @@
 
 import { areaKey, hubSlugRedirect, type CityAliases } from '@/lib/areaHubCore'
 import { cityFromSegment } from '@/lib/slugs'
+import { makeBackoff, proxyFetch } from '@/lib/proxyLookup'
+
+const backoff = makeBackoff()
 
 // One minute (was ten; owner, 16 Oct 2026): a merge on Locations should move
 // its old hub address on almost at once. The page itself never waits for this.
@@ -20,15 +23,19 @@ let cache: { at: number; byCity: Map<string, string[]>; aliases: Map<string, Cit
 
 async function curated(): Promise<Map<string, string[]> | null> {
   if (cache && Date.now() - cache.at < TTL_MS) return cache.byCity
+  if (backoff.waiting()) return cache?.byCity ?? null
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!base || !key) return null
   try {
-    const res = await fetch(`${base}/rest/v1/location_areas?select=name,location_cities(name)&removed_at=is.null&limit=5000`, {
+    const res = await proxyFetch(`${base}/rest/v1/location_areas?select=name,location_cities(name)&removed_at=is.null&limit=5000`, {
       headers: { apikey: key, Authorization: `Bearer ${key}` },
       cache: 'no-store',
     })
-    if (!res.ok) return cache?.byCity ?? null
+    if (!res.ok) {
+      backoff.failed()
+      return cache?.byCity ?? null
+    }
     const rows = (await res.json()) as { name: string; location_cities: { name: string } | { name: string }[] | null }[]
     const byCity = new Map<string, string[]>()
     for (const r of rows) {
@@ -40,7 +47,7 @@ async function curated(): Promise<Map<string, string[]> | null> {
     // from a typed spelling moves to the curated area's hub too.
     const aliases = new Map<string, CityAliases>()
     try {
-      const ar = await fetch(
+      const ar = await proxyFetch(
         `${base}/rest/v1/location_area_aliases?select=raw,location_cities(name),location_areas(name)&removed_at=is.null&limit=5000`,
         { headers: { apikey: key, Authorization: `Bearer ${key}` }, cache: 'no-store' },
       )
@@ -63,6 +70,7 @@ async function curated(): Promise<Map<string, string[]> | null> {
     cache = { at: Date.now(), byCity, aliases }
     return byCity
   } catch {
+    backoff.failed()
     return cache?.byCity ?? null
   }
 }

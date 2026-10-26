@@ -125,15 +125,15 @@ test('the bank details are entered by the owner only, on Payment gateways', () =
 })
 
 // ------------------------------------------------ the receipt file -----------
-test('a receipt is a JPG, PNG, WebP or PDF of at most 5 MB', () => {
+test('a receipt is a JPG, PNG, WebP or PDF of at most 4 MB', () => {
   for (const type of ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']) {
     assert.equal(receiptFileProblem({ type, size: 1024 }), null, type)
   }
   for (const type of ['image/gif', 'image/heic', 'video/mp4', 'text/html', 'application/zip', '']) {
     assert.match(receiptFileProblem({ type, size: 1024 }) ?? '', /JPG, PNG or WebP image, or a PDF/, type || '(none)')
   }
-  assert.equal(receiptFileProblem({ type: 'image/png', size: RECEIPT_MAX_BYTES }), null, 'exactly 5 MB')
-  assert.match(receiptFileProblem({ type: 'image/png', size: RECEIPT_MAX_BYTES + 1 }) ?? '', /larger than 5 MB/)
+  assert.equal(receiptFileProblem({ type: 'image/png', size: RECEIPT_MAX_BYTES }), null, 'exactly 4 MB')
+  assert.match(receiptFileProblem({ type: 'image/png', size: RECEIPT_MAX_BYTES + 1 }) ?? '', /larger than 4 MB/)
   assert.match(receiptFileProblem(null) ?? '', /Choose a photo or PDF/)
   assert.match(receiptFileProblem({ type: 'image/png', size: 0 }) ?? '', /Choose a photo or PDF/)
   // Every refusal carries its Urdu line.

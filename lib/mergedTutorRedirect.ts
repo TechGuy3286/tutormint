@@ -7,28 +7,36 @@
 // through PostgREST with the publishable key, held in memory for a minute. Any
 // failure answers null and the page renders as it would have.
 
+import { makeBackoff, proxyFetch } from '@/lib/proxyLookup'
+
 const TTL_MS = 60_000
+const backoff = makeBackoff()
 let cache: { at: number; bySlug: Map<string, string> } | null = null
 
 async function merged(): Promise<Map<string, string> | null> {
   if (cache && Date.now() - cache.at < TTL_MS) return cache.bySlug
+  if (backoff.waiting()) return cache?.bySlug ?? null
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!base || !key) return null
   try {
-    const res = await fetch(`${base}/rest/v1/rpc/merged_tutor_redirects`, {
+    const res = await proxyFetch(`${base}/rest/v1/rpc/merged_tutor_redirects`, {
       method: 'POST',
       headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: '{}',
       cache: 'no-store',
     })
-    if (!res.ok) return cache?.bySlug ?? null
+    if (!res.ok) {
+      backoff.failed()
+      return cache?.bySlug ?? null
+    }
     const rows = (await res.json()) as { slug: string | null; kept_slug: string | null }[]
     const bySlug = new Map<string, string>()
     for (const r of rows) if (r.slug && r.kept_slug) bySlug.set(r.slug.toLowerCase(), r.kept_slug)
     cache = { at: Date.now(), bySlug }
     return bySlug
   } catch {
+    backoff.failed()
     return cache?.bySlug ?? null
   }
 }

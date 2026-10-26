@@ -12,7 +12,10 @@
 //   • the amount is shown on the choice screen ONLY (priceLine). Nothing else
 //     in this file, and no notification it feeds, carries a rupee figure.
 
-export const RECEIPT_MAX_BYTES = 5 * 1024 * 1024
+// 4 MB, under the ~4.5 MB Vercel request-body cap (hotfix, 26 Oct 2026): at
+// 5 MB a file our own check allowed could be refused by the platform before the
+// route ran. Photos are compressed in the browser first (lib/payments/receiptPrepare).
+export const RECEIPT_MAX_BYTES = 4 * 1024 * 1024
 
 /** The receipt types accepted, with the extension each is stored under. */
 export const RECEIPT_TYPES: Record<string, string> = {
@@ -33,7 +36,7 @@ export function receiptFileProblem(file: { type: string; size: number } | null):
     return 'The receipt must be a JPG, PNG or WebP image, or a PDF.\nرسید JPG، PNG، WebP تصویر یا پی ڈی ایف ہونی چاہیے۔'
   }
   if (file.size > RECEIPT_MAX_BYTES) {
-    return 'That file is larger than 5 MB. Please send a smaller one.\nیہ فائل 5 ایم بی سے بڑی ہے۔ چھوٹی فائل بھیجیں۔'
+    return 'That file is larger than 4 MB. Please send a smaller one.\nیہ فائل 4 ایم بی سے بڑی ہے۔ چھوٹی فائل بھیجیں۔'
   }
   return null
 }

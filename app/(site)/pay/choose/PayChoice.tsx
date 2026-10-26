@@ -9,11 +9,14 @@ import { afterFeeReturnPath } from '@/lib/returnTo'
 import { submitSignal, UPLOAD_TIMEOUT_MS } from '@/lib/submit'
 import {
   RECEIPT_ACCEPT,
+  RECEIPT_MAX_BYTES,
   RECEIPT_MESSAGES,
   receiptFileProblem,
   type BankDetails,
   type ReceiptState,
 } from '@/lib/payments/receiptCore'
+import { prepareReceiptFile } from '@/lib/payments/receiptPrepare'
+import { compressImage } from '@/lib/imageCompress'
 import { bankCopyRows, COPIED_MS } from '@/lib/payments/bankCopyCore'
 import { PAY_BY_TRANSFER_LINE } from '@/lib/payments/payproRetireCore'
 
@@ -171,7 +174,10 @@ export default function PayChoice({
     )
   }
 
-  const pick = (f: File | null) => {
+  // A photo is resized and re-encoded in the browser first (hotfix, 26 Oct
+  // 2026): a raw phone photo can be over Vercel's ~4.5 MB request cap.
+  const pick = async (picked: File | null) => {
+    const f = picked ? await prepareReceiptFile(picked, compressImage) : null
     setError(f ? receiptFileProblem({ type: f.type, size: f.size }) : null)
     setFile(f)
   }
@@ -198,6 +204,10 @@ export default function PayChoice({
       }
       if (data?.code === 'under_review') {
         setState({ state: 'under_review', paymentId: '', sentAt: new Date().toISOString() })
+        return
+      }
+      if (res.status === 413) {
+        setError(receiptFileProblem({ type: file.type, size: RECEIPT_MAX_BYTES + 1 }))
         return
       }
       setError(
@@ -251,7 +261,7 @@ export default function PayChoice({
               type="file"
               accept={RECEIPT_ACCEPT}
               className="sr-only"
-              onChange={(e) => pick(e.target.files?.[0] ?? null)}
+              onChange={(e) => void pick(e.target.files?.[0] ?? null)}
             />
             <button
               type="button"

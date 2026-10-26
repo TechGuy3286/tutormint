@@ -9,6 +9,8 @@
 // The caller supplies a page fetcher that applies `.range(from, to)` to a query
 // with a STABLE order, so pages do not overlap or skip.
 
+import { plainSupabaseError } from '@/lib/supabase/fetch'
+
 export const PAGE_SIZE = 1000
 
 type PageResult<T> = PromiseLike<{ data: T[] | null; error?: { message: string } | null }>
@@ -18,7 +20,7 @@ export async function pageAll<T>(fetchPage: (from: number, to: number) => PageRe
   const out: T[] = []
   for (let from = 0; from < max; from += PAGE_SIZE) {
     const { data, error } = await fetchPage(from, from + PAGE_SIZE - 1)
-    if (error) throw new Error(error.message)
+    if (error) throw new Error(plainSupabaseError(error.message))
     const rows = data ?? []
     out.push(...rows)
     if (rows.length < PAGE_SIZE) break

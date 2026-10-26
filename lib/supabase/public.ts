@@ -1,4 +1,5 @@
 import { createClient as createSupabaseClient, type SupabaseClient } from '@supabase/supabase-js'
+import { supabaseFetch } from '@/lib/supabase/fetch'
 
 // An anon-key client with no cookie session attached.
 //
@@ -20,6 +21,7 @@ export function createPublicClient(): SupabaseClient {
 
   cached = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, key!, {
     auth: { autoRefreshToken: false, persistSession: false },
+    global: { fetch: supabaseFetch },
   })
   return cached
 }

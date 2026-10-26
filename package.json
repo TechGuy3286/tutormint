@@ -198,7 +198,9 @@
     "test:statusimage": "tsx --test scripts/test-status-image.ts",
     "test:membermerge": "tsx --test scripts/test-member-merge.ts",
     "test:parentfollowups": "tsx --test scripts/test-parent-follow-ups.ts",
-    "test:viewas": "tsx --test scripts/test-view-as-and-fixes.ts"
+    "test:viewas": "tsx --test scripts/test-view-as-and-fixes.ts",
+    "test:hotfix": "tsx --test scripts/test-hotfix-errors.ts",
+    "test:hotfix:live": "tsx --conditions=react-server --env-file=.env.local --test scripts/test-hotfix-live.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

@@ -59,6 +59,10 @@ test('every /api/admin write route goes through checkAdminRole', () => {
     // getAdminActor + strict owner literal / self-only, reviewed by hand:
     path.join('app', 'api', 'admin', 'reauth', 'route.ts'),
     path.join('app', 'api', 'admin', 'paypro', 'test-order', 'route.ts'),
+    // Ends "View as": the browser holds the MEMBER's session at this point, so
+    // there is no admin actor to check. It acts only on the HMAC-signed View-as
+    // ticket (lib/viewAs exitViewAs); with none it clears cookies and sends to /login.
+    path.join('app', 'api', 'admin', 'view-as', 'exit', 'route.ts'),
   ])
   const files = walk(path.join('app', 'api', 'admin')).filter((f) => f.endsWith('route.ts'))
   assert.ok(files.length > 40)

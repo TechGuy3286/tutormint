@@ -12,28 +12,36 @@
 
 import { hiddenTuitionTarget, tuitionSlugOf } from '@/lib/hiddenTuitionCore'
 
+import { makeBackoff, proxyFetch } from '@/lib/proxyLookup'
+
 const TTL_MS = 60_000
+const backoff = makeBackoff()
 let cache: { at: number; bySlug: Map<string, string> } | null = null
 
 async function hidden(): Promise<Map<string, string> | null> {
   if (cache && Date.now() - cache.at < TTL_MS) return cache.bySlug
+  if (backoff.waiting()) return cache?.bySlug ?? null
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!base || !key) return null
   try {
-    const res = await fetch(`${base}/rest/v1/rpc/hidden_tuition_redirects`, {
+    const res = await proxyFetch(`${base}/rest/v1/rpc/hidden_tuition_redirects`, {
       method: 'POST',
       headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: '{}',
       cache: 'no-store',
     })
-    if (!res.ok) return cache?.bySlug ?? null
+    if (!res.ok) {
+      backoff.failed()
+      return cache?.bySlug ?? null
+    }
     const rows = (await res.json()) as { slug: string | null; city: string | null; city_has_open: boolean | null }[]
     const bySlug = new Map<string, string>()
     for (const r of rows) if (r.slug) bySlug.set(r.slug.toLowerCase(), hiddenTuitionTarget(r.city, !!r.city_has_open))
     cache = { at: Date.now(), bySlug }
     return bySlug
   } catch {
+    backoff.failed()
     return cache?.bySlug ?? null
   }
 }

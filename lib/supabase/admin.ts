@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { createClient as createSupabaseClient, type SupabaseClient } from '@supabase/supabase-js'
+import { supabaseFetch } from '@/lib/supabase/fetch'
 
 // Service-role client. SERVER ONLY.
 //
@@ -28,6 +29,7 @@ export function createAdminClient(): SupabaseClient | null {
 
   cached = createSupabaseClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
+    global: { fetch: supabaseFetch },
   })
   return cached
 }

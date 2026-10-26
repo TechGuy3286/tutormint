@@ -14,28 +14,36 @@
 
 import { convertedTutorRedirect } from '@/lib/convertAccountCore'
 
+import { makeBackoff, proxyFetch } from '@/lib/proxyLookup'
+
 const TTL_MS = 60_000
+const backoff = makeBackoff()
 let cache: { at: number; bySlug: Map<string, string | null> } | null = null
 
 async function converted(): Promise<Map<string, string | null> | null> {
   if (cache && Date.now() - cache.at < TTL_MS) return cache.bySlug
+  if (backoff.waiting()) return cache?.bySlug ?? null
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!base || !key) return null
   try {
-    const res = await fetch(`${base}/rest/v1/rpc/converted_tutor_redirects`, {
+    const res = await proxyFetch(`${base}/rest/v1/rpc/converted_tutor_redirects`, {
       method: 'POST',
       headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: '{}',
       cache: 'no-store',
     })
-    if (!res.ok) return cache?.bySlug ?? null
+    if (!res.ok) {
+      backoff.failed()
+      return cache?.bySlug ?? null
+    }
     const rows = (await res.json()) as { slug: string | null; city: string | null }[]
     const bySlug = new Map<string, string | null>()
     for (const r of rows) if (r.slug) bySlug.set(r.slug.toLowerCase(), r.city ?? null)
     cache = { at: Date.now(), bySlug }
     return bySlug
   } catch {
+    backoff.failed()
     return cache?.bySlug ?? null
   }
 }
