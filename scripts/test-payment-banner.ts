@@ -138,7 +138,10 @@ test('/pay/choose with no plan', () => {
   const page = read('app/(site)/pay/choose/page.tsx')
   assert.match(page, /const here = payChooseHref\(planCode, returnTo\)/)
   assert.match(page, /if \(!session\) redirect\(`\/login\?next=\$\{encodeURIComponent\(here\)\}`\)/)
-  assert.ok(page.indexOf('if (!session)') < page.indexOf('if (!planCode)'), 'login comes first')
+  // The no-plan default now lives in the shared route function (hotfix,
+  // 26 Oct 2026), which the page calls only after the session check.
+  assert.ok(page.indexOf('if (!session)') < page.indexOf('payChooseRoute({'), 'login comes first')
+  assert.match(read('lib/payChooseRouteCore.ts'), /if \(!f\.planCode\) \{\n\s+return \{ kind: 'redirect', to: withPayHop\(defaultPayChoose\(/)
 })
 
 test('the Faysal Bank logo and name are not on the "Other methods" option row', () => {

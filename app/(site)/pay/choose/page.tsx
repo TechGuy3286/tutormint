@@ -11,8 +11,10 @@ import { formatName } from '@/lib/formatName'
 import { formatPkMobile } from '@/lib/phone'
 import OrderPageNav from '../manual/[ref]/OrderPageNav'
 import PayChoice from './PayChoice'
-import { afterFeeReturnPath, safeReturnTo } from '@/lib/returnTo'
-import { defaultPayChoose, payChooseHref } from '@/lib/payChooseDefault'
+import Link from 'next/link'
+import { safeReturnTo } from '@/lib/returnTo'
+import { payChooseHref } from '@/lib/payChooseDefault'
+import { PAY_LOOP_NOTE, payChooseRoute } from '@/lib/payChooseRouteCore'
 
 // The payment choice screen (owner, 11 Oct 2026).
 //
@@ -59,8 +61,12 @@ const UNLOCKS: Record<string, { en: string; ur: string }> = {
   },
 }
 
-export default async function PayChoosePage({ searchParams }: { searchParams: Promise<{ plan?: string; next?: string }> }) {
-  const { plan: planParam, next } = await searchParams
+export default async function PayChoosePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ plan?: string; next?: string; hop?: string }>
+}) {
+  const { plan: planParam, next, hop } = await searchParams
   const planCode = (planParam ?? '').trim()
   // The page to go back to after paying (the tuition the tutor tapped Apply on,
   // owner 15 Oct 2026). Same-site paths only.
@@ -71,47 +77,72 @@ export default async function PayChoosePage({ searchParams }: { searchParams: Pr
   if (!session) redirect(`/login?next=${encodeURIComponent(here)}`)
   const userId = session.user.id
 
-  // No plan named (owner, 17 Oct 2026): a tutor who has not paid the
-  // Verification Fee gets the fee checkout straight away; everyone else goes
-  // to Membership Plans as before (lib/payChooseDefault).
-  if (!planCode) {
-    const supa = await createClient()
-    const [{ data: me }, { data: tpRow }] = await Promise.all([
-      supa.from('profiles').select('role').eq('id', userId).maybeSingle(),
-      supa.from('tutor_profiles').select('verified_fee_paid_at').eq('id', userId).maybeSingle(),
-    ])
-    redirect(
-      defaultPayChoose({
-        role: (me?.role as string | null) ?? null,
-        feePaid: !!tpRow?.verified_fee_paid_at,
-        returnTo,
-      }),
-    )
-  }
-
   const supabase = await createClient()
-  const [{ data: plan }, { data: profile }] = await Promise.all([
-    supabase.from('plans').select('code, name, audience, price_pkr').eq('code', planCode).maybeSingle(),
+  const [{ data: planRow }, { data: profile }, { data: tp }] = await Promise.all([
+    planCode
+      ? supabase.from('plans').select('code, name, audience, price_pkr').eq('code', planCode).maybeSingle()
+      : Promise.resolve({ data: null }),
     supabase
       .from('profiles')
       .select('role, admin_role, is_seed, email, full_name, phone_number')
       .eq('id', userId)
       .maybeSingle(),
+    supabase.from('tutor_profiles').select('verified_fee_paid_at').eq('id', userId).maybeSingle(),
   ])
+  if (!profile) redirect('/membership-plans')
 
-  const audience = profile?.role === 'tutor' ? 'tutor' : 'parent'
+  const audience = profile.role === 'tutor' ? 'tutor' : 'parent'
   const plansHref = `/membership-plans?for=${audience === 'tutor' ? 'tutors' : 'parents'}`
   const dashboard = audience === 'tutor' ? '/tutor/dashboard' : '/parent/dashboard'
-  if (!plan || !profile || !(plan.price_pkr as number) || plan.audience !== audience) redirect(plansHref)
+  const feePaid = !!tp?.verified_fee_paid_at
 
-  const isFee = plan.code === 'verified'
-  if (audience === 'tutor') {
-    const { data: tp } = await supabase.from('tutor_profiles').select('verified_fee_paid_at').eq('id', userId).maybeSingle()
-    const feePaid = !!tp?.verified_fee_paid_at
-    // The fee is paid once; a plan needs the fee first (the checkout's own rules).
-    if (isFee && feePaid) redirect((returnTo && afterFeeReturnPath(returnTo, 'paid')) || dashboard)
-    if (!isFee && !feePaid) redirect(`/tutor/complete-profile?step=verify&next=${encodeURIComponent(here)}`)
+  // Every automatic redirect this page makes, and the bounce guard, in one pure
+  // function (lib/payChooseRouteCore; hotfix 26 Oct 2026). No plan named → the
+  // fee for an unpaid tutor, else Membership Plans; a plan not for this member →
+  // Membership Plans; the fee already paid → back; a plan before the fee → the
+  // verify step.
+  const route = payChooseRoute({
+    planCode,
+    returnTo,
+    hop: hop === '1',
+    role: (profile.role as string | null) ?? null,
+    plan: planRow
+      ? { code: planRow.code as string, audience: planRow.audience as string, pricePkr: (planRow.price_pkr as number) ?? 0 }
+      : null,
+    feePaid,
+  })
+  if (route.kind === 'redirect') redirect(route.to)
+
+  let plan = planRow
+  let stopped = false
+  if (route.kind === 'stopped') {
+    // We redirected this request here ourselves and were about to redirect it
+    // again: stop, say so, and log it (ids only — never a contact detail).
+    stopped = true
+    console.warn(`[pay-redirect-guard] stopped user=${userId} plan=${planCode || '-'} reason=${route.reason}`)
+    if (!route.payPlan) {
+      return (
+        <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8">
+          <div className="mx-auto max-w-lg space-y-4">
+            <p role="alert" className="rounded-2xl border border-tm-gold/40 bg-tm-tint-gold p-4 text-sm font-bold text-tm-gold-ink">
+              {PAY_LOOP_NOTE}
+            </p>
+            <Link href={dashboard} className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-bold text-white hover:bg-tm-navy-hover">
+              Go to your dashboard
+            </Link>
+            <Link href={plansHref} className="block text-center text-xs font-bold text-tm-navy underline-offset-2 hover:underline">
+              Membership Plans
+            </Link>
+          </div>
+        </main>
+      )
+    }
+    const { data: feeRow } = await supabase.from('plans').select('code, name, audience, price_pkr').eq('code', route.payPlan).maybeSingle()
+    if (!feeRow) redirect(dashboard)
+    plan = feeRow
   }
+  if (!plan) redirect(plansHref)
+  const isFee = plan.code === 'verified'
 
   const [bank, receipt] = await Promise.all([
     loadBankPanel(),
@@ -133,6 +164,12 @@ export default async function PayChoosePage({ searchParams }: { searchParams: Pr
             {isFee ? 'اپنی تصدیق مکمل کریں' : 'اپنی ادائیگی مکمل کریں'}
           </span>
         </h1>
+
+        {stopped && (
+          <p role="alert" className="rounded-2xl border border-tm-gold/40 bg-tm-tint-gold p-3 text-xs font-bold text-tm-gold-ink">
+            {PAY_LOOP_NOTE}
+          </p>
+        )}
 
         {/* The package card — the ONE place the amount is shown. */}
         <section className="space-y-1.5 rounded-2xl border border-tm-navy/15 bg-tm-tint-navy p-4" data-package-card="">

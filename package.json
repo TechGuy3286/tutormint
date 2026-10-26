@@ -191,6 +191,7 @@
     "test:staffcleanup": "tsx --test scripts/test-staff-cleanup.ts",
     "test:overvieworder": "tsx --test scripts/test-overview-order.ts",
     "test:payproretire": "tsx --test scripts/test-paypro-retire.ts",
+    "test:payloop": "tsx --test scripts/test-pay-loop.ts",
     "test:bankcopy": "tsx --test scripts/test-bank-copy.ts",
     "test:bankreader": "tsx --test scripts/test-bank-reader.ts"
   },

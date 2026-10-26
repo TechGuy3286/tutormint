@@ -282,13 +282,18 @@ input:disabled,
    class and no JavaScript. transform + box-shadow only: neither moves layout,
    so CLS is unaffected. Only the OUTERMOST card lifts (a box inside a card stays
    put), and dialogs, fixed/sticky bars and form fields are left alone.
+   A card that CONTAINS an open dialog never lifts either (hotfix, 26 Oct
+   2026): a transform makes the card the containing block of the dialog's
+   position:fixed overlay, which then jumps between the window and the card as
+   the hover state flips — the 'Your verification' sheet flickered that way.
    Kept in @layer components with :where() so any explicit utility on a card
    (its own hover:shadow, a translate) still wins. Touch screens get the same
    shadow while the finger is down (:active), briefly, with no lift. */
 @layer components {
   :where(.rounded-2xl.border, .rounded-3xl.border):not(
       :where(.fixed, .sticky, [role='dialog'], input, select, textarea),
-      :where([role='dialog'] *, .rounded-2xl.border *, .rounded-3xl.border *)
+      :where([role='dialog'] *, .rounded-2xl.border *, .rounded-3xl.border *),
+      :where(:has([role='dialog'], [aria-modal='true']))
     ) {
     transition:
       transform 160ms ease-out,
@@ -297,7 +302,8 @@ input:disabled,
   @media (hover: hover) {
     :where(.rounded-2xl.border, .rounded-3xl.border):not(
         :where(.fixed, .sticky, [role='dialog'], input, select, textarea),
-        :where([role='dialog'] *, .rounded-2xl.border *, .rounded-3xl.border *)
+        :where([role='dialog'] *, .rounded-2xl.border *, .rounded-3xl.border *),
+      :where(:has([role='dialog'], [aria-modal='true']))
       ):hover {
       transform: translateY(-2px);
       box-shadow: 0 10px 24px -12px rgb(10 10 10 / 0.22);
@@ -306,7 +312,8 @@ input:disabled,
   @media (hover: none) {
     :where(.rounded-2xl.border, .rounded-3xl.border):not(
         :where(.fixed, .sticky, [role='dialog'], input, select, textarea),
-        :where([role='dialog'] *, .rounded-2xl.border *, .rounded-3xl.border *)
+        :where([role='dialog'] *, .rounded-2xl.border *, .rounded-3xl.border *),
+      :where(:has([role='dialog'], [aria-modal='true']))
       ):active {
       box-shadow: 0 10px 24px -12px rgb(10 10 10 / 0.22);
     }

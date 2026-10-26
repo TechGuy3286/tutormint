@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { Check, Circle, X } from 'lucide-react'
 
@@ -11,6 +12,15 @@ import type { FeeBenefitKey, FeeCardState } from '@/lib/tutorDashboard'
 // "What do I get?" link (PR106-G4b §1) — one source for the benefit lines and
 // the spam-prevention line. Three benefit lines with real done/pending ticks,
 // English + Urdu, NO amount. Closes by X, tap-outside, or Esc/back.
+//
+// Rendered through a PORTAL into <body> (hotfix, 26 Oct 2026). It is opened
+// from inside the tutor header card, which is a rounded-2xl border box and so
+// lifts on hover with a CSS transform (app/globals.css). A transformed ancestor
+// becomes the containing block of a position:fixed child, so on a mouse device
+// the sheet jumped between the full window and the card's box every time the
+// pointer's hover state flipped — the sheet flickered over the dashboard and
+// never settled. In <body> it has no transformed ancestor. It still opens ONLY
+// from a tap (the caller's onClick); nothing here opens it.
 
 export const FEE_BENEFIT_LINES: Record<FeeBenefitKey, { en: string; ur: string }> = {
   badge: {
@@ -49,7 +59,7 @@ export default function VerifyBenefitsDialog({
 
   if (!open) return null
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[90] flex items-end justify-center bg-tm-black/50 p-0 sm:items-center sm:p-4"
       role="dialog"
@@ -102,6 +112,7 @@ export default function VerifyBenefitsDialog({
           </Link>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
