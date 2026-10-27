@@ -39,6 +39,8 @@ import { normalisePkMobile } from '@/lib/phone'
 import { ExternalLink } from 'lucide-react'
 import PaymentFollowUp from './PaymentFollowUp'
 import LinkBankCredit from '@/components/admin/LinkBankCredit'
+import MarkRefundedButton from '@/components/admin/MarkRefundedButton'
+import { loadRefundDues } from '@/lib/feeMatch'
 import { selfiePhotoMatchUsers } from '@/lib/selfieMatch'
 import { canApprove } from '@/lib/adminAccessCore'
 import MemberTabs from '@/components/admin/MemberTabs'
@@ -265,6 +267,9 @@ export default async function AdminMemberPage({
   // Plain payment labels (owner, 20 Oct 2026). Amounts only for the viewers who
   // may see amounts (SCREEN_ACCESS.paymentAmounts: the Owner and the Partner).
   const showAmounts = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentAmounts)
+  // Refunds due (owner, 27 Oct 2026): shown until marked refunded — to the
+  // roles that may see amounts (the Owner and the Partner).
+  const refundDues = showAmounts ? (await loadRefundDues({ memberId: id }).catch(() => [])).filter((r) => !r.refundedAt) : []
   const nowMs = requestNow()
   const paymentRows = (payments ?? []).map((p) => {
     const facts: PaymentFacts = {
@@ -635,7 +640,7 @@ export default async function AdminMemberPage({
           ))}
         </Panel>
 
-        <Panel title={`Payments (${paymentRows.length})`}>
+        <Panel title={`Payments (${paymentRows.length})${refundDues.length ? ` · ${refundDues.length} refund due` : ""}`}>
           {[
             ...paymentRows.map((p) => {
               const wa = paymentNeedsFollowUp(p.facts, nowMs) ? followUpHref(p.facts.planCode) : null
@@ -648,6 +653,14 @@ export default async function AdminMemberPage({
                 />
               )
             }),
+            ...refundDues.map((r) => (
+              <Row
+                key={`refund-${r.id}`}
+                main={`Refund due — Rs ${r.amountPkr.toLocaleString('en-PK')} (paid twice)`}
+                sub={`${r.paymentRef ? `Duplicate of ${r.paymentRef} · ` : ''}marked ${formatDate(r.createdAt)}${r.createdByName ? ` by ${r.createdByName}` : ''}`}
+                extra={<MarkRefundedButton id={r.id} />}
+              />
+            )),
             // Record a bank payment (owner, 20 Oct 2026): Owner only, and only
             // from an unmatched bank credit — never a payment with no money behind it.
             ...(canApprove(actor.adminRole) && (isTutor || profile.role === 'parent')

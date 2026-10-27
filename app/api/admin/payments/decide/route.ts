@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { refuseUnlessOwnerApproval } from '@/lib/ownerGuard'
 import { activatePayment, rejectPayment } from '@/lib/payments/activate'
+import { attachCreditOnApproval } from '@/lib/feeMatch'
 import { requireFreshAuth } from '@/lib/reauth'
 import { parseBody, z, uuid } from '@/lib/validate'
 
@@ -66,7 +67,10 @@ export async function POST(request: Request) {
   if (action === 'approve') {
     const result = await activatePayment({ paymentId, source: 'manual_approval', actor })
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
-    return NextResponse.json({ ok: true, approved: true })
+    // Attach the closest unlinked bank credit in the Fee match range within 48
+    // hours (owner, 27 Oct 2026), and say which one was used.
+    const credit = await attachCreditOnApproval(paymentId, actor)
+    return NextResponse.json({ ok: true, approved: true, credit })
   }
 
   if (reason.length < 3) {

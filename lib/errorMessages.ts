@@ -7,6 +7,7 @@
 // client component, a server route and an error boundary all read one source.
 
 import { SUPPORT_WHATSAPP_FALLBACK, SUPPORT_WHATSAPP_DISPLAY } from '@/lib/supportContacts'
+import { waSendHref } from './waLinkCore'
 
 /** The generic message, English over Urdu (same Urdu style as elsewhere). */
 export const GENERIC_ERROR = {
@@ -24,12 +25,12 @@ export const LOCKED_FIELD_MESSAGE = {
 
 export const SUPPORT_WHATSAPP_NUMBER_DISPLAY = SUPPORT_WHATSAPP_DISPLAY // "0321 5872222"
 
-/** The support wa.me link, with an optional reference code pre-filled. */
+/** The support WhatsApp link (lib/waLinkCore), with an optional reference code pre-filled. */
 export function supportWhatsappHref(ref?: string | null): string {
   const msg = ref
     ? `Hi, I hit an error on TutorMint. Reference: ${ref}`
     : 'Hi, I need help with TutorMint.'
-  return `https://wa.me/${SUPPORT_WHATSAPP_FALLBACK}?text=${encodeURIComponent(msg)}`
+  return waSendHref(SUPPORT_WHATSAPP_FALLBACK, msg)
 }
 
 /** A short, human-readable reference code (e.g. "X7K2") for a logged error. */

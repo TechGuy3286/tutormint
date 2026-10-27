@@ -14,6 +14,8 @@
 // count and its first REPORT_LIST_CAP items (fewer if still too long), then
 // "…and N more".
 
+import { waSendHref } from './waLinkCore'
+
 export const REPORT_PHONE = '923215872222'
 export const REPORT_MAX_CHARS = 1500
 export const REPORT_LIST_CAP = 15
@@ -67,5 +69,5 @@ export function buildDailyReport(dateLabel: string, tuitions: ReportTuition[], s
 }
 
 export function whatsappReportLink(text: string): string {
-  return `https://wa.me/${REPORT_PHONE}?text=${encodeURIComponent(text)}`
+  return waSendHref(REPORT_PHONE, text)
 }

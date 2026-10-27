@@ -124,6 +124,13 @@ export const AUDIT_LABELS: Record<string, string> = {
   'settlement.unlink': 'Unlinked a bank credit',
   'settlement.link_reset': 'Put a bank credit back to automatic matching',
   'settlement.ignore': 'Marked a bank credit as not a sale',
+  'settlement.auto_link': 'Linked a bank credit to a fee payment automatically',
+  'settlement.approval_link': 'Linked a bank credit to a payment on approval',
+  'settlement.link_existing': 'Linked a bank credit to an earlier payment',
+  'settlement.refund_due': 'Marked a duplicate payment as refund due',
+  'settlement.refund_done': 'Marked a duplicate payment as refunded',
+  'settlement.relabel': 'Re-labelled a bank credit',
+  'settings.fee_match_range': 'Changed the fee match range',
 
   // Staff
   'staff.create': 'Added to staff',

@@ -4,6 +4,7 @@ import MaskedContact from '@/components/admin/MaskedContact'
 import { maskPhoneDisplay } from '@/lib/contactMaskCore'
 import { whatsappTarget } from '@/lib/tutorWhatsapp'
 import { adminWhatsAppRoute, type WhatsAppFrom } from '@/lib/adminWhatsAppCore'
+import AdminWhatsAppLink from '@/components/admin/AdminWhatsAppLink'
 
 // PR86 — a staff-only "Chat on WhatsApp" button (opens wa.me/92… in a new tab,
 // with a message pre-filled from the member's state — owner, 20 Oct 2026).
@@ -40,15 +41,14 @@ export default function WhatsappChatButton({
   if (!href || !target.msisdn) return null
 
   const button = (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
+    <AdminWhatsAppLink
+      memberId={memberId}
+      from={from}
       className="inline-flex min-h-[36px] items-center gap-1.5 rounded-xl bg-tm-green-deep px-3 text-[11px] font-bold text-white transition-colors hover:bg-tm-green-deep-hover"
     >
       <MessageCircle aria-hidden size={13} />
       Chat on WhatsApp
-    </a>
+    </AdminWhatsAppLink>
   )
 
   if (compact) return <span className={className}>{button}</span>

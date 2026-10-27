@@ -26,13 +26,28 @@ const STATUS_TONE: Record<string, string> = {
   error: 'bg-tm-tint-red text-tm-red border-tm-red/30',
 }
 
-export default function FinanceSettingsView({ s, cutoff, red, switchNode }: { s: FinanceSettingsState; cutoff: string; red: boolean; switchNode: ReactNode }) {
+export default function FinanceSettingsView({
+  s,
+  cutoff,
+  red,
+  switchNode,
+  feeRangeNode = null,
+}: {
+  s: FinanceSettingsState
+  cutoff: string
+  red: boolean
+  switchNode: ReactNode
+  /** The Fee match range form (owner, 27 Oct 2026). */
+  feeRangeNode?: ReactNode
+}) {
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <header className="space-y-1">
         <h1 className="text-lg font-black text-tm-navy">Finance settings</h1>
-        <p className="text-xs text-gray-500">The bank email reader and the PayPro cut-off.</p>
+        <p className="text-xs text-gray-500">The fee match range, the bank email reader and the PayPro cut-off.</p>
       </header>
+
+      {feeRangeNode}
 
       <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4" data-bank-reader="">
         <div className="flex flex-wrap items-center justify-between gap-2">

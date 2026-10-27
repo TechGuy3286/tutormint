@@ -178,6 +178,6 @@ test('error page: one English line, one Urdu line, navy Try again, WhatsApp, pla
   assert.equal((html.match(/lang="ur"/g) ?? []).length, 1)
   assert.doesNotMatch(html, /This is our fault|Get help|text-\[11px\] text-gray-500">Something went wrong\./)
   assert.match(html, /<button[^>]*bg-tm-navy[^>]*>.*Try again<\/button>/)
-  assert.match(html, /href="https:\/\/wa\.me\/923215872222[^"]*"[^>]*>.*Contact support on WhatsApp<\/a>/)
+  assert.match(html, /href="https:\/\/api\.whatsapp\.com\/send\?phone=923215872222[^"]*"[^>]*>.*Contact support on WhatsApp<\/a>/)
   assert.match(html, /<a[^>]*hover:underline[^>]*href="\/"[^>]*>Go to the homepage<\/a>/)
 })

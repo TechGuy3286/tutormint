@@ -94,7 +94,10 @@ test('parents get the parent message', () => {
   const m = adminMemberMessage({ role: 'parent', name: 'ayesha khan', nowMs: NOW })
   assert.equal(m.type, 'parent_help')
   assert.equal(m.text, parentHelpMessage('ayesha khan'))
-  assert.match(m.text, /^Assalam o Alaikum ayesha, this is TutorMint\. Do you need any help finding a tutor\? Reply here\. 🙂$/)
+  // The fallback for a parent with no situation on record (owner, 27 Oct 2026):
+  // a TutorMint link, no emoji. Real parents get their situation message
+  // (lib/parentWhatsApp, tested in scripts/test-fee-match.ts).
+  assert.match(m.text, /^Assalam o Alaikum ayesha, this is TutorMint\. Do you need any help finding a tutor\? You can post your requirement here:\n\nhttps:\/\/www\.tutormint\.org\/parent\/dashboard\/post-job$/)
 })
 
 test('a rejected document asks for a re-upload with the reason', () => {
@@ -147,10 +150,10 @@ test('every message makes a proper link, line breaks included', () => {
     followUpMessage(facts({ rejected: [{ doc: 'cnic', reason: 'cut off' }] }), 'A', NOW).text,
   ]
   assert.ok(cases[3].includes('\n\n'))
-  for (const t of cases) {
-    assert.ok(t.includes('🙂'))
-    assertGoodLink(adminWaLink('0321 0000000', t), t)
-  }
+  // The tutor messages keep their 🙂; the parent fallback has none (27 Oct 2026).
+  for (const t of cases.slice(1)) assert.ok(t.includes('🙂'))
+  assert.ok(!cases[0].includes('🙂'))
+  for (const t of cases) assertGoodLink(adminWaLink('0321 0000000', t), t)
 })
 
 test('the route address carries the member and the screen', () => {
@@ -191,14 +194,17 @@ test('no admin screen builds a wa.me link to a member without text', () => {
 
 test('the previously blank buttons go through the route', () => {
   const read = (p: string) => readFileSync(p, 'utf8')
-  assert.match(read('components/admin/OverviewCardGrid.tsx'), /adminWhatsAppRoute\(it\.memberId, 'overview'\)/)
-  assert.match(read('app/admin/users/[id]/MemberActions.tsx'), /adminWhatsAppRoute\(userId, 'member'\)/)
-  assert.match(read('components/admin/WhatsappChatButton.tsx'), /adminWhatsAppRoute\(memberId, from\)/)
+  // Through the AdminWhatsAppLink button since 27 Oct 2026 (POST, then the
+  // same route; a parent's send is a follow-up with Undo).
+  assert.match(read('components/admin/OverviewCardGrid.tsx'), /<AdminWhatsAppLink memberId=\{it\.memberId\} from="overview"/)
+  assert.match(read('app/admin/users/[id]/MemberActions.tsx'), /<AdminWhatsAppLink memberId=\{userId\} from="member"/)
+  assert.match(read('components/admin/WhatsappChatButton.tsx'), /<AdminWhatsAppLink\s+memberId=\{memberId\}\s+from=\{from\}/)
+  assert.match(read('components/admin/AdminWhatsAppLink.tsx'), /adminWhatsAppRoute\(memberId, from\)/)
   assert.match(read('app/admin/users/MemberRow.tsx'), /<WhatsappChatButton memberId=\{r\.id\} from="people"/)
   assert.match(read('app/admin/tutors/videos/TutorModerationClient.tsx'), /<WhatsappChatButton memberId=\{t\.id\} from="tutor_queue"/)
   assert.match(read('app/admin/tutors/[id]/page.tsx'), /from="tutor_record"/)
   const route = read('app/api/admin/whatsapp/route.ts')
   assert.match(route, /action: 'member\.whatsapp_open'/)
   assert.match(route, /messageType: wa\.type/)
-  assert.match(route, /NextResponse\.redirect\(wa\.href/)
+  assert.match(route, /NextResponse\.redirect\(r\.href/)
 })

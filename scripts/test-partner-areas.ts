@@ -114,6 +114,8 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   'applications/follow-up': 'edit',
   'applications/follow-up/undo': 'edit',
   'applications/tutor-update': 'edit',
+  // POST since 27 Oct 2026: a parent's WhatsApp is a recorded follow-up.
+  whatsapp: 'edit',
   // City owners (owner, 22 Oct 2026): the site Owner only.
   'city-owners': 'owner',
   // Withdraw a contact (owner, 27 Oct 2026): the site Owner only.
@@ -195,6 +197,9 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   // Finance alerts + the bank email reader switch (owner, 26 Oct 2026): Owner only.
   'finance/alerts': 'view',
   'finance/bank-reader': 'view',
+  'finance/fee-range': 'view',
+  'payments/refund-due': 'view',
+  'payments/settlement/relabel': 'view',
   'payments/decide': 'view',
   'payments/gateways': 'view',
   'sms/test': 'view',

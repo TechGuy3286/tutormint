@@ -187,7 +187,9 @@ test('"Ignore (not a sale)": unlinked, not counted as unmatched, never deleted, 
     assert.ok(src.includes('ignoredCreditIds()') && src.includes('withoutIgnored('), `lib/${f} leaves ignored credits out of its totals`)
   }
   const ig = read('lib', 'ignoredCredits.ts')
-  assert.ok(ig.includes(".eq('kind', 'none').eq('target', NOT_A_SALE).is('removed_at', null)"))
+  // Widened 27 Oct 2026: refunds due and owner / partner transfers are not sales either.
+  assert.ok(/\.eq\('kind', 'none'\)\s*\.in\('target', \[NOT_A_SALE, REFUND_DUE\]\)\s*\.is\('removed_at', null\)/.test(ig))
+  assert.ok(ig.includes(".eq('category', 'owner_transfer')"))
   assert.ok(read('app', 'admin', 'finance', 'settlement', 'SettlementsBoard.tsx').includes("c.state === 'ignored' ? CARD.replace('bg-white', 'bg-tm-bg') : CARD"), 'greyed, still listed')
   // A plain unlink is still a hold that DOES count as unmatched.
   const held = monthView(build([{ transferId: 'c2', kind: 'none', target: null, note: 'checking' }]), [], '2026-10')

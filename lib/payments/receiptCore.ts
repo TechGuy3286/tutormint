@@ -12,6 +12,8 @@
 //   • the amount is shown on the choice screen ONLY (priceLine). Nothing else
 //     in this file, and no notification it feeds, carries a rupee figure.
 
+import { waSendHref } from '../waLinkCore'
+
 // 4 MB, under the ~4.5 MB Vercel request-body cap (hotfix, 26 Oct 2026): at
 // 5 MB a file our own check allowed could be refused by the platform before the
 // route ran. Photos are compressed in the browser first (lib/payments/receiptPrepare).
@@ -124,12 +126,12 @@ export function priceLine(plan: { code: string; price_pkr: number }): string {
 
 export const SUPPORT_WHATSAPP_MSISDN = '923215872222'
 
-/** wa.me link with the member's own name and mobile prefilled. */
+/** WhatsApp link (lib/waLinkCore) with the member's own name and mobile prefilled. */
 export function supportWaLink(input: { packageName: string; name: string | null; mobile: string | null }): string {
   const text =
     `Assalam o Alaikum, I paid the ${input.packageName} by bank transfer. ` +
     `My name: ${(input.name ?? '').trim()}, mobile: ${(input.mobile ?? '').trim()}.`
-  return `https://wa.me/${SUPPORT_WHATSAPP_MSISDN}?text=${encodeURIComponent(text)}`
+  return waSendHref(SUPPORT_WHATSAPP_MSISDN, text)
 }
 
 /** What staff and Finance call the way a payment was made. */

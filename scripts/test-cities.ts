@@ -83,7 +83,7 @@ test('whatsappTarget: prefers WhatsApp, falls back to legacy col then mobile', (
   assert.equal(whatsappTarget({ whatsapp: 'not-a-number', phone: '923001234567' }).isWhatsapp, false)
 })
 
-test('waMeHref builds the wa.me link or null', () => {
-  assert.equal(waMeHref({ msisdn: '923001234567', isWhatsapp: true }), 'https://wa.me/923001234567')
+test('waMeHref builds the WhatsApp chat link (the shared builder) or null', () => {
+  assert.equal(waMeHref({ msisdn: '923001234567', isWhatsapp: true }), 'https://api.whatsapp.com/send?phone=923001234567')
   assert.equal(waMeHref({ msisdn: null, isWhatsapp: false }), null)
 })

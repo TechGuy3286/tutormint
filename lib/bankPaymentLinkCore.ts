@@ -13,6 +13,7 @@
 // scripts/test-bank-payment-link.ts.
 
 import { pkDay } from '@/lib/settlementCore'
+import { FEE_MATCH_DEFAULT, inFeeRange, partialLabel, partialShort, roundingOf, type FeeRange } from '@/lib/feeMatchCore'
 
 /** The message a second payment for a fee the member already paid gets. */
 export const ALREADY_PAID = 'This member has already paid this fee.'
@@ -115,6 +116,8 @@ export type LinkFacts = {
   creditMatch?: CreditMatchFacts
   creditAmountPkr: number
   amountPkr: number
+  /** The Fee match range (owner, 27 Oct 2026); the default when not given. */
+  feeRange?: FeeRange
 }
 
 /**
@@ -144,6 +147,10 @@ export function linkDecision(f: LinkFacts): LinkDecision {
   if (f.amountPkr > f.creditAmountPkr + 0.005) return { ok: false, error: 'The amount cannot be more than the bank credit.' }
 
   if (plan.code === 'verified') {
+    // A credit below the fee match range is a partial payment: never activated.
+    const range = f.feeRange ?? FEE_MATCH_DEFAULT
+    const short = partialShort(Math.min(f.creditAmountPkr, f.amountPkr), range, plan.pricePkr)
+    if (short !== null) return { ok: false, error: `${partialLabel(short)}. A partial payment never activates the Verification Fee.` }
     if (f.payments.some((p) => p.planCode === 'verified' && counted(p))) return { ok: false, error: ALREADY_PAID }
     return f.feePaidAt ? { ok: true, mode: 'attach', subscriptionId: null } : { ok: true, mode: 'activate' }
   }
@@ -167,6 +174,8 @@ export function bankPaymentRow(input: {
   userId: string
   planCode: string
   amountPkr: number
+  /** The extra above the price a fee-range credit carried (27 Oct 2026). */
+  roundingPkr?: number | null
   providerRef: string
   bankReference: string | null
   creditId: string
@@ -176,6 +185,7 @@ export function bankPaymentRow(input: {
     user_id: input.userId,
     plan_code: input.planCode,
     amount_pkr: Math.round(input.amountPkr * 100) / 100,
+    rounding_pkr: input.roundingPkr && input.roundingPkr > 0 ? input.roundingPkr : null,
     status: 'pending',
     provider: 'manual',
     method: 'bank',
@@ -189,4 +199,14 @@ export function bankPaymentRow(input: {
 /** The day a linked payment counts on (Pakistan time). */
 export function countsOnDay(paidAtIso: string): string {
   return pkDay(paidAtIso)
+}
+
+/**
+ * What a fee payment from a credit records (owner, 27 Oct 2026): an amount in
+ * the Fee match range is the fee's price plus 'rounding' (Rs 200 → Rs 199 +
+ * Rs 1). Any other plan, or an amount outside the range, records as typed.
+ */
+export function feeAmountSplit(planCode: string, amount: number, price: number, range: FeeRange = FEE_MATCH_DEFAULT): { amountPkr: number; roundingPkr: number } {
+  if (planCode === 'verified' && price > 0 && inFeeRange(amount, range) && amount >= price) return { amountPkr: price, roundingPkr: roundingOf(amount, price) }
+  return { amountPkr: Math.round(amount * 100) / 100, roundingPkr: 0 }
 }

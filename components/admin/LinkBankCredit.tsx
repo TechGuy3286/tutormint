@@ -26,6 +26,8 @@ import { formatDate } from '@/lib/datetime'
 import { pkr } from '@/lib/reconciliationCore'
 import { sortPickerCredits } from '@/lib/bankPaymentLinkCore'
 import { refKey } from '@/lib/settlementMatchCore'
+import { alreadyPaidOption, type ExistingFee } from '@/lib/feeMatchCore'
+import AlreadyPaidOptions from '@/components/admin/AlreadyPaidOptions'
 import AddBankCredits from '@/app/admin/finance/settlement/AddBankCredits'
 
 const INPUT =
@@ -95,6 +97,9 @@ export default function LinkBankCredit(
   const [adding, setAdding] = useState(false)
   const [reload, setReload] = useState(0)
   const [wantRef, setWantRef] = useState<string | null>(null)
+  // "This member has already paid this fee" (owner, 27 Oct 2026): the existing
+  // fee payment, to link this credit to it or mark this one refund due.
+  const [existing, setExisting] = useState<ExistingFee | null>(null)
 
   const credit = fixedCredit ?? credits?.find((c) => c.id === creditId) ?? null
   const selectedPrice = plans?.find((p) => p.code === planCode)?.pricePkr ?? null
@@ -189,13 +194,15 @@ export default function LinkBankCredit(
     })
     if (!ok) return
     setBusy(true)
-    const { ok: done, data } = await adminFetch<{ error?: string; reference?: string; mode?: string }>('/api/admin/payments/bank-link', {
+    setExisting(null)
+    const { ok: done, data } = await adminFetch<{ error?: string; reference?: string; mode?: string; existing?: ExistingFee | null }>('/api/admin/payments/bank-link', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ transferId: credit.id, memberId: member.id, planCode: plan.code, amountPkr: value }),
     })
     setBusy(false)
     if (!done) {
+      if (data?.existing) setExisting(data.existing)
       toast.error(data?.error ?? 'That did not save. Please try again.')
       return
     }
@@ -311,6 +318,22 @@ export default function LinkBankCredit(
             <input value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" className={INPUT} />
           </label>
         </div>
+      )}
+
+      {existing && member && credit && (
+        <AlreadyPaidOptions
+          existing={existing}
+          option={alreadyPaidOption(existing)}
+          transferId={credit.id}
+          memberId={member.id}
+          memberName={member.name}
+          creditAmountPkr={credit.amountPkr}
+          onDone={() => {
+            setExisting(null)
+            reset()
+            router.refresh()
+          }}
+        />
       )}
 
       <div className="flex flex-wrap gap-2">

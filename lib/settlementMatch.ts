@@ -34,6 +34,7 @@ import {
   type OurPaypro,
   type Receipt,
 } from '@/lib/settlementMatchCore'
+import { FEE_MAX_KEY, FEE_MIN_KEY, parseFeeRange, type FeeRange } from '@/lib/feeMatchCore'
 
 export type Actor = { id: string; adminRole: AdminRole; email?: string | null }
 
@@ -57,15 +58,19 @@ export type SettlementsBoard = {
   openReceipts: OpenReceipt[]
   /** Receipt (payment) id → its TM reference, for showing a match. */
   receiptRefs: Record<string, string>
+  /** Per-credit hints (owner, 27 Oct 2026): suggestion, partial, rounding. */
+  hints: Record<string, import('@/lib/feeMatch').CreditHint>
+  /** Open refunds due. */
+  refunds: import('@/lib/feeMatch').RefundDue[]
 }
 
-type Loaded = { rows: PayproRow[]; credits: Credit[]; ourPaypro: OurPaypro[]; receipts: Receipt[]; links: ManualLink[] }
+type Loaded = { rows: PayproRow[]; credits: Credit[]; ourPaypro: OurPaypro[]; receipts: Receipt[]; links: ManualLink[]; feeRange: FeeRange }
 
 export async function loadAll(): Promise<Loaded | null> {
   const admin = createAdminClient()
   if (!admin) return null
 
-  const [rowData, creditData, payproData, manualData, linkData] = await Promise.all([
+  const [rowData, creditData, payproData, manualData, linkData, rangeData] = await Promise.all([
     pageAll((from, to) =>
       admin
         .from('reconciliation_rows')
@@ -78,7 +83,7 @@ export async function loadAll(): Promise<Loaded | null> {
     pageAll((from, to) =>
       admin
         .from('bank_transfers')
-        .select('id, transferred_on, transferred_time, amount_pkr, reference, sender_name, sender_bank, note, gateway, source')
+        .select('id, transferred_on, transferred_time, amount_pkr, reference, sender_name, sender_bank, note, gateway, source, category')
         .order('id')
         .range(from, to),
     ),
@@ -88,14 +93,17 @@ export async function loadAll(): Promise<Loaded | null> {
     pageAll((from, to) =>
       admin
         .from('payments')
-        .select('id, provider_ref, amount_pkr, reviewed_at, updated_at, created_at, reference, user_id')
+        .select('id, provider_ref, amount_pkr, reviewed_at, updated_at, created_at, reference, user_id, plan_code')
         .eq('provider', 'manual')
         .eq('status', 'approved')
         .order('id')
         .range(from, to),
     ),
     pageAll((from, to) => admin.from('settlement_links').select('id, transfer_id, kind, target, note').is('removed_at', null).order('id').range(from, to)),
+    admin.from('app_settings').select('key, value').in('key', [FEE_MIN_KEY, FEE_MAX_KEY]),
   ])
+  const rangeBy = new Map(((rangeData.data ?? []) as { key: string; value: string | null }[]).map((r) => [r.key, r.value]))
+  const feeRange = parseFeeRange(rangeBy.get(FEE_MIN_KEY), rangeBy.get(FEE_MAX_KEY))
 
   const rows: PayproRow[] = ((rowData ?? []) as Record<string, unknown>[]).map((r) => ({
     orderNumber: String(r.order_number ?? ''),
@@ -119,6 +127,7 @@ export async function loadAll(): Promise<Loaded | null> {
     note: (t.note as string | null) ?? null,
     isPaypro: String(t.gateway ?? 'paypro') === 'paypro',
     source: t.source === 'email' ? 'email' : 'manual',
+    category: (t.category as string | null) ?? null,
   }))
 
   const ourPaypro: OurPaypro[] = ((payproData ?? []) as Record<string, unknown>[])
@@ -144,6 +153,10 @@ export async function loadAll(): Promise<Loaded | null> {
     approvedDay: pkDay(String(p.reviewed_at ?? p.updated_at ?? p.created_at)),
     transactionId: (p.reference as string | null) ?? null,
     payerName: typeof p.user_id === 'string' ? (names.get(p.user_id) ?? null) : null,
+    planCode: (p.plan_code as string | null) ?? null,
+    memberId: typeof p.user_id === 'string' ? p.user_id : null,
+    createdAt: (p.created_at as string | null) ?? null,
+    reviewedAt: (p.reviewed_at as string | null) ?? null,
   }))
 
   const links: ManualLink[] = ((linkData ?? []) as Record<string, unknown>[]).map((l) => ({
@@ -153,7 +166,7 @@ export async function loadAll(): Promise<Loaded | null> {
     note: (l.note as string | null) ?? null,
   }))
 
-  return { rows, credits, ourPaypro, receipts, links }
+  return { rows, credits, ourPaypro, receipts, links, feeRange }
 }
 
 export async function loadSettlementsBoard(month: string): Promise<SettlementsBoard | null> {
@@ -168,6 +181,8 @@ export async function loadSettlementsBoard(month: string): Promise<SettlementsBo
     .order('created_at', { ascending: false })
     .limit(1)
   const latest = ((imp ?? []) as { filename: string | null; created_at: string }[])[0]
+  const fee = await import('@/lib/feeMatch')
+  const [hints, refunds] = await Promise.all([fee.creditHints(board).catch(() => ({})), fee.loadRefundDues({ openOnly: true }).catch(() => [])])
   return {
     view: monthView(board, all.ourPaypro, month),
     hasExport: board.hasExport,
@@ -179,6 +194,8 @@ export async function loadSettlementsBoard(month: string): Promise<SettlementsBo
       .filter((r) => r.state === 'waiting')
       .map((r) => ({ id: r.id, ref: r.ref, amountPkr: r.amountPkr, approvedDay: r.approvedDay, payerName: r.payerName })),
     receiptRefs: Object.fromEntries(board.receipts.map((r) => [r.id, r.ref])),
+    hints,
+    refunds,
   }
 }
 
@@ -261,6 +278,12 @@ export async function addBankCredits(inputs: CreditInput[], actor: Actor): Promi
     )
   }
   if (results.some((r) => r.ok)) {
+    // Fee auto-linking (owner, 27 Oct 2026): a new credit in the Fee match range
+    // is linked to the member's approved fee payment with no credit, when the
+    // name matches and it is within 48 hours. Imported here, not at the top, so
+    // the two modules do not load each other in a circle.
+    const { autoLinkNewCredits } = await import('@/lib/feeMatch')
+    await autoLinkNewCredits(results.flatMap((r) => (r.ok ? [r.id] : [])), actor)
     const all = await loadAll()
     if (all) {
       const board = buildBoard({ ...all, nowIso: new Date().toISOString() })

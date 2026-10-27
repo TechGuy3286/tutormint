@@ -11,6 +11,7 @@ import { tuitionPath } from '@/lib/slugs'
 import { formatName } from '@/lib/formatName'
 import { fuBadgeCount, type ContactRecord, type TabState } from '@/lib/tutorFollowUpTabsCore'
 import {
+  parentMessageSituation,
   parentProgressKey,
   parentSituation,
   parentTabState,
@@ -49,7 +50,12 @@ export type ParentFollowRow = {
 
 const VERIFICATION_WORD = { approved: 'verified', waiting: 'waiting', none: 'not_submitted', rejected: 'rejected' } as const
 
-type Loaded = { rows: ParentFollowRow[]; facts: Map<string, ParentFacts> }
+type Loaded = {
+  rows: ParentFollowRow[]
+  facts: Map<string, ParentFacts>
+  /** Every eligible parent, situation or not — for a WhatsApp button anywhere. */
+  all: Map<string, { facts: ParentFacts; name: string; contacts: (ContactRecord & { templateKey: string | null })[]; appAts: string[]; refBy: Map<string, string | null> }>
+}
 
 async function emailConfirmed(admin: Admin): Promise<Map<string, boolean>> {
   const out = new Map<string, boolean>()
@@ -65,13 +71,13 @@ async function emailConfirmed(admin: Admin): Promise<Map<string, boolean>> {
 
 export const loadParentFollowUps = cache(async (): Promise<Loaded> => {
   const admin = createAdminClient()
-  if (!admin) return { rows: [], facts: new Map() }
+  if (!admin) return { rows: [], facts: new Map(), all: new Map() }
   const nowMs = Date.now()
   const [directory, dismissed] = await Promise.all([loadDirectory(), loadNotInterested()])
   const parents = directory.people.filter((p) => p.role === 'parent' && p.excluded === null && !p.suspended && !p.banned)
   const ids = parents.map((p) => p.id)
   const realTutors = new Set(directory.people.filter((p) => p.role === 'tutor' && p.excluded === null).map((p) => p.id))
-  if (ids.length === 0) return { rows: [], facts: new Map() }
+  if (ids.length === 0) return { rows: [], facts: new Map(), all: new Map() }
 
   const contactBy = new Map<string, { phone: string | null; email: string | null }>()
   const jobs: Record<string, unknown>[] = []
@@ -148,6 +154,7 @@ export const loadParentFollowUps = cache(async (): Promise<Loaded> => {
 
   const rows: ParentFollowRow[] = []
   const factsBy = new Map<string, ParentFacts>()
+  const all: Loaded['all'] = new Map()
   for (const p of parents) {
     const c = contactBy.get(p.id) ?? { phone: null, email: null }
     const own = contacts.get(p.id) ?? []
@@ -160,10 +167,11 @@ export const loadParentFollowUps = cache(async (): Promise<Loaded> => {
       tuitions,
       hiredThanksAt: thanks,
     }
+    const appAts = tuitions.flatMap((t) => appMsgs.get(t.id) ?? [])
+    all.set(p.id, { facts, name: p.name, contacts: own, appAts, refBy })
     const s = parentSituation(facts, nowMs)
     if (!s) continue
     factsBy.set(p.id, facts)
-    const appAts = tuitions.flatMap((t) => appMsgs.get(t.id) ?? [])
     const ref = s.tuition ? refBy.get(s.tuition.id) : null
     const applicationsHref = `/admin/applications?staff=all${ref ? `&q=${encodeURIComponent(ref)}` : ''}`
     const state = parentTabState(facts, s, own, appAts, nowMs, applicationsHref)
@@ -174,7 +182,7 @@ export const loadParentFollowUps = cache(async (): Promise<Loaded> => {
       joinedAt: p.createdAt,
       reason: s.reason,
       tuition: s.tuition ? { id: s.tuition.id, title: s.tuition.title, path: s.tuition.publicPath } : null,
-      templateKey: s.reason === 'waiting_forward' ? null : PARENT_TEMPLATE_KEY[s.reason],
+      templateKey: PARENT_TEMPLATE_KEY[s.reason],
       progress: parentProgressKey(facts, s),
       state,
       posted: (p.parent?.tuitionsTotal ?? tuitions.length) > 0,
@@ -184,7 +192,7 @@ export const loadParentFollowUps = cache(async (): Promise<Loaded> => {
       notInterested: dismissed.has(p.id),
     })
   }
-  return { rows, facts: factsBy }
+  return { rows, facts: factsBy, all }
 })
 
 /** The parents' overdue To do count for the Follow-ups badge (not "Not interested"). */
@@ -197,12 +205,40 @@ export async function parentFollowUpsOverdueCount(): Promise<number> {
   }
 }
 
-/** One parent's row and their contact details, for the send route. */
+/**
+ * One parent's row and their contact details, for a send. A parent on the
+ * Follow-ups list gets their row; any other eligible parent gets a row built
+ * from parentMessageSituation (owner, 27 Oct 2026), so a WhatsApp button
+ * anywhere always has a situation message with its link.
+ */
 export async function parentForSend(memberId: string): Promise<{ row: ParentFollowRow; phone: string | null; email: string | null; facts: ParentFacts } | null> {
-  const { rows, facts } = await loadParentFollowUps()
-  const row = rows.find((r) => r.id === memberId)
-  const f = facts.get(memberId)
-  if (!row || !f) return null
+  const { rows, facts, all } = await loadParentFollowUps()
+  let row = rows.find((r) => r.id === memberId)
+  let f = facts.get(memberId)
+  if (!row || !f) {
+    const a = all.get(memberId)
+    if (!a) return null
+    const nowMs = Date.now()
+    const s = parentMessageSituation(a.facts, nowMs)
+    const ref = s.tuition ? a.refBy.get(s.tuition.id) : null
+    f = a.facts
+    row = {
+      id: memberId,
+      name: a.name,
+      city: null,
+      joinedAt: a.facts.joinedAt,
+      reason: s.reason,
+      tuition: s.tuition ? { id: s.tuition.id, title: s.tuition.title, path: s.tuition.publicPath } : null,
+      templateKey: PARENT_TEMPLATE_KEY[s.reason],
+      progress: parentProgressKey(a.facts, s),
+      state: parentTabState(a.facts, s, a.contacts, a.appAts, nowMs, `/admin/applications?staff=all${ref ? `&q=${encodeURIComponent(ref)}` : ''}`),
+      posted: a.facts.tuitions.length > 0,
+      verification: 'not_submitted',
+      hasNumber: false,
+      hasEmail: false,
+      notInterested: false,
+    }
+  }
   const admin = createAdminClient()
   if (!admin) return null
   const { data: p } = await admin.from('profiles').select('phone_number, whatsapp, email').eq('id', memberId).maybeSingle()

@@ -2,7 +2,7 @@ import { shownEmail } from '@/lib/actorLabelCore'
 import Link from 'next/link'
 import { tuitionPath } from '@/lib/slugs'
 import { notFound } from 'next/navigation'
-import { ExternalLink, Flag, MapPin, Wallet, Clock, GraduationCap, Phone, Mail, Globe, Pencil } from 'lucide-react'
+import { ExternalLink, Flag, MapPin, Wallet, Clock, GraduationCap, Phone, Mail, Globe, Pencil, MessageCircle } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
 import TimeAgo from '@/components/TimeAgo'
@@ -21,6 +21,7 @@ import { normaliseStoredContact } from '@/lib/jobContactCore'
 
 import JobActions from './JobActions'
 import NotifyContact from './NotifyContact'
+import AdminWhatsAppLink from '@/components/admin/AdminWhatsAppLink'
 import { formatName } from '@/lib/formatName'
 import { subjectLabels } from '@/lib/jobs'
 import { gradeSubjectsLine } from '@/lib/gradeSubjects'
@@ -315,6 +316,19 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
                 View public profile
                 <ExternalLink size={11} aria-hidden />
               </Link>
+              {/* A parent-posted tuition: the parent's situation message, like
+                  every parent WhatsApp button (owner, 27 Oct 2026). A
+                  team-posted tuition keeps "Message parent (WhatsApp)" below. */}
+              {!isTeamPosted && (
+                <AdminWhatsAppLink
+                  memberId={parent.id as string}
+                  from="tuition"
+                  className="inline-flex min-h-[36px] items-center gap-1.5 rounded-xl bg-tm-green-deep px-3 text-[11px] font-bold text-white hover:bg-tm-green-deep-hover"
+                >
+                  <MessageCircle aria-hidden size={13} />
+                  WhatsApp parent
+                </AdminWhatsAppLink>
+              )}
             </div>
           </div>
         ) : (

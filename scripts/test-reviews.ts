@@ -118,6 +118,7 @@ test('the "Tutor hired" message carries the review link', () => {
   })
   assert.match(text, /\nhttps:\/\/www\.tutormint\.org\/review\?application=44444444-4444-4444-8444-444444444444\n/)
   assert.doesNotMatch(text, /\{[a-z_]+\}/)
-  assert.match(read('app/api/admin/follow-ups/parent/route.ts'), /reviewLink: hire\?\.hiredApplicationId \? siteLink\(`\/review\?application=/)
+  // One builder for every parent WhatsApp button (owner, 27 Oct 2026).
+  assert.match(read('lib/parentWhatsApp.ts'), /reviewLink: tuition\?\.hiredApplicationId \? siteLink\(`\/review\?application=/)
   assert.match(read('supabase/migrations/204_reviews.sql'), /where key = 'pf_hired'\s*and body = E'/, 'only the untouched stored wording is updated')
 })

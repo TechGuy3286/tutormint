@@ -44,6 +44,7 @@ import { withAreaCities } from '@/lib/tutorAreaCities'
 import { withCanonAreas } from '@/lib/areaAliases'
 import { authHref } from '@/lib/returnTo'
 import { dedupeSubjects } from '@/lib/subjectDisplay'
+import { waSendHref } from '@/lib/waLinkCore'
 
 // The public tutor profile. Server component, results in the HTML.
 //
@@ -1141,9 +1142,10 @@ export default async function TutorPublicProfile({ params }: { params: Params })
               )}
               {contact.whatsapp && (
                 <a
-                  href={`https://wa.me/${contact.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                  href={waSendHref(
+                    contact.whatsapp.replace(/[^0-9]/g, ''),
                     `Assalam-o-Alaikum ${tutor.full_name}, I found your profile on TutorMint and would like to discuss tuition.`,
-                  )}`}
+                  )}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex min-h-[44px] items-center gap-2 text-sm font-bold text-tm-green-deep"

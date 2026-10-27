@@ -94,7 +94,7 @@ export default async function SettlementTab({ sp, extra }: { sp: { from?: string
         <SettlementsBoard
           key={month}
           data={board}
-          items={financeItems(board.view, alerts)}
+          items={financeItems(board.view, alerts, board.hints, board.refunds)}
           detailsOpen={ranged || sp.show === 'details'}
           details={
             <>

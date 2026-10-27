@@ -17,6 +17,7 @@ import type { SettlementsBoard as BoardData } from '@/lib/settlementMatch'
 import AddBankCredits from './AddBankCredits'
 import LinkBankCredit from '@/components/admin/LinkBankCredit'
 import { autoReceiptMatch } from '@/lib/bankPaymentLinkCore'
+import { CREDIT_LABELS, creditLabelOf, type CreditLabel } from '@/lib/feeMatchCore'
 
 // Finance — ONE page (owner, 21 Oct 2026; it merged the Finance and Settlement
 // check tabs). Three cards (Received · In the bank · Needs attention), two
@@ -39,7 +40,7 @@ const CARD = 'space-y-1 rounded-2xl border border-gray-200 bg-white p-3'
 const CHIP = 'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold'
 
 type DetailTab = 'orders' | 'receipts' | 'credits'
-type ConfirmMode = 'unlink' | 'ignore'
+type ConfirmMode = 'unlink' | 'ignore' | 'relabel'
 type Member = { id: string; name: string; role: string; city: string | null; joined: string }
 
 function monthName(ym: string): string {
@@ -98,7 +99,60 @@ export default function SettlementsBoard({
   const [confirmFor, setConfirmFor] = useState<{ id: string; mode: ConfirmMode } | null>(null)
   const [menuFor, setMenuFor] = useState<string | null>(null)
   const [note, setNote] = useState('')
+  const [relabelTo, setRelabelTo] = useState<CreditLabel>('owner_transfer')
   const file = useRef<HTMLInputElement>(null)
+
+  // One tap on a suggestion (owner, 27 Oct 2026): link this credit to that
+  // member's fee payment. The server checks the range and asks the password.
+  const linkSuggested = async (transferId: string, paymentId: string) => {
+    setBusy(`link-${transferId}`)
+    const { ok, data: d } = await adminFetch<{ error?: string; rounding?: number }>('/api/admin/payments/bank-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'link_existing', transferId, paymentId }),
+    })
+    setBusy(null)
+    if (!ok) {
+      toast.error(d?.error ?? 'That did not save. Please try again.')
+      return
+    }
+    toast.success(`Linked.${d?.rounding && d.rounding > 0 ? ` Rs ${d.rounding} recorded as rounding.` : ''}`)
+    router.refresh()
+  }
+
+  const relabel = async (transferId: string) => {
+    setBusy(`link-${transferId}`)
+    const { ok, data: d } = await adminFetch<{ error?: string }>('/api/admin/payments/settlement/relabel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transferId, to: relabelTo, reason: note }),
+    })
+    setBusy(null)
+    if (!ok) {
+      toast.error(d?.error ?? 'That did not save. Please try again.')
+      return
+    }
+    toast.success(`Re-labelled: ${CREDIT_LABELS[relabelTo]}.`)
+    setConfirmFor(null)
+    setNote('')
+    router.refresh()
+  }
+
+  const markRefunded = async (id: string) => {
+    setBusy(`refund-${id}`)
+    const { ok, data: d } = await adminFetch<{ error?: string }>('/api/admin/payments/refund-due', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'refunded', id }),
+    })
+    setBusy(null)
+    if (!ok) {
+      toast.error(d?.error ?? 'That did not save. Please try again.')
+      return
+    }
+    toast.success('Marked as refunded.')
+    router.refresh()
+  }
 
   const creditById = useMemo(() => new Map(view.credits.map((c) => [c.id, c])), [view.credits])
   const orderByNumber = useMemo(() => new Map(view.orders.map((o) => [o.orderNumber, o])), [view.orders])
@@ -168,7 +222,9 @@ export default function SettlementsBoard({
               <span className={`${CHIP} bg-tm-tint-green text-tm-green-deep`}>✅ Linked{m!.status === 'manual' ? ' by hand' : ''}</span>
             )
           ) : c.state === 'ignored' ? (
-            <span className={`${CHIP} bg-white text-gray-600`}>Ignored (not a sale)</span>
+            <span className={`${CHIP} bg-white text-gray-600`}>
+              {c.ignoreKind === 'refund_due' ? 'Refund due' : c.ignoreKind === 'owner_transfer' ? 'Owner / partner transfer' : 'Ignored (not a sale)'}
+            </span>
           ) : (
             <span className={`${CHIP} bg-tm-tint-red text-tm-red`}>❓ Not linked</span>
           )}
@@ -206,6 +262,33 @@ export default function SettlementsBoard({
           </p>
         )}
 
+        {(() => {
+          const h = data.hints?.[c.id]
+          if (!h || c.state === 'matched' || c.state === 'ignored') return null
+          if (h.kind === 'partial')
+            return (
+              <p className="text-[11px] font-bold text-tm-red" data-partial="">
+                A partial payment never activates the fee.
+                {h.memberName ? ` Likely member: ${h.memberName}.` : ''}
+              </p>
+            )
+          if (h.kind === 'suggest')
+            return (
+              <div className="space-y-2 rounded-xl bg-tm-tint-gold p-2" data-suggestion="">
+                <p className="text-[11px] font-bold text-tm-gold-ink">
+                  In the fee range and within 48 hours of {h.memberName ?? 'a member'}&rsquo;s payment {h.paymentRef}, but the sender name is
+                  different.
+                </p>
+                {!readOnly && (
+                  <button type="button" disabled={busy !== null} onClick={() => void linkSuggested(c.id, h.paymentId)} className={BUTTON}>
+                    Link to {h.memberName ?? 'that member'}&rsquo;s payment
+                  </button>
+                )}
+              </div>
+            )
+          return null
+        })()}
+
         {!readOnly && linkFor !== c.id && confirmFor?.id !== c.id && (
           <div className="flex flex-wrap items-center gap-2 pt-1">
             <button type="button" onClick={() => { setLinkFor(c.id); setMenuFor(null); setNote('') }} className={BUTTON}>
@@ -228,6 +311,19 @@ export default function SettlementsBoard({
                       Ignore (not a sale)
                     </button>
                   )}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setConfirmFor({ id: c.id, mode: 'relabel' })
+                      setRelabelTo(creditLabelOf(c) === 'owner_transfer' ? 'member' : 'owner_transfer')
+                      setMenuFor(null)
+                      setNote('')
+                    }}
+                    className="block min-h-[40px] w-full rounded-lg px-3 text-left text-xs font-bold text-slate-700 hover:bg-tm-bg"
+                  >
+                    Re-label…
+                  </button>
                   {c.state === 'matched' && (
                     <button type="button" role="menuitem" onClick={() => { setConfirmFor({ id: c.id, mode: 'unlink' }); setMenuFor(null); setNote('') }} className="block min-h-[40px] w-full rounded-lg px-3 text-left text-xs font-bold text-slate-700 hover:bg-tm-bg">
                       Unlink
@@ -254,7 +350,41 @@ export default function SettlementsBoard({
             onCancel={() => setLinkFor(null)}
           />
         )}
-        {!readOnly && confirmFor?.id === c.id && (
+        {!readOnly && confirmFor?.id === c.id && confirmFor.mode === 'relabel' && (
+          <div className="space-y-2 rounded-xl border border-gray-100 bg-tm-bg p-3" data-relabel="">
+            <p className="text-xs font-bold text-tm-navy">Re-label this credit. Now: {CREDIT_LABELS[creditLabelOf(c)]}.</p>
+            <label className="block">
+              <span className={LABEL}>New label</span>
+              <select value={relabelTo} onChange={(e) => setRelabelTo(e.target.value as CreditLabel)} className={INPUT}>
+                {(Object.keys(CREDIT_LABELS) as CreditLabel[])
+                  .filter((k) => k !== creditLabelOf(c))
+                  .map((k) => (
+                    <option key={k} value={k}>
+                      {CREDIT_LABELS[k]}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            {relabelTo === 'owner_transfer' && (
+              <p className="text-[11px] text-slate-700">
+                An owner / partner transfer is not revenue: it drops out of PayPro settlement and every money total. It stays on record.
+              </p>
+            )}
+            <label className="block">
+              <span className={LABEL}>Reason (required)</span>
+              <input value={note} onChange={(e) => setNote(e.target.value)} className={INPUT} maxLength={500} />
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" disabled={busy !== null || note.trim().length < 3} onClick={() => void relabel(c.id)} className={BUTTON}>
+                {busy === `link-${c.id}` ? 'Saving…' : 'Re-label'}
+              </button>
+              <button type="button" onClick={() => setConfirmFor(null)} className={GHOST}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+        {!readOnly && confirmFor?.id === c.id && confirmFor.mode !== 'relabel' && (
           <div className="space-y-2 rounded-xl border border-gray-100 bg-tm-bg p-3">
             <p className="text-xs font-bold text-tm-navy">
               {confirmFor.mode === 'unlink'
@@ -266,7 +396,7 @@ export default function SettlementsBoard({
               <input value={note} onChange={(e) => setNote(e.target.value)} className={INPUT} maxLength={500} />
             </label>
             <div className="flex flex-wrap gap-2">
-              <button type="button" disabled={busy !== null} onClick={() => void sendLink(c.id, confirmFor.mode)} className={BUTTON}>
+              <button type="button" disabled={busy !== null} onClick={() => void sendLink(c.id, confirmFor.mode as 'unlink' | 'ignore')} className={BUTTON}>
                 {busy === `link-${c.id}` ? 'Saving…' : confirmFor.mode === 'unlink' ? 'Unlink' : 'Ignore (not a sale)'}
               </button>
               <button type="button" onClick={() => setConfirmFor(null)} className={GHOST}>
@@ -317,6 +447,25 @@ export default function SettlementsBoard({
             {!readOnly && (
               <button type="button" className={GHOST} onClick={() => void resolveAlert(it.alertId!)}>
                 Mark as dealt with
+              </button>
+            )}
+          </div>
+        </li>
+      )
+    }
+    if (it.kind === 'refund_due' && it.refundDueId) {
+      return (
+        <li key={it.key} className={CARD} data-refund-due="">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="text-xs font-bold text-tm-red">{it.label}</p>
+            {it.amount !== null && <p className="text-xs font-black text-tm-navy">{pkr(it.amount)}</p>}
+          </div>
+          {it.detail && <p className="text-[11px] text-slate-700">{it.detail}</p>}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[11px] text-gray-600">{it.day ? `Marked ${formatDate(it.day)}` : ''}</p>
+            {!readOnly && (
+              <button type="button" disabled={busy !== null} className={GHOST} onClick={() => void markRefunded(it.refundDueId!)}>
+                Mark as refunded
               </button>
             )}
           </div>

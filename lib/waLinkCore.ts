@@ -141,6 +141,21 @@ export function waSendHref(msisdn: string | null | undefined, text: string, refC
   return `${WA_SEND_URL}?${params.join('&')}`
 }
 
+/**
+ * A WhatsApp chat with a number and no message (a "WhatsApp" button beside a
+ * phone number). The same address as waSendHref, so every WhatsApp link on the
+ * site goes through this file (owner, 27 Oct 2026). Null with no number.
+ */
+export function waChatHref(msisdn: string | null | undefined): string | null {
+  const phone = (msisdn ?? '').replace(/\D/g, '')
+  return phone ? `${WA_SEND_URL}?phone=${phone}` : null
+}
+
+/** "Share on WhatsApp": a message for the person to send to any contact. */
+export function waShareHref(text: string): string {
+  return waSendHref(null, text)
+}
+
 // ------------------------------------------------- the sender's staff code
 //
 // Staff links (owner, 23 Oct 2026): every tutormint.org link inside a message a

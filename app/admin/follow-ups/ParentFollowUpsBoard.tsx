@@ -135,11 +135,14 @@ function ParentRow({ c }: { c: ParentCard }) {
         {s.overdue ? ' · overdue' : ''}
       </p>
       <div className="flex flex-wrap items-center gap-2">
-        {waiting ? (
+        {waiting && (
           <Link href={s.action!.href} className="inline-flex min-h-[40px] items-center rounded-xl bg-tm-gold px-3 text-xs font-bold text-tm-black">
             {s.action!.label} — waiting on us
           </Link>
-        ) : readOnly ? null : c.hasNumber || c.hasEmail ? (
+        )}
+        {/* "Tutors applied" also has a message now (owner, 27 Oct 2026): the
+            tutors' profile links. Still waiting on us, still out of the badge. */}
+        {readOnly ? null : c.hasNumber || c.hasEmail ? (
           <button
             type="button"
             disabled={busy}
@@ -147,7 +150,7 @@ function ParentRow({ c }: { c: ParentCard }) {
             className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl bg-tm-green-deep px-3 text-xs font-bold text-white hover:bg-tm-green-deep-hover disabled:opacity-60"
           >
             {c.hasNumber ? <MessageCircle aria-hidden size={14} /> : <Mail aria-hidden size={14} />}
-            {busy ? 'Sending…' : c.hasNumber ? 'WhatsApp parent' : 'Send email'}
+            {busy ? 'Sending…' : c.hasNumber ? (waiting ? 'WhatsApp the tutors to parent' : 'WhatsApp parent') : 'Send email'}
           </button>
         ) : (
           <span className="text-[11px] text-gray-500">No WhatsApp number or email</span>

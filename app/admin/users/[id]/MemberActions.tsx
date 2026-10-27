@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
-import { adminWhatsAppRoute } from '@/lib/adminWhatsAppCore'
+import AdminWhatsAppLink from '@/components/admin/AdminWhatsAppLink'
 
 // Actions on a member page (owner, 20 Oct 2026):
 //
@@ -319,15 +319,10 @@ export default function MemberActions({
                   </Link>
                 )}
                 {whatsappMsisdn && (
-                  <a
-                    href={adminWhatsAppRoute(userId, 'member')}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`${BTN} bg-tm-green-deep text-white hover:bg-tm-green-deep-hover`}
-                  >
+                  <AdminWhatsAppLink memberId={userId} from="member" className={`${BTN} bg-tm-green-deep text-white hover:bg-tm-green-deep-hover`}>
                     <MessageCircle aria-hidden size={14} />
                     WhatsApp
-                  </a>
+                  </AdminWhatsAppLink>
                 )}
                 {callMsisdn && (
                   <a href={`tel:+${callMsisdn}`} className={`${BTN} border border-gray-200 text-slate-700 hover:border-tm-navy`}>

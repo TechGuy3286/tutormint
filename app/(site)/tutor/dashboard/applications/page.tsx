@@ -9,6 +9,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { appliedLabel } from '@/lib/datetime'
 import { maskTuitionText } from '@/lib/maskTuition'
 import { placeLabel } from '@/lib/place'
+import { TUTOR_STAGE_TEXT } from '@/lib/applicationStageCore'
 
 // The tutor's own applications.
 //
@@ -24,7 +25,8 @@ export const metadata = {
 }
 
 const STATUS: Record<string, { label: string; className: string }> = {
-  applied: { label: 'Awaiting the parent', className: 'bg-tm-tint-navy text-tm-navy' },
+  // The first stage reads the same as the dashboard (owner, 27 Oct 2026).
+  applied: { label: TUTOR_STAGE_TEXT.applied, className: 'bg-tm-tint-navy text-tm-navy' },
   shortlisted: { label: 'Shortlisted', className: 'bg-tm-tint-gold text-tm-gold-ink' },
   hired: { label: 'Hired', className: 'bg-tm-tint-green text-tm-green-deep' },
   rejected: { label: 'Not selected', className: 'bg-tm-tint-red text-tm-red-hover' },

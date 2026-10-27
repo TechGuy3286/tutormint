@@ -304,6 +304,15 @@ export async function runBankReader(now = new Date()): Promise<ReaderRun> {
       return { ran: true, status: 'locked', result }
     }
     if (state.errorSince) await resolveFinanceAlertsByRef('reader_failing', `reader:${state.errorSince}`)
+    // New credits from the bank's emails go through the same fee auto-linking
+    // as credits added by hand (owner, 27 Oct 2026). Never stops the run.
+    if (result.added > 0) {
+      const owner = await siteOwnerId()
+      if (owner) {
+        const { runFeeAutoLink } = await import('@/lib/feeMatch')
+        await runFeeAutoLink({ id: owner, adminRole: 'owner', email: BANK_READER_ACTOR }).catch(() => null)
+      }
+    }
     await admin
       .from('bank_reader_state')
       .update({

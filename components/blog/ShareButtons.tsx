@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Check, Copy, MessageCircle } from 'lucide-react'
+import { waShareHref } from '@/lib/waLinkCore'
 
 // Share a post: WhatsApp, Facebook, X, and copy-link.
 //
@@ -47,7 +48,7 @@ export default function ShareButtons({ url, title }: { url: string; title: strin
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Share</span>
-      <button type="button" onClick={() => share(`https://wa.me/?text=${text}%20${u}`)} className={btn}>
+      <button type="button" onClick={() => share(waShareHref(`${title} ${url}`))} className={btn}>
         <MessageCircle aria-hidden size={14} /> WhatsApp
       </button>
       <button

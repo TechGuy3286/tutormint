@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Download, Share2, X } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { submitSignal } from '@/lib/submit'
+import { waShareHref } from '@/lib/waLinkCore'
 
 // "Share your verified badge" — an on-demand share card for a LISTED tutor.
 //
@@ -36,7 +37,7 @@ export default function ShareVerifiedBadge({
   const closeRef = useRef<HTMLButtonElement | null>(null)
 
   const caption = `I'm now a verified tutor on TutorMint! Find me here:`
-  const waHref = `https://wa.me/?text=${encodeURIComponent(`${caption} ${profileUrl}`)}`
+  const waHref = waShareHref(`${caption} ${profileUrl}`)
   const fbHref = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(profileUrl)}`
 
   // Escape closes; focus moves into the dialog on open and back to the trigger

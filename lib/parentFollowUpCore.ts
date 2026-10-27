@@ -114,6 +114,28 @@ export function parentSituation(f: ParentFacts, nowMs: number): ParentSituation 
   return null
 }
 
+/**
+ * The situation a WhatsApp button to a parent writes about (owner, 27 Oct
+ * 2026): the Follow-ups situation when there is one; otherwise the nearest —
+ * tutors applied to an open tuition → tutors applied; an open tuition → no
+ * applicants yet ("we're finding tutors"); a hire → the thanks; a tuition that
+ * ended → still looking; nothing posted → post your requirement.
+ */
+export function parentMessageSituation(f: ParentFacts, nowMs: number): ParentSituation {
+  const s = parentSituation(f, nowMs)
+  if (s) return s
+  const open = f.tuitions.filter((t) => t.status === 'open').sort((a, b) => ms(b.createdAt) - ms(a.createdAt))
+  const applied = open.find((t) => t.applications > 0)
+  if (applied) return { reason: 'waiting_forward', tuition: applied }
+  if (open[0]) return { reason: 'no_applicants', tuition: open[0] }
+  const hired = f.tuitions.filter((t) => t.hiredAt).sort((a, b) => ms(b.hiredAt) - ms(a.hiredAt))[0]
+  if (hired) return { reason: 'hired', tuition: hired }
+  const ended = f.tuitions.filter((t) => t.status === 'paused' || t.status === 'closed').sort((a, b) => ms(b.createdAt) - ms(a.createdAt))[0]
+  if (ended) return { reason: 'expired', tuition: ended }
+  if (f.emailSignup && !f.emailConfirmed) return { reason: 'email_unconfirmed', tuition: null }
+  return { reason: 'no_tuition', tuition: null }
+}
+
 /** A snapshot of how far a parent has got — any change starts the count again. */
 export function parentProgressKey(f: ParentFacts, s: ParentSituation): string {
   const apps = f.tuitions.reduce((n, t) => n + t.applications, 0)
@@ -153,7 +175,11 @@ export function parentTabState(
 
 // ------------------------------------------------------------- templates
 
-export const PARENT_TEMPLATE_KEY: Record<Exclude<ParentReason, 'waiting_forward'>, string> = {
+/** Every situation has a message now (owner, 27 Oct 2026): "tutors applied"
+ *  sends the parent the tutors' profiles. On Follow-ups it is still waiting on
+ *  us — out of the badge — but a WhatsApp button to the parent sends it. */
+export const PARENT_TEMPLATE_KEY: Record<ParentReason, string> = {
+  waiting_forward: 'pf_tutors_applied',
   no_tuition: 'pf_no_tuition',
   no_applicants: 'pf_no_applicants',
   email_unconfirmed: 'pf_email_unconfirmed',
@@ -161,7 +187,18 @@ export const PARENT_TEMPLATE_KEY: Record<Exclude<ParentReason, 'waiting_forward'
   hired: 'pf_hired',
 }
 
-export const PARENT_PLACEHOLDERS = ['first_name', 'tuition_title', 'tuition_link', 'post_link', 'tutor_name', 'review_link', 'support_whatsapp'] as const
+export const PARENT_PLACEHOLDERS = [
+  'first_name',
+  'tuition_title',
+  'tuition_link',
+  'post_link',
+  'tutor_name',
+  'review_link',
+  'tutor_links',
+  'signin_link',
+  'repost_link',
+  'support_whatsapp',
+] as const
 
 export const PARENT_PLACEHOLDER_HELP: Record<(typeof PARENT_PLACEHOLDERS)[number], string> = {
   first_name: "The parent's first name",
@@ -170,28 +207,34 @@ export const PARENT_PLACEHOLDER_HELP: Record<(typeof PARENT_PLACEHOLDERS)[number
   post_link: 'Where they post a tuition',
   tutor_name: 'The tutor they hired (the "Tutor hired" message)',
   review_link: 'Where they review the tutor they hired (the "Tutor hired" message)',
+  tutor_links: "The applying tutors' profile links, one per line (the \"Tutors applied\" message)",
+  signin_link: 'Where they sign in (the "Email not confirmed" message)',
+  repost_link: 'Where they repost the tuition in one tap (the "Tuition ended" message)',
   support_whatsapp: 'Our support WhatsApp number (from settings)',
 }
 
 const SUPPORT = 'Need help? WhatsApp us on {support_whatsapp}'
 
-/** The five messages' built-in wording — what migration 201 seeds (pf_hired
- *  gained the review link in migration 204, owner, 27 Oct 2026).
- *  Short, plain English, no prices, each ending with {support_whatsapp}. */
+/** The six messages' built-in wording — what migrations 201, 204 and 211 seed
+ *  (owner, 27 Oct 2026: every message carries a TutorMint link).
+ *  Short, plain English, no prices, no emoji, each ending with {support_whatsapp}. */
 export const PARENT_DEFAULTS: Record<string, string> = {
+  pf_tutors_applied:
+    'Assalam o Alaikum {first_name}, tutors have applied to your tuition "{tuition_title}" on TutorMint. Here are their profiles:\n{tutor_links}\n\nReply here and tell us who you would like to talk to.\n\n' + SUPPORT,
   pf_no_tuition:
     'Assalam o Alaikum {first_name}, thank you for joining TutorMint. Posting a tuition is free: tell us the class, subjects and area, and verified tutors can apply.\nYou can post it here:\n{post_link}\n\n' + SUPPORT,
   pf_no_applicants:
     'Assalam o Alaikum {first_name}, your tuition "{tuition_title}" is live on TutorMint, but no tutor has applied yet. Adding timings and more detail helps tutors decide.\nYou can see it here:\n{tuition_link}\n\n' + SUPPORT,
   pf_email_unconfirmed:
-    'Assalam o Alaikum {first_name}, thank you for signing up to TutorMint. Please open the email we sent you and tap the link to confirm your address. If it is not in your inbox, check your spam folder.\n\n' + SUPPORT,
+    'Assalam o Alaikum {first_name}, thank you for signing up to TutorMint. Please open the email we sent you and tap the link to confirm your address. If it is not in your inbox, check your spam folder. Then sign in here:\n{signin_link}\n\n' + SUPPORT,
   pf_expired:
-    'Assalam o Alaikum {first_name}, your tuition "{tuition_title}" is no longer live on TutorMint. Still looking? We can repost it — just reply to this message.\n\n' + SUPPORT,
+    'Assalam o Alaikum {first_name}, your tuition "{tuition_title}" is no longer live on TutorMint. Still looking? You can repost it here in one tap:\n{repost_link}\n\n' + SUPPORT,
   pf_hired:
     'Assalam o Alaikum {first_name}, thank you for hiring {tutor_name} through TutorMint. We hope the lessons go well. Could you leave a short review of the tutor? It helps other parents.\nYou can leave it here:\n{review_link}\n\n' + SUPPORT,
 }
 
 export const PARENT_TEMPLATES: readonly { key: string; title: string; reason: ParentReason }[] = [
+  { key: 'pf_tutors_applied', title: 'Parents — tutors applied, here they are', reason: 'waiting_forward' },
   { key: 'pf_no_tuition', title: 'Parents — signed up, no tuition posted', reason: 'no_tuition' },
   { key: 'pf_no_applicants', title: 'Parents — tuition posted, no applicants', reason: 'no_applicants' },
   { key: 'pf_email_unconfirmed', title: 'Parents — email not confirmed', reason: 'email_unconfirmed' },
@@ -206,6 +249,10 @@ export type ParentValues = {
   postLink: string
   tutorName?: string | null
   reviewLink?: string | null
+  /** One profile link per line (the "Tutors applied" message). */
+  tutorLinks?: string[] | null
+  signinLink?: string | null
+  repostLink?: string | null
   supportWhatsapp: string
 }
 
@@ -218,6 +265,9 @@ export function fillParentFollowUp(body: string, v: ParentValues): string {
     post_link: v.postLink,
     tutor_name: v.tutorName || 'your tutor',
     review_link: v.reviewLink ?? '',
+    tutor_links: (v.tutorLinks ?? []).join('\n'),
+    signin_link: v.signinLink ?? '',
+    repost_link: v.repostLink ?? '',
     support_whatsapp: v.supportWhatsapp,
   }
   return body

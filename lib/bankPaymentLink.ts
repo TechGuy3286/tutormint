@@ -36,8 +36,10 @@ import { closeOtherCheckouts } from '@/lib/payments/closeOtherCheckouts'
 import { buildBoard } from '@/lib/settlementMatchCore'
 import { clearLinks, loadAll, type Actor } from '@/lib/settlementMatch'
 import {
+  ALREADY_PAID,
   autoReceiptMatch,
   bankPaymentRow,
+  feeAmountSplit,
   creditPaidAt,
   pickerOffers,
   linkDecision,
@@ -45,6 +47,8 @@ import {
   type ExistingSub,
   type LinkPlan,
 } from '@/lib/bankPaymentLinkCore'
+import { existingFeeFor, loadFeeRange } from '@/lib/feeMatch'
+import type { ExistingFee } from '@/lib/feeMatchCore'
 
 const NOT_NOW = 'This is not working right now. Please try again in a few minutes.'
 
@@ -138,7 +142,8 @@ export async function linkPlansFor(role: string): Promise<LinkPlan[]> {
 
 export type LinkResult =
   | { ok: true; paymentId: string; reference: string; mode: 'activate' | 'attach'; paidAt: string; replacedReceipts: string[]; closedCheckouts: string[] }
-  | { ok: true; dryRun: true; mode: 'activate' | 'attach'; paidAt: string; replacedReceipts: string[]; creditState: string } | { ok: false; status: number; error: string }
+  | { ok: true; dryRun: true; mode: 'activate' | 'attach'; paidAt: string; replacedReceipts: string[]; creditState: string }
+  | { ok: false; status: number; error: string; existing?: ExistingFee | null }
 
 export async function linkCreditToMember(
   input: { transferId: string; memberId: string; planCode: string; amountPkr: number },
@@ -187,6 +192,7 @@ export async function linkCreditToMember(
     paymentId: (s.payment_id as string | null) ?? null,
   }))
   const feePaidAt = (tp?.verified_fee_paid_at as string | null) ?? null
+  const feeRange = await loadFeeRange()
 
   const decision = linkDecision({
     memberRole: profile.role as string,
@@ -198,17 +204,25 @@ export async function linkCreditToMember(
     creditMatch: credit.match,
     creditAmountPkr: credit.amountPkr,
     amountPkr: input.amountPkr,
+    feeRange,
   })
-  if (!decision.ok) return { ok: false, status: 409, error: decision.error }
+  if (!decision.ok) {
+    // 'Already paid' says which payment, so the Owner can link this credit to it
+    // (it has no credit yet) or mark this one a duplicate — refund due.
+    const existing = decision.error === ALREADY_PAID && plan?.code === 'verified' ? await existingFeeFor(input.memberId, board) : null
+    return { ok: false, status: 409, error: decision.error, existing }
+  }
 
   const replacedReceipts = replacedReceiptRefs(board, credit.id)
   const paidAt = creditPaidAt(credit.date, credit.time)
   if (opts.dryRun) return { ok: true, dryRun: true, mode: decision.mode, paidAt, replacedReceipts, creditState: credit.state }
   const reference = newPaymentReference()
+  const split = feeAmountSplit(plan!.code, input.amountPkr, plan!.pricePkr, feeRange)
   const row = bankPaymentRow({
     userId: input.memberId,
     planCode: plan!.code,
-    amountPkr: input.amountPkr,
+    amountPkr: split.amountPkr,
+    roundingPkr: split.roundingPkr,
     providerRef: reference,
     bankReference: credit.reference,
     creditId: credit.id,

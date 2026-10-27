@@ -104,8 +104,9 @@ test('the badge counts overdue To do only', () => {
   assert.match(readFileSync('app/admin/layout.tsx', 'utf8'), /'\/admin\/follow-ups': followUps \+ parentFollowUps/)
 })
 
-test('five short templates, seeded, ending with {support_whatsapp}, no prices', () => {
-  assert.equal(PARENT_TEMPLATES.length, 5)
+test('six short templates, seeded, ending with {support_whatsapp}, no prices', () => {
+  // "Tutors applied" joined the five on 27 Oct 2026 (migration 211).
+  assert.equal(PARENT_TEMPLATES.length, 6)
   for (const t of PARENT_TEMPLATES) {
     const body = PARENT_DEFAULTS[t.key]
     assert.ok(body.endsWith('{support_whatsapp}'), t.key)
@@ -114,10 +115,13 @@ test('five short templates, seeded, ending with {support_whatsapp}, no prices', 
     assert.equal(templateSaveCheck(t.key, body).ok, true)
     assert.ok(body.split(/\s+/).length < 60, `${t.key} is short`)
   }
-  assert.match(PARENT_DEFAULTS.pf_expired, /Still looking\? We can repost it/)
+  assert.match(PARENT_DEFAULTS.pf_expired, /Still looking\? You can repost it here in one tap:\n\{repost_link\}/)
+  assert.match(PARENT_DEFAULTS.pf_email_unconfirmed, /\{signin_link\}/)
+  assert.match(PARENT_DEFAULTS.pf_tutors_applied, /\{tutor_links\}/)
   assert.match(PARENT_DEFAULTS.pf_hired, /short review/)
   const sql = readFileSync('supabase/migrations/201_status_merge_parents_viewas.sql', 'utf8')
-  for (const t of PARENT_TEMPLATES) assert.ok(sql.includes(`(E'${t.key}'`), `${t.key} seeded`)
+  const sql211 = readFileSync('supabase/migrations/211_fee_match_refund_due_parent_templates.sql', 'utf8')
+  for (const t of PARENT_TEMPLATES) assert.ok(sql.includes(`(E'${t.key}'`) || sql211.includes(`(E'${t.key}'`), `${t.key} seeded`)
   const msg = fillParentFollowUp(PARENT_DEFAULTS.pf_no_applicants, {
     firstName: 'Sana',
     tuitionTitle: 'Grade 5 Maths',

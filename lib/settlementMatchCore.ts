@@ -21,6 +21,7 @@
 
 import { isPaid, parseAmount, parseDate, type PayproRow } from './reconciliationCore'
 import { BANK_CHARGE_TOLERANCE_PKR, DUE_OVERDUE_DAYS, SETTLE_WINDOW_DAYS, isSettled, pkDay } from './settlementCore'
+import { AUTO_LINK_NOTE_PREFIX, FEE_MATCH_DEFAULT, FEE_NAME_HOW, REFUND_DUE_TARGET, inFeeRange, namesMatch, withinWindow, type FeeRange } from './feeMatchCore'
 
 // ---------------------------------------------------------------------------
 // Orders
@@ -122,6 +123,9 @@ export type Credit = {
   /** Where the credit came from: read from the bank's alert email, or typed in
    *  (by hand or a file). Optional so older callers and tests stay valid. */
   source?: 'email' | 'manual'
+  /** 'owner_transfer' = re-labelled "Owner / partner transfer (not revenue)"
+   *  (migration 211): never matched, out of every money total. */
+  category?: string | null
 }
 
 /** One of OUR PayPro payments (by reference). */
@@ -136,6 +140,12 @@ export type Receipt = {
   /** The transaction id the member typed with the receipt, if any. */
   transactionId: string | null
   payerName: string | null
+  /** Optional (fee auto-linking, 27 Oct 2026): what it paid for, who paid,
+   *  when the receipt was sent and approved. */
+  planCode?: string | null
+  memberId?: string | null
+  createdAt?: string | null
+  reviewedAt?: string | null
 }
 
 /** `target` of a 'none' link that means "Ignore (not a sale)" rather than a plain
@@ -193,7 +203,22 @@ export type ReceiptView = Receipt & { state: 'matched' | 'waiting'; creditId: st
 
 /** 'ignored' = the owner marked it "Ignore (not a sale)": never matched, and not
  *  counted as unmatched. */
-export type CreditView = Credit & { state: 'matched' | 'unmatched' | 'held' | 'ignored'; match: CreditMatch | null; ignoreNote: string | null }
+/** Why an ignored credit is set aside: "not a sale", a duplicate whose refund
+ *  is due, or an owner / partner transfer (27 Oct 2026). */
+export type IgnoreKind = 'not_a_sale' | 'refund_due' | 'owner_transfer'
+
+export type CreditView = Credit & {
+  state: 'matched' | 'unmatched' | 'held' | 'ignored'
+  match: CreditMatch | null
+  ignoreNote: string | null
+  ignoreKind?: IgnoreKind | null
+}
+
+/** `target` of a 'none' link meaning "Mark as duplicate — refund due"; a stored
+ *  link the automatic fee rule made carries a note starting AUTO_FEE_NOTE. */
+export const REFUND_DUE = REFUND_DUE_TARGET
+export const AUTO_FEE_NOTE = AUTO_LINK_NOTE_PREFIX
+export { FEE_NAME_HOW }
 
 export type Board = {
   hasExport: boolean
@@ -287,6 +312,8 @@ export function buildBoard(input: {
   receipts: Receipt[]
   links: ManualLink[]
   nowIso: string
+  /** The Fee match range (owner, 27 Oct 2026); the default when not given. */
+  feeRange?: FeeRange
 }): Board {
   const today = dayNum(pkDay(input.nowIso))
   const ours = new Map(input.ourPaypro.map((p) => [orderKey(p.ref), p]))
@@ -353,13 +380,24 @@ export function buildBoard(input: {
   // 1. The owner's manual links win. A hold ('none') keeps a credit unmatched.
   const linksBy = new Map<string, ManualLink[]>()
   for (const l of input.links) linksBy.set(l.transferId, [...(linksBy.get(l.transferId) ?? []), l])
+  const ignoreKind = new Map<string, IgnoreKind>()
   for (const c of credits) {
+    // Re-labelled "Owner / partner transfer (not revenue)": never matched.
+    if (c.category === 'owner_transfer') {
+      held.add(c.id)
+      ignored.set(c.id, null)
+      ignoreKind.set(c.id, 'owner_transfer')
+      continue
+    }
     const ls = linksBy.get(c.id)
     if (!ls || ls.length === 0) continue
     const none = ls.find((l) => l.kind === 'none')
     if (none) {
       held.add(c.id)
-      if (none.target === NOT_A_SALE) ignored.set(c.id, none.note)
+      if (none.target === NOT_A_SALE || none.target === REFUND_DUE) {
+        ignored.set(c.id, none.note)
+        ignoreKind.set(c.id, none.target === REFUND_DUE ? 'refund_due' : 'not_a_sale')
+      }
       continue
     }
     const picked = ls
@@ -371,7 +409,10 @@ export function buildBoard(input: {
       .map((l) => receiptBy.get(l.target!))
       .filter((r): r is ReceiptView => !!r && r.state !== 'matched')
     if (picked.length + recs.length === 0) continue
-    take(c, picked, recs, 'manual', 'Linked by hand', ls.find((l) => l.note)?.note ?? null)
+    const note = ls.find((l) => l.note)?.note ?? null
+    // A link the automatic fee rule stored reads as automatic, not "by hand".
+    if (note && note.startsWith(AUTO_FEE_NOTE)) take(c, picked, recs, 'matched', note, null)
+    else take(c, picked, recs, 'manual', 'Linked by hand', note)
   }
 
   const free = (c: Credit) => !matches.has(c.id) && !held.has(c.id)
@@ -467,17 +508,30 @@ export function buildBoard(input: {
   // 5. Bank-transfer receipts: same amount within ±2 days — a matching
   //    reference first, then a matching sender name, then the nearest day.
   const openReceipts = () => receipts.filter((r) => r.state === 'waiting').sort((a, b) => a.approvedDay.localeCompare(b.approvedDay) || a.id.localeCompare(b.id))
+  //    Before the blind "same amount" guess (owner, 27 Oct 2026): a Verification
+  //    Fee payment and a credit in the Fee match range (Rs 200 for Rs 199) from
+  //    the same name within 48 hours — so a guess can no longer take a tutor's
+  //    payment while their own credit sits unmatched.
+  const range = input.feeRange ?? FEE_MATCH_DEFAULT
+  const sameAmount = (c: Credit, r: Receipt) => Math.abs(c.amountPkr - r.amountPkr) <= 0.005 && inWindow(c.date, r.approvedDay)
+  const feeNamed = (c: Credit, r: Receipt) =>
+    r.planCode === 'verified' &&
+    inFeeRange(c.amountPkr, range) &&
+    c.amountPkr >= r.amountPkr - 0.005 &&
+    (r.createdAt || r.reviewedAt ? withinWindow(c, { createdAt: r.createdAt ?? null, reviewedAt: r.reviewedAt ?? null }) : inWindow(c.date, r.approvedDay)) &&
+    namesMatch(c.senderName, r.payerName)
   const passes: { test: (c: Credit, r: Receipt) => boolean; how: string }[] = [
-    { test: referenceMatches, how: 'Same amount and reference' },
-    { test: nameMatches, how: 'Same amount and sender name' },
-    { test: () => true, how: 'Same amount, within 2 days' },
+    { test: (c, r) => sameAmount(c, r) && referenceMatches(c, r), how: 'Same amount and reference' },
+    { test: (c, r) => sameAmount(c, r) && nameMatches(c, r), how: 'Same amount and sender name' },
+    { test: feeNamed, how: FEE_NAME_HOW },
+    { test: sameAmount, how: 'Same amount, within 2 days' },
   ]
   for (const pass of passes) {
     for (const r of openReceipts()) {
       let best: Credit | null = null
       let bestGap = Infinity
       for (const c of credits) {
-        if (!free(c) || c.isPaypro || Math.abs(c.amountPkr - r.amountPkr) > 0.005 || !inWindow(c.date, r.approvedDay)) continue
+        if (!free(c) || c.isPaypro) continue
         if (!pass.test(c, r)) continue
         const gap = Math.abs(dayNum(c.date) - dayNum(r.approvedDay))
         if (gap < bestGap) {
@@ -523,6 +577,7 @@ export function buildBoard(input: {
         state: match ? 'matched' : ignored.has(c.id) ? 'ignored' : held.has(c.id) ? 'held' : 'unmatched',
         match,
         ignoreNote: ignored.get(c.id) ?? null,
+        ignoreKind: ignoreKind.get(c.id) ?? null,
       }
     }),
     matches: [...matches.values()],

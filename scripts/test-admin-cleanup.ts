@@ -141,7 +141,7 @@ test('Copy profile link: the clean public address when public', () => {
   const s = profileShareState({ slug: 'sara-ali-tutor', listed: true, blockers: [] })
   assert.equal(s.url, 'https://www.tutormint.org/tutor/sara-ali-tutor')
   assert.equal(s.disabledReason, null)
-  assert.equal(whatsappShareHref(publicProfileUrl('a-b')), 'https://wa.me/?text=https%3A%2F%2Fwww.tutormint.org%2Ftutor%2Fa-b')
+  assert.equal(whatsappShareHref(publicProfileUrl('a-b')), 'https://api.whatsapp.com/send?text=https%3A%2F%2Fwww.tutormint.org%2Ftutor%2Fa-b')
 })
 
 test('Copy profile link: disabled with the reason when not public', () => {

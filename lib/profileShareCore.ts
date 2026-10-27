@@ -14,6 +14,7 @@
 // PURE — unit-tested by scripts/test-admin-cleanup.ts.
 
 import { BLOCKER_LABEL, type ListingBlocker } from '@/lib/tutorListingStatus'
+import { waShareHref } from './waLinkCore'
 
 export const PUBLIC_PROFILE_ORIGIN = 'https://www.tutormint.org'
 
@@ -27,7 +28,7 @@ export function publicProfileUrl(slug: string): string {
 
 /** WhatsApp with the link ready to send to any contact. */
 export function whatsappShareHref(url: string): string {
-  return `https://wa.me/?text=${encodeURIComponent(url)}`
+  return waShareHref(url)
 }
 
 const lowerFirst = (s: string) => (s ? s[0].toLowerCase() + s.slice(1) : s)

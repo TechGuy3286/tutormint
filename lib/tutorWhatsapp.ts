@@ -1,4 +1,5 @@
 import { normalisePkMobile } from '@/lib/phone'
+import { waChatHref } from './waLinkCore'
 
 // PR86 — the number staff chat on. The tutor's WhatsApp number is canonical on
 // profiles.whatsapp (onboarding + Settings write it there); the legacy
@@ -26,7 +27,7 @@ export function whatsappTarget(input: {
   return { msisdn: normalisePkMobile(input.phone), isWhatsapp: false }
 }
 
-/** The https://wa.me/… link for a target, or null. */
+/** The WhatsApp chat link for a target (lib/waLinkCore waChatHref), or null. */
 export function waMeHref(t: WhatsappTarget): string | null {
-  return t.msisdn ? `https://wa.me/${t.msisdn}` : null
+  return waChatHref(t.msisdn)
 }

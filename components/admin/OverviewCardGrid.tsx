@@ -15,7 +15,7 @@ import type { FollowUpSource } from '@/lib/followUpCore'
 import ProfileShareButtons from '@/components/admin/ProfileShareButtons'
 import type { ProfileShare } from '@/lib/profileShareCore'
 import { setUrlParam, useUrlState } from '@/lib/useUrlState'
-import { adminWhatsAppRoute } from '@/lib/adminWhatsAppCore'
+import AdminWhatsAppLink from '@/components/admin/AdminWhatsAppLink'
 import SelfieMatchWarning from '@/components/admin/SelfieMatchWarning'
 import {
   DOC_FILTERS,
@@ -420,15 +420,11 @@ function MemberBody({
           />
         )}
         {!fu && m.msisdn && it.memberId && (
-          <a
-            // Pre-filled from the member's own state, logged (owner, 20 Oct 2026).
-            href={adminWhatsAppRoute(it.memberId, 'overview')}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`${BTN} bg-tm-green-deep text-white hover:bg-tm-green-deep-hover`}
-          >
+          // Pre-filled from the member's own state, logged (owner, 20 Oct 2026);
+          // a parent's send is a recorded follow-up with Undo (27 Oct 2026).
+          <AdminWhatsAppLink memberId={it.memberId} from="overview" className={`${BTN} bg-tm-green-deep text-white hover:bg-tm-green-deep-hover`}>
             <MessageCircle aria-hidden size={13} /> WhatsApp
-          </a>
+          </AdminWhatsAppLink>
         )}
         {!fu && m.msisdn && (
           <a href={`tel:+${m.msisdn}`} className={`${BTN} border border-gray-200 text-slate-700 hover:border-tm-navy`}>

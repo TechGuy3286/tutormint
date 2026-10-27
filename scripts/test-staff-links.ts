@@ -193,7 +193,10 @@ test('every staff WhatsApp builder passes the sender code', () => {
     ['lib/applicantForwardCore.ts', /waSendHref\(msisdn, message, refCode\)/],
     ['lib/documentsApprovedCore.ts', /finishWaText\(text, refCode\)/],
     ['lib/unmetSearchCore.ts', /waSendHref\(null, text, refCode\)/],
-    ['app/api/admin/whatsapp/route.ts', /senderRefCode\(gate\.actor\.id\)/],
+    // Since 27 Oct 2026 the route builds through build(); a parent's message is
+    // lib/parentWhatsApp, which reads the sender's code itself.
+    ['app/api/admin/whatsapp/route.ts', /senderRefCode\(actor\.id\)/],
+    ['lib/parentWhatsApp.ts', /senderRefCode\(actor\.id\)/],
     ['app/api/admin/applications/whatsapp/route.ts', /senderRefCode\(gate\.actor\.id\)/],
     ['app/api/admin/documents-approved/route.ts', /senderRefCode\(gate\.actor\.id\)/],
     ['lib/applicationFollowUps.ts', /adminWaLink\(raw, text, await senderRefCode\(actor\.id\)\)[\s\S]*adminWaLink\(raw, text, await senderRefCode\(actor\.id\)\)/],

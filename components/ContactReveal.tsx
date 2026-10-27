@@ -7,6 +7,7 @@ import { submitSignal } from '@/lib/submit'
 import { goCompleteProfile } from '@/lib/gatedFetch'
 import { formatPkMobile } from '@/lib/phone'
 import type { Gate } from '@/lib/gate'
+import { waChatHref } from '@/lib/waLinkCore'
 
 // The tutor-only "Show phone & email" control (PR56 parent card / thread /
 // real-parent tuition; PR57 staff-posted tuition).
@@ -126,7 +127,7 @@ export default function ContactReveal({
               {formatPkMobile(contact.phone)}
             </a>
             <a
-              href={`https://wa.me/${contact.phone}`}
+              href={waChatHref(contact.phone) ?? undefined}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-tm-green-deep hover:underline"
@@ -138,7 +139,7 @@ export default function ContactReveal({
         )}
         {waNumber && (
           <a
-            href={`https://wa.me/${waNumber}`}
+            href={waChatHref(waNumber) ?? undefined}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-xs font-bold text-tm-green-deep hover:underline"
@@ -181,7 +182,7 @@ export default function ContactReveal({
               <Phone size={14} aria-hidden />
               {formatPkMobile(p)}
             </a>
-            <a href={`https://wa.me/${p}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-tm-green-deep hover:underline">
+            <a href={waChatHref(p) ?? undefined} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-tm-green-deep hover:underline">
               <MessageCircle size={14} aria-hidden />
               WhatsApp
             </a>

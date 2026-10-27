@@ -25,6 +25,8 @@
 // unlock (item 'photo') allows ONE change; the new photo goes back for review
 // as before (profile_pic_rereview_at). Hiding the photo is never locked.
 
+import { waSendHref } from './waLinkCore'
+
 export type LockItem = 'cnic' | 'selfie'
 /** Everything the Owner can unlock: the two document kinds and the photo. */
 export type UnlockItem = LockItem | 'photo'
@@ -81,9 +83,9 @@ const LOCKED_DOC_NAME: Record<LockedDoc, string> = {
 
 export const SUPPORT_WHATSAPP_NUMBER = '923215872222'
 
-/** wa.me/923215872222 with "Hi TutorMint, I want to update my <document>." */
+/** WhatsApp 923215872222 with "Hi TutorMint, I want to update my <document>." (lib/waLinkCore). */
 export function lockedWhatsappHref(doc: LockedDoc): string {
-  return `https://wa.me/${SUPPORT_WHATSAPP_NUMBER}?text=${encodeURIComponent(`Hi TutorMint, I want to update my ${LOCKED_DOC_NAME[doc]}.`)}`
+  return waSendHref(SUPPORT_WHATSAPP_NUMBER, `Hi TutorMint, I want to update my ${LOCKED_DOC_NAME[doc]}.`)
 }
 
 /** Is this part locked right now (ignoring any unlock)? */

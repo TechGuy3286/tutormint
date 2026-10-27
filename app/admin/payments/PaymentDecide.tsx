@@ -35,14 +35,22 @@ export default function PaymentDecide({
     })
     if (!ok) return
     setBusy(true)
-    const { ok: done, data } = await adminFetch<{ error?: string }>('/api/admin/payments/decide', {
+    const { ok: done, data } = await adminFetch<{
+      error?: string
+      credit?: { amountPkr: number; date: string; time: string | null; reference: string | null; senderName: string | null; rounding: number } | null
+    }>('/api/admin/payments/decide', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ paymentId, action: 'approve' }),
     })
     setBusy(false)
     if (done) {
-      toast.success('Bank transfer approved. It is active and the member has been told.')
+      const c = data?.credit
+      toast.success(
+        c
+          ? `Bank transfer approved. Bank credit used: Rs ${c.amountPkr} on ${c.date}${c.time ? ` ${c.time}` : ''}${c.senderName ? ` from ${c.senderName}` : ''}${c.reference ? ` (ref ${c.reference})` : ''}${c.rounding > 0 ? ` · Rs ${c.rounding} rounding` : ''}.`
+          : 'Bank transfer approved. It is active and the member has been told. No matching bank credit yet — it will link when the credit arrives.',
+      )
       router.refresh()
     } else {
       toast.error(data?.error ?? 'Could not approve this transfer.')

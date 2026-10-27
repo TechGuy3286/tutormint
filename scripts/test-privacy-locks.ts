@@ -192,7 +192,7 @@ test('approved documents are refused on the server without an unlock', () => {
 test('the locked notice names the document in the WhatsApp message', () => {
   assert.equal(LOCKED_TITLE, 'Approved 🔒')
   assert.equal(LOCKED_LINE, 'To change this, contact support on WhatsApp 0321 5872222.')
-  assert.equal(lockedWhatsappHref('photo'), `https://wa.me/923215872222?text=${encodeURIComponent('Hi TutorMint, I want to update my profile picture.')}`)
+  assert.equal(lockedWhatsappHref('photo'), `https://api.whatsapp.com/send?phone=923215872222&text=${encodeURIComponent('Hi TutorMint, I want to update my profile picture.')}`)
   assert.match(decodeURIComponent(lockedWhatsappHref('cnic')), /update my CNIC\.$/)
   assert.match(decodeURIComponent(lockedWhatsappHref('selfie')), /update my selfie\.$/)
   assert.match(decodeURIComponent(lockedWhatsappHref('cnic_number')), /update my CNIC number\.$/)

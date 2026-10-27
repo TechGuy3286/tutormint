@@ -9,7 +9,7 @@
 // The official support number is PUBLIC by design (owner PR15 §4). Members'
 // contact details never appear publicly; this is the platform's own line.
 
-import { waSendHref } from '@/lib/waLinkCore'
+import { waChatHref, waSendHref } from '@/lib/waLinkCore'
 
 /** The ONE support WhatsApp number: the owner's business line. */
 export const SUPPORT_WHATSAPP_FALLBACK = '923215872222'
@@ -28,10 +28,10 @@ export function normaliseWhatsapp(raw: string | null): string | null {
 
 /** A WhatsApp link with the message pre-filled, or null when unconfigured.
  *  With a message it is waSendHref — wa.me turns every emoji into "?" on its
- *  redirect (23 Oct 2026); with none, the plain wa.me chat link. */
+ *  redirect (23 Oct 2026); with none, the plain chat link (waChatHref). */
 export function whatsappHref(msisdn: string | null, prefill?: string, refCode?: string | null): string | null {
   if (!msisdn) return null
-  return prefill ? waSendHref(msisdn, prefill, refCode) : `https://wa.me/${msisdn}`
+  return prefill ? waSendHref(msisdn, prefill, refCode) : waChatHref(msisdn)
 }
 
 /**

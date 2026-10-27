@@ -5,6 +5,7 @@ import { refuseUnlessOwnerApproval } from '@/lib/ownerGuard'
 import { requireFreshAuth } from '@/lib/reauth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { linkableCredits, linkCreditToMember, linkPlansFor, searchLinkMembers } from '@/lib/bankPaymentLink'
+import { linkCreditToExisting } from '@/lib/feeMatch'
 import { parseBody, z } from '@/lib/validate'
 
 // Link a bank credit to a member (owner, 20 Oct 2026) — lib/bankPaymentLink.ts.
@@ -14,6 +15,9 @@ import { parseBody, z } from '@/lib/validate'
 //                                    credits not yet matched
 //   GET  ?credits=1                  the bank credits not yet matched
 //   POST { transferId, memberId, planCode, amountPkr }
+//   POST { action: 'link_existing', transferId, paymentId }  (owner, 27 Oct 2026)
+//        'already paid' → link this credit to the member's earlier fee payment
+//        that has no bank credit yet.
 //
 // Reading is the Finance screen's (Owner; the Partner views). RECORDING a
 // payment is OWNER ONLY: everyone else gets 403 and the Owner is told of the
@@ -41,7 +45,10 @@ export async function GET(request: Request) {
   return NextResponse.json({ credits, plans: await linkPlansFor(profile.role as string) })
 }
 
+const LinkExisting = z.object({ action: z.literal('link_existing'), transferId: z.guid(), paymentId: z.guid() })
+
 const Body = z.object({
+  action: z.literal('record').optional(),
   transferId: z.guid(),
   memberId: z.guid(),
   planCode: z.string().min(1).max(60),
@@ -58,10 +65,18 @@ export async function POST(request: Request) {
   const fresh = await requireFreshAuth(gate.actor.id)
   if (!fresh.ok) return fresh.response
 
-  const parsed = await parseBody(request, Body)
+  const parsed = await parseBody(request, z.union([LinkExisting, Body]))
   if (!parsed.ok) return parsed.response
+  const actor = { id: gate.actor.id, adminRole: gate.actor.adminRole, email: gate.actor.email }
 
-  const result = await linkCreditToMember(parsed.data, { id: gate.actor.id, adminRole: gate.actor.adminRole, email: gate.actor.email })
-  if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
+  if (parsed.data.action === 'link_existing') {
+    const r = await linkCreditToExisting({ transferId: parsed.data.transferId, paymentId: parsed.data.paymentId }, actor)
+    if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status })
+    return NextResponse.json({ ok: true, linked: true, rounding: r.rounding })
+  }
+
+  const { transferId, memberId, planCode, amountPkr } = parsed.data
+  const result = await linkCreditToMember({ transferId, memberId, planCode, amountPkr }, actor)
+  if (!result.ok) return NextResponse.json({ error: result.error, existing: result.existing ?? null }, { status: result.status })
   return NextResponse.json(result)
 }

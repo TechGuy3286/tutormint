@@ -23,6 +23,7 @@ import { whatsappChannel } from './whatsapp'
 import { render, type TemplateInput } from './templates'
 import type { DeliveryResult } from './channel'
 import { formatName } from '@/lib/formatName'
+import { tuitionEmailBlock } from './tuitionEmailCore'
 
 const HELD_FOR_SUMMARY = 'held for the daily summary'
 
@@ -117,11 +118,16 @@ async function prepareEmail(
 
     const { data: profile } = await admin
       .from('profiles')
-      .select('email, email_opt_out, email_pending_confirm')
+      .select('email, email_opt_out, email_pending_confirm, role, is_team_account, is_test_name, hidden_from_public, is_seed')
       .eq('id', to.userId)
       .maybeSingle()
 
     if (!profile) return { ok: false, reason: 'no profile row', channel: 'email' }
+
+    // No wasted tuition emails (owner, 27 Oct 2026): never to the team account,
+    // staff, test accounts or placeholder addresses (lib/notify/tuitionEmailCore).
+    const blocked = tuitionEmailBlock(input.id, profile as Parameters<typeof tuitionEmailBlock>[1])
+    if (blocked) return { ok: false, reason: `tuition email not sent: ${blocked}`, channel: 'email' }
 
     // An address that is still waiting for its confirmation link (owner, 13 Oct
     // 2026) receives the confirmation email and nothing else: a mistyped
