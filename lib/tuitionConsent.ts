@@ -51,12 +51,12 @@ function toRecord(r: Record<string, unknown> | null | undefined): ConsentRecord 
  */
 export const hideNumbersSwitchOn = cache(async (): Promise<boolean> => {
   const admin = createAdminClient()
-  if (!admin) return true
+  if (!admin) return false
   try {
     const { data } = await admin.from('app_settings').select('value').eq('key', HIDE_NUMBERS_SETTING).maybeSingle()
     return parseHideSwitch((data?.value as string | null) ?? null)
   } catch {
-    return true
+    return false
   }
 })
 

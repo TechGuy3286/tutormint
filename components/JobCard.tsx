@@ -22,7 +22,6 @@ import FeaturedTag from '@/components/badges/FeaturedTag'
 import Avatar from '@/components/Avatar'
 import AuthGateModal from '@/components/AuthGateModal'
 import ReportButton from '@/components/ReportButton'
-import { HIDDEN_CONTACT_LINE } from '@/lib/tuitionConsentCore'
 import { TEAM_POSTER_LABEL } from '@/lib/teamPosterCore'
 import type { BadgeName } from '@/lib/planBadges'
 import { placeLabel } from '@/lib/place'
@@ -90,7 +89,8 @@ export type JobCardData = {
    *  email mask) shown to everyone; null when the tuition has no contact. */
   contactTeaser?: string | null
   /** The parent's number is hidden: consent not recorded and the Owner's
-   *  switch is on (owner, 27 Oct 2026). The card says staff share the profile. */
+   *  switch is on (off by default). The card then shows no contact line and
+   *  says nothing about consent (owner, 27 Oct 2026). */
   contactHidden?: boolean
   created_at: string
   /** The auto-pause clock base, when resumed at least once (PR89 Part C). The
@@ -464,9 +464,6 @@ export default function JobCard({
           {/* PR92 Part A: the always-visible masked contact line — a tutor SEES a
               number exists (drawing them to verify), and "View number" (a plain
               inline link → the tuition page, where a counted reveal shows it). */}
-          {job.contactHidden && (
-            <p className="text-xs font-semibold text-tm-navy" data-contact-hidden="">{HIDDEN_CONTACT_LINE}</p>
-          )}
           {!job.contactHidden && job.contactTeaser && (
             <p className="text-xs font-semibold text-tm-navy">
               Contact: <span className="tabular-nums">{job.contactTeaser}</span>{' '}

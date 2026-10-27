@@ -12,7 +12,6 @@ import Breadcrumbs from '@/components/Breadcrumbs'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import TimeAgo from '@/components/TimeAgo'
 import ReportButton from '@/components/ReportButton'
-import { HIDDEN_CONTACT_LINE } from '@/lib/tuitionConsentCore'
 import { TEAM_POSTER_LABEL } from '@/lib/teamPosterCore'
 import { budgetLabel } from '@/lib/feeBands'
 import { createClient } from '@/lib/supabase/server'
@@ -679,13 +678,8 @@ export default async function TuitionPage({ params }: { params: Params }) {
             (a tutor SEES a number exists → drawn to verify). "View number" spends
             one pool unit on tap (once per tuition; a guest is asked to sign up);
             a tutor who already has access sees the full number instead. */}
-        {/* Parent consent not recorded + the Owner's switch on (owner, 27 Oct
-            2026): no number and no View number — staff share the profile. */}
-        {state.showContact && job.contactHidden && (
-          <p className="rounded-xl bg-tm-tint-navy px-3 py-2 text-sm font-semibold text-tm-navy" data-contact-hidden="">
-            {HIDDEN_CONTACT_LINE}
-          </p>
-        )}
+        {/* Parent consent not recorded + the Owner's switch on (off by default):
+            no contact line at all, and nothing about consent (owner, 27 Oct 2026). */}
         {state.showContact && !job.contactHidden && job.contactTeaser && (
           <p className="flex flex-wrap items-center gap-1.5 rounded-xl bg-tm-tint-navy px-3 py-2 text-sm font-semibold text-tm-navy">
             Contact:{' '}

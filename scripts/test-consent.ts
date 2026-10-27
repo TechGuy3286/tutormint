@@ -9,6 +9,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { execSync } from 'node:child_process'
 import { createElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime'
@@ -18,7 +19,7 @@ import {
   CONSENT_METHOD_ERROR,
   CONSENT_REQUIRED_ERROR,
   CONSENT_TICK_LABEL,
-  HIDDEN_CONTACT_LINE,
+  HIDDEN_REVEAL_ERROR,
   consentFromImportCell,
   consentInputProblem,
   consentLabel,
@@ -175,13 +176,28 @@ test('Ask parent: the default message is the owner’s exact text, plain English
 
 // ── Part A.4 — the Owner's switch hides numbers everywhere ───────────────
 
-test('switch: ON by default; an unreadable value reads ON; off only when it says off', () => {
-  assert.equal(parseHideSwitch(null), true)
-  assert.equal(parseHideSwitch(''), true)
-  assert.equal(parseHideSwitch('true'), true)
-  assert.equal(parseHideSwitch('garbage'), true)
+test('switch: OFF by default (hotfix, owner 27 Oct 2026); missing or unreadable reads OFF; on only when it says on', () => {
+  assert.equal(parseHideSwitch(null), false)
+  assert.equal(parseHideSwitch(''), false)
+  assert.equal(parseHideSwitch('garbage'), false)
   assert.equal(parseHideSwitch('false'), false)
   assert.equal(parseHideSwitch('off'), false)
+  assert.equal(parseHideSwitch('true'), true)
+  assert.equal(parseHideSwitch('on'), true)
+  const lib = read('lib/tuitionConsent.ts')
+  const fn = lib.slice(lib.indexOf('export const hideNumbersSwitchOn'), lib.indexOf('/** Consent for each tuition'))
+  assert.doesNotMatch(fn, /return true/, 'no path reads the switch as ON by accident')
+  // Migration 209 turns it off and writes the Audit row.
+  const m = read('supabase/migrations/209_hide_numbers_off.sql')
+  assert.match(m, /set value = 'false'/)
+  assert.match(m, /Turned off at the owner''s request/)
+})
+
+test('switch OFF: every tuition reveals — not recorded, missing row and recorded alike', () => {
+  for (const c of [{ status: 'not_recorded' as const }, null, undefined, { status: 'recorded' as const }]) {
+    assert.equal(numberHidden(false, c), false)
+    assert.equal(numberHidden(parseHideSwitch(null), c), false, 'the default reveals')
+  }
 })
 
 test('switch ON hides a not-recorded tuition; OFF restores behaviour; recorded is never hidden', () => {
@@ -207,7 +223,7 @@ test('switch: the reveal, earlier reveals and the reveal status all check consen
   const feed = read('lib/jobFeed.ts')
   assert.match(feed, /const contactTeaser = contactHidden \? null :/)
   const page = read('app/(site)/tuitions/[city]/[slug]/page.tsx')
-  assert.match(page, /job\.contactHidden && \(/)
+  assert.doesNotMatch(page, /job\.contactHidden && \(/, 'no hidden-contact line is drawn (hotfix)')
   assert.match(page, /!job\.contactHidden && job\.contactTeaser/)
   assert.match(page, /!job\.contactHidden && <ContactReveal/)
   // Only the Owner changes the switch; every change is logged.
@@ -218,7 +234,7 @@ test('switch: the reveal, earlier reveals and the reveal status all check consen
   assert.match(read('lib/tuitionConsent.ts'), /action: 'settings\.hide_unconsented_numbers'/)
 })
 
-test('switch ON: a tutor’s card shows the line and no number teaser; OFF: the teaser is back', () => {
+test('switch ON: a tutor’s card shows no number and no consent line; OFF: the teaser is back', () => {
   const base: JobCardData = {
     id: '00000000-0000-4000-8000-000000000002',
     job_tx_id: 'JOB-X',
@@ -243,11 +259,33 @@ test('switch ON: a tutor’s card shows the line and no number teaser; OFF: the 
     contactTeaser: '0300 •••••••',
   } as unknown as JobCardData
   const hidden = render(createElement(JobCard, { job: { ...base, contactTeaser: null, contactHidden: true }, signedIn: true, showApply: true }))
-  assert.ok(hidden.includes(HIDDEN_CONTACT_LINE))
   assert.ok(!hidden.includes('0300'), 'no number at all')
   assert.ok(!hidden.includes('View number'))
   const shown = render(createElement(JobCard, { job: base, signedIn: true, showApply: true }))
-  assert.ok(shown.includes('View number') && !shown.includes(HIDDEN_CONTACT_LINE))
+  assert.ok(shown.includes('View number'))
+  for (const html of [hidden, shown]) assert.doesNotMatch(html, CONSENT_WORDING, 'no consent wording on a tutor card, whatever the setting')
+})
+
+// Tutors and the public are never told anything about consent (hotfix, owner 27 Oct 2026).
+const CONSENT_WORDING = /consent|share your profile|agreed to be listed/i
+
+test('no consent wording on tutor or public pages, whatever the setting', () => {
+  for (const f of [
+    'components/JobCard.tsx',
+    'app/(site)/tuitions/[city]/[slug]/page.tsx',
+    'components/ContactReveal.tsx',
+  ]) {
+    assert.doesNotMatch(read(f), /share your profile|HIDDEN_CONTACT_LINE|agreed to be listed/i, f)
+  }
+  assert.doesNotMatch(HIDDEN_REVEAL_ERROR, CONSENT_WORDING)
+  // No string in app/(site) or components (outside admin) says it.
+  let hits = ''
+  try {
+    hits = execSync('git grep -n -i "share your profile with the parent" -- "app/(site)" components ":!components/admin"', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+  } catch {
+    hits = '' // git grep exits 1 when nothing matches
+  }
+  assert.equal(hits.trim(), '')
 })
 
 // ── public pages never show a parent number ──────────────────────────────

@@ -1,10 +1,10 @@
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { hiddenNumberCount } from '@/lib/tuitionConsent'
-import { HIDE_NUMBERS_LABEL, HIDDEN_CONTACT_LINE } from '@/lib/tuitionConsentCore'
+import { HIDE_NUMBERS_LABEL } from '@/lib/tuitionConsentCore'
 import HideNumbersSwitch from './HideNumbersSwitch'
 
 // Admin → Settings → Privacy (owner, 27 Oct 2026). The Owner's switch "Hide
-// parent numbers when consent isn't recorded" (ON by default). The Owner
+// parent numbers when consent isn't recorded" (OFF by default — owner, 27 Oct 2026). The Owner
 // changes it; the Partner views; everyone else is sent away.
 
 export const dynamic = 'force-dynamic'
@@ -24,8 +24,8 @@ export default async function PrivacySettingsPage() {
         <h2 className="text-sm font-black text-tm-navy">{HIDE_NUMBERS_LABEL}</h2>
         <p className="text-xs leading-relaxed text-slate-700">
           When this is on, for a tuition whose consent is Not recorded: tutors can still apply, but the parent’s number is never
-          shown — not by “View number”, and not to a tutor who viewed it before. In place of the number they see “{HIDDEN_CONTACT_LINE}”,
-          and no reveal is counted. Staff then forward applicants through Applications as normal. Public pages never show a parent’s
+          shown — not by “View number”, and not to a tutor who viewed it before. No contact line is shown, no reveal is counted, and
+          tutors are told nothing about consent. Staff then forward applicants through Applications as normal. Public pages never show a parent’s
           number either way.
         </p>
         <p className="text-xs font-bold text-slate-800" data-hidden-count={hidden}>

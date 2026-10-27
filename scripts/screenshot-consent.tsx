@@ -20,7 +20,6 @@ async function main() {
   const { default: ReportTargetBlock } = await import('../components/admin/ReportTargetBlock')
   const { default: JobCard } = await import('../components/JobCard')
   const { default: PayChoice } = await import('../app/(site)/pay/choose/PayChoice')
-  const { HIDDEN_CONTACT_LINE } = await import('../lib/tuitionConsentCore')
   const { TEAM_POSTER_LABEL } = await import('../lib/teamPosterCore')
 
   const cssDir = '.next/static/chunks'
@@ -120,7 +119,6 @@ async function main() {
         <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
           <p className="inline-flex items-center gap-1.5 rounded-full bg-tm-tint-navy px-3 py-1 text-xs font-black text-tm-navy">{TEAM_POSTER_LABEL}</p>
           <h1 className="text-xl font-black leading-snug text-tm-navy">Female Home Tutor Required | Grade 7 | Gulberg | Lahore</h1>
-          <p className="rounded-xl bg-tm-tint-navy px-3 py-2 text-sm font-semibold text-tm-navy">{HIDDEN_CONTACT_LINE}</p>
           <button type="button" className="min-h-[48px] w-full rounded-xl bg-tm-red px-6 text-sm font-bold text-white">Apply</button>
         </section>
       </div>,

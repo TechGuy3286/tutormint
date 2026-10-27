@@ -78,11 +78,11 @@ export function isRecorded(r: Pick<ConsentRecord, 'status'> | null | undefined):
 export const HIDE_NUMBERS_SETTING = 'privacy.hide_unconsented_numbers'
 export const HIDE_NUMBERS_LABEL = 'Hide parent numbers when consent isn’t recorded'
 
-/** The stored value → on/off. ON unless it says off (the default is ON, and an
- *  unreadable or missing value must never expose numbers). */
+/** The stored value → on/off. OFF unless it says on (owner, 27 Oct 2026 hotfix:
+ *  tutors see parent numbers as before; a missing or unreadable value is OFF). */
 export function parseHideSwitch(value: string | null | undefined): boolean {
   const v = (value ?? '').trim().toLowerCase()
-  return !(v === 'false' || v === 'off' || v === '0' || v === 'no')
+  return v === 'true' || v === 'on' || v === '1' || v === 'yes'
 }
 
 /** Is this tuition's parent number hidden from tutors? */
@@ -90,12 +90,9 @@ export function numberHidden(switchOn: boolean, consent: Pick<ConsentRecord, 'st
   return switchOn && !isRecorded(consent)
 }
 
-/** What a tutor sees in place of the number / the reveal button. */
-export const HIDDEN_CONTACT_LINE = 'Apply — our team will share your profile with the parent'
-
-/** The refusal a direct reveal request gets (no reveal is counted). */
-export const HIDDEN_REVEAL_ERROR =
-  'The parent’s number is not shared for this tuition. Apply — our team will share your profile with the parent.'
+/** The refusal a direct reveal request gets while the switch is on (no reveal is
+ *  counted). Tutors are never told anything about consent (owner, 27 Oct 2026). */
+export const HIDDEN_REVEAL_ERROR = 'The number for this tuition is not available.'
 
 // ── "Ask parent" ──────────────────────────────────────────────────────────
 
