@@ -70,7 +70,8 @@ test('a hidden tuition 301-redirects to its city page, else Browse tuitions', ()
   assert.match(proxy, /hiddenTuitionRedirectPath\(request\.nextUrl\.pathname\)/)
   assert.match(proxy, /NextResponse\.redirect\(target, 301\)/)
   const page = read('app/(site)/tuitions/[city]/[slug]/page.tsx')
-  assert.match(page, /if \(isHiddenTuition\(job\.status\)\) permanentRedirect\(await hiddenTuitionTargetFor\(job\.city\)\)/)
+  // Every hidden tuition but one paused on a contact complaint (owner, 27 Oct 2026) redirects.
+  assert.match(page, /if \(isHiddenTuition\(job\.status\)\) \{[\s\S]{0,600}permanentRedirect\(await hiddenTuitionTargetFor\(job\.city\)\)/)
   assert.match(page, /if \(!job \|\| isHiddenTuition\(job\.status\)\) \{\s*return \{ title: pageTitle\('Tuition'\), robots: \{ index: false/)
 })
 

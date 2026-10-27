@@ -172,6 +172,95 @@ export function closeUpdate(
   return update
 }
 
+// ---------------------------------------------------------------------------
+// Pause on complaint (owner, 27 Oct 2026) — the reversible default. Every
+// tuition whose own contact data holds the number becomes status 'hidden',
+// hidden_reason 'contact_complaint' ("Paused: contact complaint"): out of every
+// list, search, the sitemap and Google Jobs; noindex; the page stays at its URL
+// and says "This tuition is not available"; the number is never revealed; its
+// applications read "Tuition no longer available". While the number is on
+// hold, a new tuition using it is refused. "Unpause all" puts every tuition back
+// exactly as it was and lifts the hold.
+
+export const COMPLAINT_REASON = 'contact_complaint'
+export const COMPLAINT_LABEL = 'Paused: contact complaint'
+export const HOLD_MESSAGE = 'This number has a complaint on file. Please check with the owner.'
+export const NOT_AVAILABLE_MESSAGE = 'This tuition is not available'
+
+export type HoldSnapshot = {
+  prev_status: string | null
+  prev_hidden_reason: string | null
+  prev_hidden_prev_status: string | null
+  prev_hidden_at: string | null
+  prev_is_featured: boolean | null
+}
+
+type JobState = {
+  status: string | null
+  hidden_reason: string | null
+  hidden_prev_status: string | null
+  hidden_at: string | null
+  is_featured: boolean | null
+}
+
+/** Is this tuition already paused on complaint or withdrawn? Then a pause
+ *  leaves it alone. */
+export function pauseSkips(job: Pick<JobState, 'status' | 'hidden_reason'>): boolean {
+  return job.status === 'hidden' && (job.hidden_reason === COMPLAINT_REASON || job.hidden_reason === WITHDRAWN_REASON)
+}
+
+/** What "Unpause all" must put back, exactly. */
+export function holdSnapshot(job: JobState): HoldSnapshot {
+  return {
+    prev_status: job.status,
+    prev_hidden_reason: job.hidden_reason,
+    prev_hidden_prev_status: job.hidden_prev_status,
+    prev_hidden_at: job.hidden_at,
+    prev_is_featured: job.is_featured,
+  }
+}
+
+/** The jobs update that pauses one tuition on complaint. Its text is NOT
+ *  changed (nothing is removed — the page shows none of it while paused). */
+export function pauseUpdate(job: JobState, nowIso: string): Record<string, unknown> {
+  const update: Record<string, unknown> = { status: 'hidden', hidden_reason: COMPLAINT_REASON, is_featured: false }
+  if (job.status !== 'hidden') {
+    update.hidden_prev_status = job.status ?? 'open'
+    update.hidden_at = nowIso
+  }
+  return update
+}
+
+/** The jobs update that "Unpause all" writes: the snapshot, exactly. */
+export function restoreUpdate(s: HoldSnapshot): Record<string, unknown> {
+  return {
+    status: s.prev_status ?? 'open',
+    hidden_reason: s.prev_hidden_reason,
+    hidden_prev_status: s.prev_hidden_prev_status,
+    hidden_at: s.prev_hidden_at,
+    is_featured: s.prev_is_featured ?? false,
+  }
+}
+
+/** Only a tuition still paused by this complaint is restored (one withdrawn
+ *  since stays withdrawn). */
+export function mayRestore(job: Pick<JobState, 'status' | 'hidden_reason'>): boolean {
+  return job.status === 'hidden' && job.hidden_reason === COMPLAINT_REASON
+}
+
+/** A tuition paused on complaint (the page shows the not-available notice). */
+export function isComplaintPaused(job: { status?: string | null; hidden_reason?: string | null }): boolean {
+  return job.status === 'hidden' && job.hidden_reason === COMPLAINT_REASON
+}
+
+/** The refusal for a set of numbers given the live Do-not-use and hold hashes:
+ *  Do not use wins (it is permanent), then the hold. */
+export function postingRefusal(numbers: (string | null | undefined)[], doNotUse: Set<string>, holds: Set<string>): string | null {
+  if (listedNumber(numbers, doNotUse)) return DO_NOT_USE_MESSAGE
+  if (listedNumber(numbers, holds)) return HOLD_MESSAGE
+  return null
+}
+
 /** The job_contacts update that removes the number (null when nothing holds it). */
 export function contactUpdate(
   c: { contact_phone: string | null; contact_whatsapp: string | null; contact_social: string | null; contact_address: string | null },

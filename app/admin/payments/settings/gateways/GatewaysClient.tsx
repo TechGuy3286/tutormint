@@ -5,21 +5,19 @@ import { useRouter } from 'next/navigation'
 
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
-import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
-import { GATEWAYS, methodChangeError, type GatewayId, type GatewaySettings, type MethodKey } from '@/lib/payments/gatewaySettingsCore'
+import { methodChangeError, type GatewayId, type GatewaySettings, type MethodKey } from '@/lib/payments/gatewaySettingsCore'
+import { PAYPRO_RETIRED_LINE } from '@/lib/payments/payproRetireCore'
 
 // The controls on Admin → Settings → Payment gateways (owner, 6 Oct 2026, item
 // 19). Every change posts to /api/admin/payments/gateways, which re-checks owner,
 // asks for the password when it is stale, refuses a change that breaks a rule,
 // and writes the audit log.
 
+// PayPro is retired (owner, 26 Oct 2026) and is not offered as a way to pay;
+// the leave-and-come-back link is gone too (owner, 27 Oct 2026). Bank transfer
+// is the one way to pay.
 const METHOD_ROWS: { key: MethodKey; title: string; sub: string }[] = [
-  {
-    key: 'paypro_online',
-    title: 'Online payment on PayPro',
-    sub: 'JazzCash, Easypaisa and card. PayPro shows these three together on its own page, so they turn on and off together — PayPro does not let us switch one of them off on its own.',
-  },
   {
     key: 'bank_transfer',
     title: 'Show bank transfer to members',
@@ -47,14 +45,13 @@ function Switch({ on, label, busy, onClick }: { on: boolean; label: string; busy
 
 export default function GatewaysClient({
   initial,
-  configured,
+  configured: _configured,
 }: {
   initial: GatewaySettings
   configured: Record<GatewayId, boolean>
 }) {
   const router = useRouter()
   const toast = useToast()
-  const confirm = useConfirm()
   const [s, setS] = useState<GatewaySettings>(initial)
   // The Partner sees the settings and cannot change them (owner, 8 Oct 2026):
   // every control is shown in its state but locked; the route refuses anyway.
@@ -77,22 +74,6 @@ export default function GatewaysClient({
     return true
   }
 
-  const chooseGateway = async (id: GatewayId) => {
-    if (id === s.active || !configured[id]) return
-    const name = GATEWAYS.find((g) => g.id === id)?.name ?? id
-    const ok = await confirm({
-      title: `Make ${name} the active gateway?`,
-      body: `Every new online payment will go through ${name} from now on. Payments already started stay with their gateway.`,
-      confirmLabel: `Switch to ${name}`,
-      destructive: false,
-    })
-    if (!ok) return
-    if (await send(`active-${id}`, { change: 'active', gateway: id })) {
-      setS((p) => ({ ...p, active: id }))
-      toast.success(`${name} is now the active gateway.`)
-    }
-  }
-
   const toggleMethod = async (key: MethodKey) => {
     const next = !s.methods[key]
     const problem = methodChangeError(s, key, next)
@@ -106,49 +87,14 @@ export default function GatewaysClient({
     }
   }
 
-  const togglePayLater = async () => {
-    const next = !s.payLater
-    if (await send('pay_later', { change: 'pay_later', on: next })) {
-      setS((p) => ({ ...p, payLater: next }))
-      toast.success(next ? '“Pay later” is on.' : '“Pay later” is off.')
-    }
-  }
 
   const row = 'flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4'
 
   return (
     <div className="space-y-6">
-      <section className="space-y-2">
-        <h2 className="text-sm font-black text-tm-navy">Active gateway</h2>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {GATEWAYS.map((g) => {
-            const isActive = s.active === g.id
-            const ready = configured[g.id]
-            return (
-              <button
-                key={g.id}
-                type="button"
-                onClick={() => void chooseGateway(g.id)}
-                disabled={!ready || isActive || busy !== null}
-                aria-pressed={isActive}
-                className={`flex min-h-[64px] flex-col items-start justify-center rounded-2xl border p-4 text-left ${
-                  isActive ? 'border-tm-green-deep bg-tm-tint-green' : 'border-gray-200 bg-white'
-                } ${!ready ? 'cursor-not-allowed' : ''}`}
-              >
-                <span className={`text-sm font-black ${isActive ? 'text-tm-green-deep' : 'text-tm-navy'}`}>{g.name}</span>
-                <span className="text-[11px] text-gray-600">
-                  {isActive ? 'Active now' : ready ? 'Ready — tap to make active' : 'Not configured'}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-        {!configured.assanpay && (
-          <p className="text-[11px] text-gray-500">
-            AssanPay cannot be chosen until its connection is built and its settings are added in Vercel.
-          </p>
-        )}
-      </section>
+      <div className={row} data-paypro-retired="">
+        <p className="text-sm font-bold text-tm-navy">{PAYPRO_RETIRED_LINE}</p>
+      </div>
 
       <section className="space-y-2">
         <h2 className="text-sm font-black text-tm-navy">Ways to pay</h2>
@@ -167,16 +113,6 @@ export default function GatewaysClient({
         </p>
       </section>
 
-      <section className="space-y-2">
-        <h2 className="text-sm font-black text-tm-navy">Pay later</h2>
-        <div className={row}>
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-tm-navy">Show a &ldquo;Pay later&rdquo; link</p>
-            <p className="text-[11px] text-gray-500">Lets a member leave the payment step and come back to it later.</p>
-          </div>
-          <Switch on={s.payLater} label="Pay later" busy={readOnly || busy === 'pay_later'} onClick={() => void togglePayLater()} />
-        </div>
-      </section>
     </div>
   )
 }

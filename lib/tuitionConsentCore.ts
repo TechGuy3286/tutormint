@@ -15,6 +15,13 @@
 // who revealed it earlier — and no reveal is counted. Tutors still apply; staff
 // forward their profile through Applications.
 
+/** The consent UI (owner, 27 Oct 2026 — later the same day): consent is NOT
+ *  needed — these tuitions were publicly posted by parents with their number.
+ *  Every consent control is hidden and no save requires it; the stored records
+ *  (tuition_consents) and the Owner's Privacy switch are kept. Nothing about
+ *  consent is ever shown to tutors or the public. */
+export const CONSENT_UI_ENABLED = false
+
 export type ConsentStatus = 'recorded' | 'not_recorded'
 export type ConsentMethod = 'phone' | 'whatsapp' | 'in_person' | 'parent_posted'
 

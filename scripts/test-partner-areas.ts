@@ -67,6 +67,8 @@ test('every view-only area refuses a Partner write; the Owner is unaffected', ()
     'contactWithdraw',
     // Settings → Privacy, the hide-numbers switch (owner, 27 Oct 2026): Owner only.
     'consentPrivacy',
+    // Notification settings and Email usage (owner, 27 Oct 2026): Owner only.
+    'notificationSettings', 'emailUsage',
   ]
   for (const key of VIEW) {
     assert.equal(roleMayWrite('partner', SCREEN_ACCESS[key]), false, key)
@@ -118,6 +120,8 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   'contact-withdraw/list': 'owner',
   'contact-withdraw/search': 'owner',
   'contact-withdraw/withdraw': 'owner',
+  'contact-withdraw/pause': 'owner',
+  'contact-withdraw/unpause': 'owner',
   'blog/cover': 'view',
   'blog/generate-cover': 'view',
   'blog/generate': 'view',
@@ -198,6 +202,7 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   'settings/support-whatsapp': 'view',
   // "Hide parent numbers when consent isn't recorded" — Owner only.
   'settings/hide-numbers': 'view',
+  'settings/email-types': 'view',
   'payments/reconciliation': 'view',
   'payments/refund': 'view',
   'payments/settlement/credits': 'view',

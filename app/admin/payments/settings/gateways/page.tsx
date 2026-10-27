@@ -6,7 +6,6 @@ import { gatewayConfigured, getGatewaySettings, loadGatewayHealth } from '@/lib/
 import { formatDateTime } from '@/lib/datetime'
 import GatewaysClient from './GatewaysClient'
 import BankDetailsForm from '../../bank-details/BankDetailsForm'
-import AlertEmailsForm from '../../bank-details/AlertEmailsForm'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { SETTING_KEYS } from '@/lib/payments/manual'
 import { PAYMENT_ALERTS_KEY } from '@/lib/payments/paymentAlerts'
@@ -71,7 +70,7 @@ export default async function PaymentGatewaysPage({
       <header className="space-y-1">
         <h1 className="text-lg font-black text-tm-navy">Payment gateways</h1>
         <p className="text-xs text-gray-500">
-          Owner only. Choose the gateway members pay through and which ways to pay are offered. Every change is recorded in
+          Owner only. Members pay by bank transfer; PayPro is retired. Every change is recorded in
           the{' '}
           <Link href="/admin/audit" className="font-bold text-tm-navy hover:underline">
             audit log
@@ -113,7 +112,11 @@ export default async function PaymentGatewaysPage({
         />
       </section>
 
-      <AlertEmailsForm initial={stored.get(PAYMENT_ALERTS_KEY) ?? 'techguy3286@gmail.com'} />
+      {/* Payment alert emails moved to Notification settings (owner, 27 Oct 2026). */}
+      <p className="text-[11px] text-gray-500">
+        Which alert emails are sent is set in{' '}
+        <Link href="/admin/settings/notifications" className="font-bold text-tm-navy hover:underline">Notification settings</Link>.
+      </p>
 
       <section className="space-y-3">
         <h2 className="text-sm font-black text-tm-navy">Health</h2>

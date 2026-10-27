@@ -281,6 +281,10 @@ export type TemplateInput =
   // is erased; essential. No name is kept after this, so none is used.
   | { id: 'account_erased'; supportWhatsapp: string }
   | { id: 'tuition_paused'; title: string }
+  // One email a day combining the non-urgent member emails held for it (owner,
+  // 27 Oct 2026; lib/email/policyCore SUMMARY_TEMPLATES). Each item is that
+  // email's subject and text, already checked against the member's opt-out.
+  | { id: 'daily_summary'; items: { subject: string; text: string }[] }
   // The hourly SMS health check (owner, 15 Oct 2026). Staff-facing, essential.
   | { id: 'sms_alert'; message: string; reasons: string[] }
   // STAFF-facing alerts (PR106-H1 §2). English only (no member Urdu); essential.
@@ -837,6 +841,22 @@ export function render(input: TemplateInput): RenderedEmail {
         lines,
         true, // internal ops
         { label: 'Open the content queue', href: '/admin/blog/queue' },
+      )
+    }
+
+    // -------------------------------------------------------------------
+    case 'daily_summary': {
+      const paragraphs: string[] = []
+      for (const it of input.items) {
+        paragraphs.push(it.subject)
+        for (const line of it.text.split('\n')) if (line.trim()) paragraphs.push(line.trim())
+      }
+      return build(
+        input.items.length === 1 ? 'Your TutorMint update' : `Your TutorMint summary: ${input.items.length} updates`,
+        'Your TutorMint summary',
+        paragraphs,
+        true, // every item was already checked against the opt-out when it was held
+        { label: 'Open TutorMint', href: '/' },
       )
     }
 

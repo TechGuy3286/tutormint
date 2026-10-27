@@ -16,6 +16,10 @@ export const PAYPRO_CUTOFF_KEY = 'pay.paypro.cutoff'
  *  26 Oct 2026. The migration seeds the same day into app_settings. */
 export const PAYPRO_CUTOFF_DEFAULT = '2026-11-25'
 
+/** The read-only line Admin → Payments → Settings and Payment gateways show in
+ *  place of "PayPro mode" (owner, 27 Oct 2026). The stored mode is unchanged. */
+export const PAYPRO_RETIRED_LINE = 'PayPro: Retired — orders started before 25 Nov 2026 still complete'
+
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
 
 /** The stored value if it is a real day, else the default. */

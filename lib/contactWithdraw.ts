@@ -45,6 +45,15 @@ import {
   consentCounts,
   closeUpdate,
   contactUpdate,
+  COMPLAINT_LABEL,
+  COMPLAINT_REASON,
+  holdSnapshot,
+  mayRestore,
+  pauseSkips,
+  pauseUpdate,
+  postingRefusal,
+  restoreUpdate,
+  type HoldSnapshot,
 } from '@/lib/contactWithdrawCore'
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>
@@ -65,6 +74,8 @@ export type TuitionMatch = {
   /** Closed by "Withdraw this contact" (its own contact data holds the number). */
   willClose: boolean
   alreadyWithdrawn: boolean
+  /** Paused by "Pause all their tuitions" (owner, 27 Oct 2026). */
+  pausedOnComplaint: boolean
 }
 
 export type AccountMatch = {
@@ -85,6 +96,8 @@ export type SearchResult = {
   leads: LeadMatch[]
   listed: boolean
   pastWithdrawals: number
+  /** The live hold on this number, when one exists. */
+  hold: { id: string; heldAt: string; heldByName: string | null } | null
 }
 
 const LEAD_COLUMNS: { table: string; column: string }[] = [
@@ -96,6 +109,12 @@ const LEAD_COLUMNS: { table: string; column: string }[] = [
 ]
 
 const STATUS_WORDS: Record<string, string> = { open: 'Open', paused: 'Paused', closed: 'Closed', hired: 'Hired', hidden: 'Hidden' }
+
+async function liveHoldHashes(admin: Admin): Promise<Set<string>> {
+  const { data, error } = await admin.from('contact_holds').select('number_hash').is('released_at', null)
+  if (error) throw new Error('contact_holds unreadable')
+  return new Set((data ?? []).map((r) => r.number_hash as string))
+}
 
 async function liveHashes(admin: Admin): Promise<Set<string>> {
   const { data, error } = await admin.from('do_not_use_numbers').select('number_hash').is('removed_at', null)
@@ -114,7 +133,8 @@ export async function doNotUseRefusal(numbers: (string | null | undefined)[]): P
   const admin = createAdminClient()
   if (!admin) return null
   try {
-    return listedNumber(numbers, await liveHashes(admin)) ? DO_NOT_USE_MESSAGE : null
+    const [dnu, holds] = await Promise.all([liveHashes(admin), liveHoldHashes(admin).catch(() => new Set<string>())])
+    return postingRefusal(numbers, dnu, holds)
   } catch {
     console.warn('[do-not-use] list unreadable; check skipped')
     return null
@@ -141,7 +161,7 @@ export async function searchContact(msisdn: string): Promise<SearchResult> {
   const admin = createAdminClient()
   if (!admin) throw new Error('unavailable')
 
-  const [contacts, jobsText, profiles, tutorProfiles, hashes, past] = await Promise.all([
+  const [contacts, jobsText, profiles, tutorProfiles, hashes, past, holdRow] = await Promise.all([
     pageAll<{ job_id: string; contact_phone: string | null; contact_whatsapp: string | null; contact_social: string | null; contact_address: string | null }>((from, to) =>
       admin.from('job_contacts').select('job_id, contact_phone, contact_whatsapp, contact_social, contact_address').order('job_id').range(from, to),
     ),
@@ -156,6 +176,7 @@ export async function searchContact(msisdn: string): Promise<SearchResult> {
     ),
     liveHashes(admin).catch(() => new Set<string>()),
     admin.from('contact_withdrawals').select('id', { count: 'exact', head: true }).eq('number_hash', numberHash(msisdn)),
+    admin.from('contact_holds').select('id, held_at, held_by_name').eq('number_hash', numberHash(msisdn)).is('released_at', null).maybeSingle(),
   ])
 
   // Tuitions whose OWN contact data holds the number.
@@ -222,19 +243,21 @@ export async function searchContact(msisdn: string): Promise<SearchResult> {
       const parent = j.parent_id ? nameBy.get(j.parent_id) : undefined
       const postedBy = staffId ? `Staff — ${nameBy.get(staffId)?.name ?? 'Former staff'}` : parent?.team ? 'Staff — unknown' : `Parent — ${parent?.name ?? 'Member'}`
       const withdrawn = j.status === 'hidden' && j.hidden_reason === WITHDRAWN_REASON
+      const complaint = j.status === 'hidden' && j.hidden_reason === COMPLAINT_REASON
       tuitions.push({
         id: j.id,
         ref: j.ref_id,
         title: (j.title ?? '').trim() || 'Untitled tuition',
         city: j.city,
         status: j.status ?? 'open',
-        statusLabel: withdrawn ? WITHDRAWN_LABEL : STATUS_WORDS[j.status ?? 'open'] ?? (j.status ?? 'open'),
+        statusLabel: withdrawn ? WITHDRAWN_LABEL : complaint ? COMPLAINT_LABEL : STATUS_WORDS[j.status ?? 'open'] ?? (j.status ?? 'open'),
         postedBy,
         via: v,
         applied: appCount.get(j.id) ?? 0,
         revealed: accessCount.get(j.id) ?? 0,
         willClose: v.some((x) => x !== 'parent_account'),
         alreadyWithdrawn: withdrawn,
+        pausedOnComplaint: complaint,
       })
     }
     tuitions.sort((a, b) => (a.ref ?? '').localeCompare(b.ref ?? ''))
@@ -253,6 +276,7 @@ export async function searchContact(msisdn: string): Promise<SearchResult> {
     leads,
     listed: hashes.has(numberHash(msisdn)),
     pastWithdrawals: past.count ?? 0,
+    hold: holdRow.data ? { id: holdRow.data.id as string, heldAt: holdRow.data.held_at as string, heldByName: (holdRow.data.held_by_name as string | null) ?? null } : null,
   }
 }
 
@@ -326,6 +350,13 @@ export async function withdrawContact(args: { actor: AdminActor; actorName: stri
     })
     if (error) return { ok: false, status: 500, error: 'The tuitions were closed, but the number could not be added to the Do not use list. Try again.' }
   }
+
+  // A live hold ends: the number is now removed for good.
+  await admin
+    .from('contact_holds')
+    .update({ released_at: now, released_by: args.actor.id, released_by_name: args.actorName, released_reason: 'Removed permanently', released_how: 'removed' })
+    .eq('number_hash', hash)
+    .is('released_at', null)
 
   const parentAccounts = found.accounts.filter((a) => a.isParent)
   const summary = {
@@ -444,10 +475,170 @@ export async function doNotUseChecker(): Promise<(numbers: (string | null | unde
   const admin = createAdminClient()
   if (!admin) return () => false
   try {
-    const hashes = await liveHashes(admin)
-    return (numbers) => listedNumber(numbers, hashes)
+    const [hashes, holds] = await Promise.all([liveHashes(admin), liveHoldHashes(admin).catch(() => new Set<string>())])
+    return (numbers) => listedNumber(numbers, hashes) || listedNumber(numbers, holds)
   } catch {
     console.warn('[do-not-use] list unreadable; check skipped')
     return () => false
   }
+}
+
+// ---------------------------------------------------------------------------
+// Pause on complaint (owner, 27 Oct 2026). Rules in lib/contactWithdrawCore.
+
+export type PauseResult =
+  | { ok: true; holdId: string; paused: number; skipped: number }
+  | { ok: false; status: number; error: string }
+
+/** "Pause all their tuitions": every tuition whose own contact data holds the
+ *  number is paused on complaint, its exact state kept for "Unpause all", and
+ *  the number goes on hold (new tuitions using it are refused). The number is
+ *  never written anywhere but as a hash and a masked form. */
+export async function pauseContact(args: { actor: AdminActor; actorName: string; msisdn: string; reason: string }): Promise<PauseResult> {
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes.' }
+  const reason = args.reason.trim()
+  const hash = numberHash(args.msisdn)
+  const found = await searchContact(args.msisdn)
+  if (found.hold) return { ok: false, status: 409, error: 'This number is already on hold. Use Unpause all to lift it.' }
+
+  const { data: hold, error: holdError } = await admin
+    .from('contact_holds')
+    .insert({ number_hash: hash, masked: found.masked, reason, held_by: args.actor.id, held_by_name: args.actorName })
+    .select('id')
+    .single()
+  if (holdError || !hold) return { ok: false, status: 500, error: 'The hold could not be saved. Nothing was changed; try again.' }
+  const holdId = hold.id as string
+
+  const now = new Date().toISOString()
+  let paused = 0
+  let skipped = 0
+  const refs: string[] = []
+  for (const t of found.tuitions.filter((x) => x.willClose)) {
+    const { data: job } = await admin.from('jobs').select('id, status, hidden_reason, hidden_prev_status, hidden_at, is_featured').eq('id', t.id).maybeSingle()
+    if (!job) continue
+    const state = job as { status: string | null; hidden_reason: string | null; hidden_prev_status: string | null; hidden_at: string | null; is_featured: boolean | null }
+    if (pauseSkips(state)) {
+      skipped++
+      continue
+    }
+    const { error: snapError } = await admin.from('contact_hold_jobs').insert({ hold_id: holdId, job_id: t.id, ...holdSnapshot(state), paused_at: now })
+    if (snapError) return { ok: false, status: 500, error: 'A tuition could not be paused. The ones before it are paused; try again to finish.' }
+    const { error } = await admin.from('jobs').update(pauseUpdate(state, now)).eq('id', t.id)
+    if (error) return { ok: false, status: 500, error: 'A tuition could not be paused. The ones before it are paused; try again to finish.' }
+    paused++
+    refs.push(t.ref ?? t.id)
+    await logAdminAction({
+      actorId: args.actor.id,
+      actorRole: args.actor.adminRole,
+      actorEmail: args.actor.email,
+      action: 'job.pause_contact_complaint',
+      targetType: 'job',
+      targetId: t.id,
+      detail: { previousStatus: state.status, ref: t.ref },
+    })
+  }
+
+  await logAdminAction({
+    actorId: args.actor.id,
+    actorRole: args.actor.adminRole,
+    actorEmail: args.actor.email,
+    action: 'contact.pause_complaint',
+    targetType: 'contact_hold',
+    targetId: holdId,
+    detail: { reason, paused, skipped, refs },
+  })
+  revalidateLanding()
+  return { ok: true, holdId, paused, skipped }
+}
+
+export type UnpauseResult =
+  | { ok: true; restored: number; leftAlone: number }
+  | { ok: false; status: number; error: string }
+
+/** "Unpause all": every tuition this hold paused goes back to EXACTLY its
+ *  earlier state, and the hold is lifted. A tuition withdrawn since is left as
+ *  it is. A parent account hidden in the meantime is applied again afterwards
+ *  (sync_parent_tuitions), so a hidden parent's tuitions stay hidden. */
+export async function unpauseContact(args: { actor: AdminActor; actorName: string; holdId: string; reason: string }): Promise<UnpauseResult> {
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes.' }
+  const { data: hold } = await admin.from('contact_holds').select('id, released_at').eq('id', args.holdId).maybeSingle()
+  if (!hold || hold.released_at) return { ok: false, status: 404, error: 'That number is not on hold.' }
+
+  const { data: rows } = await admin
+    .from('contact_hold_jobs')
+    .select('job_id, prev_status, prev_hidden_reason, prev_hidden_prev_status, prev_hidden_at, prev_is_featured')
+    .eq('hold_id', args.holdId)
+    .is('restored_at', null)
+  const now = new Date().toISOString()
+  let restored = 0
+  let leftAlone = 0
+  const parents = new Set<string>()
+  for (const r of rows ?? []) {
+    const jobId = r.job_id as string
+    const { data: job } = await admin.from('jobs').select('id, status, hidden_reason, parent_id, ref_id').eq('id', jobId).maybeSingle()
+    if (!job || !mayRestore(job as { status: string | null; hidden_reason: string | null })) {
+      leftAlone++
+      continue
+    }
+    const { error } = await admin.from('jobs').update(restoreUpdate(r as HoldSnapshot)).eq('id', jobId).eq('hidden_reason', COMPLAINT_REASON)
+    if (error) return { ok: false, status: 500, error: 'A tuition could not be put back. The ones before it are back; try again to finish.' }
+    await admin.from('contact_hold_jobs').update({ restored_at: now }).eq('hold_id', args.holdId).eq('job_id', jobId)
+    if (job.parent_id) parents.add(job.parent_id as string)
+    restored++
+    await logAdminAction({
+      actorId: args.actor.id,
+      actorRole: args.actor.adminRole,
+      actorEmail: args.actor.email,
+      action: 'job.unpause_contact_complaint',
+      targetType: 'job',
+      targetId: jobId,
+      detail: { restoredStatus: r.prev_status, ref: job.ref_id ?? null },
+    })
+  }
+  for (const p of parents) {
+    const { error } = await admin.rpc('sync_parent_tuitions', { p_parent: p })
+    if (error) console.warn('[contact-hold] parent re-check skipped')
+  }
+
+  await admin
+    .from('contact_holds')
+    .update({ released_at: now, released_by: args.actor.id, released_by_name: args.actorName, released_reason: args.reason.trim(), released_how: 'unpaused' })
+    .eq('id', args.holdId)
+    .is('released_at', null)
+  await logAdminAction({
+    actorId: args.actor.id,
+    actorRole: args.actor.adminRole,
+    actorEmail: args.actor.email,
+    action: 'contact.unpause_complaint',
+    targetType: 'contact_hold',
+    targetId: args.holdId,
+    detail: { reason: args.reason.trim(), restored, leftAlone },
+  })
+  revalidateLanding()
+  return { ok: true, restored, leftAlone }
+}
+
+export type HoldRow = { id: string; masked: string; reason: string; heldByName: string | null; heldAt: string; tuitions: number }
+
+/** The "On hold" list (masked numbers only). */
+export async function loadHoldList(): Promise<HoldRow[]> {
+  const admin = createAdminClient()
+  if (!admin) return []
+  const { data } = await admin.from('contact_holds').select('id, masked, reason, held_by_name, held_at').is('released_at', null).order('held_at', { ascending: false })
+  const ids = (data ?? []).map((r) => r.id as string)
+  const counts = new Map<string, number>()
+  if (ids.length > 0) {
+    const { data: jobs } = await admin.from('contact_hold_jobs').select('hold_id').in('hold_id', ids).is('restored_at', null)
+    for (const j of jobs ?? []) counts.set(j.hold_id as string, (counts.get(j.hold_id as string) ?? 0) + 1)
+  }
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    masked: r.masked as string,
+    reason: r.reason as string,
+    heldByName: (r.held_by_name as string | null) ?? null,
+    heldAt: r.held_at as string,
+    tuitions: counts.get(r.id as string) ?? 0,
+  }))
 }

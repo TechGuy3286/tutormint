@@ -151,7 +151,7 @@ test('owner only, with the password asked again for changes', () => {
   assert.match(src('lib/contactWithdrawGate.ts'), /refuseUnlessOwnerApproval\(/)
   const dir = 'app/api/admin/contact-withdraw'
   const routes = readdirSync(dir).map((d) => src(`${dir}/${d}/route.ts`))
-  assert.equal(routes.length, 3)
+  assert.equal(routes.length, 5) // + pause and unpause (owner, 27 Oct 2026)
   for (const r of routes) assert.match(r, /ownerContactGate\(await checkAdminRole\(\.\.\.SCREEN_ACCESS\.contactWithdraw\)/)
   assert.match(src(`${dir}/withdraw/route.ts`), /requireFreshAuth\(/)
   assert.match(src(`${dir}/list/route.ts`), /export async function POST[\s\S]*requireFreshAuth\(/)

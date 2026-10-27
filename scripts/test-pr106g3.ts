@@ -82,7 +82,7 @@ test('a brand-new tutor opens at Gender in the new flow, at City in the current 
 
 test('the admin switch UI + route + the onboarding pages are wired', () => {
   assert.match(read('app/admin/payments/settings/page.tsx'), /OnboardingModeForm/, 'switch UI on the settings page')
-  assert.match(read('app/admin/payments/settings/page.tsx'), /PayPro mode/, 'PayPro mode line')
+  assert.match(read('app/admin/payments/settings/page.tsx'), /PAYPRO_RETIRED_LINE/, 'PayPro line (Retired since 27 Oct 2026; the mode card is gone)')
   assert.match(read('app/api/admin/onboarding-mode/route.ts'), /ONBOARDING_MODE_KEY/, 'the save route')
   for (const p of ['app/(site)/tutor/onboarding/page.tsx', 'app/(site)/tutor/complete-profile/page.tsx']) {
     assert.match(read(p), /showNewOnboarding\(await getOnboardingMode\(\)/, `${p} resolves the switch`)

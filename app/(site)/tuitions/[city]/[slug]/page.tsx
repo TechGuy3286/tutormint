@@ -20,6 +20,8 @@ import { jobByPublicSlug, similarOpenTuitions } from '@/lib/jobFeed'
 import { peekTuitionContact } from '@/lib/contactReveal'
 import { isHiddenTuition } from '@/lib/hiddenTuitionCore'
 import { hiddenTuitionTargetFor } from '@/lib/hiddenTuition'
+import { isComplaintPaused } from '@/lib/contactWithdrawCore'
+import TuitionNotAvailable from '@/components/TuitionNotAvailable'
 import { tuitionPublicState, pauseCountdownLabel, pauseDueAtMs } from '@/lib/tuitionStatus'
 import { isFixtureTuition } from '@/lib/fixtures'
 import { tuitionIndexable } from '@/lib/seo/indexable'
@@ -242,7 +244,16 @@ export default async function TuitionPage({ params }: { params: Params }) {
   // A tuition whose parent account is hidden, test, suspended or banned
   // (owner, 24 Oct 2026): proxy.ts answers a 301 to the city's tuition page;
   // this is the backstop when its one-minute cache has not caught up yet.
-  if (isHiddenTuition(job.status)) permanentRedirect(await hiddenTuitionTargetFor(job.city))
+  // A tuition paused on a contact complaint (owner, 27 Oct 2026) is the one
+  // hidden tuition that does NOT redirect: it stays at its URL and says only
+  // "This tuition is not available" (noindex from the metadata above, no
+  // JobPosting, no contact line).
+  if (isHiddenTuition(job.status)) {
+    const svc = createAdminClient()
+    const { data: hr } = svc ? await svc.from('jobs').select('status, hidden_reason').eq('id', job.id).maybeSingle() : { data: null }
+    if (hr && isComplaintPaused(hr as { status: string | null; hidden_reason: string | null })) return <TuitionNotAvailable city={job.city} />
+    permanentRedirect(await hiddenTuitionTargetFor(job.city))
+  }
 
   // The public state of the page: open accepts applications, is indexable, emits
   // JobPosting and sits in the sitemap; paused/closed/hired do none of those and

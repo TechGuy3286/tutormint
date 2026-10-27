@@ -49,7 +49,9 @@ test('the payment-alert setting is OWNER-only', () => {
   // Moved with the bank details to the owner-only Payment gateways page (11 Oct 2026).
   const page = read('app/admin/payments/settings/gateways/page.tsx')
   assert.match(page, /requireAdminRole\(\.\.\.SCREEN_ACCESS\.paymentGateways\)/, 'an owner-only page')
-  assert.match(page, /<AlertEmailsForm/, 'the form shows only to the owner')
+  // The alert-address form is gone (owner, 27 Oct 2026): alert emails are set in
+  // the owner-only Notification settings, and go to the Owner account only.
+  assert.ok(page.includes('/admin/settings/notifications'), 'points at Notification settings')
 })
 
 test('a bank transfer submitted alerts staff', () => {

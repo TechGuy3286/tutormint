@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { getPaymentSwitches } from '@/lib/payments/switches'
-import { payproMode } from '@/lib/payments/paypro'
+import { PAYPRO_RETIRED_LINE } from '@/lib/payments/payproRetireCore'
 import { getOnboardingMode } from '@/lib/onboardingModeServer'
 import SwitchesForm from './SwitchesForm'
 import OnboardingModeForm from './OnboardingModeForm'
@@ -15,14 +15,8 @@ export const dynamic = 'force-dynamic'
 export default async function PaymentSettingsPage() {
   await requireAdminRole(...SCREEN_ACCESS.paymentsSwitches)
   const switches = await getPaymentSwitches()
-  const mode = payproMode()
   const onboardingMode = await getOnboardingMode()
 
-  const modeLabel = mode === 'live' ? 'Live' : mode === 'sandbox' ? 'Sandbox' : 'Not set'
-  const modeTone =
-    mode === 'live' ? 'bg-tm-tint-green text-tm-green-deep'
-      : mode === 'sandbox' ? 'bg-tm-tint-gold text-tm-gold-ink'
-        : 'bg-gray-100 text-gray-500'
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
@@ -34,14 +28,10 @@ export default async function PaymentSettingsPage() {
         </p>
       </header>
 
-      {/* PR106-G3 §4: the PayPro mode, derived from the configured base URL host
-          — never the secret value. */}
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4">
-        <div>
-          <p className="text-sm font-bold text-tm-navy">PayPro mode</p>
-          <p className="text-[11px] text-gray-500">Live card payments are open to everyone only when this is Live.</p>
-        </div>
-        <span className={`rounded-full px-3 py-1 text-xs font-black ${modeTone}`}>{modeLabel}</span>
+      {/* PayPro is retired (owner, 27 Oct 2026): a read-only line in place of
+          the old mode card. The stored setting is unchanged. */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-4" data-paypro-retired="">
+        <p className="text-sm font-bold text-tm-navy">{PAYPRO_RETIRED_LINE}</p>
       </div>
 
       {/* Item 19 (owner, 6 Oct 2026): the gateway, ways to pay and health. */}
@@ -51,7 +41,7 @@ export default async function PaymentSettingsPage() {
       >
         <span>
           <span className="block text-sm font-bold text-tm-navy">Payment gateways</span>
-          <span className="block text-[11px] text-gray-500">Active gateway, ways to pay, Pay later and health.</span>
+          <span className="block text-[11px] text-gray-500">Bank transfer, bank details and health.</span>
         </span>
         <span aria-hidden className="text-sm font-black text-tm-navy">→</span>
       </Link>

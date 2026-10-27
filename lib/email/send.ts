@@ -46,6 +46,8 @@ import {
   realClock,
   type Clock,
 } from './core'
+import { decideAll, NO_FACTS, type Decision, type PolicyFacts, type PolicyMessage } from './policyCore'
+import type { QueueItem } from './policy'
 
 export const RESEND_EMAILS = 'https://api.resend.com/emails'
 export const RESEND_BATCH = 'https://api.resend.com/emails/batch'
@@ -61,14 +63,14 @@ export type EmailMessage = {
 
 export type EmailResult =
   | { ok: true; id: string | null; channel: 'email'; attempts: number }
-  | { ok: false; reason: string; channel: 'email'; attempts: number; skipped?: boolean }
+  | { ok: false; reason: string; channel: 'email'; attempts: number; skipped?: boolean; queued?: boolean }
 
 export type SendRow = {
   mode: 'one' | 'bulk'
   job: string
   template: string | null
   recipient: string
-  status: 'sent' | 'failed' | 'skipped'
+  status: 'sent' | 'failed' | 'skipped' | 'queued'
   attempts: number
   http_status: number | null
   error: string | null
@@ -102,6 +104,11 @@ type Deps = {
   apiKey: () => string | undefined
   production: () => boolean
   log: (line: string) => void
+  /** The saving rules (owner, 27 Oct 2026): the facts, and where held emails go. */
+  policy: {
+    facts: (messages: readonly PolicyMessage[]) => Promise<PolicyFacts>
+    enqueue: (items: QueueItem[]) => Promise<void>
+  }
 }
 
 const defaultDeps: Deps = {
@@ -112,6 +119,10 @@ const defaultDeps: Deps = {
   apiKey: () => process.env.RESEND_API_KEY,
   production: isProduction,
   log: (line) => console.info(line),
+  policy: {
+    facts: async (m) => (await import('./policy')).loadFacts(m).catch(() => NO_FACTS),
+    enqueue: async (items) => (await import('./policy')).enqueue(items).catch(() => {}),
+  },
 }
 
 let deps: Deps = defaultDeps
@@ -226,7 +237,7 @@ function row(mode: 'one' | 'bulk', job: string, m: EmailMessage, r: EmailResult,
     job,
     template: m.template ?? null,
     recipient: m.to,
-    status: r.ok ? 'sent' : r.skipped ? 'skipped' : 'failed',
+    status: r.ok ? 'sent' : r.queued ? 'queued' : r.skipped ? 'skipped' : 'failed',
     attempts: r.attempts,
     http_status: http,
     error: r.ok ? null : r.reason,
@@ -237,15 +248,35 @@ function row(mode: 'one' | 'bulk', job: string, m: EmailMessage, r: EmailResult,
 
 const NO_KEY = 'RESEND_API_KEY is not set'
 
+/** The result of a message the saving rules did not send. */
+function notSent(d: Exclude<Decision, { action: 'send' }>): EmailResult {
+  return d.action === 'queue'
+    ? { ok: false, reason: d.reason, channel: 'email', attempts: 0, queued: true }
+    : { ok: false, reason: d.reason, channel: 'email', attempts: 0, skipped: true }
+}
+
+function queueItem(m: EmailMessage, d: Extract<Decision, { action: 'queue' }>): QueueItem {
+  return { kind: d.kind, template: m.template ?? null, recipient: m.to, subject: m.subject, text: m.text, html: m.html }
+}
+
+export type SendOpts = { job?: string; fromQueue?: boolean }
+
 /**
  * Send one email now. Never throws. Use for transactional email; anything that
  * fans out to many people goes through sendBulk.
  */
-export async function sendOne(message: EmailMessage, opts: { job?: string } = {}): Promise<EmailResult> {
+export async function sendOne(message: EmailMessage, opts: SendOpts = {}): Promise<EmailResult> {
   const job = opts.job ?? message.template ?? 'email'
   const problem = recipientProblem(message.to)
   if (problem) {
     const r: EmailResult = { ok: false, reason: `invalid address: ${problem}`, channel: 'email', attempts: 0, skipped: true }
+    await record([row('one', job, message, r, null, null)])
+    return r
+  }
+  const [decision] = decideAll([message], await deps.policy.facts([message]), { fromQueue: opts.fromQueue })
+  if (decision.action !== 'send') {
+    if (decision.action === 'queue') await deps.policy.enqueue([queueItem(message, decision)])
+    const r = notSent(decision)
     await record([row('one', job, message, r, null, null)])
     return r
   }
@@ -264,7 +295,8 @@ export async function sendOne(message: EmailMessage, opts: { job?: string } = {}
     ? { ok: true, id: ((p.json as { id?: string } | null)?.id as string | undefined) ?? null, channel: 'email', attempts: p.attempts }
     : { ok: false, reason: p.error, channel: 'email', attempts: p.attempts }
   await record([row('one', job, message, r, p.status || null, null)])
-  if (!r.ok) console.error(`[email] ${job} to ${message.to} failed: ${r.reason}`)
+  // Never the address in a log line (owner, 27 Oct 2026) — the row has it.
+  if (!r.ok) console.error(`[email] ${job} failed: ${errorExcerpt(r.reason)}`)
   return r
 }
 
@@ -275,7 +307,7 @@ export async function sendOne(message: EmailMessage, opts: { job?: string } = {}
  */
 export async function sendBulk(
   messages: readonly EmailMessage[],
-  opts: { job: string },
+  opts: { job: string; fromQueue?: boolean },
 ): Promise<{ results: EmailResult[]; summary: BulkSummary }> {
   const runId = randomUUID()
   const job = opts.job
@@ -296,6 +328,31 @@ export async function sendBulk(
       rows.push(row('bulk', job, m, results[i], null, runId))
     } else sendable.push(i)
   })
+
+  // The saving rules (owner, 27 Oct 2026): skipped or held emails are recorded
+  // and never attempted.
+  if (sendable.length > 0) {
+    const decisions = decideAll(
+      sendable.map((i) => messages[i]),
+      await deps.policy.facts(sendable.map((i) => messages[i])),
+      { fromQueue: opts.fromQueue },
+    )
+    const held: QueueItem[] = []
+    const keep: number[] = []
+    sendable.forEach((i, k) => {
+      const d = decisions[k]
+      if (d.action === 'send') {
+        keep.push(i)
+        return
+      }
+      if (d.action === 'queue') held.push(queueItem(messages[i], d))
+      results[i] = notSent(d)
+      rows.push(row('bulk', job, messages[i], results[i], null, runId))
+    })
+    if (held.length > 0) await deps.policy.enqueue(held)
+    sendable.length = 0
+    sendable.push(...keep)
+  }
 
   if (!deps.apiKey()) {
     for (const i of sendable) {
@@ -327,7 +384,7 @@ export async function sendBulk(
   await record(rows)
 
   const delivered = results.filter((r) => r.ok).length
-  const skipped = results.filter((r) => !r.ok && r.skipped).length
+  const skipped = results.filter((r) => !r.ok && (r.skipped || r.queued)).length
   const summary: BulkSummary = {
     job,
     runId,
@@ -344,4 +401,35 @@ export async function sendBulk(
     await recorder?.runFinish({ id: runId, ...summary }).catch(() => {})
   }
   return { results, summary }
+}
+
+/**
+ * Open tracking on our sending domain (owner, 27 Oct 2026): reads Resend's
+ * domain list and reports whether open tracking is on for tutormint.org. Read
+ * only — it never changes the domain. A sending-only key cannot read domains;
+ * that comes back as `error`. Never returns or logs the key.
+ */
+export async function resendDomainTracking(domain = 'tutormint.org'): Promise<{ found: boolean; openTracking: boolean | null; clickTracking: boolean | null; status: number; error: string | null }> {
+  const key = deps.apiKey()
+  if (!key) return { found: false, openTracking: null, clickTracking: null, status: 0, error: 'RESEND_API_KEY is not set' }
+  try {
+    const res = await deps.fetch('https://api.resend.com/domains', { headers: { Authorization: `Bearer ${key}` } })
+    if (!res.ok) return { found: false, openTracking: null, clickTracking: null, status: res.status, error: errorExcerpt(await res.text().catch(() => '')) }
+    const json = (await res.json().catch(() => null)) as { data?: { id?: string; name?: string; open_tracking?: boolean; click_tracking?: boolean }[] } | null
+    const d = (json?.data ?? []).find((x) => (x.name ?? '').toLowerCase() === domain)
+    if (!d) return { found: false, openTracking: null, clickTracking: null, status: res.status, error: null }
+    let open = typeof d.open_tracking === 'boolean' ? d.open_tracking : null
+    let click = typeof d.click_tracking === 'boolean' ? d.click_tracking : null
+    if ((open === null || click === null) && d.id) {
+      const one = await deps.fetch(`https://api.resend.com/domains/${encodeURIComponent(d.id)}`, { headers: { Authorization: `Bearer ${key}` } })
+      if (one.ok) {
+        const j = (await one.json().catch(() => null)) as { open_tracking?: boolean; click_tracking?: boolean } | null
+        if (typeof j?.open_tracking === 'boolean') open = j.open_tracking
+        if (typeof j?.click_tracking === 'boolean') click = j.click_tracking
+      }
+    }
+    return { found: true, openTracking: open, clickTracking: click, status: res.status, error: null }
+  } catch (e) {
+    return { found: false, openTracking: null, clickTracking: null, status: 0, error: e instanceof Error ? e.message : 'network error' }
+  }
 }

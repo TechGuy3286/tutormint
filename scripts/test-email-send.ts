@@ -22,6 +22,7 @@ import {
   type RunRow,
 } from '../lib/email/send'
 import { recipientProblem } from '../lib/notify/recipient'
+import { NO_FACTS } from '../lib/email/policyCore'
 import { looksLikeEmail } from '../lib/phone'
 
 // --------------------------------------------------------------- harness --
@@ -86,12 +87,14 @@ function harness(reply: (call: Call, n: number) => Reply = () => ({ status: 200,
     apiKey: () => 're_test',
     production: () => true,
     log: (l) => lines.push(l),
+    // The saving rules are tested in test-email-savings; here every message passes.
+    policy: { facts: async () => ({ ...NO_FACTS, limit: 1_000_000 }), enqueue: async () => {} },
   })
   return { clock, calls, rows, runs, lines }
 }
 
 function msgs(n: number): EmailMessage[] {
-  return Array.from({ length: n }, (_, i) => ({ to: `parent${i}@example.com`, subject: 'Your tuition is paused', text: 'body', template: 'tuition_paused' }))
+  return Array.from({ length: n }, (_, i) => ({ to: `parent${i}@example.com`, subject: 'Your tuition is paused', text: 'body', template: 'plan_expiring' }))
 }
 
 /** Never more than `max` request starts in any 1,000 ms window. */
@@ -122,7 +125,7 @@ test('sendBulk: a 250-message list is 3 batch requests, every message delivered 
       { attempted: 250, delivered: 250, failed: 0, requests: 3 },
     )
     assert.equal(h.rows.length, 250)
-    assert.ok(h.rows.every((r) => r.status === 'sent' && r.mode === 'bulk' && r.template === 'tuition_paused'))
+    assert.ok(h.rows.every((r) => r.status === 'sent' && r.mode === 'bulk' && r.template === 'plan_expiring'))
     assert.equal(h.runs.length, 1)
     assert.match(h.lines.join('\n'), /attempted 250, delivered 250, failed 0, skipped 0 \(3 requests\)/)
     // Same body as one email used to be.

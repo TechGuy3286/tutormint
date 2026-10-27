@@ -206,7 +206,7 @@ export const SAMPLE_VALUES: Record<string, string> = {
   profile_link: 'https://www.tutormint.org/tutor/rida-saeed-tutor',
   open_tuitions_link: 'https://www.tutormint.org/browse/tuitions?city=Lahore',
   dashboard_link: 'https://www.tutormint.org/tutor/dashboard',
-  applications_list: '• TM-1303 — Home Tutor Required: Shared with the parent\n• TM-1288 — Online Tutor Required: Sent to the parent team',
+  applications_list: '• TM-1303 — Home Tutor Required: Shared with the parent\n• TM-1288 — Online Tutor Required: Application received',
   area: 'DHA',
   tutor_list: 'Rida Saeed: https://www.tutormint.org/tutor/rida-saeed-tutor',
 }

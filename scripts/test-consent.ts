@@ -107,15 +107,15 @@ test('consent: createTeamJob and updateTeamJob refuse BEFORE anything is written
   }
 })
 
-test('consent: the staff form renders the required tick + method; the parent form does not', () => {
+// Superseded later on 27 Oct 2026: consent is no longer needed, so the box is
+// hidden on both forms (CONSENT_UI_ENABLED off). The edit page still loads a
+// recorded consent, and the data is kept.
+test('consent: the tick + method are hidden on the staff form and the parent form', () => {
   const noop = async () => ({ ok: true as const })
   const admin = render(createElement(PostTuitionForm, { teamBanner: true, adminExtras: true, submitLabel: 'Post', busyLabel: '…', onSubmit: noop }))
   const parent = render(createElement(PostTuitionForm, { submitLabel: 'Post', busyLabel: '…', onSubmit: noop }))
-  assert.ok(admin.includes(CONSENT_TICK_LABEL))
-  assert.ok(admin.includes('data-consent-box'))
-  assert.ok(admin.includes('How did they agree? (required)'))
-  for (const m of ['Phone call', 'WhatsApp', 'In person']) assert.ok(admin.includes(`>${m}<`), m)
-  assert.ok(!admin.includes('>Parent posted it themselves<'), 'not a staff choice')
+  assert.ok(!admin.includes(CONSENT_TICK_LABEL))
+  assert.ok(!admin.includes('data-consent-box'))
   assert.ok(!parent.includes(CONSENT_TICK_LABEL))
   // The edit page pre-ticks a recorded consent.
   assert.match(read('app/admin/jobs/[id]/edit/page.tsx'), /consentAgreed: !!staffMethod/)
@@ -169,9 +169,10 @@ test('Ask parent: the default message is the owner’s exact text, plain English
   assert.match(read('supabase/migrations/208_tuition_consent.sql'), /we\\'d like to list your tuition requirement on TutorMint so verified tutors can apply\. May we list it\? Please reply YES or NO\./)
   // Placeholders fill; a number or email in a filled value never rides along.
   assert.equal(fillConsentAsk('Hi {parent_name}, {tm_number}', { parentName: 'Sana 03001234567', tmNumber: 'TM-1' }), 'Hi Sana, TM-1')
-  // The template is editable in Team inbox → Templates → Consent.
+  // The template is kept but inactive since 27 Oct 2026 (migration 210): its
+  // group is no longer shown in Team inbox → Templates.
   assert.match(read('lib/templateRules.ts'), /CONSENT_GROUP/)
-  assert.match(read('app/admin/inbox/InboxClient.tsx'), /group="consent"/)
+  assert.doesNotMatch(read('app/admin/inbox/InboxClient.tsx'), /group="consent"/)
 })
 
 // ── Part A.4 — the Owner's switch hides numbers everywhere ───────────────

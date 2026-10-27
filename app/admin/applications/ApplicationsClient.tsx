@@ -12,6 +12,7 @@ import { setUrlParam } from '@/lib/useUrlState'
 import { formatDate } from '@/lib/datetime'
 import type { BoardRow, StaffOption } from '@/lib/applicationTracking'
 import ConsentChip from '@/components/admin/ConsentChip'
+import { CONSENT_UI_ENABLED } from '@/lib/tuitionConsentCore'
 import type { ForwardCard } from '@/lib/applicantForwards'
 import {
   APPLICATIONS_PATH,
@@ -419,7 +420,7 @@ export default function ApplicationsClient({
           <span className="font-bold text-slate-700">{groupCountLine(allRows.map((r) => r.stage))}</span>
           {!head.hasParentNumber && <span className="font-bold text-tm-red">No parent number</span>}
           {/* Parent consent to be listed (owner, 27 Oct 2026). */}
-          {!head.consentRecorded && (
+          {CONSENT_UI_ENABLED && !head.consentRecorded && (
             <ConsentChip jobId={key} recorded={false} hasNumber={head.hasParentNumber} via="applications" compact />
           )}
           {forwardButton(key, head.jobTitle)}

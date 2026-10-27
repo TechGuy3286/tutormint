@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ConsentBox from '@/components/forms/ConsentBox'
-import { consentInputProblem } from '@/lib/tuitionConsentCore'
+import { CONSENT_UI_ENABLED, consentInputProblem } from '@/lib/tuitionConsentCore'
 import { Sparkles, Loader2, Info, ShieldCheck, Phone, UserRound, Clock, School } from 'lucide-react'
 
 import { submitSignal } from '@/lib/submit'
@@ -400,8 +400,11 @@ export default function PostTuitionForm({
         const number = parseContactNumber(v.contactPhone)
         if (!number.ok) throw new Error(number.error)
         // Parent consent is required on every staff save (owner, 27 Oct 2026).
-        const consent = consentInputProblem({ agreed: v.consentAgreed, method: v.consentMethod })
-        if (consent) throw new Error(consent)
+        // Not required since 27 Oct 2026 (CONSENT_UI_ENABLED is off).
+        if (CONSENT_UI_ENABLED) {
+          const consent = consentInputProblem({ agreed: v.consentAgreed, method: v.consentMethod })
+          if (consent) throw new Error(consent)
+        }
       }
       // Per grade (owner, 7 Oct 2026): each grade's subjects resolve against that
       // grade only; the combined list (job_subjects) is their union.
@@ -717,10 +720,12 @@ export default function PostTuitionForm({
 
           {adminExtras && (
             <>
-              <ConsentBox
-                value={{ agreed: v.consentAgreed, method: v.consentMethod, note: v.consentNote }}
-                onChange={(c) => setV((p) => ({ ...p, consentAgreed: c.agreed, consentMethod: c.method, consentNote: c.note }))}
-              />
+              {CONSENT_UI_ENABLED && (
+                <ConsentBox
+                  value={{ agreed: v.consentAgreed, method: v.consentMethod, note: v.consentNote }}
+                  onChange={(c) => setV((p) => ({ ...p, consentAgreed: c.agreed, consentMethod: c.method, consentNote: c.note }))}
+                />
+              )}
               <label className="block space-y-1">
                 <span className={LABEL}>Origin (for the audit trail)</span>
                 <select value={v.origin} onChange={(e) => set('origin', e.target.value)} className={FIELD}>

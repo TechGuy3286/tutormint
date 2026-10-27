@@ -4,26 +4,29 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { deliverEmail } from '@/lib/notify'
 import { PAYMENT_ALERTS_KEY, parseAlertEmails } from '@/lib/payments/alertEmailsCore'
 import { formatName } from '@/lib/formatName'
+import { bellStaff, ownerEmail } from '@/lib/staffAlerts'
+import { SCREEN_ACCESS } from '@/lib/adminAccessCore'
 
 export { PAYMENT_ALERTS_KEY, parseAlertEmails }
 
-// Staff alert emails for payments (PR106-H1 §2). Owner-sets one or more
-// addresses in Admin → Payments → Payment settings; absent → the owner's own
-// address, so alerts never silently go nowhere. Sent from activatePayment's
-// FRESH-activation branch only (idempotent: a replayed PayPro callback returns
-// alreadyActive and never reaches here), so exactly one alert per payment.
+// Staff alerts for payments and documents (PR106-H1 §2; owner, 27 Oct 2026).
+//
+//   • Every alert goes to the in-app BELL of the staff whose role opens its
+//     screen (lib/staffAlerts).
+//   • "New payment received" is no longer emailed to anyone.
+//   • "Bank transfer waiting for approval" is emailed to the OWNER ACCOUNT's own
+//     address only (read from the Owner's profile, never written in code).
+//   • The other alert emails are off by default; the Owner can switch each on in
+//     Notification settings, and then it goes to the Owner's address only.
 //
 // NEVER includes a CNIC number, phone, card detail or document image — member
-// name, role, what was bought, amount, provider and PKT time only.
+// name, role, what was bought, amount, provider and PKT time only. No address
+// is ever logged.
 
-const DEFAULT_ALERT = 'techguy3286@gmail.com'
-
+/** Where an alert email goes: the Owner account's own address, or nobody. */
 export async function paymentAlertEmails(): Promise<string[]> {
-  const admin = createAdminClient()
-  if (!admin) return [DEFAULT_ALERT]
-  const { data } = await admin.from('app_settings').select('value').eq('key', PAYMENT_ALERTS_KEY).maybeSingle()
-  const list = parseAlertEmails(data?.value as string | null)
-  return list.length ? list : [DEFAULT_ALERT]
+  const e = await ownerEmail()
+  return e ? [e] : []
 }
 
 function nowPkt(): string {
@@ -33,58 +36,53 @@ function nowPkt(): string {
   })
 }
 
-/** One alert per confirmed payment (the caller guarantees it runs once). */
+async function emailOwner(input: Parameters<typeof deliverEmail>[1], tag: string): Promise<void> {
+  for (const email of await paymentAlertEmails()) {
+    const r = await deliverEmail({ email }, input)
+    if (!r.ok) console.info(`[${tag}] email not sent: ${r.reason}`)
+  }
+}
+
+/** One alert per confirmed payment (the caller guarantees it runs once). Bell
+ *  only: the email is switched off by default (Notification settings). */
 export async function sendPaymentAlert(input: { memberName: string; role: string; what: string; amountPkr: number; via?: string }): Promise<void> {
-  const to = await paymentAlertEmails()
-  for (const email of to) {
-    const r = await deliverEmail(
-      { email },
-      { id: 'payment_alert', memberName: input.memberName || 'A member', role: input.role, what: input.what, amountPkr: input.amountPkr, whenPkt: nowPkt(), via: input.via },
-    )
-    if (!r.ok) console.info('[payment-alert] not sent to', email, '-', r.reason)
-  }
+  const name = input.memberName || 'A member'
+  await bellStaff(SCREEN_ACCESS.payments, {
+    title: `Payment received: ${name}`,
+    body: `${input.what}${input.via ? ` via ${input.via}` : ''}`,
+    href: '/admin/payments',
+  }).catch(() => 0)
+  await emailOwner(
+    { id: 'payment_alert', memberName: name, role: input.role, what: input.what, amountPkr: input.amountPkr, whenPkt: nowPkt(), via: input.via },
+    'payment-alert',
+  )
 }
 
-/** One alert when a bank transfer is submitted and awaits staff approval. */
+/** A bank transfer receipt waits for approval: the bell for the staff who work
+ *  the Payments queue, and the email to the Owner's own address. */
 export async function sendBankTransferPending(input: { memberName: string; role: string; amountPkr: number }): Promise<void> {
-  const to = await paymentAlertEmails()
-  for (const email of to) {
-    const r = await deliverEmail(
-      { email },
-      { id: 'bank_transfer_pending', memberName: input.memberName || 'A member', role: input.role, amountPkr: input.amountPkr },
-    )
-    if (!r.ok) console.info('[bank-transfer-alert] not sent to', email, '-', r.reason)
-  }
+  const name = input.memberName || 'A member'
+  await bellStaff(SCREEN_ACCESS.paymentsApprove, {
+    title: `Bank transfer waiting for approval: ${name}`,
+    body: 'A receipt was uploaded. Open Payments to review it.',
+    href: '/admin/payments?filter=unpaid',
+  }).catch(() => 0)
+  await emailOwner({ id: 'bank_transfer_pending', memberName: name, role: input.role, amountPkr: input.amountPkr }, 'bank-transfer-alert')
 }
 
-/** One alert when a tutor re-uploads a previously-rejected document and it is
- *  back in the Approval-needed queue (PR106-H4 §2.7). Never names the document
- *  contents — the member name and a link to their record only. */
+/** A tutor re-uploaded a previously rejected document (PR106-H4 §2.7). */
 export async function sendReuploadAlert(input: { memberName: string; memberId: string }): Promise<void> {
-  const to = await paymentAlertEmails()
-  for (const email of to) {
-    const r = await deliverEmail(
-      { email },
-      { id: 'documents_reuploaded', memberName: input.memberName || 'A member', href: `/admin/users/${input.memberId}` },
-    )
-    if (!r.ok) console.info('[reupload-alert] not sent to', email, '-', r.reason)
-  }
+  const name = input.memberName || 'A member'
+  await bellStaff(SCREEN_ACCESS.tutors, { title: `Documents re-uploaded: ${name}`, body: 'Waiting for review.', href: `/admin/users/${input.memberId}` }).catch(() => 0)
+  await emailOwner({ id: 'documents_reuploaded', memberName: name, href: `/admin/users/${input.memberId}` }, 'reupload-alert')
 }
 
-/** A staff alert when a member tries to save a CNIC already on another account
- *  (PR106-H4 §3.8). NEVER contains a CNIC number — a link to the member only. */
+/** A member tried to save a CNIC already on another account (PR106-H4 §3.8).
+ *  NEVER contains a CNIC number — a link to the member only. */
 export async function sendDuplicateCnicAlert(input: { memberId: string }): Promise<void> {
   const admin = createAdminClient()
-  const { data } = admin
-    ? await admin.from('profiles').select('full_name').eq('id', input.memberId).maybeSingle()
-    : { data: null }
+  const { data } = admin ? await admin.from('profiles').select('full_name').eq('id', input.memberId).maybeSingle() : { data: null }
   const memberName = formatName(data?.full_name as string | null) || 'A member'
-  const to = await paymentAlertEmails()
-  for (const email of to) {
-    const r = await deliverEmail(
-      { email },
-      { id: 'duplicate_cnic', memberName, href: `/admin/users/${input.memberId}` },
-    )
-    if (!r.ok) console.info('[duplicate-cnic-alert] not sent to', email, '-', r.reason)
-  }
+  await bellStaff(SCREEN_ACCESS.tutors, { title: `CNIC already on another account: ${memberName}`, body: 'Check the member.', href: `/admin/users/${input.memberId}` }).catch(() => 0)
+  await emailOwner({ id: 'duplicate_cnic', memberName, href: `/admin/users/${input.memberId}` }, 'duplicate-cnic-alert')
 }

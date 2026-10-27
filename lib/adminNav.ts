@@ -32,6 +32,8 @@ export type AdminScreen =
   | 'paymentGateways'
   | 'smsHealth'
   | 'consentPrivacy'
+  | 'notificationSettings'
+  | 'emailUsage'
   | 'contactWithdraw'
   | 'emailHealth'
   | 'finance'
@@ -148,6 +150,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/settings/sms', label: 'SMS', icon: 'messageCircle', screen: 'smsHealth' },
       { href: '/admin/settings/email', label: 'Email', icon: 'messageCircle', screen: 'emailHealth' },
       { href: '/admin/settings/privacy', label: 'Privacy', icon: 'listChecks', screen: 'consentPrivacy' },
+      { href: '/admin/settings/notifications', label: 'Notification settings', icon: 'listChecks', screen: 'notificationSettings' },
+      { href: '/admin/settings/email-usage', label: 'Email usage', icon: 'messageCircle', screen: 'emailUsage' },
       { href: '/admin/plans', label: 'Plans', icon: 'card', screen: 'plans' },
     ],
   },

@@ -298,6 +298,10 @@ export const SCREEN_ACCESS = withSupervisor({
   // Admin → Settings → Privacy: "Hide parent numbers when consent isn't
   // recorded". Owner only; the Partner views.
   consentPrivacy: [] as AdminRole[],
+  // Notification settings and Email usage (owner, 27 Oct 2026): Owner only; the
+  // Partner views.
+  notificationSettings: [] as AdminRole[],
+  emailUsage: [] as AdminRole[],
   // Tuitions → City owners (owner, 22 Oct 2026): only the site Owner edits;
   // the Partner views (roleMayWrite refuses them, the list names nobody).
   cityOwners: [] as AdminRole[],

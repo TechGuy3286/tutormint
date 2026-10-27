@@ -143,4 +143,6 @@ export function formerRow(former: PostingRow[]): PostingRow {
 }
 
 /** The table's columns, in order (owner, 27 Oct 2026). */
-export const POSTED_COLUMNS = ['Staff', 'Today', 'Yesterday', 'Last 7 days', 'All time', 'Consent recorded', 'Repeated this week'] as const
+export const POSTED_COLUMNS = ['Staff', 'Today', 'Yesterday', 'Last 7 days', 'All time', 'Repeated this week'] as const
+/** The "Consent recorded" column (27 Oct 2026) is hidden: consent is no longer needed. */
+export const POSTED_CONSENT_COLUMN = 'Consent recorded'

@@ -239,10 +239,14 @@ async function loadTuitionTarget(
 ): Promise<{ ok: false; reason: 'no_contact' } | { ok: true; contact: RevealContact }> {
   const { data: job } = await admin
     .from('jobs')
-    .select('id, parent_id, title, description')
+    .select('id, parent_id, title, description, status')
     .eq('id', jobId)
     .maybeSingle()
   if (!job) return { ok: false, reason: 'no_contact' }
+  // A hidden tuition — its parent hidden, its contact withdrawn, or paused on a
+  // contact complaint (owner, 27 Oct 2026) — never reveals the number, to
+  // anyone, even a tutor who opened it earlier.
+  if (job.status === 'hidden') return { ok: false, reason: 'no_contact' }
 
   // Numbers/emails written into the listing text.
   const found = extractTuitionContacts(job.title as string | null, job.description as string | null)

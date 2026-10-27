@@ -5,7 +5,7 @@ import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadTuitionPosting } from '@/lib/tuitionPosting'
 import { loadDailyReport } from '@/lib/dailyReport'
 import { POSTED_COLUMNS, type PostingRow } from '@/lib/tuitionPostingCore'
-import { consentPercentLabel } from '@/lib/tuitionConsentCore'
+import { CONSENT_UI_ENABLED, consentPercentLabel } from '@/lib/tuitionConsentCore'
 import FormerStaffToggle from './FormerStaffToggle'
 import { parseMonth } from '@/lib/staffTargetsCore'
 import { TEAM_TABS, isRemovedTab, pickTab, tabsFor, teamActivityHref } from '@/lib/teamActivityCore'
@@ -149,10 +149,12 @@ function PostedCells({ row }: { row: PostingRow }) {
       <td className="px-3 py-2 text-right tabular-nums">{c.last7}</td>
       <td className="px-3 py-2 text-right tabular-nums">{c.allTime}</td>
       {/* Parent consent recorded (owner, 27 Oct 2026): last 7 days · all time. */}
-      <td className="px-3 py-2 text-right text-[11px] tabular-nums" data-consent-share="">
-        <span className="block">7 days: {consentPercentLabel(row.consent?.last7)}</span>
-        <span className="block text-gray-500">All time: {consentPercentLabel(row.consent?.allTime)}</span>
-      </td>
+      {CONSENT_UI_ENABLED && (
+        <td className="px-3 py-2 text-right text-[11px] tabular-nums" data-consent-share="">
+          <span className="block">7 days: {consentPercentLabel(row.consent?.last7)}</span>
+          <span className="block text-gray-500">All time: {consentPercentLabel(row.consent?.allTime)}</span>
+        </td>
+      )}
       <td className="px-3 py-2 text-right tabular-nums">
         {row.repeats > 0 ? (
           <Link href="/admin/jobs/duplicates" className="font-bold text-tm-red hover:underline">

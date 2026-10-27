@@ -119,6 +119,12 @@ const NO_POLICY_OK: Record<string, string> = {
     'unverified mobile signup drafts (migration 75): a bcrypt password hash and a live code, ' +
     'written and read by the server only. No client key may touch it — the account is created ' +
     'from this row when the code verifies.',
+  contact_holds:
+    'numbers on hold after "Pause all their tuitions" (migration 210): a hash and a masked form ' +
+    'only. Read and written by the server only; only the site Owner sees it, through a server route.',
+  contact_hold_jobs:
+    'each tuition a hold paused, with its exact earlier state for "Unpause all" (migration 210). ' +
+    'Read and written by the server only.',
   do_not_use_numbers:
     'the Do not use list (migration 207): a hash of each number a person asked us not to use. ' +
     'Read and written by the server only; only the site Owner sees it, through a server route.',

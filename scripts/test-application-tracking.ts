@@ -230,7 +230,7 @@ test('admin tuition card: "6 applied · 2 forwarded · 1 hired"', () => {
 
 test('the tutor dashboard says it in the owner\'s words', () => {
   assert.deepEqual(TUTOR_STAGE_TEXT, {
-    applied: 'Sent to the parent team',
+    applied: 'Application received',
     forwarded: 'Shared with the parent',
     contacted: 'Parent contacted you',
     demo: 'Demo/interview stage',

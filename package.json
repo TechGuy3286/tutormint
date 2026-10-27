@@ -215,7 +215,8 @@
     "test:subjectcapall": "tsx --test scripts/test-subject-cap-all.ts",
     "test:addresschip": "tsx --test scripts/test-address-chip.ts",
     "test:uploadlimits": "tsx --test scripts/test-upload-limits.ts",
-    "test:contactwithdraw": "tsx --test scripts/test-contact-withdraw.ts"
+    "test:contactwithdraw": "tsx --test scripts/test-contact-withdraw.ts",
+    "test:complaintemail": "tsx --conditions=react-server --test scripts/test-oct27-complaint-email.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

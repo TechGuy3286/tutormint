@@ -35,7 +35,7 @@ export const STAGE_LABEL: Record<Stage, string> = {
 
 /** The tutor's own dashboard words — exactly the owner's wording. */
 export const TUTOR_STAGE_TEXT: Record<Stage, string> = {
-  applied: 'Sent to the parent team',
+  applied: 'Application received',
   forwarded: 'Shared with the parent',
   contacted: 'Parent contacted you',
   demo: 'Demo/interview stage',

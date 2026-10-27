@@ -12,6 +12,7 @@ import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { deliverEmailBulk } from '@/lib/notify'
+import { notify } from '@/lib/notifications'
 import { listSuggestions, postsDueForRefresh } from './feed'
 
 const LAST_SENT_KEY = 'content_digest_last_sent'
@@ -63,6 +64,10 @@ export async function deliverContentDigest(now = new Date(), force = false): Pro
     'content_digest',
   )
   const recipients = results.filter((r) => r.ok).length
+  // The bell (owner, 27 Oct 2026): the email is off by default for staff.
+  for (const s of staff ?? []) {
+    await notify({ userId: s.id as string, kind: 'staff_alert', title: 'This week’s blog suggestions', body: top[0]?.title ?? null, href: '/admin/blog/queue' }).catch(() => {})
+  }
 
   // Stamp the marker even if a send failed: the point is not to retry-storm a
   // broken mailer at every cron tick. A missed digest is a smaller problem than

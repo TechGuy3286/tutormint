@@ -9,6 +9,8 @@ import Link from 'next/link'
 import { loadOpenFinanceAlerts } from '@/lib/financeAlerts'
 import { loadReaderState } from '@/lib/bankEmailReader'
 import { readerFailingAlert, READER_STATUS_LABEL } from '@/lib/bankEmailCore'
+import { loadPayproSettlement } from '@/lib/payproSettlement'
+import PayproSettlementCard from '@/components/admin/PayproSettlementCard'
 import SettlementCheck from './SettlementCheck'
 import SettlementsBoard from './SettlementsBoard'
 
@@ -34,7 +36,13 @@ export default async function SettlementTab({ sp, extra }: { sp: { from?: string
   let to = sp.to && ISO_DAY.test(sp.to) ? sp.to : today
   if (from > to) [from, to] = [to, from]
 
-  const [board, health, alerts, reader] = await Promise.all([loadSettlementsBoard(month), loadGatewayHealth(), loadOpenFinanceAlerts(), loadReaderState()])
+  const [board, health, alerts, reader, paypro] = await Promise.all([
+    loadSettlementsBoard(month),
+    loadGatewayHealth(),
+    loadOpenFinanceAlerts(),
+    loadReaderState(),
+    loadPayproSettlement().catch(() => null),
+  ])
   const readerRed = readerFailingAlert(reader, new Date())
   const views: { id: string; name: string; view: SettlementView }[] = []
   for (const g of health.gateways) {
@@ -78,6 +86,9 @@ export default async function SettlementTab({ sp, extra }: { sp: { from?: string
           <Link href="/admin/finance/settings" className="underline">Open Finance settings</Link>
         </section>
       )}
+
+      {/* PayPro settlement (owner, 27 Oct 2026). */}
+      {paypro && <PayproSettlementCard pending={paypro.pending} unsettled={paypro.unsettled.length} oldest={paypro.oldestUnsettled} />}
 
       {board ? (
         <SettlementsBoard

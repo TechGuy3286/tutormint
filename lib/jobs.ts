@@ -18,7 +18,7 @@
 
 import { PARENT_MOBILE_GATE_MESSAGE, PARENT_MOBILE_HREF } from '@/lib/parentGate'
 import { recordConsent } from '@/lib/tuitionConsent'
-import { consentInputProblem, type StaffConsentMethod } from '@/lib/tuitionConsentCore'
+import { CONSENT_UI_ENABLED, consentInputProblem, isStaffConsentMethod, type StaffConsentMethod } from '@/lib/tuitionConsentCore'
 import { recordParentHire, recordPoster } from '@/lib/applicationTracking'
 import { assignNewTuitionOwner } from '@/lib/cityOwners'
 import { pageAll, pageAllIn } from '@/lib/pageAll'
@@ -494,9 +494,9 @@ export async function createTeamJob(
   // cannot forward applicants. Checked before anything is created.
   const number = parseContactNumber(input.contactPhone)
   if (!number.ok) return { ok: false, status: 400, error: number.error }
-  // Parent consent (owner, 27 Oct 2026): the tick and the method are required
-  // before a staff tuition is created. Checked before anything is written.
-  const consentProblem = consentInputProblem({ agreed: input.consentAgreed, method: input.consentMethod })
+  // Parent consent is no longer required (owner, 27 Oct 2026, later the same
+  // day): the check runs only while CONSENT_UI_ENABLED is on.
+  const consentProblem = CONSENT_UI_ENABLED ? consentInputProblem({ agreed: input.consentAgreed, method: input.consentMethod }) : null
   if (consentProblem) return { ok: false, status: 400, error: consentProblem }
   // The Do not use list (owner, 27 Oct 2026): the contact number, the WhatsApp
   // and any number written in the post or the social field.
@@ -626,8 +626,10 @@ export async function createTeamJob(
 
   await writeScheduleSlots(admin, job.id as string, input.scheduleSlots)
 
-  // The consent the form required (the insert trigger wrote Not recorded).
-  await recordConsent(actor, job.id as string, { method: input.consentMethod as StaffConsentMethod, note: input.consentNote ?? null }, 'post')
+  // A consent given anyway is still recorded (the insert trigger wrote Not recorded).
+  if (input.consentAgreed && isStaffConsentMethod(input.consentMethod)) {
+    await recordConsent(actor, job.id as string, { method: input.consentMethod, note: input.consentNote ?? null }, 'post')
+  }
 
   // The staff member who posts a tuition owns its applications (owner, 22 Oct
   // 2026; lib/applicationTracking). Only the Owner reassigns it later.
@@ -706,8 +708,8 @@ export async function updateTeamJob(
   // without the parent contact number.
   const number = parseContactNumber(input.contactPhone)
   if (!number.ok) return { ok: false, status: 400, error: number.error }
-  // Parent consent is required on an edit too (owner, 27 Oct 2026).
-  const consentProblem = consentInputProblem({ agreed: input.consentAgreed, method: input.consentMethod })
+  // Parent consent: not required since 27 Oct 2026 (CONSENT_UI_ENABLED off).
+  const consentProblem = CONSENT_UI_ENABLED ? consentInputProblem({ agreed: input.consentAgreed, method: input.consentMethod }) : null
   if (consentProblem) return { ok: false, status: 400, error: consentProblem }
   // The Do not use list (owner, 27 Oct 2026): the contact number, the WhatsApp
   // and any number written in the post or the social field.
@@ -793,8 +795,11 @@ export async function updateTeamJob(
   await writeScheduleSlots(admin, jobId, input.scheduleSlots)
 
   // Parent consent, as ticked on the edit (logged only when it changed).
-  const consent = await recordConsent(actor, jobId, { method: input.consentMethod as StaffConsentMethod, note: input.consentNote ?? null }, 'edit')
-  if (consent.ok && consent.changed) changed.push('consent')
+  // Only when a consent was actually given; an edit never clears a stored one.
+  if (input.consentAgreed && isStaffConsentMethod(input.consentMethod)) {
+    const consent = await recordConsent(actor, jobId, { method: input.consentMethod as StaffConsentMethod, note: input.consentNote ?? null }, 'edit')
+    if (consent.ok && consent.changed) changed.push('consent')
+  }
 
   // The seeded parent-contact block, edited or cleared.
   if (contact.hasContact) {

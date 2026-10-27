@@ -4,6 +4,7 @@ import { logAdminAction } from '@/lib/auditLog'
 import { senderRefCode } from '@/lib/staffSignups'
 import { consentAskLink } from '@/lib/tuitionConsent'
 import { uuid } from '@/lib/validate'
+import { CONSENT_UI_ENABLED } from '@/lib/tuitionConsentCore'
 
 // GET /api/admin/jobs/consent/ask?jobId=… (owner, 27 Oct 2026)
 //
@@ -18,6 +19,8 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: Request) {
   const gate = await checkAdminRole(...SCREEN_ACCESS.tuitionConsent)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
+  // The consent_ask template is inactive (owner, 27 Oct 2026; migration 210).
+  if (!CONSENT_UI_ENABLED) return NextResponse.json({ error: 'Asking parents for consent is switched off.' }, { status: 410 })
   const id = uuid.safeParse(new URL(request.url).searchParams.get('jobId'))
   if (!id.success) return NextResponse.json({ error: 'Something in that request was missing. Reload the page and try again.' }, { status: 400 })
 

@@ -24,6 +24,8 @@ import { render, type TemplateInput } from './templates'
 import type { DeliveryResult } from './channel'
 import { formatName } from '@/lib/formatName'
 
+const HELD_FOR_SUMMARY = 'held for the daily summary'
+
 export { render, type TemplateInput } from './templates'
 export type { DeliveryChannel, OutboundMessage, DeliveryResult } from './channel'
 
@@ -49,7 +51,8 @@ export async function deliverEmail(
   const channel = getEmailChannel()
   const result = await channel.send(prepared.message)
 
-  if (!result.ok) console.error(`[notify] ${input.id} to ${prepared.message.to} failed: ${result.reason}`)
+  // Never the address in a log line (owner, 27 Oct 2026).
+  if (!result.ok) console.info(`[notify] ${input.id} not sent: ${result.reason}`)
   return result
 }
 
@@ -190,7 +193,9 @@ export async function deliverMessageDigest(params: {
     },
   )
 
-  if (!result.ok) return false
+  // Held for the daily summary counts as handled (owner, 27 Oct 2026): the
+  // summary carries it, so the hourly digest is not held again.
+  if (!result.ok && result.reason !== HELD_FOR_SUMMARY) return false
 
   // Stamped only after a send actually succeeded, so a provider outage does
   // not silently consume someone's hourly slot.

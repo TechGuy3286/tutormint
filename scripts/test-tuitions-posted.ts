@@ -26,8 +26,8 @@ const row = (id: string, name: string, c: Partial<ReturnType<typeof emptyPosting
   repeats,
 })
 
-test('the columns are the owner’s six plus Consent recorded (27 Oct 2026), in order', () => {
-  assert.deepEqual([...POSTED_COLUMNS], ['Staff', 'Today', 'Yesterday', 'Last 7 days', 'All time', 'Consent recorded', 'Repeated this week'])
+test('the columns are the owner’s six, in order (the Consent recorded column is hidden since 27 Oct 2026)', () => {
+  assert.deepEqual([...POSTED_COLUMNS], ['Staff', 'Today', 'Yesterday', 'Last 7 days', 'All time', 'Repeated this week'])
   const page = read('app/admin/team-activity/page.tsx')
   assert.ok(page.includes('POSTED_COLUMNS.map'))
   assert.ok(!page.includes('Today vs Yesterday'))
