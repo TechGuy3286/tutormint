@@ -31,6 +31,8 @@ import { maskTuitionText } from '@/lib/maskTuition'
 import { loadSocialEligibleTutors } from '@/lib/social/eligibility'
 import { normalisePkMobile } from '@/lib/phone'
 import { loadFollowUps, parentContacts } from '@/lib/applicationFollowUps'
+import { consentFor } from '@/lib/tuitionConsent'
+import { consentLabel, isRecorded } from '@/lib/tuitionConsentCore'
 import { dueState, todoBadgeCount, type FollowUpRecord } from '@/lib/applicationFollowUpCore'
 import {
   ENDED_STAGES,
@@ -185,6 +187,9 @@ export type BoardRow = BoardItem & {
   followUps: FollowUpRecord[]
   /** The tuition has a usable parent number (the number itself never leaves the server). */
   hasParentNumber: boolean
+  /** Parent consent to be listed (owner, 27 Oct 2026). */
+  consentRecorded: boolean
+  consentLabel: string
 }
 
 export type StaffOption = { id: string; name: string }
@@ -203,7 +208,7 @@ export async function loadApplicationBoard(): Promise<ApplicationBoard> {
   const tutorIds = [...new Set(counted.map((a) => a.tutor_id))]
   const jobIds = [...new Set(counted.map((a) => a.job_id))]
 
-  const [people, tps, jobs, staff, eligible, fus, parents] = await Promise.all([
+  const [people, tps, jobs, staff, eligible, fus, parents, consent] = await Promise.all([
     pageAllIn<{ id: string; full_name: string | null; phone_number: string | null; whatsapp: string | null }, string>(tutorIds, (ids, from, to) =>
       admin.from('profiles').select('id, full_name, phone_number, whatsapp').in('id', ids).order('id').range(from, to),
     ),
@@ -218,6 +223,7 @@ export async function loadApplicationBoard(): Promise<ApplicationBoard> {
     loadSocialEligibleTutors(admin).catch(() => new Map()),
     loadFollowUps(admin, counted.map((a) => a.id)),
     parentContacts(admin, jobIds),
+    consentFor(jobIds),
   ])
   const personBy = new Map(people.map((p) => [p.id, p]))
   const slugBy = new Map(tps.map((t) => [t.id, t.slug]))
@@ -254,6 +260,8 @@ export async function loadApplicationBoard(): Promise<ApplicationBoard> {
       workedByName: a.worked_by_name,
       followUps: fus.get(a.id) ?? [],
       hasParentNumber: !!normalisePkMobile(parents.get(a.job_id)?.raw ?? null),
+      consentRecorded: isRecorded(consent.get(a.job_id)),
+      consentLabel: consentLabel(consent.get(a.job_id)),
     }
   })
   return { rows, staff, ownerNames: Object.fromEntries(staffName) }

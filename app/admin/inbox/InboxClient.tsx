@@ -157,6 +157,7 @@ export default function InboxClient({
           <ApplicationTemplates templates={templates} supportDisplay={supportDisplay} isOwner={isOwner} group="follow_ups" />
           <ApplicationTemplates templates={templates} supportDisplay={supportDisplay} isOwner={isOwner} group="parents" />
           <ApplicationTemplates templates={templates} supportDisplay={supportDisplay} isOwner={isOwner} group="status" />
+          <ApplicationTemplates templates={templates} supportDisplay={supportDisplay} isOwner={isOwner} group="consent" />
           <TemplatesEditor templates={templates.filter((t) => !groupTemplateInfo(t.key))} />
         </div>
       )}
@@ -255,7 +256,7 @@ export default function InboxClient({
                   className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold"
                 >
                   <option value="">Start from a template…</option>
-                  {templates.filter((t) => !isAppTemplateKey(t.key) && !t.key.startsWith('fu_')).map((t) => (
+                  {templates.filter((t) => !isAppTemplateKey(t.key) && !t.key.startsWith('fu_') && t.key !== 'consent_ask').map((t) => (
                     <option key={t.key} value={t.key}>
                       {t.title}
                     </option>

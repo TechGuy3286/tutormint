@@ -33,16 +33,14 @@ test('every change and what stays', () => {
   assert.match(PAGE, /\{FEE_CARD_TITLE\}/)
   assert.match(NAV, /<span>Back<\/span>/)
   assert.doesNotMatch(NAV, /واپس/, '"Back واپس" is now "Back"')
-  assert.match(CHOICE, /export const WHATSAPP_US = 'WhatsApp us'/)
+  // The WhatsApp us button is gone (owner, 27 Oct 2026; see test-consent).
+  assert.doesNotMatch(CHOICE, /WHATSAPP_US/)
   assert.doesNotMatch(CHOICE, /Need help\? WhatsApp us/)
-  // The WhatsApp logo sits on the left of the label.
-  const btn = CHOICE.slice(CHOICE.indexOf('data-whatsapp-button'))
-  assert.ok(btn.indexOf('/whatsapp.png') < btn.indexOf('{WHATSAPP_US}'))
   assert.match(PAGE, /Complete your verification/)
   assert.match(CHOICE, /PAY_BY_TRANSFER_LINE/)
   assert.match(CHOICE, /کسی بھی بینک ایپ، جاز کیش یا ایزی پیسہ سے اس اکاؤنٹ میں رقم بھیجیں، رسید کا اسکرین شاٹ لیں اور نیچے اپ لوڈ کریں۔/, 'the Urdu steps line, unchanged')
   assert.match(CHOICE, /'Upload receipt'/)
-  assert.match(CHOICE, /'Send receipt'/)
+  assert.match(CHOICE, /export const SUBMIT_LABEL = 'Submit'/, 'Send receipt is now Submit (owner, 27 Oct 2026)')
   assert.match(PAGE, /Runs for 30 days\. Non-refundable\./, 'a plan keeps its own line')
 })
 

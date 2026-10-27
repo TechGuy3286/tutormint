@@ -46,6 +46,7 @@ import { detectAbuse } from '@/lib/abuse/filter'
 import { abuseWarning, type AbuseWarning } from '@/lib/abuse/warnings'
 import { SUPPORT_WHATSAPP_DISPLAY, SUPPORT_EMAIL_FALLBACK } from '@/lib/supportContacts'
 import { formatName } from '@/lib/formatName'
+import { TEAM_MEMBER_NAME } from '@/lib/teamPosterCore'
 
 // PR16 §2.3 — an unverified tutor (fee unpaid) may RECEIVE parent messages and
 // demo requests but cannot read or reply to them until the fee is paid. This is
@@ -364,10 +365,11 @@ ${NOT_AVAILABLE_UR}` }
   if (admin) {
     const { data: sender } = await admin
       .from('profiles')
-      .select('is_suspended, full_name, role')
+      .select('is_suspended, full_name, role, is_team_account')
       .eq('id', me)
       .maybeSingle()
-    senderName = formatName(sender?.full_name as string | null) || 'a TutorMint member'
+    // The team account never shows its stored name (owner, 27 Oct 2026).
+    senderName = sender?.is_team_account ? TEAM_MEMBER_NAME : formatName(sender?.full_name as string | null) || 'a TutorMint member'
     if (sender?.is_suspended) {
       // One plain line for a (possibly auto-)suspended sender, with how to appeal
       // (PR40 §2). This is what a member auto-suspended for repeated abuse sees on
@@ -579,6 +581,9 @@ export type ThreadHeader = {
   otherRole: string | null
   otherSlug: string | null
   otherBadges: ReturnType<typeof badgesForPlan>
+  /** The other side is the team account: shown as the TutorMint team, with
+   *  the staff-posted tuition label (owner, 27 Oct 2026). */
+  otherIsTeam?: boolean
   jobId: string | null
   jobTitle: string | null
   jobRef: string | null
@@ -906,7 +911,7 @@ export async function threadPage({
 
   const [people, jobs, previews, unread] = await Promise.all([
     admin
-      ? admin.from('profiles').select('id, full_name, role, avatar_url').in('id', otherIds)
+      ? admin.from('profiles').select('id, full_name, role, avatar_url, is_team_account').in('id', otherIds)
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
     jobIds.length > 0
       ? supabase.from('jobs').select('id, title, job_tx_id').in('id', jobIds)
@@ -934,7 +939,7 @@ export async function threadPage({
   for (const p of people.data ?? []) {
     const pid = p.id as string
     names.set(pid, {
-      name: formatName(p.full_name as string | null) || NAME_FALLBACK,
+      name: p.is_team_account ? TEAM_MEMBER_NAME : formatName(p.full_name as string | null) || NAME_FALLBACK,
       role: (p.role as string) ?? null,
       avatar: hiddenAvatars.has(pid) ? null : ((p.avatar_url as string) ?? null),
     })
@@ -1070,12 +1075,13 @@ export async function threadHeader(userId: string, threadId: string): Promise<Th
   let otherRole: string | null = null
   let otherSlug: string | null = null
   let otherBadges: ReturnType<typeof badgesForPlan> = []
+  let otherIsTeam = false
 
   if (admin) {
     const [{ data: profile }, { data: tutor }, { data: subs }] = await Promise.all([
       admin
         .from('profiles')
-        .select('full_name, role, avatar_url, profile_completion')
+        .select('full_name, role, avatar_url, profile_completion, is_team_account')
         .eq('id', otherId)
         .maybeSingle(),
       admin.from('tutor_profiles').select('slug, gender').eq('id', otherId).maybeSingle(),
@@ -1087,7 +1093,8 @@ export async function threadHeader(userId: string, threadId: string): Promise<Th
         .gt('expires_at', new Date().toISOString()),
     ])
 
-    otherName = formatName(profile?.full_name as string | null) || otherName
+    otherName = profile?.is_team_account ? TEAM_MEMBER_NAME : formatName(profile?.full_name as string | null) || otherName
+    otherIsTeam = !!profile?.is_team_account
     otherAvatar = (profile?.avatar_url as string) ?? null
     otherRole = (profile?.role as string) ?? null
     // The counterpart tutor's hidden picture (PR70) → the default avatar in the header too.
@@ -1136,6 +1143,7 @@ export async function threadHeader(userId: string, threadId: string): Promise<Th
     otherRole,
     otherSlug,
     otherBadges,
+    otherIsTeam,
     jobId: (thread.job_id as string) ?? null,
     jobTitle,
     jobRef,

@@ -12,7 +12,10 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { pageAll } from '@/lib/pageAll'
 import { formatName } from '@/lib/formatName'
 import { recentRepeats } from '@/lib/duplicates'
+import { consentFor } from '@/lib/tuitionConsent'
+import { isRecorded } from '@/lib/tuitionConsentCore'
 import {
+  countConsent,
   countPosts,
   formerRow,
   postingWindows,
@@ -56,7 +59,7 @@ export async function loadTuitionPosting(nowMs = Date.now()): Promise<TuitionPos
   const posts = await pageAll((from, to) =>
     admin
       .from('admin_audit_log')
-      .select('id, actor_id, created_at')
+      .select('id, actor_id, created_at, target_id')
       .eq('action', 'job.post')
       .in('actor_id', ids)
       .order('id')
@@ -68,6 +71,15 @@ export async function loadTuitionPosting(nowMs = Date.now()): Promise<TuitionPos
     const list = timesBy.get(k) ?? []
     list.push(Date.parse(p.created_at as string))
     timesBy.set(k, list)
+  }
+  // Parent consent per posted tuition (owner, 27 Oct 2026).
+  const consent = await consentFor(posts.map((p) => p.target_id as string).filter(Boolean))
+  const consentBy = new Map<string, { at: number; recorded: boolean }[]>()
+  for (const p of posts) {
+    const k = p.actor_id as string
+    const list = consentBy.get(k) ?? []
+    list.push({ at: Date.parse(p.created_at as string), recorded: isRecorded(consent.get(p.target_id as string)) })
+    consentBy.set(k, list)
   }
 
   // Repeats this week, attributed by the poster's name or email (the
@@ -87,7 +99,7 @@ export async function loadTuitionPosting(nowMs = Date.now()): Promise<TuitionPos
     const rawName = ((s.full_name as string | null) ?? '').trim()
     const email = ((s.email as string | null) ?? '').trim().toLowerCase()
     const reps = (repeatsBy.get(rawName.toLowerCase()) ?? 0) + (email ? repeatsBy.get(email) ?? 0 : 0)
-    const row = { id, name: formatName(rawName) || '—', counts: countPosts(times, w), repeats: reps }
+    const row = { id, name: formatName(rawName) || '—', counts: countPosts(times, w), repeats: reps, consent: countConsent(consentBy.get(id) ?? [], w) }
     if (s.former) {
       if (times.length > 0 || reps > 0) former.push(row)
       continue

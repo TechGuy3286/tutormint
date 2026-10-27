@@ -5,10 +5,8 @@ import Breadcrumbs from '@/components/Breadcrumbs'
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { loadBankPanel, loadReceiptState } from '@/lib/payments/receipt'
-import { priceLine, rupees, supportWaLink } from '@/lib/payments/receiptCore'
+import { priceLine, rupees } from '@/lib/payments/receiptCore'
 import { FEE_LABEL } from '@/lib/display'
-import { formatName } from '@/lib/formatName'
-import { formatPkMobile } from '@/lib/phone'
 import OrderPageNav from '../manual/[ref]/OrderPageNav'
 import PayChoice from './PayChoice'
 import Link from 'next/link'
@@ -157,7 +155,6 @@ export default async function PayChoosePage({
   const packageName = isFee ? FEE_LABEL : `${plan.name} plan`
   const price = { code: plan.code as string, price_pkr: plan.price_pkr as number }
   const unlocks = UNLOCKS[plan.code as string] ?? null
-  const mobile = profile.phone_number ? formatPkMobile(profile.phone_number as string) : null
 
   return (
     <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8">
@@ -212,11 +209,6 @@ export default async function PayChoosePage({
           amount={rupees(price.price_pkr)}
           bank={bank}
           receipt={receipt}
-          waHref={supportWaLink({
-            packageName,
-            name: formatName(profile.full_name as string | null),
-            mobile,
-          })}
         />
 
         {/* No "Pay later" on the payment screen (owner, 17 Oct 2026): Back alone,

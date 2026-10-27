@@ -56,8 +56,12 @@ export default function ParentDocumentReview({
   lockable = false,
   unlockOpen = false,
   canUnlock = false,
+  addressOnly = false,
 }: {
   docs: ParentDocsView
+  /** A TUTOR account's home address (owner, 27 Oct 2026): the address card
+   *  alone, the same Approve / Reject and status chip. */
+  addressOnly?: boolean
   canReview: boolean
   /** The CNIC is approved and on record, so it can be unlocked for re-upload. */
   lockable?: boolean
@@ -73,6 +77,19 @@ export default function ParentDocumentReview({
   const hasNew = !!docs.cnicFrontReviewId || !!docs.cnicBackReviewId
   const [lbIndex, setLbIndex] = useState<number | null>(null)
   const [verified, setVerified] = useState(docs.verified)
+
+  if (addressOnly) {
+    return (
+      <div className="space-y-3" data-tutor-address="">
+        <ReviewItem parentId={docs.parentId} item="address" title="Home address" canReview={canReview} state={docs.addressItem} whatsapp={docs.whatsapp} onVerified={() => {}}>
+          <p className="rounded-xl border border-gray-100 bg-tm-bg p-3 text-xs text-slate-700">
+            {docs.address?.trim() ? docs.address : 'No address entered yet.'}
+            {docs.city ? <span className="block text-[11px] text-gray-500">City: {docs.city}</span> : null}
+          </p>
+        </ReviewItem>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-3">

@@ -38,6 +38,10 @@ import { SCREEN_ACCESS } from '@/lib/adminAuth'
 import { formatName } from '@/lib/formatName'
 import { FEE_LABEL } from '@/lib/display'
 import { refundState, type RefundState } from '@/lib/payments/refundCore'
+import { tuitionPath } from '@/lib/slugs'
+import { loadVerifiedBadgeOk } from '@/lib/badgeFacts'
+import { TEAM_MEMBER_NAME } from '@/lib/teamPosterCore'
+import type { ReportTarget, ReporterApplication, ReporterFacts } from '@/lib/reportCardCore'
 
 // The admin lists that still ended at a hard cap, on the platform's
 // infinite-scroll pattern.
@@ -798,6 +802,12 @@ export type QueueReportRow = {
   createdAt: string
   reviewedAt: string | null
   messages: { who: string; body: string; at: string }[] | null
+  /** The exact tuition or profile reported, with links (owner, 27 Oct 2026). */
+  target: ReportTarget
+  /** The reporter's paid / verified status. */
+  reporter: ReporterFacts | null
+  /** The reporter's applications on the reported tuition (job reports only). */
+  reporterApplications: ReporterApplication[]
 }
 
 export async function loadReportQueue({
@@ -837,17 +847,20 @@ export async function loadReportQueue({
 
   const { data: people } = await admin
     .from('profiles')
-    .select('id, full_name, email, role, is_suspended, is_banned')
+    .select('id, full_name, email, role, is_suspended, is_banned, is_team_account, phone_verified_at, cnic_verified_at, address_verified_at')
     .in('id', ids.length ? ids : [NO_MATCH])
 
   const who = new Map(
     (people ?? []).map((p) => [
       p.id as string,
       {
-        name: formatName(p.full_name as string | null) || '—',
+        // The team account never by its stored name (owner, 27 Oct 2026).
+        name: p.is_team_account ? TEAM_MEMBER_NAME : formatName(p.full_name as string | null) || '—',
         role: p.role as string,
         suspended: !!p.is_suspended,
         banned: !!p.is_banned,
+        mobileVerified: !!p.phone_verified_at,
+        parentVerified: !!p.cnic_verified_at && !!p.address_verified_at,
       },
     ]),
   )
@@ -911,6 +924,65 @@ export async function loadReportQueue({
     }
   }
 
+  // The exact item reported, and who reported it (owner, 27 Oct 2026).
+  const isUuid = (v: unknown) => typeof v === 'string' && /^[0-9a-f-]{36}$/i.test(v)
+  const jobTargetIds = Array.from(new Set(page.filter((r) => r.target_type === 'job' && isUuid(r.target_id)).map((r) => r.target_id as string)))
+  const profileIds = Array.from(new Set(page.filter((r) => r.target_type === 'profile').map((r) => (isUuid(r.target_id) ? r.target_id : r.reported_id) as string).filter(isUuid)))
+  const reporterIds = Array.from(new Set(page.map((r) => r.reporter_id as string).filter(isUuid)))
+  const [{ data: targetJobs }, { data: slugRows }, { data: reporterTps }, badgeOk, { data: reporterApps }, { data: teamRow }] = await Promise.all([
+    admin.from('jobs').select('id, ref_id, title, public_slug, city, job_tx_id, parent_id').in('id', jobTargetIds.length ? jobTargetIds : [NO_MATCH]),
+    admin.from('tutor_profiles').select('id, slug').in('id', profileIds.length ? profileIds : [NO_MATCH]),
+    admin.from('tutor_profiles').select('id, verified_fee_paid_at').in('id', reporterIds.length ? reporterIds : [NO_MATCH]),
+    loadVerifiedBadgeOk(reporterIds).catch(() => new Set<string>()),
+    admin
+      .from('applications')
+      .select('job_id, tutor_id, stage, created_at, withdrawn_at')
+      .in('job_id', jobTargetIds.length ? jobTargetIds : [NO_MATCH])
+      .in('tutor_id', reporterIds.length ? reporterIds : [NO_MATCH]),
+    admin.from('profiles').select('id').eq('is_team_account', true).limit(1).maybeSingle(),
+  ])
+  const jobById = new Map((targetJobs ?? []).map((j) => [j.id as string, j]))
+  const slugById = new Map((slugRows ?? []).map((t) => [t.id as string, (t.slug as string | null) ?? null]))
+  const feeBy = new Map((reporterTps ?? []).map((t) => [t.id as string, !!t.verified_fee_paid_at]))
+  const teamId = (teamRow?.id as string | undefined) ?? null
+  const targetOf = (r: Record<string, unknown>): ReportTarget => {
+    const tt = r.target_type as string
+    if (tt === 'job' && isUuid(r.target_id)) {
+      const j = jobById.get(r.target_id as string)
+      if (!j) return { kind: 'unknown' }
+      return {
+        kind: 'tuition',
+        jobId: j.id as string,
+        refId: (j.ref_id as string | null) ?? null,
+        title: (j.title as string | null) ?? 'Tuition',
+        adminHref: `/admin/jobs/${j.id as string}`,
+        publicHref: tuitionPath({ public_slug: j.public_slug as string | null, city: j.city as string | null, job_tx_id: j.job_tx_id as string | null, id: j.id as string }),
+        postedByTeam: !!teamId && (j.parent_id as string | null) === teamId,
+      }
+    }
+    if (tt === 'profile') {
+      const id = (isUuid(r.target_id) ? r.target_id : r.reported_id) as string | null
+      if (!id) return { kind: 'unknown' }
+      const slug = slugById.get(id) ?? null
+      return { kind: 'profile', memberId: id, name: who.get(id)?.name ?? '—', adminHref: `/admin/users/${id}`, publicHref: slug ? `/tutor/${slug}` : null }
+    }
+    if (tt === 'thread' || tt === 'message') {
+      const id = (r.reported_id as string | null) ?? null
+      return { kind: 'conversation', memberId: id, name: id ? (who.get(id)?.name ?? null) : null, adminHref: id ? `/admin/users/${id}` : null }
+    }
+    return { kind: 'unknown' }
+  }
+  const reporterOf = (id: string | null): ReporterFacts | null => {
+    if (!id || !who.has(id)) return null
+    const p = who.get(id)!
+    return {
+      role: p.role ?? null,
+      feePaid: feeBy.get(id) ?? false,
+      verified: p.role === 'tutor' ? badgeOk.has(id) : p.parentVerified,
+      mobileVerified: p.mobileVerified,
+    }
+  }
+
   const rows: QueueReportRow[] = page.map((r) => {
     const reportedId = (r.reported_id as string) ?? null
     return {
@@ -949,6 +1021,14 @@ export async function loadReportQueue({
                 },
               ]
             : null,
+      target: targetOf(r),
+      reporter: reporterOf((r.reporter_id as string | null) ?? null),
+      reporterApplications:
+        r.target_type === 'job'
+          ? (reporterApps ?? [])
+              .filter((a) => a.job_id === r.target_id && a.tutor_id === r.reporter_id)
+              .map((a) => ({ stage: (a.stage as string) ?? 'applied', appliedAt: a.created_at as string, withdrawn: !!a.withdrawn_at }))
+          : [],
     }
   })
 

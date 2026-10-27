@@ -4,6 +4,7 @@ import StatusChip from '@/components/admin/StatusChip'
 import { Users } from 'lucide-react'
 import TimeAgo from '@/components/TimeAgo'
 import type { AdminJobRow } from '@/lib/adminJobs'
+import ConsentChip from '@/components/admin/ConsentChip'
 
 // One tuition in the admin list.
 //
@@ -87,6 +88,11 @@ export default function JobRow({ row }: { row: AdminJobRow }) {
             <TimeAgo iso={row.createdAt} />
           </dd>
         </dl>
+
+        {/* Parent consent to be listed (owner, 27 Oct 2026). */}
+        <div>
+          <ConsentChip jobId={row.id} recorded={row.consentRecorded} label={row.consentLabel} hasNumber={row.hasParentNumber} />
+        </div>
 
         {row.subjects.length > 0 && (
           <div className="flex flex-wrap gap-1">

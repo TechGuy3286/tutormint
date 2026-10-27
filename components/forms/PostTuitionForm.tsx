@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import ConsentBox from '@/components/forms/ConsentBox'
+import { consentInputProblem } from '@/lib/tuitionConsentCore'
 import { Sparkles, Loader2, Info, ShieldCheck, Phone, UserRound, Clock, School } from 'lucide-react'
 
 import { submitSignal } from '@/lib/submit'
@@ -81,6 +83,10 @@ export type PostTuitionValues = {
   contactEmail: string
   contactAddress: string
   contactSocial: string
+  /** Staff only (owner, 27 Oct 2026): the parent agreed to be listed — required. */
+  consentAgreed: boolean
+  consentMethod: string
+  consentNote: string
 }
 
 /** What a wrapper's onSubmit receives — the resolved, ready-to-send fields. */
@@ -115,6 +121,10 @@ export type PostTuitionPayload = {
   contactEmail: string | null
   contactAddress: string | null
   contactSocial: string | null
+  /** Staff only — required on create and edit (owner, 27 Oct 2026). */
+  consentAgreed?: boolean
+  consentMethod?: string | null
+  consentNote?: string | null
 }
 
 /** The open/paused tuition a post would repeat (item 16), as the API returns it. */
@@ -149,6 +159,9 @@ const EMPTY: PostTuitionValues = {
   contactEmail: '',
   contactAddress: '',
   contactSocial: '',
+  consentAgreed: false,
+  consentMethod: '',
+  consentNote: '',
 }
 
 const FIELD =
@@ -386,6 +399,9 @@ export default function PostTuitionForm({
       if (adminExtras) {
         const number = parseContactNumber(v.contactPhone)
         if (!number.ok) throw new Error(number.error)
+        // Parent consent is required on every staff save (owner, 27 Oct 2026).
+        const consent = consentInputProblem({ agreed: v.consentAgreed, method: v.consentMethod })
+        if (consent) throw new Error(consent)
       }
       // Per grade (owner, 7 Oct 2026): each grade's subjects resolve against that
       // grade only; the combined list (job_subjects) is their union.
@@ -422,6 +438,9 @@ export default function PostTuitionForm({
         contactEmail: v.contactEmail || null,
         contactAddress: v.contactAddress || null,
         contactSocial: v.contactSocial || null,
+        consentAgreed: adminExtras ? v.consentAgreed : undefined,
+        consentMethod: adminExtras ? v.consentMethod || null : undefined,
+        consentNote: adminExtras ? v.consentNote || null : undefined,
       })
 
       if (!r.ok) {
@@ -698,6 +717,10 @@ export default function PostTuitionForm({
 
           {adminExtras && (
             <>
+              <ConsentBox
+                value={{ agreed: v.consentAgreed, method: v.consentMethod, note: v.consentNote }}
+                onChange={(c) => setV((p) => ({ ...p, consentAgreed: c.agreed, consentMethod: c.method, consentNote: c.note }))}
+              />
               <label className="block space-y-1">
                 <span className={LABEL}>Origin (for the audit trail)</span>
                 <select value={v.origin} onChange={(e) => set('origin', e.target.value)} className={FIELD}>

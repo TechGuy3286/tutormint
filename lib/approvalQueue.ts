@@ -3,7 +3,7 @@ import 'server-only'
 import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { formatName } from '@/lib/formatName'
-import { parentsAwaitingReview } from '@/lib/parentDocuments'
+import { parentsAwaitingReview, tutorAddressesAwaitingReview } from '@/lib/parentDocuments'
 import { tutorWaiting } from '@/lib/tutorDocQueueCore'
 
 // "Approval needed" (PR106-H1 §3): tutors with at least one uploaded document
@@ -101,6 +101,18 @@ async function build(): Promise<ApprovalRow[]> {
   // Fee-paid first; oldest account first within each group (a proxy for oldest
   // upload, deterministic and index-friendly).
   rows.sort((a, b) => (a.paid === b.paid ? a.createdAt.localeCompare(b.createdAt) : a.paid ? -1 : 1))
+
+  // A tutor's typed home address waiting (owner, 27 Oct 2026): "Address" on
+  // their row, or a row of its own that opens the member page's Documents box.
+  const tutorAddresses = await tutorAddressesAwaitingReview()
+  for (const t of tutorAddresses) {
+    const existing = rows.find((r) => r.id === t.id && r.kind === 'tutor')
+    if (existing) {
+      if (!existing.waiting.includes('Address')) existing.waiting.push('Address')
+      continue
+    }
+    rows.push({ id: t.id, name: t.name, waiting: ['Address'], paid: false, createdAt: t.since, kind: 'tutor', href: `/admin/users/${t.id}#documents` })
+  }
 
   // Waiting parents after the tutors, oldest submission first.
   const parents = await parentsAwaitingReview()

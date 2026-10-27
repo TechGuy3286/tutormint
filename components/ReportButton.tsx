@@ -5,6 +5,7 @@ import { submitSignal } from '@/lib/submit'
 import { useState } from 'react'
 import { useToast } from '@/components/ui/Toast'
 import { Flag, Undo2 } from 'lucide-react'
+import { JOB_PROBLEM_LABEL, reportReasonsFor } from '@/lib/teamPosterCore'
 
 // "Report" — one component, three places (tutor profile, job card, thread).
 //
@@ -18,14 +19,10 @@ import { Flag, Undo2 } from 'lucide-react'
 // other person, because it does not know, and promising a suspension you have
 // not decided on is worse than saying nothing.
 
-const REASONS = [
-  { code: 'spam', label: 'Spam or advertising' },
-  { code: 'harassment', label: 'Harassment or abuse' },
-  { code: 'fake_profile', label: 'Fake or impersonated profile' },
-  { code: 'off_platform_payment', label: 'Asking to pay outside TutorMint' },
-  { code: 'inappropriate_content', label: 'Inappropriate content' },
-  { code: 'other', label: 'Something else' },
-]
+// The reasons come from lib/teamPosterCore, the same lists /api/reports accepts.
+// On a staff-posted tuition (owner, 27 Oct 2026) the form is "Problem with this
+// job" — no response, already filled, wrong details, other — and the report
+// names the tuition only, never the team account.
 
 export default function ReportButton({
   reportedId,
@@ -33,15 +30,20 @@ export default function ReportButton({
   targetId,
   label = 'Report',
   className,
+  teamJob = false,
 }: {
-  reportedId: string
+  /** null on a staff-posted tuition: the report names nobody. */
+  reportedId: string | null
   targetType: 'profile' | 'thread' | 'job' | 'message'
   targetId?: string | null
   label?: string
   className?: string
+  /** A staff-posted tuition: "Problem with this job" reasons only. */
+  teamJob?: boolean
 }) {
+  const REASONS = reportReasonsFor(teamJob)
   const [open, setOpen] = useState(false)
-  const [reason, setReason] = useState('spam')
+  const [reason, setReason] = useState<string>(REASONS[0].code)
   const [detail, setDetail] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -55,7 +57,7 @@ export default function ReportButton({
       const res = await fetch('/api/reports', { signal: submitSignal(),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reportedId, targetType, targetId, reason, detail }),
+        body: JSON.stringify({ reportedId: teamJob ? null : reportedId, targetType, targetId, reason, detail, teamJob }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Could not send that report.')
@@ -89,14 +91,14 @@ export default function ReportButton({
         }
       >
         <Flag size={14} />
-        {label}
+        {teamJob ? JOB_PROBLEM_LABEL : label}
       </button>
     )
   }
 
   return (
     <div className="space-y-2 rounded-xl border border-gray-200 bg-white p-3">
-      <p className="text-[11px] font-black text-tm-navy">What is wrong?</p>
+      <p className="text-[11px] font-black text-tm-navy">{teamJob ? JOB_PROBLEM_LABEL : 'What is wrong?'}</p>
 
       <label className="block space-y-1">
         <span className="sr-only">Reason</span>

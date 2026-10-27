@@ -90,8 +90,17 @@ function CopyValue({ label, display, copy, copyable }: { label: string; display:
   )
 }
 
-/** The help button label (owner, 26 Oct 2026; it used to start with "Need help?"). */
-export const WHATSAPP_US = 'WhatsApp us'
+/** The receipt button (owner, 27 Oct 2026; was "Send receipt"). Light grey and
+ *  disabled until a receipt is attached, then brand green with white text. The
+ *  "WhatsApp us" button that sat under it is removed. */
+export const SUBMIT_LABEL = 'Submit'
+export const SUBMIT_ENABLED_CLASS = 'bg-tm-green-deep text-white hover:bg-tm-green-deep-hover'
+export const SUBMIT_DISABLED_CLASS = 'bg-gray-200 text-slate-700'
+
+/** The Submit button's colours for its state (exported for the test). */
+export function submitButtonClass(hasFile: boolean): string {
+  return hasFile ? SUBMIT_ENABLED_CLASS : SUBMIT_DISABLED_CLASS
+}
 
 // The second way to pay (owner, 17 Oct 2026). Exported so the test can check them.
 export const OTHER_METHODS_TITLE = 'Other methods'
@@ -104,7 +113,6 @@ export default function PayChoice({
   bank,
   receipt,
   returnTo = null,
-  waHref,
 }: {
   planCode: string
   isFee: boolean
@@ -115,7 +123,6 @@ export default function PayChoice({
   receipt: ReceiptState
   /** The tuition to go back to after paying the fee (owner, 15 Oct 2026). */
   returnTo?: string | null
-  waHref: string
 }) {
   const toast = useToast()
   // After a bank-transfer receipt: back to the tuition, with the note that
@@ -127,19 +134,6 @@ export default function PayChoice({
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const support = (
-    <a
-      href={waHref}
-      target="_blank"
-      rel="noreferrer"
-      data-whatsapp-button=""
-      className="flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-tm-green-deep bg-white px-4 text-sm font-bold text-tm-green-deep hover:bg-tm-tint-green"
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element -- the site's own WhatsApp mark */}
-      <img src="/whatsapp.png" alt="" className="h-5 w-5" />
-      {WHATSAPP_US}
-    </a>
-  )
 
   // A receipt is with staff: the status, and nothing to pay with.
   if (state.state === 'under_review') {
@@ -157,7 +151,6 @@ export default function PayChoice({
             Back to the tuition
           </Link>
         )}
-        {support}
       </div>
     )
   }
@@ -169,7 +162,6 @@ export default function PayChoice({
           Payments are not available right now. Please try again later, or message us on WhatsApp.
           <Ur>ادائیگی ابھی دستیاب نہیں۔ کچھ دیر بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔</Ur>
         </p>
-        {support}
       </div>
     )
   }
@@ -281,14 +273,14 @@ export default function PayChoice({
               type="button"
               onClick={() => void send()}
               disabled={sending || !file}
-              className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-tm-navy px-6 text-sm font-bold text-white hover:bg-tm-navy-hover disabled:opacity-60"
+              data-submit-receipt={file ? 'ready' : 'waiting'}
+              className={`flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl px-6 text-sm font-bold ${submitButtonClass(!!file)}`}
             >
               {sending && <Loader2 aria-hidden size={16} className="animate-spin" />}
-              {sending ? 'Sending…' : 'Send receipt'}
+              {sending ? 'Sending…' : SUBMIT_LABEL}
             </button>
           </div>
 
-          {support}
         </section>
       )}
     </div>

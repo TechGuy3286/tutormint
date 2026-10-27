@@ -55,7 +55,7 @@ async function main() {
             <p className="text-sm font-black text-tm-navy">One-Time Verification Fee</p>
             <p className="text-xs leading-relaxed text-tm-navy">After verification, you can apply to tuitions and jobs and contact parents and employers directly.</p>
           </section>
-          <PayChoice planCode="verified" isFee amount="Rs 199" bank={bank} receipt={{ state: 'none' }} waHref="https://wa.me/920000000000" />
+          <PayChoice planCode="verified" isFee amount="Rs 199" bank={bank} receipt={{ state: 'none' }} />
           <button type="button" className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-slate-700">← Back</button>
         </div>,
       ),

@@ -51,6 +51,10 @@ const TeamJobBody = z.object({
   contactEmail: z.string().max(200).nullish(),
   contactAddress: z.string().max(300).nullish(),
   contactSocial: z.string().max(200).nullish(),
+  // Parent consent (owner, 27 Oct 2026): required — checked in lib/jobs.
+  consentAgreed: z.boolean().optional(),
+  consentMethod: z.string().max(40).nullish(),
+  consentNote: z.string().max(500).nullish(),
   areaLandmark: z.string().max(120).nullish(),
   // Duplicate prevention (item 16): "Post anyway" + the staff member's reason.
   allowDuplicate: z.boolean().optional(),
@@ -86,6 +90,9 @@ function parseInput(body: z.infer<typeof TeamJobBody>): JobInput {
     contactEmail: str(body.contactEmail),
     contactAddress: str(body.contactAddress),
     contactSocial: str(body.contactSocial),
+    consentAgreed: body.consentAgreed === true,
+    consentMethod: str(body.consentMethod),
+    consentNote: str(body.consentNote),
     areaLandmark: str(body.areaLandmark),
     allowDuplicate: !!body.allowDuplicate,
     duplicateReason: str(body.duplicateReason),

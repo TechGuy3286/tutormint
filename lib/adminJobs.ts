@@ -23,6 +23,9 @@ import { decodeCursor, encodeCursor } from '@/lib/cursor'
 import { teamParentId } from '@/lib/teamAccount'
 import { formatName } from '@/lib/formatName'
 import { formerStaffName } from '@/lib/formerStaffCore'
+import { consentFor } from '@/lib/tuitionConsent'
+import { consentLabel, isRecorded } from '@/lib/tuitionConsentCore'
+import { normalisePkMobile } from '@/lib/phone'
 
 export type AdminJobRow = {
   id: string
@@ -46,6 +49,11 @@ export type AdminJobRow = {
   /** "6 applied · 2 forwarded · 1 hired" — live, staff/test tutors left out (owner, 22 Oct 2026); null with none. */
   stageLine: string | null
   hiredTutorId: string | null
+  /** Parent consent to be listed (owner, 27 Oct 2026). */
+  consentRecorded: boolean
+  consentLabel: string
+  /** A staff tuition has a parent number on file (for Ask parent). */
+  hasParentNumber: boolean
 }
 
 export type AdminJobFilters = {
@@ -166,13 +174,20 @@ export async function adminJobPage({
     new Set(page.map((j) => j.parent_id as string | null).filter(Boolean) as string[]),
   )
 
-  const [{ data: apps }, { data: parents }, tallies] = await Promise.all([
+  const [{ data: apps }, { data: parents }, tallies, consent, { data: contacts }] = await Promise.all([
     admin.from('applications').select('job_id').in('job_id', jobIds),
     parentIds.length > 0
       ? admin.from('profiles').select('id, full_name').in('id', parentIds)
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
     stageTallies(jobIds),
+    consentFor(jobIds),
+    admin.from('job_contacts').select('job_id, contact_phone, contact_whatsapp').in('job_id', jobIds),
   ])
+  const numberJobs = new Set(
+    (contacts ?? [])
+      .filter((c) => normalisePkMobile((c.contact_whatsapp as string | null) ?? null) || normalisePkMobile((c.contact_phone as string | null) ?? null))
+      .map((c) => c.job_id as string),
+  )
 
   const applicants = new Map<string, number>()
   for (const a of apps ?? []) {
@@ -201,6 +216,9 @@ export async function adminJobPage({
       applicantCount: applicants.get(j.id as string) ?? 0,
       stageLine: adminStageLine(tallies.get(j.id as string) ?? { applied: 0, forwarded: 0, hired: 0 }),
       hiredTutorId: (j.hired_tutor_id as string) ?? null,
+      consentRecorded: isRecorded(consent.get(j.id as string)),
+      consentLabel: consentLabel(consent.get(j.id as string)),
+      hasParentNumber: numberJobs.has(j.id as string),
     })),
     nextCursor: hasMore
       ? encodeCursor({ c: last.created_at as string, i: last.id as string })

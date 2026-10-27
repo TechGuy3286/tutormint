@@ -13,6 +13,7 @@ import { messagePage, threadHeader, threadPage } from '@/lib/messaging'
 import { loadTeamSummary } from '@/lib/adminMessaging'
 import { mayAttachPhoto } from '@/lib/messagingRules'
 import { createClient } from '@/lib/supabase/server'
+import { TEAM_POSTER_LABEL } from '@/lib/teamPosterCore'
 import { formatName } from '@/lib/formatName'
 
 // The inbox, both roles, one implementation.
@@ -249,6 +250,7 @@ export default async function InboxShell({
                       <span>{header.otherName}</span>
                     )}
                     {header.otherBadges.length > 0 && <BadgeRow badges={header.otherBadges} size="sm" />}
+                    {header.otherIsTeam && <span className="text-[11px] font-bold text-tm-navy">{TEAM_POSTER_LABEL}</span>}
                   </div>
                   {header.jobTitle && (
                     <p className="flex items-center gap-1 truncate text-[11px] text-gray-500">

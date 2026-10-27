@@ -108,12 +108,20 @@ async function cnicDocsFor(ids: string[]): Promise<CnicDoc[]> {
   return (data ?? []).map((d) => ({ id: d.id as string, user_id: d.user_id as string, label: (d.label as string | null) ?? null, status: d.status as string }))
 }
 
-/** One parent's documents, or null when the account is not a parent. */
-export async function loadParentDocs(parentId: string): Promise<ParentDocs | null> {
+/** A typed home address waiting for a decision — whatever address_status says
+ *  (the chip reads "Waiting for review" for a typed, undecided address). */
+const ADDRESS_WAITING_OR = 'address_status.eq.pending,and(address_verified_at.is.null,address_status.is.null,address.not.is.null)'
+
+/** One parent's documents, or null when the account is not a parent. With
+ *  allowTutor, a TUTOR account's home address too (owner, 27 Oct 2026: an
+ *  address moved over by a parent → tutor merge is reviewed the same way). */
+export async function loadParentDocs(parentId: string, opts: { allowTutor?: boolean } = {}): Promise<ParentDocs | null> {
   const admin = createAdminClient()
   if (!admin) return null
   const { data: p } = await admin.from('profiles').select(PROFILE_COLS).eq('id', parentId).maybeSingle()
-  if (!p || (p.role !== 'parent' && p.role !== 'academy')) return null
+  if (!p) return null
+  const isParentRole = p.role === 'parent' || p.role === 'academy'
+  if (!isParentRole && !(opts.allowTutor && p.role === 'tutor')) return null
   return toDocs(p as Record<string, unknown>, await cnicDocsFor([parentId]))
 }
 
@@ -131,7 +139,7 @@ export async function parentsAwaitingReview(): Promise<ParentDocs[]> {
       .from('profiles')
       .select(PROFILE_COLS)
       .in('role', ['parent', 'academy'])
-      .or('verification_state.eq.submitted,address_status.eq.pending')
+      .or(`verification_state.eq.submitted,${ADDRESS_WAITING_OR}`)
       .order('id')
       .range(from, to),
   )
@@ -151,6 +159,31 @@ export async function parentsAwaitingReview(): Promise<ParentDocs[]> {
   const created = new Map(live.map((p) => [p.id as string, p as Record<string, unknown>]))
   rows.sort((a, b) => key(a, created.get(a.parentId)).localeCompare(key(b, created.get(b.parentId))))
   return rows
+}
+
+/**
+ * TUTOR accounts with a typed home address waiting for a decision (owner,
+ * 27 Oct 2026) — e.g. one moved over by a parent → tutor merge. The same
+ * Approve / Reject and status chip as a parent's address; oldest first.
+ */
+export async function tutorAddressesAwaitingReview(): Promise<{ id: string; name: string; since: string }[]> {
+  const admin = createAdminClient()
+  if (!admin) return []
+  const data = await pageAll((from, to) =>
+    admin
+      .from('profiles')
+      .select(PROFILE_COLS)
+      .eq('role', 'tutor')
+      .or(ADDRESS_WAITING_OR)
+      .order('id')
+      .range(from, to),
+  )
+  return (data as unknown as Record<string, unknown>[])
+    .filter((p) => !p.is_seed && !p.is_banned && !p.is_suspended && !p.is_team_account)
+    .map((p) => ({ p, docs: toDocs(p, []) }))
+    .filter((x) => x.docs.addressItem.status === 'pending')
+    .map((x) => ({ id: x.docs.parentId, name: x.docs.name, since: (x.p.created_at as string) ?? '' }))
+    .sort((a, b) => a.since.localeCompare(b.since))
 }
 
 const ITEM_LABEL: Record<ParentDocItem, string> = { cnic: 'CNIC', address: 'address' }
@@ -179,8 +212,12 @@ export async function reviewParentDocument(params: {
     return { ok: false, status: 400, error: 'A reason is required to reject.' }
   }
 
-  const before = await loadParentDocs(parentId)
+  // A tutor's home address is reviewed here too (owner, 27 Oct 2026); a tutor's
+  // CNIC keeps its own tutor review.
+  const before = await loadParentDocs(parentId, { allowTutor: item === 'address' })
   if (!before) return { ok: false, status: 404, error: 'That account is not a parent.' }
+  const { data: roleRow } = await admin.from('profiles').select('role').eq('id', parentId).maybeSingle()
+  const isTutorAccount = roleRow?.role === 'tutor'
 
   // A new upload of the approved CNIC is waiting (owner, 9 Oct 2026).
   if (item === 'cnic' && before.cnic.rereview) {
@@ -218,8 +255,9 @@ export async function reviewParentDocument(params: {
   if (error) return { ok: false, status: 400, error: error.message }
   if (item === 'cnic') await closeOpenUnlocks(parentId, 'cnic', decision === 'approve' ? 'approved' : 'rejected')
 
-  const after = await loadParentDocs(parentId)
-  const verified = !!after?.verified
+  const after = await loadParentDocs(parentId, { allowTutor: isTutorAccount })
+  // "Verified parent" is a parent's state only — never set for a tutor's address.
+  const verified = !isTutorAccount && !!after?.verified
   const approved = decision === 'approve'
   const label = ITEM_LABEL[item]
 
@@ -241,7 +279,7 @@ export async function reviewParentDocument(params: {
     meta: { item, decision, reason: approved ? null : reason, verified },
   })
 
-  const verifyHref = '/parent/verify'
+  const verifyHref = isTutorAccount ? '/tutor/dashboard/settings' : '/parent/verify'
   if (!approved) {
     await notify({
       userId: parentId,
@@ -252,7 +290,7 @@ export async function reviewParentDocument(params: {
     })
     const mailed = await deliverEmail(
       { userId: parentId },
-      { id: 'verification_rejected', name: before.name, what: label, reason, href: verifyHref, audience: 'parent' },
+      { id: 'verification_rejected', name: before.name, what: label, reason, href: verifyHref, audience: isTutorAccount ? 'tutor' : 'parent' },
     )
     if (!mailed.ok) console.info('[parent-review] rejection email not sent:', mailed.reason, parentId)
   } else if (verified && !before.verified) {

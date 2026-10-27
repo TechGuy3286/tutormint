@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { isStaffConsentMethod } from '@/lib/tuitionConsentCore'
 import { notFound, redirect } from 'next/navigation'
 
 import { requireAdminRole, roleMayWrite, SCREEN_ACCESS } from '@/lib/adminAuth'
@@ -38,14 +39,17 @@ export default async function AdminJobEditPage({ params }: { params: Promise<{ i
     redirect(`/admin/jobs/${job.id}`)
   }
 
-  const [{ data: subjects }, { data: contact }] = await Promise.all([
+  const [{ data: subjects }, { data: contact }, { data: consent }] = await Promise.all([
     admin.from('job_subjects').select('master_id').eq('job_id', job.id),
     admin
       .from('job_contacts')
       .select('contact_name, contact_phone, contact_whatsapp, contact_email, contact_address, contact_social')
       .eq('job_id', job.id)
       .maybeSingle(),
+    // Parent consent (owner, 27 Oct 2026): a recorded consent pre-ticks the box.
+    admin.from('tuition_consents').select('status, method, note').eq('job_id', job.id).maybeSingle(),
   ])
+  const staffMethod = consent?.status === 'recorded' && isStaffConsentMethod(consent.method) ? (consent.method as string) : ''
 
   const initial: Partial<PostTuitionValues> = {
     title: (job.title as string) ?? '',
@@ -66,6 +70,9 @@ export default async function AdminJobEditPage({ params }: { params: Promise<{ i
     contactAddress: (contact?.contact_address as string) ?? '',
     contactSocial: (contact?.contact_social as string) ?? '',
     areaLandmark: (job.area_landmark as string | null) ?? '',
+    consentAgreed: !!staffMethod,
+    consentMethod: staffMethod,
+    consentNote: staffMethod ? ((consent?.note as string | null) ?? '') : '',
   }
 
   return (

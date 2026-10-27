@@ -5,6 +5,7 @@ import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadTuitionPosting } from '@/lib/tuitionPosting'
 import { loadDailyReport } from '@/lib/dailyReport'
 import { POSTED_COLUMNS, type PostingRow } from '@/lib/tuitionPostingCore'
+import { consentPercentLabel } from '@/lib/tuitionConsentCore'
 import FormerStaffToggle from './FormerStaffToggle'
 import { parseMonth } from '@/lib/staffTargetsCore'
 import { TEAM_TABS, isRemovedTab, pickTab, tabsFor, teamActivityHref } from '@/lib/teamActivityCore'
@@ -94,7 +95,7 @@ async function PostedTab({ detailLinks }: { detailLinks: boolean }) {
     <div className="space-y-3">
       <p className="text-xs text-gray-600">Tuitions posted by each member of staff, in Pakistan time. Highest Last 7 days first.</p>
       <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
-        <table className="w-full min-w-[560px] text-left text-xs">
+        <table className="w-full min-w-[680px] text-left text-xs">
           <thead className="bg-tm-bg text-[11px] font-bold text-gray-600">
             <tr>
               {POSTED_COLUMNS.map((c, i) => (
@@ -147,6 +148,11 @@ function PostedCells({ row }: { row: PostingRow }) {
       <td className="px-3 py-2 text-right tabular-nums">{c.yesterday}</td>
       <td className="px-3 py-2 text-right tabular-nums">{c.last7}</td>
       <td className="px-3 py-2 text-right tabular-nums">{c.allTime}</td>
+      {/* Parent consent recorded (owner, 27 Oct 2026): last 7 days · all time. */}
+      <td className="px-3 py-2 text-right text-[11px] tabular-nums" data-consent-share="">
+        <span className="block">7 days: {consentPercentLabel(row.consent?.last7)}</span>
+        <span className="block text-gray-500">All time: {consentPercentLabel(row.consent?.allTime)}</span>
+      </td>
       <td className="px-3 py-2 text-right tabular-nums">
         {row.repeats > 0 ? (
           <Link href="/admin/jobs/duplicates" className="font-bold text-tm-red hover:underline">

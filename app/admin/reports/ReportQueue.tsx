@@ -12,6 +12,8 @@ import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { useInfinite } from '@/lib/useInfinite'
 import type { QueueBlockRow, QueueReportRow } from '@/lib/adminQueues'
+import ReportTargetBlock from '@/components/admin/ReportTargetBlock'
+import { reportReasonLabel } from '@/lib/teamPosterCore'
 
 export type QueueReport = QueueReportRow
 export type BlockRow = QueueBlockRow
@@ -152,7 +154,7 @@ export default function ReportQueue({
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0 space-y-0.5">
                   <p className="text-sm font-black text-tm-navy">
-                    {REASON_LABEL[r.reason] ?? r.reason}
+                    {REASON_LABEL[r.reason] ?? reportReasonLabel(r.reason)}
                     <span className="ml-2 text-[11px] font-semibold text-gray-500">
                       on a {r.targetType}
                     </span>
@@ -167,7 +169,7 @@ export default function ReportQueue({
                         {r.reportedName}
                       </Link>
                     ) : (
-                      'no specific member'
+                      r.targetType === 'job' ? 'a tuition (no member named)' : 'no specific member'
                     )}
                     {r.reportedRole ? ` (${r.reportedRole})` : ''} ·{' '}
                     {formatDateTime(r.createdAt)}
@@ -185,6 +187,8 @@ export default function ReportQueue({
                   {r.status}
                 </span>
               </div>
+
+              {r.target && <ReportTargetBlock target={r.target} reporter={r.reporter ?? null} applications={r.reporterApplications ?? []} />}
 
               {r.detail && (
                 <p className="rounded-xl bg-tm-bg p-3 text-xs leading-relaxed">{r.detail}</p>

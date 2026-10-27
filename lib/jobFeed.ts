@@ -45,6 +45,7 @@ import { TEAM_DISPLAY_NAME } from '@/lib/teamAccount'
 import type { JobCardData } from '@/components/JobCard'
 import { formatName } from '@/lib/formatName'
 import { parentCardResolves } from '@/lib/hiddenTuitionCore'
+import { hiddenNumberJobs } from '@/lib/tuitionConsent'
 
 type ParentFacts = {
   name: string | null
@@ -168,6 +169,9 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
   const supabase = await createClient()
   const jobIds = rawJobs.map((j) => j.id as string)
   const jobContacts = await jobContactRaw(jobIds)
+  // Parent consent not recorded + the Owner's switch on (owner, 27 Oct 2026):
+  // no number teaser; the card says staff will share the tutor's profile.
+  const hiddenNumbers = await hiddenNumberJobs(jobIds)
   // An area staff said is the same as a curated one is SHOWN as the curated
   // name (owner, 13 Oct 2026). The saved text is never rewritten.
   const areaAliases = await loadAreaAliases()
@@ -322,7 +326,8 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       (f?.contactPhone ? phoneTeaser(f.contactPhone, true) : null)
     const hasTeaserEmail =
       textContacts.emails.length > 0 || !!jc?.email || (f?.hasContactEmail ?? false)
-    const contactTeaser = teaserPhone ?? (hasTeaserEmail ? EMAIL_TEASER : null)
+    const contactHidden = hiddenNumbers.has(j.id as string)
+    const contactTeaser = contactHidden ? null : teaserPhone ?? (hasTeaserEmail ? EMAIL_TEASER : null)
 
     return {
       id: j.id as string,
@@ -344,6 +349,8 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
        *  mask), or null when the tuition has no contact at all. Shown to everyone;
        *  the full number needs a counted reveal. */
       contactTeaser,
+      /** The parent's number is hidden (consent not recorded, switch on). */
+      contactHidden,
       // Fall back to the legacy text column for jobs posted before the join
       // table existed, so old posts still show what they are for.
       subjects,

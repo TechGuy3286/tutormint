@@ -22,6 +22,8 @@ import FeaturedTag from '@/components/badges/FeaturedTag'
 import Avatar from '@/components/Avatar'
 import AuthGateModal from '@/components/AuthGateModal'
 import ReportButton from '@/components/ReportButton'
+import { HIDDEN_CONTACT_LINE } from '@/lib/tuitionConsentCore'
+import { TEAM_POSTER_LABEL } from '@/lib/teamPosterCore'
 import type { BadgeName } from '@/lib/planBadges'
 import { placeLabel } from '@/lib/place'
 import ApplyReasonLine from '@/components/ApplyReasonLine'
@@ -87,6 +89,9 @@ export type JobCardData = {
   /** PR92 Part A: the masked "Contact:" teaser (first 4 digits + dots, or the
    *  email mask) shown to everyone; null when the tuition has no contact. */
   contactTeaser?: string | null
+  /** The parent's number is hidden: consent not recorded and the Owner's
+   *  switch is on (owner, 27 Oct 2026). The card says staff share the profile. */
+  contactHidden?: boolean
   created_at: string
   /** The auto-pause clock base, when resumed at least once (PR89 Part C). The
    *  tuition auto-pauses at coalesce(resumed_at, created_at) + 20 days, which is
@@ -298,9 +303,9 @@ export default function JobCard({
               tell a TutorMint-posted job from a parent's, and knows it carries
               the platform's own vetting. */}
           {job.posted_by_team && (
-            <p className="inline-flex items-center gap-1.5 rounded-full bg-tm-tint-navy px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-tm-navy">
+            <p className="inline-flex items-center gap-1.5 rounded-full bg-tm-tint-navy px-2.5 py-1 text-[11px] font-black text-tm-navy" data-team-poster="">
               <Icon name="shield-check" size={12} />
-              Verified tuition
+              {TEAM_POSTER_LABEL}
             </p>
           )}
           <div className="space-y-1 pr-16 sm:pr-20">
@@ -459,7 +464,10 @@ export default function JobCard({
           {/* PR92 Part A: the always-visible masked contact line — a tutor SEES a
               number exists (drawing them to verify), and "View number" (a plain
               inline link → the tuition page, where a counted reveal shows it). */}
-          {job.contactTeaser && (
+          {job.contactHidden && (
+            <p className="text-xs font-semibold text-tm-navy" data-contact-hidden="">{HIDDEN_CONTACT_LINE}</p>
+          )}
+          {!job.contactHidden && job.contactTeaser && (
             <p className="text-xs font-semibold text-tm-navy">
               Contact: <span className="tabular-nums">{job.contactTeaser}</span>{' '}
               <Link href={detailHref} className="font-bold text-tm-red hover:underline">
@@ -535,9 +543,10 @@ export default function JobCard({
               anonymous report has nobody to answer questions about it. */}
           {signedIn && job.parent_id && (
             <ReportButton
-              reportedId={job.parent_id}
+              reportedId={job.posted_by_team ? null : job.parent_id}
               targetType="job"
               targetId={job.id}
+              teamJob={!!job.posted_by_team}
               label="Report this post"
             />
           )}

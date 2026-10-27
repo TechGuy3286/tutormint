@@ -38,6 +38,8 @@ const EDIT: Key[] = [
   // Send status image (Paid tutors rows, the member page) and the logged Show on
   // the member page header (owner, 26 Oct 2026).
   'statusImage', 'memberContactReveal',
+  // Parent consent for listings (owner, 27 Oct 2026).
+  'tuitionConsent',
 ]
 
 test('the Partner may open every screen, and change only the tutor, parent and tuition areas', () => {
@@ -63,6 +65,8 @@ test('every view-only area refuses a Partner write; the Owner is unaffected', ()
     'reviews',
     // Trust → Withdraw a contact (owner, 27 Oct 2026): the site Owner only.
     'contactWithdraw',
+    // Settings → Privacy, the hide-numbers switch (owner, 27 Oct 2026): Owner only.
+    'consentPrivacy',
   ]
   for (const key of VIEW) {
     assert.equal(roleMayWrite('partner', SCREEN_ACCESS[key]), false, key)
@@ -161,6 +165,8 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   'jobs/[id]': 'edit',
   'jobs/action': 'edit',
   'jobs/contact-number': 'edit',
+  // Parent consent (owner, 27 Oct 2026): "Parent agreed" on the consent chip.
+  'jobs/consent': 'edit',
   'jobs/create': 'edit',
   'jobs/paused': 'edit',
   // "Add as new area" while posting is an edit; merging areas is Locations (view).
@@ -190,6 +196,8 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   'sms/test': 'view',
   // The support WhatsApp number (Applications v3.1): Owner only.
   'settings/support-whatsapp': 'view',
+  // "Hide parent numbers when consent isn't recorded" — Owner only.
+  'settings/hide-numbers': 'view',
   'payments/reconciliation': 'view',
   'payments/refund': 'view',
   'payments/settlement/credits': 'view',

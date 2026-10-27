@@ -36,7 +36,7 @@ async function main() {
   const choice = renderToStaticMarkup(
     <ToastProvider>
       <h1 className="mb-3 text-xl font-black text-tm-navy">Complete your verification</h1>
-      <PayChoice planCode="verified" isFee amount="Rs 199" bank={bank} receipt={{ state: 'none' }} waHref="https://wa.me/923215872222" />
+      <PayChoice planCode="verified" isFee amount="Rs 199" bank={bank} receipt={{ state: 'none' }} />
     </ToastProvider>,
   )
   writeFileSync(join(out, 'pay-choose.html'), page(choice, 380))

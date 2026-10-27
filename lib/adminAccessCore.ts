@@ -292,6 +292,12 @@ export const SCREEN_ACCESS = withSupervisor({
   // parent which paid tutors applied. Owner, admin, operations and tuitions
   // staff act; the Partner views (refused on every write by checkAdminRole).
   applicantForwards: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
+  // Parent consent for listings (owner, 27 Oct 2026): record "Parent agreed"
+  // and "Ask parent" on WhatsApp — every role that posts tuitions.
+  tuitionConsent: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
+  // Admin → Settings → Privacy: "Hide parent numbers when consent isn't
+  // recorded". Owner only; the Partner views.
+  consentPrivacy: [] as AdminRole[],
   // Tuitions → City owners (owner, 22 Oct 2026): only the site Owner edits;
   // the Partner views (roleMayWrite refuses them, the list names nobody).
   cityOwners: [] as AdminRole[],

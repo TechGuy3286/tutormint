@@ -213,6 +213,9 @@ export default async function AdminMemberPage({
   const canReviewParent = roleMayWrite(actor.adminRole, SCREEN_ACCESS.parents)
   const canReviewTutor = roleMayWrite(actor.adminRole, SCREEN_ACCESS.tutors)
   const parentDocs = isParent ? await loadParentDocs(id) : null
+  // A tutor's home address (owner, 27 Oct 2026): reviewed like a parent's.
+  const tutorAddressLoaded = isTutor ? await loadParentDocs(id, { allowTutor: true }) : null
+  const tutorAddressDocs = tutorAddressLoaded && (tutorAddressLoaded.address ?? '').trim() ? tutorAddressLoaded : null
   let tutorDocs: {
     cnicFrontId: string | null
     cnicBackId: string | null
@@ -463,7 +466,7 @@ export default async function AdminMemberPage({
         )}
       </section>
 
-      {(parentDocs || tutorDocs) && (
+      {(parentDocs || tutorDocs || tutorAddressDocs) && (
         <section id="documents" className="scroll-mt-20 space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
           <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">Documents</h2>
           {parentDocs && (
@@ -504,6 +507,24 @@ export default async function AdminMemberPage({
               cnicNumberMasked={tutorDocs.cnicNumberMasked}
               canEditNumber={roleMayWrite(actor.adminRole, SCREEN_ACCESS.tutorEdit)}
               selfieLooksLikePhoto={(await selfiePhotoMatchUsers([id])).has(id)}
+            />
+          )}
+          {tutorAddressDocs && (
+            <ParentDocumentReview
+              addressOnly
+              canReview={canReviewParent}
+              docs={{
+                parentId: tutorAddressDocs.parentId,
+                cnicFrontId: null,
+                cnicBackId: null,
+                cnicNumber: null,
+                address: tutorAddressDocs.address,
+                city: tutorAddressDocs.city,
+                cnic: tutorAddressDocs.cnic,
+                addressItem: tutorAddressDocs.addressItem,
+                verified: false,
+                whatsapp: tutorAddressDocs.whatsapp,
+              }}
             />
           )}
         </section>

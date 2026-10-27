@@ -12,6 +12,8 @@ import Breadcrumbs from '@/components/Breadcrumbs'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import TimeAgo from '@/components/TimeAgo'
 import ReportButton from '@/components/ReportButton'
+import { HIDDEN_CONTACT_LINE } from '@/lib/tuitionConsentCore'
+import { TEAM_POSTER_LABEL } from '@/lib/teamPosterCore'
 import { budgetLabel } from '@/lib/feeBands'
 import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
@@ -543,9 +545,9 @@ export default async function TuitionPage({ params }: { params: Params }) {
 
         {/* A trusted team tuition — the platform's own vetting, not a parent's. */}
         {job.posted_by_team && (
-          <p className="inline-flex items-center gap-1.5 rounded-full bg-tm-tint-navy px-3 py-1 text-[11px] font-black uppercase tracking-wide text-tm-navy">
+          <p className="inline-flex items-center gap-1.5 rounded-full bg-tm-tint-navy px-3 py-1 text-xs font-black text-tm-navy" data-team-poster="">
             <ShieldCheck aria-hidden size={13} />
-            Verified tuition
+            {TEAM_POSTER_LABEL}
           </p>
         )}
 
@@ -677,7 +679,14 @@ export default async function TuitionPage({ params }: { params: Params }) {
             (a tutor SEES a number exists → drawn to verify). "View number" spends
             one pool unit on tap (once per tuition; a guest is asked to sign up);
             a tutor who already has access sees the full number instead. */}
-        {state.showContact && job.contactTeaser && (
+        {/* Parent consent not recorded + the Owner's switch on (owner, 27 Oct
+            2026): no number and no View number — staff share the profile. */}
+        {state.showContact && job.contactHidden && (
+          <p className="rounded-xl bg-tm-tint-navy px-3 py-2 text-sm font-semibold text-tm-navy" data-contact-hidden="">
+            {HIDDEN_CONTACT_LINE}
+          </p>
+        )}
+        {state.showContact && !job.contactHidden && job.contactTeaser && (
           <p className="flex flex-wrap items-center gap-1.5 rounded-xl bg-tm-tint-navy px-3 py-2 text-sm font-semibold text-tm-navy">
             Contact:{' '}
             {revealedContact ? null : <span className="tabular-nums">{job.contactTeaser}</span>}
@@ -748,7 +757,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
               {/* PR91: a tuition reveal is per-TUITION (jobId), so it draws one
                   pool unit once per tuition and also surfaces any number in the
                   listing text — not a per-parent reveal. */}
-              {isTutor && state.showContact && <ContactReveal jobId={job.id} className="pt-1" />}
+              {isTutor && state.showContact && !job.contactHidden && <ContactReveal jobId={job.id} className="pt-1" />}
             </div>
           </div>
 
@@ -766,12 +775,13 @@ export default async function TuitionPage({ params }: { params: Params }) {
       {/* Team tuition (PR72 §D): keep the contact reveal + Report, no identity. */}
       {job.parent_id && job.posted_by_team && user && (
         <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
-          {isTutor && state.showContact && <ContactReveal jobId={job.id} />}
+          {isTutor && state.showContact && !job.contactHidden && <ContactReveal jobId={job.id} />}
           {user && (
             <ReportButton
-              reportedId={job.parent_id}
+              reportedId={null}
               targetType="job"
               targetId={job.id}
+              teamJob
               label="Report this post"
             />
           )}

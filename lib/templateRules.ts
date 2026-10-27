@@ -26,6 +26,7 @@ import {
 import { APPLICANTS_FORWARD_DEFAULT, APPLICANTS_FORWARD_TEMPLATE_KEY } from '@/lib/applicantForwardCore'
 import { FU_PLACEHOLDERS, FU_TEMPLATES } from '@/lib/followUpTemplatesCore'
 import { PARENT_DEFAULTS, PARENT_PLACEHOLDERS, PARENT_TEMPLATES } from '@/lib/parentFollowUpCore'
+import { CONSENT_ASK_DEFAULT, CONSENT_ASK_KEY, CONSENT_ASK_PLACEHOLDERS } from '@/lib/tuitionConsentCore'
 import { STATUS_IMAGE_DEFAULT, STATUS_IMAGE_TEMPLATE_KEY, STATUS_PLACEHOLDERS, statusSaveProblem } from '@/lib/social/statusImageCore'
 
 export type GroupTemplateInfo = {
@@ -77,8 +78,14 @@ export const STATUS_GROUP: readonly GroupTemplateInfo[] = [
   { key: STATUS_IMAGE_TEMPLATE_KEY, recipient: 'tutor', placeholders: STATUS_PLACEHOLDERS, defaultBody: STATUS_IMAGE_DEFAULT, noLinks: true },
 ]
 
+/** "Ask parent" on a "Consent not recorded" chip (owner, 27 Oct 2026). */
+export const CONSENT_GROUP: readonly GroupTemplateInfo[] = [
+  { key: CONSENT_ASK_KEY, recipient: 'parent', placeholders: CONSENT_ASK_PLACEHOLDERS, defaultBody: CONSENT_ASK_DEFAULT },
+]
+
 export function groupTemplateInfo(key: string): GroupTemplateInfo | null {
   return (
+    CONSENT_GROUP.find((t) => t.key === key) ??
     APPLICATIONS_GROUP.find((t) => t.key === key) ??
     FOLLOW_UPS_GROUP.find((t) => t.key === key) ??
     PARENTS_GROUP.find((t) => t.key === key) ??

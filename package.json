@@ -43,6 +43,7 @@
     "test:outsidepointer": "tsx --test scripts/test-outside-pointer.ts",
     "test:masking": "tsx --test scripts/test-masking.ts",
     "test:posttuition": "tsx --test scripts/test-posttuition.ts",
+    "test:consent": "tsx --test scripts/test-consent.ts",
     "test:locations": "tsx --test scripts/test-locations.ts",
     "test:jobcontacts": "tsx --test scripts/test-jobcontacts.ts",
     "test:jobtitles": "tsx --test scripts/test-jobtitles.ts",

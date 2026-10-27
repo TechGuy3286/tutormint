@@ -33,6 +33,8 @@ import { needsOnboarding } from '@/lib/onboardingGate'
 import { genderApplyBlocked } from '@/lib/genderPref'
 import { spendTuitionPool, spendParentPool, poolExhaustedFail, type PoolSpend } from '@/lib/pool'
 import { extractTuitionContacts } from '@/lib/maskTuition'
+import { numberHiddenFor } from '@/lib/tuitionConsent'
+import { HIDDEN_REVEAL_ERROR } from '@/lib/tuitionConsentCore'
 
 export type RevealContact = {
   /** Mobile, canonical MSISDN (e.g. 923001234567), or null. Parent: verified
@@ -86,6 +88,9 @@ export type RevealStatus = {
     | 'complete'
     | 'gender'
     | 'blocked'
+    // Parent consent not recorded and the Owner's switch is on (owner, 27 Oct
+    // 2026): the number is never revealed and no reveal is counted.
+    | 'consent'
   gate?: Gate
 }
 
@@ -306,6 +311,7 @@ async function tuitionAlreadyPaid(
 export async function jobContactRevealStatus(tutorId: string, jobId: string): Promise<RevealStatus> {
   const admin = createAdminClient()
   if (!admin) return { eligible: false, plan: null, remaining: null, alreadyRevealed: false, reason: 'off' }
+  if (await numberHiddenFor(jobId)) return { eligible: false, plan: null, remaining: null, alreadyRevealed: false, reason: 'consent' }
 
   const gate = await tutorGate(tutorId)
   if (!gate.ok) return gate.status
@@ -323,6 +329,9 @@ export async function jobContactRevealStatus(tutorId: string, jobId: string): Pr
 
 export async function revealJobContact(tutorId: string, jobId: string): Promise<RevealResult> {
   const admin = createAdminClient()
+  // Consent not recorded + the switch on: refused BEFORE any check or spend,
+  // so nothing is counted (owner, 27 Oct 2026).
+  if (admin && (await numberHiddenFor(jobId))) return { ok: false, status: 403, error: HIDDEN_REVEAL_ERROR }
   if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
 
   const gate = await tutorGate(tutorId)
@@ -348,6 +357,9 @@ export async function revealJobContact(tutorId: string, jobId: string): Promise<
 export async function peekTuitionContact(tutorId: string, jobId: string): Promise<RevealContact | null> {
   const admin = createAdminClient()
   if (!admin) return null
+  // A number revealed EARLIER is hidden too while consent is not recorded and
+  // the Owner's switch is on (owner, 27 Oct 2026).
+  if (await numberHiddenFor(jobId)) return null
   const ent = await getEntitlements(tutorId)
   if (ent.audience !== 'tutor' || !ent.verified || ent.suspended) return null
   if (await jobGenderBlocks(admin, tutorId, jobId)) return null

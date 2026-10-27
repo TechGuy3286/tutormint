@@ -79,7 +79,30 @@ export function changeLabel(c: Change): string {
   return `${c.direction === 'up' ? '▲' : '▼'} ${c.pct}%`
 }
 
-export type PostingRow = { id: string; name: string; counts: PostingCounts; repeats: number }
+/** Of the tuitions this staff member posted, how many have the parent's
+ *  consent recorded (owner, 27 Oct 2026). */
+export type ConsentShare = { last7: { recorded: number; total: number }; allTime: { recorded: number; total: number } }
+
+export function emptyConsentShare(): ConsentShare {
+  return { last7: { recorded: 0, total: 0 }, allTime: { recorded: 0, total: 0 } }
+}
+
+/** Count consent over one staff member's posts ({ at, recorded } each). */
+export function countConsent(posts: { at: number; recorded: boolean }[], w: PostingWindows): ConsentShare {
+  const c = emptyConsentShare()
+  for (const p of posts) {
+    if (!Number.isFinite(p.at) || p.at > w.now) continue
+    c.allTime.total++
+    if (p.recorded) c.allTime.recorded++
+    if (p.at >= w.last7Start) {
+      c.last7.total++
+      if (p.recorded) c.last7.recorded++
+    }
+  }
+  return c
+}
+
+export type PostingRow = { id: string; name: string; counts: PostingCounts; repeats: number; consent?: ConsentShare }
 
 /** Highest Last 7 days first (owner, 27 Oct 2026), then Today, then by name. */
 export function sortPostingRows(rows: PostingRow[]): PostingRow[] {
@@ -91,15 +114,22 @@ export function sortPostingRows(rows: PostingRow[]): PostingRow[] {
 /** Every column summed, under one name (the Team total, or the Former staff row). */
 export function sumRows(rows: PostingRow[], id: string, name: string): PostingRow {
   const counts = emptyPostingCounts()
+  const consent = emptyConsentShare()
   let repeats = 0
   for (const r of rows) {
+    if (r.consent) {
+      consent.last7.recorded += r.consent.last7.recorded
+      consent.last7.total += r.consent.last7.total
+      consent.allTime.recorded += r.consent.allTime.recorded
+      consent.allTime.total += r.consent.allTime.total
+    }
     counts.today += r.counts.today
     counts.yesterday += r.counts.yesterday
     counts.last7 += r.counts.last7
     counts.allTime += r.counts.allTime
     repeats += r.repeats
   }
-  return { id, name, counts, repeats }
+  return { id, name, counts, repeats, consent }
 }
 
 /** The Team total row: current AND former staff, every column summed. */
@@ -113,4 +143,4 @@ export function formerRow(former: PostingRow[]): PostingRow {
 }
 
 /** The table's columns, in order (owner, 27 Oct 2026). */
-export const POSTED_COLUMNS = ['Staff', 'Today', 'Yesterday', 'Last 7 days', 'All time', 'Repeated this week'] as const
+export const POSTED_COLUMNS = ['Staff', 'Today', 'Yesterday', 'Last 7 days', 'All time', 'Consent recorded', 'Repeated this week'] as const
