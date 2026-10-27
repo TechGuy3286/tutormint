@@ -93,4 +93,4 @@ export function parentCardResolves(p: {
 }
 
 /** A staff action refused on an application to a hidden tuition. */
-export const NO_LONGER_AVAILABLE_STAFF = 'Tuition no longer available. Its parent account is hidden.'
+export const NO_LONGER_AVAILABLE_STAFF = 'Tuition no longer available. It is hidden or its contact was withdrawn.'

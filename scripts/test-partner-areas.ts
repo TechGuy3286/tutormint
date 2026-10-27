@@ -61,6 +61,8 @@ test('every view-only area refuses a Partner write; the Owner is unaffected', ()
     'memberMerge',
     // Trust → Reviews (owner, 27 Oct 2026): decisions are the site Owner's.
     'reviews',
+    // Trust → Withdraw a contact (owner, 27 Oct 2026): the site Owner only.
+    'contactWithdraw',
   ]
   for (const key of VIEW) {
     assert.equal(roleMayWrite('partner', SCREEN_ACCESS[key]), false, key)
@@ -108,6 +110,10 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   'applications/tutor-update': 'edit',
   // City owners (owner, 22 Oct 2026): the site Owner only.
   'city-owners': 'owner',
+  // Withdraw a contact (owner, 27 Oct 2026): the site Owner only.
+  'contact-withdraw/list': 'owner',
+  'contact-withdraw/search': 'owner',
+  'contact-withdraw/withdraw': 'owner',
   'blog/cover': 'view',
   'blog/generate-cover': 'view',
   'blog/generate': 'view',

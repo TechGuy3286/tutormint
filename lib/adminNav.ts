@@ -31,6 +31,7 @@ export type AdminScreen =
   | 'paymentsSwitches'
   | 'paymentGateways'
   | 'smsHealth'
+  | 'contactWithdraw'
   | 'emailHealth'
   | 'finance'
   | 'revenue'
@@ -157,6 +158,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/reviews', label: 'Reviews', icon: 'star', screen: 'reviews' },
       { href: '/admin/inbox', label: 'Team inbox', icon: 'mail', screen: 'inbox' },
       { href: '/admin/audit', label: 'Audit', icon: 'scroll', screen: 'audit' },
+      // Owner only (owner, 27 Oct 2026): remove a phone number used without consent.
+      { href: '/admin/withdraw-contact', label: 'Withdraw a contact', icon: 'phone', screen: 'contactWithdraw' },
     ],
   },
   {

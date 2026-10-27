@@ -72,6 +72,8 @@ import { placeLabel } from '@/lib/place'
 import { parseContactNumber, resumeContactProblem } from '@/lib/tuitionContactCore'
 import { normalisePkMobile } from '@/lib/phone'
 import { contactFactsForJobs } from '@/lib/tuitionContact'
+import { doNotUseRefusal } from '@/lib/contactWithdraw'
+import { tuitionNumbers } from '@/lib/contactWithdrawCore'
 
 // Level is multi-select now (migration 79): jobs.class_levels is the array, and
 // jobs.class_level (+ the legacy `grade` mirror) hold the collapsed display run.
@@ -308,6 +310,10 @@ export async function createJob(
   // Refused unless the parent chose "Post anyway".
   const { data: own } = await supabase.from('profiles').select('phone_number, phone_verified_at').eq('id', parentId).maybeSingle()
   const ownNumber = own?.phone_verified_at ? normalisePkMobile(own.phone_number as string | null) : null
+  // The Do not use list (owner, 27 Oct 2026): a number that asked not to be
+  // contacted is refused — the parent's own, or one written in the post.
+  const listed = await doNotUseRefusal(tuitionNumbers({ ownNumber, title: input.title, description: input.description }))
+  if (listed) return { ok: false, status: 400, error: listed }
   const existing = await findExistingDuplicate(duplicateFacts(input, ownNumber))
   if (existing && !input.allowDuplicate) {
     return {
@@ -481,6 +487,12 @@ export async function createTeamJob(
   // cannot forward applicants. Checked before anything is created.
   const number = parseContactNumber(input.contactPhone)
   if (!number.ok) return { ok: false, status: 400, error: number.error }
+  // The Do not use list (owner, 27 Oct 2026): the contact number, the WhatsApp
+  // and any number written in the post or the social field.
+  const listed = await doNotUseRefusal(
+    tuitionNumbers({ contactPhone: number.msisdn, contactWhatsapp: input.contactWhatsapp, title: input.title, description: input.description, social: input.contactSocial }),
+  )
+  if (listed) return { ok: false, status: 400, error: listed }
   // Staff choose the city from the curated list only (owner, 16 Oct 2026): a
   // typed or misspelt city is refused, and a curated one is saved as written there.
   const curatedCity = await curatedCityName(input.city)
@@ -680,6 +692,12 @@ export async function updateTeamJob(
   // without the parent contact number.
   const number = parseContactNumber(input.contactPhone)
   if (!number.ok) return { ok: false, status: 400, error: number.error }
+  // The Do not use list (owner, 27 Oct 2026): the contact number, the WhatsApp
+  // and any number written in the post or the social field.
+  const listed = await doNotUseRefusal(
+    tuitionNumbers({ contactPhone: number.msisdn, contactWhatsapp: input.contactWhatsapp, title: input.title, description: input.description, social: input.contactSocial }),
+  )
+  if (listed) return { ok: false, status: 400, error: listed }
   // Staff choose the city from the curated list only (owner, 16 Oct 2026): a
   // typed or misspelt city is refused, and a curated one is saved as written there.
   const curatedCity = await curatedCityName(input.city)
@@ -822,6 +840,11 @@ export async function updateJob(
   }
   if (existing.status !== 'open') {
     return { ok: false, status: 400, error: 'This job is closed and can no longer be edited.' }
+  }
+  // The Do not use list (owner, 27 Oct 2026): a number written into the edit.
+  {
+    const listed = await doNotUseRefusal(tuitionNumbers({ title: input.title, description: input.description }))
+    if (listed) return { ok: false, status: 400, error: listed }
   }
 
   const labels = await subjectLabels(input.masterIds)

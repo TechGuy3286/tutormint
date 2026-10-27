@@ -25,6 +25,8 @@ import { logActivity } from '@/lib/activityLog'
 import { ensureProfile } from '@/lib/ensureProfile'
 import { formatName } from '@/lib/formatName'
 import { SUBJECT_LIMIT, subjectLimitProblem, subjectKeysOfIds } from '@/lib/subjectLimitCore'
+import { doNotUseChecker } from '@/lib/contactWithdraw'
+import { DO_NOT_USE_MESSAGE } from '@/lib/contactWithdrawCore'
 
 export const TEMPLATE_HEADERS = [
   'name',
@@ -210,6 +212,8 @@ export async function validateRows(rows: ImportRow[]): Promise<RowVerdict[]> {
   }
 
   const seenInFile = new Map<string, number>()
+  // The Do not use list (owner, 27 Oct 2026): one read for the whole file.
+  const doNotUse = await doNotUseChecker()
   const verdicts: RowVerdict[] = []
 
   for (const row of rows) {
@@ -226,6 +230,9 @@ export async function validateRows(rows: ImportRow[]): Promise<RowVerdict[]> {
       else seenInFile.set(msisdn, row.line)
 
       if (existingMobiles.has(msisdn)) errors.push('That mobile number already has an account.')
+    }
+    if (doNotUse([msisdn, row.whatsapp])) {
+      errors.push(DO_NOT_USE_MESSAGE)
     }
 
     if (row.gender && !['male', 'female', 'other'].includes(row.gender)) {

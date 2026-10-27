@@ -119,6 +119,12 @@ const NO_POLICY_OK: Record<string, string> = {
     'unverified mobile signup drafts (migration 75): a bcrypt password hash and a live code, ' +
     'written and read by the server only. No client key may touch it — the account is created ' +
     'from this row when the code verifies.',
+  do_not_use_numbers:
+    'the Do not use list (migration 207): a hash of each number a person asked us not to use. ' +
+    'Read and written by the server only; only the site Owner sees it, through a server route.',
+  contact_withdrawals:
+    'one row per "Withdraw a contact" (migration 207): hash, masked form, reason, summary. ' +
+    'Server-written; read by the Owner through a server route.',
   ad_events: 'impressions and clicks: server-written, admin-read via the service role',
   admin_backup_codes:
     'staff two-factor backup codes (PR49), hashed: written and consumed by the server only, ' +

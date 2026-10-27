@@ -22,6 +22,7 @@ import { pageAllIn } from '@/lib/pageAll'
 import { queueIndexingUpdate } from '@/lib/googleIndexing'
 import { revalidateLanding } from '@/lib/landingRevalidate'
 import { NO_CONTACT_SOURCE, parseContactNumber, tuitionContactNumber, type TuitionContactFacts } from '@/lib/tuitionContactCore'
+import { doNotUseRefusal } from '@/lib/contactWithdraw'
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>
 
@@ -73,6 +74,10 @@ export type SaveNumberResult =
 export async function saveTuitionContactNumber(args: { actor: AdminActor; jobId: string; phone: string; resume?: boolean }): Promise<SaveNumberResult> {
   const parsed = parseContactNumber(args.phone)
   if (!parsed.ok) return { ok: false, status: 400, error: parsed.error }
+  {
+    const listed = await doNotUseRefusal([parsed.msisdn])
+    if (listed) return { ok: false, status: 400, error: listed }
+  }
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes.' }
 

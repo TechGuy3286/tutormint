@@ -575,7 +575,9 @@ export default async function AdminMemberPage({
 
       {/* Close account and erase data (owner, 27 Oct 2026) — the Owner only. */}
       {canApprove(actor.adminRole) && (profile.role === 'tutor' || profile.role === 'parent' || profile.role === 'academy') && !profile.admin_role && (
-        <EraseAccountCard memberId={id} />
+        <div id="erase" className="scroll-mt-20">
+          <EraseAccountCard memberId={id} />
+        </div>
       )}
 
       {/* ---------------------------------------------- staff activity --- */}

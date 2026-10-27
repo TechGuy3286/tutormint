@@ -14,6 +14,7 @@ import { badgesForPlan } from '@/lib/entitlements'
 import { budgetLabel } from '@/lib/feeBands'
 import { applicationStatus, jobType } from '@/lib/display'
 import StatusChip from '@/components/admin/StatusChip'
+import { WITHDRAWN_LABEL, WITHDRAWN_REASON } from '@/lib/contactWithdrawCore'
 import { formatDate } from '@/lib/datetime'
 import { formatPkMobile, normalisePkMobile } from '@/lib/phone'
 import { normaliseStoredContact } from '@/lib/jobContactCore'
@@ -57,7 +58,7 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
   const { data: job } = await admin
     .from('jobs')
     .select(
-      'id, job_tx_id, ref_id, public_slug, parent_id, title, description, subjects, class_level, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, timings, status, is_featured, hired_tutor_id, created_at, closed_at, grade_subjects',
+      'id, job_tx_id, ref_id, public_slug, parent_id, title, description, subjects, class_level, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, timings, status, hidden_reason, is_featured, hired_tutor_id, created_at, closed_at, grade_subjects',
     )
     .eq(isUuid ? 'id' : 'job_tx_id', id)
     .maybeSingle()
@@ -163,6 +164,9 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
             </span>
           )}
           <StatusChip status={job.status as string} />
+          {job.hidden_reason === WITHDRAWN_REASON && (
+            <span className="rounded-full bg-tm-tint-red px-2 py-0.5 text-[11px] font-bold text-tm-red">{WITHDRAWN_LABEL}</span>
+          )}
         </div>
         <p className="font-mono text-[11px] text-gray-500">{(job.job_tx_id as string) ?? job.id}</p>
         {/* The public address, so "why can nobody see my job" can be answered

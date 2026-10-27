@@ -17,6 +17,7 @@ import { unknownNewMasterIds } from '@/lib/masterSubjectCheck'
 import { subjectLimitRefusal } from '@/lib/subjectLimit'
 import { NOT_A_MASTER_SUBJECT } from '@/lib/subjectDisplay'
 import { TUTOR_SUBJECT_CAP, TOO_MANY_SUBJECTS } from '@/lib/tutorSubjectCap'
+import { doNotUseRefusal } from '@/lib/contactWithdraw'
 
 // PR83 (Part B) — staff edits of a tutor's step-1 TEXT/SET fields from
 // /admin/tutors/[id]: mobile, CNIC number, subjects, city, areas. Images
@@ -96,6 +97,10 @@ export async function POST(request: Request) {
   if (action === 'set-mobile') {
     const newMobile = normalisePkMobile(body.mobile ?? '')
     if (!newMobile) return NextResponse.json({ error: 'Enter a valid Pakistani mobile number.' }, { status: 400 })
+    {
+      const listed = await doNotUseRefusal([newMobile])
+      if (listed) return NextResponse.json({ error: listed }, { status: 400 })
+    }
     if (await numberSavedElsewhere(admin, newMobile, tutorId)) {
       return NextResponse.json({ error: NUMBER_TAKEN_MESSAGE }, { status: 409 })
     }

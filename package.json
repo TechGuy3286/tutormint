@@ -213,7 +213,8 @@
     "test:nosyntheticemail": "tsx --test scripts/test-no-synthetic-email.ts",
     "test:subjectcapall": "tsx --test scripts/test-subject-cap-all.ts",
     "test:addresschip": "tsx --test scripts/test-address-chip.ts",
-    "test:uploadlimits": "tsx --test scripts/test-upload-limits.ts"
+    "test:uploadlimits": "tsx --test scripts/test-upload-limits.ts",
+    "test:contactwithdraw": "tsx --test scripts/test-contact-withdraw.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

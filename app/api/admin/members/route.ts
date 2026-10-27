@@ -11,6 +11,7 @@ import { numberSavedElsewhere, NUMBER_TAKEN_MESSAGE } from '@/lib/phoneAccount'
 import { normalisePkMobile, syntheticEmail, isSyntheticEmail } from '@/lib/phone'
 import { parseBody, z, text, uuid } from '@/lib/validate'
 import { requireFreshAuth } from '@/lib/reauth'
+import { doNotUseRefusal } from '@/lib/contactWithdraw'
 
 // Moderation from the member page, without a report in front of you.
 //
@@ -77,6 +78,10 @@ export async function POST(request: Request) {
     const newMobile = normalisePkMobile(body.newMobile ?? '')
     if (!newMobile) {
       return NextResponse.json({ error: 'Enter a valid Pakistani mobile number.' }, { status: 400 })
+    }
+    {
+      const listed = await doNotUseRefusal([newMobile])
+      if (listed) return NextResponse.json({ error: listed }, { status: 400 })
     }
     if (await numberSavedElsewhere(admin, newMobile, userId)) {
       return NextResponse.json({ error: NUMBER_TAKEN_MESSAGE }, { status: 409 })
