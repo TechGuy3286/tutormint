@@ -74,7 +74,10 @@ test('blocks: different types, both paid, both with approved documents', () => {
   const paid = { payments: [{ id: 'p', planCode: 'verified', status: 'approved', refunded: false, ref: 'TM-X' }] }
   assert.match(mergeBlock(side('a', paid), side('b', paid))!, /Both accounts have paid/)
   assert.match(mergeBlock(side('a', { approvedDocs: ['CNIC'] }), side('b', { approvedDocs: ['Selfie'] }))!, /approved documents/)
-  assert.match(mergeBlock(side('a'), side('b', { role: 'parent' }))!, /same type/)
+  // A parent account may be merged INTO a tutor account (27 Oct 2026), never the other way.
+  assert.equal(mergeBlock(side('a'), side('b', { role: 'parent' })), null)
+  assert.match(mergeBlock(side('a', { role: 'parent' }), side('b'))!, /Keep the tutor account/)
+  assert.match(mergeBlock(side('a', { role: 'admin' }), side('b'))!, /same type/)
   assert.match(mergeBlock(side('a'), side('b', { mergedInto: 'x' }))!, /already merged/)
   assert.match(mergeBlock(side('a', { isStaff: true }), side('b'))!, /staff/)
   assert.equal(mergeBlock(side('a', paid), side('b')), null, 'one paid is fine')

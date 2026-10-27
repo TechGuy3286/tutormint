@@ -63,6 +63,65 @@ export function convertDecision(args: { role: string | null | undefined; reason:
   return { ok: true }
 }
 
+// ---- Another account of the target type already belongs to this person ------
+// (hotfix, 27 Oct 2026). Changing a parent account to a tutor account when the
+// same mobile or CNIC is already on a tutor account would either be refused by
+// the database (one tutor account per verified mobile) or leave two tutor
+// accounts for one person. So it stops with a clear message naming the other
+// account and offers "Merge into that tutor account instead".
+
+export type ClashCandidate = { id: string; name: string; role: string | null; phone: string | null; cnic: string | null; linkedAccountId: string | null }
+export type ConvertClash = { id: string; name: string; phoneMasked: string | null; reason: 'mobile' | 'cnic' | 'linked' }
+
+const lastTen = (s: string | null | undefined) => {
+  const d = (s ?? '').replace(/\D/g, '')
+  return d.length >= 10 ? d.slice(-10) : ''
+}
+const cnicDigits = (s: string | null | undefined) => {
+  const d = (s ?? '').replace(/\D/g, '')
+  return d.length === 13 ? d : ''
+}
+
+/** The first account of the target type that shares this person's mobile,
+ *  CNIC or a two-way link — or null. Never returns a number in the clear. */
+export function findConvertClash(
+  self: { id: string; phone: string | null; cnic: string | null; linkedAccountId: string | null },
+  to: AccountRole,
+  candidates: ClashCandidate[],
+  mask: (p: string | null) => string | null,
+): ConvertClash | null {
+  const phone = lastTen(self.phone)
+  const cnic = cnicDigits(self.cnic)
+  for (const c of candidates) {
+    if (c.id === self.id || c.role !== to) continue
+    let reason: ConvertClash['reason'] | null = null
+    if (cnic && cnicDigits(c.cnic) === cnic) reason = 'cnic'
+    else if (phone && lastTen(c.phone) === phone) reason = 'mobile'
+    else if (self.linkedAccountId === c.id || c.linkedAccountId === self.id) reason = 'linked'
+    if (reason) return { id: c.id, name: c.name || 'Member', phoneMasked: mask(c.phone), reason }
+  }
+  return null
+}
+
+export function convertClashMessage(c: ConvertClash, to: AccountRole): string {
+  const why = c.reason === 'cnic' ? 'the same CNIC' : c.reason === 'mobile' ? 'the same mobile' : 'a link to this account'
+  const phone = c.phoneMasked ? `, ${c.phoneMasked}` : ''
+  return `This person already has a ${ROLE_WORD[to]} account with ${why}: ${c.name} (ID ${c.id}${phone}). Merge this account into that one instead of changing it.`
+}
+
+/** A database refusal, in words, with every long run of digits removed — so
+ *  an error never carries a phone or CNIC number into the screen or the log. */
+export function plainDbError(e: { code?: string | null; message?: string | null } | null | undefined): string {
+  const msg = String(e?.message ?? '').replace(/\d[\d\s-]{4,}\d/g, '<number>').slice(0, 200)
+  return e?.code ? `${e.code}: ${msg}` : msg
+}
+
+/** The merge screen for this account and the clashing one (a parent account is
+ *  always merged INTO the tutor account — lib/memberMergeCore suggestKeep). */
+export function mergeInsteadHref(memberId: string, otherId: string): string {
+  return `/admin/users/merge?a=${memberId}&b=${otherId}`
+}
+
 /** The in-app notice (and the email's first line). */
 export function convertNotice(to: AccountRole): { title: string; body: string; href: string } {
   return to === 'tutor'

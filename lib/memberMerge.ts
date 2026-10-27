@@ -6,8 +6,10 @@ import { formatName } from '@/lib/formatName'
 import { deriveCnicStatus } from '@/lib/cnicStatus'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
+import { plainDbError } from '@/lib/convertAccountCore'
 import type { AdminRole } from '@/lib/adminAccessCore'
 import {
+  ADDRESS_COLUMNS,
   DOC_COLUMNS,
   mergeBlock,
   planMerge,
@@ -36,16 +38,16 @@ async function ids(admin: Admin, table: string, col: string, memberId: string, c
 }
 
 export async function loadMergeSide(admin: Admin, memberId: string): Promise<MergeSide | null> {
-  const profileCols = ['id', 'role', 'admin_role', 'full_name', 'created_at', 'profile_completion', 'phone_number', 'secondary_phone', 'merged_into', 'hidden_from_public', ...PROFILE_FILL, ...DOC_COLUMNS]
+  const profileCols = ['id', 'role', 'admin_role', 'full_name', 'created_at', 'profile_completion', 'phone_number', 'secondary_phone', 'merged_into', 'hidden_from_public', ...PROFILE_FILL, ...DOC_COLUMNS, ...ADDRESS_COLUMNS]
   const { data: p } = await admin.from('profiles').select([...new Set(profileCols)].join(', ')).eq('id', memberId).maybeSingle()
   if (!p) return null
   const prof = p as unknown as R
   const isTutor = prof.role === 'tutor'
-  const [{ data: tp }, docs, subj, areas, apps, afus, events, fus, notes, activity, jobs, pays, subs, { data: credit }] = await Promise.all([
+  const [{ data: tp }, docs, subj, areas, apps, afus, events, fus, notes, activity, jobs, pays, subs, { data: credit }, children] = await Promise.all([
     isTutor
       ? admin.from('tutor_profiles').select(['id', 'verified_fee_paid_at', ...TUTOR_FILL].join(', ')).eq('id', memberId).maybeSingle()
       : Promise.resolve({ data: null }),
-    ids(admin, 'user_documents', 'user_id', memberId, 'id, kind'),
+    ids(admin, 'user_documents', 'user_id', memberId, 'id, kind, status'),
     isTutor ? (admin.from('tutor_subjects').select('master_id').eq('tutor_id', memberId) as unknown as Promise<{ data: R[] | null }>) : Promise.resolve({ data: [] as R[] }),
     isTutor ? ids(admin, 'tutor_areas', 'tutor_id', memberId, 'id, city, area') : Promise.resolve([] as R[]),
     isTutor ? ids(admin, 'applications', 'tutor_id', memberId, 'id, job_id') : Promise.resolve([] as R[]),
@@ -58,6 +60,7 @@ export async function loadMergeSide(admin: Admin, memberId: string): Promise<Mer
     ids(admin, 'payments', 'user_id', memberId, 'id, plan_code, status, refunded_at, provider_ref'),
     ids(admin, 'subscriptions', 'user_id', memberId, 'id, plan_code, status'),
     admin.from('staff_signup_credits').select('*').eq('member_id', memberId).maybeSingle(),
+    !isTutor ? ids(admin, 'children', 'parent_id', memberId) : Promise.resolve([] as R[]),
   ])
   // Subject names (for the 15-subject cap).
   const masterIds = ((subj.data ?? []) as R[]).map((r) => r.master_id as number)
@@ -100,7 +103,7 @@ export async function loadMergeSide(admin: Admin, memberId: string): Promise<Mer
     tutor: tutorFill,
     docColumns: docCols,
     approvedDocs: approved,
-    documents: docs.map((d) => ({ id: d.id as string, kind: d.kind as string })),
+    documents: docs.map((d) => ({ id: d.id as string, kind: d.kind as string, status: (d.status as string | null) ?? null })),
     subjects: masterIds.map((id) => ({ masterId: id, subject: nameOf.get(id) ?? String(id) })),
     areas: areas.map((a) => ({ id: a.id as string, city: (a.city as string) ?? '', area: (a.area as string) ?? '' })),
     applications: apps.map((a) => ({ id: a.id as string, jobId: a.job_id as string })),
@@ -120,6 +123,8 @@ export async function loadMergeSide(admin: Admin, memberId: string): Promise<Mer
     subscriptions: subs.map((x) => ({ id: x.id as string, planCode: x.plan_code as string, status: x.status as string })),
     feePaidAt: tp ? (((tp as unknown as R).verified_fee_paid_at as string | null) ?? null) : null,
     credit: (credit as R | null) ?? null,
+    addressColumns: Object.fromEntries(ADDRESS_COLUMNS.map((c) => [c, prof[c] ?? null])),
+    children: children.map((x) => x.id as string),
   }
 }
 
@@ -172,7 +177,7 @@ async function applyOp(admin: Admin, op: Op): Promise<string | null> {
   let q = admin.from(op.table).update(op.set)
   for (const [k, v] of Object.entries(op.match)) q = q.eq(k, v)
   const { error } = await q
-  return error ? `${op.table}: ${error.message}` : null
+  return error ? `${op.table}: ${plainDbError(error)}` : null
 }
 
 async function applyAll(admin: Admin, ops: Op[]): Promise<{ applied: Op[]; error: string | null }> {

@@ -41,6 +41,7 @@ export async function POST(request: Request) {
   const fresh = await requireFreshAuth(gate.actor.id)
   if (!fresh.ok) return fresh.response
   const res = await convertAccount({ actor: gate.actor, memberId: parsed.data.memberId, reason: parsed.data.reason, override: !!parsed.data.override })
-  if (!res.ok) return NextResponse.json({ error: res.error, needsOverride: res.needsOverride ?? false, blockers: res.blockers ?? [] }, { status: res.status })
+  if (!res.ok)
+    return NextResponse.json({ error: res.error, needsOverride: res.needsOverride ?? false, blockers: res.blockers ?? [], clash: res.clash ?? null }, { status: res.status })
   return NextResponse.json({ success: true, to: res.to, emailed: res.emailed })
 }

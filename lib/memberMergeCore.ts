@@ -4,7 +4,13 @@
 // The owner picks the account to KEEP (the more complete one is suggested); the
 // other becomes "Merged into <name>". The rules:
 //
-//   Same type only     tutor + tutor or parent + parent.
+//   Same type          tutor + tutor or parent + parent — or a PARENT account
+//                      merged INTO a tutor account of the same person (owner,
+//                      27 Oct 2026). Then the tutor account is always the one kept;
+//                      the CNIC and the home address move over when the tutor
+//                      account lacks approved ones, the tuitions move (shown
+//                      "posted as a parent" — derived from the owner being a tutor),
+//                      and approved documents on both sides never block it.
 //   Blocked            both paid (an approved, not refunded payment, or the
 //                      Verification Fee granted), or both have an approved
 //                      document — the owner must sort those out by hand.
@@ -58,7 +64,7 @@ export type MergeSide = {
   /** The document status columns on profiles. */
   docColumns: Record<string, unknown>
   approvedDocs: string[]
-  documents: { id: string; kind: string }[]
+  documents: { id: string; kind: string; status?: string | null }[]
   subjects: { masterId: number; subject: string }[]
   areas: { id: string; city: string; area: string }[]
   applications: { id: string; jobId: string }[]
@@ -72,6 +78,10 @@ export type MergeSide = {
   subscriptions: { id: string; planCode: string; status: string }[]
   feePaidAt: string | null
   credit: Record<string, unknown> | null
+  /** The home-address columns on profiles (parent → tutor merges). */
+  addressColumns?: Record<string, unknown>
+  /** A parent's children (a tuition may name one). */
+  children?: string[]
 }
 
 export const PROFILE_FILL = ['full_name', 'city', 'address', 'whatsapp', 'avatar_url'] as const
@@ -91,6 +101,23 @@ export const TUTOR_FILL = [
 ] as const
 export const DOC_COLUMNS = ['cnic_number', 'cnic_image_path', 'verification_state', 'cnic_verified_at', 'profile_pic_status', 'selfie_status'] as const
 
+/** The CNIC part of DOC_COLUMNS — what a parent → tutor merge moves. */
+export const CNIC_COLUMNS = ['cnic_number', 'cnic_image_path', 'verification_state', 'cnic_verified_at'] as const
+export const ADDRESS_COLUMNS = ['address', 'address_status', 'address_reason', 'address_reviewed_by', 'address_reviewed_at', 'address_verified_at'] as const
+
+const sideType = (r: string | null) => (r === 'academy' ? 'parent' : r)
+
+/** 'same' (tutor + tutor, parent + parent), 'parent_into_tutor' (keep the tutor,
+ *  merge the parent into it), or null (not allowed). */
+export function mergeKind(keep: Pick<MergeSide, 'role'>, other: Pick<MergeSide, 'role'>): 'same' | 'parent_into_tutor' | null {
+  const k = sideType(keep.role)
+  const o = sideType(other.role)
+  if (!['tutor', 'parent'].includes(k ?? '') || !['tutor', 'parent'].includes(o ?? '')) return null
+  if (k === o) return 'same'
+  if (k === 'tutor' && o === 'parent') return 'parent_into_tutor'
+  return null
+}
+
 export function isEmptyValue(v: unknown): boolean {
   if (v === null || v === undefined) return true
   if (typeof v === 'string') return v.trim() === ''
@@ -107,12 +134,15 @@ export function mergeBlock(keep: MergeSide, other: MergeSide): string | null {
   if (keep.id === other.id) return 'Pick two different accounts.'
   if (keep.isStaff || other.isStaff) return 'A staff account cannot be merged.'
   if (keep.mergedInto || other.mergedInto) return 'One of these accounts is already merged.'
-  const role = (r: string | null) => (r === 'academy' ? 'parent' : r)
-  if (role(keep.role) !== role(other.role) || !['tutor', 'parent'].includes(role(keep.role) ?? '')) {
-    return 'Only accounts of the same type can be merged (tutor with tutor, parent with parent).'
+  const kind = mergeKind(keep, other)
+  if (!kind) {
+    if (sideType(keep.role) === 'parent' && sideType(other.role) === 'tutor') {
+      return 'Keep the tutor account: a parent account can be merged into a tutor account, not the other way round.'
+    }
+    return 'Only accounts of the same type can be merged (tutor with tutor, parent with parent), or a parent account into a tutor account.'
   }
   if (isPaid(keep) && isPaid(other)) return 'Both accounts have paid. Sort out the payments first — a merge would leave two payments on one account.'
-  if (keep.approvedDocs.length > 0 && other.approvedDocs.length > 0) {
+  if (kind === 'same' && keep.approvedDocs.length > 0 && other.approvedDocs.length > 0) {
     return 'Both accounts have approved documents. Decide which documents are right before merging.'
   }
   return null
@@ -121,6 +151,9 @@ export function mergeBlock(keep: MergeSide, other: MergeSide): string | null {
 /** The account to keep, suggested: the more complete one, then the one that
  *  paid, then the older one. */
 export function suggestKeep(a: MergeSide, b: MergeSide): string {
+  // A parent account is merged into the tutor account, never the other way.
+  if (mergeKind(a, b) === 'parent_into_tutor') return a.id
+  if (mergeKind(b, a) === 'parent_into_tutor') return b.id
   if (a.completion !== b.completion) return a.completion > b.completion ? a.id : b.id
   if (isPaid(a) !== isPaid(b)) return isPaid(a) ? a.id : b.id
   return Date.parse(a.joinedAt) <= Date.parse(b.joinedAt) ? a.id : b.id
@@ -130,6 +163,10 @@ export type MergeReport = {
   subjectsLeftOut: string[]
   applicationsLeft: string[]
   documentsMoved: boolean
+  /** Parent → tutor: the CNIC / home address moved over. */
+  cnicMoved?: boolean
+  addressMoved?: boolean
+  parentIntoTutor?: boolean
   paymentsMoved: { ref: string | null; planCode: string }[]
   counts: Record<string, number>
 }
@@ -147,8 +184,53 @@ export function planMerge(keep: MergeSide, other: MergeSide, nowIso: string): Me
     count(label)
   }
 
+  const crossType = mergeKind(keep, other) === 'parent_into_tutor'
+  if (crossType) report.parentIntoTutor = true
+
+  // ---- parent → tutor: the CNIC and the home address, item by item ---------
+  if (crossType) {
+    const otherCnicDocs = other.documents.filter((d) => d.kind === 'cnic')
+    const otherHasCnic = otherCnicDocs.length > 0 || !isEmptyValue(other.docColumns.cnic_number)
+    const keepCnicDocs = keep.documents.filter((d) => d.kind === 'cnic')
+    const keepHasCnic = keepCnicDocs.length > 0 || !isEmptyValue(keep.docColumns.cnic_number)
+    const keepCnicApproved = keep.approvedDocs.includes('CNIC')
+    const otherCnicApproved = other.approvedDocs.includes('CNIC')
+    if (otherHasCnic && !keepCnicApproved && (otherCnicApproved || !keepHasCnic)) {
+      report.cnicMoved = true
+      // The CNIC number is unique: clear it on the parent account first.
+      if (!isEmptyValue(other.docColumns.cnic_number)) {
+        ops.push({ table: 'profiles', match: { id: other.id }, set: { cnic_number: null }, before: { cnic_number: other.docColumns.cnic_number }, label: 'CNIC number' })
+      }
+      const set: Record<string, unknown> = {}
+      const before: Record<string, unknown> = {}
+      for (const c of CNIC_COLUMNS) {
+        set[c] = other.docColumns[c] ?? null
+        before[c] = keep.docColumns[c] ?? null
+      }
+      ops.push({ table: 'profiles', match: { id: keep.id }, set, before, label: 'CNIC' })
+      // The tutor's own (not approved) CNIC photos step aside — paused, never deleted.
+      for (const d of keepCnicDocs) {
+        if (d.status && d.status !== 'active' && d.status !== 'review') continue
+        ops.push({ table: 'user_documents', match: { id: d.id }, set: { status: 'paused' }, before: { status: d.status ?? 'active' }, label: 'Earlier CNIC photos paused' })
+      }
+      for (const d of otherCnicDocs) move('user_documents', 'user_id', d.id, 'CNIC photos')
+    }
+    const ka = keep.addressColumns ?? {}
+    const oa = other.addressColumns ?? {}
+    if (!isEmptyValue(oa.address) && isEmptyValue(ka.address_verified_at)) {
+      report.addressMoved = true
+      const set: Record<string, unknown> = {}
+      const before: Record<string, unknown> = {}
+      for (const c of ADDRESS_COLUMNS) {
+        set[c] = oa[c] ?? null
+        before[c] = ka[c] ?? null
+      }
+      ops.push({ table: 'profiles', match: { id: keep.id }, set, before, label: 'Home address' })
+    }
+  }
+
   // ---- documents (first: the CNIC number is unique across accounts) ----------
-  const moveDocs = other.documents.length > 0 && (keep.documents.length === 0 || keep.approvedDocs.length === 0)
+  const moveDocs = !crossType && other.documents.length > 0 && (keep.documents.length === 0 || keep.approvedDocs.length === 0)
   if (moveDocs) {
     report.documentsMoved = true
     // Clear the other account's CNIC number before the kept one takes it.
@@ -183,7 +265,8 @@ export function planMerge(keep: MergeSide, other: MergeSide, nowIso: string): Me
       count('Profile details', Object.keys(set).length)
     }
   }
-  fill('profiles', PROFILE_FILL, keep.profile, other.profile)
+  // Parent → tutor: the address moves with its review status above, never alone.
+  fill('profiles', crossType ? PROFILE_FILL.filter((c) => c !== 'address') : PROFILE_FILL, keep.profile, other.profile)
   fill('tutor_profiles', TUTOR_FILL, keep.tutor, other.tutor)
 
   // ---- subjects (15-subject cap) and areas --------------------------------
@@ -232,17 +315,26 @@ export function planMerge(keep: MergeSide, other: MergeSide, nowIso: string): Me
   for (const id of other.notes) move('member_notes', 'member_id', id, 'Notes')
   for (const id of other.activity) move('user_activity_log', 'user_id', id, 'Timeline')
   for (const id of other.jobs) move('jobs', 'parent_id', id, 'Tuitions')
+  for (const id of other.children ?? []) move('children', 'parent_id', id, 'Children')
 
   // ---- staff credit: the earliest wins -------------------------------------
   if (other.credit) {
     if (!keep.credit) {
-      ops.push({ table: 'staff_signup_credits', match: { member_id: other.id }, set: { member_id: keep.id }, before: { member_id: other.id }, label: 'Staff credit' })
+      // The credit follows the person; its account type becomes the kept account's.
+      const roleChange = crossType && other.credit.member_role !== 'tutor'
+      ops.push({
+        table: 'staff_signup_credits',
+        match: { member_id: other.id },
+        set: { member_id: keep.id, ...(roleChange ? { member_role: 'tutor' } : {}) },
+        before: { member_id: other.id, ...(roleChange ? { member_role: other.credit.member_role ?? null } : {}) },
+        label: 'Staff credit',
+      })
       count('Staff credit')
     } else if (Date.parse(String(other.credit.created_at)) < Date.parse(String(keep.credit.created_at))) {
       const set: Record<string, unknown> = {}
       const before: Record<string, unknown> = {}
       for (const [c, v] of Object.entries(other.credit)) {
-        if (c === 'member_id') continue
+        if (c === 'member_id' || c === 'member_role') continue
         if (v !== keep.credit[c]) {
           set[c] = v
           before[c] = keep.credit[c] ?? null
@@ -301,6 +393,10 @@ export function previewLines(plan: MergePlan): string[] {
   const lines: string[] = []
   for (const [label, n] of Object.entries(plan.report.counts)) lines.push(`${label}: ${n} ${label === 'Profile details' ? (n === 1 ? 'field' : 'fields') : n === 1 ? 'item' : 'items'} move`)
   if (plan.report.documentsMoved) lines.push('Documents move to the kept account (it has none approved).')
+  if (plan.report.parentIntoTutor) lines.push('The parent account is merged into the tutor account (the tutor account is kept).')
+  if (plan.report.cnicMoved) lines.push('The CNIC moves to the tutor account (it has no approved CNIC).')
+  if (plan.report.addressMoved) lines.push('The home address moves to the tutor account, with its review status.')
+  if (plan.report.parentIntoTutor && plan.report.counts.Tuitions) lines.push('Tuitions move and are shown as “posted as a parent”.')
   for (const p of plan.report.paymentsMoved) lines.push(`PAYMENT MOVES: ${p.planCode === 'verified' ? 'Verification Fee' : p.planCode}${p.ref ? ` (${p.ref})` : ''}`)
   if (plan.report.subjectsLeftOut.length) lines.push(`Over the ${SUBJECT_LIMIT}-subject cap, not moved: ${plan.report.subjectsLeftOut.join(', ')}`)
   if (plan.report.applicationsLeft.length) lines.push(`${plan.report.applicationsLeft.length} application(s) to a tuition both applied to stay on the merged account.`)

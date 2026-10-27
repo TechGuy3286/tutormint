@@ -23,7 +23,21 @@ import { paymentPlanName } from '@/lib/paymentLabelCore'
 import { revalidateLanding } from '@/lib/landingRevalidate'
 import { loadSupportWhatsApp } from '@/lib/applicationTemplates'
 import type { AdminActor } from '@/lib/adminAuth'
-import { convertBlockers, convertDecision, convertNotice, convertTarget, ROLE_WORD, type AccountRole, type ConvertFacts } from '@/lib/convertAccountCore'
+import { maskPhoneDisplay } from '@/lib/contactMaskCore'
+import {
+  convertBlockers,
+  convertClashMessage,
+  convertDecision,
+  convertNotice,
+  convertTarget,
+  findConvertClash,
+  mergeInsteadHref,
+  plainDbError,
+  type AccountRole,
+  type ClashCandidate,
+  type ConvertClash,
+  type ConvertFacts,
+} from '@/lib/convertAccountCore'
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>
 const NOT_WORKING = 'This is not working right now. Please try again in a few minutes.'
@@ -48,9 +62,39 @@ async function factsFor(admin: Admin, memberId: string, p: Record<string, unknow
 }
 
 const PROFILE_COLS =
-  'id, role, full_name, city, phone_number, linked_account_id, cnic_verified_at, verification_state, profile_pic_status, selfie_status, address_verified_at, address_status, admin_role'
+  'id, role, full_name, email, city, phone_number, cnic_number, linked_account_id, cnic_verified_at, verification_state, profile_pic_status, selfie_status, address_verified_at, address_status, admin_role'
 
-export type ConvertPreview = { role: AccountRole; to: AccountRole; name: string; blockers: string[] }
+export type ConvertPreview = { role: AccountRole; to: AccountRole; name: string; blockers: string[]; clash: (ConvertClash & { mergeHref: string; message: string }) | null }
+
+/** Another account of the target type with this person's mobile, CNIC or link. */
+async function clashFor(admin: Admin, p: Record<string, unknown>, to: AccountRole): Promise<ConvertClash | null> {
+  const ors: string[] = []
+  const digits = String(p.phone_number ?? '').replace(/\D/g, '')
+  if (digits.length >= 10) ors.push(`phone_number.like.%${digits.slice(-10)}`)
+  const cnic = String(p.cnic_number ?? '').replace(/\D/g, '')
+  if (cnic.length === 13) ors.push(`cnic_number.eq.${cnic.slice(0, 5)}-${cnic.slice(5, 12)}-${cnic.slice(12)}`, `cnic_number.eq.${cnic}`)
+  if (p.linked_account_id) ors.push(`id.eq.${p.linked_account_id}`)
+  ors.push(`linked_account_id.eq.${p.id}`)
+  const { data } = await admin.from('profiles').select('id, role, full_name, phone_number, cnic_number, linked_account_id').eq('role', to).neq('id', p.id as string).or(ors.join(',')).limit(10)
+  const candidates: ClashCandidate[] = (data ?? []).map((r) => ({
+    id: r.id as string,
+    name: formatName(r.full_name as string | null),
+    role: r.role as string,
+    phone: (r.phone_number as string | null) ?? null,
+    cnic: (r.cnic_number as string | null) ?? null,
+    linkedAccountId: (r.linked_account_id as string | null) ?? null,
+  }))
+  return findConvertClash(
+    { id: p.id as string, phone: (p.phone_number as string | null) ?? null, cnic: (p.cnic_number as string | null) ?? null, linkedAccountId: (p.linked_account_id as string | null) ?? null },
+    to,
+    candidates,
+    maskPhoneDisplay,
+  )
+}
+
+function clashView(memberId: string, c: ConvertClash, to: AccountRole) {
+  return { ...c, mergeHref: mergeInsteadHref(memberId, c.id), message: convertClashMessage(c, to) }
+}
 
 /** What the confirmation shows: who, to what, and what blocks it (in words). */
 export async function convertPreview(memberId: string): Promise<ConvertPreview | null> {
@@ -59,12 +103,31 @@ export async function convertPreview(memberId: string): Promise<ConvertPreview |
   const { data: p } = await admin.from('profiles').select(PROFILE_COLS).eq('id', memberId).maybeSingle()
   const to = convertTarget(p?.role as string | null)
   if (!p || !to) return null
-  return { role: p.role as AccountRole, to, name: formatName(p.full_name as string | null) || 'Member', blockers: convertBlockers(await factsFor(admin, memberId, p)) }
+  const clash = await clashFor(admin, p, to)
+  return {
+    role: p.role as AccountRole,
+    to,
+    name: formatName(p.full_name as string | null) || 'Member',
+    blockers: convertBlockers(await factsFor(admin, memberId, p)),
+    clash: clash ? clashView(memberId, clash, to) : null,
+  }
 }
 
 export type ConvertResult =
   | { ok: true; to: AccountRole; emailed: boolean }
-  | { ok: false; status: 400 | 404 | 409 | 503; error: string; needsOverride?: boolean; blockers?: string[] }
+  | { ok: false; status: 400 | 404 | 409 | 500 | 503; error: string; needsOverride?: boolean; blockers?: string[]; clash?: ReturnType<typeof clashView> }
+
+/** A write the database refused: the reason in words (digits removed) on the
+ *  screen and in the log — never a phone, CNIC or email. A clash on the
+ *  one-account-per-mobile index is named as such. */
+function failed(step: string, e: { code?: string | null; message?: string | null }): ConvertResult {
+  const reason = plainDbError(e)
+  console.error(`[convert-account] ${step} refused: ${reason}`)
+  if (e.code === '23505' && /mobile|phone/i.test(String(e.message))) {
+    return { ok: false, status: 409, error: 'This mobile already has an account of that type. Find it in People and merge this account into it instead.' }
+  }
+  return { ok: false, status: 500, error: `That did not save — the database refused it (${reason}). Nothing was changed.` }
+}
 
 export async function convertAccount(args: { actor: AdminActor; memberId: string; reason: string; override: boolean }): Promise<ConvertResult> {
   const admin = createAdminClient()
@@ -78,13 +141,13 @@ export async function convertAccount(args: { actor: AdminActor; memberId: string
   const from = p.role as AccountRole
   const to = convertTarget(from) as AccountRole
 
-  // One tutor and one parent account per mobile (migration 154): a linked
-  // account of the other type means this person already has one.
-  const phone = ((p.phone_number as string | null) ?? '').trim()
-  if (phone) {
-    const { data: clash } = await admin.from('profiles').select('id').eq('phone_number', phone).eq('role', to).neq('id', args.memberId).limit(1)
-    if (clash && clash.length)
-      return { ok: false, status: 409, error: `This mobile already has a ${ROLE_WORD[to]} account. Use that account instead of changing this one.` }
+  // One tutor and one parent account per mobile (migrations 154, 156): an
+  // account of the target type with this person's mobile, CNIC or link means
+  // they already have one — offer a merge instead (hotfix, 27 Oct 2026).
+  const clash = await clashFor(admin, p, to)
+  if (clash) {
+    const view = clashView(args.memberId, clash, to)
+    return { ok: false, status: 409, error: view.message, clash: view }
   }
 
   const now = new Date().toISOString()
@@ -93,7 +156,7 @@ export async function convertAccount(args: { actor: AdminActor; memberId: string
     .update({ role: to, account_type: to === 'parent' ? 'parent' : null })
     .eq('id', args.memberId)
     .eq('role', from)
-  if (roleErr) return { ok: false, status: 400, error: 'That did not save. Please try again.' }
+  if (roleErr) return failed('role', roleErr)
 
   const { data: tp } = await admin.from('tutor_profiles').select('id, city').eq('id', args.memberId).maybeSingle()
   if (to === 'tutor') {
@@ -106,14 +169,17 @@ export async function convertAccount(args: { actor: AdminActor; memberId: string
           .eq('id', args.memberId)
       : await admin.from('tutor_profiles').insert({
           id: args.memberId,
-          full_name: formatName(p.full_name as string | null),
+          full_name: formatName(p.full_name as string | null) || 'Tutor',
+          // NOT NULL on tutor_profiles (ensureProfile writes it too). Leaving it
+          // out made every Parent → Tutor change fail (hotfix, 27 Oct 2026).
+          email: (p.email as string | null) ?? '',
           city: (p.city as string | null) ?? null,
           verification_status: 'pending',
         })
     if (error) {
       // Put the role back so the account is never left half-changed.
       await admin.from('profiles').update({ role: from, account_type: from === 'parent' ? 'parent' : null }).eq('id', args.memberId)
-      return { ok: false, status: 400, error: 'That did not save. Please try again.' }
+      return failed('tutor_profile', error)
     }
   } else if (tp) {
     // Hidden, not deleted: out of search and the sitemap; its address 301s.
