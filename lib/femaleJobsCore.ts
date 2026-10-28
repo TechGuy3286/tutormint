@@ -32,9 +32,9 @@ export function isFemaleJob(j: FemaleJobFacts): boolean {
 export const FEMALE_JOBS_OR =
   'gender_preference.eq.female,and(gender_preference.is.null,or(title.imatch.\mfemale\M,description.imatch.\mfemale\M))'
 
-/** The owner's title for the page (28 Oct 2026), emitted as given. */
+/** The owner's title for the page (28 Oct 2026, shortened the same day). */
 export function femalePageTitle(city: string): string {
-  return `Female Teaching Jobs in ${city} — Home Tuition & School Jobs | TutorMint`
+  return `Female Teaching Jobs in ${city} | TutorMint`
 }
 
 export function femalePageHeading(city: string): string {

@@ -1,6 +1,7 @@
 import 'server-only'
 import { revalidateTag } from 'next/cache'
 import { LANDING_TAG } from '@/lib/landing'
+import { TUITION_TAG } from '@/lib/cacheTags'
 
 // On-demand revalidation for the landing pages.
 //
@@ -22,5 +23,15 @@ export function revalidateLanding(): void {
     revalidateTag(LANDING_TAG, 'max')
   } catch {
     /* not in a request scope (script/cron) — nothing to revalidate */
+  }
+}
+
+/** Clear every cached tuition read (owner, 28 Oct 2026 — lib/cacheTags). Same
+ *  try/catch reason as above: scripts and crons outside a request scope. */
+export function revalidateTuitions(): void {
+  try {
+    revalidateTag(TUITION_TAG, 'max')
+  } catch {
+    /* not in a request scope — nothing to revalidate */
   }
 }

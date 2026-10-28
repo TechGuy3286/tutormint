@@ -181,6 +181,8 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   'jobs/paused': 'edit',
   // "Add as new area" while posting is an edit; merging areas is Locations (view).
   'locations/area': 'mixed',
+  // Undo an automatic merge (owner, 28 Oct 2026): Owner only, via refuseUnlessOwnerApproval.
+  'locations/auto-merges': 'view',
   'locations': 'view',
   // Review added areas (owner, 16 Oct 2026): Owner-only decisions.
   'locations/run-review': 'view',

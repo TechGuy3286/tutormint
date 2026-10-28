@@ -21,6 +21,7 @@
 //    profile it comes from is one a tutor may already open from an applicant
 //    thread. Phone, WhatsApp and email stay behind canViewContact as before.
 
+import { cache } from 'react'
 import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { loadAreaAliases, spellingsForArea } from '@/lib/areaAliases'
 import { canonArea } from '@/lib/areaAliasCore'
@@ -41,7 +42,7 @@ import { collapseLevels } from '@/lib/levelDisplay'
 import { badgesForPlan, type BadgeName } from '@/lib/entitlements'
 import { decodeCursor, encodeCursor } from '@/lib/cursor'
 import { getLandingLinker } from '@/lib/landing'
-import { resolveSmartQuery } from '@/lib/smartSearch'
+import { reconcileSubjectQuery, resolveSmartQuery } from '@/lib/smartSearch'
 import { TEAM_DISPLAY_NAME } from '@/lib/teamAccount'
 import type { JobCardData } from '@/components/JobCard'
 import { formatName } from '@/lib/formatName'
@@ -491,6 +492,8 @@ export type JobFilters = {
   masterIds?: number[] | null
   city: string | null
   mode: string | null
+  /** "evening" / "morning" / "afternoon" read from a search (owner, 28 Oct 2026). */
+  timing?: string | null
   budgetMin: number | null
   budgetMax: number | null
   q: string | null
@@ -745,6 +748,12 @@ export async function browseJobs(
   // misspelling ("hisab") lands on Mathematics rather than a literal title match.
   let masterIds = filters.masterIds ?? (filters.masterId != null ? [filters.masterId] : null)
   let literalQ = filters.q
+  // A dropdown subject AND typed words (owner, 28 Oct 2026): when the words name
+  // a different subject, the typed search wins (the 24 Oct "English" miss).
+  if (filters.masterId != null && !filters.masterIds && filters.q) {
+    const r = await reconcileSubjectQuery(filters.masterId, filters.q)
+    if (r.subjectId == null) masterIds = null
+  }
 
   // PR92 Part B: a job reference ("TM-1414", "tm1414", "1414") finds that tuition
   // first. If the query parses to a ref that names an OPEN job, filter to that
@@ -769,12 +778,18 @@ export async function browseJobs(
   // of a sentence; a query it does not understand stays a title search.
   let smartCity: string | null = null
   let smartLevels: string[] | null = null
+  // Everyday words (owner, 28 Oct 2026): "online" → the Online Tutor job type,
+  // "home" → Home Tutor, "evening" → the lessons' time of day.
+  let smartMode: string | null = null
+  let smartTiming: string | null = filters.timing ?? null
   if (!refId && (!masterIds || masterIds.length === 0) && filters.q) {
     const smart = await resolveSmartQuery(filters.q)
     if (smart.understood) {
       masterIds = smart.masterIds
       smartLevels = smart.levelNames
       if (!filters.city && !filters.tutorScope && smart.parsed.city) smartCity = smart.parsed.city
+      if (!filters.mode && smart.parsed.mode) smartMode = smart.parsed.mode
+      if (smart.parsed.timing) smartTiming = smart.parsed.timing
       literalQ = null
     }
   }
@@ -814,6 +829,9 @@ export async function browseJobs(
     const levels = filters.levels && filters.levels.length > 0 ? filters.levels : smartLevels
     if (levels && levels.length > 0) q = q.overlaps('class_levels', levels)
     if (smartCity) q = q.ilike('city', smartCity)
+    if (smartMode) q = q.eq('teaching_mode', smartMode)
+    // A tuition that names no time of day still fits an "evening" search.
+    if (smartTiming) q = q.or(`timings.ilike.%${smartTiming}%,timings.is.null`)
     // The tutor's own city+areas default (PR71). One PostgREST OR group:
     //   (city = tutor's city AND (area ∈ areas OR area is null))
     //   OR teaching_mode = 'Online Tutor'   (only when the tutor teaches online)
@@ -1017,7 +1035,8 @@ export function slimForCard(job: JobCardData): JobCardData {
  * body could say "filled" rather than "closed". Both led to the same page, so
  * it bought a word for a query and is gone -- dropped in migration 43.
  */
-export async function jobByPublicSlug(slug: string): Promise<JobCardData | null> {
+/** Read once per request — the tuition page asks for its metadata and its body. */
+export const jobByPublicSlug = cache(async (slug: string): Promise<JobCardData | null> => {
   const supabase = await createClient()
   const { data } = await supabase
     .from('jobs')
@@ -1027,7 +1046,7 @@ export async function jobByPublicSlug(slug: string): Promise<JobCardData | null>
   if (!data) return null
   const [job] = await decorate([data as Record<string, unknown>])
   return job ?? null
-}
+})
 
 /**
  * A few OPEN tuitions like this one — same city first, then same subject (PR28).

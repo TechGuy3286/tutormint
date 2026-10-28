@@ -1,6 +1,8 @@
 import Link from 'next/link'
 
 import { requireAdminRole, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
+import LoadMoreLink from '@/components/admin/LoadMoreLink'
+import { pageSlice, shownCount } from '@/lib/adminPagingCore'
 import { loadHiringTemplate, loadSubjectLevels, loadUnmetBoard, loadWordTargets, withSchoolMatches } from '@/lib/unmetSearches'
 import { joinLinkFor } from '@/lib/staffSignups'
 
@@ -14,15 +16,20 @@ import UnmetSearchesClient from './UnmetSearchesClient'
 
 export const dynamic = 'force-dynamic'
 
-export default async function UnmetSearchesPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+export default async function UnmetSearchesPage({ searchParams }: { searchParams: Promise<{ tab?: string; n?: string }> }) {
   const actor = await requireAdminRole(...SCREEN_ACCESS.unmetSearches)
   // Adding a subject changes the subject list: the roles that manage Subjects.
   const canAddSubject = roleMayWrite(actor.adminRole, SCREEN_ACCESS.subjectsCore)
-  const tab = (await searchParams).tab === 'done' ? 'done' : 'review'
+  const sp = await searchParams
+  const tab = sp.tab === 'done' ? 'done' : 'review'
+  // 25 at a time (owner, 28 Oct 2026): the counts are over the whole list.
+  const shown = shownCount(sp.n)
   const [board, targets, template, levels, joinLink] = await Promise.all([loadUnmetBoard(), loadWordTargets(), loadHiringTemplate(), canAddSubject ? loadSubjectLevels() : Promise.resolve([]), joinLinkFor(actor.id)])
 
   // A search that names a school is labelled "School" (owner, 13 Oct 2026).
-  const cards = await withSchoolMatches(board.toReview)
+  const reviewPage = pageSlice(board.toReview, shown)
+  const donePage = pageSlice(board.done, shown)
+  const cards = await withSchoolMatches(reviewPage.rows)
 
   return (
     <div className="space-y-4">
@@ -61,7 +68,12 @@ export default async function UnmetSearchesPage({ searchParams }: { searchParams
         })}
       </nav>
 
-      <UnmetSearchesClient tab={tab} cards={cards} done={board.done} targets={targets} template={template} levels={levels} canAddSubject={canAddSubject} joinLink={joinLink?.url ?? null} />
+      <UnmetSearchesClient tab={tab} cards={cards} done={donePage.rows} targets={targets} template={template} levels={levels} canAddSubject={canAddSubject} joinLink={joinLink?.url ?? null} />
+      {tab === 'review' ? (
+        reviewPage.total > 0 && <LoadMoreLink shown={reviewPage.shown} total={reviewPage.total} noun="searches" />
+      ) : (
+        donePage.total > 0 && <LoadMoreLink shown={donePage.shown} total={donePage.total} noun="searches" />
+      )}
     </div>
   )
 }

@@ -3,7 +3,8 @@ import type { ReactNode } from 'react'
 import { loadGatewayHealth } from '@/lib/payments/gatewaySettings'
 import { loadSettlement, type SettlementView } from '@/lib/settlement'
 import { loadSettlementsBoard } from '@/lib/settlementMatch'
-import { financeItems } from '@/lib/financeItemsCore'
+import { financeCards, financeCounts, financeItems, pickFinanceGroup, type FinanceGroup } from '@/lib/financeItemsCore'
+import { pageSlice, shownCount } from '@/lib/adminPagingCore'
 import { pkDayKey } from '@/lib/datetime'
 import Link from 'next/link'
 import { loadOpenFinanceAlerts } from '@/lib/financeAlerts'
@@ -28,7 +29,7 @@ import SettlementsBoard from './SettlementsBoard'
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
 const ISO_MONTH = /^\d{4}-(0[1-9]|1[0-2])$/
 
-export default async function SettlementTab({ sp, extra }: { sp: { from?: string; to?: string; month?: string; show?: string }; extra?: ReactNode }) {
+export default async function SettlementTab({ sp, extra }: { sp: { from?: string; to?: string; month?: string; show?: string; f?: string; n?: string }; extra?: ReactNode }) {
   const today = pkDayKey(new Date())
   const month = sp.month && ISO_MONTH.test(sp.month) ? sp.month : today.slice(0, 7)
   const ranged = !!(sp.from && ISO_DAY.test(sp.from) && sp.to && ISO_DAY.test(sp.to))
@@ -44,6 +45,13 @@ export default async function SettlementTab({ sp, extra }: { sp: { from?: string
     loadPayproSettlement().catch(() => null),
   ])
   const readerRed = readerFailingAlert(reader, new Date())
+  // Needs attention / All good, counted and filtered here over every item; only
+  // 25 (or ?n=) are sent to the page (owner, 28 Oct 2026 — lib/adminPagingCore).
+  const allItems = board ? financeItems(board.view, alerts, board.hints, board.refunds) : []
+  const counts = financeCounts(allItems)
+  const cards = board ? financeCards(board.view, allItems) : null
+  const group: FinanceGroup = pickFinanceGroup(sp.f, counts)
+  const page = pageSlice(allItems.filter((i) => i.group === group), shownCount(sp.n))
   const views: { id: string; name: string; view: SettlementView }[] = []
   for (const g of health.gateways) {
     if (!g.connected) continue
@@ -94,7 +102,11 @@ export default async function SettlementTab({ sp, extra }: { sp: { from?: string
         <SettlementsBoard
           key={month}
           data={board}
-          items={financeItems(board.view, alerts, board.hints, board.refunds)}
+          items={page.rows}
+          itemsTotal={page.total}
+          counts={counts}
+          cards={cards!}
+          group={group}
           detailsOpen={ranged || sp.show === 'details'}
           details={
             <>

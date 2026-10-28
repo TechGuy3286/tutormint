@@ -180,7 +180,7 @@ export default function TutorDocumentReview({
           {avatarUrl ? (
             <Zoomable onOpen={() => setLbIndex(at.pic)}>
               {/* eslint-disable-next-line @next/next/no-img-element -- admin-only review thumbnail */}
-              <img src={avatarUrl} alt="Profile picture" className="h-32 w-32 rounded-xl object-cover" />
+              <img src={avatarUrl} alt="Profile picture" loading="lazy" decoding="async" className="h-32 w-32 rounded-xl object-cover" />
             </Zoomable>
           ) : (
             <NoImage label="No picture" />

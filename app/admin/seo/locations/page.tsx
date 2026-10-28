@@ -8,6 +8,8 @@ import { loadStaffAddedAreas, staffAreaSuggestions } from '@/lib/staffAreas'
 import { addedByLine } from '@/lib/staffAreaCore'
 import { formatDate } from '@/lib/datetime'
 import Link from 'next/link'
+import AutoMerges from './AutoMerges'
+import { loadAutoMerges } from '@/lib/locationAutoMerge'
 
 // /admin/seo/locations — the free-text location review.
 //
@@ -31,11 +33,12 @@ export const dynamic = 'force-dynamic'
 export default async function AdminLocationsPage() {
   await requireAdminRole(...SCREEN_ACCESS.seo)
 
-  const [first, unmapped, added, suggestions] = await Promise.all([
+  const [first, unmapped, added, suggestions, autoMerges] = await Promise.all([
     loadLocationReviewPage({ kind: 'all', limit: 1 }),
     unmappedLocations(),
     loadStaffAddedAreas(),
     staffAreaSuggestions(),
+    loadAutoMerges(),
   ])
   const staffCities = await curatedAreasForCities(added.map((a) => a.city))
   const counts = first.counts
@@ -54,6 +57,9 @@ export default async function AdminLocationsPage() {
           </Link>
         </p>
       </header>
+
+      {/* The clean-up's automatic merges, each with an Undo (owner, 28 Oct 2026). */}
+      <AutoMerges items={autoMerges.map((m) => ({ auditId: m.auditId, atText: formatDate(m.at), record: m.record, undone: !!m.undoneAt }))} />
 
       {/* Areas staff added while posting a tuition (owner, 13 + 16 Oct 2026). */}
       <StaffAddedAreas

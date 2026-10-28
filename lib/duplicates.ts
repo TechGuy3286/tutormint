@@ -8,6 +8,9 @@ import { pageAll, pageAllIn } from '@/lib/pageAll'
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { unstable_cache } from 'next/cache'
+import { cache } from 'react'
+import { TUITION_REVALIDATE, TUITION_TAG } from '@/lib/cacheTags'
 import { citySegment } from '@/lib/slugs'
 import { contactFactsForJobs } from '@/lib/tuitionContact'
 import { tuitionContactNumber } from '@/lib/tuitionContactCore'
@@ -119,7 +122,7 @@ export async function findExistingDuplicate(
  * Safety net (item 16): is this OPEN tuition a repeat of an OLDER open one? If
  * so the page emits no JobPosting and its canonical points at the original.
  */
-export async function repeatOfOlderOpen(jobId: string): Promise<ExistingTuition | null> {
+async function repeatOfOlderOpenFresh(jobId: string): Promise<ExistingTuition | null> {
   const admin = createAdminClient()
   if (!admin) return null
   const { data: me } = await admin.from('jobs').select(COLS).eq('id', jobId).maybeSingle()
@@ -277,3 +280,12 @@ export async function recentRepeats(since: Date): Promise<RepeatPair[]> {
     })
     .sort((a, b) => (a.repeat.postedBy ?? '').localeCompare(b.repeat.postedBy ?? '') || b.repeat.createdAt.localeCompare(a.repeat.createdAt))
 }
+
+/**
+ * repeatOfOlderOpen, cached (owner, 28 Oct 2026 — site speed): a tuition page
+ * asks this for its metadata AND its body, and each ask reads every open tuition
+ * in the city. Cached for five minutes per tuition, cleared at once whenever any
+ * tuition changes (TUITION_TAG, lib/cacheTags), and read once per request.
+ */
+const repeatCached = unstable_cache(repeatOfOlderOpenFresh, ['repeat-of-older-open-v1'], { revalidate: TUITION_REVALIDATE, tags: [TUITION_TAG] })
+export const repeatOfOlderOpen = cache((jobId: string): Promise<ExistingTuition | null> => repeatCached(jobId))

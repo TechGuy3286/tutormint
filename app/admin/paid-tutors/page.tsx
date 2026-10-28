@@ -1,6 +1,8 @@
 import Link from 'next/link'
 
 import { requireAdminRole, SCREEN_ACCESS, seesAllStaffLists } from '@/lib/adminAuth'
+import LoadMoreLink from '@/components/admin/LoadMoreLink'
+import { pageSlice, shownCount } from '@/lib/adminPagingCore'
 import { formatDate } from '@/lib/datetime'
 import { loadPaidTutors } from '@/lib/paidTutors'
 import {
@@ -27,7 +29,7 @@ import { imageVersionKey, STATUS_DRAW } from '@/lib/social/imageVersionCore'
 
 export const dynamic = 'force-dynamic'
 
-type SP = { staff?: string; show?: string; q?: string }
+type SP = { staff?: string; show?: string; q?: string; n?: string }
 
 export default async function PaidTutorsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const actor = await requireAdminRole(...SCREEN_ACCESS.paidTutors)
@@ -38,7 +40,10 @@ export default async function PaidTutorsPage({ searchParams }: { searchParams: P
   const { rows: all, staff: owners } = await loadPaidTutors()
   const scoped = all.filter((r) => matchesStaff(r, staff) && matchesSearch(r, q))
   const counts = filterCounts(scoped)
-  const rows = scoped.filter((r) => matchesPaidFilter(r, show))
+  const filtered = scoped.filter((r) => matchesPaidFilter(r, show))
+  // 25 at a time (owner, 28 Oct 2026): counts above are over the whole list.
+  const page = pageSlice(filtered, shownCount(sp.n))
+  const rows = page.rows
   const redWait = scoped.filter((r) => r.red.includes('waiting_to_forward')).length
   const redContact = scoped.filter((r) => r.red.includes('no_contact')).length
   // "Send status image" (owner, 26 Oct 2026): only for a tutor with the
@@ -165,6 +170,7 @@ export default async function PaidTutorsPage({ searchParams }: { searchParams: P
           })}
         </ul>
       )}
+      {page.total > 0 && <LoadMoreLink shown={page.shown} total={page.total} noun="tutors" />}
     </div>
   )
 }

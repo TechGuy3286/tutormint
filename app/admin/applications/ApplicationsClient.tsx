@@ -4,11 +4,13 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { NO_LONGER_AVAILABLE } from '@/lib/hiddenTuitionCore'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, Eye, Loader2, MessageCircle, Search, Send, Sparkles } from 'lucide-react'
+import { ChevronDown, Eye, Loader2, MessageCircle, Send, Sparkles } from 'lucide-react'
 
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
-import { setUrlParam } from '@/lib/useUrlState'
+import QueueSearch from '@/components/admin/QueueSearch'
+import LoadMoreLink from '@/components/admin/LoadMoreLink'
+import type { AppsViewResult } from '@/lib/applicationsPagingCore'
 import { formatDate } from '@/lib/datetime'
 import type { BoardRow, StaffOption } from '@/lib/applicationTracking'
 import ConsentChip from '@/components/admin/ConsentChip'
@@ -17,27 +19,20 @@ import type { ForwardCard } from '@/lib/applicantForwards'
 import {
   APPLICATIONS_PATH,
   groupCountLine,
-  matchesStaff,
   mayEditStage,
   OVERDUE_LABEL,
-  searchMatches,
   shortTitle,
   STAGE_LABEL,
   STAGES,
-  staffChoices,
   successStoryAction,
   timeAtStage,
   type Stage,
   type StaffFilter,
 } from '@/lib/applicationStageCore'
 import {
-  dueState,
-  groupRows,
   lastTutorUpdate,
   SECTION_LABEL,
-  sectionOf,
   sentLine,
-  tabCounts,
   type DueState,
   type Section,
 } from '@/lib/applicationFollowUpCore'
@@ -59,6 +54,11 @@ import ForwardPanel from './ForwardToParents'
 // follow-up and offers a 10-second Undo. The forward panel opens from each
 // tuition group. The search covers both tabs and Older, filters set aside, and
 // says which tab each result is in. The server checks every change.
+//
+// Load more (owner, 28 Oct 2026): the server works out the tabs, the Staff
+// filter, the stage chips, the search and every count over the whole board
+// (lib/applicationsPagingCore) and sends 25 groups at a time; this component
+// only draws them. Every change ends in router.refresh(), so the counts follow.
 
 const UNASSIGNED = '__unassigned__'
 const CTRL = 'min-h-[40px] sm:min-h-[24px] sm:py-0 rounded-md border border-gray-200 bg-white px-1.5 text-[11px] font-bold text-tm-navy'
@@ -69,12 +69,14 @@ type Row = BoardRow & { due: DueState; section: Section }
 type View = 'tuition' | 'tutor'
 type OtherOpen = { id: string; tutorName: string; stage: Stage }
 
-function hrefWith(p: { staff: StaffFilter; stage: Stage | 'any'; tab: 'todo' | 'sent'; view: View }): string {
+/** A filter link: the page shows its first 25 groups again (no ?n=); the search is kept. */
+function hrefWith(p: { staff: StaffFilter; stage: Stage | 'any'; tab: 'todo' | 'sent'; view: View; q?: string }): string {
   const q = new URLSearchParams()
   q.set('staff', p.staff)
   if (p.stage !== 'any') q.set('show', p.stage)
   if (p.tab === 'sent') q.set('tab', 'sent')
   if (p.view === 'tutor') q.set('view', 'tutor')
+  if (p.q?.trim()) q.set('q', p.q.trim())
   return `${APPLICATIONS_PATH}?${q.toString()}`
 }
 
@@ -90,35 +92,35 @@ const SECTION_CHIP: Record<Section, string> = {
 }
 
 export default function ApplicationsClient({
-  rows,
+  view: v,
   staff,
-  ownerNames,
   actor,
   staffFilter,
   stageFilter,
   tab,
-  view,
+  listView: view,
   initialQuery,
   nowMs,
-  forwardCards,
+  olderPaged = false,
   forwardTemplate,
   canOpenMembers,
   initialPreview = null,
   tutorUpdateTemplate = null,
   supportDisplay = null,
 }: {
-  rows: BoardRow[]
+  /** Worked out on the server over the whole board (lib/applicationsPagingCore). */
+  view: AppsViewResult<BoardRow, ForwardCard>
   staff: StaffOption[]
-  ownerNames: Record<string, string>
   actor: { id: string; adminRole: string }
   staffFilter: StaffFilter
   stageFilter: Stage | 'any'
   tab: 'todo' | 'sent'
-  view: View
+  listView: View
   initialQuery: string
   /** The server's clock, so "3 days" reads the same on both renders. */
   nowMs: number
-  forwardCards: ForwardCard[]
+  /** More than the first Older page is shown (?on=): open the section. */
+  olderPaged?: boolean
   forwardTemplate: string
   canOpenMembers: boolean
   /** ?preview=<tutor id> opens that tutor's message preview (By tutor). */
@@ -131,62 +133,22 @@ export default function ApplicationsClient({
   const router = useRouter()
   const toast = useToast()
   const isOwner = actor.adminRole === 'owner'
-  const [q, setQ] = useState(initialQuery)
   const [busy, setBusy] = useState<string | null>(null)
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [bulkOwner, setBulkOwner] = useState('')
   const [hire, setHire] = useState<{ row: Row; others: OtherOpen[]; close: Set<string> } | null>(null)
-  const [olderOpen, setOlderOpen] = useState(false)
+  const [olderOpen, setOlderOpen] = useState(olderPaged)
   const [panel, setPanel] = useState<{ jobId: string; title: string } | null>(null)
   const [preview, setPreview] = useState<string | null>(initialPreview)
 
-  const all: Row[] = useMemo(
-    () =>
-      rows.map((r) => {
-        const due = dueState(r, r.followUps, nowMs)
-        return { ...r, due, section: sectionOf(due) }
-      }),
-    [rows, nowMs],
-  )
-  const names = useMemo(() => new Map(Object.entries(ownerNames)), [ownerNames])
-  const choices = useMemo(() => staffChoices(rows, names, actor), [rows, names, actor])
-  const byStaff = useMemo(() => all.filter((r) => matchesStaff(r, staffFilter)), [all, staffFilter])
-  const counts = useMemo(() => tabCounts(byStaff), [byStaff])
-  const filtered = byStaff.filter((r) => stageFilter === 'any' || r.stage === stageFilter)
-  const stageCounts = useMemo(() => {
-    const c: Record<string, number> = { any: 0 }
-    for (const s of STAGES) c[s] = 0
-    for (const r of byStaff.filter((r) => r.section === tab)) {
-      c.any++
-      c[r.stage]++
-    }
-    return c
-  }, [byStaff, tab])
-
-  const allByJob = useMemo(() => {
-    const m = new Map<string, Row[]>()
-    for (const r of all) m.set(r.jobId, [...(m.get(r.jobId) ?? []), r])
-    return m
-  }, [all])
-  const allByTutor = useMemo(() => {
-    const m = new Map<string, Row[]>()
-    for (const r of all) m.set(r.tutorId, [...(m.get(r.tutorId) ?? []), r])
-    return m
-  }, [all])
-  const cardBy = useMemo(() => new Map(forwardCards.map((c) => [c.jobId, c])), [forwardCards])
-
-  const searching = q.trim().length > 0
-  const hits = useMemo(() => new Set(searching ? all.filter((r) => searchMatches(r, q)).map((r) => r.id) : []), [all, q, searching])
-  const keyOf = (r: Row) => (view === 'tutor' ? r.tutorId : r.jobId)
-  const listed = searching ? all.filter((r) => hits.has(r.id)) : filtered.filter((r) => r.section === tab)
-  const groups = groupRows(listed, keyOf, searching ? 'todo' : tab)
-  const olderRows = searching ? [] : filtered.filter((r) => r.section === 'older')
-  const olderGroups = groupRows(olderRows, keyOf, 'todo')
-
-  // Tuitions a paid tutor only VIEWED the number of (no application): they
-  // have no row, so the forward panel is reached from this short list.
-  const jobsWithRows = useMemo(() => new Set(rows.map((r) => r.jobId)), [rows])
-  const viewedOnly = forwardCards.filter((c) => !jobsWithRows.has(c.jobId) && (tab === 'todo' ? c.state.tab === 'to_forward' : c.state.tab !== 'to_forward'))
+  // Counts, chips, search and groups come from the server, over the whole
+  // board; only the shown groups are here.
+  const { counts, stageCounts, choices, searching, groups, older, viewedOnly } = v
+  const hits = useMemo(() => new Set(v.hitIds), [v.hitIds])
+  const allByJob = useMemo(() => new Map(Object.entries(v.related)), [v.related])
+  const allByTutor = allByJob
+  const cardBy = useMemo(() => new Map(v.cards.map((c) => [c.jobId, c])), [v.cards])
+  const keep = { staff: staffFilter, show: stageFilter === 'any' ? undefined : stageFilter, tab: tab === 'sent' ? 'sent' : undefined, view: view === 'tutor' ? 'tutor' : undefined }
 
   // --------------------------------------------------------------- actions --
 
@@ -489,7 +451,7 @@ export default function ApplicationsClient({
     `inline-flex min-h-[36px] items-center gap-1 rounded-full border px-3 text-[11px] font-bold ${
       on ? 'border-tm-navy bg-tm-navy text-white' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'
     }`
-  const here = { staff: staffFilter, stage: stageFilter, tab, view }
+  const here = { staff: staffFilter, stage: stageFilter, tab, view, q: initialQuery }
 
   return (
     <div className="space-y-2">
@@ -536,20 +498,17 @@ export default function ApplicationsClient({
             ))}
           </select>
         </label>
-        <label className="relative min-w-[14rem] flex-1">
-          <span className="sr-only">Search applications</span>
-          <Search aria-hidden size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value)
-              setUrlParam('q', e.target.value.trim() || null)
-            }}
+        <div className="min-w-[14rem] flex-1">
+          {/* The search runs on the server over the WHOLE board (?q=). */}
+          <QueueSearch
+            basePath={APPLICATIONS_PATH}
+            initialQuery={initialQuery}
+            filter=""
+            keep={keep}
             placeholder="Search everything: tutor, TM number, tuition or city"
-            className="min-h-[40px] w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 text-xs outline-none focus:border-tm-navy"
+            ariaLabel="Search applications"
           />
-        </label>
+        </div>
       </div>
 
       <nav aria-label="Filter by stage" className="flex flex-wrap gap-1.5">
@@ -562,7 +521,7 @@ export default function ApplicationsClient({
 
       {searching && (
         <p className="text-[11px] font-bold text-slate-700">
-          {hits.size} {hits.size === 1 ? 'application' : 'applications'} found across To do, Sent and Older (every staff member and stage). Each says which tab
+          {v.hitCount} {v.hitCount === 1 ? 'application' : 'applications'} found across To do, Sent and Older (every staff member and stage). Each says which tab
           it is in.
         </p>
       )}
@@ -595,21 +554,24 @@ export default function ApplicationsClient({
         </div>
       )}
 
-      {groups.length === 0 ? (
+      {groups.total === 0 ? (
         <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-600">
           {searching ? 'Nothing matches that search.' : tab === 'todo' ? 'Nothing is due right now.' : 'Nothing sent yet.'}
         </p>
       ) : (
-        <ul className="space-y-1">{groups.map(renderGroup)}</ul>
+        <>
+          <ul className="space-y-1">{groups.rows.map(renderGroup)}</ul>
+          <LoadMoreLink shown={groups.shown} total={groups.total} noun={view === 'tutor' ? 'tutors' : 'tuitions'} />
+        </>
       )}
 
-      {!searching && viewedOnly.length > 0 && view === 'tuition' && (
+      {!searching && viewedOnly.total > 0 && view === 'tuition' && (
         <section className="space-y-1">
           <h3 className="text-xs font-black text-slate-700">
-            {tab === 'todo' ? 'Viewed the number, no application yet' : 'Forwarded — viewed the number only'} ({viewedOnly.length})
+            {tab === 'todo' ? 'Viewed the number, no application yet' : 'Forwarded — viewed the number only'} ({viewedOnly.total})
           </h3>
           <ul className="space-y-1">
-            {viewedOnly.map((c) => (
+            {viewedOnly.rows.map((c) => (
               <li key={c.jobId} className="flex flex-wrap items-center gap-x-2 rounded-xl border border-gray-200 bg-white px-2 py-1 text-[11px]">
                 {c.ref && <span className="rounded bg-tm-navy px-1 py-0.5 text-[10px] font-black text-white">{c.ref}</span>}
                 <Link href={`/admin/jobs/${c.jobId}`} className="font-black text-tm-navy hover:underline">
@@ -623,10 +585,11 @@ export default function ApplicationsClient({
               </li>
             ))}
           </ul>
+          <LoadMoreLink shown={viewedOnly.shown} total={viewedOnly.total} noun="tuitions" param="vn" />
         </section>
       )}
 
-      {tab === 'todo' && olderGroups.length > 0 && (
+      {tab === 'todo' && older.total > 0 && (
         <section className="space-y-1">
           <button
             type="button"
@@ -635,11 +598,16 @@ export default function ApplicationsClient({
             className="flex min-h-[40px] w-full items-center justify-between rounded-xl border border-gray-200 bg-tm-bg px-3 text-xs font-black text-slate-700"
           >
             <span>
-              Older ({olderRows.length}) <span className="font-semibold text-gray-600">— tuitions posted more than 30 days ago; never overdue</span>
+              Older ({v.olderRowCount}) <span className="font-semibold text-gray-600">— tuitions posted more than 30 days ago; never overdue</span>
             </span>
             <ChevronDown aria-hidden size={14} className={olderOpen ? 'rotate-180' : ''} />
           </button>
-          {olderOpen && <ul className="space-y-1">{olderGroups.map(renderGroup)}</ul>}
+          {olderOpen && (
+            <>
+              <ul className="space-y-1">{older.rows.map(renderGroup)}</ul>
+              <LoadMoreLink shown={older.shown} total={older.total} noun={view === 'tutor' ? 'older tutors' : 'older tuitions'} param="on" />
+            </>
+          )}
         </section>
       )}
 

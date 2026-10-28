@@ -50,7 +50,7 @@ test('sitemap: a female page below 3 is left out, at 3 it is listed', () => {
 })
 
 test('title, intro and links', () => {
-  assert.equal(femalePageTitle('Lahore'), 'Female Teaching Jobs in Lahore — Home Tuition & School Jobs | TutorMint')
+  assert.equal(femalePageTitle('Lahore'), 'Female Teaching Jobs in Lahore | TutorMint')
   assert.match(femalePageIntro('Lahore', 5), /^5 open posts ask for a female teacher or tutor in Lahore/)
   assert.match(femalePageIntro('Lahore', 0), /no open posts/)
   const view = readFileSync('components/tuitionJobs/CityJobsView.tsx', 'utf8')

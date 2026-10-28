@@ -89,11 +89,11 @@ export async function rerunSearch(query: string): Promise<RerunResult> {
   const tutorMasters = r.understood ? (r.masterIds ?? r.levelMasterIds) : null
   const [tutors, jobs] = await Promise.all([
     rankedTutors({
-      filters: { masterId: null, masterIds: tutorMasters, city, area: '', mode: '', gender: '', feeMin: '', feeMax: '', q: r.understood ? '' : query },
+      filters: { masterId: null, masterIds: tutorMasters, city, area: '', mode: (r.understood && r.parsed.mode) || '', gender: '', feeMin: '', feeMax: '', q: r.understood ? '' : query },
       limit: 1,
     }),
     browseJobs(
-      { masterId: null, masterIds: r.understood ? r.masterIds : null, city: city || null, mode: null, budgetMin: null, budgetMax: null, q: r.understood ? null : query, levels: r.understood ? r.levelNames : null },
+      { masterId: null, masterIds: r.understood ? r.masterIds : null, city: city || null, mode: (r.understood && r.parsed.mode) || null, timing: (r.understood && r.parsed.timing) || null, budgetMin: null, budgetMax: null, q: r.understood ? null : query, levels: r.understood ? r.levelNames : null },
       1,
     ),
   ])

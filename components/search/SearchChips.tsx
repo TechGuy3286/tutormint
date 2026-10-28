@@ -6,7 +6,7 @@ import { withoutSpan, type Parsed } from '@/lib/smartSearchCore'
 // chips: "City Sahiwal × · Level Primary × · School Beaconhouse ×". Each × is a
 // plain link to the same search with that part's words taken out — no script.
 
-const KIND_LABEL = { city: 'City', level: 'Level', subject: 'Subject', school: 'School' } as const
+const KIND_LABEL = { city: 'City', level: 'Level', subject: 'Subject', school: 'School', mode: 'Type', timing: 'Time', jobs: 'Looking for' } as const
 
 export default function SearchChips({
   parsed,

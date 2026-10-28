@@ -421,3 +421,25 @@ export function searchTopicCandidate(t: SearchTopic): Candidate {
     notes: topicNotes(t),
   }
 }
+
+/**
+ * Should the page ask Google again before showing Search Console's state (owner,
+ * 28 Oct 2026: "Rebuild now must re-check access fresh, never showing a stored
+ * old error")? Yes when the stored result is an error or nothing was read yet,
+ * as long as credentials exist. A stored success is shown as it is.
+ */
+export function needsFreshCheck(
+  stored: { status: 'ok' | 'error' } | null,
+  allowed: boolean,
+  configured: boolean,
+): boolean {
+  if (!allowed || !configured) return false
+  return !stored || stored.status === 'error'
+}
+
+/** "Other topics" list tutor-side topics first (owner, 28 Oct 2026): written
+ *  for tutors, or in the Tutor career cluster; the rest keep their order. */
+export function tutorSideFirst<T extends { audience: string; cluster: string | null }>(rows: readonly T[]): T[] {
+  const tutorSide = (r: T) => r.audience === 'tutors' || r.cluster === 'tutor-career'
+  return [...rows.filter(tutorSide), ...rows.filter((r) => !tutorSide(r))]
+}

@@ -34,7 +34,7 @@ export default function DocumentThumb({
           <SecureDocumentPreview documentId={documentId} alt={alt} />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element -- admin-only review thumbnail
-          <img src={src} alt={alt} className="w-full rounded-xl border border-gray-200 object-cover" />
+          <img src={src} alt={alt} loading="lazy" decoding="async" className="w-full rounded-xl border border-gray-200 object-cover" />
         )}
       </ViewerThumb>
       <DocumentViewer images={[image]} index={open ? 0 : null} onIndex={() => {}} onClose={() => setOpen(false)} />

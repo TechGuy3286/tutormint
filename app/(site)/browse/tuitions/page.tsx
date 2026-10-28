@@ -22,7 +22,7 @@ import {
 } from '@/lib/jobFeed'
 import SearchChips from '@/components/search/SearchChips'
 import { jobFallback } from '@/lib/searchFallback'
-import { resolveSmartQuery } from '@/lib/smartSearch'
+import { reconcileSubjectQuery } from '@/lib/smartSearch'
 import JobCard from '@/components/JobCard'
 import AdSlot from '@/components/ads/AdSlot'
 import JobFilterBar, { type JobFilterValues } from './JobFilterBar'
@@ -162,7 +162,7 @@ export async function generateMetadata({
 export default async function BrowseTuitionsPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams
 
-  const subjectId = intOrNull(one(sp.subject))
+  const pickedSubjectId = intOrNull(one(sp.subject))
   const city = one(sp.city)
   const mode = parseMode(one(sp.mode)) ?? ''
   const budgetMin = one(sp.budgetMin)
@@ -173,7 +173,9 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
   // The ONE smart search (owner, 8 Oct 2026): "sahiwal tuition for primary
   // beaconhouse" is read into City · Level · Subject/School; a query it does not
   // understand stays a title search. Only when no explicit subject is chosen.
-  const smart = !subjectId && q ? await resolveSmartQuery(q) : null
+  // A dropdown subject AND typed words naming a different subject: the typed
+  // search wins (owner, 28 Oct 2026 — the 24 Oct "English" miss).
+  const { subjectId, smart } = await reconcileSubjectQuery(pickedSubjectId, q)
   const parsed = smart?.understood ? smart.parsed : null
 
   const supabase = await createClient()
@@ -231,7 +233,9 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
     masterIds: parsed ? smart!.masterIds : null,
     levels: parsed && !smart!.masterIds ? smart!.levelNames : null,
     city: city || parsed?.city || null,
-    mode: mode || null,
+    // "online", "home", "evening" typed in the search (owner, 28 Oct 2026).
+    mode: mode || parsed?.mode || null,
+    timing: parsed?.timing ?? null,
     budgetMin: intOrNull(budgetMin),
     budgetMax: intOrNull(budgetMax),
     // When the query resolved to subject(s), the literal title filter is dropped

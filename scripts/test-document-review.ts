@@ -159,7 +159,9 @@ test('a rotation saves as a setting on the document row; the stored file is unch
 
   // The preview route turns the bytes on their way out and writes nothing.
   const preview = code('app/api/documents/[id]/preview/route.ts')
-  assert.match(preview, /sharp\(Buffer\.from\(bytes\)\)\.rotate\(rotation\)/)
+  // (28 Oct 2026: the same sharp pipeline may also resize a thumbnail.)
+  assert.match(preview, /let img = sharp\(Buffer\.from\(bytes\)\)/)
+  assert.match(preview, /if \(rotation !== 0\) img = img\.rotate\(rotation\)/)
   assert.doesNotMatch(preview, /\.upload\(|\.update\(|\.remove\(|original_path/)
 
   const migration = read('supabase/migrations/160_document_rotation_cnic_read.sql')

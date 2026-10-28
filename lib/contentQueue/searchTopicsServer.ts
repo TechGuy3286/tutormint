@@ -23,6 +23,7 @@ import { fetchSearchConsoleQueries, searchConsoleConfigured } from './gsc'
 import {
   buildSearchTopics,
   gscAccessProblem,
+  needsFreshCheck,
   normaliseQuery,
   type CoverPage,
   type CoverPost,
@@ -52,16 +53,21 @@ function toSource(r: Record<string, unknown> | undefined): SourceRow | null {
   }
 }
 
-export async function loadSearchData(): Promise<SearchData> {
+export async function loadSearchData(opts: { recheck?: boolean } = {}): Promise<SearchData> {
   const admin = createAdminClient()
   const serviceEmail = indexingClientEmail()
-  let api: SourceRow | null = null
-  let upload: SourceRow | null = null
-  if (admin) {
+  const read = async (): Promise<{ api: SourceRow | null; upload: SourceRow | null }> => {
+    if (!admin) return { api: null, upload: null }
     const { data } = await admin.from('search_console_queries').select('source, rows, status, error, fetched_at')
     const by = new Map((data ?? []).map((r) => [r.source as string, r as Record<string, unknown>]))
-    api = toSource(by.get('api'))
-    upload = toSource(by.get('upload'))
+    return { api: toSource(by.get('api')), upload: toSource(by.get('upload')) }
+  }
+  let { api, upload } = await read()
+  // Never show an OLD error (owner, 28 Oct 2026): when the stored result is an
+  // error, or nothing was read yet, ask Google again now and show that answer.
+  if (needsFreshCheck(api, opts.recheck !== false, searchConsoleConfigured())) {
+    await refreshSearchConsole()
+    ;({ api, upload } = await read())
   }
   const apiOk = !!api && api.status === 'ok' && api.rows.length > 0
   const source = apiOk ? 'api' : upload && upload.rows.length > 0 ? 'upload' : null

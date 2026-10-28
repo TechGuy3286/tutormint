@@ -42,7 +42,7 @@ const td = 'p-2 text-xs text-slate-700'
 export default async function FinancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; from?: string; to?: string; month?: string; show?: string }>
+  searchParams: Promise<{ tab?: string; from?: string; to?: string; month?: string; show?: string; f?: string; n?: string }>
 }) {
   await requireAdminRole(...SCREEN_ACCESS.finance)
   const sp = await searchParams

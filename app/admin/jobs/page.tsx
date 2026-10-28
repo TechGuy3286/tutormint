@@ -1,3 +1,4 @@
+import { ADMIN_PAGE_SIZE } from '@/lib/adminPagingCore'
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
@@ -24,7 +25,8 @@ import MoreJobs from './MoreJobs'
 
 export const dynamic = 'force-dynamic'
 
-const PAGE_SIZE = 40
+// 25 at a time, like every admin list (owner, 28 Oct 2026 — lib/adminPagingCore).
+const PAGE_SIZE = ADMIN_PAGE_SIZE
 
 export default async function AdminJobsPage({
   searchParams,

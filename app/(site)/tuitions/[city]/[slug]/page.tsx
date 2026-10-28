@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound, permanentRedirect } from 'next/navigation'
@@ -102,7 +103,7 @@ type Params = Promise<{ city: string; slug: string }>
 /** The survivor's public address when this tuition was merged into another
  *  (migration 141), else null. Service role: the column is not in the public
  *  card data and the survivor may be in any status. */
-async function mergedSurvivorHref(jobId: string): Promise<string | null> {
+const mergedSurvivorHref = cache(async (jobId: string): Promise<string | null> => {
   const admin = createAdminClient()
   if (!admin) return null
   const { data } = await admin.from('jobs').select('merged_into').eq('id', jobId).maybeSingle()
@@ -111,7 +112,7 @@ async function mergedSurvivorHref(jobId: string): Promise<string | null> {
   const { data: s } = await admin.from('jobs').select('public_slug, city').eq('id', into).maybeSingle()
   if (!s?.public_slug) return null
   return tuitionHref((s.city as string | null) ?? null, s.public_slug as string)
-}
+})
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { city, slug } = await params

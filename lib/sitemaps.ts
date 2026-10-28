@@ -14,7 +14,7 @@ import { citySegment } from '@/lib/slugs'
 import { SITE_URL } from '@/lib/siteUrl'
 import { cityPages, cityPagePath, CITY_PAGE_THRESHOLD } from '@/lib/cityJobs'
 import { schoolGroups, schoolHubPath, SCHOOL_HUB_THRESHOLD } from '@/lib/schoolJobs'
-import { liveCombinationsAllUncached, LANDING_THRESHOLD } from '@/lib/landing'
+import { liveCombinationsForPages, LANDING_THRESHOLD } from '@/lib/landing'
 import { liveOverlapNoindex, overlapKey } from '@/lib/landingOverlap'
 import { publishedSlugs } from '@/lib/blogFeed'
 import { openRepeatSlugs } from '@/lib/duplicates'
@@ -136,7 +136,7 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
     const [cities, schools, landing, overlap] = await Promise.all([
       cityPages(),
       schoolGroups(),
-      liveCombinationsAllUncached(),
+      liveCombinationsForPages(),
       liveOverlapNoindex(),
     ])
     for (const c of cities) {

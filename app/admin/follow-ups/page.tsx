@@ -1,5 +1,7 @@
 import { senderRefCode } from '@/lib/staffSignups'
 import { waHrefWithRef } from '@/lib/waLinkCore'
+import LoadMoreLink from '@/components/admin/LoadMoreLink'
+import { ADMIN_PAGE_SIZE, pageSlice, shownCount } from '@/lib/adminPagingCore'
 import Link from 'next/link'
 import { permanentRedirect, redirect } from 'next/navigation'
 
@@ -70,7 +72,7 @@ const SIGNED_UP: { key: SignupWindow; label: string }[] = [
   { key: 'week', label: 'Last 7 days' },
 ]
 
-type SP = { tab?: string; filter?: string; scope?: string; chip?: string; q?: string; view?: string; fwd?: string; show?: string; fu?: string }
+type SP = { tab?: string; filter?: string; scope?: string; chip?: string; q?: string; view?: string; fwd?: string; show?: string; fu?: string; n?: string; nr?: string }
 
 export default async function FollowUpsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams
@@ -116,9 +118,13 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
           canCheckPayment={roleMayWrite(actor.adminRole, ['partner'])}
           isOwner={canApprove(actor.adminRole)}
           refCode={await senderRefCode(actor.id)}
+          shown={shownCount(sp.n)}
+          shownNoReply={shownCount(sp.nr)}
         />
       )}
-      {tab === 'parents' && <ParentsTab showNotInterested={sp.scope === 'not_interested'} fuTab={parseFuTab(sp.fu)} chip={parseParentChip(sp.chip)} />}
+      {tab === 'parents' && (
+        <ParentsTab showNotInterested={sp.scope === 'not_interested'} fuTab={parseFuTab(sp.fu)} chip={parseParentChip(sp.chip)} shown={shownCount(sp.n)} shownNoReply={shownCount(sp.nr)} />
+      )}
       {tab === 'orphans' && <OrphansTab />}
     </div>
   )
@@ -135,6 +141,8 @@ async function TutorsTab({
   canCheckPayment,
   isOwner,
   refCode,
+  shown,
+  shownNoReply,
 }: {
   scope: TutorScope
   chip: ChipFilter
@@ -145,6 +153,9 @@ async function TutorsTab({
   isOwner: boolean
   /** The viewer's staff code: added to every site link in the WhatsApp texts. */
   refCode: string | null
+  /** 25 at a time (owner, 28 Oct 2026 — lib/adminPagingCore). */
+  shown: number
+  shownNoReply: number
 }) {
   const now = nowMs()
   // The rows are cached per request for every viewer; the viewer's ref is added
@@ -168,8 +179,12 @@ async function TutorsTab({
     fuTab === 'todo'
       ? [...inTab.filter((r) => r.state.overdue), ...inTab.filter((r) => !r.state.overdue)]
       : inTab.filter((r) => r.state.section === 'sent').sort((a, b) => Date.parse(a.state.dueAt ?? '') - Date.parse(b.state.dueAt ?? ''))
-  const noReply = fuTab === 'sent' ? inTab.filter((r) => r.state.section === 'no_reply') : []
-  const shares = await loadProfileShares([...rows, ...noReply].map((r) => r.id))
+  const noReplyAll = fuTab === 'sent' ? inTab.filter((r) => r.state.section === 'no_reply') : []
+  // Counted over the whole list above; only 25 (or ?n=) are sent and drawn.
+  const page = pageSlice(rows, shown)
+  const noReplyPage = pageSlice(noReplyAll, shownNoReply)
+  const noReply = noReplyPage.rows
+  const shares = await loadProfileShares([...page.rows, ...noReply].map((r) => r.id))
   const href = (o: { scope?: TutorScope; chip?: ChipFilter; window?: SignupWindow | null; fu?: FuTab }) => {
     const sc = o.scope ?? scope
     const ch = o.chip ?? chip
@@ -268,19 +283,21 @@ async function TutorsTab({
         <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">{fuTab === 'todo' ? 'Nobody to message right now.' : 'Nobody followed up in the last 3 days.'}</p>
       ) : (
         <ul className="space-y-3">
-          {rows.map((r) => (
+          {page.rows.map((r) => (
             <UnpaidSignupRow key={r.id} row={r} share={shares.get(r.id) ?? null} canCheckPayment={canCheckPayment} isOwner={isOwner} nowMs={now} />
           ))}
         </ul>
       )}
-      {noReply.length > 0 && (
-        <details className="rounded-2xl border border-gray-200 bg-tm-bg p-3">
-          <summary className="min-h-[36px] cursor-pointer text-xs font-black text-tm-navy">No reply after 3 messages ({noReply.length})</summary>
+      {page.total > 0 && <LoadMoreLink shown={page.shown} total={page.total} noun="tutors" />}
+      {noReplyAll.length > 0 && (
+        <details open={shownNoReply > ADMIN_PAGE_SIZE || undefined} className="rounded-2xl border border-gray-200 bg-tm-bg p-3">
+          <summary className="min-h-[36px] cursor-pointer text-xs font-black text-tm-navy">No reply after 3 messages ({noReplyPage.total})</summary>
           <ul className="mt-3 space-y-3">
             {noReply.map((r) => (
               <UnpaidSignupRow key={r.id} row={r} share={shares.get(r.id) ?? null} canCheckPayment={canCheckPayment} isOwner={isOwner} nowMs={now} />
             ))}
           </ul>
+          <LoadMoreLink shown={noReplyPage.shown} total={noReplyPage.total} noun="tutors" param="nr" />
         </details>
       )}
     </div>
@@ -289,7 +306,19 @@ async function TutorsTab({
 
 // ---------------------------------------------- Parents & email not confirmed
 
-async function ParentsTab({ showNotInterested, fuTab, chip }: { showNotInterested: boolean; fuTab: 'todo' | 'sent'; chip: ParentChip }) {
+async function ParentsTab({
+  showNotInterested,
+  fuTab,
+  chip,
+  shown,
+  shownNoReply,
+}: {
+  showNotInterested: boolean
+  fuTab: 'todo' | 'sent'
+  chip: ParentChip
+  shown: number
+  shownNoReply: number
+}) {
   // The same To do / Followed up board as Tutors (owner, 26 Oct 2026 —
   // lib/parentFollowUpCore): one situation per parent and its own message.
   const { rows: all } = await loadParentFollowUps()
@@ -311,7 +340,7 @@ async function ParentsTab({ showNotInterested, fuTab, chip }: { showNotIntereste
   const todo = chipped.filter((r) => r.state.tab === 'todo').sort((a, b) => Number(b.state.overdue) - Number(a.state.overdue) || a.joinedAt.localeCompare(b.joinedAt))
   const sent = chipped.filter((r) => r.state.section === 'sent')
   const noReply = chipped.filter((r) => r.state.section === 'no_reply')
-  const shown = fuTab === 'todo' ? todo : sent
+  const list = fuTab === 'todo' ? todo : sent
   const base = { scope: showNotInterested ? 'not_interested' : undefined, chip: chip === 'all' ? undefined : chip }
 
   return (
@@ -352,7 +381,10 @@ async function ParentsTab({ showNotInterested, fuTab, chip }: { showNotIntereste
           </Link>
         ))}
       </nav>
-      <ParentFollowUpsBoard cards={shown.map(toCard)} noReply={fuTab === 'sent' ? noReply.map(toCard) : []} />
+      {/* 25 at a time (owner, 28 Oct 2026); the counts above are over the whole list. */}
+      <ParentFollowUpsBoard cards={pageSlice(list, shown).rows.map(toCard)} noReply={fuTab === 'sent' ? pageSlice(noReply, shownNoReply).rows.map(toCard) : []} />
+      {list.length > 0 && <LoadMoreLink shown={Math.min(shown, list.length)} total={list.length} noun="parents" />}
+      {fuTab === 'sent' && noReply.length > shownNoReply && <LoadMoreLink shown={shownNoReply} total={noReply.length} noun="parents with no reply" param="nr" />}
     </div>
   )
 }

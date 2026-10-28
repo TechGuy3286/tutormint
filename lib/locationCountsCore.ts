@@ -12,7 +12,7 @@ export type ReviewCounts = { same: number; notArea: number; add: number; aliases
 export type ReviewKindId = 'all' | 'same' | 'not_area' | 'add'
 
 export const REVIEW_KIND_LABEL: Record<Exclude<ReviewKindId, 'all'>, string> = {
-  same: 'Same as an area',
+  same: 'Suggested match',
   not_area: 'Not an area',
   add: 'New area',
 }
@@ -22,7 +22,7 @@ export function reviewCountsView(c: ReviewCounts, busy = false) {
   return {
     waiting,
     heading: `Typed by tutors and parents (${waiting})`,
-    summary: `Suggested: ${c.same} same as an area · ${c.notArea} not an area · ${c.add} new area. Already done: ${c.aliases} counted as an existing area · ${c.ignored} marked not an area.`,
+    summary: `Suggested: ${c.same} matched to an area · ${c.notArea} not an area · ${c.add} new area. Already done: ${c.aliases} counted as an existing area · ${c.ignored} marked not an area.`,
     tabs: [
       { id: 'all' as const, label: 'All', n: waiting },
       { id: 'same' as const, label: REVIEW_KIND_LABEL.same, n: c.same },
@@ -35,6 +35,6 @@ export function reviewCountsView(c: ReviewCounts, busy = false) {
         ['not_area', c.notArea],
         ['add', c.add],
       ] as const
-    ).map(([id, n]) => ({ id, n, label: `Approve all “${REVIEW_KIND_LABEL[id]}” (${n})`, disabled: busy || n === 0 })),
+    ).map(([id, n]) => ({ id, n, label: id === 'same' ? `Approve all suggestions (${n})` : `Approve all “${REVIEW_KIND_LABEL[id]}” (${n})`, disabled: busy || n === 0 })),
   }
 }

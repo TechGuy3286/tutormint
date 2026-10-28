@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
+import LoadMoreLink from '@/components/admin/LoadMoreLink'
 import { Download, Link2, MoreHorizontal, Plus, Search, Upload } from 'lucide-react'
 
 import { adminFetch } from '@/components/admin/adminFetch'
@@ -9,7 +11,6 @@ import { useToast } from '@/components/ui/Toast'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { pkr } from '@/lib/reconciliationCore'
-import { useUrlState } from '@/lib/useUrlState'
 import { FEE_CHECK_WORDS, feeNeedsCheck, type CreditView, type OrderView } from '@/lib/settlementMatchCore'
 import { financeCards, financeCounts, type FinanceGroup, type FinanceItem } from '@/lib/financeItemsCore'
 import type { SettlementsBoard as BoardData } from '@/lib/settlementMatch'
@@ -59,16 +60,24 @@ function orderChip(o: OrderView) {
   )
 }
 
-const isGroup = (v: string): v is FinanceGroup => v === 'attention' || v === 'good'
 
 export default function SettlementsBoard({
   data,
   items,
+  itemsTotal,
+  counts,
+  cards,
+  group,
   details,
   detailsOpen = false,
 }: {
   data: BoardData
+  /** The shown page of the chosen group (filtered and counted on the server). */
   items: FinanceItem[]
+  itemsTotal: number
+  counts: ReturnType<typeof financeCounts>
+  cards: ReturnType<typeof financeCards>
+  group: FinanceGroup
   /** Server-rendered detail sections (totals, range check, download). */
   details?: ReactNode
   detailsOpen?: boolean
@@ -88,9 +97,14 @@ export default function SettlementsBoard({
     toast.success('Marked as dealt with.')
     router.refresh()
   }
-  const counts = financeCounts(items)
-  const cards = financeCards(view, items)
-  const [group, setGroup] = useUrlState<FinanceGroup>('f', counts.attention > 0 ? 'attention' : 'good', isGroup)
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const groupHref = (g: FinanceGroup) => {
+    const q = new URLSearchParams(searchParams?.toString() ?? '')
+    q.set('f', g)
+    q.delete('n')
+    return `${pathname}?${q.toString()}`
+  }
   const [detailTab, setDetailTab] = useState<DetailTab>('credits')
   const [busy, setBusy] = useState<string | null>(null)
   const [adding, setAdding] = useState<null | 'menu' | 'credit' | 'export'>(null)
@@ -157,7 +171,7 @@ export default function SettlementsBoard({
   const creditById = useMemo(() => new Map(view.credits.map((c) => [c.id, c])), [view.credits])
   const orderByNumber = useMemo(() => new Map(view.orders.map((o) => [o.orderNumber, o])), [view.orders])
   const receiptById = useMemo(() => new Map(view.receipts.map((r) => [r.id, r])), [view.receipts])
-  const shown = items.filter((i) => i.group === group)
+  const shown = items
 
   const upload = async () => {
     const f = file.current?.files?.[0]
@@ -592,17 +606,17 @@ export default function SettlementsBoard({
         {(['attention', 'good'] as const).map((g) => {
           const on = group === g
           return (
-            <button
+            <Link
               key={g}
-              type="button"
-              aria-pressed={on}
-              onClick={() => setGroup(g)}
+              href={groupHref(g)}
+              scroll={false}
+              aria-current={on ? 'page' : undefined}
               className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-4 text-xs font-bold ${
                 on ? 'border-tm-navy bg-tm-navy text-white' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'
               }`}
             >
               {g === 'attention' ? 'Needs attention' : 'All good ✅'} <span className={on ? 'text-white' : 'text-gray-500'}>{counts[g]}</span>
-            </button>
+            </Link>
           )
         })}
       </nav>
@@ -618,6 +632,7 @@ export default function SettlementsBoard({
       ) : (
         <ul className="space-y-2">{shown.map(itemRow)}</ul>
       )}
+      {itemsTotal > 0 && <LoadMoreLink shown={shown.length} total={itemsTotal} noun="items" />}
 
       <details open={detailsOpen} className="rounded-2xl border border-gray-200 bg-white p-4">
         <summary className="min-h-[44px] cursor-pointer text-sm font-bold text-tm-navy">Show details</summary>

@@ -150,6 +150,15 @@ export async function jobFallback(
 
   const subjectIds = (slug: string) => dict.master.filter((m) => m.subject === slug).map((m) => m.id)
 
+  // A time of day ("evening") is the loosest part of a search (owner, 28 Oct
+  // 2026): drop it first and say so, keeping everything else asked for.
+  if (filters.timing) {
+    const jobs = await run({ masterIds: filters.masterIds, levels: filters.levels, timing: null }, !!city)
+    if (jobs.length) {
+      return { line: { en: `No tuitions mention ${filters.timing} lessons yet. Showing every time of day.`, ur: '' }, jobs }
+    }
+  }
+
   if (parsed?.subject) {
     const b = broaderSubject(parsed.subject, dict.subjects)
     if (b) {

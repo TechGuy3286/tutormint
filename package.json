@@ -226,12 +226,17 @@
     "test:femalepages": "tsx --test scripts/test-female-pages.ts",
     "test:aivisibility": "tsx --test scripts/test-ai-visibility.ts",
     "test:ibanlink": "tsx --test scripts/test-iban-link.ts",
-    "test:resetapproved": "tsx --test scripts/test-reset-approved.ts"
+    "test:resetapproved": "tsx --test scripts/test-reset-approved.ts",
+    "test:searchwords": "tsx --test scripts/test-search-words.ts",
+    "test:adminpaging": "tsx --test scripts/test-admin-paging.ts",
+    "test:locationbuckets": "tsx --test scripts/test-location-buckets.ts",
+    "test:sitespeed": "tsx --test scripts/test-site-speed.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
+    "@vercel/speed-insights": "^1.2.0",
     "bcryptjs": "^3.0.3",
     "exceljs": "^4.4.0",
     "googleapis": "^176.0.0",

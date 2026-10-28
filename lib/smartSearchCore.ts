@@ -35,8 +35,18 @@ export type Parsed = {
    *  Computer Science and also ICT, Programming, Coding… The search matches all. */
   alsoSubjects?: { slug: string; name: string }[]
   school: { slug: string; name: string } | null
+  /** Everyday words read as filters (owner, 28 Oct 2026): "online" → the Online
+   *  Tutor job type, "home" → Home Tutor; "uae", "overseas", "abroad"… → online
+   *  for a student abroad. Null when the query named no way of teaching. */
+  mode?: 'Online Tutor' | 'Home Tutor' | null
+  /** "morning" / "afternoon" / "evening" — the time of day the lessons are at. */
+  timing?: 'morning' | 'afternoon' | 'evening' | null
+  /** "jobs", "job", "vacancy" — the person is looking for tuition jobs. */
+  jobs?: boolean
+  /** "overseas", "uae", "dubai", "saudi", "abroad" — a student outside Pakistan. */
+  abroad?: boolean
   /** The words of the query each part came from, for the removable chips. */
-  spans: { kind: 'city' | 'level' | 'subject' | 'school'; text: string; label: string }[]
+  spans: { kind: 'city' | 'level' | 'subject' | 'school' | 'mode' | 'timing' | 'jobs'; text: string; label: string }[]
   /** Meaningful words nothing matched (a tutor's name, for instance). */
   leftover: string
 }
@@ -78,14 +88,78 @@ const BUILTIN_LEVEL_WORDS: Record<string, string[]> = {
   montessori: ['Pre Nursery / Play Group / KG I', 'Nursery / KG - II', 'Prep / KG- III'],
 }
 
-/** Words that carry no meaning in a search (removed before matching). */
+/** Words that carry no meaning in a search (removed before matching). The
+ *  everyday filter words ("online", "home", "jobs", "evening"…) are NOT here —
+ *  they are read by INTENT_WORDS below. */
 const STOP = new Set([
   'tutor', 'tutors', 'teacher', 'teachers', 'tuition', 'tuitions', 'tution', 'for', 'in', 'near', 'at', 'of',
-  'the', 'a', 'an', 'need', 'needed', 'required', 'require', 'want', 'wanted', 'looking', 'job', 'jobs',
-  'home', 'school', 'and', 'or', 'to', 'my', 'me', 'chahiye', 'chahye', 'ke', 'ki', 'ka', 'liye', 'lye', 'mein',
+  'the', 'a', 'an', 'need', 'needed', 'required', 'require', 'want', 'wanted', 'looking',
+  'school', 'and', 'or', 'to', 'my', 'me', 'chahiye', 'chahye', 'ke', 'ki', 'ka', 'liye', 'lye', 'mein',
   'me', 'student', 'students', 'child', 'kids', 'class', 'level', 'subject', 'subjects', 'please', 'best', 'good',
-  'female', 'male', 'lady', 'online',
+  'female', 'male', 'lady', 'all', 'any', 'time', 'timing', 'timings', 'classes', 'based',
 ])
+
+/** Everyday words read as filters, not unknown words (owner, 28 Oct 2026). */
+type Intent =
+  | { kind: 'mode'; mode: 'Online Tutor' | 'Home Tutor'; abroad?: boolean }
+  | { kind: 'timing'; timing: 'morning' | 'afternoon' | 'evening' }
+  | { kind: 'jobs' }
+export const INTENT_WORDS: Record<string, Intent> = {
+  online: { kind: 'mode', mode: 'Online Tutor' },
+  onlin: { kind: 'mode', mode: 'Online Tutor' },
+  'on line': { kind: 'mode', mode: 'Online Tutor' },
+  virtual: { kind: 'mode', mode: 'Online Tutor' },
+  zoom: { kind: 'mode', mode: 'Online Tutor' },
+  home: { kind: 'mode', mode: 'Home Tutor' },
+  'home tutor': { kind: 'mode', mode: 'Home Tutor' },
+  'home tuition': { kind: 'mode', mode: 'Home Tutor' },
+  'at home': { kind: 'mode', mode: 'Home Tutor' },
+  ghar: { kind: 'mode', mode: 'Home Tutor' },
+  overseas: { kind: 'mode', mode: 'Online Tutor', abroad: true },
+  abroad: { kind: 'mode', mode: 'Online Tutor', abroad: true },
+  uae: { kind: 'mode', mode: 'Online Tutor', abroad: true },
+  dubai: { kind: 'mode', mode: 'Online Tutor', abroad: true },
+  'abu dhabi': { kind: 'mode', mode: 'Online Tutor', abroad: true },
+  sharjah: { kind: 'mode', mode: 'Online Tutor', abroad: true },
+  saudi: { kind: 'mode', mode: 'Online Tutor', abroad: true },
+  'saudi arabia': { kind: 'mode', mode: 'Online Tutor', abroad: true },
+  ksa: { kind: 'mode', mode: 'Online Tutor', abroad: true },
+  riyadh: { kind: 'mode', mode: 'Online Tutor', abroad: true },
+  jeddah: { kind: 'mode', mode: 'Online Tutor', abroad: true },
+  qatar: { kind: 'mode', mode: 'Online Tutor', abroad: true },
+  oman: { kind: 'mode', mode: 'Online Tutor', abroad: true },
+  kuwait: { kind: 'mode', mode: 'Online Tutor', abroad: true },
+  bahrain: { kind: 'mode', mode: 'Online Tutor', abroad: true },
+  uk: { kind: 'mode', mode: 'Online Tutor', abroad: true },
+  usa: { kind: 'mode', mode: 'Online Tutor', abroad: true },
+  canada: { kind: 'mode', mode: 'Online Tutor', abroad: true },
+  australia: { kind: 'mode', mode: 'Online Tutor', abroad: true },
+  morning: { kind: 'timing', timing: 'morning' },
+  mornings: { kind: 'timing', timing: 'morning' },
+  subah: { kind: 'timing', timing: 'morning' },
+  afternoon: { kind: 'timing', timing: 'afternoon' },
+  afternoons: { kind: 'timing', timing: 'afternoon' },
+  dopahar: { kind: 'timing', timing: 'afternoon' },
+  evening: { kind: 'timing', timing: 'evening' },
+  evenings: { kind: 'timing', timing: 'evening' },
+  evning: { kind: 'timing', timing: 'evening' },
+  night: { kind: 'timing', timing: 'evening' },
+  shaam: { kind: 'timing', timing: 'evening' },
+  sham: { kind: 'timing', timing: 'evening' },
+  jobs: { kind: 'jobs' },
+  job: { kind: 'jobs' },
+  vacancy: { kind: 'jobs' },
+  vacancies: { kind: 'jobs' },
+  naukri: { kind: 'jobs' },
+}
+
+const MODE_LABEL = { 'Online Tutor': 'Online', 'Home Tutor': 'Home tutor' } as const
+const TIMING_LABEL = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' } as const
+
+/** The intent filters a parsed query carries (none → all null / false). */
+export function intentFilters(p: Parsed): { mode: 'Online Tutor' | 'Home Tutor' | null; timing: 'morning' | 'afternoon' | 'evening' | null; jobs: boolean; abroad: boolean } {
+  return { mode: p.mode ?? null, timing: p.timing ?? null, jobs: !!p.jobs, abroad: !!p.abroad }
+}
 
 export function norm(s: string): string {
   return s
@@ -232,6 +306,63 @@ export function parseQuery(q: string, dict: Dict): Parsed {
   }
 
   const used = new Array(words.length).fill(false)
+
+  // Pass 0a: a grade RANGE — "grade 1-5", "class 6 to 8", "grades 1 5" — names
+  // every grade in it (the hyphen is a space once normalised).
+  const gradeNames = new Map(dict.levels.map((l) => [norm(l.name), l.name]))
+  for (let i = 0; i + 2 < words.length && out.levels.length === 0; i++) {
+    if (!/^(grade|grades|class|classes)$/.test(words[i])) continue
+    const a = Number(words[i + 1])
+    let j = i + 2
+    if (words[j] === 'to') j++
+    const b = Number(words[j])
+    if (!Number.isInteger(a) || !Number.isInteger(b) || !(b > a) || b - a > 12) continue
+    const names: string[] = []
+    for (let g = a; g <= b; g++) {
+      const n = gradeNames.get(`grade ${g}`)
+      if (n) names.push(n)
+    }
+    if (names.length < 2) continue
+    out.levels = names
+    out.levelLabel = `Grade ${a}–${b}`
+    out.spans.push({ kind: 'level', text: words.slice(i, j + 1).join(' '), label: out.levelLabel })
+    for (let k = i; k <= j; k++) used[k] = true
+  }
+
+  // Pass 0b: everyday words read as filters — "online", "home", "evening",
+  // "jobs", "uae"… (owner, 28 Oct 2026). Two-word phrases first.
+  for (let len = 2; len >= 1; len--) {
+    for (let i = 0; i + len <= words.length; i++) {
+      if (used.slice(i, i + len).some(Boolean)) continue
+      const phrase = words.slice(i, i + len).join(' ')
+      const it = INTENT_WORDS[phrase]
+      if (!it) continue
+      if (it.kind === 'mode') {
+        if (it.abroad && !out.abroad) {
+          // A student abroad is taught online; one chip says both.
+          out.abroad = true
+          out.mode = 'Online Tutor'
+          const at = out.spans.findIndex((s) => s.kind === 'mode')
+          const span = { kind: 'mode' as const, text: at >= 0 ? `${out.spans[at].text} ${phrase}` : phrase, label: 'Online · student abroad' }
+          if (at >= 0) out.spans[at] = span
+          else out.spans.push(span)
+        } else if (!out.mode) {
+          out.mode = it.mode
+          out.spans.push({ kind: 'mode', text: phrase, label: MODE_LABEL[it.mode] })
+        }
+      } else if (it.kind === 'timing') {
+        if (!out.timing) {
+          out.timing = it.timing
+          out.spans.push({ kind: 'timing', text: phrase, label: TIMING_LABEL[it.timing] })
+        }
+      } else if (!out.jobs) {
+        out.jobs = true
+        out.spans.push({ kind: 'jobs', text: phrase, label: 'Tuition jobs' })
+      }
+      for (let k = i; k < i + len; k++) used[k] = true
+    }
+  }
+
   const take = (e: Entry, from: number, to: number) => {
     const text = words.slice(from, to).join(' ')
     if (e.kind === 'city' && !out.city) out.city = e.value
@@ -300,17 +431,26 @@ export function parseQuery(q: string, dict: Dict): Parsed {
 
 /** Did the query mean anything we understood? */
 export function understood(p: Parsed): boolean {
-  return !!(p.city || p.levels.length || p.subject || p.school)
+  return !!(p.city || p.levels.length || p.subject || p.school || p.mode || p.timing || p.jobs)
 }
 
 /** The query with one chip's words removed — the chip's × link. */
 export function withoutSpan(q: string, spanText: string): string {
   const words = norm(q).split(' ')
   const drop = spanText.split(' ')
+  let found = false
   for (let i = 0; i + drop.length <= words.length; i++) {
     if (drop.every((w, j) => words[i + j] === w)) {
       words.splice(i, drop.length)
+      found = true
       break
+    }
+  }
+  // A chip made of words that were not side by side ("online … uae").
+  if (!found) {
+    for (const w of drop) {
+      const at = words.indexOf(w)
+      if (at >= 0) words.splice(at, 1)
     }
   }
   return words.filter((w) => !STOP.has(w)).join(' ').trim()
@@ -376,4 +516,16 @@ export function subjectMatches(typed: string, name: string, words: string[] = []
 /** The search words for a subject slug, built-in + any extra. */
 export function wordsForSlug(slug: string, extra: { slug: string; alias: string }[] = []): string[] {
   return [...(BUILTIN_SUBJECT_WORDS[slug] ?? []), ...extra.filter((a) => a.slug === slug).map((a) => a.alias)]
+}
+
+/**
+ * A picked dropdown subject vs the subject the typed words name (owner, 28 Oct
+ * 2026 — the 24 Oct "English" search that found nothing). True when the typed
+ * subject should win: the words named a subject and the picked one is not
+ * among its master ids.
+ */
+export function typedSubjectWins(typedMasterIds: readonly number[] | null | undefined, pickedId: number | null): boolean {
+  if (pickedId == null) return false
+  const typed = typedMasterIds ?? []
+  return typed.length > 0 && !typed.includes(pickedId)
 }

@@ -10,6 +10,7 @@ import ActivityTracker from "@/components/ActivityTracker";
 import { UpgradeProvider } from '@/components/upgrade/UpgradeProvider'
 import { ToastProvider } from '@/components/ui/Toast'
 import { ConfirmProvider } from '@/components/ui/ConfirmDialog'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 
 export const metadata: Metadata = {
   title: SITE_DEFAULT_TITLE,
@@ -75,6 +76,9 @@ export default function RootLayout({
             </UpgradeProvider>
           </ConfirmProvider>
         </ToastProvider>
+        {/* Real-user speed data (owner, 28 Oct 2026): Vercel Speed Insights. The
+            script and its reports are same-origin (/_vercel/speed-insights). */}
+        <SpeedInsights />
       </body>
     </html>
   );

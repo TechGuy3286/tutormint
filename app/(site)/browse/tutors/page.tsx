@@ -7,6 +7,7 @@ import { parseMode } from '@/lib/locations'
 import { isOnlineTitle } from '@/lib/jobTitlesCore'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
 import SearchBeacon from '@/components/search/SearchBeacon'
@@ -22,7 +23,7 @@ import { rankedTutors, tutorFiltersFrom, tutorFiltersToParams } from '@/lib/brow
 import SearchChips from '@/components/search/SearchChips'
 import { tutorFallback } from '@/lib/searchFallback'
 import { tutorFacets } from '@/lib/tutorFacets'
-import { resolveSmartQuery } from '@/lib/smartSearch'
+import { reconcileSubjectQuery, resolveSmartQuery } from '@/lib/smartSearch'
 import NotifyMe from '@/components/search/NotifyMe'
 import { uniqueById } from '@/lib/infiniteMerge'
 
@@ -152,7 +153,6 @@ export async function generateMetadata({
 export default async function BrowseTutorsPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams
 
-  const subjectId = intOrNull(one(sp.subject))
   const city = one(sp.city)
   const area = one(sp.area)
   const mode = parseMode(one(sp.mode)) ?? ''
@@ -161,6 +161,13 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
   const feeMax = one(sp.feeMax)
   const q = one(sp.q)
   const page = Math.max(1, intOrNull(one(sp.page)) ?? 1)
+  // A dropdown subject AND typed words naming a different subject: the typed
+  // search wins (owner, 28 Oct 2026 — the 24 Oct "English" miss).
+  const { subjectId, smart: typedSmart } = await reconcileSubjectQuery(intOrNull(one(sp.subject)), q)
+  // "tuition jobs" typed on Find tutors is a tutor looking for work.
+  if (typedSmart?.parsed.jobs && !typedSmart.parsed.subject && !typedSmart.parsed.levels.length) {
+    redirect(`/browse/tuitions?q=${encodeURIComponent(q)}`)
+  }
 
   /**
    * The current search with some filters dropped.

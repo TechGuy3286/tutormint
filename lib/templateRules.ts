@@ -28,6 +28,7 @@ import { FU_PLACEHOLDERS, FU_TEMPLATES } from '@/lib/followUpTemplatesCore'
 import { PARENT_DEFAULTS, PARENT_PLACEHOLDERS, PARENT_TEMPLATES } from '@/lib/parentFollowUpCore'
 import { CONSENT_ASK_DEFAULT, CONSENT_ASK_KEY, CONSENT_ASK_PLACEHOLDERS } from '@/lib/tuitionConsentCore'
 import { STATUS_IMAGE_DEFAULT, STATUS_IMAGE_TEMPLATE_KEY, STATUS_PLACEHOLDERS, statusSaveProblem } from '@/lib/social/statusImageCore'
+import { PROFILE_SHARE_DEFAULT, PROFILE_SHARE_PLACEHOLDERS, PROFILE_SHARE_TEMPLATE_KEY } from '@/lib/profileShareCore'
 
 export type GroupTemplateInfo = {
   key: string
@@ -78,6 +79,13 @@ export const STATUS_GROUP: readonly GroupTemplateInfo[] = [
   { key: STATUS_IMAGE_TEMPLATE_KEY, recipient: 'tutor', placeholders: STATUS_PLACEHOLDERS, defaultBody: STATUS_IMAGE_DEFAULT, noLinks: true },
 ]
 
+/** "Share on WhatsApp" on a tutor's admin card (owner, 28 Oct 2026): the ready
+ *  message staff send to any contact. "verified" is left out for a tutor
+ *  without the Verified badge. */
+export const SHARE_GROUP: readonly GroupTemplateInfo[] = [
+  { key: PROFILE_SHARE_TEMPLATE_KEY, recipient: 'parent', placeholders: PROFILE_SHARE_PLACEHOLDERS, defaultBody: PROFILE_SHARE_DEFAULT },
+]
+
 /** "Ask parent" on a "Consent not recorded" chip (owner, 27 Oct 2026). */
 export const CONSENT_GROUP: readonly GroupTemplateInfo[] = [
   { key: CONSENT_ASK_KEY, recipient: 'parent', placeholders: CONSENT_ASK_PLACEHOLDERS, defaultBody: CONSENT_ASK_DEFAULT },
@@ -90,6 +98,7 @@ export function groupTemplateInfo(key: string): GroupTemplateInfo | null {
     FOLLOW_UPS_GROUP.find((t) => t.key === key) ??
     PARENTS_GROUP.find((t) => t.key === key) ??
     STATUS_GROUP.find((t) => t.key === key) ??
+    SHARE_GROUP.find((t) => t.key === key) ??
     null
   )
 }

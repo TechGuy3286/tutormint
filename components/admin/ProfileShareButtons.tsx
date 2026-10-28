@@ -3,12 +3,13 @@
 import { useState } from 'react'
 import { Check, Link2, MessageCircle } from 'lucide-react'
 
-import { whatsappShareHref, type ProfileShare } from '@/lib/profileShareCore'
+import { shareMessageHref, type ProfileShare } from '@/lib/profileShareCore'
 import { addRefToUrl } from '@/lib/waLinkCore'
 import { useStaffRefCode } from '@/components/admin/ReadOnly'
 
 // "Copy profile link" + "Share on WhatsApp" (owner, 20 Oct 2026). Both carry
-// the clean public profile address. When the profile is not public both are
+// the clean public profile address. Share opens WhatsApp with a ready message
+// (owner, 28 Oct 2026 — Team inbox → Templates → Share profile). When the profile is not public both are
 // disabled and the reason is shown under them (lib/profileShareCore).
 
 const BTN =
@@ -52,7 +53,7 @@ export default function ProfileShareButtons({ share, className = '' }: { share: 
         </button>
         {url ? (
           <a
-            href={whatsappShareHref(url)}
+            href={shareMessageHref(share, refCode) ?? undefined}
             target="_blank"
             rel="noopener noreferrer"
             className={`${BTN} border-tm-green-deep/40 bg-tm-tint-green text-tm-green-deep`}

@@ -3,7 +3,7 @@ import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { encodeCursor, decodeCursor } from '@/lib/cursor'
 import { getLandingLinker } from '@/lib/landing'
-import { resolveSmartQuery } from '@/lib/smartSearch'
+import { reconcileSubjectQuery, resolveSmartQuery } from '@/lib/smartSearch'
 import type { Parsed } from '@/lib/smartSearchCore'
 import { loadCardTrustFacts, type CardTrustFacts } from '@/lib/badgeFacts'
 import { publicPhoto } from '@/lib/photoPrivacyCore'
@@ -151,7 +151,14 @@ const rankedTutorsCached = cache(async (key: string): Promise<RankResult> => {
     filters.masterIds && filters.masterIds.length > 0 ? filters.masterIds : filters.masterId != null ? [filters.masterId] : null
   let queryText = filters.q || null
   let city = filters.city || null
+  let mode = filters.mode || null
   let parsed: Parsed | null = null
+  // A dropdown subject AND typed words naming a different subject: the typed
+  // search wins (owner, 28 Oct 2026 — the 24 Oct "English" miss).
+  if (filters.masterId != null && !(filters.masterIds && filters.masterIds.length > 0) && filters.q) {
+    const r = await reconcileSubjectQuery(filters.masterId, filters.q)
+    if (r.subjectId == null) masterIds = null
+  }
   // The ONE smart search (owner, 8 Oct 2026): "sahiwal tutor for primary" is
   // read into City · Level · Subject/School and filters by them; a query it does
   // not understand (a tutor's name) stays a name search.
@@ -161,6 +168,8 @@ const rankedTutorsCached = cache(async (key: string): Promise<RankResult> => {
       parsed = smart.parsed
       masterIds = smart.masterIds ?? smart.levelMasterIds
       if (!city && smart.parsed.city) city = smart.parsed.city
+      // "online", "home" (owner, 28 Oct 2026) are the job-type filter.
+      if (!mode && smart.parsed.mode) mode = smart.parsed.mode
       queryText = null
     }
   }
@@ -170,7 +179,7 @@ const rankedTutorsCached = cache(async (key: string): Promise<RankResult> => {
     p_master_ids: masterIds && masterIds.length > 0 ? masterIds : null,
     p_city: city,
     p_area: filters.area || null,
-    p_teaching_mode: filters.mode || null,
+    p_teaching_mode: mode,
     p_gender: filters.gender || null,
     p_fee_min: intOrNull(filters.feeMin),
     p_fee_max: intOrNull(filters.feeMax),

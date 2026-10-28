@@ -5,6 +5,7 @@ import { DOCS_BUCKET } from '@/lib/documents'
 import sharp from 'sharp'
 import { documentServable, isDocumentStaff } from '@/lib/documentAccess'
 import { normaliseRotation } from '@/lib/docRotation'
+import { previewWidth } from '@/lib/docPreviewSize'
 
 // The ONLY way bytes leave the private identity-docs bucket.
 //
@@ -38,7 +39,7 @@ import { normaliseRotation } from '@/lib/docRotation'
 
 export const runtime = 'nodejs'
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const deny = () => new NextResponse('Not found', { status: 404 })
 
@@ -89,9 +90,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   let bytes: Uint8Array = new Uint8Array(await file.arrayBuffer())
   const rotation = normaliseRotation(doc.rotation)
-  if (rotation !== 0) {
+  // A thumbnail asks for a fixed width (lib/docPreviewSize, owner 28 Oct 2026):
+  // a smaller copy made here, on the way out — still private, never cached.
+  const width = previewWidth(new URL(request.url).searchParams.get('w'))
+  if (rotation !== 0 || width) {
     try {
-      bytes = new Uint8Array(await sharp(Buffer.from(bytes)).rotate(rotation).jpeg({ quality: 82 }).toBuffer())
+      let img = sharp(Buffer.from(bytes))
+      if (rotation !== 0) img = img.rotate(rotation)
+      if (width) img = img.resize({ width, withoutEnlargement: true })
+      bytes = new Uint8Array(await img.jpeg({ quality: width ? 78 : 82 }).toBuffer())
     } catch {
       /* serve it as stored rather than fail the preview */
     }

@@ -25,7 +25,9 @@ import { pageAll } from '@/lib/pageAll'
 import { logAdminAction } from '@/lib/auditLog'
 import { revalidateLanding } from '@/lib/landingRevalidate'
 import { AREA_ALIAS_TAG } from '@/lib/areaAliases'
-import { cleanAreaName, suggestFor, type NotAreaReason, type Suggestion } from '@/lib/locationCleanCore'
+import { cleanAreaName, type NotAreaReason, type Suggestion } from '@/lib/locationCleanCore'
+import { areaKey } from '@/lib/areaHubCore'
+import { bucketArea, bucketSuggestion, type Bucket } from '@/lib/locationBucketsCore'
 import type { AdminRole } from '@/lib/adminAccessCore'
 
 export type ReviewRow = {
@@ -42,6 +44,10 @@ export type ReviewRow = {
    *  matched under a curated city). */
   cityListed: boolean
   suggestion: Suggestion
+  /** The clean-up bucket (owner, 28 Oct 2026): auto / suggest / new_area /
+   *  not_area, with how sure (0..1). */
+  bucket: Bucket
+  confidence: number
 }
 
 export type ReviewBoard = {
@@ -88,7 +94,7 @@ export async function loadLocationReview(): Promise<ReviewBoard> {
     pageAll((from, to) => admin.from('tutor_profiles').select('id, city, area').order('id').range(from, to)),
     pageAll((from, to) => admin.from('profiles').select('id, city, area').order('id').range(from, to)),
     pageAll((from, to) => admin.from('tutor_areas').select('id, city, area').order('id').range(from, to)).catch(() => []),
-    pageAll((from, to) => admin.from('location_area_aliases').select('id, raw, city_id, location_cities(name)').is('removed_at', null).order('id').range(from, to)).catch(() => []),
+    pageAll((from, to) => admin.from('location_area_aliases').select('id, raw, city_id, area_id, location_cities(name)').is('removed_at', null).order('id').range(from, to)).catch(() => []),
     pageAll((from, to) => admin.from('location_ignored').select('id, city, raw').is('removed_at', null).order('id').range(from, to)).catch(() => []),
   ])
 
@@ -117,16 +123,29 @@ export async function loadLocationReview(): Promise<ReviewBoard> {
   for (const r of [...tutors, ...profs, ...tutorAreas] as { city: string | null; area: string | null }[]) take(r.city, r.area, false)
 
   const cityNames = [...cityByName.values()].map((c) => c.name)
+  // Each city's approved spellings (areaKey(typed) → area name), for the buckets.
+  const areaName = new Map<number, string>()
+  for (const list of Object.values(areasByCity)) for (const a of list) areaName.set(a.id, a.name)
+  const spellings: Record<string, Record<string, string>> = {}
+  for (const a of aliasRows as { raw: string; area_id: number; location_cities: unknown }[]) {
+    const name = areaName.get(a.area_id)
+    const city = one(a.location_cities)
+    if (name && city) (spellings[low(city)] ??= {})[areaKey(a.raw, city)] = name
+  }
   const rows: ReviewRow[] = [...found.entries()].map(([key, f]) => {
     const list = (areasByCity[low(f.city)] ?? []).map((a) => a.name)
+    const cityListed = cityByName.has(low(f.city))
+    const b = bucketArea({ value: f.value, city: f.city, areas: list, aliases: spellings[low(f.city)] ?? null, cities: cityNames, cityListed })
     return {
       key,
       value: f.value,
       city: f.city,
       count: f.count,
       openTuitions: f.open,
-      cityListed: cityByName.has(low(f.city)),
-      suggestion: suggestFor(f.value, f.city, list, cityNames),
+      cityListed,
+      suggestion: bucketSuggestion(b, f.value, f.city),
+      bucket: b.bucket,
+      confidence: b.confidence,
     }
   })
   rows.sort((a, b) => b.count - a.count || a.value.localeCompare(b.value))
@@ -255,7 +274,8 @@ export async function applyLocationActions(actions: ReviewAction[], actor: Actor
 
 export type ReviewKind = 'all' | 'same' | 'not_area' | 'add'
 
-export const REVIEW_PAGE_SIZE = 40
+/** 25 at a time, like every admin list (owner, 28 Oct 2026). */
+export const REVIEW_PAGE_SIZE = 25
 /** Items one POST may carry: small enough to finish in a couple of seconds. */
 export const REVIEW_BATCH_MAX = 25
 

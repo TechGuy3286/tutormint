@@ -6,6 +6,7 @@ import { SITE_URL } from '@/lib/siteUrl'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { citySegment } from '@/lib/slugs'
 import { pageAll } from '@/lib/pageAll'
+import { revalidateTuitions } from '@/lib/landingRevalidate'
 import { isPauseDue } from '@/lib/tuitionStatus'
 import {
   normalisePrivateKey,
@@ -431,6 +432,8 @@ function runAfter(fn: () => Promise<void>): void {
  * of everything else waiting (owner, 16 Oct 2026).
  */
 export function queueIndexingUpdate(job: { public_slug?: string | null; city?: string | null }, opts: { newPost?: boolean } = {}): void {
+  // Cached tuition reads are cleared on every change (owner, 28 Oct 2026).
+  revalidateTuitions()
   const url = tuitionUrl(job)
   if (!url) return
   runAfter(() => enqueueAndDrain(url, 'URL_UPDATED', opts.newPost ? PRIORITY_NEW_POST : PRIORITY_CHANGE))
@@ -442,6 +445,7 @@ export function queueIndexingUpdate(job: { public_slug?: string | null; city?: s
  * the tuition has just been given.
  */
 export function queueIndexingForStatus(job: { public_slug?: string | null; city?: string | null }, status: string | null | undefined): void {
+  revalidateTuitions()
   if (indexingKindForStatus(status) === 'URL_UPDATED') queueIndexingUpdate(job)
   else queueIndexingDelete(job)
 }

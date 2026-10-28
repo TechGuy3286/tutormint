@@ -37,10 +37,11 @@ const PAGE_SIZE = 100
 export default async function AdminUsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; role?: string; status?: string; filter?: string; tip?: string; tab?: string; all?: string }>
+  searchParams: Promise<{ q?: string; role?: string; status?: string; filter?: string; tip?: string; tab?: string; all?: string; n?: string; paid?: string; posted?: string; pv?: string; docs?: string }>
 }) {
   const actor = await requireAdminRole(...SCREEN_ACCESS.users)
-  const { role = 'all', filter, tip, tab, all } = await searchParams
+  const sp = await searchParams
+  const { role = 'all', filter, tip, tab, all } = sp
 
   // ?filter=suspicious is the junk-account cleanup, and it is owner-only —
   // narrower than the directory it lives inside. A manager or support admin
@@ -58,7 +59,8 @@ export default async function AdminUsersPage({
   // status chips (?role=, ?status=) open the matching tab.
   if (!tip || !isTipKey(tip)) {
     const legacy = role === 'parent' ? 'parents' : role === 'admin' ? 'staff' : role === 'tutor' ? 'tutors' : null
-    return <PeopleTabs tab={legacy ?? pickPeopleTab(tab)} showAll={all === '1'} role={actor.adminRole} />
+    // Every chip, the search and 'Load more' are worked out on the server (owner, 28 Oct 2026).
+    return <PeopleTabs tab={legacy ?? pickPeopleTab(tab)} showAll={all === '1'} role={actor.adminRole} sp={sp} />
   }
 
   const admin = createAdminClient()

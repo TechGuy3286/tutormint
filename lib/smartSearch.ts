@@ -12,7 +12,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { fetchTaxonomyTables } from '@/lib/taxonomyBuild'
 import { pageAll } from '@/lib/pageAll'
 import { CITY_COORDS } from '@/lib/cityDistance'
-import { parseQuery, understood, type Dict, type Parsed } from '@/lib/smartSearchCore'
+import { parseQuery, typedSubjectWins, understood, type Dict, type Parsed } from '@/lib/smartSearchCore'
 import { maskTuitionText } from '@/lib/maskTuition'
 import { searchNotCounted } from '@/lib/searchCount'
 
@@ -103,6 +103,33 @@ export function resolveWith(dict: Loaded, parsed: Parsed): SmartResolved {
 export async function resolveSmartQuery(q: string): Promise<SmartResolved> {
   const dict = await loadSearchDict()
   return resolveWith(dict, parseQuery(q, dict))
+}
+
+/**
+ * A subject picked in the dropdown AND words typed in the search box (owner,
+ * 28 Oct 2026). On 24 Oct a guest picked "IELTS Preparation", then typed
+ * "English": the page required both, and nothing has both, so "English" found
+ * nothing. The rule now: when the typed words name a subject (or school) and the
+ * picked subject is not one of them, the TYPED search wins and the dropdown
+ * subject is set aside. When the picked subject is one of the typed ones, the
+ * picked (narrower) one stays, as before.
+ */
+export function reconcileSubject(
+  dict: Loaded,
+  subjectId: number | null,
+  q: string | null | undefined,
+): { subjectId: number | null; smart: SmartResolved | null } {
+  const text = (q ?? '').trim()
+  if (!text) return { subjectId, smart: null }
+  const smart = resolveWith(dict, parseQuery(text, dict))
+  if (subjectId == null) return { subjectId, smart }
+  if (typedSubjectWins(smart.masterIds, subjectId)) return { subjectId: null, smart }
+  return { subjectId, smart: null }
+}
+
+export async function reconcileSubjectQuery(subjectId: number | null, q: string | null | undefined) {
+  if (!(q ?? '').trim()) return { subjectId, smart: null as SmartResolved | null }
+  return reconcileSubject(await loadSearchDict(), subjectId, q)
 }
 
 /** Every "nothing found" search, for the Overview to-do. Never throws. */

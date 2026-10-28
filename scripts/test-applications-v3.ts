@@ -264,7 +264,8 @@ test('grouping: To do overdue first (oldest due first); Sent soonest due first, 
 test('search covers both tabs and Older, and each result says which tab it is in', () => {
   assert.ok(searchMatches({ tutorName: 'Rida Saeed', jobRef: 'TM-1303', jobTitle: 'Online Tutor', jobCity: 'Karachi' }, '1303'))
   const ui = code('app/admin/applications/ApplicationsClient.tsx')
-  assert.ok(ui.includes('const listed = searching ? all.filter((r) => hits.has(r.id))'))
+  // The search runs on the server over the whole board (28 Oct 2026).
+  assert.ok(code('lib/applicationsPagingCore.ts').includes('const listed = searching ? all.filter((r) => hits.has(r.id))'))
   assert.ok(ui.includes('{searching && <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-black ${SECTION_CHIP[r.section]}`}>{SECTION_LABEL[r.section]}</span>}'))
 })
 
@@ -339,6 +340,6 @@ test('By tutor: one message listing every active application, and it is not a pa
   assert.ok(lib.includes("'tutor_update',\n      'tutor',"))
   // Both views and tabs share the Staff filter and search.
   const ui = code('app/admin/applications/ApplicationsClient.tsx')
-  assert.ok(ui.includes("const keyOf = (r: Row) => (view === 'tutor' ? r.tutorId : r.jobId)"))
+  assert.ok(code('lib/applicationsPagingCore.ts').includes("const keyOf = (r: WithDue<R>) => (view === 'tutor' ? r.tutorId : r.jobId)"))
   assert.ok(ui.includes('Tutor updated {ago(updated.at, nowMs)}'))
 })

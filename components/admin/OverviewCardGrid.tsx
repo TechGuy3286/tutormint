@@ -16,6 +16,9 @@ import ProfileShareButtons from '@/components/admin/ProfileShareButtons'
 import type { ProfileShare } from '@/lib/profileShareCore'
 import { setUrlParam, useUrlState } from '@/lib/useUrlState'
 import AdminWhatsAppLink from '@/components/admin/AdminWhatsAppLink'
+import LoadMoreLink from '@/components/admin/LoadMoreLink'
+import QueueSearch from '@/components/admin/QueueSearch'
+import { gridHref } from '@/lib/cardGridPagingCore'
 import SelfieMatchWarning from '@/components/admin/SelfieMatchWarning'
 import {
   DOC_FILTERS,
@@ -106,24 +109,119 @@ export type FilterRow = {
   options: { key: string; label: string; hideWhenZero?: boolean }[]
 }
 
+/** Server-paged mode (owner, 28 Oct 2026): the SERVER searched, filtered and
+ *  counted the whole list (lib/cardGridPagingCore) and `items` is the slice to
+ *  show. Chips and the search are links / address changes; "Load more" asks
+ *  the server for 25 more. Nothing is filtered or counted here. */
+export type GridPaging = {
+  basePath: string
+  /** Address values kept on every chip and search link (the tab, ?all=1). */
+  keep: Record<string, string | undefined>
+  q: string
+  sel: Record<string, string>
+  rowCounts: Record<string, Record<string, number>>
+  docFilter: DocFilter | null
+  docCounts: Record<DocFilter, number> | null
+  /** Cards shown, and how many the filters leave. */
+  shown: number
+  total: number
+  /** Cards the search leaves, and every card before it. */
+  searchedCount: number
+  allCount: number
+  noun: string
+}
+
 const STEP = 48
 const ROLE_WORD = { tutor: 'Tutor', parent: 'Parent', other: 'Member' } as const
 
 const BTN = 'inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl px-2 text-[11px] font-bold'
 
-export default function OverviewCardGrid({
-  items,
-  docFilters = false,
-  isOwner = false,
-  filterRows = [],
-}: {
+type GridProps = {
   items: GridItem[]
   /** Show the Documents filter chips (the Tutors list). */
   docFilters?: boolean
   isOwner?: boolean
   /** Extra chip rows, applied in order before the Documents chips. */
   filterRows?: FilterRow[]
-}) {
+  /** The server did the work: draw `items` as they are (People). */
+  paged?: GridPaging
+}
+
+export default function OverviewCardGrid(props: GridProps) {
+  return props.paged ? <PagedGrid {...props} paged={props.paged} /> : <ClientGrid {...props} />
+}
+
+const CHIP = (on: boolean) =>
+  `inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-4 text-xs font-bold ${
+    on ? 'border-tm-navy bg-tm-navy text-white' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'
+  }`
+
+/** The server-paged grid: chips are links, the search box rewrites ?q=, and
+ *  "Load more" raises ?n= (lib/adminPagingCore). */
+function PagedGrid({ items, isOwner = false, filterRows = [], paged }: GridProps & { paged: GridPaging }) {
+  const router = useRouter()
+  const refresh = () => router.refresh()
+  const state = { keep: paged.keep, q: paged.q, sel: paged.sel, docFilter: paged.docFilter }
+  const href = (change: Record<string, string>) => gridHref(paged.basePath, state, filterRows, change)
+  const searchKeep: Record<string, string | undefined> = { ...paged.keep }
+  for (const r of filterRows) {
+    const v = paged.sel[r.param]
+    if (v && v !== r.options[0].key) searchKeep[r.param] = v
+  }
+  if (paged.docFilter && paged.docFilter !== 'all') searchKeep.docs = paged.docFilter
+  return (
+    <div className="space-y-3">
+      <QueueSearch basePath={paged.basePath} initialQuery={paged.q} filter="" keep={searchKeep} placeholder="Search this list" ariaLabel="Search this list" />
+      {filterRows.map((row) => (
+        <nav key={row.param} aria-label={row.label} className="flex flex-wrap gap-2">
+          {row.options
+            .filter((o) => !o.hideWhenZero || (paged.rowCounts[row.param]?.[o.key] ?? 0) > 0 || paged.sel[row.param] === o.key)
+            .map((o) => {
+              const on = (paged.sel[row.param] ?? row.options[0].key) === o.key
+              return (
+                <Link key={o.key} href={href({ [row.param]: o.key })} scroll={false} aria-current={on ? 'page' : undefined} className={CHIP(on)}>
+                  {o.label} <span className={on ? 'text-white' : 'text-gray-500'}>{paged.rowCounts[row.param]?.[o.key] ?? 0}</span>
+                </Link>
+              )
+            })}
+        </nav>
+      ))}
+      {paged.docCounts && paged.docFilter && (
+        <nav aria-label="Documents" className="flex flex-wrap gap-2">
+          {DOC_FILTERS.map((f) => {
+            const on = f === paged.docFilter
+            return (
+              <Link key={f} href={href({ docs: f })} scroll={false} aria-current={on ? 'page' : undefined} className={CHIP(on)}>
+                {docFilterLabel(f, isOwner)} <span className={on ? 'text-white' : 'text-gray-500'}>{paged.docCounts?.[f] ?? 0}</span>
+              </Link>
+            )
+          })}
+        </nav>
+      )}
+      {paged.q.trim() && (
+        <p className="text-[11px] font-semibold text-gray-600">
+          {paged.searchedCount} of {paged.allCount} match “{paged.q.trim()}”
+        </p>
+      )}
+      {paged.total === 0 ? (
+        <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
+          {paged.allCount === 0 ? 'Nothing here right now.' : paged.searchedCount > 0 ? 'No card matches that filter.' : 'No card matches that search.'}
+        </p>
+      ) : (
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" data-card-count={paged.total}>
+          {items.map((it) => (
+            <li key={it.id} className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-4">
+              {it.member ? <MemberBody it={it} m={it.member} onMoved={refresh} onRestored={refresh} /> : <PlainBody it={it} />}
+            </li>
+          ))}
+        </ul>
+      )}
+      {paged.total > 0 && <LoadMoreLink shown={paged.shown} total={paged.total} noun={paged.noun} />}
+    </div>
+  )
+}
+
+function ClientGrid({ items, docFilters = false, isOwner = false, filterRows = [] }: GridProps) {
   const sp = useSearchParams()
   const [sel, setSel] = useState<Record<string, string>>(() =>
     Object.fromEntries(

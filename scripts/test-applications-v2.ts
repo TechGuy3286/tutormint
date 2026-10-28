@@ -232,8 +232,10 @@ test('search finds worked items and Older items by tutor, TM number, title or ci
   // the Older section opens when it holds a match.
   const ui = code('app/admin/applications/ApplicationsClient.tsx')
   // v3: search covers To do, Sent and Older, filters set aside (no Older section while searching).
-  assert.ok(ui.includes('const listed = searching ? all.filter((r) => hits.has(r.id))'))
-  assert.ok(ui.includes('const olderRows = searching ? []'))
+  // Worked out on the server since 28 Oct 2026 (Load more): lib/applicationsPagingCore.
+  const core = code('lib/applicationsPagingCore.ts')
+  assert.ok(core.includes('const listed = searching ? all.filter((r) => hits.has(r.id))'))
+  assert.ok(core.includes('const olderRows = searching ? []'))
   assert.match(ui, /hit \? 'bg-tm-tint-gold'/)
 })
 

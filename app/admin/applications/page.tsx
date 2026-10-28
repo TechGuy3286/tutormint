@@ -4,6 +4,8 @@ import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadApplicationBoard } from '@/lib/applicationTracking'
 import { loadForwardBoard } from '@/lib/applicantForwards'
 import { legacyApplicationsHref, parseStaffFilter, parseStageFilter } from '@/lib/applicationStageCore'
+import { ADMIN_PAGE_SIZE, shownCount } from '@/lib/adminPagingCore'
+import { applicationsView } from '@/lib/applicationsPagingCore'
 
 import ApplicationsClient from './ApplicationsClient'
 import { loadAppTemplates, loadSupportWhatsApp } from '@/lib/applicationTemplates'
@@ -19,11 +21,16 @@ import { loadAppTemplates, loadSupportWhatsApp } from '@/lib/applicationTemplate
 //   - each tuition group's "Forward to parents" button opens the panel that
 //     replaced the separate Forward to parents tab (its old links land here);
 //   - the Staff filter, stage chips, search, city owners and stage edit rights
-//     are as in v2.
+//     are as in v2;
+//   - Load more (owner, 28 Oct 2026): the tabs, the Staff filter, the stage
+//     chips, the view, the search and every count are worked out HERE over the
+//     whole board (lib/applicationsPagingCore). The browser gets 25 groups at a
+//     time (?n=), the Older section its own 25 (?on=) and the "viewed the
+//     number" list its own 25 (?vn=).
 
 export const dynamic = 'force-dynamic'
 
-type SP = { staff?: string; show?: string; tab?: string; view?: string; fwd?: string; q?: string; preview?: string }
+type SP = { staff?: string; show?: string; tab?: string; view?: string; fwd?: string; q?: string; preview?: string; n?: string; on?: string; vn?: string }
 
 export default async function ApplicationsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams
@@ -37,6 +44,26 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
     loadAppTemplates(),
     loadSupportWhatsApp(),
   ])
+  const staffFilter = parseStaffFilter(sp.staff, actor)
+  const stageFilter = parseStageFilter(sp.show)
+  const tab = sp.tab === 'sent' ? 'sent' : 'todo'
+  const view = sp.view === 'tutor' ? 'tutor' : 'tuition'
+  const q = sp.q ?? ''
+  const v = applicationsView({
+    rows: board.rows,
+    nowMs: now,
+    staffFilter,
+    stageFilter,
+    tab,
+    view,
+    q,
+    shown: shownCount(sp.n),
+    olderShown: shownCount(sp.on),
+    viewedShown: shownCount(sp.vn),
+    forwardCards: forward.cards,
+    names: new Map(Object.entries(board.ownerNames)),
+    actor: { id: actor.id, adminRole: actor.adminRole },
+  })
   return (
     <div className="space-y-3">
       <header className="space-y-1">
@@ -50,17 +77,16 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
         </p>
       </header>
       <ApplicationsClient
-        rows={board.rows}
+        view={v}
         staff={board.staff}
-        ownerNames={board.ownerNames}
         actor={{ id: actor.id, adminRole: actor.adminRole }}
-        staffFilter={parseStaffFilter(sp.staff, actor)}
-        stageFilter={parseStageFilter(sp.show)}
-        tab={sp.tab === 'sent' ? 'sent' : 'todo'}
-        view={sp.view === 'tutor' ? 'tutor' : 'tuition'}
-        initialQuery={sp.q ?? ''}
+        staffFilter={staffFilter}
+        stageFilter={stageFilter}
+        tab={tab}
+        listView={view}
+        initialQuery={q}
         nowMs={now}
-        forwardCards={forward.cards}
+        olderPaged={shownCount(sp.on) > ADMIN_PAGE_SIZE}
         forwardTemplate={forward.template}
         canOpenMembers={roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutors)}
         initialPreview={sp.preview ?? null}

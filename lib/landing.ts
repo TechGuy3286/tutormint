@@ -18,6 +18,7 @@
 
 import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { unstable_cache } from 'next/cache'
+import { cache } from 'react'
 import { createPublicClient } from '@/lib/supabase/public'
 import { fetchTaxonomyTables } from '@/lib/taxonomyBuild'
 import { citySegment, cityFromSegment, slugify } from '@/lib/slugs'
@@ -32,6 +33,8 @@ export const LANDING_TAG = 'landing'
 
 /** A few hours: fresh enough for a directory, cheap enough to serve from cache. */
 const LANDING_REVALIDATE = 60 * 60 * 3
+/** The shared live set the pages and sitemap read: five minutes, or until a listing changes. */
+export const LANDING_LIVE_REVALIDATE = 300
 
 export type SubjectMeta = {
   masterId: number
@@ -277,6 +280,21 @@ export async function liveCombinationsAllUncached(): Promise<LandingCombo[]> {
   return withVerified(foldCombos(await readLandingCombinations(), (await subjectIndex()).byMaster))
 }
 
+/**
+ * The combinations the landing pages and the sitemap read (owner, 28 Oct 2026 —
+ * site speed). Reading the view uncached on every landing render had become the
+ * database's biggest cost (≈259,000 reads at ~200 ms each). ONE shared cache
+ * entry, five minutes long, cleared at once by revalidateLanding() whenever a
+ * listing changes (the LANDING_TAG): the page and the sitemap read the same
+ * entry, so they still cannot disagree. Within one request the read happens once.
+ */
+const liveCombinationsShared = unstable_cache(
+  async (): Promise<LandingCombo[]> => liveCombinationsAllUncached(),
+  ['landing-combinations-live-v1'],
+  { revalidate: LANDING_LIVE_REVALIDATE, tags: [LANDING_TAG] },
+)
+export const liveCombinationsForPages = cache(() => liveCombinationsShared())
+
 /** The sitemap's list: live, and only the pages at or above the threshold. */
 export async function liveLandingPagesUncached(): Promise<LandingCombo[]> {
   return (await liveCombinationsAllUncached()).filter(landingIndexable)
@@ -293,7 +311,7 @@ export async function resolveLandingAny(
   citySlug: string,
   subjectSlug: string,
 ): Promise<LandingCombo | null> {
-  const all = await liveCombinationsAllUncached()
+  const all = await liveCombinationsForPages()
   return (
     all.find((p) => p.kind === kind && p.citySlug === citySlug && p.subjectSlug === subjectSlug) ??
     null

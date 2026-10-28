@@ -90,7 +90,7 @@ test('Unmet searches: a school is labelled "School" and gets "Link to school", n
   const ui = read('app/admin/overview/todo-unmet/UnmetSearchesClient.tsx')
   assert.ok(ui.includes('Link to school'))
   assert.ok(ui.includes('onAdd={canAddSubject && !c.schoolMatch ? (name) => void addSubject(c, name) : undefined}'))
-  assert.ok(read('app/admin/overview/todo-unmet/page.tsx').includes('withSchoolMatches(board.toReview)'))
+  assert.ok(read('app/admin/overview/todo-unmet/page.tsx').includes('withSchoolMatches(reviewPage.rows)'))
   const route = read('app/api/admin/unmet-searches/done/route.ts')
   assert.ok(route.includes("z.enum(['done', 'ignored', 'school'])") && route.includes('checkAdminRole('))
   // Audited, and the database accepts the new kind.

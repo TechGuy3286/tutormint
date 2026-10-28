@@ -1,3 +1,4 @@
+import { ADMIN_PAGE_SIZE } from '@/lib/adminPagingCore'
 import { NextResponse } from 'next/server'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
@@ -13,7 +14,8 @@ import { adminJobPage } from '@/lib/adminJobs'
 
 export const dynamic = 'force-dynamic'
 
-const PAGE_SIZE = 40
+// 25 at a time, like every admin list (owner, 28 Oct 2026 — lib/adminPagingCore).
+const PAGE_SIZE = ADMIN_PAGE_SIZE
 
 export async function GET(request: Request) {
   const gate = await checkAdminRole(...SCREEN_ACCESS.jobs)

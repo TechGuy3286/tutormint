@@ -122,7 +122,10 @@ test('three cards; the default filter; the numbers come from the settlement view
   assert.equal(pickFinanceGroup('good', { attention: 2, good: 1 }), 'good')
   // Layout only: the matching rules are not touched.
   // Hints and refunds due join the list (owner, 27 Oct 2026); the matching rules feed the view.
-  assert.ok(read('app/admin/finance/settlement/SettlementTab.tsx').includes('items={financeItems(board.view, alerts, board.hints, board.refunds)}'))
+  // 25 at a time (owner, 28 Oct 2026): every item is built and counted on the server, then sliced.
+  const tab = read('app/admin/finance/settlement/SettlementTab.tsx')
+  assert.ok(tab.includes('const allItems = board ? financeItems(board.view, alerts, board.hints, board.refunds) : []'))
+  assert.ok(tab.includes('pickFinanceGroup(sp.f, counts)'))
 })
 
 test('"Link" replaces both old buttons and keeps Owner-only and the password re-check', () => {

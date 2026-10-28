@@ -26,6 +26,7 @@ import ParentDocumentReview from '@/components/admin/ParentDocumentReview'
 import TutorDocumentReview from '@/components/admin/TutorDocumentReview'
 import ProfileShareButtons from '@/components/admin/ProfileShareButtons'
 import { profileShareState } from '@/lib/profileShareCore'
+import { withShareMessages } from '@/lib/profileShare'
 import { loadUnifiedTimeline } from '@/lib/memberTimeline'
 import { activitySummaryLine, parseTimelineGroup } from '@/lib/memberTimelineCore'
 import { loadActivitySummary } from '@/lib/adminActivity'
@@ -260,9 +261,11 @@ export default async function AdminMemberPage({
   const docFact = docKind ? documentsFact(docKind) : null
 
   // Copy profile link / Share on WhatsApp — the public address, or why not.
-  const share = isTutor
+  const shareState = isTutor
     ? profileShareState({ slug: (tutor?.slug as string | null) ?? null, listed: !!directory?.listed, blockers: directory?.blockers ?? [] })
     : null
+  // …with the ready WhatsApp message (owner, 28 Oct 2026).
+  const share = shareState ? ((await withShareMessages(new Map([[id, shareState]]))).get(id) ?? shareState) : null
 
   // Plain payment labels (owner, 20 Oct 2026). Amounts only for the viewers who
   // may see amounts (SCREEN_ACCESS.paymentAmounts: the Owner and the Partner).

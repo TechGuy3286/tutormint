@@ -1,5 +1,6 @@
 'use client'
 
+import { previewSrc, THUMB_WIDTH } from '@/lib/docPreviewSize'
 import { useEffect, useState } from 'react'
 
 import { DOC_ROTATED_EVENT } from '@/lib/docRotation'
@@ -45,7 +46,9 @@ export default function SecureDocumentPreview({
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={`/api/documents/${documentId}/preview${version ? `?r=${version}` : ''}`}
+        src={previewSrc(documentId, { width: THUMB_WIDTH, version })}
+        loading="lazy"
+        decoding="async"
         alt={alt}
         draggable={false}
         onDragStart={(e) => e.preventDefault()}

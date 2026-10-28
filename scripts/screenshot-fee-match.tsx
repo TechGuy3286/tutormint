@@ -20,7 +20,7 @@ async function main() {
   const { default: AlreadyPaidOptions } = await import('../components/admin/AlreadyPaidOptions')
   const { default: SettlementsBoard } = await import('../app/admin/finance/settlement/SettlementsBoard')
   const { buildBoard, monthView } = await import('../lib/settlementMatchCore')
-  const { financeItems } = await import('../lib/financeItemsCore')
+  const { financeCards, financeCounts, financeItems } = await import('../lib/financeItemsCore')
   const { autoLinkPlan, FEE_MATCH_DEFAULT } = await import('../lib/feeMatchCore')
   const { fillParentFollowUp, PARENT_DEFAULTS } = await import('../lib/parentFollowUpCore')
   const { finishWaText, siteLink, waSendHref } = await import('../lib/waLinkCore')
@@ -147,7 +147,11 @@ async function main() {
   }
   save(
     'needs-attention-after-cleanup.html',
-    wrap(<SettlementsBoard data={data as never} items={financeItems(view, [], h as never, refunds)} />),
+    (() => {
+      const items = financeItems(view, [], h as never, refunds)
+      const shown = items.filter((i) => i.group === 'attention')
+      return wrap(<SettlementsBoard data={data as never} items={shown} itemsTotal={shown.length} counts={financeCounts(items)} cards={financeCards(view, items)} group="attention" />)
+    })(),
     760,
   )
   console.log('written to', out)

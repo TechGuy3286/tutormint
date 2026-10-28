@@ -13,7 +13,10 @@ import { runBatches, type BatchOutcome } from '@/lib/batchRunCore'
 import type { ReviewAction, ReviewRow } from '@/lib/locationReview'
 import { REVIEW_KIND_LABEL, reviewCountsView } from '@/lib/locationCountsCore'
 
-// Admin → Locations → "Typed by tutors and parents" (owner, 13 + 16 Oct 2026).
+// Admin → Locations → "Typed by tutors and parents" (owner, 13 + 16 Oct 2026;
+// 28 Oct 2026: 25 rows at a time, the clean-up buckets — a pre-filled
+// suggestion with one-click Approve, "Approve all suggestions (N)", "Add as
+// new area", "Not an area").
 //
 // One page of rows at a time from GET /api/admin/locations — the suggestions
 // are computed on the server, so the screen never waits on the whole list.
@@ -260,6 +263,17 @@ export default function LocationsReviewClient({ initialCounts }: { initialCounts
             const areas = areasOf(r.city)
             const s = r.suggestion
             const suggestedArea = s.action === 'same' ? areas.find((a) => a.name.toLowerCase() === s.area.toLowerCase()) : undefined
+            // One-click Approve of the suggestion (owner, 28 Oct 2026), when it can be saved as it is.
+            const quick: ReviewAction | null =
+              s.action === 'not_area'
+                ? { action: 'not_area', value: r.value, city: r.city, reason: s.reason }
+                : !r.cityListed
+                  ? null
+                  : s.action === 'same'
+                    ? suggestedArea
+                      ? { action: 'same', value: r.value, city: r.city, areaId: suggestedArea.id }
+                      : null
+                    : { action: 'add', value: r.value, city: r.city, name: s.name }
             return (
               <li key={r.key} className="space-y-2 rounded-2xl border border-gray-200 bg-white p-3">
                 <div className="min-w-0">
@@ -276,6 +290,16 @@ export default function LocationsReviewClient({ initialCounts }: { initialCounts
                 </p>
                 {!r.cityListed && (
                   <p className="text-[11px] text-gray-600">This city is not in the list, so an area cannot be saved under it. It can still be marked “Not an area”.</p>
+                )}
+                {canApprove && quick && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void one(quick)}
+                    className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-xs font-bold text-white hover:bg-tm-navy-hover disabled:opacity-60 sm:w-auto"
+                  >
+                    Approve: {suggestionLine(s)}
+                  </button>
                 )}
                 {canApprove && (
                   <ThreeWayReview
@@ -310,7 +334,7 @@ export default function LocationsReviewClient({ initialCounts }: { initialCounts
           onClick={() => void load((page.rows.length ?? 0) + extra.length)}
           className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white text-xs font-bold text-slate-700 hover:border-tm-navy disabled:opacity-60"
         >
-          {loading ? 'Getting more…' : `Show more (${page.total - (page.rows.length + extra.length)} left)`}
+          {loading ? 'Getting more…' : `Load more (${page.total - (page.rows.length + extra.length)} left)`}
         </button>
       )}
     </div>

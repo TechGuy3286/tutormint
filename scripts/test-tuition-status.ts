@@ -153,8 +153,8 @@ test('PART B — the sweep and the display share ONE expression (pauseDueAtMs)',
 
 test('anon column set is identical for every status: jobByPublicSlug has no status branch', () => {
   const src = readFileSync(join(root, 'lib/jobFeed.ts'), 'utf8')
-  // The function body from its declaration to the next export.
-  const start = src.indexOf('export async function jobByPublicSlug')
+  // The function body from its declaration to the next export (read once per request: a React cache() wrapper, 28 Oct 2026).
+  const start = src.indexOf('export const jobByPublicSlug = cache(')
   assert.ok(start >= 0, 'jobByPublicSlug exists')
   const body = src.slice(start, src.indexOf('export async function similarOpenTuitions'))
   assert.ok(body.includes('.select(JOB_COLUMNS)'), 'selects the one fixed JOB_COLUMNS set')
