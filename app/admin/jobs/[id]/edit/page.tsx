@@ -26,7 +26,7 @@ export default async function AdminJobEditPage({ params }: { params: Promise<{ i
   const { data: job } = await admin
     .from('jobs')
     .select(
-      'id, ref_id, parent_id, title, class_level, class_levels, city, area, area_landmark, teaching_mode, budget_min_pkr, budget_max_pkr, timings, description, gender_preference, status',
+      'id, ref_id, parent_id, title, class_level, class_levels, city, area, area_landmark, teaching_mode, budget_min_pkr, budget_max_pkr, timings, description, gender_preference, status, employment_type, postal_code',
     )
     .eq(isUuid ? 'id' : 'job_tx_id', id)
     .maybeSingle()
@@ -63,6 +63,10 @@ export default async function AdminJobEditPage({ params }: { params: Promise<{ i
     schedule: (job.timings as string) ?? '',
     description: (job.description as string) ?? '',
     genderPreference: (job.gender_preference as string) ?? '',
+    employmentType: (job.employment_type as string) ?? '',
+    employmentTouched: !!job.employment_type,
+    postalCode: (job.postal_code as string) ?? '',
+    postalTouched: !!job.postal_code,
     contactName: (contact?.contact_name as string) ?? '',
     contactPhone: (contact?.contact_phone as string) ?? '',
     contactWhatsapp: (contact?.contact_whatsapp as string) ?? '',

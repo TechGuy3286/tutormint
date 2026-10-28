@@ -191,7 +191,8 @@ function TemplateCard({ info, template, support }: { info: GroupTemplateInfo; te
   const unknown = unknownPlaceholders(body, info.placeholders)
   const linkProblem = info.noLinks ? statusSaveProblem(body) : null
   const warnings = warningsFor(info.key, body)
-  const isDefault = body === info.defaultBody
+  // The approved wording when the Owner approved one, else the built-in default.
+  const isDefault = body === (template.resetBody ?? info.defaultBody)
 
   async function put(payload: object, kind: 'save' | 'reset') {
     setBusy(kind)

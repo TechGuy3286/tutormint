@@ -144,7 +144,7 @@ async function main() {
     if (r.status !== 200) return
     if (inSitemap) {
       const i = inspect(r.text)
-      if (i.noindex) sitemapProblems.push({ url: page, problem: 'noindex' })
+      if (i.noindex) sitemapProblems.push({ url: page, problem: 'noindex page in the sitemap' })
       if (isTuition(page)) {
         tuitions++
         const self = new URL(page).pathname

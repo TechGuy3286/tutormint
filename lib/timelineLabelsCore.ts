@@ -209,6 +209,8 @@ export const AUDIT_LABELS: Record<string, string> = {
 
   // Blog, ads and settings
   'blog.generate': 'Wrote a blog draft with AI',
+  'blog.draft_from_queue': 'Drafted a blog post from the content queue with AI',
+  'content_queue.upload_queries': 'Uploaded Search Console queries to the content queue',
   'blog.generate_test': 'Wrote a test blog draft with AI',
   'blog.fix_ai': 'Asked the AI to fix a blog draft',
   'blog.fix_published': 'Corrected a published blog post',

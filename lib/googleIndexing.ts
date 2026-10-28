@@ -6,6 +6,7 @@ import { SITE_URL } from '@/lib/siteUrl'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { citySegment } from '@/lib/slugs'
 import { pageAll } from '@/lib/pageAll'
+import { isPauseDue } from '@/lib/tuitionStatus'
 import {
   normalisePrivateKey,
   normaliseClientEmail,
@@ -15,6 +16,9 @@ import {
   isTuitionPageUrl,
   newestFirst,
   pageCheckVerdict,
+  noticeSendable,
+  touchedAt,
+  type NoticeFacts,
   quotaReachedToday,
   tuitionSlugOf,
   SKIP_NOTE,
@@ -221,6 +225,31 @@ async function fetchPageCheck(url: string): Promise<{ status: number; canonical:
   }
 }
 
+type JobFact = { url: string | null; status: string; created_at: string; resumed_at: string | null; refreshed_at: string | null; bumped_at: string | null }
+
+/** The current address, status and dates of each tuition, by public slug
+ *  (merged repeats have no address). */
+async function jobFacts(admin: Admin, slugs: string[]): Promise<Map<string, JobFact>> {
+  const out = new Map<string, JobFact>()
+  for (let i = 0; i < slugs.length; i += 200) {
+    const { data } = await admin
+      .from('jobs')
+      .select('public_slug, city, merged_into, status, created_at, resumed_at, refreshed_at, bumped_at')
+      .in('public_slug', slugs.slice(i, i + 200))
+    for (const j of data ?? []) {
+      out.set(j.public_slug as string, {
+        url: j.merged_into ? null : tuitionUrl({ public_slug: j.public_slug as string, city: j.city as string | null }),
+        status: (j.status as string) ?? 'open',
+        created_at: j.created_at as string,
+        resumed_at: (j.resumed_at as string | null) ?? null,
+        refreshed_at: (j.refreshed_at as string | null) ?? null,
+        bumped_at: (j.bumped_at as string | null) ?? null,
+      })
+    }
+  }
+  return out
+}
+
 /** The current address of each tuition, by public slug (merged repeats have none). */
 async function currentAddresses(admin: Admin, slugs: string[]): Promise<Map<string, string | null>> {
   const out = new Map<string, string | null>()
@@ -271,8 +300,34 @@ export async function drainIndexingQueue(max = INDEXING_DAILY_LIMIT, budgetMs = 
     return { sent: 0, failed: 0, skipped: notTuition.length, left }
   }
 
+  // The tuition behind every notice (owner, 28 Oct 2026): only OPEN, unexpired
+  // tuitions at their current address are ever sent; the rest are marked.
+  const facts = await jobFacts(admin, [...new Set(tuitionRows.map((r) => tuitionSlugOf(r.url, SITE_URL)).filter((x): x is string => !!x))])
+  const noticeFacts = new Map<string, NoticeFacts>()
+  const oldAddress: number[] = []
+  const notOpen: number[] = []
+  const sendable: typeof tuitionRows = []
+  for (const r of tuitionRows) {
+    const slug = tuitionSlugOf(r.url, SITE_URL)
+    const f = slug ? facts.get(slug) : undefined
+    if (!f || f.url !== r.url) {
+      oldAddress.push(r.id)
+      continue
+    }
+    const nf: NoticeFacts = { status: f.status, touchedMs: touchedAt(f, r), expired: f.status === 'open' && isPauseDue(f.resumed_at ?? f.created_at) }
+    if (noticeSendable(nf) !== 'ok') {
+      notOpen.push(r.id)
+      continue
+    }
+    const prev = noticeFacts.get(r.url)
+    noticeFacts.set(r.url, prev && prev.touchedMs >= nf.touchedMs ? prev : nf)
+    sendable.push(r)
+  }
+  await markSkipped(admin, oldAddress, 'old_address')
+  await markSkipped(admin, notOpen, 'not_open')
+
   const sentToday = await attemptsToday(admin)
-  const plan = planDrain(tuitionRows, sentToday, max)
+  const plan = planDrain(sendable, sentToday, max, Date.now(), noticeFacts)
   // Older notices for an address that has a newer one: marked, never sent.
   await markSkipped(admin, plan.superseded, 'superseded')
 
@@ -280,7 +335,7 @@ export async function drainIndexingQueue(max = INDEXING_DAILY_LIMIT, budgetMs = 
   const attemptsOf = new Map(pending.map((p) => [p.id, p.attempts ?? 0]))
   let sent = 0
   let failed = 0
-  let skipped = notTuition.length
+  let skipped = notTuition.length + oldAddress.length + notOpen.length
   for (const r of plan.send) {
     // Stop before the function's time limit; the next run picks up the rest.
     if (Date.now() - started > budgetMs) break

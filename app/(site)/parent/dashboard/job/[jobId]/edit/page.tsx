@@ -29,7 +29,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ jobId:
   const { data: job } = await supabase
     .from('jobs')
     .select(
-      'id, job_tx_id, parent_id, title, class_level, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, timings, description, status, child_id, gender_preference',
+      'id, job_tx_id, parent_id, title, class_level, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, timings, description, status, child_id, gender_preference, employment_type, postal_code',
     )
     .eq(isUuid ? 'id' : 'job_tx_id', jobId)
     .maybeSingle()
@@ -85,6 +85,8 @@ export default async function EditJobPage({ params }: { params: Promise<{ jobId:
             description: (job.description as string) ?? '',
             childId: (job.child_id as string) ?? '',
             genderPreference: (job.gender_preference as string) ?? '',
+            employmentType: (job.employment_type as string) ?? '',
+            employmentTouched: !!job.employment_type,
           }}
         />
       </div>

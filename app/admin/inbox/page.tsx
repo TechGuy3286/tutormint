@@ -9,6 +9,7 @@ import {
 import InboxClient from './InboxClient'
 import { formatName } from '@/lib/formatName'
 import { loadSupportWhatsApp } from '@/lib/applicationTemplates'
+import { approvedTemplateBodies } from '@/lib/templateReview'
 
 // The official TutorMint Team ↔ member inbox. owner / manager / support.
 //
@@ -28,7 +29,9 @@ export default async function AdminInboxPage({
   const actor = await requireAdminRole(...SCREEN_ACCESS.inbox)
   const { to, templates: openTemplates } = await searchParams
 
-  const [threads, templates, supportDisplay] = await Promise.all([loadInboxThreads(), loadTemplates(), loadSupportWhatsApp()])
+  const [threads, stored, supportDisplay, approved] = await Promise.all([loadInboxThreads(), loadTemplates(), loadSupportWhatsApp(), approvedTemplateBodies()])
+  // Reset to default puts back the approved wording (owner, 28 Oct 2026).
+  const templates = stored.map((t) => (approved.has(t.key) ? { ...t, resetBody: approved.get(t.key)! } : t))
 
   // The selected member: the ?to param (a fresh compose from a member page) or
   // the first thread. A ?to member may have no messages yet.

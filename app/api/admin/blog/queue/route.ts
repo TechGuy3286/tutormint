@@ -5,6 +5,9 @@ import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { parseBody, z } from '@/lib/validate'
 import { rebuildContentQueue } from '@/lib/contentQueue/build'
+import { parseQueriesCsv } from '@/lib/contentQueue/searchTopics'
+import { saveUploadedQueries } from '@/lib/contentQueue/searchTopicsServer'
+import { logAdminAction } from '@/lib/auditLog'
 
 // Content-queue actions: snooze, dismiss, and a manual rebuild.
 //
@@ -28,6 +31,8 @@ const Body = z.discriminatedUnion('action', [
   z.object({ action: z.literal('snooze'), id: z.string().min(1) }),
   z.object({ action: z.literal('dismiss'), id: z.string().min(1), reason: z.string().trim().max(300).optional() }),
   z.object({ action: z.literal('rebuild') }),
+  // A Search Console "Queries" CSV export (owner only, 28 Oct 2026).
+  z.object({ action: z.literal('upload_queries'), csv: z.string().min(1).max(2_000_000) }),
 ])
 
 export async function POST(request: Request) {
@@ -40,6 +45,26 @@ export async function POST(request: Request) {
   const parsed = await parseBody(request, Body)
   if (!parsed.ok) return parsed.response
   const body = parsed.data
+
+  if (body.action === 'upload_queries') {
+    const owner = await checkAdminRole(...SCREEN_ACCESS.contentQueueUpload)
+    if (!owner.ok) return NextResponse.json({ error: 'Only the owner can upload Search Console data.' }, { status: 403 })
+    const csv = parseQueriesCsv(body.csv)
+    if (!csv.ok) return NextResponse.json({ error: csv.error }, { status: 400 })
+    const saved = await saveUploadedQueries(csv.rows, owner.actor.id)
+    if (!saved.ok) return NextResponse.json({ error: 'The file could not be saved. Please try again.' }, { status: 500 })
+    await logAdminAction({
+      actorId: owner.actor.id,
+      actorRole: owner.actor.adminRole,
+      actorEmail: owner.actor.email,
+      action: 'content_queue.upload_queries',
+      targetType: 'content_queue',
+      targetId: 'search_console_upload',
+      detail: { rows: csv.rows.length },
+    }).catch(() => {})
+    const result = await rebuildContentQueue()
+    return NextResponse.json({ success: true, rows: csv.rows.length, ...result })
+  }
 
   if (body.action === 'rebuild') {
     const result = await rebuildContentQueue()

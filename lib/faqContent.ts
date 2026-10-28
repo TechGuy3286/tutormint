@@ -49,9 +49,19 @@ export const FAQ_GROUPS: FaqGroup[] = [
     // What TutorMint is, for both sides (owner, 13 Oct 2026). Short answers
     // that agree with lib/siteIdentity and with the longer answers below.
     id: 'basics',
-    heading: 'About TutorMint',
-    blurb: 'What it is, who it is for, and what it costs.',
+    // 'How TutorMint works' (owner, 28 Oct 2026): free to join, how tutors get
+    // verified, how parents post and how contact works, first on the page.
+    heading: 'How TutorMint works',
+    blurb: 'What it is, who it is for, how verification and contact work, and what it costs.',
     items: [
+      {
+        q: 'Is TutorMint free to join?',
+        a: 'Yes, for both sides. Parents, schools and academies join free, browse tutors with no account, and post tuitions free once their mobile number is verified. Tutors join free and build a profile; to be verified and apply to tuitions they pay a one-time Verification Fee. Membership plans are optional, and TutorMint never takes a commission on any tuition.',
+        links: [
+          { label: 'Create an account', href: '/register' },
+          { label: 'Membership plans', href: '/membership-plans' },
+        ],
+      },
       {
         q: 'What is TutorMint?',
         a: 'TutorMint connects parents with verified home and online tutors across Pakistan, and helps tutors find tuitions. Parents, schools and academies browse tutors or post a tuition; tutors build a profile and apply to tuition and teaching jobs. The two sides talk to each other directly. It is free to join, there is no commission and there is no middleman.',
@@ -105,7 +115,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
         a: 'Sign up as a parent, verify your mobile number with a one-time code, then choose Post a tuition. Pick the level, the subjects, your city and area, home or online, and a budget. It is free, and tutors who match can apply or message you.',
         links: [
           { label: 'Create an account', href: PARENT_SIGNUP_HREF },
-          { label: 'Post a tuition', href: POST_TUITION_HREF },
+          { label: 'Post your tuition', href: '/post-tuition' },
         ],
       },
       {

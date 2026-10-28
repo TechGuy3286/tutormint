@@ -29,7 +29,9 @@
 
 import { slugify } from '@/lib/slugs'
 
-export type Embed = { type: 'tutor' | 'job'; slug: string }
+// 'live-jobs': up to six current open tuitions (lib/liveJobsCore); slug holds
+// the tag ('female' | 'online') or ''.
+export type Embed = { type: 'tutor' | 'job' | 'live-jobs'; slug: string }
 export type MarkdownSegment = { kind: 'html'; html: string } | { kind: 'embed'; embed: Embed }
 export type Heading = { id: string; text: string; level: 2 | 3 }
 
@@ -40,7 +42,7 @@ export type ParsedPost = {
   readingTime: number
 }
 
-const EMBED_RE = /^\{\{(tutor|job):([a-z0-9][a-z0-9-]*)\}\}$/
+const EMBED_RE = /^\{\{(tutor|job):([a-z0-9][a-z0-9-]*)\}\}$|^\{\{live-jobs(?::(female|online))?\}\}$/
 const HEADING_RE = /^(#{1,6})\s+(.+?)\s*#*$/
 const HR_RE = /^(-{3,}|\*{3,}|_{3,})$/
 const UL_RE = /^\s*[-*]\s+(.+)$/
@@ -178,7 +180,10 @@ export function parseMarkdown(md: string): ParsedPost {
     const embed = trimmed.match(EMBED_RE)
     if (embed) {
       flush()
-      segments.push({ kind: 'embed', embed: { type: embed[1] as 'tutor' | 'job', slug: embed[2] } })
+      segments.push({
+        kind: 'embed',
+        embed: embed[1] ? { type: embed[1] as 'tutor' | 'job', slug: embed[2] } : { type: 'live-jobs', slug: embed[3] ?? '' },
+      })
       i++
       continue
     }

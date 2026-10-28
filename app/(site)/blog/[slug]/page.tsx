@@ -164,7 +164,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
           <div className="min-w-0 space-y-6">
             <article lang={post.language} dir={isUrdu ? 'rtl' : undefined}>
-              <PostBody segments={segments} />
+              <PostBody segments={segments} post={{ city: post.city, subject: post.subject, title: post.title }} />
             </article>
 
             <ShareButtons url={url} title={post.title} />
@@ -172,7 +172,10 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
             {/* Live open tuitions matching the post's city/subject, or the newest
                 three — never empty (owner, 5 Oct 2026). */}
-            <OpenTuitionsBlock city={post.city} subject={post.subject} title={post.title} />
+            {/* A post that already carries a Live jobs block does not repeat it here. */}
+            {!segments.some((sg) => sg.kind === 'embed' && sg.embed.type === 'live-jobs') && (
+              <OpenTuitionsBlock city={post.city} subject={post.subject} title={post.title} />
+            )}
 
             {related.length > 0 && (
               <section className="space-y-3">

@@ -6,6 +6,7 @@ import TimeAgo from '@/components/TimeAgo'
 import type { AdminJobRow } from '@/lib/adminJobs'
 import ConsentChip from '@/components/admin/ConsentChip'
 import { CONSENT_UI_ENABLED } from '@/lib/tuitionConsentCore'
+import FeeMissingChip from '@/components/admin/FeeMissingChip'
 
 // One tuition in the admin list.
 //
@@ -46,6 +47,7 @@ export default function JobRow({ row }: { row: AdminJobRow }) {
                 Featured
               </span>
             )}
+            {row.feeMissing && <FeeMissingChip />}
             <StatusChip status={row.status} />
           </div>
         </div>

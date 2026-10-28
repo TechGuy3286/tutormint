@@ -2,7 +2,12 @@ import { Fragment } from 'react'
 
 import BlogEmbedTutor from '@/components/blog/BlogEmbedTutor'
 import BlogEmbedJob from '@/components/blog/BlogEmbedJob'
+import OpenTuitionsBlock from '@/components/blog/OpenTuitionsBlock'
 import type { MarkdownSegment } from '@/lib/markdown'
+import { LIVE_JOBS_LIMIT } from '@/lib/liveJobsCore'
+
+/** The post a Live jobs block reads its city, subject and level from. */
+export type PostTopicRef = { city: string | null; subject: string | null; title: string | null }
 
 // The rendered body of a post.
 //
@@ -37,7 +42,7 @@ const PROSE =
   '[&_th]:border [&_th]:border-gray-200 [&_th]:bg-tm-tint-navy [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-bold [&_th]:text-tm-navy ' +
   '[&_td]:border [&_td]:border-gray-200 [&_td]:px-3 [&_td]:py-2 [&_td]:align-top'
 
-export default function PostBody({ segments }: { segments: MarkdownSegment[] }) {
+export default function PostBody({ segments, post }: { segments: MarkdownSegment[]; post?: PostTopicRef }) {
   return (
     <div className={PROSE}>
       {segments.map((seg, i) =>
@@ -45,7 +50,18 @@ export default function PostBody({ segments }: { segments: MarkdownSegment[] }) 
           <div key={i} dangerouslySetInnerHTML={{ __html: seg.html }} />
         ) : (
           <Fragment key={i}>
-            {seg.embed.type === 'tutor' ? (
+            {seg.embed.type === 'live-jobs' ? (
+              <div className="not-prose my-6">
+                <OpenTuitionsBlock
+                  city={post?.city ?? null}
+                  subject={post?.subject ?? null}
+                  title={post?.title ?? null}
+                  limit={LIVE_JOBS_LIMIT}
+                  tag={seg.embed.slug === 'female' || seg.embed.slug === 'online' ? seg.embed.slug : null}
+                  live
+                />
+              </div>
+            ) : seg.embed.type === 'tutor' ? (
               <BlogEmbedTutor slug={seg.embed.slug} />
             ) : (
               <BlogEmbedJob slug={seg.embed.slug} />

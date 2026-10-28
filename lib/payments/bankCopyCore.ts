@@ -58,3 +58,19 @@ export function copyAllText(d: BankDetails, amount?: string | null): string {
 
 /** How long "Copied ✓" stays on a button. */
 export const COPIED_MS = 2000
+
+/** The link under the account number that reveals the IBAN (owner, 28 Oct 2026). */
+export const IBAN_LINK_LABEL = 'Your app asks for IBAN? Tap here'
+
+/**
+ * The payment page's split (owner, 28 Oct 2026): the IBAN is not in the main
+ * view — it sits behind IBAN_LINK_LABEL, shown under the account number. When
+ * there is no account number the IBAN stays in the main rows (it is then the
+ * only way to pay); when there is no IBAN there is no link.
+ */
+export function splitBankRows(rows: BankCopyRow[]): { main: BankCopyRow[]; iban: BankCopyRow | null } {
+  const iban = rows.find((r) => r.key === 'iban') ?? null
+  const hasAccount = rows.some((r) => r.key === 'accountNumber')
+  if (!iban || !hasAccount) return { main: rows, iban: null }
+  return { main: rows.filter((r) => r.key !== 'iban'), iban }
+}

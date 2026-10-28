@@ -393,6 +393,11 @@ export const SCREEN_ACCESS = withSupervisor({
   blogApprove: ['admin'] as AdminRole[],
   blogQueue: ['admin', 'operations'] as AdminRole[],
   blogGenerate: ['admin', 'operations'] as AdminRole[],
+  // Content queue → "Draft this post" (owner, 28 Oct 2026): Claude writes a
+  // draft from a topic. Owner and Managers (and Admin, who holds every blog right).
+  blogQueueDraft: ['admin', 'supervisor'] as AdminRole[],
+  // Upload a Search Console Queries CSV on the Content queue: the Owner only.
+  contentQueueUpload: [] as AdminRole[],
   // The Team overview card (owner, 24 Oct 2026): per staff member, overdue
   // Applications, red Paid tutors and follow-ups sent. The Owner (and so the
   // Partner) and Supervisors.

@@ -20,6 +20,7 @@ import { SITE_URL, absoluteUrl } from '@/lib/siteUrl'
 import type { Company } from '@/lib/company'
 import { formatSupportPhoneSchema } from '@/lib/supportContacts'
 import { provinceForCity, postcodeFor } from '@/lib/pkLocations'
+import { jobPostingEmploymentType } from '@/lib/jobPostingCore'
 import { ORGANIZATION_ID, WEBSITE_ID, SITE_DESCRIPTION, SITE_LOGO_PATH, SITE_LOGO_SIZE, SITE_TAGLINE, socialProfiles } from '@/lib/siteIdentity'
 
 export const BRAND = 'TutorMint'
@@ -441,9 +442,14 @@ export function jobPostingJsonLd(job: {
   refId?: string | null
   /** An online tuition: jobLocationType TELECOMMUTE + applicantLocationRequirements Pakistan. */
   online?: boolean
-  /** PART_TIME for a tuition; for a school post only what its own words say,
-   *  else null and the field is left out (lib/jobPostingCore, 12 Oct 2026). */
+  /** The stored jobs.employment_type mapped by lib/jobPostingCore
+   *  jobPostingEmploymentType (owner, 28 Oct 2026). Always emitted: when not
+   *  passed, a home/online tuition is PART_TIME and any other title FULL_TIME. */
   employmentType?: 'PART_TIME' | 'FULL_TIME' | 'CONTRACTOR' | null
+  /** The Job Type title, used only to derive employmentType when none is passed. */
+  jobTitle?: string | null
+  /** The stored jobs.postal_code (5 digits). Wins over the city/area lookup. */
+  postalCode?: string | null
   /** The school or academy the post names, when it names one — the hiring
    *  organisation. Otherwise the posting is listed by TutorMint. */
   schoolName?: string | null
@@ -480,7 +486,9 @@ export function jobPostingJsonLd(job: {
   // lib/pkLocations.ts. Each is added only when known, so a city we cannot map
   // simply omits that line rather than emitting a blank or a guess.
   const region = provinceForCity(job.city)
-  const postalCode = postcodeFor(job.city, job.area)
+  const storedPostal = (job.postalCode ?? '').trim()
+  const postalCode = /^[0-9]{5}$/.test(storedPostal) ? storedPostal : postcodeFor(job.city, job.area)
+  const employmentType = job.employmentType ?? jobPostingEmploymentType(null, job.jobTitle ?? (job.online ? 'Online Tutor' : null))
 
   return {
     '@context': 'https://schema.org',
@@ -490,7 +498,7 @@ export function jobPostingJsonLd(job: {
     description: job.description,
     datePosted: job.datePosted,
     validThrough,
-    ...(job.employmentType ? { employmentType: job.employmentType } : {}),
+    employmentType,
     url: job.url,
     // The TM number as the posting's identifier (owner, 6 Oct 2026).
     ...(job.refId ? { identifier: { '@type': 'PropertyValue', name: BRAND, value: job.refId } } : {}),

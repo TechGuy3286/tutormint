@@ -64,3 +64,24 @@ export async function fetchSearchConsoleRows(days = 28, rowLimit = 1000): Promis
   }))
   return collapseByQuery(rows)
 }
+
+/**
+ * Every query of the window, summed over pages — query, clicks, impressions
+ * (owner, 28 Oct 2026: the content queue is built from real searches, at any
+ * position). Throws on any failure (the caller stores the error).
+ */
+export async function fetchSearchConsoleQueries(days = 28, rowLimit = 5000): Promise<{ query: string; clicks: number; impressions: number }[]> {
+  const creds = googleServiceCredentials()
+  if (!creds) throw new Error('no Google service-account credentials')
+  const auth = new google.auth.JWT({ email: creds.email, key: creds.key, scopes: [SCOPE] })
+  const sc = google.searchconsole({ version: 'v1', auth })
+  const end = new Date(Date.now() - 2 * 86_400_000)
+  const start = new Date(end.getTime() - (days - 1) * 86_400_000)
+  const res = await sc.searchanalytics.query({
+    siteUrl: GSC_SITE_URL,
+    requestBody: { startDate: ymd(start), endDate: ymd(end), dimensions: ['query'], rowLimit, dataState: 'all' },
+  })
+  return (res.data.rows ?? [])
+    .map((r) => ({ query: String(r.keys?.[0] ?? '').slice(0, 200), clicks: Number(r.clicks ?? 0), impressions: Number(r.impressions ?? 0) }))
+    .filter((r) => r.query)
+}

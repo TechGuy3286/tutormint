@@ -91,6 +91,7 @@ export async function GET(request: Request) {
     // An unknown hub matches nothing, never the whole city.
     areas: hubAreas ? (hubAreas.length > 0 ? hubAreas : ['__no_such_area_hub__']) : null,
     genderPreference: (['male', 'female', 'trans'] as const).find((g) => g === get('gender')) ?? null,
+    femaleJobs: get('femaleJobs') === '1',
   }
 
   const { jobs: fullJobs, nextCursor } = await browseJobs(filters, PAGE_SIZE, 0, get('cursor') || null)

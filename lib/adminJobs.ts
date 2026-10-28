@@ -25,6 +25,7 @@ import { formatName } from '@/lib/formatName'
 import { formerStaffName } from '@/lib/formerStaffCore'
 import { consentFor } from '@/lib/tuitionConsent'
 import { consentLabel, isRecorded } from '@/lib/tuitionConsentCore'
+import { hasFee } from '@/lib/jobFieldsCore'
 import { normalisePkMobile } from '@/lib/phone'
 
 export type AdminJobRow = {
@@ -54,6 +55,8 @@ export type AdminJobRow = {
   consentLabel: string
   /** A staff tuition has a parent number on file (for Ask parent). */
   hasParentNumber: boolean
+  /** An OPEN tuition with no fee (owner, 28 Oct 2026): the "Fee missing" chip. */
+  feeMissing: boolean
 }
 
 export type AdminJobFilters = {
@@ -119,12 +122,12 @@ export async function adminJobPage({
       ? admin
           .from('jobs')
           .select(
-            'id, job_tx_id, ref_id, title, status, is_featured, city, area, class_level, subjects, created_at, parent_id, hired_tutor_id, tuition_owners!inner(posted_by)',
+            'id, job_tx_id, ref_id, title, status, is_featured, city, area, class_level, subjects, created_at, parent_id, hired_tutor_id, budget_pkr, budget_min_pkr, budget_max_pkr, tuition_owners!inner(posted_by)',
             { count: 'exact' },
           )
       : admin
           .from('jobs')
-          .select('id, job_tx_id, ref_id, title, status, is_featured, city, area, class_level, subjects, created_at, parent_id, hired_tutor_id', {
+          .select('id, job_tx_id, ref_id, title, status, is_featured, city, area, class_level, subjects, created_at, parent_id, hired_tutor_id, budget_pkr, budget_min_pkr, budget_max_pkr', {
             count: 'exact',
           })
     // "Posted by" a staff member (owner, 22 Oct 2026): the poster never changes
@@ -205,6 +208,7 @@ export async function adminJobPage({
       title: (j.title as string) ?? 'Tuition',
       status: (j.status as string) ?? 'open',
       isFeatured: !!j.is_featured,
+      feeMissing: j.status === 'open' && !hasFee(j.budget_min_pkr as number | null, j.budget_max_pkr as number | null, j.budget_pkr as number | null),
       city: (j.city as string) ?? null,
       area: (j.area as string) ?? null,
       classLevel: (j.class_level as string) ?? null,

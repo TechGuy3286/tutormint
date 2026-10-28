@@ -43,6 +43,9 @@ const JobBody = z.object({
   jobId: z.string().max(64).nullish(),
   // Optional preferred tutor gender (migration 72). Never required.
   genderPreference: z.enum(['male', 'female', 'trans']).nullish(),
+  // Job Posting fields (owner, 28 Oct 2026): required on a staff post, checked in lib/jobs.
+  employmentType: z.enum(['part_time', 'full_time', 'contract']).nullish(),
+  postalCode: z.string().max(10).nullish(),
   // Duplicate prevention (item 16): the parent chose "Post anyway".
   allowDuplicate: z.boolean().optional(),
 })
@@ -70,6 +73,8 @@ function parseInput(body: z.infer<typeof JobBody>): JobInput {
     description: str(body.description),
     childId: str(body.childId),
     genderPreference: body.genderPreference ?? null,
+    employmentType: body.employmentType ?? null,
+    postalCode: body.postalCode === undefined ? undefined : (body.postalCode ?? null),
     allowDuplicate: !!body.allowDuplicate,
   }
 }

@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server'
 
 import { cronAuthorised } from '@/lib/internalAuth'
 import { rebuildContentQueue, searchConsoleStatus } from '@/lib/contentQueue/build'
-import { fetchSearchConsoleRows, searchConsoleConfigured, GSC_SITE_URL } from '@/lib/contentQueue/gsc'
-import { gscCandidate } from '@/lib/contentQueue/mix'
+import { searchConsoleConfigured, GSC_SITE_URL } from '@/lib/contentQueue/gsc'
+import { loadSearchTopics, refreshSearchConsole } from '@/lib/contentQueue/searchTopicsServer'
+import { gscAccessProblem } from '@/lib/contentQueue/searchTopics'
+import { indexingClientEmail } from '@/lib/googleIndexing'
 
 // POST /api/internal/content-queue — the content queue's operations check
 // (owner, 6 Oct 2026). Protected by CRON_SECRET (lib/internalAuth).
@@ -33,20 +35,30 @@ export async function POST(request: Request) {
   }
 
   if (body.action === 'gsc-check') {
+    // Reads Search Console with the service account and STORES the result
+    // (search_console_queries 'api') — the same step the nightly rebuild runs.
+    // Returns counts and the top topics; never a key or a token.
     const configured = searchConsoleConfigured()
-    if (!configured) return NextResponse.json({ configured, ok: false, reason: 'no service-account credentials', siteUrl: GSC_SITE_URL })
-    try {
-      const rows = await fetchSearchConsoleRows(28)
-      const candidates = rows.map((r) => gscCandidate(r)).filter(Boolean)
-      const sample = [...rows]
-        .sort((a, b) => b.impressions - a.impressions)
-        .slice(0, 8)
-        .map((r) => ({ query: r.query, impressions: r.impressions, clicks: r.clicks, position: Number(r.position.toFixed(1)) }))
-      return NextResponse.json({ configured, ok: true, siteUrl: GSC_SITE_URL, rows: rows.length, pageTwoCandidates: candidates.length, sample })
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      return NextResponse.json({ configured, ok: false, siteUrl: GSC_SITE_URL, reason: msg.slice(0, 300) })
-    }
+    const read = await refreshSearchConsole()
+    const { data, topics } = await loadSearchTopics()
+    const problem = read.ok ? null : gscAccessProblem(read.error ?? '', indexingClientEmail())
+    return NextResponse.json({
+      configured,
+      ok: read.ok,
+      siteUrl: GSC_SITE_URL,
+      queries: read.rows,
+      source: data.source,
+      reason: read.error,
+      problem,
+      topics: topics.slice(0, 15).map((t) => ({
+        title: t.title,
+        side: t.side,
+        searches: t.impressions,
+        clicks: t.clicks,
+        coveredBy: t.coveredBy?.path ?? null,
+        queries: t.queries.slice(0, 5).map((q) => `${q.query} (${q.impressions}/${q.clicks})`),
+      })),
+    })
   }
 
   if (body.action === 'rebuild') {

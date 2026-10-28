@@ -36,6 +36,22 @@ export function employmentTypeFor(job: { jobTitle: string | null; title?: string
   return null
 }
 
+/**
+ * JobPosting.employmentType — ALWAYS present (owner, 28 Oct 2026; migration 213
+ * gave every tuition a stored jobs.employment_type). The stored value wins:
+ * part_time → PART_TIME, full_time → FULL_TIME, contract → CONTRACTOR. A row
+ * with none (not expected after the backfill) falls back to the Job Type: a
+ * home or online tuition is PART_TIME, any other title FULL_TIME.
+ * employmentTypeFor (above) is the older words-only rule, kept for callers that
+ * read a post's own text.
+ */
+export function jobPostingEmploymentType(stored: string | null | undefined, jobTitle: string | null | undefined): EmploymentType {
+  if (stored === 'part_time') return 'PART_TIME'
+  if (stored === 'full_time') return 'FULL_TIME'
+  if (stored === 'contract') return 'CONTRACTOR'
+  return isTuitionTitle(jobTitle) ? 'PART_TIME' : 'FULL_TIME'
+}
+
 function list(items: string[]): string {
   const xs = items.filter(Boolean)
   if (xs.length <= 1) return xs[0] ?? ''

@@ -50,7 +50,7 @@ export function distinctWords(values: (string | null | undefined)[], max = 5): s
 /** What the page lists, as a noun phrase: "teaching jobs in Bahria Town, Lahore". */
 export function hubNoun(kind: HubKind, name: string): string {
   if (kind === 'school') return `teaching jobs at ${name}`
-  if (kind === 'female') return `teaching jobs for female teachers in ${name}`
+  if (kind === 'female') return `female teaching jobs in ${name}`
   if (kind === 'online') return `online tuition jobs in ${name}`
   if (kind === 'area') return `teaching jobs in ${name}`
   return `tuition and teaching jobs in ${name}`
@@ -58,7 +58,7 @@ export function hubNoun(kind: HubKind, name: string): string {
 
 export function hubHeading(kind: HubKind, name: string): string {
   if (kind === 'school') return `${name} teacher jobs`
-  if (kind === 'female') return `Female teacher jobs in ${name}`
+  if (kind === 'female') return `Female teaching jobs in ${name}`
   if (kind === 'online') return `Online tuition jobs in ${name}`
   if (kind === 'area') return `Teaching jobs in ${name}`
   return `Tuition and teaching jobs in ${name}`

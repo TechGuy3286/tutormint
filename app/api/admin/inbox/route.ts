@@ -5,13 +5,14 @@ import { sendAdminMessage, saveTemplate, loadTemplates } from '@/lib/adminMessag
 import { parseBody, z, uuid } from '@/lib/validate'
 import { logAdminAction } from '@/lib/auditLog'
 import { templateSaveCheck, templateDefault } from '@/lib/templateRules'
-import { recordEditHistory } from '@/lib/templateReview'
+import { recordEditHistory, approvedTemplateBodies } from '@/lib/templateReview'
+import { resetBody } from '@/lib/templateResetCore'
 
 // The admin side of the official TutorMint Team channel.
 //
 //   POST { memberId, body, templateKey? }  — send a message to a member
 //   PUT  { key, title, subject, body }      — edit a template (owner/manager)
-//   PUT  { key, reset: true }                — back to the built-in default
+//   PUT  { key, reset: true }                — back to the approved wording (else the built-in default)
 //
 // owner / manager / support may send; only owner/manager may edit the library.
 
@@ -69,7 +70,9 @@ export async function PUT(request: Request) {
 
   let next = current
   if ('reset' in t) {
-    const def = templateDefault(t.key)
+    // The CURRENTLY APPROVED wording when the Owner approved one (owner, 28 Oct
+    // 2026); otherwise the built-in default.
+    const def = resetBody((await approvedTemplateBodies()).get(t.key) ?? null, templateDefault(t.key))
     if (def === null) return NextResponse.json({ error: 'This template has no built-in default.' }, { status: 400 })
     next = { ...current, body: def }
   } else {

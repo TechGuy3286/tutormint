@@ -19,6 +19,7 @@
 // No image is embedded and no tracking pixel is used.
 
 export { SITE_URL } from '@/lib/siteUrl'
+import { digestLines } from '@/lib/contentQueue/digestCore'
 import { SITE_URL } from '@/lib/siteUrl'
 import { TUITION_LIVE_LABEL } from '@/lib/tuitionStatus'
 import { teamMessagesHref } from '@/lib/memberNav'
@@ -268,7 +269,7 @@ export type TemplateInput =
   | { id: 'tutor_alert'; label: string; url: string }
   | {
       id: 'content_digest'
-      suggestions: { title: string; why: string; href: string }[]
+      suggestions: { title: string; searches: number; why: string; href: string }[]
       refresh: { title: string; href: string }[]
     }
   // An official message from the TutorMint Team, sent by an admin. Essential:
@@ -833,18 +834,9 @@ export function render(input: TemplateInput): RenderedEmail {
     // it is marked essential -- it should not be silenced by a member-facing
     // opt-out toggle. Nothing here auto-publishes; it points at the queue.
     case 'content_digest': {
-      const lines: string[] = []
-      if (input.suggestions.length > 0) {
-        lines.push('Top topics to publish this week:')
-        input.suggestions.forEach((sug, i) => lines.push(`${i + 1}. ${sug.title} — ${sug.why}`))
-      } else {
-        lines.push('No new topics are queued this week.')
-      }
-      if (input.refresh.length > 0) {
-        lines.push('')
-        lines.push('Posts due a refresh (published over a year ago):')
-        input.refresh.forEach((r) => lines.push(`• ${r.title}`))
-      }
+      // Three topics, each with "N searches last month" and one plain line
+      // (owner, 28 Oct 2026) — lib/contentQueue/digestCore. No priority number.
+      const lines = digestLines(input.suggestions, input.refresh)
       return build(
         'Your weekly content queue',
         'What to publish this week',

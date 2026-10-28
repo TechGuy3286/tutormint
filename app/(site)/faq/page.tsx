@@ -70,6 +70,8 @@ export default async function FAQPage() {
       {FAQ_GROUPS.map((group) => (
         <section key={group.id} id={group.id} className="scroll-mt-6 space-y-3">
           <div className="space-y-0.5">
+            {/* /faq#how-it-works lands on the first group (owner, 28 Oct 2026). */}
+            {group.id === 'basics' && <span id="how-it-works" className="block scroll-mt-6" aria-hidden />}
             <h2 className="text-base font-black text-tm-navy">{group.heading}</h2>
             <p className="text-xs text-gray-500">{group.blurb}</p>
           </div>

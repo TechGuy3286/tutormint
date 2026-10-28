@@ -39,7 +39,7 @@ import {
 } from './core'
 import { careerCandidates } from './careerTopics'
 import { repeatIds, type LoggedSearch } from '@/lib/searchCountCore'
-import { dedupeTitles, gscCandidate } from './mix'
+import { dedupeTitles } from './mix'
 import {
   chooseQueue,
   cityGuideCandidate,
@@ -51,7 +51,9 @@ import {
   type ExistingPost,
   type TopicSignal,
 } from './topics'
-import { fetchSearchConsoleRows, searchConsoleConfigured, GSC_SITE_URL } from './gsc'
+import { searchConsoleConfigured, GSC_SITE_URL } from './gsc'
+import { searchTopicCandidate, SEARCH_TOPIC_LIMIT } from './searchTopics'
+import { loadSearchTopics, refreshSearchConsole } from './searchTopicsServer'
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>
 
@@ -313,26 +315,8 @@ export function searchConsoleStatus(): { connected: boolean; steps: string[] } {
       `Search Console property: ${GSC_SITE_URL} (owner-verified).`,
       'The Google service account used for the Indexing API (GOOGLE_INDEXING_CLIENT_EMAIL / GOOGLE_INDEXING_PRIVATE_KEY in Vercel) must be an owner or full user of that property.',
       'Enable the "Google Search Console API" for the same Google Cloud project.',
-      'The nightly rebuild (and "Rebuild now") then reads the last 28 days of queries; positions 8–20 feed the queue.',
+      'The nightly rebuild (and "Rebuild now") then reads the last 28 days of queries; every query with 3+ impressions feeds the queue.',
     ],
-  }
-}
-
-let loggedGscFailure = false
-
-/** Search Console page-two queries as candidates; empty (and logged ONCE) when
- *  Search Console is not configured or the read fails. */
-async function gscCandidates(cities: string[]): Promise<Candidate[]> {
-  if (!searchConsoleConfigured()) return []
-  try {
-    const rows = await fetchSearchConsoleRows(28)
-    return rows.map((r) => gscCandidate(r, cities)).filter((c): c is Candidate => !!c)
-  } catch (e) {
-    if (!loggedGscFailure) {
-      loggedGscFailure = true
-      console.warn('[contentQueue] Search Console unavailable — queue built from the other sources:', e instanceof Error ? e.message.slice(0, 200) : String(e).slice(0, 200))
-    }
-    return []
   }
 }
 
@@ -399,8 +383,19 @@ export async function rebuildContentQueue(now = new Date()): Promise<RebuildResu
   }
   content.push(...calendarCandidates(now))
   const names = await nameLists(admin)
-  // Search Console page-two queries (empty when it is not configured or fails).
-  content.push(...(await gscCandidates(names.cities)))
+  // Topics from REAL Google searches (owner, 28 Oct 2026): read Search Console
+  // (the error is stored when it cannot be read), then build topics from the API
+  // rows or, failing that, the owner's uploaded Queries CSV. Covered topics are
+  // never offered; uncovered ones head the queue, tutor-side first.
+  await refreshSearchConsole()
+  const searchTopics = await loadSearchTopics()
+    .then((r) => r.topics)
+    .catch((e) => {
+      errors.push(`search topics: ${String(e)}`)
+      return []
+    })
+  const searchCands = searchTopics.filter((t) => !t.coveredBy).slice(0, SEARCH_TOPIC_LIMIT).map(searchTopicCandidate)
+  const searchCovered = searchTopics.filter((t) => t.coveredBy)
   // Evergreen tutor-career topics — at most 40% of the visible queue.
   content.push(...careerCandidates())
   content.push(...urduCandidates())
@@ -419,6 +414,7 @@ export async function rebuildContentQueue(now = new Date()): Promise<RebuildResu
   }[]
   const posts: ExistingPost[] = postRows.map((p) => ({ title: p.title, status: p.status, cluster: p.cluster, city: p.city, subject: p.subject }))
   const coveredBy = new Map<string, string>()
+  for (const t of searchCovered) coveredBy.set(t.fingerprint, t.coveredBy!.label)
   const uncovered: Candidate[] = []
   const seenFp = new Set<string>()
   for (const c of content) {
@@ -458,7 +454,22 @@ export async function rebuildContentQueue(now = new Date()): Promise<RebuildResu
   // --- the visible queue -------------------------------------------------------
   const live = posts.filter((p) => p.status !== 'unpublished')
   const emptyClusters = ['city-guides', 'urdu'].filter((cl) => !live.some((p) => p.cluster === cl))
-  const visible = chooseQueue(open, { size: QUEUE_SIZE, emptyClusters })
+  const searchFps = new Set(searchCands.map((c) => c.fingerprint))
+  const searchOpen = searchCands.filter((c) => {
+    const ex = byFp.get(c.fingerprint)
+    if (!ex) return true
+    const status = ex.status as string
+    if (status === 'drafted') return false
+    if (status === 'snoozed') return !!ex.snooze_until && new Date(ex.snooze_until as string) <= now
+    if (status === 'dismissed') return isAutoDismissal(ex.dismiss_reason) || evidenceHash(c.evidenceKey) !== (ex.evidence_hash as string)
+    return true
+  })
+  // Search topics first (tutor-side first, then by searches); the other
+  // sources fill the rest as before. Old position-based gsc rows are not chosen.
+  const visible = [
+    ...searchOpen,
+    ...chooseQueue(open.filter((c) => !searchFps.has(c.fingerprint) && !c.fingerprint.startsWith('gsc:')), { size: QUEUE_SIZE, emptyClusters }),
+  ]
   const candidates: Candidate[] = [...visible, ...recruitment]
 
   const seen = new Set<string>()
@@ -545,7 +556,7 @@ export async function rebuildContentQueue(now = new Date()): Promise<RebuildResu
     const fp = r.fingerprint as string
     if (!['suggested', 'snoozed'].includes(r.status as string) || seen.has(fp)) continue
     // A topic staff snoozed and that is still a candidate keeps its snooze.
-    if (r.status === 'snoozed' && eligible.some((c) => c.fingerprint === fp)) continue
+    if (r.status === 'snoozed' && (eligible.some((c) => c.fingerprint === fp) || searchFps.has(fp))) continue
     // An open row whose own title an existing post covers (rows made before
     // these rules have fingerprints the new candidates do not share).
     const post = coveredBy.get(fp) ?? (r.card === 'content' ? coveredByPost({ title: r.title as string, cluster: (r.cluster as string | null) ?? null }, posts)?.title : undefined)

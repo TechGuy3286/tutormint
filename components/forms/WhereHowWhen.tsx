@@ -71,6 +71,13 @@ export default function WhereHowWhen({
   landmark = '',
   onLandmark,
   onSplit,
+  feeExact = false,
+  exactAmount = '',
+  onExactMode,
+  onExactAmount,
+  feeRequired = false,
+  postalCode = '',
+  onPostalCode,
 }: {
   city: string
   area: string
@@ -86,6 +93,17 @@ export default function WhereHowWhen({
   onLandmark?: (v: string) => void
   /** A typed area that names a curated one: take that area + the rest as landmark. */
   onSplit?: (area: string, landmark: string) => void
+  /** The fee as ONE exact amount (owner, 28 Oct 2026): the "Exact amount"
+   *  option of the budget select, then a number box. */
+  feeExact?: boolean
+  exactAmount?: string
+  onExactMode?: () => void
+  onExactAmount?: (v: string) => void
+  /** Staff: the fee is required (the label says so). */
+  feeRequired?: boolean
+  /** Staff only: the postal code, filled from the city/area lookup, editable. */
+  postalCode?: string
+  onPostalCode?: (v: string) => void
 }) {
   // The curated lists, from the DB (migration 73), fetched once and cached.
   // City and Area are datalist inputs: they suggest the curated names but accept
@@ -129,14 +147,47 @@ export default function WhereHowWhen({
           />
         )}
 
-        <IconSelect icon={<Wallet size={15} />} label="Monthly budget" value={band} onChange={onBand}>
+        <IconSelect
+          icon={<Wallet size={15} />}
+          label={feeRequired ? 'Fee per month (required)' : 'Monthly budget'}
+          value={feeExact ? EXACT : band}
+          onChange={(x) => (x === EXACT ? onExactMode?.() : onBand(x))}
+        >
           {BUDGET_BANDS.map((b) => (
             <option key={b.value} value={b.value}>
-              {b.value === '' ? 'Budget' : b.label}
+              {b.value === '' ? (feeRequired ? 'Fee per month' : 'Budget') : b.label}
             </option>
           ))}
+          {onExactMode && <option value={EXACT}>Exact amount</option>}
         </IconSelect>
       </div>
+      {feeExact && onExactAmount && (
+        <label className="block space-y-1">
+          <span className="text-[11px] font-bold text-gray-600">Fee per month (Rs)</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={exactAmount}
+            onChange={(e) => onExactAmount(e.target.value)}
+            placeholder="e.g. 15000"
+            className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-tm-navy outline-none focus:border-tm-red"
+          />
+        </label>
+      )}
+      {staff && onPostalCode && (
+        <label className="block space-y-1">
+          <span className="text-[11px] font-bold text-gray-600">Postal code (filled from the city and area — change it if it is wrong)</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={postalCode}
+            maxLength={5}
+            onChange={(e) => onPostalCode(e.target.value)}
+            placeholder="e.g. 54000"
+            className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-tm-navy outline-none focus:border-tm-red"
+          />
+        </label>
+      )}
       {staff && onLandmark && (
         <label className="block space-y-1">
           <span className="text-[11px] font-bold text-gray-600">Block / landmark (optional)</span>
@@ -153,6 +204,9 @@ export default function WhereHowWhen({
     </>
   )
 }
+
+/** The select value of the "Exact amount" option (never a fee band value). */
+const EXACT = '__exact'
 
 /** The curated city a stored value names (case and spacing ignored), or ''. */
 function staffCityValue(cities: string[], city: string): string {

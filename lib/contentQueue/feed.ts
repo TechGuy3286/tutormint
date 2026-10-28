@@ -12,6 +12,7 @@ import type { Audience, Language, SuggestionCard, SuggestionSource, PriorityComp
 
 export type Suggestion = {
   id: string
+  fingerprint: string
   card: SuggestionCard
   source: SuggestionSource
   title: string
@@ -29,6 +30,7 @@ export type Suggestion = {
 function toSuggestion(r: Record<string, unknown>): Suggestion {
   return {
     id: r.id as string,
+    fingerprint: (r.fingerprint as string) ?? '',
     card: (r.card as SuggestionCard) ?? 'content',
     source: r.source as SuggestionSource,
     title: (r.title as string) ?? '',

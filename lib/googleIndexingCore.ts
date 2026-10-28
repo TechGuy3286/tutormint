@@ -195,13 +195,59 @@ export const SUPERSEDED_NOTE = 'superseded'
 // sent. A notice that is not sent is MARKED (skipped_at + skip_reason, sent_at
 // = SUPERSEDED_AT so it is never "waiting"), never deleted.
 
-export type SkipReason = 'not_tuition' | 'old_address' | 'superseded'
+export type SkipReason = 'not_tuition' | 'old_address' | 'superseded' | 'not_open'
 
 /** What the admin screen shows for a skipped notice. */
 export const SKIP_NOTE: Record<SkipReason, string> = {
   not_tuition: 'Not sent — not a tuition page',
   old_address: 'Not sent — old address',
   superseded: SUPERSEDED_NOTE,
+  not_open: 'Not sent — tuition not open',
+}
+
+// ---------------------------------------------------- the daily order ------
+//
+// Owner, 28 Oct 2026: the 200 a day go first to OPEN tuitions posted or updated
+// in the last 7 days (newest first), then other open tuitions (newest first),
+// then anything else. An expired (past its 20-day life, not yet swept), paused,
+// closed, hired, hidden or merged tuition is NEVER sent — its notice is marked
+// 'not_open' (or 'old_address' when the tuition no longer has that address).
+
+export const FRESH_DAYS = 7
+
+/** What the queue knows about the tuition behind a notice. */
+export type NoticeFacts = {
+  status: string
+  /** The newest of posted / resumed / refreshed / bumped, as ms. */
+  touchedMs: number
+  /** Past its live window but not swept yet. */
+  expired: boolean
+}
+
+/** Whether a notice may be sent at all. */
+export function noticeSendable(f: NoticeFacts | null | undefined): 'ok' | 'not_open' {
+  if (!f) return 'not_open'
+  if (f.status !== 'open' || f.expired) return 'not_open'
+  return 'ok'
+}
+
+/** 0 = open and touched in the last 7 days, 1 = other open, 2 = the rest. */
+export function noticeTier(f: NoticeFacts | null | undefined, now = Date.now()): 0 | 1 | 2 {
+  if (!f || noticeSendable(f) !== 'ok') return 2
+  return now - f.touchedMs <= FRESH_DAYS * 86_400_000 ? 0 : 1
+}
+
+/** When the tuition was last touched: the newest of its dates and, for an
+ *  edit or status change queued for it, the notice itself. */
+export function touchedAt(
+  job: { created_at: string; resumed_at?: string | null; refreshed_at?: string | null; bumped_at?: string | null },
+  notice?: { created_at: string; priority?: number | null } | null,
+): number {
+  const times = [job.created_at, job.resumed_at, job.refreshed_at, job.bumped_at, notice && (notice.priority ?? 0) >= 1 ? notice.created_at : null]
+    .filter((t): t is string => !!t)
+    .map((t) => new Date(t).getTime())
+    .filter((t) => Number.isFinite(t))
+  return times.length ? Math.max(...times) : 0
 }
 
 /**
@@ -259,6 +305,9 @@ export function planDrain(
   sentToday: number,
   max = INDEXING_DAILY_LIMIT,
   now = Date.now(),
+  /** The tuition behind each notice URL (owner, 28 Oct 2026). When given, the
+   *  order is tier (fresh open → other open → rest), newest first within a tier. */
+  facts?: Map<string, NoticeFacts>,
 ): { send: QueuedNotice[]; superseded: number[]; room: number; waiting: number } {
   // A retry that is not due yet is neither sent nor superseded this run.
   const pending = allPending.filter((n) => !n.next_attempt_at || new Date(n.next_attempt_at).getTime() <= now)
@@ -274,8 +323,13 @@ export function planDrain(
       latest.set(n.url, n)
     } else superseded.push(n.id)
   }
-  const ordered = [...latest.values()].sort(
-    (a, b) =>
+  const ordered = [...latest.values()].sort((a, b) =>
+    facts
+      ? noticeTier(facts.get(a.url), now) - noticeTier(facts.get(b.url), now) ||
+        (facts.get(b.url)?.touchedMs ?? 0) - (facts.get(a.url)?.touchedMs ?? 0) ||
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime() ||
+        b.id - a.id
+      :
       (b.priority ?? 0) - (a.priority ?? 0) ||
       (a.kind === 'URL_UPDATED' ? 0 : 1) - (b.kind === 'URL_UPDATED' ? 0 : 1) ||
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime() ||

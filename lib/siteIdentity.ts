@@ -156,7 +156,18 @@ export const siteIdentity = {
   keyPaths: SITE_KEY_PATHS,
 } as const
 
-/** /llms.txt — plain text, no personal data. */
+/** The public Post your tuition page (owner, 28 Oct 2026). */
+export const POST_TUITION_PAGE = '/post-tuition'
+
+/** The city tuition-jobs pages /llms.txt names (the four biggest cities). */
+export const LLMS_CITY_PAGES: { name: string; slug: string }[] = [
+  { name: 'Lahore', slug: 'lahore' },
+  { name: 'Karachi', slug: 'karachi' },
+  { name: 'Islamabad', slug: 'islamabad' },
+  { name: 'Rawalpindi', slug: 'rawalpindi' },
+]
+
+/** /llms.txt — plain text, no personal data, no prices (owner, 28 Oct 2026). */
 export function llmsText(): string {
   const lines = [
     `# ${SITE_NAME}`,
@@ -179,7 +190,15 @@ export function llmsText(): string {
     '',
     '## Key pages',
     ...SITE_KEY_PATHS.map((p) => `- [${p.label}](${absoluteUrl(p.path)})`),
+    `- [Post your tuition (free)](${absoluteUrl(POST_TUITION_PAGE)})`,
     `- [Sitemap](${absoluteUrl('/sitemap.xml')})`,
+    '',
+    '## Tuition jobs by city',
+    ...LLMS_CITY_PAGES.map((c) => `- [Tuition jobs in ${c.name}](${absoluteUrl(`/tuition-jobs/${c.slug}`)})`),
+    '',
+    '## Costs',
+    'Joining and browsing are free. Tutors pay a one-time Verification Fee to get verified, and optional membership plans add more applications and contact options. TutorMint takes no commission on any tuition. Current details are on the membership plans page:',
+    `- [Membership plans](${absoluteUrl('/membership-plans')})`,
     '',
     '## Support',
     `WhatsApp: ${SUPPORT_WHATSAPP_DISPLAY}`,

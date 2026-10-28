@@ -24,6 +24,7 @@
 import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { loadAreaAliases, spellingsForArea } from '@/lib/areaAliases'
 import { canonArea } from '@/lib/areaAliasCore'
+import { FEMALE_JOBS_OR } from '@/lib/femaleJobsCore'
 import { testAccountIds } from '@/lib/testAccounts'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -392,6 +393,8 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       parent_public: f?.publicCard ?? false,
       poster_is_seed: f?.isSeed ?? false,
       gender_preference: (j.gender_preference as string | null) ?? null,
+      employment_type: (j.employment_type as string | null) ?? null,
+      postal_code: (j.postal_code as string | null) ?? null,
       // PR73 §A: the schedule as the short slot line (timings holds it after sync).
       schedule: (j.timings as string | null) ?? null,
     }
@@ -402,7 +405,7 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
 const SUBJECT_MATCH = 'js_match:job_subjects!inner(master_id)'
 
 const JOB_COLUMNS =
-  'id, job_tx_id, ref_id, public_slug, title, subjects, class_level, class_levels, city, area, area_landmark, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, description, created_at, resumed_at, paused_at, bumped_at, refreshed_at, merged_into, grade_subjects, is_featured, under_review, parent_id, status, gender_preference, timings'
+  'id, job_tx_id, ref_id, public_slug, title, subjects, class_level, class_levels, city, area, area_landmark, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, description, created_at, resumed_at, paused_at, bumped_at, refreshed_at, merged_into, grade_subjects, is_featured, under_review, parent_id, status, gender_preference, timings, employment_type, postal_code'
 
 /**
  * Open jobs that match a tutor's subjects, their city first.
@@ -506,6 +509,9 @@ export type JobFilters = {
    *  curated area — "DHA", "DHA Lahore", "DHA Phase 5" (lib/areaHubCore). */
   areas?: string[] | null
   genderPreference?: 'male' | 'female' | 'trans' | null
+  /** /tuition-jobs/<city>/female (owner, 28 Oct 2026): lib/femaleJobsCore —
+   *  gender_preference 'female', or none set and "female" in the title/description. */
+  femaleJobs?: boolean
   /** Smart search (owner, 8 Oct 2026): a named level ("primary", "matric") with
    *  no subject — tuitions whose class_levels overlap these level names. */
   levels?: string[] | null
@@ -839,6 +845,7 @@ export async function browseJobs(
       else q = q.ilike('area', filters.area)
     }
     if (filters.genderPreference) q = q.eq('gender_preference', filters.genderPreference)
+    if (filters.femaleJobs) q = q.or(FEMALE_JOBS_OR)
     if (filters.mode) {
       // A job carries exactly one Job Type title (migration 77), stored
       // verbatim, so this is a plain equality on the title the filter passed.

@@ -1642,6 +1642,7 @@ export default function PostEditor({
                   { label: 'Image', title: 'Image', run: () => insertMarkdown('![', '](https://)', 'alt text') },
                   { label: 'Tutor', title: 'Embed a tutor card', run: () => insertMarkdown('\n{{tutor:', '}}\n', 'tutor-slug') },
                   { label: 'Tuition', title: 'Embed a tuition card', run: () => insertMarkdown('\n{{job:', '}}\n', 'tuition-slug') },
+                  { label: 'Live jobs', title: 'Up to 6 current open tuitions for this post’s city and subject', run: () => insertMarkdown('\n{{live-jobs}}\n', '', '') },
                 ].map((b) => (
                   <button
                     key={b.label}
@@ -1689,7 +1690,7 @@ export default function PostEditor({
               )}
               {' · '}
               {preview.readingTime} min read · Embed a live card with <code className="rounded bg-tm-tint-navy px-1">{'{{tutor:slug}}'}</code> or{' '}
-              <code className="rounded bg-tm-tint-navy px-1">{'{{job:public-slug}}'}</code> on its own line.
+              <code className="rounded bg-tm-tint-navy px-1">{'{{job:public-slug}}'}</code> on its own line; <code className="rounded bg-tm-tint-navy px-1">{'{{live-jobs}}'}</code> adds up to 6 current open tuitions.
             </p>
           </div>
 
@@ -2286,7 +2287,7 @@ function BodyPreview({ segments }: { segments: ReturnType<typeof parseMarkdown>[
           <div key={i} dangerouslySetInnerHTML={{ __html: seg.html }} />
         ) : (
           <div key={i} className="my-3 rounded-xl border border-dashed border-gray-300 bg-white p-3 text-center text-[11px] font-semibold text-gray-500">
-            {seg.embed.type === 'tutor' ? 'Tutor card' : 'Tuition card'}: {seg.embed.slug}
+            {seg.embed.type === 'live-jobs' ? `Live jobs${seg.embed.slug ? ` (${seg.embed.slug})` : ''}` : `${seg.embed.type === 'tutor' ? 'Tutor card' : 'Tuition card'}: ${seg.embed.slug}`}
           </div>
         ),
       )}

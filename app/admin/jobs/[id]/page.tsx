@@ -14,6 +14,8 @@ import { badgesForPlan } from '@/lib/entitlements'
 import { budgetLabel } from '@/lib/feeBands'
 import { applicationStatus, jobType } from '@/lib/display'
 import StatusChip from '@/components/admin/StatusChip'
+import FeeMissingChip from '@/components/admin/FeeMissingChip'
+import { hasFee } from '@/lib/jobFieldsCore'
 import { COMPLAINT_LABEL, COMPLAINT_REASON, WITHDRAWN_LABEL, WITHDRAWN_REASON } from '@/lib/contactWithdrawCore'
 import { formatDate } from '@/lib/datetime'
 import { formatPkMobile, normalisePkMobile } from '@/lib/phone'
@@ -165,6 +167,7 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
             </span>
           )}
           <StatusChip status={job.status as string} />
+          {job.status === 'open' && !hasFee(job.budget_min_pkr as number | null, job.budget_max_pkr as number | null, job.budget_pkr as number | null) && <FeeMissingChip />}
           {job.hidden_reason === COMPLAINT_REASON && (
             <span className="rounded-full bg-tm-tint-gold px-2 py-0.5 text-[11px] font-bold text-tm-gold-ink">{COMPLAINT_LABEL}</span>
           )}

@@ -40,6 +40,9 @@ export type AdminTemplate = {
   title: string
   subject: string
   body: string
+  /** The approved wording "Reset to default" puts back (owner, 28 Oct 2026);
+   *  absent → the built-in code default. Set by the inbox page only. */
+  resetBody?: string
 }
 
 export type AdminMessage = {

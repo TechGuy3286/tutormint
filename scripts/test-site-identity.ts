@@ -304,7 +304,7 @@ test('FAQPage data is the visible FAQ text, and answers the nine basics', () => 
   const page = readFileSync('app/(site)/faq/page.tsx', 'utf8')
   assert.ok(page.includes('faqJsonLd(FAQ_ITEMS)') && page.includes('{item.q}') && page.includes('{item.a}'))
   const basics = FAQ_GROUPS.find((g) => g.id === 'basics')!
-  assert.equal(basics.items.length, 9)
+  assert.equal(basics.items.length, 10)
   assert.equal(FAQ_GROUPS[0].id, 'basics')
   const qs = new Set(FAQ_ITEMS.map((i) => i.q))
   assert.equal(qs.size, FAQ_ITEMS.length, 'no question twice')

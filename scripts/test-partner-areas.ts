@@ -53,7 +53,7 @@ test('every view-only area refuses a Partner write; the Owner is unaffected', ()
   const VIEW: Key[] = [
     'finance', 'revenue', 'paymentAmounts', 'payments', 'paymentsApprove', 'paymentsRefund', 'paymentsSettings', 'paymentsSwitches',
     'paymentGateways', 'smsHealth', 'emailHealth', 'reconciliation', 'plans', 'plansMutate', 'subjectsCore', 'secondRole', 'team', 'audit', 'seo', 'unmetSearches',
-    'ads', 'social', 'import', 'cleanup', 'blog', 'blogPublish', 'blogApprove', 'blogQueue', 'blogGenerate', 'staffActivity', 'signupFunnel', 'usersExport', 'overview',
+    'ads', 'social', 'import', 'cleanup', 'blog', 'blogPublish', 'blogApprove', 'blogQueue', 'blogGenerate', 'blogQueueDraft', 'contentQueueUpload', 'staffActivity', 'signupFunnel', 'usersExport', 'overview',
     'staffSignupsAll', 'staffSignupClaim', 'staffClaimsReview', 'mySignups', 'cityOwners', 'supportNumber',
     // Convert account type (owner, 23 Oct 2026): the site Owner only.
     'convertAccount',
@@ -131,6 +131,7 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   'blog/generate-cover': 'view',
   'blog/generate': 'view',
   'blog/queue': 'view',
+  'blog/queue/draft': 'view',
   'blog': 'view',
   'cleanup': 'view',
   'documents/read-cnic': 'edit',

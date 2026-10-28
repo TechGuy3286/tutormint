@@ -155,7 +155,8 @@ test('the Faysal Bank logo and name are not on the "Other methods" option row', 
   // The any-bank line was removed (owner, 26 Oct 2026); the transfer line stays above the details.
   assert.doesNotMatch(choice, /ANY_BANK_LINE/)
   const panel = choice.slice(choice.indexOf('data-bank-panel'))
-  assert.ok(panel.indexOf('PAY_BY_TRANSFER_LINE') < panel.indexOf('<dl>'))
+  // The rows are drawn by <BankRows> (the IBAN behind a link, owner 28 Oct 2026).
+  assert.ok(panel.indexOf('PAY_BY_TRANSFER_LINE') < panel.indexOf('<BankRows'))
   assert.ok(!/faysal-bank/.test(read('app/(site)/pay/choose/page.tsx')), 'the bank logo is no longer passed')
   // PayPro retired: no JazzCash (PayPro) option and no "activates automatically".
   assert.doesNotMatch(choice, /JazzCash \(PayPro\)|Activates automatically/)

@@ -137,6 +137,10 @@ export type JobCardData = {
   gender_preference?: string | null
   /** PR73 §A: the schedule as the short slot line, e.g. "Mon, Tue: Evening". */
   schedule?: string | null
+  /** Job Posting fields (migration 213): 'part_time' | 'full_time' | 'contract',
+   *  and the 5-digit postal code. Read by the tuition page's JobPosting only. */
+  employment_type?: string | null
+  postal_code?: string | null
 }
 
 export default function JobCard({

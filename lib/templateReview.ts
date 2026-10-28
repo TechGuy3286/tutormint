@@ -30,6 +30,8 @@ import { render, renderWording } from '@/lib/notify/templates'
 import { clearEmailWordingCache } from '@/lib/notify/emailWording'
 import { templateSaveCheck } from '@/lib/templateRules'
 import { formatName } from '@/lib/formatName'
+import { approvedWording } from '@/lib/templateResetCore'
+import { pageAll } from '@/lib/pageAll'
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>
 
@@ -350,4 +352,42 @@ export async function recordEditHistory(actor: AdminActor, key: string, before: 
       () => undefined,
       () => undefined,
     )
+}
+
+/**
+ * The approved wording of each WhatsApp / Team template the Owner approved
+ * (owner, 28 Oct 2026) — what "Reset to default" puts back. Keys with no
+ * approval are absent (Reset then uses the built-in code default). One read
+ * of each table; a failed read returns an empty map (the old behaviour).
+ */
+export async function approvedTemplateBodies(admin: Admin | null = createAdminClient()): Promise<Map<string, string>> {
+  const out = new Map<string, string>()
+  if (!admin) return out
+  try {
+    const [rev, hist, tpl] = await Promise.all([
+      admin.from('template_reviews').select('key, status, edited, decided_at').eq('status', 'approved'),
+      pageAll((from, to) => admin.from('template_history').select('id, key, action, body, saved_at').order('saved_at', { ascending: true }).order('id').range(from, to)).then((data) => ({ data })),
+      admin.from('admin_message_templates').select('key, body'),
+    ])
+    const history = new Map<string, { action: string; body: string | null; savedAt: string }[]>()
+    for (const h of hist.data ?? []) {
+      const k = h.key as string
+      ;(history.get(k) ?? history.set(k, []).get(k)!).push({ action: h.action as string, body: (h.body as string | null) ?? null, savedAt: h.saved_at as string })
+    }
+    const live = new Map((tpl.data ?? []).map((t) => [t.key as string, (t.body as string | null) ?? null]))
+    for (const r of rev.data ?? []) {
+      const key = r.key as string
+      if (key.startsWith('email:')) continue
+      const body = approvedWording({
+        review: { status: 'approved', edited: !!r.edited, decidedAt: r.decided_at as string },
+        proposalBody: proposalFor(key)?.body ?? null,
+        history: history.get(key) ?? [],
+        currentBody: live.get(key) ?? null,
+      })
+      if (body) out.set(key, body)
+    }
+  } catch {
+    /* keep the code defaults */
+  }
+  return out
 }

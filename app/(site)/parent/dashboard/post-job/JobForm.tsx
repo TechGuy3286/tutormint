@@ -56,6 +56,8 @@ export default function JobForm({
         description: payload.description,
         childId: payload.childId,
         genderPreference: payload.genderPreference,
+        employmentType: payload.employmentType,
+        postalCode: payload.postalCode,
         allowDuplicate: payload.allowDuplicate ?? false,
       },
       upgradeSheet?.showGate,

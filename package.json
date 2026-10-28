@@ -220,7 +220,13 @@
     "test:complaintemail": "tsx --conditions=react-server --test scripts/test-oct27-complaint-email.ts",
     "test:posttuitionpage": "tsx --test scripts/test-post-tuition.ts",
     "test:withdrawlisted": "tsx --test scripts/test-withdraw-listed.ts",
-    "test:templaterewrite": "tsx --conditions=react-server --test scripts/test-template-rewrite.ts"
+    "test:templaterewrite": "tsx --conditions=react-server --test scripts/test-template-rewrite.ts",
+    "test:contentsearch": "tsx --test scripts/test-content-search.ts",
+    "test:jobpostingfields": "tsx --test scripts/test-job-posting-fields.ts",
+    "test:femalepages": "tsx --test scripts/test-female-pages.ts",
+    "test:aivisibility": "tsx --test scripts/test-ai-visibility.ts",
+    "test:ibanlink": "tsx --test scripts/test-iban-link.ts",
+    "test:resetapproved": "tsx --test scripts/test-reset-approved.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

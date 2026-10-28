@@ -13,6 +13,6 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   return new Response(sitemapIndexXml(SITE_URL, SITEMAP_FILES.map((file) => ({ file }))), {
-    headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=0, s-maxage=600' },
+    headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'no-store' },
   })
 }

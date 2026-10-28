@@ -8,6 +8,7 @@ import { indexableSchoolHubsCached } from '@/lib/schoolJobs'
 import { schoolHubPath } from '@/lib/schoolJobsCore'
 import { cityFromSegment, slugify } from '@/lib/slugs'
 import { seoTitle, socialMeta } from '@/lib/seo'
+import { femalePageTitle } from '@/lib/femaleJobsCore'
 
 // /tuition-jobs/[city]/[variant] — female / online / an area (owner, 6 Oct 2026,
 // item 6). Same rules as the city page: indexable from 3 open tuitions, noindex
@@ -25,7 +26,8 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   if (!page || !v) return { title: seoTitle('Tuition jobs'), robots: { index: false, follow: true } }
   // "Teaching Jobs in <Area>, <City> – <N> Open | TutorMint" (owner, 12 Oct 2026).
   const hub = variantHub(page.city, v)
-  const title = hubTitle(hub.kind, hub.name, v.count)
+  // The female page carries the owner's exact title (28 Oct 2026), even past 60 characters.
+  const title = v.kind === 'female' ? femalePageTitle(page.city) : hubTitle(hub.kind, hub.name, v.count)
   const description = hubDescription(hub.kind, hub.name, { count: v.count, areas: [], levels: [], jobTypes: [], budgetMin: null, budgetMax: null })
   const path = cityPagePath(page.citySlug, v.slug)
   return {

@@ -81,6 +81,7 @@ function posting(s: Sample) {
     refId: 'TM-2001',
     online: s.jobTitle === 'Online Tutor',
     employmentType: employmentTypeFor({ jobTitle: s.jobTitle, title: s.title, description: s.free ?? null }),
+    jobTitle: s.jobTitle,
     schoolName: s.school ?? null,
   }) as Record<string, unknown>
 }
@@ -131,13 +132,13 @@ test('JobPosting: an online tuition is TELECOMMUTE for applicants in Pakistan', 
   assert.deepEqual([v.minValue, v.maxValue], [20000, 20000])
 })
 
-test('JobPosting: a school job names its school and claims no employment type it was not told', () => {
+test('JobPosting: a school job names its school; employmentType is always set (FULL_TIME when not told, 28 Oct 2026)', () => {
   const j = posting(SCHOOL)
   assert.deepEqual((j.hiringOrganization as Record<string, unknown>), { '@type': 'Organization', name: 'Naveed Majeed Academy' })
-  assert.equal(j.employmentType, undefined, 'unknown for a school post → left out')
+  assert.equal(j.employmentType, 'FULL_TIME', 'a school post with no stated type defaults to FULL_TIME')
   const problems = validateJobPosting(j)
   assert.deepEqual(problems.filter((p) => p.level === 'required'), [])
-  assert.deepEqual(problems.map((p) => p.field), ['employmentType'], 'the only gap is the recommended field we will not guess')
+  assert.deepEqual(problems.map((p) => p.field), [], 'nothing missing — employmentType is always present now')
   assert.equal(employmentTypeFor({ jobTitle: 'Primary Teacher', description: 'Full time position, 8 to 2.' }), 'FULL_TIME')
   assert.equal(employmentTypeFor({ jobTitle: 'Visiting Teacher' }), 'PART_TIME')
   assert.equal(employmentTypeFor({ jobTitle: 'College Lecturer', description: 'One year contract.' }), 'CONTRACTOR')
@@ -487,7 +488,7 @@ test('indexing: one notice per address — only the newest is sent', () => {
   assert.deepEqual(plan.send.map((n) => n.id), [2, 4], 'paused then resumed → it is live; the repeat removal is sent once')
   assert.deepEqual(plan.superseded.sort(), [1, 3])
   const src = read('lib/googleIndexing.ts')
-  assert.match(src, /planDrain\(tuitionRows, sentToday, max\)/,'the drain sends only what the plan allows')
+  assert.match(src, /planDrain\(sendable, sentToday, max, Date\.now\(\), noticeFacts\)/, 'the drain sends only what the plan allows')
   // "Sent today" counts the requests made since Google's (Pacific) day began —
   // indexing_attempts, so a superseded notice (1970) is never counted.
   assert.match(src, /\.gte\('attempted_at', pacificDayStart\(now\)\.toISOString\(\)\)/)

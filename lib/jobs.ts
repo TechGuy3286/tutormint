@@ -76,6 +76,7 @@ import { normalisePkMobile } from '@/lib/phone'
 import { contactFactsForJobs } from '@/lib/tuitionContact'
 import { doNotUseRefusal } from '@/lib/contactWithdraw'
 import { tuitionNumbers } from '@/lib/contactWithdrawCore'
+import { cleanPostalCode, isEmploymentType, parentJobFieldProblem, resolveEmploymentType, staffJobFieldProblem } from '@/lib/jobFieldsCore'
 
 // Level is multi-select now (migration 79): jobs.class_levels is the array, and
 // jobs.class_level (+ the legacy `grade` mirror) hold the collapsed display run.
@@ -167,6 +168,12 @@ export type JobInput = {
    * tuition behaves exactly as before.
    */
   gradeSubjects?: { grade: string; masterIds: number[] }[] | null
+  /** Job Posting fields (owner, 28 Oct 2026; migration 213). Staff posts
+   *  REQUIRE an employment type ('part_time' | 'full_time' | 'contract'), a fee
+   *  and an area; parents may leave them empty (the employment type is then
+   *  derived from the Job Type). The postal code is five digits or empty. */
+  employmentType?: string | null
+  postalCode?: string | null
 }
 
 /** Clean the per-grade payload and keep masterIds as its union. */
@@ -243,7 +250,7 @@ export async function createJob(
   const prepared = prepareGradeSubjects(rawInput)
   if (!prepared.ok) return { ok: false, status: 400, error: prepared.error }
   const input = prepared.input
-  const problem = validate(input)
+  const problem = validate(input) ?? parentJobFieldProblem(input)
   if (problem) return { ok: false, status: 400, error: problem }
 
   const supabase = await createClient()
@@ -358,6 +365,8 @@ export async function createJob(
       budget_min_pkr: input.budgetMin ?? null,
       budget_max_pkr: input.budgetMax ?? null,
       gender_preference: normaliseGenderPref(input.genderPreference),
+      employment_type: resolveEmploymentType(input.employmentType, input.teachingMode),
+      postal_code: cleanPostalCode(input.postalCode),
       description: input.description,
       child_id: input.childId,
       status: 'open',
@@ -474,7 +483,7 @@ export async function createTeamJob(
   const prepared = prepareGradeSubjects(rawInput)
   if (!prepared.ok) return { ok: false, status: 400, error: prepared.error }
   const input = prepared.input
-  const problem = validate(input)
+  const problem = validate(input) ?? staffJobFieldProblem(input)
   if (problem) return { ok: false, status: 400, error: problem }
 
   // Validate the contact block BEFORE creating anything, so a bad phone / email
@@ -583,6 +592,8 @@ export async function createTeamJob(
       budget_min_pkr: input.budgetMin ?? null,
       budget_max_pkr: input.budgetMax ?? null,
       gender_preference: normaliseGenderPref(input.genderPreference),
+      employment_type: resolveEmploymentType(input.employmentType, input.teachingMode),
+      postal_code: cleanPostalCode(input.postalCode),
       description: input.description,
       child_id: null,
       status: 'open',
@@ -689,7 +700,7 @@ export async function updateTeamJob(
   const prepared = prepareGradeSubjects(rawInput)
   if (!prepared.ok) return { ok: false, status: 400, error: prepared.error }
   const input = prepared.input
-  const problem = validate(input)
+  const problem = validate(input) ?? staffJobFieldProblem(input)
   if (problem) return { ok: false, status: 400, error: problem }
   if (!reason || reason.trim().length < 3) {
     return { ok: false, status: 400, error: 'Give a reason for this change — it is recorded.' }
@@ -730,7 +741,7 @@ export async function updateTeamJob(
   const { data: existing } = await admin
     .from('jobs')
     .select(
-      'id, parent_id, status, public_slug, job_tx_id, ref_id, title, class_levels, city, area, area_landmark, teaching_mode, budget_min_pkr, budget_max_pkr, description, gender_preference, timings, subjects',
+      'id, parent_id, status, public_slug, job_tx_id, ref_id, title, class_levels, city, area, area_landmark, teaching_mode, budget_min_pkr, budget_max_pkr, description, gender_preference, timings, subjects, employment_type, postal_code',
     )
     .eq('id', jobId)
     .maybeSingle()
@@ -756,6 +767,8 @@ export async function updateTeamJob(
     budget_min_pkr: input.budgetMin ?? null,
     budget_max_pkr: input.budgetMax ?? null,
     gender_preference: normaliseGenderPref(input.genderPreference),
+    employment_type: resolveEmploymentType(input.employmentType, input.teachingMode),
+    postal_code: cleanPostalCode(input.postalCode),
     description: input.description,
     subjects: labels,
     subject: labels.join(', ') || 'Tuition',
@@ -779,6 +792,8 @@ export async function updateTeamJob(
   diff('jobType', existing.teaching_mode, next.teaching_mode)
   diff('budget', [existing.budget_min_pkr, existing.budget_max_pkr], [next.budget_min_pkr, next.budget_max_pkr])
   diff('genderPreference', existing.gender_preference, next.gender_preference)
+  diff('employmentType', existing.employment_type, next.employment_type)
+  diff('postalCode', existing.postal_code, next.postal_code)
   diff('description', existing.description, next.description)
   diff('schedule', existing.timings, next.timings)
   diff('subjects', existing.subjects, next.subjects)
@@ -850,7 +865,7 @@ export async function updateJob(
   const prepared = prepareGradeSubjects(rawInput)
   if (!prepared.ok) return { ok: false, status: 400, error: prepared.error }
   const input = prepared.input
-  const problem = validate(input)
+  const problem = validate(input) ?? parentJobFieldProblem(input)
   if (problem) return { ok: false, status: 400, error: problem }
 
   const supabase = await createClient()
@@ -889,6 +904,10 @@ export async function updateJob(
       budget_min_pkr: input.budgetMin ?? null,
       budget_max_pkr: input.budgetMax ?? null,
       gender_preference: normaliseGenderPref(input.genderPreference),
+      // A parent's edit changes the employment type / postal code only when
+      // the form sends one; otherwise the stored value stays.
+      ...(isEmploymentType(input.employmentType) ? { employment_type: input.employmentType } : {}),
+      ...(input.postalCode !== undefined ? { postal_code: cleanPostalCode(input.postalCode) } : {}),
       description: input.description,
       child_id: input.childId,
       subjects: labels,

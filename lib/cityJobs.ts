@@ -17,6 +17,7 @@ import { pageAll } from '@/lib/pageAll'
 import { ONLINE_JOB_TITLE } from '@/lib/jobTitlesCore'
 import { areaHubSlug, areaHubsFor, resolveAreaHub, schoolFromAreaValue } from '@/lib/areaHubCore'
 import { loadAreaAliases } from '@/lib/areaAliases'
+import { isFemaleJob } from '@/lib/femaleJobsCore'
 
 /** A city page or variant is indexable (and in the sitemap) from this many open tuitions. */
 export const CITY_PAGE_THRESHOLD = 3
@@ -29,7 +30,7 @@ export type CityVariant = { kind: 'female' | 'online' | 'area'; slug: string; la
 
 export type CityPage = { city: string; citySlug: string; count: number; variants: CityVariant[] }
 
-type OpenRow = { city: string | null; area: string | null; gender_preference: string | null; teaching_mode: string | null }
+type OpenRow = { city: string | null; area: string | null; gender_preference: string | null; teaching_mode: string | null; title: string | null; description: string | null }
 
 async function openRows(): Promise<OpenRow[]> {
   const db = createPublicClient()
@@ -38,7 +39,7 @@ async function openRows(): Promise<OpenRow[]> {
   for (let from = 0; ; from += 1000) {
     const { data } = await db
       .from('jobs')
-      .select('city, area, gender_preference, teaching_mode')
+      .select('city, area, gender_preference, teaching_mode, title, description')
       .eq('status', 'open')
       .range(from, from + 999)
     const rows = (data ?? []) as OpenRow[]
@@ -100,8 +101,9 @@ export async function cityPages(): Promise<CityPage[]> {
     for (const r of list) spell.set(cityName(r.city!), (spell.get(cityName(r.city!)) ?? 0) + 1)
     const city = [...spell.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0]
     const variants: CityVariant[] = []
-    const female = list.filter((r) => r.gender_preference === 'female').length
-    if (female > 0) variants.push({ kind: 'female', slug: 'female', label: `Female tutor required`, count: female })
+    // lib/femaleJobsCore: the field, or the whole word "female" when no preference is set.
+    const female = list.filter((r) => isFemaleJob(r)).length
+    if (female > 0) variants.push({ kind: 'female', slug: 'female', label: `Female teaching jobs`, count: female })
     const online = list.filter((r) => r.teaching_mode === ONLINE_JOB_TITLE).length
     if (online > 0) variants.push({ kind: 'online', slug: 'online', label: `Online tuitions`, count: online })
     // Area hubs: curated areas only, every saved spelling of one area in one hub.

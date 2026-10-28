@@ -29,7 +29,8 @@
 
 import Image from 'next/image'
 import { PARENT_SIGNUP_HREF } from '@/lib/signupLinks'
-import { indexableCityPages, cityPagePath } from '@/lib/cityJobs'
+import { indexableCityPagesCached, cityPagePath } from '@/lib/cityJobs'
+import { femaleFooterLinks } from '@/lib/femaleJobsCore'
 import HideOnHome from '@/components/HideOnHome'
 import Link from 'next/link'
 import { SITE_LOGO_DARK_PATH } from '@/lib/siteIdentity'
@@ -136,7 +137,13 @@ export default async function Footer() {
   // tutors column so they are never orphans. A read error leaves them out.
   let cityLinks: FooterLink[] = []
   try {
-    cityLinks = (await indexableCityPages()).slice(0, 5).map((c) => ({ label: `Tuition jobs in ${c.city}`, href: cityPagePath(c.citySlug), hideOnHome: true }))
+    // The cached link-block list (ten minutes, cleared with the landing cache):
+    // the footer is on every page and must not read every open tuition each time.
+    const pages = await indexableCityPagesCached()
+    cityLinks = pages.slice(0, 5).map((c) => ({ label: `Tuition jobs in ${c.city}`, href: cityPagePath(c.citySlug), hideOnHome: true }))
+    // Female teaching jobs pages (owner, 28 Oct 2026): the top cities only, and
+    // only where the page is indexable (3+ open matching tuitions).
+    cityLinks.push(...femaleFooterLinks(pages))
   } catch {
     cityLinks = []
   }

@@ -38,7 +38,7 @@ import { liveOverlapNoindex, overlapKey } from '@/lib/landingOverlap'
 import { repeatOfOlderOpen, tuitionHref } from '@/lib/duplicates'
 import { cityPagePath, areaHubFor, indexableCityPagesCached } from '@/lib/cityJobs'
 import { schoolOfJob, indexableSchoolHubsCached, schoolHubPath } from '@/lib/schoolJobs'
-import { employmentTypeFor, jobPostingDescription } from '@/lib/jobPostingCore'
+import { jobPostingEmploymentType, jobPostingDescription } from '@/lib/jobPostingCore'
 import { genderPrefWord } from '@/lib/genderPref'
 import { placeLabel } from '@/lib/place'
 import { ONLINE_JOB_TITLE } from '@/lib/jobTitlesCore'
@@ -461,9 +461,12 @@ export default async function TuitionPage({ params }: { params: Params }) {
                 schoolName: school?.name ?? null,
                 freeText: job.description,
               }),
-              // PART_TIME for a tuition; a school post only says what its own
-              // words say. The school it names is the hiring organisation.
-              employmentType: employmentTypeFor({ jobTitle: job.teaching_mode, title: pageHeadline, description: job.description }),
+              // Always set (owner, 28 Oct 2026): the stored employment type, else
+              // derived from the Job Type. The postal code: stored, else the
+              // city/area lookup. The school a post names is the hiring organisation.
+              employmentType: jobPostingEmploymentType(job.employment_type ?? null, job.teaching_mode),
+              jobTitle: job.teaching_mode,
+              postalCode: job.postal_code ?? null,
               schoolName: school?.name ?? null,
               datePosted: job.created_at,
               // validThrough = the auto-pause instant (PR89 Part C): the same

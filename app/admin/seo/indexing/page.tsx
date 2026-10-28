@@ -19,6 +19,7 @@ function result(row: { sent_at: string | null; last_error: string | null; skip_r
   if (!row.sent_at) return { text: row.last_error ? 'Waiting (tried before; will try again)' : 'Waiting', cls: 'bg-tm-tint-gold text-tm-gold-ink' }
   if (row.skip_reason === 'not_tuition') return { text: SKIP_NOTE.not_tuition, cls: 'bg-tm-bg text-gray-600' }
   if (row.skip_reason === 'old_address') return { text: SKIP_NOTE.old_address, cls: 'bg-tm-bg text-gray-600' }
+  if (row.skip_reason === 'not_open') return { text: SKIP_NOTE.not_open, cls: 'bg-tm-bg text-gray-600' }
   if (row.last_error === SUPERSEDED_NOTE) return { text: 'Not sent — a newer notice replaced it', cls: 'bg-tm-bg text-gray-600' }
   if (row.last_error) return { text: 'Failed', cls: 'bg-tm-tint-red text-tm-red' }
   return { text: 'Accepted by Google', cls: 'bg-tm-tint-green text-tm-green-deep' }

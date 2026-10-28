@@ -25,6 +25,8 @@ import { loadFormDraft, saveFormDraft, clearFormDraft } from '@/lib/formDraft'
 import { TextLinesSkeleton } from '@/components/Skeletons'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { parseContactNumber } from '@/lib/tuitionContactCore'
+import { EMPLOYMENT_TYPES, defaultEmploymentType, staffJobFieldProblem } from '@/lib/jobFieldsCore'
+import { postcodeFor } from '@/lib/postcodes'
 
 /** Known schools for the staff title check (the built-in chains). */
 const KNOWN_SCHOOLS = knownSchools()
@@ -87,6 +89,15 @@ export type PostTuitionValues = {
   consentAgreed: boolean
   consentMethod: string
   consentNote: string
+  /** Job Posting fields (owner, 28 Oct 2026). The employment type follows the
+   *  Job Type until the member changes it (employmentTouched). */
+  employmentType: string
+  employmentTouched: boolean
+  /** Staff only: filled from the city/area lookup until staff edit it. */
+  postalCode: string
+  postalTouched: boolean
+  /** The fee was typed as one exact amount rather than chosen as a range. */
+  feeExact: boolean
 }
 
 /** What a wrapper's onSubmit receives — the resolved, ready-to-send fields. */
@@ -125,6 +136,10 @@ export type PostTuitionPayload = {
   consentAgreed?: boolean
   consentMethod?: string | null
   consentNote?: string | null
+  /** 'part_time' | 'full_time' | 'contract', or null (a parent who left it empty). */
+  employmentType: string | null
+  /** Staff only; undefined on a parent post. */
+  postalCode?: string | null
 }
 
 /** The open/paused tuition a post would repeat (item 16), as the API returns it. */
@@ -162,6 +177,11 @@ const EMPTY: PostTuitionValues = {
   consentAgreed: false,
   consentMethod: '',
   consentNote: '',
+  employmentType: '',
+  employmentTouched: false,
+  postalCode: '',
+  postalTouched: false,
+  feeExact: false,
 }
 
 const FIELD =
@@ -329,6 +349,14 @@ export default function PostTuitionForm({
   const { titles: jobTitles } = useJobTitles()
 
   const band = useMemo(() => bandFor(v.budgetMin, v.budgetMax), [v.budgetMin, v.budgetMax])
+  // An exact fee: chosen as "Exact amount", or a stored min = max (a band never is).
+  const feeExact = v.feeExact || (v.budgetMin !== '' && v.budgetMin === v.budgetMax)
+
+  // Staff: the postal code follows the city and area until staff type their own.
+  useEffect(() => {
+    if (!adminExtras) return
+    setV((p) => (p.postalTouched ? p : { ...p, postalCode: postcodeFor(p.city, p.area) ?? '' }))
+  }, [adminExtras, v.city, v.area])
   // Every selected grade needs at least one subject (owner, 7 Oct 2026).
   const gradesWithNone = levelLeaf ? [] : v.levels.filter((g) => (v.gradeSubjects[g] ?? []).length === 0)
   const hasSelection = !!(v.category && v.levels.length > 0 && (levelLeaf || (v.subjects.length > 0 && gradesWithNone.length === 0)))
@@ -399,6 +427,15 @@ export default function PostTuitionForm({
       if (adminExtras) {
         const number = parseContactNumber(v.contactPhone)
         if (!number.ok) throw new Error(number.error)
+        // Job Posting fields (owner, 28 Oct 2026): the server refuses too.
+        const fields = staffJobFieldProblem({
+          employmentType: v.employmentType,
+          budgetMin: v.budgetMin ? Number(v.budgetMin) : null,
+          budgetMax: v.budgetMax ? Number(v.budgetMax) : null,
+          area: v.area,
+          postalCode: v.postalCode,
+        })
+        if (fields) throw new Error(fields)
         // Parent consent is required on every staff save (owner, 27 Oct 2026).
         // Not required since 27 Oct 2026 (CONSENT_UI_ENABLED is off).
         if (CONSENT_UI_ENABLED) {
@@ -444,6 +481,8 @@ export default function PostTuitionForm({
         consentAgreed: adminExtras ? v.consentAgreed : undefined,
         consentMethod: adminExtras ? v.consentMethod || null : undefined,
         consentNote: adminExtras ? v.consentNote || null : undefined,
+        employmentType: v.employmentType || null,
+        postalCode: adminExtras ? v.postalCode.trim() || null : undefined,
       })
 
       if (!r.ok) {
@@ -512,13 +551,32 @@ export default function PostTuitionForm({
             <span className={LABEL}>Job Type</span>
             <select
               value={v.teachingMode}
-              onChange={(e) => set('teachingMode', e.target.value)}
+              onChange={(e) => {
+                const t = e.target.value
+                // The employment type follows the Job Type until it is changed by hand.
+                setV((p) => ({ ...p, teachingMode: t, employmentType: p.employmentTouched || !t ? p.employmentType : defaultEmploymentType(t) }))
+              }}
               className={FIELD}
             >
               <option value="">Choose a job type</option>
               {jobTitles.map((t) => (
                 <option key={t} value={t}>
                   {t}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block space-y-1">
+            <span className={LABEL}>Employment type{adminExtras ? '' : ' (optional)'}</span>
+            <select
+              value={v.employmentType}
+              onChange={(e) => setV((p) => ({ ...p, employmentType: e.target.value, employmentTouched: true }))}
+              className={FIELD}
+            >
+              <option value="">{adminExtras ? 'Choose an employment type' : 'Not specified'}</option>
+              {EMPLOYMENT_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
                 </option>
               ))}
             </select>
@@ -590,8 +648,18 @@ export default function PostTuitionForm({
             onSplit={(a, l) => setV((p) => ({ ...p, area: a, areaLandmark: p.areaLandmark.trim() ? p.areaLandmark : l }))}
             onBand={(x) => {
               const r = bandRange(x)
-              setV((p) => ({ ...p, budgetMin: r.min, budgetMax: r.max }))
+              setV((p) => ({ ...p, budgetMin: r.min, budgetMax: r.max, feeExact: false }))
             }}
+            feeExact={feeExact}
+            exactAmount={feeExact ? v.budgetMin : ''}
+            onExactMode={() => setV((p) => ({ ...p, feeExact: true, budgetMin: '', budgetMax: '' }))}
+            onExactAmount={(x) => {
+              const n = x.replace(/[^0-9]/g, '').slice(0, 7)
+              setV((p) => ({ ...p, feeExact: true, budgetMin: n, budgetMax: n }))
+            }}
+            feeRequired={adminExtras}
+            postalCode={v.postalCode}
+            onPostalCode={adminExtras ? (x) => setV((p) => ({ ...p, postalCode: x.replace(/[^0-9]/g, '').slice(0, 5), postalTouched: true })) : undefined}
           />
 
           {/* PR73 §A: the shared time-slot grid (was free-text days/times). */}

@@ -8,6 +8,6 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   return new Response(urlsetXml(await sitemapEntries('pages')), {
-    headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=0, s-maxage=600' },
+    headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'no-store' },
   })
 }

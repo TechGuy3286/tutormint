@@ -17,7 +17,7 @@ import {
 } from '@/lib/payments/receiptCore'
 import { prepareReceiptFile } from '@/lib/payments/receiptPrepare'
 import { compressImage } from '@/lib/imageCompress'
-import { bankCopyRows, COPIED_MS } from '@/lib/payments/bankCopyCore'
+import { bankCopyRows, COPIED_MS, IBAN_LINK_LABEL, splitBankRows, type BankCopyRow } from '@/lib/payments/bankCopyCore'
 import { PAY_BY_TRANSFER_LINE } from '@/lib/payments/payproRetireCore'
 
 // The payment screen (owner, 11 Oct 2026; PayPro retired 26 Oct 2026).
@@ -72,7 +72,7 @@ function useCopy(): [boolean, (text: string) => void] {
 function CopyValue({ label, display, copy, copyable }: { label: string; display: string; copy: string; copyable: boolean }) {
   const [done, doCopy] = useCopy()
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-gray-100 py-2.5 last:border-0" data-copy-row={label}>
+    <div className="flex items-center justify-between gap-3 py-2.5" data-copy-row={label}>
       <div className="min-w-0">
         <dt className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{label}</dt>
         <dd className="break-words font-mono text-base font-bold tracking-wide text-tm-navy" data-bank-value="">{display}</dd>
@@ -87,6 +87,38 @@ function CopyValue({ label, display, copy, copyable }: { label: string; display:
         {done ? 'Copied ✓' : 'Copy'}
       </button>}
     </div>
+  )
+}
+
+/** The bank rows (owner, 28 Oct 2026): the IBAN is hidden behind a small link
+ *  under the account number, and revealed with its own Copy button. */
+function BankRows({ rows }: { rows: BankCopyRow[] }) {
+  const [showIban, setShowIban] = useState(false)
+  const { main, iban } = splitBankRows(rows)
+  return (
+    <dl>
+      {main.map((r) => (
+        <div key={r.key} className="border-b border-gray-100 last:border-0">
+          <CopyValue label={r.label} display={r.display} copy={r.copy} copyable={r.copyable} />
+          {r.key === 'accountNumber' && iban && (
+            showIban ? (
+              <div className="border-t border-gray-100">
+                <CopyValue label={iban.label} display={iban.display} copy={iban.copy} copyable={iban.copyable} />
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowIban(true)}
+                data-iban-link=""
+                className="mb-1 min-h-[32px] text-xs font-bold text-tm-red underline underline-offset-2 hover:text-tm-red-hover"
+              >
+                {IBAN_LINK_LABEL}
+              </button>
+            )
+          )}
+        </div>
+      ))}
+    </dl>
   )
 }
 
@@ -237,11 +269,7 @@ export default function PayChoice({
         <section className="space-y-4 rounded-2xl border border-gray-200 bg-white p-4" data-bank-panel="">
           <h2 className="text-sm font-black text-tm-navy">Pay by bank transfer</h2>
           <p className="text-xs font-bold leading-relaxed text-tm-navy">{PAY_BY_TRANSFER_LINE}</p>
-          <dl>
-            {bankCopyRows(bank, amount).map((r) => (
-              <CopyValue key={r.key} label={r.label} display={r.display} copy={r.copy} copyable={r.copyable} />
-            ))}
-          </dl>
+          <BankRows rows={bankCopyRows(bank, amount)} />
 
           <p className="text-xs leading-relaxed text-slate-700" data-urdu-steps="">
             <Ur>کسی بھی بینک ایپ، جاز کیش یا ایزی پیسہ سے اس اکاؤنٹ میں رقم بھیجیں، رسید کا اسکرین شاٹ لیں اور نیچے اپ لوڈ کریں۔</Ur>

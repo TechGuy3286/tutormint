@@ -13,6 +13,7 @@ import { tuitionPath } from '@/lib/slugs'
 import { ONLINE_JOB_TITLE } from '@/lib/jobTitlesCore'
 import { CITY_PAGE_THRESHOLD, cityPagePath, indexableCityPagesCached, type CityPage, type CityVariant } from '@/lib/cityJobs'
 import { distinctWords, hubFaq, hubHeading, hubIntro, type HubFacts, type HubKind } from '@/lib/hubCopy'
+import { femalePageIntro } from '@/lib/femaleJobsCore'
 import { placeLabel } from '@/lib/place'
 import HubFaq from '@/components/seo/HubFaq'
 import { createClient } from '@/lib/supabase/server'
@@ -43,7 +44,7 @@ export function variantFilters(citySlug: string, city: string, variant: CityVari
     viewerGender: null,
     area: variant?.kind === 'area' && !variant.areas?.length ? (variant.area ?? null) : null,
     areas: variant?.kind === 'area' ? (variant.areas ?? null) : null,
-    genderPreference: variant?.kind === 'female' ? 'female' : null,
+    femaleJobs: variant?.kind === 'female',
   }
 }
 
@@ -111,7 +112,8 @@ export default async function CityJobsView({
     fullJobs,
     variant?.kind === 'area' ? [] : page.variants.filter((v) => v.kind === 'area').slice(0, 4).map((v) => v.label),
   )
-  const intro = hubIntro(hub.kind, hub.name, facts)
+  // The female page has its own short intro (owner, 28 Oct 2026).
+  const intro = variant?.kind === 'female' ? femalePageIntro(page.city, total) : hubIntro(hub.kind, hub.name, facts)
   // Only a page that clears the threshold carries the FAQ (and its FAQPage data).
   const indexable = (variant ? variant.count : page.count) >= CITY_PAGE_THRESHOLD
   // The same hub in other cities — only the ones that exist (3+ open posts).
@@ -158,7 +160,8 @@ export default async function CityJobsView({
           <p className="max-w-3xl text-xs leading-relaxed text-gray-600 sm:text-sm">{intro}</p>
         </header>
 
-        {liveVariants.length > 0 && (
+        {/* A variant always links back to the city's main tuition page. */}
+        {(variant || liveVariants.length > 0) && (
           <nav aria-label={`More tuition pages in ${page.city}`} className="flex flex-wrap gap-2">
             {variant && (
               <Link href={cityPagePath(page.citySlug)} className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 text-[11px] font-bold text-tm-navy hover:border-tm-navy">
@@ -197,7 +200,7 @@ export default async function CityJobsView({
               params={{
                 city: page.city,
                 ...(variant?.kind === 'online' ? { mode: ONLINE_JOB_TITLE } : {}),
-                ...(variant?.kind === 'female' ? { gender: 'female' } : {}),
+                ...(variant?.kind === 'female' ? { femaleJobs: '1' } : {}),
                 ...(variant?.kind === 'area' ? { areaHub: variant.slug } : {}),
                 ...(pageNo > 1 ? { page: String(pageNo) } : {}),
               }}

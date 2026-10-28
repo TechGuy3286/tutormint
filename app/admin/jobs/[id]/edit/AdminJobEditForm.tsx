@@ -49,6 +49,8 @@ export default function AdminJobEditForm({
         schedule: payload.schedule,
         description: payload.description,
         genderPreference: payload.genderPreference,
+        employmentType: payload.employmentType,
+        postalCode: payload.postalCode,
         contactName: payload.contactName,
         contactPhone: payload.contactPhone,
         contactWhatsapp: payload.contactWhatsapp,

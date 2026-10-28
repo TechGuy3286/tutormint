@@ -41,6 +41,8 @@ export default function AdminJobForm({ draftKey }: { draftKey?: string }) {
         scheduleSlots: payload.scheduleSlots,
         description: payload.description,
         genderPreference: payload.genderPreference,
+        employmentType: payload.employmentType,
+        postalCode: payload.postalCode,
         origin: payload.origin,
         contactName: payload.contactName,
         contactPhone: payload.contactPhone,

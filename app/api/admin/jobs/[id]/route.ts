@@ -33,6 +33,9 @@ const EditBody = z.object({
   schedule: z.string().max(500).nullish(),
   description: z.string().max(5000, 'Keep the description under 5000 characters.').nullish(),
   genderPreference: z.enum(['male', 'female', 'trans']).nullish(),
+  // Job Posting fields (owner, 28 Oct 2026): required on a staff post, checked in lib/jobs.
+  employmentType: z.enum(['part_time', 'full_time', 'contract']).nullish(),
+  postalCode: z.string().max(10).nullish(),
   contactName: z.string().max(120).nullish(),
   contactPhone: z.string().max(40).nullish(),
   contactWhatsapp: z.string().max(40).nullish(),
@@ -67,6 +70,8 @@ function parseInput(body: z.infer<typeof EditBody>): JobInput {
     description: str(body.description),
     childId: null,
     genderPreference: body.genderPreference ?? null,
+    employmentType: body.employmentType ?? null,
+    postalCode: body.postalCode === undefined ? undefined : (body.postalCode ?? null),
     contactName: str(body.contactName),
     contactPhone: str(body.contactPhone),
     contactWhatsapp: str(body.contactWhatsapp),

@@ -1,7 +1,8 @@
 // lib/contentQueue/digest.ts
 //
-// The Monday content digest: an email to owner and manager with the top three
-// topics to publish and any posts due a refresh. Nothing auto-publishes — the
+// The Monday content digest (owner, 28 Oct 2026): an email to the OWNER with
+// three topics from real searches — each with "N searches last month" and one
+// plain line on why — and any posts due a refresh. No priority numbers. Nothing auto-publishes — the
 // email points at the queue and a human decides.
 //
 // Server-only. Runs from the daily cron; sends only on Monday (Asia/Karachi),
@@ -14,6 +15,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { deliverEmailBulk } from '@/lib/notify'
 import { notify } from '@/lib/notifications'
 import { listSuggestions, postsDueForRefresh } from './feed'
+import { loadSearchTopics } from './searchTopicsServer'
+import { digestItems } from './digestCore'
 
 const LAST_SENT_KEY = 'content_digest_last_sent'
 
@@ -39,21 +42,20 @@ export async function deliverContentDigest(now = new Date(), force = false): Pro
   const { data: marker } = await admin.from('app_settings').select('value').eq('key', LAST_SENT_KEY).maybeSingle()
   if (!force && marker?.value === date) return { sent: false, recipients: 0, reason: 'already sent today' }
 
-  const [{ content }, refresh] = await Promise.all([listSuggestions(), postsDueForRefresh(5)])
-  const top = content.slice(0, 3).map((s) => ({
-    title: s.title,
-    why: `priority ${s.priority} — ${s.evidence[0] ?? ''}`.trim(),
-    href: '/admin/blog/queue',
-  }))
+  const [{ content }, refresh, search] = await Promise.all([listSuggestions(), postsDueForRefresh(5), loadSearchTopics().catch(() => null)])
+  // Google topics still open in the queue (not drafted, snoozed or dismissed).
+  const openFps = new Set(content.map((s) => s.fingerprint))
+  const google = (search?.topics ?? []).filter((t) => openFps.has(t.fingerprint))
+  // Searches made on TutorMint itself: grouped topics with real search demand
+  // (lib/contentQueue/topics: demand = 10 + searches).
+  const site = content
+    .filter((s) => s.source === 'search_gap' && s.components.demand > 10)
+    .map((s) => ({ title: s.title, searches: Math.round(s.components.demand - 10), audience: s.audience }))
+  const top = digestItems(google, site)
   const refreshItems = refresh.map((r) => ({ title: r.title, href: `/admin/blog/${r.id}` }))
 
-  // Owner and manager only.
-  const { data: staff } = await admin
-    .from('profiles')
-    .select('id')
-    .eq('role', 'admin')
-    .in('admin_role', ['owner', 'admin', 'operations'])
-    .limit(50)
+  // The owner only (owner, 28 Oct 2026).
+  const { data: staff } = await admin.from('profiles').select('id').eq('role', 'admin').eq('admin_role', 'owner').limit(5)
 
   // One bulk run (owner, 16 Oct 2026): every list send goes through sendBulk.
   const results = await deliverEmailBulk(
