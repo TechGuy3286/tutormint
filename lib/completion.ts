@@ -103,11 +103,12 @@ export async function recomputeCompletion(userId: string): Promise<Completion | 
     await activatePausedIfListed(userId)
   }
 
-  // A completion change can list or unlist a tutor, which opens or closes their
-  // (city, subject) landing pages. Mark the landing cache stale so the pages,
-  // the sitemap and the link helper pick it up. Cheap and idempotent.
-  const { revalidateLanding } = await import('@/lib/landingRevalidate')
-  revalidateLanding()
+  // The landing cache is NOT cleared here any more (owner, 28 Oct 2026 — site
+  // speed): every profile save, onboarding's autosave included, cleared it, so
+  // it was rarely warm. Listing no longer depends on completion; a tutor's new
+  // subject or city reaches the landing pages and sitemap within the shared
+  // cache's five minutes (lib/landing LANDING_LIVE_REVALIDATE). Listing changes
+  // (fee, moderation, pause, merge, erase) still clear it at once.
 
   return completion
 }

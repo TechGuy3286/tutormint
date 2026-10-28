@@ -19,6 +19,10 @@ import 'server-only'
 
 import { createPublicClient } from '@/lib/supabase/public'
 import { citySegment } from '@/lib/slugs'
+import { unstable_cache } from 'next/cache'
+import { cache } from 'react'
+import { LANDING_LIVE_REVALIDATE, LANDING_TAG } from '@/lib/landing'
+import { TUITION_TAG } from '@/lib/cacheTags'
 import type { LandingKind } from '@/lib/landing'
 
 export { OVERLAP_THRESHOLD, overlapKey, overlapNoindexSet, type PageMembers } from './landingOverlapCore'
@@ -61,6 +65,15 @@ export async function loadLandingMembers(): Promise<PageMembers[]> {
 
 /** The live noindex set, keyed `${kind}/${citySlug}/${masterId}`. */
 export async function liveOverlapNoindex(): Promise<Map<string, { kind: LandingKind; citySlug: string; masterId: number }>> {
-  return overlapNoindexSet(await loadLandingMembers())
+  return overlapNoindexSet(await membersForRequest())
 }
+
+/**
+ * The member sets, cached (owner, 28 Oct 2026 — site speed): reading every listed
+ * tutor, open tuition and subject link on each landing render was a large share
+ * of the database's work. Five minutes, cleared at once on a listing change
+ * (LANDING_TAG) or any tuition change (TUITION_TAG); read once per request.
+ */
+const membersCached = unstable_cache(loadLandingMembers, ['landing-members-v1'], { revalidate: LANDING_LIVE_REVALIDATE, tags: [LANDING_TAG, TUITION_TAG] })
+const membersForRequest = cache(() => membersCached())
 

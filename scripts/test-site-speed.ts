@@ -135,3 +135,13 @@ test('every admin list pages 25 at a time with Load more', () => {
   assert.doesNotMatch(src('app/admin/finance/settlement/SettlementsBoard.tsx'), /financeCounts\(items\)/)
   for (const f of ['app/admin/jobs/page.tsx', 'app/api/admin/jobs/route.ts']) assert.match(src(f), /const PAGE_SIZE = ADMIN_PAGE_SIZE/, f)
 })
+
+test('the landing near-duplicate check is cached, and profile saves no longer clear the landing cache', () => {
+  const o = src('lib/landingOverlap.ts')
+  assert.match(o, /unstable_cache\(loadLandingMembers, \[[^\]]+\], \{ revalidate: LANDING_LIVE_REVALIDATE, tags: \[LANDING_TAG, TUITION_TAG\] \}\)/)
+  assert.match(o, /overlapNoindexSet\(await membersForRequest\(\)\)/)
+  assert.doesNotMatch(src('lib/completion.ts'), /revalidateLanding\(\)/)
+  // Listing changes still clear it at once.
+  assert.match(src('app/api/admin/tutors/moderate/route.ts'), /revalidateLanding\(\)/)
+  assert.match(src('lib/jobs.ts'), /revalidateLanding\(\)/)
+})
