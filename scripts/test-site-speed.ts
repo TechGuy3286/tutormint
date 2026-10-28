@@ -145,3 +145,9 @@ test('the landing near-duplicate check is cached, and profile saves no longer cl
   assert.match(src('app/api/admin/tutors/moderate/route.ts'), /revalidateLanding\(\)/)
   assert.match(src('lib/jobs.ts'), /revalidateLanding\(\)/)
 })
+
+test('Follow-ups counts subjects in one paged read, not one request per tutor', () => {
+  const s = src('lib/onboardingStop.ts')
+  assert.doesNotMatch(s, /count: 'exact', head: true \}\)\.eq\('tutor_id', id\)/)
+  assert.match(s, /from\('tutor_subjects'\)\.select\('tutor_id, master_id'\)\.in\('tutor_id', part\)/)
+})

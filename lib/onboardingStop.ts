@@ -10,7 +10,7 @@ import { availabilityToSlots } from '@/lib/timeSlots'
 import { stoppedAtLabel, stoppedAtStep } from '@/lib/onboardingStopCore'
 import type { FlowFacts } from '@/lib/tutorFlow'
 import { missingSummary } from '@/lib/onboarding/missingItems'
-import { chunk, pageAllIn } from '@/lib/pageAll'
+import { pageAllIn } from '@/lib/pageAll'
 
 export type TutorFlowState = {
   facts: FlowFacts
@@ -75,15 +75,14 @@ export async function flowFactsByTutor(admin: SupabaseClient, ids: string[]): Pr
       admin.from('user_documents').select('id, user_id, kind, label').in('user_id', part).in('kind', ['selfie', 'cnic']).order('id').range(from, to),
     ),
   ])
+  // Counted from ONE paged read of the links (owner, 28 Oct 2026 — site speed):
+  // the per-tutor head count was 528 requests on Follow-ups. Paging (pageAllIn)
+  // still means a long list can never crowd anyone out.
   const subjCount = new Map<string, number>()
-  for (const part of chunk(unique, 20)) {
-    await Promise.all(
-      part.map(async (id) => {
-        const { count } = await admin.from('tutor_subjects').select('tutor_id', { count: 'exact', head: true }).eq('tutor_id', id)
-        subjCount.set(id, count ?? 0)
-      }),
-    )
-  }
+  const links = await pageAllIn(unique, (part, from, to) =>
+    admin.from('tutor_subjects').select('tutor_id, master_id').in('tutor_id', part).order('tutor_id').order('master_id').range(from, to),
+  )
+  for (const l of links) subjCount.set(l.tutor_id as string, (subjCount.get(l.tutor_id as string) ?? 0) + 1)
   const tpById = new Map(tps.map((t) => [t.id as string, t]))
   const docsBy = new Map<string, { kind: string; label: string | null }[]>()
   for (const d of docs) {
