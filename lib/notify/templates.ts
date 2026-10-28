@@ -93,7 +93,12 @@ function shell(
   /** An ABSOLUTE one-click unsubscribe URL for this kind of email (PR54 §C).
    *  Passed pre-built, so it is used as-is (not run through link()). */
   unsubscribeHref?: string,
+  /** Paragraphs under the button (the support line of an approved wording). */
+  after: string[] = [],
 ): string {
+  const para = (p: string) =>
+    `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:${INK};font-family:${FONT};">${escapeHtml(p)}</p>`
+  const afterHtml = after.length ? `<div style="margin:20px 0 0;">${after.map(para).join('')}</div>` : ''
   const body = paragraphs
     .map(
       (p) =>
@@ -146,6 +151,7 @@ function shell(
         ${body}
         ${items}
         ${button}
+        ${afterHtml}
       </td></tr>
       <tr><td style="padding:16px 12px 0;">
         <p style="margin:0;font-family:${FONT};font-size:11px;line-height:1.6;color:${NAVY};text-align:center;">
@@ -177,6 +183,7 @@ function plain(
   cta?: { label: string; href: string },
   extra?: EmailItems,
   unsubscribeHref?: string,
+  after: string[] = [],
 ): string {
   const parts = [heading, '', ...paragraphs]
   if (extra && extra.items.length > 0) {
@@ -186,6 +193,7 @@ function plain(
     }
   }
   if (cta) parts.push('', `${cta.label}: ${link(cta.href)}`)
+  if (after.length) parts.push('', ...after)
   parts.push(
     '',
     '—',
@@ -280,7 +288,9 @@ export type TemplateInput =
   // Close account and erase data (owner, 27 Oct 2026). Sent BEFORE the address
   // is erased; essential. No name is kept after this, so none is used.
   | { id: 'account_erased'; supportWhatsapp: string }
-  | { id: 'tuition_paused'; title: string }
+  // href: the tuition's own page (the poster can resume it there); the
+  // built-in wording keeps linking the parent's tuitions list.
+  | { id: 'tuition_paused'; title: string; href?: string | null }
   // One email a day combining the non-urgent member emails held for it (owner,
   // 27 Oct 2026; lib/email/policyCore SUMMARY_TEMPLATES). Each item is that
   // email's subject and text, already checked against the member's opt-out.
@@ -876,3 +886,47 @@ export function render(input: TemplateInput): RenderedEmail {
     }
   }
 }
+
+// ------------------------------------------------- approved simple wording --
+
+const TOKEN_RE = /\{([a-z_]+)\}/g
+
+/**
+ * An email in its APPROVED simple-English wording (owner, 28 Oct 2026; see
+ * lib/notify/emailWordingCore). The lines before the {link} line are the
+ * paragraphs, the {link} line is the button, the lines after it (the support
+ * line) sit under the button. A line left empty by its placeholders is dropped.
+ * `essential` and the footer are the built-in email's, unchanged.
+ */
+export function renderWording(
+  wording: { subject: string; body: string; button: string | null },
+  values: Record<string, string>,
+  href: string | null,
+  essential: boolean,
+  unsubscribeHref?: string,
+): RenderedEmail {
+  const val = (k: string) => (values[k] ?? '').trim()
+  const fill = (t: string) => t.replace(TOKEN_RE, (_m, k: string) => val(k)).replace(/\s{2,}/g, ' ').trim()
+  const lines = wording.body.replace(/\r\n/g, '\n').split('\n')
+  const linkAt = lines.findIndex((l) => l.trim() === '{link}')
+  const toParas = (ls: string[]) =>
+    ls
+      .filter((l) => {
+        const tokens = [...l.matchAll(TOKEN_RE)].map((m) => m[1])
+        if (tokens.length === 0) return true
+        return !(l.replace(TOKEN_RE, '').trim() === '' && tokens.every((k) => !val(k)))
+      })
+      .map(fill)
+      .filter(Boolean)
+  const paras = toParas(linkAt < 0 ? lines : lines.slice(0, linkAt))
+  const after = linkAt < 0 ? [] : toParas(lines.slice(linkAt + 1))
+  const subject = fill(wording.subject)
+  const cta = linkAt >= 0 && href && wording.button ? { label: wording.button, href } : undefined
+  return {
+    subject,
+    text: plain(subject, paras, cta, undefined, unsubscribeHref, after),
+    html: shell(subject, paras, cta, undefined, unsubscribeHref, after),
+    essential,
+  }
+}
+

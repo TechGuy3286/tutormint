@@ -8,6 +8,7 @@
 //                              public profile link.
 // No fee amount is ever written in the message.
 
+import { completeCommon } from '@/lib/templateFill'
 import { finishWaText, waSendHref } from '@/lib/waLinkCore'
 
 export const DOCUMENTS_APPROVED_KEY = 'documents_approved'
@@ -37,13 +38,15 @@ export function allDocumentsApproved(s: DocStatuses): boolean {
 /** Fill {name}, {pay_link}, {profile_link}. Unknown placeholders are left as written. */
 export function fillDocumentsApproved(
   body: string,
-  vars: { name: string; payLink: string; profileLink: string | null },
+  vars: { name: string; payLink: string; profileLink: string | null; supportWhatsapp?: string | null },
 ): string {
   const first = (vars.name || '').trim().split(/\s+/)[0] || 'there'
-  return body
+  const text = body
     .replaceAll('{name}', first)
     .replaceAll('{pay_link}', vars.payLink)
     .replaceAll('{profile_link}', vars.profileLink ?? vars.payLink)
+  // {first_name} and {support_whatsapp} (owner, 28 Oct 2026 — simple-English rewrite).
+  return completeCommon(text, { name: first, supportWhatsapp: vars.supportWhatsapp })
 }
 
 /** wa.me needs digits only, country code first (923001234567). */

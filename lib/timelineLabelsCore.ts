@@ -231,6 +231,10 @@ export const AUDIT_LABELS: Record<string, string> = {
   'settings.support_whatsapp': 'Changed the support WhatsApp number',
   'template.edit': 'Edited a message template',
   'template.reset': 'Reset a message template to its default',
+  'template.review_approve': 'Approved new wording for a message template',
+  'template.review_keep': 'Kept the current wording of a message template',
+  'template.review_approve_all': 'Approved new wording for all waiting message templates',
+  'template.restore': 'Restored earlier wording of a message template',
   'onboarding.mode': 'Changed the tutor sign-up steps setting',
   'sms.test': 'Sent a test SMS',
 }

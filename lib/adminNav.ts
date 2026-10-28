@@ -198,6 +198,8 @@ export const SECTION_LABELS: Record<string, string> = {
   subjects: 'Subjects',
   settings: 'Settings',
   payers: 'Paid today',
+  review: 'Review new wording',
+  inbox: 'Team inbox',
   ads: 'Advertisements',
   audit: 'Audit',
   blog: 'Blog',

@@ -95,7 +95,7 @@ export async function pauseStaleTuitions(now = new Date()): Promise<{
     // because a mail send did not go out. Collected and sent as one bulk run
     // after the loop (owner, 16 Oct 2026): sent one by one, ten at a time, these
     // reached 22–28 requests a second and Resend refused the excess.
-    emails.push({ to: { userId: j.parent_id }, input: { id: 'tuition_paused', title } })
+    emails.push({ to: { userId: j.parent_id }, input: { id: 'tuition_paused', title, href: url } })
   }
 
   // Ten at a time: each pause sends a notification and an email, and 150 of

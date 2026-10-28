@@ -13,6 +13,7 @@
 // With no WhatsApp number but an email, the message goes as an official in-app
 // message + email instead. Never logs a number or an address.
 
+import { POST_TUITION_PUBLIC_PATH } from '@/lib/postTuitionPage'
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -80,11 +81,12 @@ export async function sendParentMessage(memberId: string, actor: AdminActor): Pr
     firstName: formatName(row.name).split(' ')[0] ?? '',
     tuitionTitle: row.tuition?.title ?? null,
     tuitionLink: row.tuition?.path ? siteLink(row.tuition.path) : null,
-    postLink: siteLink('/parent/dashboard/post-job'),
+    // The public "Post your tuition" page (owner, 28 Oct 2026): never a sign-in or dashboard address.
+    postLink: siteLink(POST_TUITION_PUBLIC_PATH),
     tutorName: tuition?.hiredTutorName ?? null,
     reviewLink: tuition?.hiredApplicationId ? siteLink(`/review?application=${tuition.hiredApplicationId}`) : siteLink('/review'),
     // No tutor with a public profile yet: their tuition page, so the message still has a link.
-    tutorLinks: tutorLinks.length > 0 ? tutorLinks : row.tuition?.path ? [siteLink(row.tuition.path)] : [siteLink('/parent/dashboard')],
+    tutorLinks: tutorLinks.length > 0 ? tutorLinks : row.tuition?.path ? [siteLink(row.tuition.path)] : [siteLink('/browse/tutors')],
     signinLink: siteLink('/login'),
     repostLink: row.tuition ? siteLink(`/parent/dashboard/job/${row.tuition.id}`) : siteLink('/parent/dashboard/post-job'),
     supportWhatsapp: support,

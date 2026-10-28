@@ -10,6 +10,7 @@
 // hours after the checkout started, or as soon as that member pays for the same
 // thing. One row per member and package (the newest checkout).
 
+import { completeCommon } from '@/lib/templateFill'
 import { SITE_URL } from '@/lib/siteUrl'
 
 /** Shown once the checkout is over an hour old (still at the gateway before that). */
@@ -76,7 +77,9 @@ export function payAgainLink(planCode: string | null | undefined): string {
 }
 
 /** Fill {name} (first name) and {pay_link}. Unknown placeholders are left as written. */
-export function fillPaymentNotFinished(body: string, vars: { name: string; payLink: string }): string {
+export function fillPaymentNotFinished(body: string, vars: { name: string; payLink: string; supportWhatsapp?: string | null }): string {
   const first = (vars.name || '').trim().split(/\s+/)[0] || 'there'
-  return body.replaceAll('{name}', first).replaceAll('{pay_link}', vars.payLink)
+  const text = body.replaceAll('{name}', first).replaceAll('{pay_link}', vars.payLink)
+  // {first_name} and {support_whatsapp} (owner, 28 Oct 2026 — simple-English rewrite).
+  return completeCommon(text, { name: first, supportWhatsapp: vars.supportWhatsapp })
 }

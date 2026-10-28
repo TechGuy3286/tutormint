@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { HoldRow, ListRow, SearchResult, MatchVia } from '@/lib/contactWithdraw'
 import { CONSENT_UI_ENABLED } from '@/lib/tuitionConsentCore'
+import { withdrawActionsView } from '@/lib/withdrawListedCore'
 
 const VIA_WORDS: Record<MatchVia, string> = {
   contact_phone: 'Parent contact number',
@@ -145,7 +146,7 @@ export default function WithdrawContactClient({
     await refreshList()
   }
 
-  async function removeEntry(row: ListRow) {
+  async function removeEntry(row: Pick<ListRow, 'id' | 'masked'>) {
     const why = window.prompt(`Why remove ${row.masked} from the Do not use list?`)
     if (!why) return
     const { ok, data } = await adminFetch<{ error?: string }>('/api/admin/contact-withdraw/list', {
@@ -159,12 +160,17 @@ export default function WithdrawContactClient({
     }
     toast.success('Removed from the Do not use list.')
     await refreshList()
+    // The searched number is no longer withdrawn: search again so the actions return.
+    if (result?.listedEntry?.id === row.id) await search()
   }
 
   const closing = result?.tuitions.filter((t) => t.willClose && !t.alreadyWithdrawn) ?? []
   const pausing = closing.filter((t) => !t.pausedOnComplaint)
   const parents = result?.accounts.filter((a) => a.isParent) ?? []
   const nothing = result && result.tuitions.length === 0 && result.accounts.length === 0 && result.leads.length === 0
+  // Already on the Do not use list (owner, 28 Oct 2026): no action buttons, just
+  // when and by whom, and the Owner's "Remove from Do not use list".
+  const view = withdrawActionsView(result?.listedEntry)
 
   return (
     <div className="space-y-6">
@@ -262,7 +268,21 @@ export default function WithdrawContactClient({
             </div>
           )}
 
-          {!nothing && (
+          {!view.showActions && result && (
+            <div className="space-y-2 border-t border-gray-100 pt-4" data-withdrawn-banner="">
+              <p className="rounded-xl bg-tm-tint-red px-3 py-2 text-sm font-bold text-tm-red">{view.banner}</p>
+              <button
+                type="button"
+                onClick={() => removeEntry({ id: view.removeId, masked: result.masked })}
+                disabled={busy}
+                className="min-h-11 rounded-xl border border-gray-300 px-4 text-sm font-bold text-slate-700 hover:border-tm-red hover:text-tm-red disabled:bg-gray-200"
+              >
+                Remove from Do not use list
+              </button>
+            </div>
+          )}
+
+          {!nothing && view.showActions && (
             <div className="space-y-2 border-t border-gray-100 pt-4">
               <label htmlFor="wc-reason" className="block text-sm font-bold text-slate-800">Reason (required)</label>
               <textarea id="wc-reason" value={reason} onChange={(e) => setReason(e.target.value)} rows={2} maxLength={600} className="w-full rounded-xl border border-gray-300 p-3 text-sm" />

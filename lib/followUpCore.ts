@@ -18,6 +18,7 @@
 //
 // PURE — unit-tested by scripts/test-follow-ups.ts.
 
+import { completeCommon } from '@/lib/templateFill'
 import { missingSentence } from '@/lib/onboarding/missingItems'
 import { finishWaText, waSendHref } from '@/lib/waLinkCore'
 
@@ -121,7 +122,10 @@ export function unfilledPlaceholders(text: string): string[] {
 
 /** The WhatsApp text: the template with every placeholder filled, the
  *  continue link on its own line after it (or in place of {link}). */
-export function followUpText(templateBody: string, v: { name: string; step: string | null; link: string; missing?: string[] }): string {
+export function followUpText(
+  templateBody: string,
+  v: { name: string; step: string | null; link: string; missing?: string[]; supportWhatsapp?: string | null },
+): string {
   // What is still to do (owner, 13 Oct 2026) — the same list the tutor sees on
   // the dashboard (lib/onboarding/missingItems). English; the stored template's
   // own wording is never changed. A template with {missing} gets it in place;
@@ -139,8 +143,19 @@ export function followUpText(templateBody: string, v: { name: string; step: stri
   }
   const hasLink = /\{(link|continue_link)\}/.test(templateBody)
   const hasMissing = /\{(missing|still_to_do)\}/.test(templateBody)
-  let filled = fillTemplate(templateBody.trim(), vars)
-  if (left && !hasMissing) filled = `${filled}\n\nStill to do: ${left}`
+  // A template whose link sits on its own line (the simple-English rewrite,
+  // owner 28 Oct 2026) keeps it last: "Still to do" goes in just above it.
+  const lines = templateBody.trim().split('\n')
+  const linkLine = lines.findIndex((l) => /^\{(link|continue_link)\}$/.test(l.trim()))
+  let filled: string
+  if (left && !hasMissing && linkLine > 0) {
+    lines.splice(linkLine, 0, `Still to do: ${left}`)
+    filled = fillTemplate(lines.join('\n'), vars)
+  } else {
+    filled = fillTemplate(templateBody.trim(), vars)
+    if (left && !hasMissing) filled = `${filled}\n\nStill to do: ${left}`
+  }
+  filled = completeCommon(filled, { name: v.name, supportWhatsapp: v.supportWhatsapp })
   return hasLink ? filled : `${filled}\n\n${v.link}`
 }
 

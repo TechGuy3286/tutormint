@@ -1,4 +1,6 @@
 import 'server-only'
+import { completeCommon } from '@/lib/templateFill'
+import { loadSupportWhatsApp } from '@/lib/applicationTemplates'
 import { teamMessagesHref } from '@/lib/memberNav'
 
 import { pageAll } from '@/lib/pageAll'
@@ -407,7 +409,11 @@ export async function messageSeededParent(
   // {join_link}: the sending staff member's own join link (owner, 15 Oct 2026),
   // so a parent who signs up from this message is credited to them. Staff with
   // no link of their own send the plain sign-up page.
-  const filled = fillJoinLink(body, (await joinLinkFor(actor.id))?.url, absoluteUrl('/register'))
+  // {first_name} and {support_whatsapp} (owner, 28 Oct 2026 — simple-English rewrite).
+  const filled = completeCommon(fillJoinLink(body, (await joinLinkFor(actor.id))?.url, absoluteUrl('/register')), {
+    name,
+    supportWhatsapp: await loadSupportWhatsApp(admin),
+  })
 
   const waHref = whatsappHref(msisdn, filled, await senderRefCode(actor.id))
   if (!waHref) return { ok: false, status: 400, error: 'Could not build the WhatsApp link.' }

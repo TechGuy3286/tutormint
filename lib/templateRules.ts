@@ -44,7 +44,7 @@ export type GroupTemplateInfo = {
 export const FORWARD_TEMPLATE_INFO: GroupTemplateInfo = {
   key: APPLICANTS_FORWARD_TEMPLATE_KEY,
   recipient: 'parent',
-  placeholders: ['parent_name', 'tuition_title', 'area', 'tutor_list'],
+  placeholders: ['parent_name', 'tuition_title', 'area', 'tutor_list', 'support_whatsapp'],
   defaultBody: APPLICANTS_FORWARD_DEFAULT,
 }
 

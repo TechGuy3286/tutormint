@@ -9,6 +9,7 @@
 // is a warning. The support number every message ends with is a setting —
 // shown here, changed by the Owner only.
 
+import { POST_TUITION_PUBLIC_PATH } from '@/lib/postTuitionPage'
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { RotateCcw } from 'lucide-react'
@@ -54,7 +55,7 @@ function preview(info: GroupTemplateInfo, body: string, support: string): string
       firstName: SAMPLE_VALUES.parent_name,
       tuitionTitle: SAMPLE_VALUES.tuition_title,
       tuitionLink: 'https://www.tutormint.org/tuitions/lahore/sample-tuition-1a2b3c',
-      postLink: siteLink('/parent/dashboard/post-job'),
+      postLink: siteLink(POST_TUITION_PUBLIC_PATH),
       tutorName: SAMPLE_VALUES.tutor_name,
       reviewLink: siteLink('/review'),
       supportWhatsapp: support,

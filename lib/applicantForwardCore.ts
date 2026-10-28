@@ -20,6 +20,7 @@
 //     "Check with parent";
 //   - the message is built from the template; it never carries a phone number.
 
+import { completeCommon } from '@/lib/templateFill'
 import { waSendHref } from '@/lib/waLinkCore'
 
 export type InterestKind = 'applied' | 'viewed'
@@ -194,10 +195,12 @@ export function buildForwardMessage(args: {
   tuitionTitle: string
   area: string | null
   tutors: MessageTutor[]
+  /** {support_whatsapp} (the support.whatsapp setting; the fallback when absent). */
+  supportWhatsapp?: string | null
 }): string {
   const template = (args.template ?? '').trim() || APPLICANTS_FORWARD_DEFAULT
   const area = withoutPhoneNumbers(args.area)
-  let text = template
+  let text = completeCommon(template, { name: args.parentName, supportWhatsapp: args.supportWhatsapp })
     .replace(/\{parent_name\}/g, withoutPhoneNumbers(args.parentName))
     .replace(/\{tuition_title\}/g, withoutPhoneNumbers(args.tuitionTitle))
     .replace(/\{area\}/g, area)

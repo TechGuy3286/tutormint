@@ -35,6 +35,7 @@ export function pageAimsAtParents(pathname: string | null | undefined): boolean 
   const p = (pathname ?? '/').replace(/\/+$/, '') || '/'
   if (p === '/browse/tutors' || p.startsWith('/browse/tutors/')) return true
   if (p.startsWith('/tutors/')) return true
+  if (p === '/post-tuition') return true
   if (/^\/parent\/[0-9a-f-]{36}$/i.test(p)) return true
   const tutorProfile = /^\/tutor\/([^/]+)$/.exec(p)
   if (tutorProfile && !['dashboard', 'onboarding', 'complete-profile', 'packages', 'claim', 'register', 'login', 'verify', 'upload-youtube'].includes(tutorProfile[1])) return true

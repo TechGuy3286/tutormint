@@ -10,6 +10,8 @@
 // ever — link placeholders are blocked and any address typed into the template
 // is removed), and a follow-up is recorded with the usual 10-second Undo.
 
+import { completeCommon } from '@/lib/templateFill'
+
 export const STATUS_IMAGE_TEMPLATE_KEY = 'status_image_verified' as const
 
 /** Seeded by migration 201 with exactly this text. */
@@ -17,10 +19,11 @@ export const STATUS_IMAGE_DEFAULT =
   "Congratulations {tutor_first_name}, you're now a Verified Tutor on TutorMint ✓ Please post this on your WhatsApp status."
 
 /** The only placeholder this template may use — every link placeholder is unknown, so blocked. */
-export const STATUS_PLACEHOLDERS = ['tutor_first_name'] as const
+export const STATUS_PLACEHOLDERS = ['tutor_first_name', 'support_whatsapp'] as const
 
 export const STATUS_PLACEHOLDER_HELP: Record<(typeof STATUS_PLACEHOLDERS)[number], string> = {
   tutor_first_name: "The tutor's first name",
+  support_whatsapp: 'Our support WhatsApp number (from settings)',
 }
 
 /** The hint shown after the image downloads. */
@@ -38,9 +41,9 @@ export function hasLink(text: string): boolean {
 }
 
 /** The message: the first name filled in, any link removed, spaces tidied. */
-export function fillStatusMessage(body: string, firstName: string): string {
+export function fillStatusMessage(body: string, firstName: string, supportWhatsapp?: string | null): string {
   const name = (firstName ?? '').replace(/\s+/g, ' ').trim() || 'there'
-  const filled = (body.trim() || STATUS_IMAGE_DEFAULT).replace(/\{tutor_first_name\}/g, name)
+  const filled = completeCommon((body.trim() || STATUS_IMAGE_DEFAULT).replace(/\{tutor_first_name\}/g, name), { name, supportWhatsapp })
   return filled
     .replace(LINK_RE, '')
     .replace(/\{[a-z_]+\}/g, '')

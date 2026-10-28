@@ -320,6 +320,9 @@ export const SCREEN_ACCESS = withSupervisor({
   // site Owner ONLY. The page redirects anyone else; every route refuses
   // everyone but the Owner (refuseUnlessOwnerApproval).
   contactWithdraw: [] as AdminRole[],
+  // Team inbox → Templates → Review new wording (owner, 28 Oct 2026): the Owner
+  // approves, edits-then-approves, keeps or restores; the Partner views.
+  templateReview: [] as AdminRole[],
   // Team activity → "Verifications & messages" tab, its API and the per-staff
   // detail pages: the Owner, the Project Managers and Admin, view only (owner,
   // 15 Oct 2026). Operations and Tuitions staff are refused (403 on the API).

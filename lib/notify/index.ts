@@ -20,7 +20,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getEmailChannel } from './email'
 import { sendBulk, type EmailMessage } from '@/lib/email/send'
 import { whatsappChannel } from './whatsapp'
-import { render, type TemplateInput } from './templates'
+import { type TemplateInput } from './templates'
+import { renderEmail } from './emailWording'
 import type { DeliveryResult } from './channel'
 import { formatName } from '@/lib/formatName'
 import { tuitionEmailBlock } from './tuitionEmailCore'
@@ -105,7 +106,8 @@ async function prepareEmail(
   to: Recipient,
   input: TemplateInput,
 ): Promise<{ ok: true; message: EmailMessage } | { ok: false; reason: string; channel: 'email' }> {
-  const message = render(input)
+  // The approved simple-English wording when there is one (owner, 28 Oct 2026).
+  const message = await renderEmail(input)
 
   let address = to.email ?? null
 

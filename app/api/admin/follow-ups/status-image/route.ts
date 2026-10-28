@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 
+import { loadSupportWhatsApp } from '@/lib/applicationTemplates'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { recordFollowUp, undoTutorFollowUp } from '@/lib/followUps'
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
   const msisdn = normalisePkMobile(((p?.whatsapp as string | null) ?? (p?.phone_number as string | null)) ?? null)
   if (!msisdn) return NextResponse.json({ error: 'This tutor has no WhatsApp number.' }, { status: 400 })
   // No link, ever: no staff code is added (nothing to add it to).
-  const text = fillStatusMessage(((tpl?.body as string | null) ?? STATUS_IMAGE_DEFAULT) as string, facts.firstName)
+  const text = fillStatusMessage(((tpl?.body as string | null) ?? STATUS_IMAGE_DEFAULT) as string, facts.firstName, await loadSupportWhatsApp(admin))
   const res = await recordFollowUp({
     memberId: b.memberId,
     channel: 'whatsapp',

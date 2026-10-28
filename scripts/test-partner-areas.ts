@@ -69,6 +69,8 @@ test('every view-only area refuses a Partner write; the Owner is unaffected', ()
     'consentPrivacy',
     // Notification settings and Email usage (owner, 27 Oct 2026): Owner only.
     'notificationSettings', 'emailUsage',
+    // Team inbox → Templates → Review new wording (owner, 28 Oct 2026): Owner only.
+    'templateReview',
   ]
   for (const key of VIEW) {
     assert.equal(roleMayWrite('partner', SCREEN_ACCESS[key]), false, key)
@@ -122,6 +124,7 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   'contact-withdraw/list': 'owner',
   'contact-withdraw/search': 'owner',
   'contact-withdraw/withdraw': 'owner',
+  'templates/review': 'owner',
   'contact-withdraw/pause': 'owner',
   'contact-withdraw/unpause': 'owner',
   'blog/cover': 'view',

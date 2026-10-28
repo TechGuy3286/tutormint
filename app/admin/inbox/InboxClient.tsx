@@ -13,6 +13,8 @@ import { INBOX_TAG_CLASS, type InboxTag } from '@/lib/inboxTags'
 import { isAppTemplateKey } from '@/lib/applicationTemplatesCore'
 import { groupTemplateInfo } from '@/lib/templateRules'
 import ApplicationTemplates from './ApplicationTemplates'
+import { completeCommon } from '@/lib/templateFill'
+import { composeLink, type ComposeRole } from '@/lib/composeLinks'
 
 const TEAM = 'TutorMint Team'
 
@@ -48,6 +50,7 @@ export default function InboxClient({
   supportDisplay,
   isOwner = false,
   initialShowTemplates = false,
+  selectedRole = null,
 }: {
   threads: InboxThread[]
   templates: AdminTemplate[]
@@ -64,6 +67,8 @@ export default function InboxClient({
   initialShowTemplates?: boolean
   /** The template the selected member's status tag maps to (PR105 §6) — preselected. */
   suggestedTemplateKey?: string
+  /** The selected member's role — picks the link a template carries. */
+  selectedRole?: ComposeRole
 }) {
   const router = useRouter()
   const toast = useToast()
@@ -72,12 +77,16 @@ export default function InboxClient({
   // Preselect the template that matches this member's status tag (PR105 §6). The
   // component remounts on each member navigation (the page is force-dynamic), so
   // these initialisers run fresh per selected member.
+  // Every template's common placeholders ({first_name}, the one link, the support
+  // number) fill here too (owner, 28 Oct 2026 — the simple-English rewrite).
+  const fillFor = (t: AdminTemplate, vars: { name: string; jobTitle: string; reason: string }) =>
+    completeCommon(fill(t.body, vars), { name: selectedName, link: composeLink(t.key, selectedRole), supportWhatsapp: supportDisplay })
   const suggested = templates.find((t) => t.key === suggestedTemplateKey) ?? null
   const [templateKey, setTemplateKey] = useState(() => (suggested ? suggestedTemplateKey : ''))
   const [jobTitle, setJobTitle] = useState('')
   const [reason, setReason] = useState('')
   const [body, setBody] = useState(() =>
-    suggested ? fill(suggested.body, { name: selectedName || 'there', jobTitle: '', reason: '' }) : '',
+    suggested ? fillFor(suggested, { name: selectedName || 'there', jobTitle: '', reason: '' }) : '',
   )
   const [busy, setBusy] = useState(false)
   const [showTemplates, setShowTemplates] = useState(initialShowTemplates)
@@ -89,12 +98,12 @@ export default function InboxClient({
   const applyTemplate = (key: string) => {
     setTemplateKey(key)
     const t = templates.find((x) => x.key === key)
-    if (t) setBody(fill(t.body, { name: selectedName || 'there', jobTitle, reason }))
+    if (t) setBody(fillFor(t, { name: selectedName || 'there', jobTitle, reason }))
   }
 
   // Keep the {job_title}/{reason} substitutions live as the admin fills them.
   const refill = (nextJob: string, nextReason: string) => {
-    if (chosen) setBody(fill(chosen.body, { name: selectedName || 'there', jobTitle: nextJob, reason: nextReason }))
+    if (chosen) setBody(fillFor(chosen, { name: selectedName || 'there', jobTitle: nextJob, reason: nextReason }))
   }
 
   const send = async (channel: 'inapp' | 'whatsapp') => {
@@ -153,6 +162,15 @@ export default function InboxClient({
 
       {showTemplates && (
         <div className="space-y-3">
+          {isOwner && (
+            <Link
+              href="/admin/inbox/review"
+              className="flex min-h-[44px] items-center justify-between gap-2 rounded-xl border border-tm-green-deep/40 bg-tm-tint-green px-4 py-2 text-sm font-bold text-tm-green-deep"
+            >
+              Review new wording — every member message rewritten in simple English, waiting for your approval
+              <span aria-hidden>→</span>
+            </Link>
+          )}
           <ApplicationTemplates templates={templates} supportDisplay={supportDisplay} isOwner={isOwner} defaultOpen={initialShowTemplates} />
           <ApplicationTemplates templates={templates} supportDisplay={supportDisplay} isOwner={isOwner} group="follow_ups" />
           <ApplicationTemplates templates={templates} supportDisplay={supportDisplay} isOwner={isOwner} group="parents" />

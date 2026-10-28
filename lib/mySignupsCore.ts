@@ -20,6 +20,7 @@
 //
 // The I/O half is lib/mySignups.ts; tests in scripts/test-my-signups.ts.
 
+import { POST_TUITION_PUBLIC_PATH } from '@/lib/postTuitionPage'
 import { followUpText, followUpWaLink } from './followUpCore'
 import { accountsInRange, inProgressIn, type CreditedAccount, type MemberRole } from './staffSignupsCore'
 import { monthRange, type MonthKey } from './staffTargetsCore'
@@ -79,7 +80,7 @@ export const NEXT_STEP_TEMPLATE: Record<NextStep, { key: string; path: string }>
   finish_profile: { key: 'profile_completion_nudge', path: '/tutor/onboarding' },
   upload_documents: { key: 'my_signup_upload_documents', path: '/tutor/dashboard/settings#identity' },
   pay_fee: { key: 'my_signup_pay_fee', path: '/pay/choose?plan=verified' },
-  post_tuition: { key: 'my_signup_post_tuition', path: '/parent/dashboard/post-job' },
+  post_tuition: { key: 'my_signup_post_tuition', path: POST_TUITION_PUBLIC_PATH },
   buy_plan: { key: 'my_signup_buy_plan', path: '/membership-plans' },
   done: { key: 'my_signup_check_in', path: '/support' },
 }

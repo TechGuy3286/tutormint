@@ -121,6 +121,8 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
     { url: `${BASE}/browse/tuitions`, lastmod: newestJob, changefreq: 'daily', priority: 0.9 },
     // The clean address only — its ?for=…&plan=… variants point their canonical here.
     { url: `${BASE}/membership-plans`, lastmod: STATIC_LASTMOD, changefreq: 'monthly', priority: 0.4 },
+    // The public "Post your tuition" page every parent message links to (28 Oct 2026).
+    { url: `${BASE}/post-tuition`, lastmod: STATIC_LASTMOD, changefreq: 'monthly', priority: 0.6 },
     { url: `${BASE}/about`, lastmod: STATIC_LASTMOD, changefreq: 'monthly', priority: 0.4 },
     { url: `${BASE}/blog`, lastmod: newestPost, changefreq: 'daily', priority: 0.6 },
     { url: `${BASE}/faq`, lastmod: STATIC_LASTMOD, changefreq: 'monthly', priority: 0.4 },

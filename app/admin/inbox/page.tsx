@@ -41,12 +41,14 @@ export default async function AdminInboxPage({
   // offered. Fetched here (with the name) so the client never needs the number
   // itself; the server builds the wa.me link on send.
   let selectedHasMobile = false
+  let selectedRole: 'tutor' | 'parent' | null = null
   if (selectedId) {
     const admin = createAdminClient()
     const { data } = admin
-      ? await admin.from('profiles').select('full_name, phone_number, whatsapp').eq('id', selectedId).maybeSingle()
+      ? await admin.from('profiles').select('full_name, phone_number, whatsapp, role').eq('id', selectedId).maybeSingle()
       : { data: null }
     if (!selectedName) selectedName = formatName(data?.full_name as string | null) || 'this member'
+    selectedRole = data?.role === 'tutor' ? 'tutor' : data?.role === 'parent' ? 'parent' : null
     selectedHasMobile = !!((data?.phone_number as string)?.trim() || (data?.whatsapp as string)?.trim())
   }
 
@@ -62,6 +64,7 @@ export default async function AdminInboxPage({
       selectedId={selectedId}
       selectedName={selectedName}
       selectedHasMobile={selectedHasMobile}
+      selectedRole={selectedRole}
       conversation={conversation}
       canEditTemplates={roleMayWrite(actor.adminRole, ['admin'])}
       supportDisplay={supportDisplay}

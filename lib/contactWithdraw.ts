@@ -33,6 +33,7 @@ import type { AdminActor } from '@/lib/adminAuth'
 import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { revalidateLanding } from '@/lib/landingRevalidate'
 import { formatName } from '@/lib/formatName'
+import type { ListedEntry } from '@/lib/withdrawListedCore'
 import {
   DO_NOT_USE_MESSAGE,
   listedNumber,
@@ -95,6 +96,8 @@ export type SearchResult = {
   accounts: AccountMatch[]
   leads: LeadMatch[]
   listed: boolean
+  /** The live Do not use entry for this number (when, by whom) — never the number. */
+  listedEntry: ListedEntry | null
   pastWithdrawals: number
   /** The live hold on this number, when one exists. */
   hold: { id: string; heldAt: string; heldByName: string | null } | null
@@ -161,7 +164,7 @@ export async function searchContact(msisdn: string): Promise<SearchResult> {
   const admin = createAdminClient()
   if (!admin) throw new Error('unavailable')
 
-  const [contacts, jobsText, profiles, tutorProfiles, hashes, past, holdRow] = await Promise.all([
+  const [contacts, jobsText, profiles, tutorProfiles, hashes, past, holdRow, listedRow] = await Promise.all([
     pageAll<{ job_id: string; contact_phone: string | null; contact_whatsapp: string | null; contact_social: string | null; contact_address: string | null }>((from, to) =>
       admin.from('job_contacts').select('job_id, contact_phone, contact_whatsapp, contact_social, contact_address').order('job_id').range(from, to),
     ),
@@ -177,6 +180,14 @@ export async function searchContact(msisdn: string): Promise<SearchResult> {
     liveHashes(admin).catch(() => new Set<string>()),
     admin.from('contact_withdrawals').select('id', { count: 'exact', head: true }).eq('number_hash', numberHash(msisdn)),
     admin.from('contact_holds').select('id, held_at, held_by_name').eq('number_hash', numberHash(msisdn)).is('released_at', null).maybeSingle(),
+    admin
+      .from('do_not_use_numbers')
+      .select('id, added_at, added_by_name')
+      .eq('number_hash', numberHash(msisdn))
+      .is('removed_at', null)
+      .order('added_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ])
 
   // Tuitions whose OWN contact data holds the number.
@@ -274,7 +285,10 @@ export async function searchContact(msisdn: string): Promise<SearchResult> {
     tuitions,
     accounts,
     leads,
-    listed: hashes.has(numberHash(msisdn)),
+    listed: hashes.has(numberHash(msisdn)) || !!listedRow.data,
+    listedEntry: listedRow.data
+      ? { id: listedRow.data.id as string, addedAt: listedRow.data.added_at as string, addedByName: (listedRow.data.added_by_name as string | null) ?? null }
+      : null,
     pastWithdrawals: past.count ?? 0,
     hold: holdRow.data ? { id: holdRow.data.id as string, heldAt: holdRow.data.held_at as string, heldByName: (holdRow.data.held_by_name as string | null) ?? null } : null,
   }

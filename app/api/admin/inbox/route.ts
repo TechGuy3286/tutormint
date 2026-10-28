@@ -5,6 +5,7 @@ import { sendAdminMessage, saveTemplate, loadTemplates } from '@/lib/adminMessag
 import { parseBody, z, uuid } from '@/lib/validate'
 import { logAdminAction } from '@/lib/auditLog'
 import { templateSaveCheck, templateDefault } from '@/lib/templateRules'
+import { recordEditHistory } from '@/lib/templateReview'
 
 // The admin side of the official TutorMint Team channel.
 //
@@ -78,6 +79,8 @@ export async function PUT(request: Request) {
   const check = templateSaveCheck(next.key, next.body)
   if (!check.ok) return NextResponse.json({ error: check.error, unknown: check.unknown }, { status: 400 })
 
+  // The wording it replaces stays in the template's history, with Restore (owner, 28 Oct 2026).
+  if (next.body !== current.body) await recordEditHistory(gate.actor, current.key, { subject: current.subject ?? null, body: current.body })
   const result = await saveTemplate(next, gate.actor.id)
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 })
   // Every edit is logged with who and when (Audit; the row also carries
