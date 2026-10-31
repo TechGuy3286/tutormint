@@ -7,7 +7,6 @@ import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { HoldRow, ListRow, SearchResult, MatchVia } from '@/lib/contactWithdraw'
-import { CONSENT_UI_ENABLED } from '@/lib/tuitionConsentCore'
 import { withdrawActionsView } from '@/lib/withdrawListedCore'
 
 const VIA_WORDS: Record<MatchVia, string> = {
@@ -31,11 +30,9 @@ function fmtDate(iso: string): string {
 export default function WithdrawContactClient({
   initialList,
   initialHolds,
-  report,
 }: {
   initialList: ListRow[]
   initialHolds: HoldRow[]
-  report: { staff: string; count: number }[]
 }) {
   const toast = useToast()
   const confirm = useConfirm()
@@ -340,7 +337,7 @@ export default function WithdrawContactClient({
 
       <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
         <h2 className="text-lg font-extrabold text-tm-navy">Do not use list ({list.length})</h2>
-        <p className="mt-1 text-sm text-gray-600">Posting a tuition, bulk import and admin edits refuse these numbers. Stored only as a hash.</p>
+        <p className="mt-1 text-sm text-gray-600">Posting a tuition and admin edits refuse these numbers. Stored only as a hash.</p>
         {list.length === 0 ? (
           <p className="mt-3 text-sm text-gray-600">No numbers on the list.</p>
         ) : (
@@ -360,36 +357,6 @@ export default function WithdrawContactClient({
         )}
       </section>
 
-      {CONSENT_UI_ENABLED && (
-      <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
-        <h2 className="text-lg font-extrabold text-tm-navy">Staff-posted tuitions with a parent number and no parent account</h2>
-        <p className="mt-1 text-sm text-gray-600">All time, counts only — to check consent.</p>
-        {report.length === 0 ? (
-          <p className="mt-3 text-sm text-gray-600">None.</p>
-        ) : (
-          <table className="mt-3 w-full text-sm">
-            <thead>
-              <tr className="text-left text-gray-600">
-                <th className="py-1 font-bold">Staff</th>
-                <th className="py-1 text-right font-bold">Tuitions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {report.map((r) => (
-                <tr key={r.staff} className="border-t border-gray-100">
-                  <td className="py-1.5 text-slate-800">{r.staff}</td>
-                  <td className="py-1.5 text-right font-bold text-slate-800">{r.count}</td>
-                </tr>
-              ))}
-              <tr className="border-t border-gray-200">
-                <td className="py-1.5 font-bold text-slate-800">Total</td>
-                <td className="py-1.5 text-right font-bold text-slate-800">{report.reduce((s, r) => s + r.count, 0)}</td>
-              </tr>
-            </tbody>
-          </table>
-        )}
-      </section>
-      )}
     </div>
   )
 }

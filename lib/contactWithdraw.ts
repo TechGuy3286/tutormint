@@ -483,20 +483,6 @@ export async function consentReport(): Promise<{ staff: string; count: number }[
   return consentCounts(rows, accountNumbers, (id) => names.get(id) ?? 'Former staff')
 }
 
-/** For a batch (bulk import): one read of the list, then a cheap check per
- *  number. Fails open like doNotUseRefusal. */
-export async function doNotUseChecker(): Promise<(numbers: (string | null | undefined)[]) => boolean> {
-  const admin = createAdminClient()
-  if (!admin) return () => false
-  try {
-    const [hashes, holds] = await Promise.all([liveHashes(admin), liveHoldHashes(admin).catch(() => new Set<string>())])
-    return (numbers) => listedNumber(numbers, hashes) || listedNumber(numbers, holds)
-  } catch {
-    console.warn('[do-not-use] list unreadable; check skipped')
-    return () => false
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Pause on complaint (owner, 27 Oct 2026). Rules in lib/contactWithdrawCore.
 

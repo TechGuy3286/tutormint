@@ -15,6 +15,7 @@
  *
  *   npx tsx --conditions=react-server --test scripts/test-template-rewrite.ts
  */
+import { RETIRED_TEMPLATE_KEYS } from '../lib/templateRetireCore'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -323,7 +324,9 @@ test('Approve all approves every undecided template and leaves decided ones alon
   assert.ok(res.ok)
   if (!res.ok) return
   assert.deepEqual(res.skipped, [])
-  assert.equal(res.approved.length, ALL_PROPOSALS.length - 1)
+  // Retired templates are never reviewed (owner, 31 Oct 2026).
+  const reviewable = ALL_PROPOSALS.filter((p) => !(RETIRED_TEMPLATE_KEYS as readonly string[]).includes(p.key))
+  assert.equal(res.approved.length, reviewable.length - 1)
   assert.equal(tables.admin_message_templates.find((r) => r.key === 'app_demo')!.body, 'Old wording of app_demo')
   assert.equal(tables.admin_message_templates.find((r) => r.key === 'fee_not_paid')!.body, proposalFor('fee_not_paid')!.body)
   assert.equal(tables.email_wordings.length, EMAIL_PROPOSALS.length)

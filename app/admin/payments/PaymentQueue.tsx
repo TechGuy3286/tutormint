@@ -9,6 +9,7 @@ import InfiniteFooter from '@/components/InfiniteFooter'
 import QueueSearch from '@/components/admin/QueueSearch'
 import StatusChip from '@/components/admin/StatusChip'
 import PaymentDecide from './PaymentDecide'
+import StaffReceiptActions from './StaffReceiptActions'
 import DocumentViewer from '@/components/admin/DocumentViewer'
 import { OwnerOnlyNote } from '@/components/admin/ReadOnly'
 import { channelLabel } from '@/lib/payments/receiptCore'
@@ -61,6 +62,8 @@ export default function PaymentQueue({
   showHidden,
   search,
   canApprove,
+  canCheck = false,
+  staffMayApprove = false,
   canRefund,
   paymentsCursor,
   paymentsTotal,
@@ -74,6 +77,10 @@ export default function PaymentQueue({
   showHidden: boolean
   search: string
   canApprove: boolean
+  /** "Mark checked" for the owner (Admin, Backend Support). */
+  canCheck?: boolean
+  /** Backend Support: Approve under the matched-bank-credit rule (server decides). */
+  staffMayApprove?: boolean
   /** Marking refunded is owner only (owner, 8 Oct 2026). */
   canRefund: boolean
   paymentsCursor: string | null
@@ -237,7 +244,16 @@ export default function PaymentQueue({
                 {canApprove && awaitingApproval(p) && (
                   <PaymentDecide paymentId={p.id} payerName={p.name} />
                 )}
-                {!canApprove && awaitingApproval(p) && <OwnerOnlyNote />}
+                {!canApprove && awaitingApproval(p) && (canCheck || staffMayApprove) && (
+                  <StaffReceiptActions paymentId={p.id} payerName={p.name} checkedByName={p.checkedByName} canCheck={canCheck} staffMayApprove={staffMayApprove} />
+                )}
+                {!canApprove && awaitingApproval(p) && !canCheck && !staffMayApprove && <OwnerOnlyNote />}
+                {awaitingApproval(p) && p.checkedByName && canApprove && (
+                  <span className="self-center text-[11px] font-bold text-tm-green-deep">Checked by {p.checkedByName}</span>
+                )}
+                {p.staffApprovedByName && p.status === 'approved' && (
+                  <span className="self-center text-[11px] font-bold text-tm-navy">Approved by {p.staffApprovedByName} (bank credit matched)</span>
+                )}
 
                 {/* Mark as refunded — owner/admin, on an approved payment not yet
                     fully refunded (PR106-H4 §4). */}

@@ -128,17 +128,11 @@ test('Get verified screen is clean (no CNIC card / Continue / Pay later clutter)
 // ---------------------------------------------------------------- STEP 5 ----
 // NOTE: PR106-G4b gated this card behind the staff switch; the non-staff path
 // still shows the pending-invoice prompt (test:pr106g4b owns the full gating).
-test('the dashboard still shows "Complete your payment" to non-staff for an unpaid, unexpired invoice', () => {
+// The PayPro "Complete your payment" prompt was retired (owner, 31 Oct 2026):
+// PayPro checkout closed on 26 Oct and an invoice lived 24 hours.
+test('the dashboard no longer shows the PayPro "Complete your payment" prompt', () => {
   const page = read('app/(site)/tutor/dashboard/page.tsx')
-  assert.match(page, /!staffNew && !ent\.verified \? await pendingPayproInvoice\(userId\)/, 'non-staff + unverified only')
-  // PayPro retired (owner, 26 Oct 2026): the prompt opens the bank-transfer page for that plan.
-  assert.match(page, /\{pendingInvoice && <CompletePaymentPrompt url=\{`\/pay\/choose\?plan=/, 'rendered only when an invoice exists')
-  const helper = read('lib/payments/pendingInvoice.ts')
-  assert.match(helper, /status', 'pending'/, 'only pending orders')
-  assert.match(helper, /ageMs < DAY_MS && click2pay/, 'only < 24h with a Click2Pay link')
-  const prompt = read('components/tutor/CompletePaymentPrompt.tsx')
-  assert.match(prompt, /Pay by bank transfer/, 'red button opening the bank-transfer page (PayPro retired, 26 Oct 2026)')
-  assert.match(prompt, /href=\{url\}/, 'links to the same invoice url')
+  assert.doesNotMatch(page, /pendingPayproInvoice|CompletePaymentPrompt/)
 })
 
 // ------------------- the guardrails this PR must not cross ------------------

@@ -24,7 +24,9 @@ import { logAdminAction } from '@/lib/auditLog'
 import type { AdminActor } from '@/lib/adminAuth'
 import { loadSupportWhatsApp } from '@/lib/applicationTemplates'
 import { TUITION_LIVE_LABEL } from '@/lib/tuitionStatus'
-import { ALL_PROPOSALS, NOT_REWRITTEN, checkWording, previewText, proposalFor, type Proposal } from '@/lib/templateProposals'
+import { RETIRED_TEMPLATE_KEYS } from '@/lib/templateRetireCore'
+import { ALL_PROPOSALS as EVERY_PROPOSAL, NOT_REWRITTEN, checkWording, previewText, proposalFor, type Proposal } from '@/lib/templateProposals'
+
 import { EMAIL_SAMPLE_INPUTS, emailWordingFor, type EmailVariant } from '@/lib/notify/emailWordingCore'
 import { render, renderWording } from '@/lib/notify/templates'
 import { clearEmailWordingCache } from '@/lib/notify/emailWording'
@@ -32,6 +34,9 @@ import { templateSaveCheck } from '@/lib/templateRules'
 import { formatName } from '@/lib/formatName'
 import { approvedWording } from '@/lib/templateResetCore'
 import { pageAll } from '@/lib/pageAll'
+
+// Retired templates (owner, 31 Oct 2026) are not reviewed: no code sends them.
+const ALL_PROPOSALS = EVERY_PROPOSAL.filter((p) => !(RETIRED_TEMPLATE_KEYS as readonly string[]).includes(p.key))
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>
 

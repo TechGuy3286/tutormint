@@ -85,11 +85,9 @@ test('the payment screen offers bank transfer only, with the plain line', () => 
   assert.doesNotMatch(page, /pproVisibleFor|onlineCheckoutOn/)
 })
 
-test('an unfinished PayPro checkout is sent to the bank-transfer instructions', () => {
+test('the PayPro "Complete your payment" prompt is gone from the dashboard (owner, 31 Oct 2026)', () => {
   const dash = read('app/(site)/tutor/dashboard/page.tsx')
-  assert.match(dash, /CompletePaymentPrompt url=\{`\/pay\/choose\?plan=/)
-  assert.doesNotMatch(dash, /CompletePaymentPrompt url=\{pendingInvoice\.url\}/)
-  assert.match(read('components/tutor/CompletePaymentPrompt.tsx'), /PAY_BY_TRANSFER_LINE/)
+  assert.doesNotMatch(dash, /CompletePaymentPrompt|pendingPayproInvoice/)
 })
 
 test('member-facing English no longer offers PayPro or card payment', () => {

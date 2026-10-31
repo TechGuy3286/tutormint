@@ -21,7 +21,7 @@
 //   - the message is built from the template; it never carries a phone number.
 
 import { completeCommon } from '@/lib/templateFill'
-import { waSendHref } from '@/lib/waLinkCore'
+import { finishWaText, waSendHref } from '@/lib/waLinkCore'
 
 export type InterestKind = 'applied' | 'viewed'
 export type InterestEvent = { jobId: string; tutorId: string; kind: InterestKind; at: string }
@@ -216,7 +216,7 @@ export function buildForwardMessage(args: {
 
 /** The pre-filled WhatsApp link (waSendHref), or null with no usable number. */
 export function forwardWaLink(msisdn: string | null, message: string, refCode?: string | null): string | null {
-  return msisdn ? waSendHref(msisdn, message, refCode) : null
+  return msisdn ? waSendHref(msisdn, finishWaText(message, refCode), refCode) : null
 }
 
 /** What a forward may record: only tutors who are on the card (paid, interested). */

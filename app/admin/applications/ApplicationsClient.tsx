@@ -13,8 +13,6 @@ import LoadMoreLink from '@/components/admin/LoadMoreLink'
 import type { AppsViewResult } from '@/lib/applicationsPagingCore'
 import { formatDate } from '@/lib/datetime'
 import type { BoardRow, StaffOption } from '@/lib/applicationTracking'
-import ConsentChip from '@/components/admin/ConsentChip'
-import { CONSENT_UI_ENABLED } from '@/lib/tuitionConsentCore'
 import type { ForwardCard } from '@/lib/applicantForwards'
 import {
   APPLICATIONS_PATH,
@@ -381,10 +379,6 @@ export default function ApplicationsClient({
           <span className="text-gray-600">· {ownerControl(head)}</span>
           <span className="font-bold text-slate-700">{groupCountLine(allRows.map((r) => r.stage))}</span>
           {!head.hasParentNumber && <span className="font-bold text-tm-red">No parent number</span>}
-          {/* Parent consent to be listed (owner, 27 Oct 2026). */}
-          {CONSENT_UI_ENABLED && !head.consentRecorded && (
-            <ConsentChip jobId={key} recorded={false} hasNumber={head.hasParentNumber} via="applications" compact />
-          )}
           {forwardButton(key, head.jobTitle)}
         </div>
         <ul className="divide-y divide-gray-100">{list.map((r) => rowView(r, 'tuition'))}</ul>

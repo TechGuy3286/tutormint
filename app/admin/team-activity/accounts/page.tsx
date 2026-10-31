@@ -88,7 +88,7 @@ export default async function SignupListPage({
       {n === 0 ? (
         <p className="rounded-2xl border border-gray-200 bg-white p-4 text-xs text-gray-600">Nobody here for this period.</p>
       ) : (
-        <SignupRows rows={rows} showFilters memberLinks={roleSatisfies(actor.adminRole, SCREEN_ACCESS.users)} shares={shares} />
+        <SignupRows rows={rows} showFilters memberLinks={roleSatisfies(actor.adminRole, SCREEN_ACCESS.usersView)} shares={shares} />
       )}
     </div>
   )

@@ -5,6 +5,7 @@ import { refuseUnlessOwnerApproval } from '@/lib/ownerGuard'
 import { activatePayment, rejectPayment } from '@/lib/payments/activate'
 import { attachCreditOnApproval } from '@/lib/feeMatch'
 import { requireFreshAuth } from '@/lib/reauth'
+import { staffApproveReceipt } from '@/lib/staffReceipt'
 import { parseBody, z, uuid } from '@/lib/validate'
 
 // Approve or reject a manual bank/wallet transfer (PR98 §4).
@@ -29,8 +30,25 @@ const DecideBody = z.object({
 })
 
 export async function POST(request: Request) {
-  const gate = await checkAdminRole(...SCREEN_ACCESS.paymentsApprove)
+  const gate = await checkAdminRole(...SCREEN_ACCESS.paymentsApprove, 'backend_support')
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
+
+  // BACKEND SUPPORT (owner, 31 Oct 2026): may APPROVE a receipt only when it is
+  // matched to a real bank credit (lib/staffReceiptCore — fee range, 48 hours,
+  // sender name, credit unlinked, not their own referral). Everything else —
+  // and every rejection — stays with the Owner.
+  if (gate.actor.adminRole === 'backend_support') {
+    const freshBs = await requireFreshAuth(gate.actor.id)
+    if (!freshBs.ok) return freshBs.response
+    const body = await parseBody(request, DecideBody)
+    if (!body.ok) return body.response
+    if (body.data.action !== 'approve') {
+      return NextResponse.json({ error: 'Only the Owner can reject a receipt.' }, { status: 403 })
+    }
+    const r = await staffApproveReceipt(body.data.paymentId, { id: gate.actor.id, adminRole: gate.actor.adminRole, email: gate.actor.email })
+    if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status })
+    return NextResponse.json({ ok: true, approved: true, byStaff: true })
+  }
 
   // Owner-only approvals (owner, 15 Oct 2026): every other role views only.
   const notOwner = await refuseUnlessOwnerApproval(gate.actor, 'approve or reject a bank-transfer receipt', null)

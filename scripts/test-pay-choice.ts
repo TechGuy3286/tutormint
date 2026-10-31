@@ -217,7 +217,7 @@ test('owner, Partner, admin and operations approve; Tuitions staff cannot', () =
   assert.equal(roleSatisfies('tuitions_staff', SCREEN_ACCESS.paymentsApprove), false)
   // The Partner opens the screen, sees no buttons, and the server refuses the POST.
   assert.equal(isReadOnlyRole('partner'), false) // full management since 13 Oct 2026 (was view-only)
-  assert.match(DECIDE, /checkAdminRole\(\.\.\.SCREEN_ACCESS\.paymentsApprove\)/, 'checkAdminRole answers 403 to a Partner on any write')
+  assert.match(DECIDE, /checkAdminRole\(\.\.\.SCREEN_ACCESS\.paymentsApprove, 'backend_support'\)/, 'checkAdminRole answers 403 to a Partner on any write')
   assert.match(read('lib/adminAuth.ts'), /alwaysNeedsTwoFactor/)
   assert.match(read('app/admin/payments/PaymentDecide.tsx'), /if \(readOnly\) return null/)
   // The receipt opens in the shared viewer, turn-only (nothing saved).

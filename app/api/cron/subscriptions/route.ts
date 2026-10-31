@@ -13,6 +13,7 @@ import { pauseStaleTuitions } from '@/lib/tuitionPause'
 import { drainIndexingQueue, INDEXING_DAILY_LIMIT } from '@/lib/googleIndexing'
 import { runDueErasures } from '@/lib/accountErase'
 import { drainEmailQueue } from '@/lib/email/queue'
+import { notifyStaffApprovalsDaily } from '@/lib/staffReceipt'
 
 // Daily subscription sweep: remind at T-3, expire at zero.
 //
@@ -104,6 +105,8 @@ async function handle(request: Request) {
   // Held emails (owner, 27 Oct 2026): the daily-limit ones and the daily summaries.
   // Last, so the summaries carry what the sweeps above held today.
   const emailQueue = await drainEmailQueue().catch(() => null)
+  // The Owner's daily "Approved by staff" list in the bell (owner, 31 Oct 2026).
+  const staffApprovals = await notifyStaffApprovalsDaily().catch(() => null)
 
   // Errors are reported, not swallowed: a sweep that silently half-ran is how
   // a member keeps a plan they stopped paying for.
@@ -130,6 +133,7 @@ async function handle(request: Request) {
       indexing,
       erasures,
       emailQueue,
+      staffApprovals,
     },
     { status },
   )

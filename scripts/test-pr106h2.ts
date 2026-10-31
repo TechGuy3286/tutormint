@@ -38,7 +38,7 @@ test('every other screen is refused for tuitions_staff', () => {
     'overview', 'tutors', 'parents', 'plans', 'plansMutate', 'payments',
     'paymentsApprove', 'paymentsSettings', 'paymentsSwitches', 'team', 'reports',
     'inbox', 'users', 'orphans', 'signups', 'usersExport', 'audit', 'seo',
-    'videoVisibility', 'tutorSlug', 'tutorEdit', 'ads', 'social', 'import',
+    'videoVisibility', 'tutorSlug', 'tutorEdit', 'ads', 'social',
     'cleanup', 'blog', 'blogPublish', 'blogQueue', 'blogGenerate',
     // Staff activity: the Owner, Project Managers and Admin (owner, 15 Oct 2026).
     'staffActivity',
@@ -115,8 +115,8 @@ test('no admin route is left without a role check (the one gap is closed)', () =
 
 // -------------------------------------------- Team + notification (STEP 2/3) -
 test('tuitions_staff is assignable in Team, everywhere the role list is read', () => {
-  assert.match(read('lib/staff.ts'), /ASSIGNABLE_ROLES: AdminRole\[\] = \['admin', 'supervisor', 'operations', 'tuitions_staff', 'partner'\]/)
-  assert.match(read('app/api/admin/team/route.ts'), /z\.enum\(\['owner', 'admin', 'supervisor', 'operations', 'tuitions_staff', 'partner'\]\)/)
+  assert.match(read('lib/staff.ts'), /ASSIGNABLE_ROLES: AdminRole\[\] = \['admin', 'supervisor', 'operations', 'tuitions_staff', 'backend_support', 'partner'\]/)
+  assert.match(read('app/api/admin/team/route.ts'), /z\.enum\(\['owner', 'admin', 'supervisor', 'operations', 'tuitions_staff', 'partner', 'backend_support']\)/)
   const client = read('app/admin/team/TeamClient.tsx')
   assert.match(client, /code: 'tuitions_staff', label: 'Tuitions staff'/, 'selectable with a plain label')
   assert.match(client, /'owner' \| 'admin' \| 'supervisor' \| 'operations' \| 'tuitions_staff' \| 'partner'/, 'the row type allows it')

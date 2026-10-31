@@ -759,7 +759,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
             {/* PR78 §D: no "Not now" here — the fee step is the last step and
                 stays until paid; the tutor leaves via the site nav if needed. */}
-            <TutorVerifyGate onClose={() => void advance()} showDismiss={false} manual={manual} payLaterHref="/tutor/dashboard" methods={methods} />
+            <TutorVerifyGate onClose={() => void advance()} showDismiss={false} manual={manual} methods={methods} />
           </div>
         )}
 

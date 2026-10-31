@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { permanentRedirect, redirect } from 'next/navigation'
 
 import { requireAdminRole, roleMayWrite, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { loadBackendSupportKpi } from '@/lib/backendSupportKpi'
+import BackendSupportKpiView from '@/components/admin/BackendSupportKpiView'
 import { canApprove } from '@/lib/adminAccessCore'
 import { loadProfileShares } from '@/lib/profileShare'
 import {
@@ -89,8 +91,12 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
     if (to) redirect(to)
   }
 
+  // Backend Support's own numbers (owner, 31 Oct 2026) — its home is this page.
+  const kpi = actor.adminRole === 'backend_support' ? await loadBackendSupportKpi(actor.id) : null
+
   return (
     <div className="space-y-4">
+      {kpi && <BackendSupportKpiView kpi={kpi} />}
       {tabs.length > 1 && (
         <nav aria-label="Tabs" className="flex flex-wrap gap-1 border-b border-gray-200">
           {FOLLOW_UP_TABS.filter((t) => tabs.includes(t.key)).map((t) => (

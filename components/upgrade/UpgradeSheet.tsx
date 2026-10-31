@@ -75,7 +75,7 @@ export default function UpgradeSheet({ gate, onClose }: { gate: Gate; onClose: (
   const tutorVerify = gate.kind === 'verify' && gate.audience === 'tutor' && !gate.missing
 
   // Payment gateways (owner, 6 Oct 2026, item 19): which options are on —
-  // bank transfer and "Pay later" show only when the owner has switched them on.
+  // bank transfer shows only when the owner has switched them on.
   // Default = today's state (online only) until the read returns.
   const [methods, setMethods] = useState<CheckoutMethods>(DEFAULT_CHECKOUT_METHODS)
   useEffect(() => {
@@ -84,7 +84,7 @@ export default function UpgradeSheet({ gate, onClose }: { gate: Gate; onClose: (
     fetch('/api/payments/methods')
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
-        if (live && j) setMethods({ online: !!j.online, bankTransfer: !!j.bankTransfer, payLater: !!j.payLater })
+        if (live && j) setMethods({ online: !!j.online, bankTransfer: !!j.bankTransfer })
       })
       .catch(() => { /* keep the default */ })
     return () => { live = false }

@@ -5,7 +5,6 @@ import Breadcrumbs from '@/components/Breadcrumbs'
 import CvCard from '@/components/tutor/CvCard'
 import SavedJobsSection from '@/components/tutor/SavedJobsSection'
 import TutorHeaderCard from '@/components/tutor/TutorHeaderCard'
-import CompletePaymentPrompt from '@/components/tutor/CompletePaymentPrompt'
 import GetVerifiedValueCard from '@/components/tutor/GetVerifiedValueCard'
 import Link from 'next/link'
 import { quotaCounter } from '@/lib/tutorDashboard'
@@ -22,7 +21,6 @@ import { loadDirectoryStatus } from '@/lib/directoryStatus'
 import { viewSummary } from '@/lib/profileViews'
 import { canDownloadCv } from '@/lib/cv/access'
 import { needsOnboarding } from '@/lib/onboardingGate'
-import { pendingPayproInvoice } from '@/lib/payments/pendingInvoice'
 import { loadReceiptState } from '@/lib/payments/receipt'
 import PaymentReviewNotice from '@/components/payments/PaymentReviewNotice'
 import WhatsMissing from '@/components/tutor/WhatsMissing'
@@ -107,8 +105,6 @@ export default async function TutorDashboardPage() {
   // refused receipt shows its reason with a way to send a new one.
   const feeReceipt = ent.verified ? null : await loadReceiptState(userId, 'verified')
   const feeUnderReview = feeReceipt?.state === 'under_review'
-  const openInvoice = !staffNew && !ent.verified ? await pendingPayproInvoice(userId) : null
-  const pendingInvoice = feeUnderReview ? null : openInvoice
 
   // PR71: the tutor's own city+areas scope drives both the "Tuitions for you"
   // tile and the action-bar count, so both agree with what /browse/tuitions
@@ -250,7 +246,6 @@ export default async function TutorDashboardPage() {
             today's "Complete your payment" prompt. Both are hidden once the fee
             is paid (ent.verified). */}
         {showValueCard && <GetVerifiedValueCard count={boardCount} city={city} underReview={feeUnderReview} />}
-        {pendingInvoice && <CompletePaymentPrompt url={`/pay/choose?plan=${encodeURIComponent(pendingInvoice.planCode)}`} />}
 
         {/* PR106-H4 §2: a required document was rejected — the badge is paused and
             new activity is blocked. ONE screen, naming the document, with a button

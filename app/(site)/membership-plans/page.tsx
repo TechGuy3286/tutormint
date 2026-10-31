@@ -92,8 +92,8 @@ export default async function PackagesPage({
   // payment choice screen (owner, 11 Oct 2026 — /pay/choose), the one place a
   // member picks how to pay.
   const dashHref = ent?.audience === 'parent' ? '/parent/dashboard' : '/tutor/dashboard'
-  // Payment gateways (owner, 6 Oct 2026, item 19): bank transfer and "Pay later"
-  // appear only while the owner has them switched on; Back always stays. The
+  // Payment gateways (owner, 6 Oct 2026, item 19): bank transfer appears
+  // only while the owner has it switched on (Pay later retired, owner 31 Oct 2026); Back always stays. The
   // checkout route refuses a switched-off method on the server too.
   const methods = checkoutMethodsOf(await getGatewaySettings())
   const payFooter =
@@ -103,11 +103,6 @@ export default async function PackagesPage({
           <Link href={dashHref} className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700">
             Back<span lang="ur" dir="rtl" className="ms-1.5 font-semibold text-gray-500">واپس</span>
           </Link>
-          {methods.payLater && (
-            <Link href={dashHref} className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700">
-              Pay later<span lang="ur" dir="rtl" className="ms-1.5 font-semibold text-gray-500">بعد میں</span>
-            </Link>
-          )}
         </div>
       </div>
     ) : null

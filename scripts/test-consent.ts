@@ -47,7 +47,6 @@ import { ToastProvider } from '../components/ui/Toast'
 import { ConfirmProvider } from '../components/ui/ConfirmDialog'
 import { AdminReadOnlyProvider } from '../components/admin/ReadOnly'
 import PostTuitionForm from '../components/forms/PostTuitionForm'
-import ConsentChip from '../components/admin/ConsentChip'
 import ReportTargetBlock from '../components/admin/ReportTargetBlock'
 import ReportButton from '../components/ReportButton'
 import JobCard, { type JobCardData } from '../components/JobCard'
@@ -142,23 +141,7 @@ test('migration 208: parent posts recorded (parent posted it themselves), staff 
 
 // ── Part A.3 — the chip and "Ask parent" ─────────────────────────────────
 
-test('chip: "Consent not recorded" with Ask parent and Parent agreed; recorded shows the method', () => {
-  const nr = render(createElement(ConsentChip, { jobId: '00000000-0000-4000-8000-000000000001', recorded: false, hasNumber: true }), { canApprove: true })
-  assert.ok(nr.includes('Consent not recorded'))
-  assert.ok(nr.includes('Ask parent'))
-  assert.ok(nr.includes('/api/admin/jobs/consent/ask?jobId=00000000-0000-4000-8000-000000000001'))
-  assert.ok(nr.includes('Parent agreed'))
-  assert.ok(nr.includes('/admin/withdraw-contact'), 'the Owner gets the Withdraw a contact link')
-  const staff = render(createElement(ConsentChip, { jobId: '00000000-0000-4000-8000-000000000001', recorded: false }))
-  assert.ok(!staff.includes('/admin/withdraw-contact') && staff.includes('Ask the Owner to withdraw the contact'))
-  const ro = render(createElement(ConsentChip, { jobId: 'x', recorded: false }), { readOnly: true })
-  assert.ok(ro.includes('Consent not recorded') && !ro.includes('Ask parent'), 'view only: no actions')
-  const rec = render(createElement(ConsentChip, { jobId: 'x', recorded: true, label: 'Recorded — WhatsApp' }))
-  assert.ok(rec.includes('Recorded — WhatsApp') && !rec.includes('Ask parent'))
-  // Both places show it.
-  assert.match(read('app/admin/jobs/JobRow.tsx'), /<ConsentChip jobId=\{row\.id\}/)
-  assert.match(read('app/admin/applications/ApplicationsClient.tsx'), /<ConsentChip jobId=\{key\}/)
-})
+// The chip and the Privacy switch were removed (owner, 31 Oct 2026).
 
 test('Ask parent: the default message is the owner’s exact text, plain English, no price', () => {
   assert.equal(
@@ -227,11 +210,6 @@ test('switch: the reveal, earlier reveals and the reveal status all check consen
   assert.doesNotMatch(page, /job\.contactHidden && \(/, 'no hidden-contact line is drawn (hotfix)')
   assert.match(page, /!job\.contactHidden && job\.contactTeaser/)
   assert.match(page, /!job\.contactHidden && <ContactReveal/)
-  // Only the Owner changes the switch; every change is logged.
-  const route = read('app/api/admin/settings/hide-numbers/route.ts')
-  assert.match(route, /SCREEN_ACCESS\.consentPrivacy/)
-  assert.match(route, /adminRole !== 'owner'/)
-  assert.match(route, /requireFreshAuth/)
   assert.match(read('lib/tuitionConsent.ts'), /action: 'settings\.hide_unconsented_numbers'/)
 })
 
@@ -494,9 +472,6 @@ test('logs: no new code prints or audits a phone number', () => {
     'lib/tuitionConsentCore.ts',
     'lib/teamPosterCore.ts',
     'lib/reportCardCore.ts',
-    'app/api/admin/jobs/consent/route.ts',
-    'app/api/admin/jobs/consent/ask/route.ts',
-    'app/api/admin/settings/hide-numbers/route.ts',
     'app/api/reports/route.ts',
     'lib/contactReveal.ts',
     'lib/parentDocuments.ts',
@@ -512,6 +487,4 @@ test('logs: no new code prints or audits a phone number', () => {
   // The consent audit rows carry the method and counts only.
   const tc = read('lib/tuitionConsent.ts')
   for (const m of tc.matchAll(/detail: \{([^}]*)\}/g)) assert.doesNotMatch(m[1], /msisdn|phone|whatsapp|href/i)
-  const ask = read('app/api/admin/jobs/consent/ask/route.ts')
-  assert.match(ask, /detail: \{ channel: 'whatsapp' \}/)
 })

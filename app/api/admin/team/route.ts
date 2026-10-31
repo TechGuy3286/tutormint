@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/errorResponse'
 import { checkAdminRole, staffChangeProblem, ROLE_LABEL, SCREEN_ACCESS, type AdminRole } from '@/lib/adminAuth'
+import { OWNER_ONLY_OWNERSHIP } from '@/lib/adminAccessCore'
 import { alertOwner, alertOwnerBlocked } from '@/lib/ownerAlerts'
 import { OWNER_PROTECTED } from '@/lib/adminAccessCore'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -34,7 +35,9 @@ const TeamBody = z.object({
   userId: uuid.optional(),
   email: z.string().email('Enter a valid email address.').max(320).optional(),
   fullName: z.string().max(200).optional(),
-  adminRole: z.enum(['owner', 'admin', 'supervisor', 'operations', 'tuitions_staff', 'partner']).optional(),
+  // 'owner' is accepted only so a request naming it is refused in words below
+  // (single-Owner lock, owner 31 Oct 2026): it is never granted.
+  adminRole: z.enum(['owner', 'admin', 'supervisor', 'operations', 'tuitions_staff', 'partner', 'backend_support']).optional(),
   reason: z.string().max(1000).optional(),
   /** grant: the owner has acknowledged the dual-identity warning for a listed tutor. */
   confirmListedTutor: z.boolean().optional(),
@@ -69,10 +72,12 @@ export async function POST(request: Request) {
   if (!parsed.ok) return parsed.response
   const body = parsed.data
 
-  // Nobody but the Owner hands out the Owner role — whatever the action.
-  if (body.adminRole === 'owner' && gate.actor.adminRole !== 'owner') {
-    const problem = staffChangeProblem(gate.actor.adminRole, null, 'owner')
-    await alertOwnerBlocked({ actor: gate.actor, problem, what: 'make someone Owner', targetId: body.userId ?? null })
+  // SINGLE-OWNER LOCK (owner, 31 Oct 2026 — permanent): nobody, the Owner
+  // included, hands out the Owner role, whatever the action. The database
+  // refuses it too (migration 215).
+  if (body.adminRole === 'owner') {
+    const problem = staffChangeProblem(gate.actor.adminRole, null, 'owner') ?? OWNER_ONLY_OWNERSHIP
+    if (gate.actor.adminRole !== 'owner') await alertOwnerBlocked({ actor: gate.actor, problem, what: 'make someone Owner', targetId: body.userId ?? null })
     return NextResponse.json({ error: problem }, { status: 403 })
   }
   const roleWord = (r: string | null | undefined) => (r ? (ROLE_LABEL[r as AdminRole] ?? r) : 'Not staff')

@@ -23,7 +23,7 @@ import { TUITION_ACTIVITY_ACTIONS, isTuitionActivityAction, tuitionActionLabel }
 test('missing settings read as today’s state: PayPro retired, bank transfer on, Pay later off', () => {
   assert.deepEqual(parseGatewaySettings([]), DEFAULT_GATEWAY_SETTINGS)
   // PayPro retired (owner, 26 Oct 2026): online off, bank transfer on, whatever is stored.
-  assert.deepEqual(checkoutMethodsOf(parseGatewaySettings([])), { online: false, bankTransfer: true, payLater: false })
+  assert.deepEqual(checkoutMethodsOf(parseGatewaySettings([])), { online: false, bankTransfer: true })
 })
 
 test('settings parse from app_settings rows', () => {
@@ -32,7 +32,7 @@ test('settings parse from app_settings rows', () => {
     { key: GATEWAY_KEYS.paypro_online, value: 'false' },
     { key: GATEWAY_KEYS.payLater, value: 'true' },
   ])
-  assert.deepEqual(checkoutMethodsOf(s), { online: false, bankTransfer: true, payLater: true })
+  assert.deepEqual(checkoutMethodsOf(s), { online: false, bankTransfer: true })  // Pay later retired (owner, 31 Oct 2026): never offered
   // An unknown gateway value falls back to PayPro.
   assert.equal(parseGatewaySettings([{ key: GATEWAY_KEYS.active, value: 'other' }]).active, 'paypro')
 })

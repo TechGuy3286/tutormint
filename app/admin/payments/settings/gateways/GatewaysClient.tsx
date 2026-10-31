@@ -7,7 +7,6 @@ import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { methodChangeError, type GatewayId, type GatewaySettings, type MethodKey } from '@/lib/payments/gatewaySettingsCore'
-import { PAYPRO_RETIRED_LINE } from '@/lib/payments/payproRetireCore'
 
 // The controls on Admin → Settings → Payment gateways (owner, 6 Oct 2026, item
 // 19). Every change posts to /api/admin/payments/gateways, which re-checks owner,
@@ -92,10 +91,6 @@ export default function GatewaysClient({
 
   return (
     <div className="space-y-6">
-      <div className={row} data-paypro-retired="">
-        <p className="text-sm font-bold text-tm-navy">{PAYPRO_RETIRED_LINE}</p>
-      </div>
-
       <section className="space-y-2">
         <h2 className="text-sm font-black text-tm-navy">Ways to pay</h2>
         {METHOD_ROWS.map((m) => (

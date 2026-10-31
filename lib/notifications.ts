@@ -133,6 +133,8 @@ export type NotificationKind =
   // A staff alert in the bell (owner, 27 Oct 2026): payments, receipts,
   // re-uploads, duplicate CNICs, blog suggestions — lib/staffAlerts.
   | 'staff_alert'
+  // The Owner's daily "Approved by staff" list (owner, 31 Oct 2026).
+  | 'staff_approvals_daily'
   // SMS may not be sending (owner, 15 Oct 2026) — the hourly SMS health check.
   | 'sms_alert'
   // My sign-ups (owner, 16 Oct 2026): someone signed up through this staff

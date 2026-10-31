@@ -64,7 +64,7 @@ export default async function SettlementTab({ sp, extra }: { sp: { from?: string
       <p className="text-sm font-black text-tm-navy">Range check and deduction lines</p>
       <div className="mx-auto max-w-xl space-y-6">
         {views.length === 0 ? (
-          <p className="text-xs text-gray-500">No payment gateway is connected.</p>
+          <p className="text-xs text-gray-500">Members pay by bank transfer, so there is no gateway range to check. Bank credits and receipts are matched above.</p>
         ) : (
           views.map((v) => (
             <section key={v.id} className="space-y-2">

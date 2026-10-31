@@ -28,7 +28,7 @@ export const dynamic = 'force-dynamic'
 /** Which SCREEN_ACCESS entry may see the name behind an id on this path. */
 const LABEL_SCREEN = {
   jobs: SCREEN_ACCESS.jobs,
-  users: SCREEN_ACCESS.users,
+  users: SCREEN_ACCESS.usersView,
   tutors: SCREEN_ACCESS.tutors,
   blog: SCREEN_ACCESS.blog,
   // A staff member's detail under Team activity (owner, 15 Oct 2026).

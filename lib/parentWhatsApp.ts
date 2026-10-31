@@ -88,7 +88,9 @@ export async function sendParentMessage(memberId: string, actor: AdminActor): Pr
     // No tutor with a public profile yet: their tuition page, so the message still has a link.
     tutorLinks: tutorLinks.length > 0 ? tutorLinks : row.tuition?.path ? [siteLink(row.tuition.path)] : [siteLink('/browse/tutors')],
     signinLink: siteLink('/login'),
-    repostLink: row.tuition ? siteLink(`/parent/dashboard/job/${row.tuition.id}`) : siteLink('/parent/dashboard/post-job'),
+    // Never a dashboard address (owner, 28 Oct 2026): the tuition's own page (its
+    // poster sees Resume there) or the public Post a tuition page.
+    repostLink: row.tuition?.path ? siteLink(row.tuition.path) : siteLink(POST_TUITION_PUBLIC_PATH),
     supportWhatsapp: support,
   })
 

@@ -30,7 +30,10 @@ export async function adminWhatsAppFor(memberId: string, now = new Date(), refCo
   const number =
     (p.whatsapp as string | null) || (tp?.whatsapp_number as string | null) || (p.phone_number as string | null) || null
   const name = formatName(p.full_name as string | null) || ''
-  const role = p.role === 'tutor' ? 'tutor' : p.role === 'parent' || p.role === 'academy' ? 'parent' : 'other'
+  // A parent never gets a message from here: only their situation message
+  // (lib/parentWhatsApp) — owner, 31 Oct 2026.
+  if (p.role === 'parent' || p.role === 'academy') return { href: null, type: null }
+  const role = p.role === 'tutor' ? 'tutor' : 'other'
 
   let tutor = null
   if (role === 'tutor') {

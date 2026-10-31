@@ -38,17 +38,17 @@ test('the bank panel reads every value from the owner’s settings — no hardco
   assert.ok(/lang="ur"/.test(src) && /dir="rtl"/.test(src), 'Urdu lines')
 })
 
-test('the fee step (TutorVerifyGate) opens the choice screen and keeps a pay-later exit', () => {
+test('the fee step (TutorVerifyGate) opens the choice screen; no pay-later exit (retired, owner 31 Oct 2026)', () => {
   const src = read('components/upgrade/TutorVerifyGate.tsx')
   assert.ok(src.includes('/pay/choose?plan=verified'), 'opens the choice screen')
-  assert.ok(/payLaterHref/.test(src), 'a pay-later href prop')
+  assert.ok(!/payLaterHref|Pay later/.test(src), 'no pay-later link')
   assert.ok(/manual/.test(src), 'still accepts the manual instructions its callers pass')
 })
 
-test('CompleteProfileFlow passes manual details + a pay-later href to the fee step', () => {
+test('CompleteProfileFlow passes manual details to the fee step, no pay-later href', () => {
   const src = read('components/tutor/CompleteProfileFlow.tsx')
   assert.ok(/manual=\{manual\}/.test(src), 'forwards manual')
-  assert.ok(/payLaterHref="\/tutor\/dashboard"/.test(src), 'pay-later goes to the dashboard (nothing lost)')
+  assert.ok(!/payLaterHref/.test(src), 'no pay-later href')
 })
 
 test('both entry pages load the ONE manualInstructions() source and pass it in', () => {

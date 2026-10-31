@@ -18,7 +18,7 @@ import { cnicSideNote } from '@/lib/tutorDocQueueCore'
 import { UnlockedNote, useUnlockDoc } from '@/components/admin/UnlockDocButton'
 import DocChangeMenu from '@/components/admin/DocChangeMenu'
 import { changeMenuOptions } from '@/lib/docChangeMenuCore'
-import { waSendHref } from '@/lib/waLinkCore'
+import { finishWaText, siteLink, waSendHref } from '@/lib/waLinkCore'
 
 // A parent's documents (owner, 8 Oct 2026): CNIC front + back and the typed
 // address, each approved or rejected on its own. The member page's Documents
@@ -81,7 +81,7 @@ export default function ParentDocumentReview({
   if (addressOnly) {
     return (
       <div className="space-y-3" data-tutor-address="">
-        <ReviewItem parentId={docs.parentId} item="address" title="Home address" canReview={canReview} state={docs.addressItem} whatsapp={docs.whatsapp} onVerified={() => {}}>
+        <ReviewItem parentId={docs.parentId} item="address" title="Home address" canReview={canReview} state={docs.addressItem} whatsapp={docs.whatsapp} onVerified={() => {}} audience="tutor">
           <p className="rounded-xl border border-gray-100 bg-tm-bg p-3 text-xs text-slate-700">
             {docs.address?.trim() ? docs.address : 'No address entered yet.'}
             {docs.city ? <span className="block text-[11px] text-gray-500">City: {docs.city}</span> : null}
@@ -173,8 +173,11 @@ function ReviewItem({
   whatsapp,
   onVerified,
   unlock = null,
+  audience = 'parent',
   children,
 }: {
+  /** Who the rejection WhatsApp is for: a tutor's address card says tutor words and links the tutor's settings (owner, 31 Oct 2026). */
+  audience?: 'tutor' | 'parent'
   /** Unlock for re-upload (the CNIC), offered in the Change menu. */
   unlock?: { lockable: boolean; unlockOpen: boolean; canUnlock: boolean } | null
   parentId: string
@@ -229,10 +232,9 @@ function ReviewItem({
   const waMsisdn = normalisePkMobile(whatsapp)
   const whatsappHref = (() => {
     if (!waMsisdn || reason.length < 3) return null
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.tutormint.org'
-    const link = `${origin}/parent/verify`
-    const text = rejectionWhatsAppText({ what, reason, link, audience: 'parent' })
-    return waSendHref(waMsisdn, text, refCode)
+    const link = siteLink(audience === 'tutor' ? '/tutor/dashboard/settings' : '/parent/verify')
+    const text = rejectionWhatsAppText({ what, reason, link, audience })
+    return waSendHref(waMsisdn, finishWaText(text, refCode), refCode)
   })()
 
   const act = async (decision: 'approve' | 'reject') => {

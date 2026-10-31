@@ -29,6 +29,8 @@ export default function MemberActions({
   suspended,
   banned,
   canBan,
+  canModerate = true,
+  canGrantPlans = true,
   canUnban,
   isSelf,
   isStaff,
@@ -46,6 +48,10 @@ export default function MemberActions({
   suspended: boolean
   banned: boolean
   canBan: boolean
+  /** Warn / suspend / ban / mobile tools — false for Backend Support (owner, 31 Oct 2026). */
+  canModerate?: boolean
+  /** The Plans screen opens for this role (Owner and Partner). */
+  canGrantPlans?: boolean
   canUnban: boolean
   isSelf: boolean
   isStaff: boolean
@@ -238,7 +244,7 @@ export default function MemberActions({
         </div>
       ) : (
         <>
-          {moderable && (
+          {moderable && canModerate && (
             <div className="flex flex-wrap gap-2">
               {banned ? (
                 canUnban && (
@@ -336,13 +342,13 @@ export default function MemberActions({
           )}
 
           <div className="flex flex-wrap gap-2">
-            {moderable && !banned && canVerifyMobile && hasMobile && !mobileVerified && (
+            {moderable && canModerate && !banned && canVerifyMobile && hasMobile && !mobileVerified && (
               <button type="button" onClick={() => setOpen('verify-mobile')} className={`${BTN} bg-tm-navy text-white`}>
                 <PhoneCall aria-hidden size={13} />
                 Verify mobile manually
               </button>
             )}
-            {moderable && !banned && canVerifyMobile && (
+            {moderable && canModerate && !banned && canVerifyMobile && (
               <button
                 type="button"
                 onClick={() => setOpen('change-mobile')}
@@ -352,7 +358,7 @@ export default function MemberActions({
                 Change mobile
               </button>
             )}
-            {!isStaff && (
+            {!isStaff && canGrantPlans && (
               <Link href="/admin/plans" className={`${BTN} border border-gray-200 text-slate-700 hover:border-tm-navy`}>
                 <CreditCard aria-hidden size={14} />
                 Grant or revoke a plan

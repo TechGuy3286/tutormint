@@ -39,7 +39,7 @@ export default async function AdminUsersPage({
 }: {
   searchParams: Promise<{ q?: string; role?: string; status?: string; filter?: string; tip?: string; tab?: string; all?: string; n?: string; paid?: string; posted?: string; pv?: string; docs?: string }>
 }) {
-  const actor = await requireAdminRole(...SCREEN_ACCESS.users)
+  const actor = await requireAdminRole(...SCREEN_ACCESS.usersView)
   const sp = await searchParams
   const { role = 'all', filter, tip, tab, all } = sp
 

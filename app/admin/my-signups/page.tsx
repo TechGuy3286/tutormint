@@ -110,7 +110,7 @@ export default async function MySignupsPage() {
       {page.rows.length === 0 ? (
         <p className="rounded-2xl border border-gray-200 bg-white p-4 text-sm text-slate-700">{EMPTY_STATE}</p>
       ) : (
-        <SignupRows rows={page.rows} showFilters filtersFromUrl memberLinks={roleSatisfies(actor.adminRole, SCREEN_ACCESS.users)} shares={shares} />
+        <SignupRows rows={page.rows} showFilters filtersFromUrl memberLinks={roleSatisfies(actor.adminRole, SCREEN_ACCESS.usersView)} shares={shares} />
       )}
     </div>
   )

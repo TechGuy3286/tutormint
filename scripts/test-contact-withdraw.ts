@@ -140,7 +140,6 @@ test('Do not use blocks every posting path', () => {
     assert.match(jobs.slice(start, next), /doNotUseRefusal\(/, `${fn} checks the list`)
   }
   assert.match(src('lib/tuitionContact.ts'), /doNotUseRefusal\(\[parsed\.msisdn\]\)/)
-  assert.match(src('lib/import.ts'), /doNotUse\(\[msisdn, row\.whatsapp\]\)[\s\S]*DO_NOT_USE_MESSAGE/)
   assert.match(src('app/api/admin/members/route.ts'), /doNotUseRefusal\(\[newMobile\]\)/)
   assert.match(src('app/api/admin/tutors/edit/route.ts'), /doNotUseRefusal\(\[newMobile\]\)/)
 })

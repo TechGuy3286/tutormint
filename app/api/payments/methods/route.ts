@@ -13,6 +13,5 @@ export async function GET() {
   return NextResponse.json({
     online: onlineCheckoutOn(s),
     bankTransfer: bankTransferOn(s),
-    payLater: s.payLater,
   })
 }

@@ -22,7 +22,6 @@ import {
   adminWhatsAppRoute,
   documentRejectedMessage,
   documentsWaitingMessage,
-  parentHelpMessage,
   parseWhatsAppFrom,
   WHATSAPP_FROM,
 } from '../lib/adminWhatsAppCore'
@@ -90,14 +89,11 @@ test('the other admin link builders encode the same way', () => {
   assertGoodLink(waMeHref('923001234567', TEXT), TEXT) // after documents approved
 })
 
-test('parents get the parent message', () => {
-  const m = adminMemberMessage({ role: 'parent', name: 'ayesha khan', nowMs: NOW })
-  assert.equal(m.type, 'parent_help')
-  assert.equal(m.text, parentHelpMessage('ayesha khan'))
-  // The fallback for a parent with no situation on record (owner, 27 Oct 2026):
-  // a TutorMint link, no emoji. Real parents get their situation message
-  // (lib/parentWhatsApp, tested in scripts/test-fee-match.ts).
-  assert.match(m.text, /^Assalam o Alaikum ayesha, this is TutorMint\. Do you need any help finding a tutor\? You can post your requirement here:\n\nhttps:\/\/www\.tutormint\.org\/parent\/dashboard\/post-job$/)
+test('parents are never built here: no generic parent text exists (owner, 31 Oct 2026)', () => {
+  const core = readFileSync('lib/adminWhatsAppCore.ts', 'utf8')
+  assert.ok(!/parentHelpMessage|PARENT_HELP_LINK|parent_help|finding a tutor/.test(core))
+  const route = readFileSync('app/api/admin/whatsapp/route.ts', 'utf8')
+  assert.ok(route.includes('if (!r.ok) return { error: r.error, status: r.status }'), 'a parent with no situation gets an error, never a fallback')
 })
 
 test('a rejected document asks for a re-upload with the reason', () => {
@@ -143,16 +139,16 @@ test('other tutor states use the Follow-ups messages', () => {
 
 test('every message makes a proper link, line breaks included', () => {
   const cases = [
-    adminMemberMessage({ role: 'parent', name: 'A', nowMs: NOW }).text,
+    // Parents are never built here (owner, 31 Oct 2026): index 0 is a staff member.
+    adminMemberMessage({ role: 'other', name: 'A', nowMs: NOW }).text,
     adminMemberMessage({ role: 'tutor', name: 'A', tutor: { facts: facts({ rejected: [{ doc: 'photo', reason: 'blurry' }] }), docsWaiting: false }, nowMs: NOW }).text,
     adminMemberMessage({ role: 'tutor', name: 'A', tutor: { facts: facts(), docsWaiting: true }, nowMs: NOW }).text,
     // Follow-ups' re-upload variant carries a blank line.
     followUpMessage(facts({ rejected: [{ doc: 'cnic', reason: 'cut off' }] }), 'A', NOW).text,
   ]
   assert.ok(cases[3].includes('\n\n'))
-  // The tutor messages keep their 🙂; the parent fallback has none (27 Oct 2026).
+  // The tutor messages keep their 🙂.
   for (const t of cases.slice(1)) assert.ok(t.includes('🙂'))
-  assert.ok(!cases[0].includes('🙂'))
   for (const t of cases) assertGoodLink(adminWaLink('0321 0000000', t), t)
 })
 

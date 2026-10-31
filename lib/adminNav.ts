@@ -22,6 +22,9 @@ export type AdminScreen =
   | 'tutors'
   | 'parents'
   | 'users'
+  | 'usersView'
+  | 'receiptCheck'
+  | 'backendSupportKpi'
   | 'staffActivity' // Team activity → Verifications & messages (no nav entry of its own)
   | 'orphans'
   | 'signups'
@@ -31,7 +34,6 @@ export type AdminScreen =
   | 'paymentsSwitches'
   | 'paymentGateways'
   | 'smsHealth'
-  | 'consentPrivacy'
   | 'notificationSettings'
   | 'emailUsage'
   | 'contactWithdraw'
@@ -49,7 +51,6 @@ export type AdminScreen =
   | 'audit'
   | 'ads'
   | 'social'
-  | 'import'
   | 'seo'
   | 'unmetSearches'
   | 'blog'
@@ -98,7 +99,7 @@ export const NAV_GROUPS: NavGroup[] = [
       // ONE member directory, tabs Tutors | Parents | Staff (owner, 21 Oct 2026).
       // It replaced the Verification group (Tutors, Parents); its badge is the
       // documents waiting for the Owner, tutors and parents together.
-      { href: '/admin/users', label: 'People', icon: 'contact', screen: 'users' },
+      { href: '/admin/users', label: 'People', icon: 'contact', screen: 'usersView' },
       // ONE page for follow-ups (owner, 15 Oct 2026): it replaced Unpaid signups
       // and Abandoned signups (tabs Tutors | Parents & email not confirmed |
       // Orphaned accounts). Tuitions staff see the Tutors tab only.
@@ -149,7 +150,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/settings/subjects', label: 'Subjects', icon: 'listChecks', screen: 'subjectsCore' },
       { href: '/admin/settings/sms', label: 'SMS', icon: 'messageCircle', screen: 'smsHealth' },
       { href: '/admin/settings/email', label: 'Email', icon: 'messageCircle', screen: 'emailHealth' },
-      { href: '/admin/settings/privacy', label: 'Privacy', icon: 'listChecks', screen: 'consentPrivacy' },
       { href: '/admin/settings/notifications', label: 'Notification settings', icon: 'listChecks', screen: 'notificationSettings' },
       { href: '/admin/settings/email-usage', label: 'Email usage', icon: 'messageCircle', screen: 'emailUsage' },
       { href: '/admin/plans', label: 'Plans', icon: 'card', screen: 'plans' },
@@ -174,7 +174,6 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/admin/ads', label: 'Advertisements', icon: 'megaphone', screen: 'ads' },
       { href: '/admin/social', label: 'Social posts', icon: 'camera', screen: 'social' },
-      { href: '/admin/import', label: 'Bulk import', icon: 'upload', screen: 'import' },
       { href: '/admin/seo/landing', label: 'Landing pages', icon: 'search', screen: 'seo' },
       { href: '/admin/seo/locations', label: 'Locations', icon: 'mapPin', screen: 'seo' },
       { href: '/admin/seo/indexing', label: 'Google indexing', icon: 'search', screen: 'seo' },
@@ -198,6 +197,7 @@ export const SECTION_LABELS: Record<string, string> = {
   subjects: 'Subjects',
   settings: 'Settings',
   payers: 'Paid today',
+  'staff-approved': 'Approved by staff',
   review: 'Review new wording',
   inbox: 'Team inbox',
   ads: 'Advertisements',
@@ -207,7 +207,6 @@ export const SECTION_LABELS: Record<string, string> = {
   // Neutral: shared by /admin/blog/new and /admin/jobs/new, so it reads
   // correctly under both ("Blog › New", "Tuitions › New").
   new: 'New',
-  import: 'Bulk import',
   jobs: 'Tuitions',
   parents: 'Parents',
   payments: 'Payments',

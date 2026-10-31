@@ -213,7 +213,7 @@ export default async function PayChoosePage({
 
         {/* No "Pay later" on the payment screen (owner, 17 Oct 2026): Back alone,
             full width. The dashboard's "Complete your payment" reminder stays. */}
-        <OrderPageNav dashboard={dashboard} payLater={false} />
+        <OrderPageNav dashboard={dashboard} />
       </div>
     </main>
   )

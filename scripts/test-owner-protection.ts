@@ -77,11 +77,12 @@ test('every route that changes a member account applies the Owner guard (403)', 
   // Two-factor reset, role change, removal and a fresh invite all check the staff rule.
   assert.ok(read('app', 'api', 'admin', 'mfa', 'reset', 'route.ts').includes('staffChangeProblem(gate.actor.adminRole, target.admin_role'))
   const team = read('app', 'api', 'admin', 'team', 'route.ts')
-  assert.ok(team.includes("body.adminRole === 'owner' && gate.actor.adminRole !== 'owner'"))
+  // Single-Owner lock (owner, 31 Oct 2026): the Owner role is refused for every actor.
+  assert.ok(team.includes("if (body.adminRole === 'owner') {"))
   assert.ok(team.includes('staffChangeProblem(actor.adminRole, target.admin_role as string, null)'))
   const staff = read('lib', 'staff.ts')
   assert.equal(staff.split('staffChangeProblem(params.actor.adminRole').length - 1, 2, 'role change and resend invite')
-  assert.ok(staff.includes("ASSIGNABLE_ROLES: AdminRole[] = ['admin', 'supervisor', 'operations', 'tuitions_staff', 'partner']"), 'owner is never assignable')
+  assert.ok(staff.includes("ASSIGNABLE_ROLES: AdminRole[] = ['admin', 'supervisor', 'operations', 'tuitions_staff', 'backend_support', 'partner']"), 'owner is never assignable')
   // The moderation helpers already refuse the Owner outright.
   const mod = read('lib', 'moderation.ts')
   assert.ok(mod.includes('The owner account cannot be suspended.'))

@@ -325,7 +325,7 @@ export async function linkCreditToMember(
     return {
       ok: false,
       status: 500,
-      error: `The payment ${reference} was recorded, but linking it to the bank credit did not save. Link the credit to bank transfer ${reference} by hand on the Settlement check.`,
+      error: `The payment ${reference} was recorded, but linking it to the bank credit did not save. Link the credit to bank transfer ${reference} by hand on the Finance page.`,
     }
   }
   return { ok: true, paymentId, reference, mode: decision.mode, paidAt, replacedReceipts, closedCheckouts }

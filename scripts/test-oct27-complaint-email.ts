@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 // scripts/test-oct27-complaint-email.ts — npm run test:complaintemail
 // (owner, 27 Oct 2026). Consent UI hidden, pause on complaint, Unpause all,
 // PayPro settlement, payment emails, staff alerts in the bell, Notification
@@ -53,25 +54,24 @@ import { __setEmailDepsForTests, sendBulk, sendOne, type SendRow } from '../lib/
 const read = (p: string) => readFileSync(p, 'utf8')
 
 // ── Part A — consent UI hidden, data kept ────────────────────────────────
-test('A: the consent UI is switched off and hidden on every surface', () => {
+test('A: the consent UI is gone from every surface (removed, owner 31 Oct 2026)', () => {
   assert.equal(CONSENT_UI_ENABLED, false)
   assert.ok(!POSTED_COLUMNS.includes('Consent recorded' as never), 'Team activity has no consent column')
-  assert.match(read('components/forms/PostTuitionForm.tsx'), /\{CONSENT_UI_ENABLED && \(\s*<ConsentBox/)
-  assert.match(read('app/admin/jobs/JobRow.tsx'), /\{CONSENT_UI_ENABLED && \(\s*<div>\s*<ConsentChip/)
-  assert.match(read('app/admin/applications/ApplicationsClient.tsx'), /CONSENT_UI_ENABLED && !head\.consentRecorded/)
-  assert.match(read('app/admin/team-activity/page.tsx'), /\{CONSENT_UI_ENABLED && \(\s*<td/)
+  for (const p of ['components/forms/PostTuitionForm.tsx', 'app/admin/jobs/JobRow.tsx', 'app/admin/applications/ApplicationsClient.tsx', 'app/admin/team-activity/page.tsx', 'app/admin/withdraw-contact/WithdrawContactClient.tsx']) {
+    assert.ok(!/ConsentChip|ConsentBox|CONSENT_UI_ENABLED/.test(read(p)), p)
+  }
   assert.ok(!read('app/admin/inbox/InboxClient.tsx').includes('group="consent"'), 'the Consent template group is not shown')
-  assert.match(read('app/api/admin/jobs/consent/ask/route.ts'), /if \(!CONSENT_UI_ENABLED\) return .*status: 410/)
-  assert.match(read('app/admin/withdraw-contact/WithdrawContactClient.tsx'), /\{CONSENT_UI_ENABLED && \(/)
+  for (const p of ['app/api/admin/jobs/consent/ask/route.ts', 'app/api/admin/jobs/consent/route.ts', 'app/admin/settings/privacy/page.tsx', 'app/api/admin/settings/hide-numbers/route.ts']) {
+    assert.ok(!fs.existsSync(p), p + ' removed')
+  }
 })
 
-test('A: no save requires consent, and the stored data and switch are kept', () => {
+test('A: no save requires consent, and the stored data is kept', () => {
   const jobs = read('lib/jobs.ts')
   assert.equal((jobs.match(/CONSENT_UI_ENABLED \? consentInputProblem/g) ?? []).length, 2, 'create and edit only check consent while the UI is on')
   const m210 = read('supabase/migrations/210_complaint_hold_email_savings.sql')
   assert.match(m210, /update public\.admin_message_templates set active = false where key = 'consent_ask'/)
   assert.ok(!/drop table|delete from public\.tuition_consents/i.test(m210), 'consent records are kept')
-  assert.ok(read('app/admin/settings/privacy/page.tsx').includes('HideNumbersSwitch'), 'the Privacy switch stays')
 })
 
 // ── Part B — pause on complaint ─────────────────────────────────────────
@@ -175,7 +175,8 @@ test('C: an unclear fee says Check with PayPro; a missing export row uses the us
 test('D: PayPro reads Retired; no Pay later and no PayPro way to pay in Payment gateways', () => {
   assert.equal(PAYPRO_RETIRED_LINE, 'PayPro: Retired — orders started before 25 Nov 2026 still complete')
   const settings = read('app/admin/payments/settings/page.tsx')
-  assert.ok(settings.includes('PAYPRO_RETIRED_LINE') && !settings.includes('PayPro mode') && !settings.includes('Pay later'))
+  // The retired line itself left the settings pages (owner, 31 Oct 2026).
+  assert.ok(!settings.includes('PAYPRO_RETIRED_LINE') && !settings.includes('PayPro mode') && !settings.includes('Pay later'))
   const gw = read('app/admin/payments/settings/gateways/GatewaysClient.tsx')
   assert.ok(!/Pay later|Online payment on PayPro|Active gateway/.test(gw))
   assert.ok(!read('app/admin/payments/settings/gateways/page.tsx').includes('Pay later'))

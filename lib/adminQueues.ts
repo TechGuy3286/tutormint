@@ -91,7 +91,7 @@ export const QUEUE_SCREEN: Record<QueueKind, AdminRole[]> = {
   blocks: SCREEN_ACCESS.reports,
   ads: SCREEN_ACCESS.ads,
   // The member timeline, on /admin/users/[id].
-  timeline: SCREEN_ACCESS.users,
+  timeline: SCREEN_ACCESS.usersView,
 }
 
 /**
@@ -622,6 +622,11 @@ export type QueuePaymentRow = {
   rejectionReason: string | null
   createdAt: string
   reviewedAt: string | null
+  /** "Checked for the owner" by staff (owner, 31 Oct 2026). */
+  checkedAt: string | null
+  checkedByName: string | null
+  /** Approved by Backend Support under the matched-credit rule. */
+  staffApprovedByName: string | null
   /** PR106-H4 §4: refund state (0/null = none). Null when amounts are hidden. */
   refundedAmountPkr: number | null
   /** Refund state in words-free form, kept even when amounts are hidden. */
@@ -676,7 +681,7 @@ export async function loadPaymentQueue({
     admin
       .from('payments')
       .select(
-        'id, user_id, plan_code, amount_pkr, method, provider, provider_ref, reference, screenshot_path, status, rejection_reason, reviewed_at, created_at, utm_source, utm_medium, utm_campaign, refunded_amount_pkr, refund_method, refunded_at, note, checkout_closed_at, checkout_close_reason',
+        'id, user_id, plan_code, amount_pkr, method, provider, provider_ref, reference, screenshot_path, status, rejection_reason, reviewed_at, created_at, utm_source, utm_medium, utm_campaign, refunded_amount_pkr, refund_method, refunded_at, note, checkout_closed_at, checkout_close_reason, staff_checked_at, staff_checked_by_name, staff_approved_by_name',
       )
       .order('created_at', { ascending: false })
       .order('id', { ascending: false })
@@ -744,6 +749,9 @@ export async function loadPaymentQueue({
       rejectionReason: (p.rejection_reason as string) ?? null,
       createdAt: p.created_at as string,
       reviewedAt: (p.reviewed_at as string) ?? null,
+      checkedAt: (p.staff_checked_at as string | null) ?? null,
+      checkedByName: (p.staff_checked_by_name as string | null) ?? null,
+      staffApprovedByName: (p.staff_approved_by_name as string | null) ?? null,
       refundedAmountPkr: (p.refunded_amount_pkr as number | null) ?? null,
       refund: refundState(p.amount_pkr as number, (p.refunded_amount_pkr as number | null) ?? null),
       refundMethod: (p.refund_method as string | null) ?? null,

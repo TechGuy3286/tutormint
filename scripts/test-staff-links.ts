@@ -190,7 +190,7 @@ test('every staff WhatsApp builder passes the sender code', () => {
     ['lib/adminWhatsAppCore.ts', /finishWaText\(text \?\? '', refCode\)/],
     ['lib/followUpCore.ts', /finishWaText\(text, refCode\)/],
     ['lib/staffOutreachCore.ts', /finishWaText\(text, refCode\)/],
-    ['lib/applicantForwardCore.ts', /waSendHref\(msisdn, message, refCode\)/],
+    ['lib/applicantForwardCore.ts', /waSendHref\(msisdn, finishWaText\(message, refCode\), refCode\)/],
     ['lib/documentsApprovedCore.ts', /finishWaText\(text, refCode\)/],
     ['lib/unmetSearchCore.ts', /waSendHref\(null, text, refCode\)/],
     // Since 27 Oct 2026 the route builds through build(); a parent's message is
@@ -201,7 +201,7 @@ test('every staff WhatsApp builder passes the sender code', () => {
     ['app/api/admin/documents-approved/route.ts', /senderRefCode\(gate\.actor\.id\)/],
     ['lib/applicationFollowUps.ts', /adminWaLink\(raw, text, await senderRefCode\(actor\.id\)\)[\s\S]*adminWaLink\(raw, text, await senderRefCode\(actor\.id\)\)/],
     ['lib/staffOutreach.ts', /sendNow\), await senderRefCode\(actor\.id\)\)/],
-    ['lib/adminMessaging.ts', /whatsappHref\(msisdn, body, await senderRefCode\(params\.actor\.id\)\)[\s\S]*whatsappHref\(msisdn, filled, await senderRefCode\(actor\.id\)\)/],
+    ['lib/adminMessaging.ts', /whatsappHref\(msisdn, body, await senderRefCode\(params\.actor\.id\)\)[\s\S]*whatsappHref\(msisdn, finishWaText\(filled, seededRef\), seededRef\)/],
     ['lib/mySignups.ts', /rowsForAccounts\(mine, await senderRefCode\(staffId\)\)/],
     ['app/admin/follow-ups/page.tsx', /waHrefWithRef\(r\.waHref, refCode\)[\s\S]*feeReplyHref: waHrefWithRef\(r\.feeReplyHref, refCode\)/],
     ['app/admin/applications/ForwardToParents.tsx', /forwardWaLink\(card\.parent\.msisdn, message, refCode\)/],
@@ -209,7 +209,7 @@ test('every staff WhatsApp builder passes the sender code', () => {
     ['components/admin/FollowUpActions.tsx', /waHrefWithRef\(p\.waHref, refCode\)/],
     ['components/admin/TutorFollowUpButtons.tsx', /waHrefWithRef\(p\.feeReplyHref, refCode\)[\s\S]*waHrefWithRef\(p\.waHref, refCode\)/],
     ['components/admin/TutorDocumentReview.tsx', /waSendHref\(waMsisdn, text, refCode\)/],
-    ['components/admin/ParentDocumentReview.tsx', /waSendHref\(waMsisdn, text, refCode\)/],
+    ['components/admin/ParentDocumentReview.tsx', /waSendHref\(waMsisdn, finishWaText\(text, refCode\), refCode\)/],
     ['app/admin/layout.tsx', /refCode=\{refCode\}/],
   ]
   for (const [f, re] of checks) assert.match(read(f), re, f)

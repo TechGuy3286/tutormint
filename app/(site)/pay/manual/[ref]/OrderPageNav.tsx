@@ -1,17 +1,16 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { ArrowLeft, Clock } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 
-// Back and Pay later on the order page (PR98 §3).
+// Back on the order page (PR98 §3). Pay later was retired (owner, 31 Oct 2026).
 //
 // Back returns to the page the member came from (browser history), falling back
 // to the dashboard when there is no in-app history (e.g. a fresh tab). Pay later
 // goes to the dashboard and leaves the order pending — it can be resumed from
 // Membership Plans. English with Urdu underneath.
 
-export default function OrderPageNav({ dashboard, payLater = true }: { dashboard: string; payLater?: boolean }) {
+export default function OrderPageNav({ dashboard }: { dashboard: string }) {
   const router = useRouter()
 
   const back = () => {
@@ -34,19 +33,6 @@ export default function OrderPageNav({ dashboard, payLater = true }: { dashboard
         <ArrowLeft aria-hidden size={14} />
         <span>Back</span>
       </button>
-      {/* Pay later shows only while the owner has it switched on (item 19). */}
-      {payLater && (
-      <Link
-        href={dashboard}
-        className="gap-1.5 inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-slate-700"
-      >
-        <Clock aria-hidden size={14} />
-        <span>
-          Pay later
-          <span lang="ur" dir="rtl" className="ml-1 text-[11px] font-semibold text-gray-500">بعد میں</span>
-        </span>
-      </Link>
-      )}
     </div>
   )
 }

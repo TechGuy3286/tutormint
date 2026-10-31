@@ -103,7 +103,7 @@ export default function ReviewClient({ board, canDecide }: { board: ReviewBoard;
       </div>
       {!canDecide && <p className="rounded-lg bg-tm-tint-navy px-3 py-2 text-xs text-tm-navy">View only — only the Owner approves new wording.</p>}
 
-      {shown.length === 0 && <p className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-600">Nothing here.</p>}
+      {shown.length === 0 && <p className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-600">No templates match this filter. Choose another filter above to see the rest.</p>}
       <div className="space-y-4">
         {shown.map((item) => (
           <ReviewCard key={item.key} item={item} canDecide={canDecide} support={board.support} />

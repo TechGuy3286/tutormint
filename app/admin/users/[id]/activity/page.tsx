@@ -67,7 +67,7 @@ export default async function MemberActivityPage({ params }: { params: Promise<{
           {profile.city ? ` · ${profile.city}` : ''}
         </p>
       </header>
-      <MemberTabs memberId={id} current="activity" showProfile={roleSatisfies(actor.adminRole, SCREEN_ACCESS.users)} />
+      <MemberTabs memberId={id} current="activity" showProfile={roleSatisfies(actor.adminRole, SCREEN_ACCESS.usersView)} />
 
       <section aria-label="Summary" className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         {strip.map((s) => (
@@ -85,7 +85,7 @@ export default async function MemberActivityPage({ params }: { params: Promise<{
       <section className="rounded-2xl border border-gray-200 bg-white p-4">
         <h3 className="text-xs font-black uppercase tracking-wide text-gray-500">Activity ({journey.lines.length})</h3>
         {journey.lines.length === 0 ? (
-          <p className="pt-2 text-xs text-gray-500">Nothing yet.</p>
+          <p className="pt-2 text-xs text-gray-500">Nothing yet. Use “Log a call or note” to record your first contact.</p>
         ) : (
           <ol className="mt-2 divide-y divide-gray-100">
             {journey.lines.map((l) => (

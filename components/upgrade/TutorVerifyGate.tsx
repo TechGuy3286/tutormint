@@ -6,7 +6,6 @@ import { Loader2, RefreshCw } from 'lucide-react'
 
 import CnicCapture, { cnicChecklistItems, type CnicCaptureState } from '@/components/identity/CnicCapture'
 import { ChecklistStatus } from '@/components/forms/FormChecklist'
-import Link from 'next/link'
 import type { ManualInstructions } from '@/lib/payments/provider'
 import type { IdentityState } from '@/lib/identity'
 import { afterFeeReturnPath, payChoiceHref } from '@/lib/returnTo'
@@ -41,21 +40,13 @@ export default function TutorVerifyGate({
   showDismiss = true,
   // Kept for the callers that still pass them; the bank details now live on the
   // choice screen, so nothing here reads `manual`.
-  payLaterHref,
-  // PR106-G4b §3 — owner/staff (switch "Staff only") hide the "Pay later" link.
-  hideManual = false,
-  // Payment gateways (owner, 6 Oct 2026, item 19): "Pay later" shows only while
-  // the owner has it switched on.
   methods = DEFAULT_CHECKOUT_METHODS,
 }: {
   onClose: () => void
   showDismiss?: boolean
   manual?: ManualInstructions | null
-  payLaterHref?: string
-  hideManual?: boolean
   methods?: CheckoutMethods
 }) {
-  const showPayLater = methods.payLater && !hideManual
   const router = useRouter()
   const [cap, setCap] = useState<CnicCaptureState | null>(null)
   const [starting, setStarting] = useState(false)
@@ -150,14 +141,6 @@ export default function TutorVerifyGate({
         )}
       </div>
 
-      {/* PR106-E §1 — Pay later returns to the dashboard with nothing lost.
-          PR106-G4b §3: hidden for owner/staff. */}
-      {showPayLater && payLaterHref && (
-        <Link href={payLaterHref} className="block min-h-[40px] text-center text-[11px] font-bold text-gray-500 underline-offset-2 hover:underline">
-          Pay later
-          <span lang="ur" dir="rtl" className="ms-1.5 font-semibold">بعد میں ادائیگی کریں</span>
-        </Link>
-      )}
     </>
   )
 

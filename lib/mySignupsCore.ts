@@ -244,7 +244,9 @@ export function creditRow(input: {
   const tpl = NEXT_STEP_TEMPLATE[next]
   const body = input.templateBodies[tpl.key]
   const own = f.role === 'tutor' && !f.paidAt ? (input.tutorMessage ?? null) : null
-  const text = own ? own.text : body ? whatsAppText(body, input.name, input.siteUrl(tpl.path)) : null
+  // A parent's WhatsApp is always their SITUATION message (owner, 31 Oct 2026):
+  // the row carries no prefilled step text; the screen opens /api/admin/whatsapp.
+  const text = f.role === 'parent' ? null : own ? own.text : body ? whatsAppText(body, input.name, input.siteUrl(tpl.path)) : null
   return {
     memberId: input.memberId,
     name: input.name,

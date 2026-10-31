@@ -117,10 +117,10 @@ test('the card has no areas, no big roles pill, and fixed-height rows', () => {
 
 test('"Pay later" is absent on /pay/choose; Back stays', () => {
   const page = read('app/(site)/pay/choose/page.tsx')
-  assert.match(page, /<OrderPageNav dashboard=\{dashboard\} payLater=\{false\} \/>/)
+  assert.match(page, /<OrderPageNav dashboard=\{dashboard\} \/>/)
   assert.doesNotMatch(page, /payLater=\{settings/)
   assert.doesNotMatch(read('app/(site)/pay/choose/PayChoice.tsx'), /Pay later/)
   const nav = read('app/(site)/pay/manual/[ref]/OrderPageNav.tsx')
-  assert.match(nav, /\{payLater && \(/)
+  assert.doesNotMatch(nav, /payLater|Pay later</)
   assert.ok(nav.includes('Back') && nav.includes('flex-1'), 'Back is full width when alone')
 })

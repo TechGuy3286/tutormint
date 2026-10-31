@@ -106,10 +106,10 @@ export function bankTransferOn(s: GatewaySettings): boolean {
 }
 
 /** What a checkout screen may offer, derived from the settings. Client-safe. */
-export type CheckoutMethods = { online: boolean; bankTransfer: boolean; payLater: boolean }
+export type CheckoutMethods = { online: boolean; bankTransfer: boolean }
 
-export const DEFAULT_CHECKOUT_METHODS: CheckoutMethods = { online: false, bankTransfer: true, payLater: false }
+export const DEFAULT_CHECKOUT_METHODS: CheckoutMethods = { online: false, bankTransfer: true }
 
 export function checkoutMethodsOf(s: GatewaySettings): CheckoutMethods {
-  return { online: onlineCheckoutOn(s), bankTransfer: bankTransferOn(s), payLater: s.payLater }
+  return { online: onlineCheckoutOn(s), bankTransfer: bankTransferOn(s) }
 }

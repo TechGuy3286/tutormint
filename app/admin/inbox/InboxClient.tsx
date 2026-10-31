@@ -11,6 +11,8 @@ import { formatDateTime } from '@/lib/datetime'
 import type { AdminMessage, AdminTemplate, InboxThread } from '@/lib/adminMessaging'
 import { INBOX_TAG_CLASS, type InboxTag } from '@/lib/inboxTags'
 import { isAppTemplateKey } from '@/lib/applicationTemplatesCore'
+import { composeOffers } from '@/lib/templateRetireCore'
+import RetiredTemplates from '@/components/admin/RetiredTemplates'
 import { groupTemplateInfo } from '@/lib/templateRules'
 import ApplicationTemplates from './ApplicationTemplates'
 import { completeCommon } from '@/lib/templateFill'
@@ -177,7 +179,8 @@ export default function InboxClient({
           <ApplicationTemplates templates={templates} supportDisplay={supportDisplay} isOwner={isOwner} group="status" />
           <ApplicationTemplates templates={templates} supportDisplay={supportDisplay} isOwner={isOwner} group="share" />
           {/* The Consent group ("Ask parent") is inactive since 27 Oct 2026. */}
-          <TemplatesEditor templates={templates.filter((t) => !groupTemplateInfo(t.key))} />
+          <TemplatesEditor templates={templates.filter((t) => !t.retired && !groupTemplateInfo(t.key))} />
+          <RetiredTemplates templates={templates.filter((t) => t.retired)} />
         </div>
       )}
 
@@ -275,7 +278,7 @@ export default function InboxClient({
                   className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold"
                 >
                   <option value="">Start from a template…</option>
-                  {templates.filter((t) => !isAppTemplateKey(t.key) && !t.key.startsWith('fu_') && t.key !== 'consent_ask').map((t) => (
+                  {templates.filter((t) => composeOffers(t) && !isAppTemplateKey(t.key)).map((t) => (
                     <option key={t.key} value={t.key}>
                       {t.title}
                     </option>
@@ -426,3 +429,4 @@ function TemplatesEditor({ templates }: { templates: AdminTemplate[] }) {
     </div>
   )
 }
+

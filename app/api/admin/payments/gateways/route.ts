@@ -6,8 +6,6 @@ import { alertOwner } from '@/lib/ownerAlerts'
 import { requireFreshAuth } from '@/lib/reauth'
 import { parseBody, z } from '@/lib/validate'
 import {
-  activeChangeError,
-  gatewayConfigured,
   getGatewaySettings,
   methodChangeError,
   GATEWAY_KEYS,
@@ -23,11 +21,9 @@ import {
 
 export const runtime = 'nodejs'
 
-const Body = z.discriminatedUnion('change', [
-  z.object({ change: z.literal('active'), gateway: z.enum(['paypro', 'assanpay']) }),
-  z.object({ change: z.literal('method'), method: z.enum(['paypro_online', 'bank_transfer']), on: z.boolean() }),
-  z.object({ change: z.literal('pay_later'), on: z.boolean() }),
-])
+// PayPro is retired and Pay later is gone (owner, 31 Oct 2026): the only
+// setting left on this screen is the bank-transfer switch.
+const Body = z.object({ change: z.literal('method'), method: z.enum(['bank_transfer']), on: z.boolean() })
 
 export async function POST(request: Request) {
   const gate = await checkAdminRole(...SCREEN_ACCESS.paymentGateways)
@@ -46,27 +42,11 @@ export async function POST(request: Request) {
   }
 
   const current = await getGatewaySettings()
-  let key: string
-  let value: string
-  let detail: Record<string, unknown>
-
-  if (body.change === 'active') {
-    const problem = activeChangeError(body.gateway, gatewayConfigured())
-    if (problem) return NextResponse.json({ error: problem }, { status: 400 })
-    key = GATEWAY_KEYS.active
-    value = body.gateway
-    detail = { change: 'active gateway', from: current.active, to: body.gateway }
-  } else if (body.change === 'method') {
-    const problem = methodChangeError(current, body.method, body.on)
-    if (problem) return NextResponse.json({ error: problem }, { status: 400 })
-    key = GATEWAY_KEYS[body.method]
-    value = body.on ? 'true' : 'false'
-    detail = { change: 'payment method', method: body.method, from: current.methods[body.method], to: body.on }
-  } else {
-    key = GATEWAY_KEYS.payLater
-    value = body.on ? 'true' : 'false'
-    detail = { change: 'pay later', from: current.payLater, to: body.on }
-  }
+  const problem = methodChangeError(current, body.method, body.on)
+  if (problem) return NextResponse.json({ error: problem }, { status: 400 })
+  const key = GATEWAY_KEYS[body.method]
+  const value = body.on ? 'true' : 'false'
+  const detail: Record<string, unknown> = { change: 'payment method', method: body.method, from: current.methods[body.method], to: body.on }
 
   const { error } = await admin
     .from('app_settings')

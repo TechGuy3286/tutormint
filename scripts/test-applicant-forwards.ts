@@ -173,7 +173,8 @@ test('the "Check with parent" tag appears 3 days after a forward with no outcome
 })
 
 test('who can act: owner, Partner, admin, operations and tuitions staff', () => {
-  assert.deepEqual([...SCREEN_ACCESS.applicantForwards].sort(), ['admin', 'operations', 'partner', 'supervisor', 'tuitions_staff'])
+  // Backend Support works Applications too (owner, 31 Oct 2026).
+  assert.deepEqual([...SCREEN_ACCESS.applicantForwards].sort(), ['admin', 'backend_support', 'operations', 'partner', 'supervisor', 'tuitions_staff'])
   for (const role of ['owner', 'admin', 'operations', 'tuitions_staff'] as const) {
     assert.ok(roleSatisfies(role, SCREEN_ACCESS.applicantForwards), `${role} may act`)
   }

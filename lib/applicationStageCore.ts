@@ -60,7 +60,8 @@ export type ActorLike = { id: string; adminRole: string | null | undefined }
  *  (posted, or were assigned). Everyone else sees it read-only. */
 export function mayEditStage(actor: ActorLike | null | undefined, ownerId: string | null): boolean {
   if (!actor) return false
-  if (actor.adminRole === 'owner') return true
+  // Backend Support works every application (owner, 31 Oct 2026).
+  if (actor.adminRole === 'owner' || actor.adminRole === 'backend_support') return true
   return !!ownerId && ownerId === actor.id
 }
 

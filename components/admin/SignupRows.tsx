@@ -1,5 +1,6 @@
 'use client'
 
+import AdminWhatsAppLink from '@/components/admin/AdminWhatsAppLink'
 import { shownEmail } from '@/lib/actorLabelCore'
 
 import { useMemo, useState } from 'react'
@@ -219,6 +220,15 @@ export default function SignupRows({
                 )}
               </dl>
               {r.role === 'tutor' && r.kind === 'credit' && shares[r.memberId] && <ProfileShareButtons share={shares[r.memberId]} />}
+              {r.role === 'parent' && r.kind === 'credit' && (
+                <AdminWhatsAppLink
+                  memberId={r.memberId}
+                  from="signups"
+                  className="inline-flex min-h-[44px] items-center rounded-xl bg-tm-green-deep px-4 text-xs font-bold text-white hover:bg-tm-green-deep-hover"
+                >
+                  WhatsApp
+                </AdminWhatsAppLink>
+              )}
               {r.waLink && (
                 <a
                   href={r.waLink}

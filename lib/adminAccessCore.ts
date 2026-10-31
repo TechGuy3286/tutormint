@@ -23,6 +23,15 @@
 //                   outreach lists, plus their own Two-factor page and sign
 //                   out. Everything else is refused on
 //                   the server, not just hidden.
+//   backend_support (owner, 31 Oct 2026) works Follow-ups (Tutors and Parents),
+//                   Applications and Paid tutors, replies in the Team inbox,
+//                   views People and member pages, logs calls and notes, marks a
+//                   receipt "checked", and approves a receipt ONLY when it is
+//                   matched to a real bank credit (lib/staffReceiptCore). Never
+//                   Finance, revenue, bank details, gateways, posting tuitions,
+//                   merge/convert/erase/suspend/ban, settings, roles, staff,
+//                   templates or CNIC numbers. Its write lists are explicit; a
+//                   new screen is closed to it by default.
 //   partner         EDITS TUTORS, PARENTS AND TUITIONS; EVERYTHING ELSE VIEW
 //                   ONLY (owner, 13 Oct 2026, later the same day — this replaces
 //                   the "full management" of migration 165). A Partner may OPEN
@@ -37,7 +46,7 @@
 // 'owner' satisfies every check, so callers list the OTHER roles that qualify
 // and never have to remember to add owner.
 
-export type AdminRole = 'owner' | 'admin' | 'supervisor' | 'operations' | 'tuitions_staff' | 'partner'
+export type AdminRole = 'owner' | 'admin' | 'supervisor' | 'operations' | 'tuitions_staff' | 'partner' | 'backend_support'
 
 export function roleSatisfies(actorRole: AdminRole, allowed: AdminRole[]): boolean {
   return actorRole === 'owner' || actorRole === 'partner' || allowed.includes(actorRole)
@@ -87,7 +96,7 @@ export function isReadOnlyRole(role: AdminRole | null | undefined): boolean {
 /** Roles that must ALWAYS have two-factor on — no grace window, and no admin
  *  request is served to a session that has not passed it. Every staff role
  *  since 15 Oct 2026 (owner: "same flow as Partner"); it was the Partner only. */
-export const STAFF_ROLES: AdminRole[] = ['owner', 'admin', 'supervisor', 'operations', 'tuitions_staff', 'partner']
+export const STAFF_ROLES: AdminRole[] = ['owner', 'admin', 'supervisor', 'operations', 'tuitions_staff', 'partner', 'backend_support']
 export function alwaysNeedsTwoFactor(role: AdminRole | null | undefined): boolean {
   return !!role && STAFF_ROLES.includes(role)
 }
@@ -119,7 +128,12 @@ export function canApprove(role: AdminRole | null | undefined): boolean {
 }
 
 export const OWNER_PROTECTED = 'Only the Owner can change the Owner account.'
-export const OWNER_ONLY_OWNERSHIP = 'Only the Owner can make someone Owner or transfer ownership.'
+// SINGLE-OWNER LOCK (owner, 31 Oct 2026 — permanent): TutorMint has exactly one
+// Owner, forever. Nobody — the Owner included — can make another account Owner,
+// change the Owner's role, transfer ownership, or remove the Owner. The database
+// refuses it too (migration 215, guard_single_owner), even for the service role.
+export const OWNER_ONLY_OWNERSHIP = 'TutorMint has exactly one Owner. Ownership cannot be given, changed or transferred.'
+export const OWNER_ROLE_FIXED = 'The Owner role cannot be changed or removed.'
 export const PARTNER_PROTECTED = 'Only the account owner can change or remove a Project Manager.'
 
 /**
@@ -148,7 +162,11 @@ export function staffChangeProblem(
 ): string | null {
   const owner = ownerProtection(actorRole, targetRole)
   if (owner) return owner
-  if (newRole === 'owner' && actorRole !== 'owner') return OWNER_ONLY_OWNERSHIP
+  // Single-Owner lock: nobody, the Owner included, hands out the Owner role,
+  // and the Owner's own role is never changed or removed.
+  if (newRole === 'owner') return OWNER_ONLY_OWNERSHIP
+  // newRole undefined = not a role change (a two-factor reset); null = removal.
+  if (targetRole === 'owner' && newRole !== undefined) return OWNER_ROLE_FIXED
   if (targetRole === 'partner' && actorRole !== 'owner') return PARTNER_PROTECTED
   return null
 }
@@ -175,6 +193,7 @@ export const ROLE_LABEL: Record<AdminRole, string> = {
   supervisor: 'Manager',
   operations: 'Operations',
   tuitions_staff: 'Tuitions staff',
+  backend_support: 'Backend Support',
 }
 
 /**
@@ -190,6 +209,8 @@ export function roleBadge(role: string | null | undefined, viewer?: AdminRole | 
   // A Manager (internal 'supervisor', owner 27 Oct 2026) wears "Manager" for
   // every viewer — before this it showed "Admin", like every other staff role.
   if (role === 'supervisor') return ROLE_LABEL.supervisor
+  // Backend Support (owner, 31 Oct 2026) wears its own name for every viewer.
+  if (role === 'backend_support') return ROLE_LABEL.backend_support
   return 'Admin'
 }
 
@@ -201,6 +222,7 @@ export function roleBadge(role: string | null | undefined, viewer?: AdminRole | 
  * cannot open (which would loop).
  */
 export function adminHomeFor(role: AdminRole): string {
+  if (role === 'backend_support') return '/admin/follow-ups'
   return role === 'tuitions_staff' ? '/admin/jobs' : '/admin'
 }
 
@@ -235,7 +257,14 @@ export const SCREEN_ACCESS = withSupervisor({
   plansMutate: [] as AdminRole[],
   // Payments: admin and operations see each payment's STATUS (to help tutors),
   // never an amount or a total — the amounts are removed on the server.
-  payments: ['admin', 'operations'] as AdminRole[],
+  // Backend Support sees payment STATUS too (amounts removed), to mark a receipt
+  // checked and approve a matched one (owner, 31 Oct 2026).
+  payments: ['admin', 'operations', 'backend_support'] as AdminRole[],
+  // "Checked for the owner" on a bank-transfer receipt (owner, 31 Oct 2026).
+  receiptCheck: ['admin', 'backend_support'] as AdminRole[],
+  // The Backend Support KPI card (owner, 31 Oct 2026): the role itself, and the
+  // Owner and the Partner (roleSatisfies admits both).
+  backendSupportKpi: ['backend_support'] as AdminRole[],
   // Approving or rejecting a bank-transfer receipt: owner, admin and operations
   // (owner, 11 Oct 2026). The Partner views; the server refuses their POST.
   paymentsApprove: ['admin', 'operations'] as AdminRole[],
@@ -277,7 +306,7 @@ export const SCREEN_ACCESS = withSupervisor({
   // Staff may READ the queue; only the Owner approves or rejects
   // (refuseUnlessOwnerApproval in /api/admin/reviews/decide).
   reviews: ['admin', 'operations'] as AdminRole[],
-  inbox: ['admin', 'operations', 'partner'] as AdminRole[],
+  inbox: ['admin', 'operations', 'partner', 'backend_support'] as AdminRole[],
   // The tuition board. Operations and the restricted tuitions_staff work it
   // day-to-day. MUTATE is close / pause / resume / unfeature — nothing is
   // deleted (PR49 §4), so it is safe for tuitions_staff too (the role's whole
@@ -291,13 +320,10 @@ export const SCREEN_ACCESS = withSupervisor({
   // Marketplace → Applicants to forward (owner, 10 Oct 2026): tell a tuition's
   // parent which paid tutors applied. Owner, admin, operations and tuitions
   // staff act; the Partner views (refused on every write by checkAdminRole).
-  applicantForwards: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
+  applicantForwards: ['admin', 'operations', 'tuitions_staff', 'partner', 'backend_support'] as AdminRole[],
   // Parent consent for listings (owner, 27 Oct 2026): record "Parent agreed"
   // and "Ask parent" on WhatsApp — every role that posts tuitions.
   tuitionConsent: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
-  // Admin → Settings → Privacy: "Hide parent numbers when consent isn't
-  // recorded". Owner only; the Partner views.
-  consentPrivacy: [] as AdminRole[],
   // Notification settings and Email usage (owner, 27 Oct 2026): Owner only; the
   // Partner views.
   notificationSettings: [] as AdminRole[],
@@ -306,12 +332,16 @@ export const SCREEN_ACCESS = withSupervisor({
   // the Partner views (roleMayWrite refuses them, the list names nobody).
   cityOwners: [] as AdminRole[],
   users: ['admin', 'operations', 'partner'] as AdminRole[],
+  // VIEWING People and member pages (owner, 31 Oct 2026): `users` plus Backend
+  // Support. Every member ACTION route stays on `users`, so Backend Support can
+  // open a member and never warn, suspend, ban or change a number.
+  usersView: ['admin', 'operations', 'partner', 'backend_support'] as AdminRole[],
   // The Activity tab on a member's admin page (owner, 23 Oct 2026): every role
   // that works tutors — Tuitions staff too, because Paid tutors opens it — and
   // "Log a call or note" (the Partner may write here).
-  memberActivity: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
+  memberActivity: ['admin', 'operations', 'tuitions_staff', 'partner', 'backend_support'] as AdminRole[],
   // Tuitions → Paid tutors (owner, 23 Oct 2026): has every paid tutor been served?
-  paidTutors: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
+  paidTutors: ['admin', 'operations', 'tuitions_staff', 'partner', 'backend_support'] as AdminRole[],
   // Convert account type, Parent ↔ Tutor (owner, 23 Oct 2026): the site Owner
   // ONLY. `[]` lets the Partner view the page (roleSatisfies) but the route
   // refuses everyone but the Owner (refuseUnlessOwnerApproval).
@@ -355,10 +385,10 @@ export const SCREEN_ACCESS = withSupervisor({
   // WhatsApp new tutors who have not paid) and Featured WhatsApp (send Featured
   // tutors their new matches). Owner, admin, Operations AND Tuitions staff — the
   // owner named all four. These are the only People screens tuitions_staff opens.
-  unpaidSignups: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
+  unpaidSignups: ['admin', 'operations', 'tuitions_staff', 'partner', 'backend_support'] as AdminRole[],
   featuredWhatsapp: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
   orphans: ['admin', 'operations', 'partner'] as AdminRole[],
-  signups: ['admin', 'operations', 'partner'] as AdminRole[],
+  signups: ['admin', 'operations', 'partner', 'backend_support'] as AdminRole[],
   usersExport: ['admin'] as AdminRole[],
   // The audit log is owner-only (owner, 8 Oct 2026, item 3).
   audit: [] as AdminRole[],
@@ -380,7 +410,6 @@ export const SCREEN_ACCESS = withSupervisor({
   cnicRead: ['admin', 'operations', 'partner'] as AdminRole[],
   ads: ['admin', 'operations'] as AdminRole[],
   social: ['admin', 'operations'] as AdminRole[],
-  import: ['admin', 'operations'] as AdminRole[],
   // Permanent junk-account deletion — the one admin action with no undo — is
   // OWNER ONLY. `[]` = owner and nobody else.
   cleanup: [] as AdminRole[],
@@ -411,7 +440,7 @@ export const SCREEN_ACCESS = withSupervisor({
   memberMerge: [] as AdminRole[],
   // "Show" on the masked phone / email in a member page's header (owner, 26 Oct
   // 2026) — the roles that open the member page; every Show is in Audit.
-  memberContactReveal: ['admin', 'operations', 'partner'] as AdminRole[],
+  memberContactReveal: ['admin', 'operations', 'partner', 'backend_support'] as AdminRole[],
 })
 
 /**

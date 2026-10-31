@@ -82,7 +82,7 @@ export default async function AdminMemberPage({
   params: Promise<{ id: string }>
   searchParams: Promise<{ group?: string }>
 }) {
-  const actor = await requireAdminRole(...SCREEN_ACCESS.users)
+  const actor = await requireAdminRole(...SCREEN_ACCESS.usersView)
   // The viewer's staff code on every site link in a WhatsApp text (owner, 23 Oct 2026).
   const senderCode = await senderRefCode(actor.id)
   const { id } = await params
@@ -292,7 +292,7 @@ export default async function AdminMemberPage({
   const memberMsisdn = normalisePkMobile((profile.whatsapp as string | null) ?? (profile.phone_number as string | null) ?? null)
   const callMsisdn = normalisePkMobile((profile.phone_number as string | null) ?? (profile.whatsapp as string | null) ?? null)
   let notFinishedBody = PAYMENT_NOT_FINISHED_FALLBACK
-  if (memberMsisdn && paymentRows.some((r) => paymentNeedsFollowUp(r.facts, nowMs))) {
+  if (isTutor && memberMsisdn && paymentRows.some((r) => paymentNeedsFollowUp(r.facts, nowMs))) {
     const { data: tpl } = await admin.from('admin_message_templates').select('body').eq('key', PAYMENT_NOT_FINISHED_KEY).maybeSingle()
     if (tpl?.body) notFinishedBody = tpl.body as string
   }
@@ -554,6 +554,8 @@ export default async function AdminMemberPage({
         suspended={!!profile.is_suspended}
         banned={!!profile.is_banned}
         canBan={roleMayWrite(actor.adminRole, ['admin', 'partner'])}
+        canModerate={roleMayWrite(actor.adminRole, SCREEN_ACCESS.users)}
+        canGrantPlans={roleSatisfies(actor.adminRole, SCREEN_ACCESS.plans)}
         canUnban={roleMayWrite(actor.adminRole, ['partner'])}
         isSelf={id === actor.id}
         isStaff={profile.role === 'admin'}
@@ -613,7 +615,7 @@ export default async function AdminMemberPage({
       {staffCounts && (
         <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
           <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">
-            Staff activity
+            Team activity
           </h2>
           <StaffActivityTable counts={staffCounts} />
         </section>
@@ -646,7 +648,9 @@ export default async function AdminMemberPage({
         <Panel title={`Payments (${paymentRows.length})${refundDues.length ? ` · ${refundDues.length} refund due` : ""}`}>
           {[
             ...paymentRows.map((p) => {
-              const wa = paymentNeedsFollowUp(p.facts, nowMs) ? followUpHref(p.facts.planCode) : null
+              // Parents get their situation message from Contact → WhatsApp, never a
+              // payment template (owner, 31 Oct 2026).
+              const wa = isTutor && paymentNeedsFollowUp(p.facts, nowMs) ? followUpHref(p.facts.planCode) : null
               return (
                 <Row
                   key={p.id}

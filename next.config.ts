@@ -159,6 +159,14 @@ const nextConfig: NextConfig = {
       // /packages and the old per-audience URLs redirect permanently, keeping
       // ?for= and any ?plan= (Next forwards query strings).
       { source: '/packages', destination: '/membership-plans', permanent: true },
+      // Bulk import (tutor CSV import) is retired (owner, 31 Oct 2026). Its
+      // addresses go to the admin home; every imported profile is kept.
+      { source: '/admin/import', destination: '/admin', permanent: true },
+      { source: '/admin/import/:path*', destination: '/admin', permanent: true },
+      { source: '/admin/bulk-import', destination: '/admin', permanent: true },
+      { source: '/admin/bulk-import/:path*', destination: '/admin', permanent: true },
+      // Settings → Privacy (the consent number switch) is retired (owner, 31 Oct 2026).
+      { source: '/admin/settings/privacy', destination: '/admin', permanent: true },
       // /tutor/packages and /parent/packages are answered in proxy.ts (owner,
       // 12 Oct 2026): a 301 to the CLEAN /membership-plans with any query
       // dropped. A redirect here would carry ?plan=… across and mint the

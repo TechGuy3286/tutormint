@@ -2,8 +2,7 @@ import { redirect } from 'next/navigation'
 
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { canApprove } from '@/lib/adminAccessCore'
-import { consentReport, loadDoNotUseList, loadHoldList } from '@/lib/contactWithdraw'
-import { CONSENT_UI_ENABLED } from '@/lib/tuitionConsentCore'
+import { loadDoNotUseList, loadHoldList } from '@/lib/contactWithdraw'
 import WithdrawContactClient from './WithdrawContactClient'
 
 // Trust → Withdraw a contact (owner, 27 Oct 2026). The site Owner ONLY: a
@@ -17,7 +16,7 @@ export const dynamic = 'force-dynamic'
 export default async function WithdrawContactPage() {
   const actor = await requireAdminRole(...SCREEN_ACCESS.contactWithdraw)
   if (!canApprove(actor.adminRole)) redirect('/admin')
-  const [list, holds, report] = await Promise.all([loadDoNotUseList(), loadHoldList(), CONSENT_UI_ENABLED ? consentReport() : Promise.resolve([])])
+  const [list, holds] = await Promise.all([loadDoNotUseList(), loadHoldList()])
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
       <header>
@@ -27,7 +26,7 @@ export default async function WithdrawContactPage() {
           number permanently. Numbers are only ever shown masked.
         </p>
       </header>
-      <WithdrawContactClient initialList={list} initialHolds={holds} report={report} />
+      <WithdrawContactClient initialList={list} initialHolds={holds} />
     </div>
   )
 }

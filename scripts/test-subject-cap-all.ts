@@ -45,10 +45,6 @@ test('every server path that writes a subject set checks the limit before writin
   for (const p of ['app/api/profile/save/route.ts', 'app/api/tutor/onboarding/route.ts', 'app/api/admin/tutors/edit/route.ts']) {
     assert.match(read(p), /subjectLimitRefusal\(/, p)
   }
-  const imp = read('lib/import.ts')
-  assert.match(imp, /subjectLimitProblem\(/)
-  // the limit check sits before the row's verdict, so a refused row creates nothing
-  assert.ok(imp.indexOf('subjectLimitProblem(') < imp.indexOf('verdicts.push({'))
   assert.match(read('lib/memberMerge.ts'), /15|SUBJECT_LIMIT/)
 })
 

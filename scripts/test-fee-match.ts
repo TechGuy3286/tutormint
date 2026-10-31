@@ -36,7 +36,6 @@ import { financeItems } from '../lib/financeItemsCore'
 import { fillParentFollowUp, parentMessageSituation, PARENT_DEFAULTS, PARENT_TEMPLATE_KEY, PARENT_PLACEHOLDERS, PARENT_REASONS, type ParentFacts } from '../lib/parentFollowUpCore'
 import { unknownPlaceholders } from '../lib/applicationTemplatesCore'
 import { finishWaText, siteLink, waChatHref, waSendHref, waShareHref } from '../lib/waLinkCore'
-import { parentHelpMessage } from '../lib/adminWhatsAppCore'
 import { tuitionEmailBlock, isTuitionEmail } from '../lib/notify/tuitionEmailCore'
 import { TUTOR_STAGE_TEXT } from '../lib/applicationStageCore'
 
@@ -332,10 +331,6 @@ test('every parent message has a TutorMint link, the sender ref, no price, no em
   const ta = fillParentFollowUp(PARENT_DEFAULTS.pf_tutors_applied, values)
   assert.match(ta, /tutor\/ali-raza/)
   assert.match(ta, /tutor\/sara-khan/)
-  // The fallback (a test account) has a link and no emoji too.
-  const help = parentHelpMessage('Ayesha Khan')
-  assert.match(help, /https:\/\/www\.tutormint\.org\/parent\/dashboard\/post-job/)
-  assert.ok(!/\p{Extended_Pictographic}/u.test(help))
 })
 
 test('every parent WhatsApp button goes through the one builder and records a follow-up', () => {

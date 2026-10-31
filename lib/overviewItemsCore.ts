@@ -69,7 +69,7 @@ export const OVERVIEW_ITEMS: Record<OverviewItemKey, OverviewItemMeta> = {
   parents: { title: 'Parents', screen: 'users', noun: ['parent', 'parents'] },
   'open-tuitions': { title: 'Open tuitions', screen: 'jobs', noun: ['tuition', 'tuitions'] },
   'todo-docs': { title: 'Documents to approve', screen: 'tutors', noun: ['member', 'members'] },
-  'todo-uncontacted': { title: 'Unpaid signups not yet contacted', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
+  'todo-uncontacted': { title: 'Tutors not yet contacted', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
   'todo-stuck': { title: 'Stuck in onboarding', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
   'todo-stuck-sent': { title: 'Follow-up sent', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
   // Checkouts a member opened and never completed (owner, 16 Oct 2026) — not
@@ -299,7 +299,7 @@ export function payproFileNote(uploadedAt: string | null, dateText: string | nul
     after: '. Upload a newer file to update.',
     stale: age > PAYPRO_FILE_STALE_DAYS * 24 * 3600_000,
     href: '/admin/finance',
-    linkLabel: 'Settlement check',
+    linkLabel: 'Finance',
   }
 }
 

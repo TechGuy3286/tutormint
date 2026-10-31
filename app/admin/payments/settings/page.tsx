@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { getPaymentSwitches } from '@/lib/payments/switches'
-import { PAYPRO_RETIRED_LINE } from '@/lib/payments/payproRetireCore'
 import { getOnboardingMode } from '@/lib/onboardingModeServer'
 import SwitchesForm from './SwitchesForm'
 import OnboardingModeForm from './OnboardingModeForm'
@@ -28,12 +27,6 @@ export default async function PaymentSettingsPage() {
         </p>
       </header>
 
-      {/* PayPro is retired (owner, 27 Oct 2026): a read-only line in place of
-          the old mode card. The stored setting is unchanged. */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-4" data-paypro-retired="">
-        <p className="text-sm font-bold text-tm-navy">{PAYPRO_RETIRED_LINE}</p>
-      </div>
-
       {/* Item 19 (owner, 6 Oct 2026): the gateway, ways to pay and health. */}
       <Link
         href="/admin/payments/settings/gateways"
@@ -41,7 +34,7 @@ export default async function PaymentSettingsPage() {
       >
         <span>
           <span className="block text-sm font-bold text-tm-navy">Payment gateways</span>
-          <span className="block text-[11px] text-gray-500">Bank transfer, bank details and health.</span>
+          <span className="block text-[11px] text-gray-500">Bank transfer and bank details.</span>
         </span>
         <span aria-hidden className="text-sm font-black text-tm-navy">→</span>
       </Link>

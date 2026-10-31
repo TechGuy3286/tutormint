@@ -60,7 +60,7 @@ async function adminScreensFor(): Promise<AdminEntry[]> {
   const candidates: { label: string; href: string; allowed: (typeof SCREEN_ACCESS)['tutors'] }[] = [
     { label: 'Payments', href: '/admin/payments', allowed: SCREEN_ACCESS.payments },
     { label: 'Reports', href: '/admin/reports', allowed: SCREEN_ACCESS.reports },
-    { label: 'People', href: '/admin/users', allowed: SCREEN_ACCESS.users },
+    { label: 'People', href: '/admin/users', allowed: SCREEN_ACCESS.usersView },
   ]
 
   return candidates

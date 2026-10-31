@@ -16,8 +16,8 @@ import { uuid } from '@/lib/validate'
 //   • A PARENT: the situation message (lib/parentWhatsApp — Team inbox →
 //     Templates → Parents), always with a TutorMint link and the sender's ref,
 //     recorded as a follow-up with the same Undo, 3-day wait and 3-message
-//     rules as tutors. A parent with no situation data (a test account) gets
-//     the plain help message with a link.
+//     rules as tutors. A parent with no situation (a test, staff-linked,
+//     paused or banned account) gets an error, never a generic message.
 //   • A TUTOR or anyone else: lib/adminWhatsAppCore, as before.
 //
 //   GET  ?memberId=…&from=…  a link: builds, records and redirects to WhatsApp.
@@ -41,7 +41,11 @@ async function build(memberId: string, actor: AdminActor, from: string | null): 
     const r = await sendParentMessage(memberId, actor)
     if (r.ok && r.waHref) return { href: r.waHref, followUpId: r.id, type: `parent:${r.reason}` }
     if (r.ok && r.emailed) return { error: 'This parent has no WhatsApp number. The message was sent in the app and by email instead.', status: 409 }
-    // Not on the parents' list (a test or staff-linked account): the plain help message below.
+    // Never a generic parent text (owner, 31 Oct 2026): a parent with no
+    // situation message (a test, staff-linked, paused or banned account) gets
+    // the reason in words, not a fallback message.
+    if (!r.ok) return { error: r.error, status: r.status }
+    return { error: 'There is no message for this parent right now.', status: 409 }
   }
   const wa = await adminWhatsAppFor(memberId, new Date(), await senderRefCode(actor.id))
   if (!wa.href) return { error: NO_NUMBER, status: 404 }

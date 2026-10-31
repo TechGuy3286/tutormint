@@ -30,7 +30,8 @@ type Key = keyof typeof SCREEN_ACCESS
 
 // What a Partner may CHANGE, by SCREEN_ACCESS key.
 const EDIT: Key[] = [
-  'tutors', 'parents', 'users', 'signups', 'orphans', 'unpaidSignups', 'featuredWhatsapp',
+  // usersView (owner, 31 Oct 2026): viewing People — the Partner edits People anyway.
+  'tutors', 'parents', 'users', 'usersView', 'signups', 'orphans', 'unpaidSignups', 'featuredWhatsapp',
   'jobs', 'jobsMutate', 'jobsPost', 'pausedTuitions', 'duplicates', 'duplicatesMerge', 'applicantForwards',
   'inbox', 'reports', 'tuitionPosting', 'tutorEdit', 'tutorSlug', 'videoVisibility', 'documentUnlock', 'documentRotate', 'cnicRead',
   // Tutor journey (owner, 23 Oct 2026): notes on the Activity tab; Paid tutors (read only, no write route).
@@ -53,7 +54,7 @@ test('every view-only area refuses a Partner write; the Owner is unaffected', ()
   const VIEW: Key[] = [
     'finance', 'revenue', 'paymentAmounts', 'payments', 'paymentsApprove', 'paymentsRefund', 'paymentsSettings', 'paymentsSwitches',
     'paymentGateways', 'smsHealth', 'emailHealth', 'reconciliation', 'plans', 'plansMutate', 'subjectsCore', 'secondRole', 'team', 'audit', 'seo', 'unmetSearches',
-    'ads', 'social', 'import', 'cleanup', 'blog', 'blogPublish', 'blogApprove', 'blogQueue', 'blogGenerate', 'blogQueueDraft', 'contentQueueUpload', 'staffActivity', 'signupFunnel', 'usersExport', 'overview',
+    'ads', 'social', 'cleanup', 'blog', 'blogPublish', 'blogApprove', 'blogQueue', 'blogGenerate', 'blogQueueDraft', 'contentQueueUpload', 'staffActivity', 'signupFunnel', 'usersExport', 'overview',
     'staffSignupsAll', 'staffSignupClaim', 'staffClaimsReview', 'mySignups', 'cityOwners', 'supportNumber',
     // Convert account type (owner, 23 Oct 2026): the site Owner only.
     'convertAccount',
@@ -65,12 +66,12 @@ test('every view-only area refuses a Partner write; the Owner is unaffected', ()
     'reviews',
     // Trust → Withdraw a contact (owner, 27 Oct 2026): the site Owner only.
     'contactWithdraw',
-    // Settings → Privacy, the hide-numbers switch (owner, 27 Oct 2026): Owner only.
-    'consentPrivacy',
     // Notification settings and Email usage (owner, 27 Oct 2026): Owner only.
     'notificationSettings', 'emailUsage',
     // Team inbox → Templates → Review new wording (owner, 28 Oct 2026): Owner only.
     'templateReview',
+    // Receipt "Checked" and the Backend Support KPI card (owner, 31 Oct 2026).
+    'receiptCheck', 'backendSupportKpi',
   ]
   for (const key of VIEW) {
     assert.equal(roleMayWrite('partner', SCREEN_ACCESS[key]), false, key)
@@ -168,7 +169,6 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   // Convert account type (owner, 23 Oct 2026): refuseUnlessOwnerApproval — the site Owner only.
   'members/convert': 'owner',
   'members/restore-staff': 'owner',
-  'import': 'view',
   // Reply (POST) is an edit; editing a template (PUT) is refused inside the route.
   'inbox': 'mixed',
   'jobs/[id]/notify': 'edit',
@@ -176,7 +176,6 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   'jobs/action': 'edit',
   'jobs/contact-number': 'edit',
   // Parent consent (owner, 27 Oct 2026): "Parent agreed" on the consent chip.
-  'jobs/consent': 'edit',
   'jobs/create': 'edit',
   'jobs/paused': 'edit',
   // "Add as new area" while posting is an edit; merging areas is Locations (view).
@@ -212,7 +211,6 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   // The support WhatsApp number (Applications v3.1): Owner only.
   'settings/support-whatsapp': 'view',
   // "Hide parent numbers when consent isn't recorded" — Owner only.
-  'settings/hide-numbers': 'view',
   'settings/email-types': 'view',
   'payments/reconciliation': 'view',
   'payments/refund': 'view',
@@ -221,6 +219,9 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   'payments/settlement': 'view',
   'payments/switches': 'view',
   'paypro/test-order': 'owner',
+  // Receipt "Checked" (Admin, Backend Support) and the Owner's undo of a staff approval (owner, 31 Oct 2026).
+  'payments/receipt-check': 'view',
+  'payments/staff-approvals': 'owner',
   'plans': 'view',
   'profile-photo/crop': 'edit',
   'profile-photo/rotate': 'edit',
@@ -320,7 +321,7 @@ test('which admin pages show their buttons to a Partner', () => {
   for (const p of ['/admin/tutors', '/admin/tutors/abc', '/admin/parents', '/admin/users', '/admin/users/abc', '/admin/users/unpaid-signups', '/admin/users/featured-whatsapp', '/admin/signups', '/admin/jobs', '/admin/jobs/new', '/admin/jobs/abc/edit', '/admin/jobs/paused', '/admin/jobs/duplicates', '/admin/jobs/applicants', '/admin/inbox', '/admin/reports', '/admin/flags', '/admin/overview/todo-stuck', '/admin/overview/todo-docs', '/admin/security']) {
     assert.equal(partnerEditsPath(p), true, p)
   }
-  for (const p of ['/admin', '/admin/finance', '/admin/finance/settlement', '/admin/payments', '/admin/payments/settings/gateways', '/admin/payments/bank-details', '/admin/plans', '/admin/settings/subjects', '/admin/seo/locations', '/admin/seo/landing', '/admin/seo/indexing', '/admin/blog', '/admin/blog/new', '/admin/blog/queue', '/admin/social', '/admin/ads', '/admin/import', '/admin/team', '/admin/audit', '/admin/staff-activity', '/admin/overview/todo-unmet', '/admin/usersx']) {
+  for (const p of ['/admin', '/admin/finance', '/admin/finance/settlement', '/admin/payments', '/admin/payments/settings/gateways', '/admin/payments/bank-details', '/admin/plans', '/admin/settings/subjects', '/admin/seo/locations', '/admin/seo/landing', '/admin/seo/indexing', '/admin/blog', '/admin/blog/new', '/admin/blog/queue', '/admin/social', '/admin/ads', '/admin/team', '/admin/audit', '/admin/staff-activity', '/admin/overview/todo-unmet', '/admin/usersx']) {
     assert.equal(partnerEditsPath(p), false, p)
   }
 })
@@ -344,7 +345,7 @@ test('"Project Manager" is a label only: Owner and Partner both read it; roles a
   assert.ok(team.includes("s.isMe && s.adminRole === 'owner' && viewerRole === 'owner'"))
   assert.ok(team.includes('(account owner)'))
   // The stored role names did not change.
-  assert.ok(read('lib', 'staff.ts').includes("ASSIGNABLE_ROLES: AdminRole[] = ['admin', 'supervisor', 'operations', 'tuitions_staff', 'partner']"))
+  assert.ok(read('lib', 'staff.ts').includes("ASSIGNABLE_ROLES: AdminRole[] = ['admin', 'supervisor', 'operations', 'tuitions_staff', 'backend_support', 'partner']"))
 })
 
 test('the database keeps a Partner out of the view-only tables (migration 170)', () => {

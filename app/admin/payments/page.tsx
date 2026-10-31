@@ -106,7 +106,7 @@ export default async function AdminPaymentsPage({
               className="gap-1.5 inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
             >
               <Scale aria-hidden size={14} />
-              Settlement check
+              Finance
             </Link>
           )}
         </div>
@@ -121,6 +121,8 @@ export default async function AdminPaymentsPage({
         showHidden={showHidden}
         search={search}
         canApprove={canApprove}
+        canCheck={roleMayWrite(actor.adminRole, SCREEN_ACCESS.receiptCheck)}
+        staffMayApprove={actor.adminRole === 'backend_support'}
         paymentsCursor={payments.nextCursor}
         paymentsTotal={payments.total}
         subscriptionsCursor={subscriptions.nextCursor}

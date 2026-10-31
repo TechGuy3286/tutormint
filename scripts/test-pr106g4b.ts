@@ -89,9 +89,9 @@ test('the dashboard swaps the card by the switch; non-staff keep the pending-inv
   const page = read('app/(site)/tutor/dashboard/page.tsx')
   assert.match(page, /showNewOnboarding\(await getOnboardingMode\(\), !!session\?\.profile\?\.admin_role\)/, 'staffNew from the switch')
   assert.match(page, /const showValueCard = staffNew && !ent\.verified/, 'value card only for staff + unverified')
-  assert.match(page, /!staffNew && !ent\.verified \? await pendingPayproInvoice/, 'pending prompt only for non-staff')
   assert.match(page, /\{showValueCard && <GetVerifiedValueCard count=\{boardCount\} city=\{city\}/, 'card uses the Find-tuitions count')
-  assert.match(page, /\{pendingInvoice && <CompletePaymentPrompt/, 'non-staff path unchanged')
+  // The PayPro pending-invoice prompt was retired (owner, 31 Oct 2026).
+  assert.doesNotMatch(page, /pendingPayproInvoice|CompletePaymentPrompt/)
 })
 
 // --------------------------------------------- STEP 3: hide bank/pay later --
@@ -102,8 +102,8 @@ test('TutorVerifyGate shows "Pay later" only when the owner switched it on; bank
   const t = read('components/upgrade/TutorVerifyGate.tsx')
   assert.ok(t.includes("methods = DEFAULT_CHECKOUT_METHODS"), 'defaults to today’s state')
   assert.ok(read('lib/payments/receipt.ts').includes('bankTransferVisible(bankTransferOn(settings), details)'), 'transfer follows the switch')
-  assert.ok(t.includes("const showPayLater = methods.payLater && !hideManual"), 'Pay later follows the switch')
-  assert.ok(t.includes("{showPayLater && payLaterHref &&"), 'Pay later gated')
+  // Pay later retired (owner, 31 Oct 2026).
+  assert.ok(!/showPayLater|payLaterHref|Pay later/.test(t), 'no Pay later')
 })
 
 test('the apply-gate modal reads the switches via /api/payments/methods', () => {
@@ -114,11 +114,11 @@ test('the apply-gate modal reads the switches via /api/payments/methods', () => 
   assert.ok(route.includes("showNewOnboarding(mode, isStaff)"), 'the onboarding endpoint is unchanged')
 })
 
-test('Membership Plans shows bank + "Pay later" only when switched on, keeps Back; transfer button gated', () => {
+test('Membership Plans shows bank only when switched on, no Pay later (retired 31 Oct 2026), keeps Back; transfer button gated', () => {
   const page = read('app/(site)/membership-plans/page.tsx')
   assert.ok(page.includes("checkoutMethodsOf(await getGatewaySettings())"), 'reads the switches')
   assert.ok(page.includes("hideTransfer={!methods.bankTransfer}"), 'PackagesTable still receives the switch')
-  assert.ok(page.includes("{methods.payLater && ("), 'Pay later gated')
+  assert.ok(!page.includes('payLater') && !page.includes('Pay later<span'), 'no Pay later')
   assert.ok(page.includes("Back<span"), 'Back always stays')
   const pt = read('components/PackagesTable.tsx')
   assert.ok(pt.includes("hideTransfer = false"), 'PackagesTable default')

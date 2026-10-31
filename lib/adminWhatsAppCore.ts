@@ -35,7 +35,7 @@ import {
   type TutorFollowFacts,
 } from '@/lib/tutorFollowUpCore'
 
-export type AdminMessageType = MessageType | 'docs_waiting' | 'doc_rejected' | 'parent_help' | 'member_help'
+export type AdminMessageType = MessageType | 'docs_waiting' | 'doc_rejected' | 'member_help'
 
 export const DASHBOARD_LINK = siteLink('/tutor/dashboard')
 
@@ -58,20 +58,14 @@ export function documentRejectedMessage(name: string, rejected: RejectedDoc[]): 
   return `Assalam o Alaikum ${firstNameOf(name)}, please re-upload your ${docs}${reasons.length ? ` (${reasons.join('; ')})` : ''}. Reply here if you need help. 🙂\n\n${DASHBOARD_LINK}`
 }
 
-/** The fallback for a parent with no situation on record (a test or
- *  staff-linked account): still with a TutorMint link, and no emoji (owner,
- *  27 Oct 2026). Real parents get their situation message (lib/parentWhatsApp). */
-export const PARENT_HELP_LINK = siteLink('/parent/dashboard/post-job')
-export function parentHelpMessage(name: string): string {
-  return `Assalam o Alaikum ${firstNameOf(name)}, this is TutorMint. Do you need any help finding a tutor? You can post your requirement here:\n\n${PARENT_HELP_LINK}`
-}
-
 export function memberHelpMessage(name: string): string {
   return `Assalam o Alaikum ${firstNameOf(name)}, this is TutorMint. Do you need any help? Reply here. 🙂`
 }
 
 export type AdminMessageInput = {
-  role: 'tutor' | 'parent' | 'other'
+  // Parents are never built here (owner, 31 Oct 2026): every parent WhatsApp
+  // is their SITUATION message (lib/parentWhatsApp sendParentMessage).
+  role: 'tutor' | 'other'
   name: string
   /** Tutors only. */
   tutor?: {
@@ -85,7 +79,6 @@ export type AdminMessageInput = {
 }
 
 export function adminMemberMessage(input: AdminMessageInput): { text: string; type: AdminMessageType } {
-  if (input.role === 'parent') return { text: parentHelpMessage(input.name), type: 'parent_help' }
   const t = input.tutor
   if (input.role !== 'tutor' || !t) return { text: memberHelpMessage(input.name), type: 'member_help' }
   const f = t.facts
@@ -102,7 +95,7 @@ export function adminWhatsAppRoute(memberId: string, from: string): string {
   return `/api/admin/whatsapp?memberId=${encodeURIComponent(memberId)}&from=${encodeURIComponent(from)}`
 }
 
-export const WHATSAPP_FROM = ['overview', 'member', 'people', 'tutor_queue', 'tutor_record', 'tuition'] as const
+export const WHATSAPP_FROM = ['overview', 'member', 'people', 'tutor_queue', 'tutor_record', 'tuition', 'signups'] as const
 export type WhatsAppFrom = (typeof WHATSAPP_FROM)[number]
 export function parseWhatsAppFrom(v: string | null | undefined): WhatsAppFrom | null {
   return (WHATSAPP_FROM as readonly string[]).includes(v ?? '') ? (v as WhatsAppFrom) : null

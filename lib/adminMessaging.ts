@@ -1,4 +1,6 @@
 import 'server-only'
+import { finishWaText } from '@/lib/waLinkCore'
+import { RETIRED_SEND_REFUSAL } from '@/lib/templateRetireCore'
 import { completeCommon } from '@/lib/templateFill'
 import { loadSupportWhatsApp } from '@/lib/applicationTemplates'
 import { teamMessagesHref } from '@/lib/memberNav'
@@ -40,6 +42,9 @@ export type AdminTemplate = {
   title: string
   subject: string
   body: string
+  /** Retired (migration 215): no code path sends it; shown under "Retired (n)". */
+  retired?: boolean
+  retiredReason?: string | null
   /** The approved wording "Reset to default" puts back (owner, 28 Oct 2026);
    *  absent → the built-in code default. Set by the inbox page only. */
   resetBody?: string
@@ -70,9 +75,13 @@ export async function loadTemplates(): Promise<AdminTemplate[]> {
   if (!admin) return []
   const { data } = await admin
     .from('admin_message_templates')
-    .select('key, title, subject, body')
+    .select('key, title, subject, body, retired_at, retired_reason')
     .order('title')
-  return (data ?? []) as AdminTemplate[]
+  return ((data ?? []) as (AdminTemplate & { retired_at?: string | null; retired_reason?: string | null })[]).map(({ retired_at, retired_reason, ...t }) => ({
+    ...t,
+    retired: !!retired_at,
+    retiredReason: retired_reason ?? null,
+  }))
 }
 
 export async function saveTemplate(
@@ -274,6 +283,11 @@ export async function sendAdminMessage(params: {
   const channel: AdminMessageChannel = params.channel ?? 'inapp'
   const body = params.body.trim()
   if (body.length < 2) return { ok: false, status: 400, error: 'Write a message.' }
+  // A retired template is never sent (owner, 31 Oct 2026).
+  if (params.templateKey) {
+    const { data: tpl } = await admin.from('admin_message_templates').select('retired_at').eq('key', params.templateKey).maybeSingle()
+    if (tpl?.retired_at) return { ok: false, status: 410, error: RETIRED_SEND_REFUSAL }
+  }
 
   const { data: member } = await admin
     .from('profiles')
@@ -382,11 +396,12 @@ export async function messageSeededParent(
 
   const { data: contact } = await admin
     .from('job_contacts')
-    .select('contact_name, contact_phone')
+    .select('contact_name, contact_phone, contact_whatsapp')
     .eq('job_id', jobId)
     .maybeSingle()
 
-  const msisdn = normalisePkMobile((contact?.contact_phone as string | null) ?? null)
+  // The WhatsApp number first, then the phone (owner, 31 Oct 2026 — it used the phone only).
+  const msisdn = normalisePkMobile((contact?.contact_whatsapp as string | null) ?? null) ?? normalisePkMobile((contact?.contact_phone as string | null) ?? null)
   if (!msisdn) {
     return {
       ok: false,
@@ -418,7 +433,8 @@ export async function messageSeededParent(
     supportWhatsapp: await loadSupportWhatsApp(admin),
   })
 
-  const waHref = whatsappHref(msisdn, filled, await senderRefCode(actor.id))
+  const seededRef = await senderRefCode(actor.id)
+  const waHref = whatsappHref(msisdn, finishWaText(filled, seededRef), seededRef)
   if (!waHref) return { ok: false, status: 400, error: 'Could not build the WhatsApp link.' }
 
   await logAdminAction({

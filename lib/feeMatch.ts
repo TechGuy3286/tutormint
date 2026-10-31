@@ -565,3 +565,31 @@ export async function relabelCredit(input: { transferId: string; to: CreditLabel
   })
   return { ok: true }
 }
+
+// ----------------------------------------------------------------- staff approvals
+
+/** The settlement board, for the Backend Support receipt rule (lib/staffReceipt). */
+export async function loadFeeBoard(): Promise<Board | null> {
+  return loadBoard()
+}
+
+/** Link one chosen credit to one payment (the Backend Support approval, owner
+ *  31 Oct 2026). The same stored link and audit row as every other link. */
+export async function linkChosenCredit(input: { creditId: string; paymentId: string; feePrice: number; ref: string }, actor: Actor): Promise<{ ok: true; rounding: number } | { ok: false; error: string }> {
+  const board = await loadBoard()
+  const c = board?.credits.find((x) => x.id === input.creditId)
+  if (!c) return { ok: false, error: 'That bank credit was not found.' }
+  const rounding = roundingOf(c.amountPkr, input.feePrice)
+  const r = await storeLink(
+    {
+      creditId: c.id,
+      paymentId: input.paymentId,
+      rounding,
+      note: `Staff approval (bank credit matched): ${input.ref}${rounding > 0 ? ` · ${rs(rounding)} rounding` : ''}`,
+      action: 'settlement.staff_approval_link',
+      detail: { paymentRef: input.ref, amountPkr: c.amountPkr },
+    },
+    actor,
+  )
+  return r.ok ? { ok: true, rounding } : r
+}

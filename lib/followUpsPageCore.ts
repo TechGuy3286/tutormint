@@ -33,6 +33,9 @@ export const FOLLOW_UP_TABS: { key: FollowUpTab; label: string }[] = [
 export function mayOpenFollowUpTab(role: AdminRole | null | undefined, tab: FollowUpTab): boolean {
   if (!role) return false
   if (tab === 'tutors') return roleSatisfies(role, SCREEN_ACCESS.unpaidSignups)
+  // Orphaned accounts are fixed with "Create missing profile" — the orphans
+  // list's own roles (Backend Support works Tutors and Parents only).
+  if (tab === 'orphans') return roleSatisfies(role, SCREEN_ACCESS.orphans)
   return roleSatisfies(role, SCREEN_ACCESS.signups)
 }
 

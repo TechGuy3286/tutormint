@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { AlarmClock, CheckCircle2, FileUp, PenLine, Search, Sparkles, Upload, Wand2, X } from 'lucide-react'
+import { AlarmClock, CheckCircle2, FileUp, PenLine, Search, Sparkles, Wand2, X } from 'lucide-react'
 
 import { useToast } from '@/components/ui/Toast'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
@@ -333,12 +333,6 @@ export default function QueueClient({
                     ))}
                   </ul>
                   <div className="flex flex-wrap gap-2">
-                    <Link
-                      href="/admin/import"
-                      className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl bg-tm-navy px-3 text-[11px] font-bold text-white hover:bg-tm-navy-hover"
-                    >
-                      <Upload aria-hidden size={12} /> Bulk import
-                    </Link>
                     {!readOnly && (
                       <button
                         type="button"
