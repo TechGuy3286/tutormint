@@ -200,3 +200,19 @@ export function poolCount(
 export function splitCounts<K extends string>(split: Record<string, number>, keys: readonly K[], pool: number): Record<K, number> {
   return Object.fromEntries(keys.map((k) => [k, k === 'all' ? pool : (split[k] ?? 0)])) as Record<K, number>
 }
+
+// ---------------------------------------------------------------- job cost ---
+
+/** The job's own running tally (owner, 1 Nov 2026 — push 3): per UTC day, how
+ *  many rebuilds ran, their wall time and their CPU. Stored as admin_summary
+ *  'jobstats'; the last 14 days are kept. Used to price the job. */
+export type JobStats = Record<string, { runs: number; wallMs: number; cpuMs: number }>
+
+export function addRunToTally(prev: JobStats | null | undefined, nowMs: number, wallMs: number, cpuMs: number): JobStats {
+  const day = new Date(nowMs).toISOString().slice(0, 10)
+  const out: JobStats = { ...(prev ?? {}) }
+  const cur = out[day] ?? { runs: 0, wallMs: 0, cpuMs: 0 }
+  out[day] = { runs: cur.runs + 1, wallMs: cur.wallMs + Math.round(wallMs), cpuMs: cur.cpuMs + Math.round(cpuMs) }
+  const keep = Object.keys(out).sort().slice(-14)
+  return Object.fromEntries(keep.map((d) => [d, out[d]]))
+}

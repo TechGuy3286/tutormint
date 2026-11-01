@@ -159,3 +159,15 @@ test('fast admin is wired: one badge read, the Overview and lists read the summa
   const m219 = read('supabase/migrations/219_admin_list_page.sql')
   assert.match(m219, /revoke all on function public\.admin_list_page/i)
 })
+
+import { addRunToTally } from '../lib/adminSummaryCore'
+
+test('job cost tally: adds runs per UTC day and keeps 14 days', () => {
+  const d1 = Date.parse('2026-11-01T10:00:00Z')
+  let t = addRunToTally(null, d1, 9_000, 2_000)
+  t = addRunToTally(t, d1 + 60_000, 11_000, 3_000)
+  assert.deepEqual(t['2026-11-01'], { runs: 2, wallMs: 20_000, cpuMs: 5_000 })
+  for (let i = 1; i <= 20; i++) t = addRunToTally(t, d1 + i * 86_400_000, 1, 1)
+  assert.equal(Object.keys(t).length, 14)
+  assert.ok(!('2026-11-01' in t))
+})

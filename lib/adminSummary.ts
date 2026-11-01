@@ -11,6 +11,7 @@ import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
+  addRunToTally,
   needsRebuild,
   updatedLabel,
   PARENT_FU_LIST,
@@ -21,6 +22,7 @@ import {
   tutorTabSection,
   emptyListPage,
   type BadgesPayload,
+  type JobStats,
   type ListPage,
   type SummaryState,
 } from '@/lib/adminSummaryCore'
@@ -261,13 +263,14 @@ function tutorFuRows(rows: TutorFollowRow[]): ListRowIn[] {
  * `force` ignores the first (the Refresh button). Each part that fails is
  * reported and leaves the previous figures in place.
  */
-export async function rebuildAdminSummary(opts: { force?: boolean } = {}): Promise<{ ran: boolean; ms: number; failed: string[] }> {
+export async function rebuildAdminSummary(opts: { force?: boolean } = {}): Promise<{ ran: boolean; ms: number; cpuMs?: number; failed: string[] }> {
   const t0 = Date.now()
   const admin = createAdminClient()
   if (!admin) return { ran: false, ms: 0, failed: ['no database'] }
   const state = await readState(admin)
   if (!needsRebuild(state, t0, opts.force)) return { ran: false, ms: Date.now() - t0, failed: [] }
   const at = new Date(t0).toISOString()
+  const c0 = process.cpuUsage()
   await put(admin, 'state', { builtAt: state.builtAt, startedAt: at }, at)
 
   const failed: string[] = []
@@ -384,8 +387,17 @@ export async function rebuildAdminSummary(opts: { force?: boolean } = {}): Promi
   }
   await safe('write badges', () => put(admin, 'badges', badges, at))
 
-  await put(admin, 'state', { builtAt: at, startedAt: at, ms: Date.now() - t0, failed }, at)
-  return { ran: true, ms: Date.now() - t0, failed }
+  // CPU of this process while the rebuild ran (push 3 cost check). A Fluid instance may serve
+  // other requests at the same time, so this is an upper bound for the job alone.
+  const c = process.cpuUsage(c0)
+  const cpuMs = Math.round((c.user + c.system) / 1000)
+  const wallMs = Date.now() - t0
+  await put(admin, 'state', { builtAt: at, startedAt: at, ms: wallMs, cpuMs, failed }, at)
+  await safe('job stats', async () => {
+    const { data } = await admin.from('admin_summary').select('payload').eq('key', 'jobstats').maybeSingle()
+    await put(admin, 'jobstats', addRunToTally(data?.payload as JobStats | null, Date.now(), wallMs, cpuMs), at)
+  })
+  return { ran: true, ms: wallMs, cpuMs, failed }
 }
 
 /** "Updated 3 min ago" for a page, read against the server clock. */
