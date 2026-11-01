@@ -247,10 +247,11 @@ test('retired admin APIs answer 410 and change nothing', async () => {
   ]) {
     assert.equal(existsSync(f), false, f)
   }
-  // The renamed cron is what vercel.json schedules; the old path still answers until retired.
+  // The renamed cron is what vercel.json schedules; the old path was retired once it ran live (1 Nov 2026).
   const vercel = read('vercel.json')
   assert.ok(vercel.includes('"/api/cron/every-5-min"'))
   assert.ok(!vercel.includes('paypro-reconcile'))
+  assert.equal(existsSync("app/api/cron/paypro-reconcile/route.ts"), false)
   assert.match(code('app/api/cron/every-5-min/route.ts'), /CRON_SECRET/)
 })
 
