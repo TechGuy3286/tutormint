@@ -102,7 +102,7 @@ export async function refreshTuition(jobId: string, actor: Actor, parentId: stri
   if (!job || (parentId && job.parent_id !== parentId)) return { ok: false, status: 404, error: 'Tuition not found.' }
   if (job.merged_into) return { ok: false, status: 400, error: 'This tuition was merged into another one and cannot be refreshed.' }
   if (job.status !== 'open' && job.status !== 'paused') {
-    return { ok: false, status: 400, error: 'Only an open or paused tuition can be refreshed.\nصرف کھلی یا روکی ہوئی ٹیوشن ریفریش ہو سکتی ہے۔' }
+    return { ok: false, status: 400, error: 'Only an open or paused tuition can be refreshed.' }
   }
   const allowed = refreshAllowed(job.refreshed_at as string | null)
   if (!allowed.ok) {
@@ -110,7 +110,7 @@ export async function refreshTuition(jobId: string, actor: Actor, parentId: stri
     return {
       ok: false,
       status: 429,
-      error: `This tuition was refreshed recently. You can refresh it again on ${when.toLocaleDateString('en-PK', { day: 'numeric', month: 'short', timeZone: 'Asia/Karachi' })}.\nیہ ٹیوشن حال ہی میں ریفریش ہوئی ہے۔ ہر 3 دن میں ایک بار ریفریش ہو سکتی ہے۔`,
+      error: `This tuition was refreshed recently. You can refresh it again on ${when.toLocaleDateString('en-PK', { day: 'numeric', month: 'short', timeZone: 'Asia/Karachi' })}.`,
       nextAt: when.toISOString(),
     }
   }

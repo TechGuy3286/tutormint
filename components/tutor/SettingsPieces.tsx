@@ -31,6 +31,8 @@ export function Urdu({
   className?: string
   center?: boolean
 }) {
+  // English-only cards (Tagline & About, Delete my account) pass '' — draw nothing.
+  if (children === '' || children == null || children === false) return null
   return (
     <span
       lang="ur"
@@ -180,7 +182,6 @@ export function StatusCard({
       {copy.hint && (
         <>
           <p className="text-[11px] leading-relaxed text-gray-600">{copy.hint.en}</p>
-          <Urdu className="text-[11px] leading-relaxed text-gray-600">{copy.hint.ur}</Urdu>
         </>
       )}
 
@@ -197,7 +198,6 @@ export function StatusCard({
           )}
           {lockedNote ?? (<>
           <p className="text-[11px] leading-relaxed text-gray-600">To change this, contact support.</p>
-          <Urdu className="text-[11px] leading-relaxed text-gray-600">تبدیلی کے لیے سپورٹ سے رابطہ کریں۔</Urdu>
           <a
             href={supportWhatsappHref()}
             target="_blank"

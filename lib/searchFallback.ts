@@ -22,7 +22,7 @@ import { cityCoord, distanceKm } from '@/lib/cityDistance'
 import { ONLINE_JOB_TITLE } from '@/lib/jobTitlesCore'
 import type { JobCardData } from '@/components/JobCard'
 
-export type FallbackLine = { en: string; ur: string }
+export type FallbackLine = { en: string }
 
 const km = (from: string, to: string | null | undefined): number | null => {
   const a = cityCoord(from)
@@ -34,7 +34,6 @@ function nearbyLine(kind: 'tutors' | 'tuitions', city: string, cities: { city: s
   const list = cities.slice(0, 3).map((c) => `${c.city} (${c.km} km)`).join(', ')
   return {
     en: `No ${kind} in ${city} yet. Showing ${list ? `nearby: ${list}` : kind === 'tutors' ? 'tutors who teach online' : 'online tuitions'}.`,
-    ur: `ابھی ${city} میں ${kind === 'tutors' ? 'ٹیوٹر' : 'ٹیوشن'} نہیں۔ ${list ? `قریبی شہر دکھا رہے ہیں: ${list}` : 'آن لائن دکھا رہے ہیں'}۔`,
   }
 }
 
@@ -93,7 +92,7 @@ export async function tutorFallback(
       const tutors = await run(subjectIds(b.slug, levelSet), !!city)
       if (tutors.length) {
         return {
-          line: { en: `No ${parsed.subject.name} tutors yet. Showing ${b.name} tutors.`, ur: `ابھی ${parsed.subject.name} کے ٹیوٹر نہیں۔ ${b.name} کے ٹیوٹر دکھا رہے ہیں۔` },
+          line: { en: `No ${parsed.subject.name} tutors yet. Showing ${b.name} tutors.` },
           tutors,
         }
       }
@@ -112,7 +111,7 @@ export async function tutorFallback(
         if (tutors.length) {
           const what = parsed.subject ? `${parsed.levelLabel} ${parsed.subject.name}` : parsed.levelLabel
           const shown = near.length <= 3 ? near.join(' and ') : 'nearby levels'
-          return { line: { en: `No ${what} tutors yet. Showing ${shown}.`, ur: `ابھی ${what} کے ٹیوٹر نہیں۔ ${shown} دکھا رہے ہیں۔` }, tutors }
+          return { line: { en: `No ${what} tutors yet. Showing ${shown}.` }, tutors }
         }
       }
     }
@@ -155,7 +154,7 @@ export async function jobFallback(
   if (filters.timing) {
     const jobs = await run({ masterIds: filters.masterIds, levels: filters.levels, timing: null }, !!city)
     if (jobs.length) {
-      return { line: { en: `No tuitions mention ${filters.timing} lessons yet. Showing every time of day.`, ur: '' }, jobs }
+      return { line: { en: `No tuitions mention ${filters.timing} lessons yet. Showing every time of day.` }, jobs }
     }
   }
 
@@ -164,7 +163,7 @@ export async function jobFallback(
     if (b) {
       const jobs = await run({ masterIds: subjectIds(b.slug), levels: levelSet.size ? [...levelSet] : null }, !!city)
       if (jobs.length) {
-        return { line: { en: `No ${parsed.subject.name} tuitions yet. Showing ${b.name} tuitions.`, ur: `ابھی ${parsed.subject.name} کی ٹیوشن نہیں۔ ${b.name} کی ٹیوشنز دکھا رہے ہیں۔` }, jobs }
+        return { line: { en: `No ${parsed.subject.name} tuitions yet. Showing ${b.name} tuitions.` }, jobs }
       }
     }
   }
@@ -175,7 +174,7 @@ export async function jobFallback(
       if (jobs.length) {
         const what = parsed.subject ? `${parsed.levelLabel} ${parsed.subject.name}` : parsed.levelLabel
         const shown = near.length <= 3 ? near.join(' and ') : 'nearby levels'
-        return { line: { en: `No ${what} tuitions yet. Showing ${shown}.`, ur: `ابھی ${what} کی ٹیوشن نہیں۔ ${shown} دکھا رہے ہیں۔` }, jobs }
+        return { line: { en: `No ${what} tuitions yet. Showing ${shown}.` }, jobs }
       }
     }
   }

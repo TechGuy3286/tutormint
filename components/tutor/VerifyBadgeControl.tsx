@@ -64,7 +64,6 @@ export default function VerifyBadgeControl({
         className="inline-flex flex-col rounded-full bg-tm-tint-gold px-2.5 py-0.5 align-middle leading-none text-tm-gold-ink"
       >
         <span className="text-[11px] font-bold leading-none">Verification pending</span>
-        <span lang="ur" dir="rtl" className="mt-0.5 text-[10px] font-semibold leading-none opacity-90">تصدیق زیرِ عمل</span>
       </button>
     ) : paymentUnderReview ? (
       <button
@@ -74,7 +73,6 @@ export default function VerifyBadgeControl({
         className="inline-flex flex-col rounded-full bg-tm-tint-gold px-2.5 py-0.5 align-middle leading-none text-tm-gold-ink"
       >
         <span className="text-[11px] font-bold leading-none">Payment under review</span>
-        <span lang="ur" dir="rtl" className="mt-0.5 text-[10px] font-semibold leading-none opacity-90">ادائیگی زیرِ جائزہ</span>
       </button>
     ) : (
       <button

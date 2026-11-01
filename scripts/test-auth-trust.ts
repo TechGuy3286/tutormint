@@ -160,10 +160,10 @@ test('reset code: at most 3 per mobile per day', () => {
   assert.equal(resetDailyCapReached(7), true)
 })
 
-test('reset errors: plain English with Urdu, never technical', () => {
+test('reset errors: plain English, never technical', () => {
   for (const k of ['wrong', 'expired', 'locked', 'dailyLimit'] as const) {
     const m = RESET_MESSAGES[k]
-    assert.ok(m.en.length > 10 && m.ur.length > 5, `${k} has both lines`)
+    assert.ok(m.en.length > 10, `${k} has an English line`)
     assert.doesNotMatch(m.en, /otp|sha|hash|null|undefined|\b4\d\d\b/i, `${k} is not technical`)
   }
   assert.match(RESET_MESSAGES.dailyLimit.en, /3 codes/)

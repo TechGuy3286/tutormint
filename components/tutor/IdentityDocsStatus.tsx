@@ -128,11 +128,6 @@ export default function IdentityDocsStatus() {
       <>
       {statuses.locks?.selfie === 'unlocked' && <DocLockNotice view="unlocked" doc="selfie" />}
       <LiveSelfieCapture busy={busy} done={statuses.selfie.hasUpload} onCapture={(f) => void onFile(f)} />
-      <Urdu>
-        <span className="text-[11px] font-semibold text-gray-500">
-          اپنی سیلفی اپلوڈ کریں — چہرہ صاف نظر آنا چاہیے۔
-        </span>
-      </Urdu>
       </>
       )}
     </section>

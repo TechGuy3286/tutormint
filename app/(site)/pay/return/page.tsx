@@ -19,22 +19,9 @@ import { afterFeeReturnPath } from '@/lib/returnTo'
 // additionally confirm with Get Order Status (ggos) and, if PayPro says PAID and
 // the amount matches, activate defensively — so a missed callback still lands the
 // member on "your plan is active". Every state has a way forward: no dead end.
-//
-// English with Urdu underneath, the platform's usual bilingual style.
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs' // ggos (node:https) needs the Node runtime
-
-const URDU_FONT =
-  "'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', 'Nafees Nastaleeq', 'Urdu Typesetting', 'Segoe UI', system-ui, sans-serif"
-
-function Urdu({ children }: { children: React.ReactNode }) {
-  return (
-    <p lang="ur" dir="rtl" className="text-right text-[11px] leading-relaxed text-gray-500" style={{ fontFamily: URDU_FONT }}>
-      {children}
-    </p>
-  )
-}
 
 type View = 'approved' | 'waiting' | 'notpaid' | 'unknown'
 
@@ -61,7 +48,6 @@ export default async function PayReturnPage({
             <p className="text-xs leading-relaxed text-gray-500">
               Sign in to see your plan. If you have just paid, your plan activates on its own — you don&rsquo;t need to do anything.
             </p>
-            <Urdu>آپ کی ادائیگی پر کارروائی ہو رہی ہے۔ اپنا پلان دیکھنے کے لیے سائن اِن کریں۔ آپ کا پلان خود بخود چالو ہو جائے گا۔</Urdu>
           </section>
           <Link
             href={`/login${ref ? `?next=${encodeURIComponent(`/pay/return?ref=${ref}`)}` : ''}`}
@@ -142,7 +128,6 @@ export default async function PayReturnPage({
                 {ent.planName} · {ent.displayedQuota} this month
                 {ent.expiresAt ? ` · renews ${formatDate(ent.expiresAt)}` : ''}
               </p>
-              <Urdu>آپ کی ادائیگی موصول ہو گئی اور آپ کا پلان چالو ہو گیا ہے۔</Urdu>
               {ent.badges.length > 0 && (
                 <div className="flex justify-center">
                   <BadgeRow badges={ent.badges} size="sm" showLabel />
@@ -158,7 +143,6 @@ export default async function PayReturnPage({
                   Thank you. Our team will confirm your transfer and activate your plan, usually
                   within a few hours. You will get a notification the moment it is approved.
                 </p>
-                <Urdu>آپ کی ادائیگی موصول ہو گئی ہے۔ ہماری ٹیم تصدیق کے بعد آپ کا پلان چالو کر دے گی، عموماً چند گھنٹوں میں۔ منظوری ملتے ہی آپ کو اطلاع مل جائے گی۔</Urdu>
               </>
             ) : (
               <>
@@ -168,7 +152,6 @@ export default async function PayReturnPage({
                   If you have just paid, it can take a minute to confirm. Your plan will start on its own —
                   you don&rsquo;t need to do anything.
                 </p>
-                <Urdu>اگر آپ نے ابھی ادائیگی کی ہے تو تصدیق میں ایک منٹ لگ سکتا ہے۔ آپ کا پلان خود بخود چالو ہو جائے گا۔</Urdu>
               </>
             )
           ) : view === 'notpaid' ? (
@@ -178,14 +161,12 @@ export default async function PayReturnPage({
               <p className="text-xs leading-relaxed text-gray-500">
                 {(payment?.rejection_reason as string) ?? 'Nothing was charged and your plan is unchanged. You can try again or pay later.'}
               </p>
-              <Urdu>ادائیگی مکمل نہیں ہوئی۔ آپ سے کچھ وصول نہیں کیا گیا — آپ دوبارہ کوشش کر سکتے ہیں یا بعد میں ادائیگی کر سکتے ہیں۔</Urdu>
             </>
           ) : (
             <>
               <Clock size={40} className="mx-auto text-gray-300" />
               <h1 className="text-lg font-black text-tm-navy">Nothing to show here</h1>
               <p className="text-xs leading-relaxed text-gray-500">We could not find that payment on your account.</p>
-              <Urdu>ہمیں آپ کے اکاؤنٹ پر یہ ادائیگی نہیں ملی۔</Urdu>
             </>
           )}
 

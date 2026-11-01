@@ -52,7 +52,7 @@ export function usePhotoCropUpload(): { dialog: ReactNode; cropAndUpload: (file:
   const inBrowser = useSyncExternalStore(subscribeNoop, () => true, () => false)
   const [open, setOpen] = useState<Open | null>(null)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<{ en: string; ur?: string } | null>(null)
+  const [error, setError] = useState<{ en: string } | null>(null)
   const rect = useRef<CropRect | null>(null)
   const settle = useRef<((url: string | null) => void) | null>(null)
   const another = useRef<HTMLInputElement>(null)
@@ -104,15 +104,15 @@ export function usePhotoCropUpload(): { dialog: ReactNode; cropAndUpload: (file:
       body.append('y', String(rect.current.y))
       body.append('s', String(rect.current.s))
       const res = await fetch('/api/profile/photo', { method: 'POST', body })
-      const data = (await res.json().catch(() => null)) as { url?: string; error?: string; errorUr?: string } | null
+      const data = (await res.json().catch(() => null)) as { url?: string; error?: string } | null
       if (!res.ok || !data?.url) {
-        setError({ en: data?.error ?? 'The photo did not upload. Please try again.', ur: data?.errorUr ?? 'تصویر اپ لوڈ نہیں ہوئی۔ دوبارہ کوشش کریں۔' })
+        setError({ en: data?.error ?? 'The photo did not upload. Please try again.' })
         setBusy(false)
         return
       }
       finish(data.url)
     } catch {
-      setError({ en: 'The photo did not upload. Check your internet connection and try again.', ur: 'تصویر اپ لوڈ نہیں ہوئی۔ انٹرنیٹ چیک کریں اور دوبارہ کوشش کریں۔' })
+      setError({ en: 'The photo did not upload. Check your internet connection and try again.' })
       setBusy(false)
     }
   }
@@ -144,22 +144,14 @@ export function usePhotoCropUpload(): { dialog: ReactNode; cropAndUpload: (file:
                 onChange={(c) => {
                   rect.current = c
                 }}
-                onError={() => setError({ en: 'That file could not be opened as a photo. Please choose another.', ur: 'یہ فائل تصویر کے طور پر نہیں کھل سکی۔ دوسری تصویر چنیں۔' })}
+                onError={() => setError({ en: 'That file could not be opened as a photo. Please choose another.' })}
               />
               <div className="text-center">
                 <p className="text-sm font-bold text-slate-800">Move and zoom so your face fills the circle</p>
-                <p className="text-sm text-slate-700" dir="rtl" lang="ur">
-                  تصویر کو ہلائیں اور بڑا کریں تاکہ آپ کا چہرہ دائرے میں پورا آ جائے
-                </p>
               </div>
               {error && (
                 <div role="alert" className="rounded-xl bg-tm-tint-red p-3 text-center text-xs font-bold text-tm-red">
                   <p>{error.en}</p>
-                  {error.ur && (
-                    <p dir="rtl" lang="ur">
-                      {error.ur}
-                    </p>
-                  )}
                 </div>
               )}
               <div className="grid grid-cols-2 gap-2">

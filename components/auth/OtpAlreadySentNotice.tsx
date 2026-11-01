@@ -7,8 +7,6 @@ import { supportWhatsappHref } from '@/lib/errorMessages'
 // use the code they already have, offers the free email-signup path, and gives
 // the WhatsApp support link for anyone who never received it. The code entry box
 // stays open beneath it so they can type the code.
-//
-// English with Urdu underneath, matching the shared components' bilingual copy.
 export default function OtpAlreadySentNotice({
   emailSignupHref,
 }: {
@@ -19,9 +17,6 @@ export default function OtpAlreadySentNotice({
   return (
     <div className="space-y-1.5 rounded-xl border border-tm-navy/15 bg-tm-tint-navy p-3 text-xs text-tm-navy">
       <p className="font-bold">A code was already sent to your mobile. Please use that code.</p>
-      <p lang="ur" dir="rtl" className="leading-relaxed text-gray-500">
-        آپ کے موبائل پر پہلے ہی ایک کوڈ بھیجا جا چکا ہے۔ براہ کرم وہی کوڈ استعمال کریں۔
-      </p>
       <p className="text-[11px] leading-relaxed">
         {emailSignupHref && (
           <>

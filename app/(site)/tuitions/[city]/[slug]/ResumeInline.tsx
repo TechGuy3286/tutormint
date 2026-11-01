@@ -6,12 +6,13 @@ import { Play } from 'lucide-react'
 
 import { useToast } from '@/components/ui/Toast'
 import { submitSignal } from '@/lib/submit'
+import { adminFetch } from '@/components/admin/adminFetch'
 
 // The poster's inline Resume, on their own paused tuition page (PR28 §5). Reuses
 // /api/parent/jobs/resume — the same route the dashboard uses — so the resume
 // logic (ownership check, fresh 20-day clock) is not duplicated.
 
-export default function ResumeInline({ jobId, label = 'Resume this tuition' }: { jobId: string; label?: string }) {
+export default function ResumeInline({ jobId, label = 'Resume this tuition', admin = false }: { jobId: string; label?: string; admin?: boolean }) {
   const router = useRouter()
   const toast = useToast()
   const [busy, setBusy] = useState(false)
@@ -19,14 +20,24 @@ export default function ResumeInline({ jobId, label = 'Resume this tuition' }: {
   const resume = async () => {
     setBusy(true)
     try {
-      const res = await fetch('/api/parent/jobs/resume', {
-        signal: submitSignal(),
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobId }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Could not resume the tuition.')
+      if (admin) {
+        // Staff on a team-posted tuition: the admin action route.
+        const r = await adminFetch<{ error?: string }>('/api/admin/jobs/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jobId, action: 'resume' }),
+        })
+        if (!r.ok) throw new Error(r.data?.error ?? 'Could not resume the tuition.')
+      } else {
+        const res = await fetch('/api/parent/jobs/resume', {
+          signal: submitSignal(),
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jobId }),
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json.error ?? 'Could not resume the tuition.')
+      }
       toast.success('Resumed. Tutors can see and apply to it again.')
       router.refresh()
     } catch (e) {

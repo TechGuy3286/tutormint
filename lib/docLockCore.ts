@@ -66,10 +66,9 @@ export const LOCKED_TITLE = 'Approved 🔒'
 /** The line under it; the number is linked to WhatsApp (lockedWhatsappHref). */
 export const LOCKED_LINE = 'To change this, contact support on WhatsApp 0321 5872222.'
 export const LOCKED_MESSAGE_EN = `${LOCKED_TITLE}. ${LOCKED_LINE}`
-export const LOCKED_MESSAGE_UR = 'منظور شدہ ✓ مقفل۔ یہ دستاویز بدلنے کے لیے واٹس ایپ 0321 5872222 پر رابطہ کریں۔'
-export const LOCKED_ERROR = `${LOCKED_MESSAGE_EN}\n${LOCKED_MESSAGE_UR}`
+export const LOCKED_ERROR = LOCKED_MESSAGE_EN
 export const USED_ERROR =
-  'You have already sent your new upload. Our team will check it. To change it again, contact support on WhatsApp 0321 5872222.\nآپ نئی تصویر بھیج چکے ہیں۔ ہماری ٹیم اسے دیکھے گی۔ دوبارہ بدلنے کے لیے واٹس ایپ 0321 5872222 پر رابطہ کریں۔'
+  'You have already sent your new upload. Our team will check it. To change it again, contact support on WhatsApp 0321 5872222.'
 
 /** Which document a locked notice is about — named in the WhatsApp message. */
 export type LockedDoc = 'cnic' | 'cnic_number' | 'selfie' | 'photo'

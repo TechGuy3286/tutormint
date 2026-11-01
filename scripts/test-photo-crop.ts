@@ -261,7 +261,7 @@ test('a member upload stores the original AND the cropped square; the profile us
 
   // All four screens use the one crop step, and save the address the way they always did.
   const hook = read('components', 'photo', 'usePhotoCropUpload.tsx')
-  assert.ok(hook.includes('Move and zoom so your face fills the circle') && hook.includes('lang="ur"'))
+  assert.ok(hook.includes('Move and zoom so your face fills the circle') && !hook.includes('lang="ur"'), 'English only (owner, 2 Nov 2026)')
   assert.ok(hook.includes('Use photo') && hook.includes('Choose another'))
   assert.ok(hook.includes("body.append('original'") && hook.includes("body.append('crop'") && hook.includes("fetch('/api/profile/photo'"))
   assert.ok(hook.includes('compressImage(file)') && hook.includes('canvas.toBlob'), 'canvas only, no library')

@@ -31,7 +31,7 @@ const TransferBody = z.object({
     .string()
     .transform((s) => s.replace(/\D/g, ''))
     .refine((s) => s === '' || s.length === 4, {
-      message: 'Enter the last 4 digits of the account, like 4821.\nاکاؤنٹ کے آخری 4 ہندسے درج کریں۔',
+      message: 'Enter the last 4 digits of the account, like 4821.',
     })
     .optional()
     .nullable(),
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     const kind = String(form.get('kind') ?? 'paypro')
     const file = form.get('file')
     if (!(file instanceof File) || file.size === 0) {
-      return NextResponse.json({ error: 'Choose a file to upload.\nفائل منتخب کریں۔' }, { status: 400 })
+      return NextResponse.json({ error: 'Choose a file to upload.' }, { status: 400 })
     }
     if (file.size > MAX_BYTES) {
       return NextResponse.json({ error: 'That file is larger than 8 MB. Export one month at a time.' }, { status: 400 })
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
     }
     if (!name.endsWith('.xlsx') && !name.endsWith('.xlsm') && !name.endsWith('.csv')) {
       return NextResponse.json(
-        { error: 'Upload the PayPro Orders export as .xlsx or .csv.\nپے پرو کی فائل .xlsx یا .csv میں اپ لوڈ کریں۔' },
+        { error: 'Upload the PayPro Orders export as .xlsx or .csv.' },
         { status: 400 },
       )
     }

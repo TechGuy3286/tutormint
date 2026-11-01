@@ -149,9 +149,6 @@ export default async function ParentDashboardPage() {
         {selfPausedJobs.length > 0 && (
           <section className="space-y-2 rounded-2xl border border-tm-gold/40 bg-tm-tint-gold p-4">
             <p className="text-sm font-black text-tm-gold-ink">Tuitions paused while your account was paused</p>
-            <p lang="ur" dir="rtl" className="text-[11px] text-tm-gold-ink">
-              یہ ٹیوشنز آپ کا اکاؤنٹ رکنے کے دوران رک گئی تھیں۔ دوبارہ کھولنے کے لیے ٹیپ کریں۔
-            </p>
             <ul className="space-y-2">
               {selfPausedJobs.map((j) => (
                 <li key={j.id as string} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white p-3">

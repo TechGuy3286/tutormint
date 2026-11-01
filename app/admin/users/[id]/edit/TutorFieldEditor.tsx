@@ -1,8 +1,9 @@
 'use client'
+import { TAGLINE_MAX, BIO_MAX } from '@/lib/ai/taglineBrief'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, IdCard, Image as ImageIcon, MapPin, Smartphone, UserSquare2, BookOpen, User } from 'lucide-react'
+import { ChevronDown, IdCard, Image as ImageIcon, MapPin, Smartphone, UserSquare2, BookOpen, User, PenLine } from 'lucide-react'
 
 import MobileNumberInput from '@/components/auth/MobileNumberInput'
 import CnicCapture, { type CnicCaptureState } from '@/components/identity/CnicCapture'
@@ -109,7 +110,12 @@ export default function TutorFieldEditor({
   nameOwnerOnly = false,
   slug = null,
   canSlugEdit = false,
+  currentHeadline = '',
+  currentBio = '',
 }: {
+  /** Tagline & About on file (owner, 2 Nov 2026, Part F). */
+  currentHeadline?: string
+  currentBio?: string
   tutorId: string
   currentCity: string | null
   /** The name on file (formatted). */
@@ -132,6 +138,9 @@ export default function TutorFieldEditor({
   const [lastImage, setLastImage] = useState<Record<'avatar' | 'selfie', { src: string; status: string | null } | null>>({ avatar: null, selfie: null })
   const { map } = useCityAreas()
   const [open, setOpen] = useState<string | null>(null)
+  const [aboutHeadline, setAboutHeadline] = useState(currentHeadline)
+  const [aboutBio, setAboutBio] = useState(currentBio)
+  const [aboutReason, setAboutReason] = useState('')
   const toggle = (k: string) => setOpen((o) => (o === k ? null : k))
 
   // ---- shared JSON post to /api/admin/tutors/edit --------------------------
@@ -242,6 +251,30 @@ export default function TutorFieldEditor({
           isOwner={ownerApproves}
           afterSave={<SlugField tutorId={tutorId} initialSlug={slug} canEdit={canSlugEdit} />}
         />
+      </Section>
+
+      {/* Tagline & About (owner, 2 Nov 2026, Part F): reason required, logged
+          in change history and Audit; the public profile is rebuilt. */}
+      <Section icon={<PenLine size={16} />} title="Tagline & About" open={open === 'about'} onToggle={() => toggle('about')}>
+        <label className="block space-y-1">
+          <span className="flex justify-between text-xs font-bold text-tm-navy">Tagline <span className="font-semibold text-gray-500">{aboutHeadline.length} / {TAGLINE_MAX}</span></span>
+          <input value={aboutHeadline} maxLength={TAGLINE_MAX} onChange={(e) => setAboutHeadline(e.target.value)} className="min-h-[44px] w-full rounded-xl border border-gray-200 p-3 text-sm" />
+        </label>
+        <label className="block space-y-1">
+          <span className="flex justify-between text-xs font-bold text-tm-navy">About <span className="font-semibold text-gray-500">{aboutBio.length} / {BIO_MAX}</span></span>
+          <textarea value={aboutBio} maxLength={BIO_MAX} rows={6} onChange={(e) => setAboutBio(e.target.value)} className="w-full rounded-xl border border-gray-200 p-3 text-sm" />
+        </label>
+        <ReasonField value={aboutReason} onChange={setAboutReason} />
+        <button
+          type="button"
+          disabled={busy === 'set-about' || !aboutHeadline.trim() || !aboutBio.trim()}
+          onClick={async () => {
+            if (await postEdit('set-about', { headline: aboutHeadline.trim(), bio: aboutBio.trim() }, aboutReason)) setAboutReason('')
+          }}
+          className={SAVE_BTN}
+        >
+          {busy === 'set-about' ? 'Saving…' : 'Save tagline & About'}
+        </button>
       </Section>
 
       {/* Mobile */}

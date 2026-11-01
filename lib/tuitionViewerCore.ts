@@ -26,6 +26,12 @@ export type TuitionViewer =
       revealedContact: RevealedContact | null
       /** "pauses in N days" for the poster or an admin on an open tuition. */
       pauseLabel: string | null
+      /** Team-posted tuition (staff are its poster). */
+      teamPost: boolean
+      /** Whole days left before the tuition is hidden (poster tools only). */
+      pauseDaysLeft: number | null
+      /** When "Move to top" works again (ms), null = now. Poster tools only. */
+      refreshNextAt: number | null
     }
 
 /** Apply shows for a guest and a tutor on an open tuition, never for anyone else

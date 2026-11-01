@@ -8,7 +8,7 @@ import { useToast } from '@/components/ui/Toast'
 import { pauseConfirmText } from '@/lib/selfPauseCore'
 
 // "Pause my account" (owner, 8 Oct 2026), in Settings → Account for tutors and
-// parents. One button, one confirmation in English with Urdu; on Pause the
+// parents. One button, one confirmation in English; on Pause the
 // server hides the account, pauses a parent's open tuitions, signs every
 // device out, and this page goes to the sign-in screen. Signing in again
 // brings everything back (lib/selfPause.ts).
@@ -29,7 +29,7 @@ export default function PauseAccountCard() {
     const text = pauseConfirmText({ paidPlan })
     const ok = await confirm({
       title: 'Pause your account?',
-      body: `${text.en}\n\n${text.ur}`,
+      body: text.en,
       confirmLabel: 'Pause',
       cancelLabel: 'Cancel',
     })
@@ -55,9 +55,6 @@ export default function PauseAccountCard() {
     <div className="space-y-3">
       <p className="text-xs leading-relaxed text-slate-700">
         Hide your profile and sign out on every device. Sign in any time to bring it back. Nothing is deleted.
-      </p>
-      <p lang="ur" dir="rtl" className="text-[11px] leading-relaxed text-gray-500">
-        اپنی پروفائل چھپائیں اور ہر ڈیوائس سے سائن آؤٹ ہو جائیں۔ واپس لانے کے لیے کسی بھی وقت سائن اِن کریں۔ کچھ بھی حذف نہیں ہوتا۔
       </p>
       <button
         type="button"

@@ -247,12 +247,9 @@ export default function PackagesTable({
                 />
               ) : (
                 // Gated launch (PR98 §2): online payment is not open to this
-                // account yet. Plain note, no price, English + Urdu.
+                // account yet. Plain note, no price.
                 <p className="rounded-xl bg-tm-bg p-3 text-center text-[11px] font-semibold text-gray-500">
                   Online payment is not open yet.
-                  <span lang="ur" dir="rtl" className="mt-0.5 block text-gray-500">
-                    آن لائن ادائیگی ابھی دستیاب نہیں۔
-                  </span>
                 </p>
               )}
             </section>

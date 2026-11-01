@@ -77,7 +77,7 @@ export default function EmailCard() {
       setValue('')
       toast.success('Confirmation link sent. Check your inbox.')
     } catch {
-      toast.error('We could not reach TutorMint. Check your internet connection and try again.\nرابطہ نہیں ہو سکا۔ انٹرنیٹ چیک کر کے دوبارہ کوشش کریں۔')
+      toast.error('We could not reach TutorMint. Check your internet connection and try again.')
     } finally {
       sending.current = false
       setBusy(false)

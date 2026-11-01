@@ -39,9 +39,6 @@ export default function GetVerifiedValueCard({
       </div>
       <p className="mt-1.5 text-xs leading-relaxed text-tm-green-deep">
         Get verified to apply and contact parents directly.
-        <span lang="ur" dir="rtl" className="mt-0.5 block text-[11px] font-semibold">
-          تصدیق کروائیں تاکہ آپ درخواست دے سکیں اور والدین سے براہِ راست رابطہ کر سکیں۔
-        </span>
       </p>
       <Link
         href="/pay/choose?plan=verified"

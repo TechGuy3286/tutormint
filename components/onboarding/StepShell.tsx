@@ -52,6 +52,7 @@ export function StepShell({
   nextDisabled = false,
   busy = false,
   hideButton = false,
+  wide = false,
 }: {
   heading: string
   headingUr?: string
@@ -65,12 +66,15 @@ export function StepShell({
   nextDisabled?: boolean
   busy?: boolean
   hideButton?: boolean
+  /** Laptop (≥1024 px): a wider two-column window that fits 768 px tall
+   *  (owner, 2 Nov 2026). Phones are unchanged. */
+  wide?: boolean
 }) {
   const kb = useKeyboardInset()
 
   return (
     <div className="fixed inset-0 z-[60] overflow-y-auto bg-tm-bg">
-      <div className="mx-auto flex min-h-full max-w-[480px] flex-col px-4 pb-28">
+      <div className={`mx-auto flex min-h-full max-w-[480px] flex-col px-4 pb-28 ${wide ? 'lg:max-w-[960px] lg:pb-24' : ''}`} data-wide={wide ? '' : undefined}>
         {/* header */}
         <header className="sticky top-0 z-10 -mx-4 bg-tm-bg px-4 pb-2 pt-4">
           <div className="mb-2 flex items-center gap-3">
@@ -101,11 +105,11 @@ export function StepShell({
           </div>
         </header>
 
-        <main className="flex-1 pt-6">
-          <div className="mb-5 text-center">
+        <main className={`flex-1 pt-6 ${wide ? 'lg:pt-2' : ''}`}>
+          <div className={`mb-5 text-center ${wide ? 'lg:mb-3' : ''}`}>
             <h1 className="text-xl font-black text-tm-navy">{heading}</h1>
             {headingUr && (
-              <p lang="ur" dir="rtl" className="mt-0.5 text-sm leading-relaxed text-gray-500">
+              <p lang="ur" dir="rtl" className="tm-ur-cap text-xl font-bold leading-snug text-gray-500">
                 {headingUr}
               </p>
             )}
@@ -124,7 +128,7 @@ export function StepShell({
             paddingBottom: kb > 0 ? 12 : 'calc(12px + env(safe-area-inset-bottom))',
           }}
         >
-          <div className="mx-auto max-w-[480px] space-y-2">
+          <div className={`mx-auto max-w-[480px] space-y-2 ${wide ? 'lg:max-w-[960px]' : ''}`}>
             <button
               type="button"
               onClick={onNext}

@@ -106,9 +106,6 @@ export default function ViewNumberLink({
         <Link href={authHref('/register', pathname || '/', 'tutor')} className="font-bold text-tm-red hover:underline">
           Sign up first to view numbers
         </Link>
-        <span lang="ur" dir="rtl" className="ms-1 text-gray-500">
-          نمبر دیکھنے کے لیے پہلے سائن اپ کریں
-        </span>
       </span>
     )
   }

@@ -216,7 +216,7 @@ export async function revealStatus(tutorId: string, parentId: string): Promise<R
 
 export async function revealParentContact(tutorId: string, parentId: string): Promise<RevealResult> {
   const admin = createAdminClient()
-  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
+  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.' }
 
   const gate = await tutorGate(tutorId)
   if (!gate.ok) return gateFail(gate.status)
@@ -336,7 +336,7 @@ export async function revealJobContact(tutorId: string, jobId: string): Promise<
   // Consent not recorded + the switch on: refused BEFORE any check or spend,
   // so nothing is counted (owner, 27 Oct 2026).
   if (admin && (await numberHiddenFor(jobId))) return { ok: false, status: 403, error: HIDDEN_REVEAL_ERROR }
-  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
+  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.' }
 
   const gate = await tutorGate(tutorId)
   if (!gate.ok) return gateFail(gate.status)

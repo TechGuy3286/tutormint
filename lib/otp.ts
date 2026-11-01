@@ -80,24 +80,20 @@ export const LOCKED_MESSAGE = 'Too many incorrect attempts. Contact support to v
 export const RESET_CODE_TTL_MS = 10 * 60 * 1000
 export const RESET_DAILY_MAX = 3
 
-/** Every reset error, plain English + Urdu, never technical. The forms render
+/** Every reset error, plain English, never technical. The forms render
  *  exactly these; the daily-limit one is paired with the support WhatsApp link. */
 export const RESET_MESSAGES = {
   wrong: {
     en: 'That code is not right. Please check it and try again.',
-    ur: 'یہ کوڈ درست نہیں ہے۔ دوبارہ چیک کر کے کوشش کریں۔',
   },
   expired: {
     en: 'This code has expired. Please request a new one.',
-    ur: 'یہ کوڈ ختم ہو گیا ہے۔ براہِ کرم نیا کوڈ منگوائیں۔',
   },
   locked: {
     en: 'Too many wrong tries. Please request a new code.',
-    ur: 'بہت زیادہ غلط کوششیں۔ براہِ کرم نیا کوڈ منگوائیں۔',
   },
   dailyLimit: {
     en: 'You have reached today’s limit of 3 codes. Please try again tomorrow or contact support.',
-    ur: 'آج کی 3 کوڈز کی حد پوری ہو گئی ہے۔ کل دوبارہ کوشش کریں یا سپورٹ سے رابطہ کریں۔',
   },
 } as const
 

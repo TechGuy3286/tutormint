@@ -19,11 +19,6 @@ type Admin = NonNullable<ReturnType<typeof createAdminClient>>
  *  account holds the number. */
 export const NUMBER_TAKEN_MESSAGE =
   'This number is already on TutorMint. To use it for a second role, contact support on WhatsApp 0321 5872222.'
-
-/** The Urdu line shown beneath NUMBER_TAKEN_MESSAGE (PR79 §1). */
-export const NUMBER_TAKEN_MESSAGE_UR =
-  'یہ نمبر پہلے سے TutorMint پر ہے۔ اسے دوسرے کردار کے لیے استعمال کرنے کے لیے واٹس ایپ 0321 5872222 پر سپورٹ سے رابطہ کریں۔'
-
 /**
  * True when a DIFFERENT account already has this number VERIFIED
  * (phone_verified_at set). `exceptUserId` is the account being checked (skipped);

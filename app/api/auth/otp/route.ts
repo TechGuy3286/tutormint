@@ -9,7 +9,7 @@ import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 import { sendOtp, verifyOtp, consumeOtp } from '@/lib/otp'
 import { activatePausedIfListed } from '@/lib/payments/goLive'
 import { normalisePkMobile, formatPkMobile, syntheticEmail, isSyntheticEmail } from '@/lib/phone'
-import { numberSavedElsewhere, NUMBER_TAKEN_MESSAGE, NUMBER_TAKEN_MESSAGE_UR } from '@/lib/phoneAccount'
+import { numberSavedElsewhere, NUMBER_TAKEN_MESSAGE } from '@/lib/phoneAccount'
 import { recordTutorSelfChanges } from '@/lib/fieldHistory'
 import { RELOAD_AND_RETRY } from '@/lib/tutorSubjectCap'
 
@@ -31,11 +31,11 @@ import { RELOAD_AND_RETRY } from '@/lib/tutorSubjectCap'
 // instrumentation.ts, which refuses to boot a production server that has it.
 
 const OtpBody = z.object({
-  action: z.enum(['send', 'verify'], { message: 'That request was not understood. Reload the page and try again.\nیہ درخواست سمجھ نہیں آئی۔ صفحہ دوبارہ لوڈ کر کے کوشش کریں۔' }),
+  action: z.enum(['send', 'verify'], { message: 'That request was not understood. Reload the page and try again.' }),
   phone: pkMobile,
   // Kept loose on purpose: a wrong-length code is a wrong code, and telling
   // somebody their guess was the wrong SHAPE is a hint they did not need.
-  code: z.string({ message: RELOAD_AND_RETRY }).max(32, { message: 'That code is not right. Please check it and try again.\nیہ کوڈ درست نہیں۔ دوبارہ چیک کر کے کوشش کریں۔' }).optional(),
+  code: z.string({ message: RELOAD_AND_RETRY }).max(32, { message: 'That code is not right. Please check it and try again.' }).optional(),
 }, { message: RELOAD_AND_RETRY })
 
 export async function POST(request: Request) {
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return NextResponse.json({ error: 'Please sign in first, then try again.\nپہلے سائن ان کریں، پھر دوبارہ کوشش کریں۔' }, { status: 401 })
+    return NextResponse.json({ error: 'Please sign in first, then try again.' }, { status: 401 })
   }
 
   const parsed = await parseBody(request, OtpBody)
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
   // before any SMS goes out. Never reveals which account holds it.
   const admin = createAdminClient()
   if (admin && (await numberSavedElsewhere(admin, phone, user.id))) {
-    return NextResponse.json({ error: NUMBER_TAKEN_MESSAGE, errorUr: NUMBER_TAKEN_MESSAGE_UR }, { status: 409 })
+    return NextResponse.json({ error: NUMBER_TAKEN_MESSAGE }, { status: 409 })
   }
 
   // PR17 §3.2 — once a number is VERIFIED it is read-only; a change goes through

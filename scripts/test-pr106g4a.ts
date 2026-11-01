@@ -97,8 +97,8 @@ test('taglineForbidden blocks a phone/CNIC/address leak and passes clean copy', 
   assert.ok(taglineForbidden({ tagline: 'CNIC 3520112345671', bio: 'ok' }, {}), 'CNIC (13 digits) blocked')
   assert.ok(taglineForbidden({ tagline: 'Tutor', bio: 'Visit 42 Model Town Lahore' }, { address: '42 Model Town Lahore' }), 'own address blocked')
   assert.ok(taglineForbidden({ tagline: '', bio: 'x' }, {}), 'empty blocked')
-  // a fee range (≤ 6 digits with separators) is allowed
-  assert.equal(taglineForbidden({ tagline: 'Maths tutor', bio: 'Fees Rs 5,000 to 15,000.' }, {}), null, 'fee range allowed')
+  // No prices at all since 2 Nov 2026 (owner) — a fee range is refused too.
+  assert.equal(taglineForbidden({ tagline: 'Maths tutor', bio: 'Fees Rs 5,000 to 15,000.' }, {}), 'mentions a price', 'no prices')
 })
 
 test('buildTaglineUser lists the facts given and omits the blanks; the system prompt forbids inventing', () => {

@@ -4,8 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, RefreshCw } from 'lucide-react'
 
-import CnicCapture, { cnicChecklistItems, type CnicCaptureState } from '@/components/identity/CnicCapture'
-import { ChecklistStatus } from '@/components/forms/FormChecklist'
+import CnicCapture, { type CnicCaptureState } from '@/components/identity/CnicCapture'
 import type { ManualInstructions } from '@/lib/payments/provider'
 import type { IdentityState } from '@/lib/identity'
 import { afterFeeReturnPath, payChoiceHref } from '@/lib/returnTo'
@@ -152,7 +151,7 @@ export default function TutorVerifyGate({
           <span className="text-xs font-bold">
             {approved ? 'CNIC approved' : 'CNIC being checked'}
           </span>
-          <span className="text-[11px] font-semibold" lang="ur" dir="rtl">
+          <span className="tm-ur-cap text-xs font-bold leading-snug" lang="ur" dir="rtl">
             {approved ? 'شناختی کارڈ منظور ہو گیا' : 'شناختی کارڈ کی جانچ ہو رہی ہے'}
           </span>
         </div>
@@ -160,7 +159,7 @@ export default function TutorVerifyGate({
           <span className="text-xs font-semibold text-slate-700">
             Continue to become a verified tutor.
           </span>
-          <span className="text-[11px] text-gray-500" lang="ur" dir="rtl">
+          <span className="tm-ur-cap text-xs font-semibold leading-snug text-gray-500" lang="ur" dir="rtl">
             تصدیق شدہ ٹیوٹر بننے کے لیے آگے بڑھیں۔
           </span>
         </p>
@@ -181,7 +180,7 @@ export default function TutorVerifyGate({
       {/* One line — what to do. Nothing about what verification is, or the fee. */}
       <p className="flex flex-col leading-tight">
         <span className="text-xs font-semibold text-slate-700">Enter your CNIC, front and back.</span>
-        <span className="text-[11px] text-gray-500" lang="ur" dir="rtl">
+        <span className="tm-ur-cap text-xs font-semibold leading-snug text-gray-500" lang="ur" dir="rtl">
           اپنا شناختی کارڈ درج کریں — سامنے اور پیچھے
         </span>
       </p>
@@ -189,19 +188,18 @@ export default function TutorVerifyGate({
       {/* The ONE shared CNIC entry (PR81) — number with auto-dashes + front/back
           tiles + the checklist, identical to onboarding and Settings. The verify
           gate keeps its own action: Verify → checkout (unchanged). */}
-      <CnicCapture onState={setCap} />
+      <CnicCapture onState={setCap} hideChecklist split />
 
       {/* The apply-gate green box (owner PR): the capability verifying unlocks —
           applying. Not an outcome promise (no replies, students or income). */}
-      <p className="flex flex-col gap-0.5 rounded-xl bg-tm-tint-green p-3 leading-tight text-tm-green-deep">
-        <span className="text-xs font-bold">Once verified, you can apply to tuitions and jobs.</span>
-        <span className="text-[11px] font-semibold" lang="ur" dir="rtl">
+      <p className="flex flex-col rounded-xl bg-tm-tint-green px-3 py-2 leading-tight text-tm-green-deep" data-green-note="">
+        <span className="text-xs font-bold">Once verified, you can apply.</span>
+        <span className="tm-ur-cap text-xs font-bold leading-snug" lang="ur" dir="rtl">
           تصدیق کے بعد آپ ٹیوشنز اور جابز کے لیے اپلائی کر سکتے ہیں۔
         </span>
       </p>
 
-      {buttons}
-      {cap && <ChecklistStatus items={cnicChecklistItems(cap)} />}
+      <div className="sticky bottom-0 -mx-5 bg-white px-5 pb-1 pt-3 sm:-mx-6 sm:px-6" data-cnic-buttons="">{buttons}</div>
     </div>
   )
 }

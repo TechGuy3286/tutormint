@@ -159,12 +159,6 @@ export default async function TutorDashboardPage() {
       : tutorScope
         ? 'No tuitions in your areas yet — new ones are posted daily'
         : 'Add your area in Settings to see tuitions near you'
-  const findTuitionsLineUr =
-    tutorScope && boardCount > 0
-      ? 'آپ کے علاقوں میں ٹیوشنز'
-      : tutorScope
-        ? 'ابھی آپ کے علاقوں میں کوئی ٹیوشن نہیں — روزانہ نئی ٹیوشنز آتی ہیں'
-        : 'اپنے قریب ٹیوشنز دیکھنے کے لیے سیٹنگز میں اپنا علاقہ شامل کریں'
   const findTuitionsHref = '/browse/tuitions'
 
   // The shared-pool applications quota (PR106-D §9): shown on the My-applications
@@ -255,9 +249,6 @@ export default async function TutorDashboardPage() {
             <p className="text-sm font-black text-tm-red-hover">
               Please upload a correct {ent.rejectedDoc.label} to continue.
             </p>
-            <p lang="ur" dir="rtl" className="text-[11px] font-semibold text-tm-red-hover/90">
-              جاری رکھنے کے لیے درست {ent.rejectedDoc.labelUr} اپلوڈ کریں۔
-            </p>
             <Link
               href={ent.reuploadHref ?? '/tutor/dashboard/settings#identity'}
               className="inline-flex min-h-[40px] items-center justify-center rounded-xl bg-tm-red px-5 text-xs font-bold text-white hover:bg-tm-red-hover"
@@ -285,7 +276,6 @@ export default async function TutorDashboardPage() {
           href={findTuitionsHref}
           label="Find tuitions to apply for"
           line={findTuitionsLine}
-          lineUr={findTuitionsLineUr}
           tone="green"
           icon={<Search aria-hidden size={20} />}
         />

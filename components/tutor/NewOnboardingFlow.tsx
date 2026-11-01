@@ -347,6 +347,7 @@ export default function NewOnboardingFlow({
     hideButton?: boolean
     headingEn?: string
     headingUr?: string
+    wide?: boolean
   }) => (
     <StepShell
       heading={opts.headingEn ?? title.en}
@@ -360,6 +361,7 @@ export default function NewOnboardingFlow({
       nextDisabled={opts.nextDisabled}
       busy={busy}
       hideButton={opts.hideButton}
+      wide={opts.wide}
     >
       {flowError && (
         <div role="alert" className="mb-4 rounded-xl border border-tm-red/30 bg-tm-tint-red p-3 whitespace-pre-line text-xs font-semibold leading-relaxed text-tm-red-hover">
@@ -561,6 +563,7 @@ type ShellFn = (opts: {
   hideButton?: boolean
   headingEn?: string
   headingUr?: string
+  wide?: boolean
 }) => React.ReactElement
 
 // ---------------------------------------------------------------- City ------
@@ -1232,10 +1235,11 @@ function PhotoStep({ seed, current, shell, onSave, onError }: { seed: string; cu
     } catch (e) { onError(e instanceof Error ? e.message : 'We couldn’t upload that photo. Please try again.') } finally { setUploading(false) }
   }
   return shell({
-    onNext: () => {}, hideButton: !preview, nextDisabled: !preview,
+    onNext: () => {}, hideButton: !preview, nextDisabled: !preview, wide: true,
     children: (
-      <div className="space-y-2">
+      <div className="space-y-2 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:space-y-0" data-two-col="">
         {dialog}
+        <div className="space-y-2 lg:order-2">
         {photoView !== 'open' && <DocLockNotice view={photoView} doc="photo" />}
         {canPick(photoView) ? (
           <CaptureButtons facingMode="environment" busy={uploading} done={!!preview}
@@ -1244,9 +1248,12 @@ function PhotoStep({ seed, current, shell, onSave, onError }: { seed: string; cu
           // eslint-disable-next-line @next/next/no-img-element -- the tutor's own approved photo
           <img src={preview} alt="Your photo" className="mx-auto h-32 w-32 rounded-2xl object-cover" />
         ) : null}
+        </div>
+        <div className="space-y-2 lg:order-1">
         {/* Hide my photo from parents (owner, 17 Oct 2026): off by default. */}
         <HidePhotoToggle />
-        <div className="text-center"><TermsLink /></div>
+        <div className="text-center lg:text-left"><TermsLink /></div>
+        </div>
       </div>
     ),
   })
@@ -1274,15 +1281,19 @@ function SelfieStep({ done, initialPreview, shell, onDone, onError }: { done: bo
     } catch (e) { onError(e instanceof Error ? e.message : 'We couldn’t upload that selfie. Please try again.') } finally { setUploading(false) }
   }
   return shell({
-    onNext: onDone, nextDisabled: !uploaded,
+    onNext: onDone, nextDisabled: !uploaded, wide: true,
     children: (
-      <div className="space-y-2">
-        {selfieView !== 'open' && <DocLockNotice view={selfieView} doc="selfie" />}
+      <div className="space-y-2 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:space-y-0" data-two-col="">
+        <div className="space-y-2 lg:order-2">
         {canPick(selfieView) && (
         <LiveSelfieCapture busy={uploading} done={uploaded}
           preview={preview ? (<img src={preview} alt="Your selfie" className="h-full w-full object-cover" />) : null} onCapture={(f) => void upload(f)} />
         )}
-        <div className="text-center"><TermsLink /></div>
+        </div>
+        <div className="space-y-2 lg:order-1">
+        {selfieView !== 'open' && <DocLockNotice view={selfieView} doc="selfie" />}
+        <div className="text-center lg:text-left"><TermsLink /></div>
+        </div>
       </div>
     ),
   })
@@ -1344,12 +1355,12 @@ function NewCnicPhotos({ shell, onDone, onError, initial }: {
     } finally { setBusy(false) }
   }
   return shell({
-    onNext: () => void submit(), nextDisabled: !front || !back,
+    onNext: () => void submit(), nextDisabled: !front || !back, wide: true,
     children: (
-      <div className="space-y-5">
+      <div className="space-y-5 lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0" data-two-col="">
         <CnicSideCapture side="front" initialPreview={initial.frontPreview} onDone={() => setFront(true)} onError={onError} />
         <CnicSideCapture side="back" initialPreview={initial.backPreview} onDone={() => setBack(true)} onError={onError} />
-        <div className="text-center"><TermsLink /></div>
+        <div className="text-center lg:col-span-2"><TermsLink /></div>
       </div>
     ),
   })

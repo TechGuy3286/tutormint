@@ -176,7 +176,7 @@ export async function readPendingMobile(token: string | undefined | null): Promi
 
 export type VerifyPendingResult =
   | { ok: true; userId: string; role: 'tutor' | 'parent'; email: string; bridged: boolean }
-  | { ok: false; status: number; error: string; errorUr?: string; reason: 'expired' | 'locked' | 'wrong' | 'blocked' | 'exists' | 'server'; attemptsLeft?: number }
+  | { ok: false; status: number; error: string; reason: 'expired' | 'locked' | 'wrong' | 'blocked' | 'exists' | 'server'; attemptsLeft?: number }
 
 /**
  * Verify a pending code and, on success, CREATE THE ACCOUNT — this is the step
@@ -300,7 +300,6 @@ export async function verifyPendingSignup(opts: {
       ok: false,
       status: 500,
       error: AUTH_MSG.accountCreateFailed.en,
-      errorUr: AUTH_MSG.accountCreateFailed.ur,
       reason: 'server',
     }
   }
@@ -318,7 +317,7 @@ export async function verifyPendingSignup(opts: {
   if (!made.ok) {
     console.error('[register/verify] ensureProfile failed:', (made as { error?: string }).error ?? '(unknown)')
     await admin.auth.admin.deleteUser(userId)
-    return { ok: false, status: 500, error: AUTH_MSG.accountCreateFailed.en, errorUr: AUTH_MSG.accountCreateFailed.ur, reason: 'server' }
+    return { ok: false, status: 500, error: AUTH_MSG.accountCreateFailed.en, reason: 'server' }
   }
 
   // The number is already proved — mark it verified now, so the account is
@@ -344,7 +343,6 @@ export async function verifyPendingSignup(opts: {
       ok: false,
       status: 500,
       error: AUTH_MSG.accountCreateFailed.en,
-      errorUr: AUTH_MSG.accountCreateFailed.ur,
       reason: 'server',
     }
   }

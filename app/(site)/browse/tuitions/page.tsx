@@ -361,18 +361,6 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
               <p className="text-xs font-semibold text-tm-navy">
                 Verified tutors can apply to tuitions and contact parents directly.
               </p>
-              {/* Urdu line (PR59), same font stack as the Membership Plans box. */}
-              <p
-                lang="ur"
-                dir="rtl"
-                className="text-right text-xs font-semibold leading-loose text-tm-navy"
-                style={{
-                  fontFamily:
-                    "'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', 'Nafees Nastaleeq', 'Urdu Typesetting', 'Segoe UI', system-ui, sans-serif",
-                }}
-              >
-                تصدیق شدہ ٹیوٹرز ٹیوشنز کے لیے اپلائی کر سکتے ہیں اور والدین سے براہ راست رابطہ کر سکتے ہیں۔
-              </p>
             </div>
             <Link
               href="/tutor/complete-profile?step=verify"
@@ -395,7 +383,6 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
         {feedMessage && (
           <p className="rounded-xl border border-tm-gold/30 bg-tm-tint-gold px-3 py-2.5 text-xs font-semibold leading-relaxed text-tm-gold-ink">
             {feedMessage.en}
-            <span lang="ur" dir="rtl" className="mt-0.5 block font-medium">{feedMessage.ur}</span>
           </p>
         )}
 
@@ -406,7 +393,6 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
             Add your city and areas in{' '}
             <Link href="/tutor/dashboard/settings" className="font-bold underline">Settings</Link>{' '}
             to see tuitions near you.
-            <span lang="ur" dir="rtl" className="ms-1 text-gray-500">اپنے قریب ٹیوشنز دیکھنے کے لیے سیٹنگز میں اپنا شہر اور علاقے شامل کریں۔</span>
           </p>
         )}
 

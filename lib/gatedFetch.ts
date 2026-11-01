@@ -57,7 +57,7 @@ export async function postGated<T = unknown>(
     return {
       ok: false,
       gated: false,
-      error: submitError(e, 'We could not reach TutorMint. Check your internet connection and try again.\nرابطہ نہیں ہو سکا۔ انٹرنیٹ چیک کر کے دوبارہ کوشش کریں۔'),
+      error: submitError(e, 'We could not reach TutorMint. Check your internet connection and try again.'),
     }
   }
 
@@ -88,7 +88,7 @@ export async function postGated<T = unknown>(
   return {
     ok: false,
     gated: false,
-    error: json.error ?? 'That did not go through. Please try again, or message us on WhatsApp 0321 5872222.\nیہ مکمل نہیں ہوا۔ دوبارہ کوشش کریں یا واٹس ایپ پر پیغام کریں۔',
+    error: json.error ?? 'That did not go through. Please try again, or message us on WhatsApp 0321 5872222.',
     similarHref: typeof json.similarHref === 'string' ? json.similarHref : undefined,
     duplicate: json.duplicate ?? undefined,
   }

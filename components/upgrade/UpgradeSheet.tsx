@@ -103,7 +103,7 @@ export default function UpgradeSheet({ gate, onClose }: { gate: Gate; onClose: (
         role="dialog"
         aria-modal="true"
         aria-labelledby="upgrade-sheet-title"
-        className="w-full max-w-md rounded-t-3xl bg-white p-5 shadow-lg sm:rounded-3xl sm:p-6"
+        className={`max-h-[100dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-5 shadow-lg sm:rounded-3xl sm:p-6 ${tutorVerify ? 'lg:max-w-3xl' : ''}`}
       >
         {/* Grab handle: the affordance that says "this slides away", on mobile only. */}
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-200 sm:hidden" aria-hidden />

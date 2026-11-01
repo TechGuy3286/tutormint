@@ -52,10 +52,9 @@ test('a raw account-creation failure maps to the friendly bilingual message, not
     assert.ok(cls, `classified: ${raw}`)
     assert.equal(cls!.key, 'accountCreateFailed')
   }
-  // The member-facing text is the owner's exact line + an Urdu line, and never
+  // The member-facing text is the owner's exact line, and never
   // the raw "Database error".
   assert.match(AUTH_MSG.accountCreateFailed.en, /Something went wrong creating your account/)
   assert.match(AUTH_MSG.accountCreateFailed.en, /0321 5872222/)
-  assert.ok(AUTH_MSG.accountCreateFailed.ur.length > 0)
   assert.ok(!/database error/i.test(AUTH_MSG.accountCreateFailed.en))
 })

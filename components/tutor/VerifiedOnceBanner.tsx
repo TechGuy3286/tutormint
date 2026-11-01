@@ -44,9 +44,6 @@ export default function VerifiedOnceBanner() {
         }`}
       >
         <p className="text-sm font-black text-tm-green-deep">✓ You&rsquo;re verified! You can now apply to tuitions.</p>
-        <p lang="ur" dir="rtl" className="mt-0.5 text-[11px] font-semibold text-tm-green-deep/80">
-          آپ کی تصدیق ہو گئی ہے! اب آپ ٹیوشنز کے لیے اپلائی کر سکتے ہیں۔
-        </p>
       </div>
     </div>
   )

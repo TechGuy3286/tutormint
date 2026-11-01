@@ -148,6 +148,8 @@ export const AUDIT_LABELS: Record<string, string> = {
   'staff.suspend': 'Staff access suspended',
   'staff.reactivate': 'Staff access restored',
   'staff.signup_credit': 'Sign-up credited to a staff member',
+  'staff.signup_credit_refused': 'Sign-up credited to Admin: the account matches the staff member',
+  'staff.join_date_set': 'Joining date set by the Owner',
   'staff.signup_claim': 'Staff claimed this sign-up',
   'staff.signup_claim_approve': 'Staff sign-up claim approved',
   'staff.signup_claim_reject': 'Staff sign-up claim rejected',

@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useToast } from '@/components/ui/Toast'
-import { WELCOME_BACK, WELCOME_BACK_UR } from '@/lib/selfPauseCore'
+import { WELCOME_BACK } from '@/lib/selfPauseCore'
 
 // No silent transitions (owner, 9 Sep). Verifying an email happens server-side
 // in /api/auth/callback, so there is no verification screen to confirm it on —
@@ -38,8 +38,7 @@ function VerifiedToastInner() {
   useEffect(() => {
     if (fired.current) return
     const message = welcome
-      ? `${WELCOME_BACK}
-${WELCOME_BACK_UR}`
+      ? WELCOME_BACK
       : paid
         ? 'Payment received. Thank you!'
         : verified

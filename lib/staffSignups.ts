@@ -1,4 +1,6 @@
 import 'server-only'
+import { deviceMarksFor, recordDeviceMark, type DeviceMark } from './deviceMark'
+import { selfReferralMatch, SELF_REFERRAL_REFUSAL, type SelfReferralPerson } from './selfReferralCore'
 
 // lib/staffSignups.ts
 //
@@ -75,6 +77,30 @@ type StaffRow = {
   whatsapp: string | null
   admin_role: string | null
   is_suspended: boolean | null
+}
+
+/** Does this new account match the staff member (phone, CNIC, or name +
+ *  device/IP)? lib/selfReferralCore decides. */
+async function selfReferralFor(admin: Admin, memberId: string, staffId: string) {
+  const { data } = await admin
+    .from('profiles')
+    .select('id, full_name, phone_number, whatsapp, secondary_phone, cnic_number')
+    .in('id', [memberId, staffId])
+  const marks = await deviceMarksFor([memberId, staffId])
+  const person = (id: string): SelfReferralPerson | null => {
+    const p = (data ?? []).find((x) => x.id === id)
+    if (!p) return null
+    return {
+      name: (p.full_name as string | null) ?? null,
+      phones: [p.phone_number, p.whatsapp, p.secondary_phone] as (string | null)[],
+      cnic: (p.cnic_number as string | null) ?? null,
+      devices: marks.get(id)?.devices ?? [],
+      ips: marks.get(id)?.ips ?? [],
+    }
+  }
+  const m = person(memberId)
+  const st = person(staffId)
+  return m && st ? selfReferralMatch(m, st) : { match: false, reasons: [] }
 }
 
 async function loadStaff(admin: Admin): Promise<StaffRow[]> {
@@ -297,10 +323,13 @@ export async function creditNewAccount(
   memberId: string,
   visitId: string | null | undefined,
   nowMs = Date.now(),
+  mark?: DeviceMark | null,
 ): Promise<{ credited: boolean; reason?: string; direct?: boolean }> {
   try {
     const admin = createAdminClient()
     if (!admin) return { credited: false, reason: 'no_admin' }
+    // The sign-up's device and IP, as hashes (Part H, 2 Nov 2026).
+    if (mark) await recordDeviceMark(memberId, 'signup', mark)
     const visit = await loadVisit(admin, visitId)
     if (!visit || !visitValid(visit, nowMs)) return creditDirect(admin, memberId, 'no_credit')
     const staff = await loadStaff(admin)
@@ -313,6 +342,21 @@ export async function creditNewAccount(
     if (!facts) return { credited: false, reason: 'not_member' }
     const refusal = linkCreditRefusal(facts, visit, contactsOf(staff))
     if (refusal) return creditDirect(admin, memberId, refusal)
+    // No self-referral credit (owner, 2 Nov 2026): an account that matches the
+    // staff member whose link it came through goes to Admin, reason logged.
+    const self = await selfReferralFor(admin, memberId, visit.staffId)
+    if (self.match) {
+      await logAdminAction({
+        actorId: visit.staffId,
+        actorRole: (referrer.admin_role ?? 'tuitions_staff') as AdminRole,
+        actorEmail: referrer.email,
+        action: 'staff.signup_credit_refused',
+        targetType: 'profile',
+        targetId: memberId,
+        detail: { reason: SELF_REFERRAL_REFUSAL, matched: self.reasons, creditedTo: 'admin', visitId: visit.id },
+      })
+      return creditDirect(admin, memberId, SELF_REFERRAL_REFUSAL)
+    }
     const source = await visitSource(admin, visit.id)
     const { data: inserted } = await admin
       .from('staff_signup_credits')

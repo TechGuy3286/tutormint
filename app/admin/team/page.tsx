@@ -1,7 +1,10 @@
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
-import TeamClient, { type StaffRow } from './TeamClient'
+import TeamClient, { type StaffRow, type FormerStaffRow } from './TeamClient'
 import { formatName } from '@/lib/formatName'
+import { loadTenureFacts } from '@/lib/staffTenure'
+import { tenureView } from '@/lib/staffTenureCore'
+import { ROLE_LABEL } from '@/lib/adminAuth'
 
 // Staff management. Owner only.
 //
@@ -55,6 +58,28 @@ export default async function AdminTeamPage() {
     }),
   )
 
+  // Joining dates (owner, 2 Nov 2026, Part G) — current and former staff.
+  const { data: former } = await admin
+    .from('profiles')
+    .select('id, full_name, former_staff_at, former_staff_role')
+    .not('former_staff_at', 'is', null)
+    .order('former_staff_at', { ascending: false })
+  const tenure = await loadTenureFacts(admin, [...(staff ?? []), ...(former ?? [])].map((s) => s.id as string))
+  const viewOf = (id: string, role: string | null, formerAt: string | null) =>
+    tenureView({
+      stored: tenure.stored.get(id) ?? null,
+      audit: tenure.audit.get(id) ?? [],
+      adminRole: role,
+      roleLabel: role ? (ROLE_LABEL as Record<string, string>)[role] ?? role : null,
+      formerAt,
+    })
+  const formerRows: FormerStaffRow[] = (former ?? []).map((f) => ({
+    id: f.id as string,
+    name: formatName(f.full_name as string | null) || '—',
+    roleLabel: (ROLE_LABEL as Record<string, string>)[(f.former_staff_role as string) ?? ''] ?? null,
+    tenure: viewOf(f.id as string, null, f.former_staff_at as string),
+  }))
+
   const rows: StaffRow[] = (staff ?? []).map((s) => ({
     id: s.id as string,
     name: formatName(s.full_name as string | null) || '—',
@@ -67,7 +92,8 @@ export default async function AdminTeamPage() {
     twoFactorOn: twoFactorOn.has(s.id as string),
     createdAt: s.created_at as string,
     isMe: (s.id as string) === actor.id,
+    tenure: viewOf(s.id as string, s.admin_role as string, null),
   }))
 
-  return <TeamClient staff={rows} viewerRole={actor.adminRole} />
+  return <TeamClient staff={rows} former={formerRows} viewerRole={actor.adminRole} />
 }

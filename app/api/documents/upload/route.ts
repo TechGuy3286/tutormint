@@ -31,13 +31,13 @@ export async function POST(request: Request) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Please sign in first, then try again.\nپہلے سائن ان کریں، پھر دوبارہ کوشش کریں۔' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Please sign in first, then try again.' }, { status: 401 })
 
   let form: FormData
   try {
     form = await request.formData()
   } catch {
-    return NextResponse.json({ error: 'We could not read that file. Please choose it again.\nیہ فائل پڑھی نہیں جا سکی۔ براہِ کرم دوبارہ منتخب کریں۔' }, { status: 400 })
+    return NextResponse.json({ error: 'We could not read that file. Please choose it again.' }, { status: 400 })
   }
 
   const kind = form.get('kind')

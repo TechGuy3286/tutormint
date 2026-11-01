@@ -12,7 +12,7 @@ import BadgeRow from '@/components/badges/BadgeRow'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import TimeAgo from '@/components/TimeAgo'
-import { TEAM_POSTER_LABEL } from '@/lib/teamPosterCore'
+import { VERIFIED_TUITION_LABEL } from '@/lib/teamPosterCore'
 import { budgetLabel } from '@/lib/feeBands'
 import { jobByPublicSlug, similarOpenTuitions } from '@/lib/jobFeed'
 import { isHiddenTuition } from '@/lib/hiddenTuitionCore'
@@ -487,7 +487,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
         {job.posted_by_team && (
           <p className="inline-flex items-center gap-1.5 rounded-full bg-tm-tint-navy px-3 py-1 text-xs font-black text-tm-navy" data-team-poster="">
             <ShieldCheck aria-hidden size={13} />
-            {TEAM_POSTER_LABEL}
+            {VERIFIED_TUITION_LABEL}
           </p>
         )}
 

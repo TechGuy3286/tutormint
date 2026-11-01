@@ -7,7 +7,6 @@ import { Check } from 'lucide-react'
 import { STUCK_MESSAGE, armEscape, submitJson } from '@/lib/submit'
 import OtpCodeEntry, { OtpErrorBlock } from '@/components/auth/OtpCodeEntry'
 import { useToast } from '@/components/ui/Toast'
-import { GENERIC_ERROR } from '@/lib/errorMessages'
 
 // Pre-auth code entry for a mobile signup (owner, 11 Sep 2026; cleaned up
 // PR106-G §3). There is NO account and NO session yet: a pending_signups row
@@ -18,7 +17,7 @@ import { GENERIC_ERROR } from '@/lib/errorMessages'
 // Top to bottom (§6): a small green "✓ OTP sent to <masked>", the 6-digit box,
 // "Verify and then Sign In", then two small links — "Change number" and
 // "Didn't get the OTP? Use email instead". Errors render as one short line
-// under the box via OtpCodeEntry (English + Urdu), never raw technical text.
+// under the box via OtpCodeEntry (plain English), never raw technical text.
 
 export default function PendingVerifyForm({ next, sentTo }: { next: string | null; sentTo?: string | null }) {
   const router = useRouter()
@@ -27,7 +26,6 @@ export default function PendingVerifyForm({ next, sentTo }: { next: string | nul
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [errorUr, setErrorUr] = useState<string | null>(null)
   const [errorRef, setErrorRef] = useState<string | null>(null)
   const [terminal, setTerminal] = useState(false) // expired / locked → start over
   const [stuckHref, setStuckHref] = useState<string | null>(null)
@@ -35,19 +33,16 @@ export default function PendingVerifyForm({ next, sentTo }: { next: string | nul
   async function submit() {
     setBusy(true)
     setError('')
-    setErrorUr(null)
     setErrorRef(null)
 
     const { ok, data, error: failed } = await submitJson<{
       next?: string
       reason?: string
-      errorUr?: string
       ref?: string
     }>('/api/auth/register/verify', { code, next: next ?? undefined })
 
     if (!ok) {
       setError(failed ?? 'That code was not accepted.')
-      setErrorUr(data?.errorUr ?? (data?.ref ? GENERIC_ERROR.ur : null))
       setErrorRef(data?.ref ?? null)
       if (data?.reason === 'expired' || data?.reason === 'locked' || data?.reason === 'exists' || data?.reason === 'blocked') {
         setTerminal(true)
@@ -76,7 +71,7 @@ export default function PendingVerifyForm({ next, sentTo }: { next: string | nul
   if (terminal) {
     return (
       <div className="space-y-4">
-        <OtpErrorBlock error={error || null} errorUr={errorUr} errorRef={errorRef} stuckHref={stuckHref}>
+        <OtpErrorBlock error={error || null} errorRef={errorRef} stuckHref={stuckHref}>
           <Link
             href="/register"
             className="inline-flex min-h-[40px] items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white hover:bg-tm-red-hover"
@@ -106,7 +101,6 @@ export default function PendingVerifyForm({ next, sentTo }: { next: string | nul
         verifyLabel="Verify and then Sign In"
         verifyLabelUr="تصدیق کریں اور سائن ان ہوں"
         error={error || null}
-        errorUr={errorUr}
         errorRef={errorRef}
         stuckHref={stuckHref}
       />

@@ -8,6 +8,7 @@ import { verifyPendingSignup, PENDING_COOKIE } from '@/lib/pendingSignup'
 import { homeForRole, nextForRole } from '@/lib/authRoutes'
 import { newTutorDestination } from '@/lib/returnTo'
 import { creditNewAccount } from '@/lib/staffSignups'
+import { deviceMarkFrom } from '@/lib/deviceMark'
 import { STAFF_REF_COOKIE } from '@/lib/staffSignupsCore'
 
 // Verify a pending mobile signup — and CREATE THE ACCOUNT.
@@ -53,7 +54,7 @@ export async function POST(request: Request) {
     // gone, so clear the cookie too — the screen offers "start over".
     if (result.reason !== 'wrong') jar.delete(PENDING_COOKIE)
     return NextResponse.json(
-      { error: result.error, errorUr: result.errorUr, reason: result.reason, attemptsLeft: result.attemptsLeft },
+      { error: result.error, reason: result.reason, attemptsLeft: result.attemptsLeft },
       { status: result.status },
     )
   }
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
   // Sign-ups by staff (owner, 15 Oct 2026): a mobile sign-up is credited here,
   // where the account is created, from the join link / staff code the browser
   // still holds. Silent: a missing or refused credit never affects the sign-up.
-  await creditNewAccount(result.userId, jar.get(STAFF_REF_COOKIE)?.value ?? null)
+  await creditNewAccount(result.userId, jar.get(STAFF_REF_COOKIE)?.value ?? null, Date.now(), deviceMarkFrom(request))
 
   // Mint a session WITHOUT the plaintext password: an admin magic-link token,
   // verified on the cookie-backed client, signs the member in — the same

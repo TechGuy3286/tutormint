@@ -1,4 +1,5 @@
 import { NextResponse, after } from 'next/server'
+import { TAGLINE_MAX, BIO_MAX } from '@/lib/ai/taglineBrief'
 import { markOnboardedIfComplete } from '@/lib/onboardingDone'
 import { createClient } from '@/lib/supabase/server'
 import { flagIfAbusive } from '@/lib/abuse/flag'
@@ -48,8 +49,8 @@ type Body = {
 // handled below by role, so a blanket profiles.city write here would send the
 // tutor's city to the wrong column — the exact split PR 3b closes.
 const TOO_MANY_AREAS =
-  'You picked a lot of areas. Please keep only the ones you teach in.\nآپ نے بہت زیادہ علاقے چنے ہیں۔ صرف وہ رکھیں جہاں آپ پڑھاتے ہیں۔'
-const AREA_TOO_LONG = 'That area name is too long. Please shorten it.\nعلاقے کا نام بہت لمبا ہے۔ اسے مختصر کریں۔'
+  'You picked a lot of areas. Please keep only the ones you teach in.'
+const AREA_TOO_LONG = 'That area name is too long. Please shorten it.'
 
 const PROFILE_FIELDS = new Set(['full_name', 'province', 'address', 'cnic_number', 'whatsapp'])
 const TUTOR_FIELDS = new Set([
@@ -89,7 +90,7 @@ export async function POST(request: Request) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Please sign in first, then try again.\nپہلے سائن ان کریں، پھر دوبارہ کوشش کریں۔' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Please sign in first, then try again.' }, { status: 401 })
 
   // The allowlists below decide which COLUMNS may be written; this decides the
   // shape. Both are needed: a schema alone would let a renamed field through,
@@ -127,6 +128,10 @@ export async function POST(request: Request) {
   const nameIn = typeof body.profile?.full_name === 'string' ? body.profile.full_name : null
   const headlineIn = typeof body.tutorProfile?.headline === 'string' ? body.tutorProfile.headline : null
   const bioIn = typeof body.tutorProfile?.bio === 'string' ? body.tutorProfile.bio : null
+  // Tagline & About limits (owner, 2 Nov 2026, Part F).
+  if ((headlineIn && headlineIn.trim().length > TAGLINE_MAX) || (bioIn && bioIn.trim().length > BIO_MAX)) {
+    return NextResponse.json({ error: `Keep the tagline under ${TAGLINE_MAX} characters and About you under ${BIO_MAX}.` }, { status: 400 })
+  }
   const nameAbusive = !!nameIn && detectAbuse(nameIn).length > 0
   const headlineAbusive = !!headlineIn && detectAbuse(headlineIn).length > 0
   const bioAbusive = !!bioIn && detectAbuse(bioIn).length > 0

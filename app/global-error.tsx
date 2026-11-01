@@ -54,11 +54,8 @@ export default function GlobalError({
           <h1 style={{ margin: '0 0 10px', fontSize: '18px', fontWeight: 800, color: BRAND.navy }}>
             The site failed to load
           </h1>
-          <p style={{ margin: '0 0 6px', fontSize: '14px', lineHeight: 1.6 }}>
+          <p style={{ margin: '0 0 20px', fontSize: '14px', lineHeight: 1.6 }}>
             {GENERIC_ERROR.en}
-          </p>
-          <p dir="rtl" lang="ur" style={{ margin: '0 0 20px', fontSize: '13px', lineHeight: 1.7, color: NEUTRAL.slate700 }}>
-            {GENERIC_ERROR.ur}
           </p>
 
           <button

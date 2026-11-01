@@ -10,6 +10,7 @@ import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
+import type { TenureView } from '@/lib/staffTenureCore'
 
 // The Team screen.
 //
@@ -38,6 +39,65 @@ export type StaffRow = {
   twoFactorOn: boolean
   createdAt: string
   isMe: boolean
+  /** Joined / role since lines (owner, 2 Nov 2026, Part G). */
+  tenure: TenureView
+}
+
+/** A former staff member: shown below the roster with Joined and Left. */
+export type FormerStaffRow = { id: string; name: string; roleLabel: string | null; tenure: TenureView }
+
+/** The Owner's "Set date" for a card with no joining record. Logged. */
+function SetJoinDate({ staffId }: { staffId: string }) {
+  const router = useRouter()
+  const toast = useToast()
+  const [open, setOpen] = useState(false)
+  const [date, setDate] = useState('')
+  const [time, setTime] = useState('')
+  const [busy, setBusy] = useState(false)
+  if (!open)
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="ml-2 text-[11px] font-bold text-tm-red underline">
+        Set date
+      </button>
+    )
+  const save = async () => {
+    setBusy(true)
+    const r = await adminFetch<{ error?: string }>('/api/admin/team/joined', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ staffId, date, time: time || undefined }),
+    })
+    setBusy(false)
+    if (!r.ok) return toast.error(r.data?.error ?? 'That did not save. Please try again.')
+    toast.success('Joining date saved.')
+    setOpen(false)
+    router.refresh()
+  }
+  return (
+    <span className="mt-1 flex flex-wrap items-center gap-1.5">
+      <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="min-h-[36px] rounded-lg border border-gray-200 px-2 text-xs" aria-label="Joining date" />
+      <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="min-h-[36px] rounded-lg border border-gray-200 px-2 text-xs" aria-label="Joining time (optional)" />
+      <button type="button" disabled={!date || busy} onClick={save} className="min-h-[36px] rounded-lg bg-tm-red px-3 text-xs font-bold text-white disabled:opacity-60">
+        {busy ? 'Saving…' : 'Save'}
+      </button>
+      <button type="button" onClick={() => setOpen(false)} className="min-h-[36px] px-2 text-xs font-bold text-slate-700">
+        Cancel
+      </button>
+    </span>
+  )
+}
+
+function TenureLines({ tenure, canSet, staffId }: { tenure: TenureView; canSet: boolean; staffId: string }) {
+  return (
+    <div className="space-y-0.5 text-[11px] text-slate-700" data-tenure="">
+      <p>
+        {tenure.joinedLine}
+        {!tenure.joinedRecorded && canSet && <SetJoinDate staffId={staffId} />}
+      </p>
+      {tenure.roleSinceLine && <p>{tenure.roleSinceLine}</p>}
+      {tenure.leftLine && <p>{tenure.leftLine}</p>}
+    </div>
+  )
 }
 
 const ROLES = [
@@ -82,7 +142,7 @@ function inviteState(s: StaffRow): 'accepted' | 'invited' | 'expired' {
   return Number.isFinite(age) && age > INVITE_TTL_MS ? 'expired' : 'invited'
 }
 
-export default function TeamClient({ staff, viewerRole }: { staff: StaffRow[]; viewerRole: StaffRow['adminRole'] }) {
+export default function TeamClient({ staff, former = [], viewerRole }: { staff: StaffRow[]; former?: FormerStaffRow[]; viewerRole: StaffRow['adminRole'] }) {
   // A Partner sees the roster and every real role, and changes nothing
   // (owner, 8 Oct 2026); the server refuses their writes regardless.
   const readOnly = useAdminReadOnly()
@@ -620,6 +680,7 @@ export default function TeamClient({ staff, viewerRole }: { staff: StaffRow[]; v
                   )}
                 </p>
                 <p className="truncate text-[11px] text-gray-500">{shownEmail(s.email)}</p>
+                <TenureLines tenure={s.tenure} canSet={viewerRole === 'owner'} staffId={s.id} />
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 {s.twoFactorOn ? (
@@ -777,6 +838,23 @@ export default function TeamClient({ staff, viewerRole }: { staff: StaffRow[]; v
           )
         })}
       </ul>
+
+      {former.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-sm font-black text-tm-navy">Former staff</h2>
+          <ul className="space-y-2">
+            {former.map((f) => (
+              <li key={f.id} className="rounded-2xl border border-gray-200 bg-white p-4">
+                <p className="text-sm font-black text-tm-navy">
+                  {f.name}
+                  {f.roleLabel && <span className="ml-2 text-[11px] font-semibold text-gray-500">was {f.roleLabel}</span>}
+                </p>
+                <TenureLines tenure={f.tenure} canSet={viewerRole === 'owner'} staffId={f.id} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   )
 }

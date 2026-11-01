@@ -1,19 +1,17 @@
 'use client'
 
 import { Clock, Lock, MessageCircle, Unlock } from 'lucide-react'
-import { LOCKED_LINE, LOCKED_MESSAGE_UR, LOCKED_TITLE, lockedWhatsappHref, type LockedDoc, type LockView } from '@/lib/docLockCore'
+import { LOCKED_LINE, LOCKED_TITLE, lockedWhatsappHref, type LockedDoc, type LockView } from '@/lib/docLockCore'
 
 // What a member sees where the upload button was, once a document is approved
-// (owner, 9 Oct 2026). English with a short Urdu line under it, the site's style.
+// (owner, 9 Oct 2026). English only (owner, 2 Nov 2026).
 //   locked   — Approved ✓ Locked, contact support on WhatsApp.
 //   waiting  — a new upload was sent and waits for our team.
 //   unlocked — staff unlocked it: one new upload allowed (a small note above
 //              the upload control, which stays).
 
 const WAITING_EN = 'New upload sent. Our team will check it. Your approved document stays on record until then.'
-const WAITING_UR = 'نئی تصویر بھیج دی گئی ہے۔ ہماری ٹیم اسے دیکھے گی۔ تب تک آپ کی منظور شدہ دستاویز ریکارڈ پر رہے گی۔'
 const UNLOCKED_EN = 'Unlocked by our team: you can upload one new photo.'
-const UNLOCKED_UR = 'ہماری ٹیم نے کھول دیا ہے: آپ ایک نئی تصویر اپلوڈ کر سکتے ہیں۔'
 
 export default function DocLockNotice({
   view,
@@ -33,7 +31,6 @@ export default function DocLockNotice({
           <Unlock aria-hidden size={13} className="mt-px shrink-0" />
           {UNLOCKED_EN}
         </p>
-        <p lang="ur" dir="rtl" className="mt-0.5 text-[11px] text-tm-navy">{UNLOCKED_UR}</p>
       </div>
     )
   }
@@ -44,7 +41,6 @@ export default function DocLockNotice({
           <Clock aria-hidden size={13} className="mt-px shrink-0" />
           {WAITING_EN}
         </p>
-        <p lang="ur" dir="rtl" className="mt-0.5 text-[11px] text-tm-gold-ink">{WAITING_UR}</p>
       </div>
     )
   }
@@ -52,7 +48,7 @@ export default function DocLockNotice({
     <div className={`space-y-1.5 rounded-xl bg-tm-tint-green p-2.5 ${className}`}>
       {/* "Approved 🔒" + "To change this, contact support on WhatsApp 0321
           5872222." with the number linked to WhatsApp, the message naming the
-          document (owner, 17 Oct 2026). The Urdu line is unchanged. */}
+          document (owner, 17 Oct 2026). */}
       <p className="flex items-start gap-1.5 text-[11px] font-black text-tm-green-deep">
         <Lock aria-hidden size={13} className="mt-px shrink-0" />
         {LOCKED_TITLE}
@@ -64,7 +60,6 @@ export default function DocLockNotice({
         </a>
         .
       </p>
-      <p lang="ur" dir="rtl" className="text-[11px] text-tm-green-deep">{LOCKED_MESSAGE_UR}</p>
       <a
         href={lockedWhatsappHref(doc)}
         target="_blank"

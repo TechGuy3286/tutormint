@@ -22,7 +22,7 @@ import FeaturedTag from '@/components/badges/FeaturedTag'
 import Avatar from '@/components/Avatar'
 import AuthGateModal from '@/components/AuthGateModal'
 import ReportButton from '@/components/ReportButton'
-import { TEAM_POSTER_LABEL } from '@/lib/teamPosterCore'
+import { VERIFIED_TUITION_LABEL } from '@/lib/teamPosterCore'
 import type { BadgeName } from '@/lib/planBadges'
 import { placeLabel } from '@/lib/place'
 import ApplyReasonLine from '@/components/ApplyReasonLine'
@@ -338,7 +338,7 @@ function JobCardInner({
           {job.posted_by_team && (
             <p className="inline-flex items-center gap-1.5 rounded-full bg-tm-tint-navy px-2.5 py-1 text-[11px] font-black text-tm-navy" data-team-poster="">
               <Icon name="shield-check" size={12} />
-              {TEAM_POSTER_LABEL}
+              {VERIFIED_TUITION_LABEL}
             </p>
           )}
           <div className="space-y-1 pr-16 sm:pr-20">

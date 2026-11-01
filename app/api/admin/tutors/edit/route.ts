@@ -18,6 +18,8 @@ import { subjectLimitRefusal } from '@/lib/subjectLimit'
 import { NOT_A_MASTER_SUBJECT } from '@/lib/subjectDisplay'
 import { TUTOR_SUBJECT_CAP, TOO_MANY_SUBJECTS } from '@/lib/tutorSubjectCap'
 import { doNotUseRefusal } from '@/lib/contactWithdraw'
+import { TAGLINE_MAX, BIO_MAX } from '@/lib/ai/taglineBrief'
+import { detectAbuse } from '@/lib/abuse/filter'
 
 // PR83 (Part B) — staff edits of a tutor's step-1 TEXT/SET fields from
 // /admin/tutors/[id]: mobile, CNIC number, subjects, city, areas. Images
@@ -42,6 +44,8 @@ type Body = {
   city?: string
   areas?: string[]
   areasByCity?: Record<string, string[]>
+  headline?: string
+  bio?: string
 }
 
 export async function POST(request: Request) {
@@ -211,6 +215,39 @@ export async function POST(request: Request) {
     // A city change can move an unlisted tutor's slug; the DB trigger fires the
     // refresh and slug_history captures the old URL for the permanent redirect.
     await ensureTutorSlug(tutorId)
+    await recomputeCompletion(tutorId)
+    return NextResponse.json({ ok: true })
+  }
+
+  // ------------------------------------------------- tagline & about (Part F) ---
+  // Staff edit the tutor's tagline and About (owner, 2 Nov 2026): reason
+  // required, change history + Audit + timeline, the public profile rebuilt
+  // (logActivity / logAdminAction revalidate it).
+  if (action === 'set-about') {
+    const headline = (body.headline ?? '').trim()
+    const bio = (body.bio ?? '').trim()
+    if (!headline || !bio) return NextResponse.json({ error: 'Write a tagline and an About.' }, { status: 400 })
+    if (headline.length > TAGLINE_MAX || bio.length > BIO_MAX) {
+      return NextResponse.json({ error: `Keep the tagline under ${TAGLINE_MAX} characters and About under ${BIO_MAX}.` }, { status: 400 })
+    }
+    if (detectAbuse(headline).length || detectAbuse(bio).length) {
+      return NextResponse.json({ error: 'That text breaks the content rules. Please change it.' }, { status: 400 })
+    }
+    const { data: tp } = await admin.from('tutor_profiles').select('headline, bio').eq('id', tutorId).maybeSingle()
+    const oldH = (tp?.headline as string | null) ?? null
+    const oldB = (tp?.bio as string | null) ?? null
+    if (oldH === headline && oldB === bio) return NextResponse.json({ ok: true, unchanged: true })
+    const upd = await admin.from('tutor_profiles').update({ headline, bio }).eq('id', tutorId)
+    if (upd.error) return NextResponse.json({ error: upd.error.message }, { status: 400 })
+    const changes = [
+      ...(oldH !== headline ? [{ field: 'headline' as const, oldValue: oldH, newValue: headline }] : []),
+      ...(oldB !== bio ? [{ field: 'bio' as const, oldValue: oldB, newValue: bio }] : []),
+    ]
+    await recordFieldChanges(changes.map((c) => ({ tutorId, ...c, changedBy: gate.actor.id, changedByRole: 'staff' as const, changedByEmail: actorEmail, reason })))
+    for (const c of changes) {
+      await audit(c.field)
+      await timeline(c.field)
+    }
     await recomputeCompletion(tutorId)
     return NextResponse.json({ ok: true })
   }

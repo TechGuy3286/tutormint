@@ -192,7 +192,6 @@ export default function PayChoice({
       <div className="space-y-3">
         <p className="rounded-2xl border border-gray-200 bg-white p-4 text-xs leading-relaxed text-slate-700">
           Payments are not available right now. Please try again later, or message us on WhatsApp.
-          <Ur>ادائیگی ابھی دستیاب نہیں۔ کچھ دیر بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔</Ur>
         </p>
       </div>
     )
@@ -236,10 +235,10 @@ export default function PayChoice({
       }
       setError(
         data?.error ??
-          'Your receipt did not upload. Please try again, or message us on WhatsApp 0321 5872222.\nرسید اپ لوڈ نہیں ہوئی۔ دوبارہ کوشش کریں یا واٹس ایپ پر پیغام کریں۔',
+          'Your receipt did not upload. Please try again, or message us on WhatsApp 0321 5872222.',
       )
     } catch {
-      setError('We could not reach TutorMint. Check your internet connection and try again.\nانٹرنیٹ کنکشن چیک کریں اور دوبارہ کوشش کریں۔')
+      setError('We could not reach TutorMint. Check your internet connection and try again.')
     } finally {
       setSending(false)
     }
@@ -258,9 +257,6 @@ export default function PayChoice({
           <p className="mt-1 font-semibold">{state.reason}</p>
           <p className="mt-1 font-semibold">
             Please upload a new receipt below.
-            <span lang="ur" dir="rtl" className="mt-0.5 block text-[11px]" style={{ fontFamily: URDU_FONT }}>
-              براہِ کرم نیچے نئی رسید اپ لوڈ کریں۔
-            </span>
           </p>
         </section>
       )}

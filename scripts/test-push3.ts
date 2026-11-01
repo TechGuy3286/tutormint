@@ -168,7 +168,7 @@ test('viewer: Apply on a cached card or tuition page — guests and tutors only'
   assert.equal(showApplyFor({ ...v, isTutor: true }), true)
   assert.equal(showApplyForViewer(null, true), true)
   assert.equal(showApplyForViewer(null, false), false, 'never on a paused or closed tuition')
-  const t = { signedIn: true as const, isTutor: false, isAdmin: false, isPoster: true, applied: false, tutorGender: null, applyBlock: null, feeReceiptPending: false, revealedContact: null, pauseLabel: null }
+  const t = { signedIn: true as const, isTutor: false, isAdmin: false, isPoster: true, applied: false, tutorGender: null, applyBlock: null, feeReceiptPending: false, revealedContact: null, pauseLabel: null, teamPost: false, pauseDaysLeft: null, refreshNextAt: null }
   assert.equal(showApplyForViewer(t, true), false)
   assert.equal(viewerJobIds(['a', 'a', 'b']).join(','), 'a,b')
   assert.equal(viewerJobIds(Array.from({ length: 80 }, (_, i) => String(i))).length, 60)

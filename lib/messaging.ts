@@ -20,7 +20,7 @@
 import { PARENT_MOBILE_GATE_MESSAGE, PARENT_MOBILE_HREF } from '@/lib/parentGate'
 import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { memberUnavailable } from '@/lib/selfPause'
-import { NOT_AVAILABLE, NOT_AVAILABLE_UR } from '@/lib/selfPauseCore'
+import { NOT_AVAILABLE } from '@/lib/selfPauseCore'
 import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { tuitionPath } from '@/lib/slugs'
@@ -129,8 +129,7 @@ export async function canStartThread(
   // A member who paused their own account (owner, 8 Oct 2026) takes no new
   // conversations until they sign in again.
   if (await memberUnavailable(otherId)) {
-    return { ok: false, status: 403, error: `${NOT_AVAILABLE}
-${NOT_AVAILABLE_UR}` }
+    return { ok: false, status: 403, error: NOT_AVAILABLE }
   }
 
   const ent = await getEntitlements(actorId)
@@ -352,8 +351,7 @@ export async function sendMessage(params: {
   }
   // Self-paused recipient (owner, 8 Oct 2026): no new messages reach them.
   if (await memberUnavailable(other)) {
-    return { ok: false, status: 403, error: `${NOT_AVAILABLE}
-${NOT_AVAILABLE_UR}` }
+    return { ok: false, status: 403, error: NOT_AVAILABLE }
   }
 
   // Replying is always allowed on every plan, including none: only OPENING a

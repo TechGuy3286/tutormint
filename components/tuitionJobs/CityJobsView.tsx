@@ -175,7 +175,6 @@ export default async function CityJobsView({
         {jobs.length === 0 ? (
           <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-8 text-center">
             <p className="text-sm font-black text-tm-navy">No open tuitions on this page yet</p>
-            <p lang="ur" dir="rtl" className="text-xs text-gray-500">ابھی اس صفحے پر کوئی کھلی ٹیوشن نہیں ہے۔</p>
             <Link href="/browse/tuitions" className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-navy px-5 text-xs font-bold text-white">
               See all open tuitions
             </Link>

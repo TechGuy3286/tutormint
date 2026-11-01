@@ -48,12 +48,12 @@ const SUPPORT_HREF = whatsappHref(
   'Assalam-o-Alaikum, I need help resetting my TutorMint password.',
 )
 
-/** The plain-English + Urdu answer for a failed code check. */
+/** The plain-English answer for a failed code check. */
 function codeFailure(result: Extract<VerifyResult, { ok: false }>) {
   const kind = result.expired ? 'expired' : result.locked ? 'locked' : 'wrong'
   const m = RESET_MESSAGES[kind]
   return NextResponse.json(
-    { error: m.en, errorUr: m.ur, locked: !!result.locked, expired: !!result.expired, attemptsLeft: result.attemptsLeft },
+    { error: m.en, locked: !!result.locked, expired: !!result.expired, attemptsLeft: result.attemptsLeft },
     { status: result.status },
   )
 }
@@ -97,7 +97,7 @@ export async function POST(request: Request) {
 
       if (!result.ok && result.dailyLimit) {
         return NextResponse.json(
-          { error: RESET_MESSAGES.dailyLimit.en, errorUr: RESET_MESSAGES.dailyLimit.ur, dailyLimit: true, supportHref: SUPPORT_HREF },
+          { error: RESET_MESSAGES.dailyLimit.en, dailyLimit: true, supportHref: SUPPORT_HREF },
           { status: 429 },
         )
       }
@@ -112,7 +112,7 @@ export async function POST(request: Request) {
   // A number that does not normalise has no code: it reads as expired, the same
   // as any other dead code.
   if (!msisdn) {
-    return NextResponse.json({ error: RESET_MESSAGES.expired.en, errorUr: RESET_MESSAGES.expired.ur, expired: true }, { status: 400 })
+    return NextResponse.json({ error: RESET_MESSAGES.expired.en, expired: true }, { status: 400 })
   }
 
   // --------------------------------------------------------------- check ---
@@ -121,7 +121,7 @@ export async function POST(request: Request) {
     if (!result.ok) return codeFailure(result)
     // A decoy row (no account) can only ever read as a wrong code.
     if (!result.userId) {
-      return NextResponse.json({ error: RESET_MESSAGES.wrong.en, errorUr: RESET_MESSAGES.wrong.ur }, { status: 400 })
+      return NextResponse.json({ error: RESET_MESSAGES.wrong.en }, { status: 400 })
     }
     return NextResponse.json({ success: true })
   }
@@ -130,7 +130,7 @@ export async function POST(request: Request) {
   const result = await verifyOtp({ phone: msisdn, code: body.code, purpose: 'reset' })
   if (!result.ok) return codeFailure(result)
   if (!result.userId) {
-    return NextResponse.json({ error: RESET_MESSAGES.wrong.en, errorUr: RESET_MESSAGES.wrong.ur }, { status: 400 })
+    return NextResponse.json({ error: RESET_MESSAGES.wrong.en }, { status: 400 })
   }
   const userId = result.userId
 

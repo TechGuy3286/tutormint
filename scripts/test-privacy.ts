@@ -77,8 +77,7 @@ test('admin Change menu re-runs the same logged review action', () => {
   assert.ok(src.includes("'/api/admin/tutors/document-review'"), 're-decision goes through the logged review route')
 })
 
-test('the video upload error carries a plain Urdu line under the English', () => {
+test('the video upload error is English only (owner, 2 Nov 2026)', () => {
   const src = read('components/tutor/VideoUpload.tsx')
-  assert.ok(src.includes('lang="ur"'), 'an Urdu line is present')
-  assert.ok(src.includes('ویڈیو اپ لوڈ نہیں ہو سکی'), 'plain Urdu, not technical text')
+  assert.ok(!src.includes('lang="ur"'), 'no Urdu line under the error')
 })

@@ -131,7 +131,7 @@ export async function reviewTutorDocument(params: {
   // the one staff chose/typed, else the fallback "This is not the right document."
   const reason = decision === 'reject' ? finalRejectReason(params.reason) : ''
   const admin = createAdminClient()
-  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
+  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.' }
 
   // IDEMPOTENCY (PR99 §3). Approving an item that is ALREADY approved must do
   // nothing and log nothing — otherwise a second click writes another

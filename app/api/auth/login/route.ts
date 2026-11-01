@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { deviceMarkFrom, recordDeviceMark } from '@/lib/deviceMark'
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -43,10 +44,6 @@ const BANNED_MESSAGE = BANNED_LOGIN_MESSAGE
 // known to whoever holds the address.
 
 const GENERIC = 'Those sign-in details are not right. Please check and try again.'
-// The plain Urdu line each screen shows beside the English one (PR75 §2).
-const GENERIC_UR = 'یہ سائن اِن تفصیلات درست نہیں ہیں۔ براہ کرم جانچ کر دوبارہ کوشش کریں۔'
-const NEEDS_CONFIRM_UR = 'سائن اِن کرنے کے لیے براہ کرم اپنے ای میل ایڈریس کی تصدیق کریں۔'
-const BANNED_MESSAGE_UR = 'آپ کا اکاؤنٹ فراڈ سرگرمیوں کی وجہ سے بند کر دیا گیا ہے۔ براہ کرم سپورٹ سے رابطہ کریں۔'
 
 const LoginBody = z.object({
   identifier: z.string().min(1).max(320),
@@ -69,7 +66,7 @@ export async function POST(request: Request) {
   // "that is not a valid mobile number" and "no account with that number" are
   // two different answers and the difference is the oracle.
   const parsed = await parseBody(request, LoginBody)
-  if (!parsed.ok) return NextResponse.json({ error: GENERIC, errorUr: GENERIC_UR }, { status: 400 })
+  if (!parsed.ok) return NextResponse.json({ error: GENERIC }, { status: 400 })
 
   const identifier = parsed.data.identifier.trim()
   const password = parsed.data.password
@@ -79,7 +76,7 @@ export async function POST(request: Request) {
   // 8 Oct 2026). Each candidate is tried with the typed password; the first that
   // signs in wins, and the picker below offers the other role.
   const candidates = await resolveEmails(identifier)
-  if (candidates.length === 0) return NextResponse.json({ error: GENERIC, errorUr: GENERIC_UR }, { status: 400 })
+  if (candidates.length === 0) return NextResponse.json({ error: GENERIC }, { status: 400 })
   let email = candidates[0]
 
   // Remember the member's choice for later refreshes (proxy + server client
@@ -110,13 +107,13 @@ export async function POST(request: Request) {
       // stranger guessing never sees it. Verification follows the identifier the
       // member chose — this is the email path (owner, 9 Sep).
       return NextResponse.json(
-        { error: 'Please confirm your email address to sign in.', errorUr: NEEDS_CONFIRM_UR, needsConfirm: true, email },
+        { error: 'Please confirm your email address to sign in.', needsConfirm: true, email },
         { status: 400 },
       )
     }
-    return NextResponse.json({ error: GENERIC, errorUr: GENERIC_UR }, { status: 400 })
+    return NextResponse.json({ error: GENERIC }, { status: 400 })
   }
-  if (!data.user) return NextResponse.json({ error: GENERIC, errorUr: GENERIC_UR }, { status: 400 })
+  if (!data.user) return NextResponse.json({ error: GENERIC }, { status: 400 })
   const signedIn = data.user
 
   const { data: profile } = await supabase
@@ -132,7 +129,7 @@ export async function POST(request: Request) {
   if (profile?.is_banned) {
     await supabase.auth.signOut()
     return NextResponse.json(
-      { error: BANNED_MESSAGE, errorUr: BANNED_MESSAGE_UR, banned: true, supportHref: '/support' },
+      { error: BANNED_MESSAGE, banned: true, supportHref: '/support' },
       { status: 403 },
     )
   }
@@ -143,6 +140,10 @@ export async function POST(request: Request) {
     await supabase.auth.signOut()
     return NextResponse.json({ error: MERGED_LOGIN_MESSAGE, merged: true }, { status: 403 })
   }
+
+  // A staff sign-in leaves its device/IP hashes for the self-referral rule
+  // (Part H, 2 Nov 2026). Never blocks the sign-in.
+  if (profile?.role === 'admin') await recordDeviceMark(signedIn.id, 'staff', deviceMarkFrom(request))
 
   await logActivity({ userId: signedIn.id, event: 'login', meta: { via: looksLikeEmail(identifier) ? 'email' : 'mobile' } })
 

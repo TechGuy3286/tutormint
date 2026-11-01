@@ -312,9 +312,11 @@ test('label: staff-posted tuitions read the label, never the team account’s ow
       } as unknown as JobCardData,
     }),
   )
-  assert.ok(card.includes('Posted by TutorMint team for a parent ✓'))
+  // Public cards and pages read "Verified tuition" (owner, 2 Nov 2026).
+  assert.ok(card.includes('Verified tuition'))
+  assert.ok(!card.includes('Posted by TutorMint team'))
   assert.ok(!card.includes('TutorMint Admin'))
-  assert.match(read('app/(site)/tuitions/[city]/[slug]/page.tsx'), /\{TEAM_POSTER_LABEL\}/)
+  assert.match(read('app/(site)/tuitions/[city]/[slug]/page.tsx'), /\{VERIFIED_TUITION_LABEL\}/)
   // Messages and reports use the team name, never full_name, for the team account.
   const msg = read('lib/messaging.ts')
   assert.equal((msg.match(/is_team_account \? TEAM_MEMBER_NAME/g) ?? []).length + (msg.match(/\?\.is_team_account \? TEAM_MEMBER_NAME/g) ?? []).length >= 3, true)

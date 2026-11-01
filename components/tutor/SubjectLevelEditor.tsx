@@ -113,7 +113,7 @@ export default function SubjectLevelEditor({
   const removeLevel = async (cat: string) => {
     const ok = await confirm({
       title: `Remove ${cat}?`,
-      body: `Every subject you teach under ${cat} will be removed. اس لیول کے تمام مضامین ہٹا دیے جائیں گے۔`,
+      body: `Every subject you teach under ${cat} will be removed.`,
       confirmLabel: 'Remove level',
     })
     if (!ok) return
@@ -132,9 +132,6 @@ export default function SubjectLevelEditor({
     <div className="space-y-4">
       <p className="flex flex-col leading-tight">
         <span className="text-[11px] font-semibold text-tm-navy">Pick a level, then the subjects you teach in it.</span>
-        <span lang="ur" dir="rtl" className="block text-[11px] text-gray-500">
-          پہلے لیول منتخب کریں، پھر اس کے مضامین
-        </span>
       </p>
 
       <SubjectCapBanner count={keys.size} />

@@ -27,7 +27,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 const Body = z.object(
-  { email: z.string({ message: RELOAD_AND_RETRY }).trim().max(320, { message: 'Enter a valid email address.\nدرست ای میل ایڈریس لکھیں۔' }) },
+  { email: z.string({ message: RELOAD_AND_RETRY }).trim().max(320, { message: 'Enter a valid email address.' }) },
   { message: RELOAD_AND_RETRY },
 )
 
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Please sign in first, then try again.\nپہلے سائن ان کریں، پھر دوبارہ کوشش کریں۔' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Please sign in first, then try again.' }, { status: 401 })
 
   const parsed = await parseBody(request, Body)
   if (!parsed.ok) return parsed.response

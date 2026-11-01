@@ -246,6 +246,7 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed' | 'ret
   'staff-signups/claims/decide': 'retired',
   'taxonomy/core': 'view',
   'team': 'view',
+  'team/joined': 'view',
   'tutors/clear-mobile': 'edit',
   'tutors/cnic-reveal': 'edit',
   'tutors/document-review': 'edit',

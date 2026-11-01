@@ -137,14 +137,11 @@ export default async function TutorApplicationsPage() {
                       <span className="block text-[11px] text-gray-500">
                         {placeLabel(job?.area, job?.city) || '—'}
                       </span>
-                      {/* When the tutor applied — English with Urdu underneath (§A.2). */}
+                      {/* When the tutor applied (§A.2). */}
                       {(() => {
                         const al = appliedLabel(a.created_at as string)
                         return al.en ? (
-                          <>
-                            <span className="block text-[11px] font-semibold text-tm-navy">{al.en}</span>
-                            <span lang="ur" dir="rtl" className="block text-[11px] text-gray-500">{al.ur}</span>
-                          </>
+                          <span className="block text-[11px] font-semibold text-tm-navy">{al.en}</span>
                         ) : null
                       })()}
                     </span>

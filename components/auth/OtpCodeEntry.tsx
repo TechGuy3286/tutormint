@@ -33,19 +33,19 @@ export function sanitiseOtp(v: string): string {
   return v.replace(/\D/g, '').slice(0, OTP_LENGTH)
 }
 
-/** The shared inline error block for code entry: the English message, the Urdu
- *  line, the reference + WhatsApp support link, the "stuck" escape, and an extra
+/** The shared inline error block for code entry: the English message, the
+ *  reference + WhatsApp support link, the "stuck" escape, and an extra
  *  slot (e.g. a "Start over" link on a terminal pre-auth state). Rendered by
  *  OtpCodeEntry, and exported for surfaces that show it without the input (a
  *  terminal state where the field is gone). */
 export function OtpErrorBlock({
   error,
-  errorUr,
   errorRef,
   stuckHref,
   children,
 }: {
   error?: string | null
+  /** No longer shown (error messages are English only); kept so older callers compile. */
   errorUr?: string | null
   errorRef?: string | null
   stuckHref?: string | null
@@ -58,11 +58,6 @@ export function OtpErrorBlock({
       className="space-y-2 rounded-xl border border-tm-red/30 bg-tm-tint-red p-3 text-center text-xs font-bold text-tm-red"
     >
       <p>{error}</p>
-      {errorUr && (
-        <p lang="ur" dir="rtl" className="leading-relaxed">
-          {errorUr}
-        </p>
-      )}
       {errorRef && (
         <p className="text-[11px] font-normal text-tm-red/80">
           Ref: <span className="font-mono">{errorRef}</span>{' '}
@@ -97,7 +92,6 @@ export default function OtpCodeEntry({
   onDifferentNumber,
   children,
   error,
-  errorUr,
   errorRef,
   stuckHref,
   errorExtra,
@@ -122,6 +116,7 @@ export default function OtpCodeEntry({
   /** Extra fields inside the same form (e.g. a new password on reset). */
   children?: ReactNode
   error?: string | null
+  /** No longer shown (error messages are English only); kept so older callers compile. */
   errorUr?: string | null
   errorRef?: string | null
   stuckHref?: string | null
@@ -132,7 +127,7 @@ export default function OtpCodeEntry({
 
   return (
     <div className="space-y-4">
-      <OtpErrorBlock error={error} errorUr={errorUr} errorRef={errorRef} stuckHref={stuckHref}>
+      <OtpErrorBlock error={error} errorRef={errorRef} stuckHref={stuckHref}>
         {errorExtra}
       </OtpErrorBlock>
 

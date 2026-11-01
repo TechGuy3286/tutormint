@@ -20,11 +20,11 @@ export const TUTOR_SUBJECT_CAP = 400
 
 /** Shown when a tutor goes over the cap — never the field name. */
 export const TOO_MANY_SUBJECTS =
-  'You picked a lot of subjects. Please keep only the ones you teach most.\nآپ نے بہت زیادہ مضامین چنے ہیں۔ صرف وہ رکھیں جو آپ زیادہ پڑھاتے ہیں۔'
+  'You picked a lot of subjects. Please keep only the ones you teach most.'
 
 /** Any other malformed request from these forms (a bad id, an unknown action). */
 export const RELOAD_AND_RETRY =
-  'That request was not understood. Reload the page and try again.\nیہ درخواست سمجھ نہیں آئی۔ صفحہ دوبارہ لوڈ کر کے کوشش کریں۔'
+  'That request was not understood. Reload the page and try again.'
 
 /** Whole positive integers only, duplicates removed, first-seen order kept. */
 export function dedupeSubjectIds(raw: unknown): unknown {

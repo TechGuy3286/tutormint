@@ -24,6 +24,8 @@ const FIELD_LABEL: Record<Step1Field, string> = {
   city: 'City',
   areas: 'Areas',
   name: 'Name',
+  headline: 'Tagline',
+  bio: 'About',
 }
 
 const IMAGE_FIELDS = new Set<Step1Field>(['cnic_front', 'cnic_back', 'selfie', 'profile_picture'])

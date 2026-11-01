@@ -52,9 +52,6 @@ export default async function TutorIntroVideoPage() {
           <p className="text-xs text-gray-500">
             Optional. A short hello helps parents choose you — you can add it anytime.
           </p>
-          <p lang="ur" dir="rtl" className="text-xs text-gray-500">
-            اختیاری۔ ایک مختصر تعارف والدین کو آپ کو منتخب کرنے میں مدد دیتا ہے — آپ اسے کبھی بھی شامل کر سکتے ہیں۔
-          </p>
         </div>
 
         {hasVideo ? (

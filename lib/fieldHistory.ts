@@ -29,6 +29,8 @@ export type Step1Field =
   | 'city'
   | 'areas'
   | 'name'
+  | 'headline'
+  | 'bio'
 
 export type FieldChange = {
   tutorId: string

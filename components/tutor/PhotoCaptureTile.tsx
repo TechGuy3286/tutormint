@@ -136,7 +136,7 @@ export default function PhotoCaptureTile({
         <span className="flex flex-col items-center leading-tight">
           <span className="text-[11px] font-bold text-tm-navy">{label}</span>
           {urdu && (
-            <span className="text-[10px] text-gray-500" lang="ur" dir="rtl">
+            <span className="tm-ur-cap text-[11px] font-semibold leading-snug text-gray-500" lang="ur" dir="rtl">
               {urdu}
             </span>
           )}

@@ -94,7 +94,6 @@ export default function TutorCitiesEditor({
     <div className="space-y-3">
       <p className="text-[11px] font-semibold text-gray-500">
         Choose up to 2 cities.
-        <span lang="ur" dir="rtl" className="ms-1">زیادہ سے زیادہ 2 شہر منتخب کریں۔</span>
       </p>
 
       {cities.map((city, i) => (

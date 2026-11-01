@@ -18,6 +18,7 @@
 // Either way must_change_password is set, so the temporary credential is good
 // for exactly one sign-in.
 
+import { recordStaffJoined } from '@/lib/staffTenure'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sanitizeOrTerm } from '@/lib/pgFilter'
 import { logAdminAction } from '@/lib/auditLog'
@@ -204,6 +205,7 @@ export async function createStaff(params: {
     // Neither the password nor the invite link is written to the audit log.
     detail: { email, fullName, adminRole: params.adminRole, invited },
   })
+  await recordStaffJoined(userId, params.actor.id, 'staff.create')
 
   await logActivity({
     userId,
@@ -457,6 +459,7 @@ export async function grantStaffToExisting(params: {
     action: 'staff.grant_existing',
     targetType: 'profile',
     targetId: params.userId,
+    // (joining date recorded just below)
     detail: {
       email: target.email,
       fromRole: target.role,
@@ -465,6 +468,7 @@ export async function grantStaffToExisting(params: {
       droppedEmptyTutor: droppedTutor,
     },
   })
+  await recordStaffJoined(params.userId, params.actor.id, 'staff.grant_existing')
 
   await logActivity({
     userId: params.userId,

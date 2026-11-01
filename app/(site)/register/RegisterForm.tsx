@@ -80,7 +80,6 @@ export default function RegisterForm({
   // before 'loading' renders, sends one request (one SMS or one email).
   const inFlight = useRef(false)
   const [errorMsg, setErrorMsg] = useState('')
-  const [errorUr, setErrorUr] = useState<string | null>(null)
   const [errorRef, setErrorRef] = useState<string | null>(null)
   const [errorSignIn, setErrorSignIn] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
@@ -116,9 +115,8 @@ export default function RegisterForm({
     }
   }
 
-  const showError = (en: string, ur?: string | null, opts?: { ref?: string | null; signIn?: boolean; fields?: Record<string, string> }) => {
+  const showError = (en: string, opts?: { ref?: string | null; signIn?: boolean; fields?: Record<string, string> }) => {
     setErrorMsg(en)
-    setErrorUr(ur ?? null)
     setErrorRef(opts?.ref ?? null)
     setErrorSignIn(!!opts?.signIn)
     setFieldErrors(opts?.fields ?? {})
@@ -127,7 +125,6 @@ export default function RegisterForm({
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrorMsg('')
-    setErrorUr(null)
     setErrorRef(null)
     setErrorSignIn(false)
     setFieldErrors({})
@@ -140,7 +137,7 @@ export default function RegisterForm({
     // thing to fix, said before a round trip. The server still enforces the full
     // rule (Supabase also rejects weak/leaked passwords).
     if (password.length < MIN_PASSWORD_LENGTH) {
-      showError(AUTH_MSG.shortPassword.en, AUTH_MSG.shortPassword.ur, { fields: { password: AUTH_MSG.shortPassword.en } })
+      showError(AUTH_MSG.shortPassword.en, { fields: { password: AUTH_MSG.shortPassword.en } })
       return
     }
 
@@ -150,7 +147,6 @@ export default function RegisterForm({
     const { ok, data, error: failed } = await submitJson<{
       next?: string
       fields?: Record<string, string>
-      errorUr?: string
       ref?: string
       signIn?: boolean
     }>('/api/auth/register', {
@@ -164,7 +160,7 @@ export default function RegisterForm({
     })
 
     if (!ok) {
-      showError(failed ?? 'Could not create your account.', data?.errorUr, {
+      showError(failed ?? 'Could not create your account.', {
         ref: data?.ref,
         signIn: data?.signIn,
         fields: data?.fields,
@@ -228,7 +224,7 @@ export default function RegisterForm({
 
         {errorMsg && (
           <div className="space-y-2">
-            <AuthError message={errorMsg} messageUr={errorUr} ref={errorRef} signIn={errorSignIn} />
+            <AuthError message={errorMsg} ref={errorRef} signIn={errorSignIn} />
             {stuckHref && <SubmitEscape href={stuckHref} />}
           </div>
         )}

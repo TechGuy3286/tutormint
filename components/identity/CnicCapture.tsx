@@ -66,7 +66,11 @@ export default function CnicCapture({
   show = 'all',
   hideChecklist = false,
   numberOnFile = null,
+  split = false,
 }: {
+  /** Laptop (≥1024 px): the number on the left, the photos on the right
+   *  (owner, 2 Nov 2026 — the CNIC window). Phones are unchanged. */
+  split?: boolean
   initialNumber?: string
   initialFront?: boolean
   initialBack?: boolean
@@ -187,10 +191,10 @@ export default function CnicCapture({
     show === 'number' ? items.slice(0, 1) : show === 'photos' ? items.slice(1) : items
 
   return (
-    <div className="space-y-4">
+    <div className={split ? 'space-y-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:space-y-0' : 'space-y-4'} data-cnic-split={split ? '' : undefined}>
       {!hideChecklist && <FormChecklist items={shownItems} />}
       {show !== 'photos' && (
-        <>
+        <div className="space-y-4">
           <input
             value={number}
             inputMode="numeric"
@@ -210,7 +214,7 @@ export default function CnicCapture({
           {showsSuggestion && (
             <p role="status" className="-mt-1.5 rounded-lg bg-tm-tint-gold p-2 text-[11px] font-semibold text-tm-gold-ink">
               {CNIC_SUGGESTED_MEMBER}
-              <span lang="ur" dir="rtl" className="mt-0.5 block">{CNIC_SUGGESTED_MEMBER_UR}</span>
+              <span lang="ur" dir="rtl" className="tm-ur-cap mt-0.5 block leading-snug">{CNIC_SUGGESTED_MEMBER_UR}</span>
             </p>
           )}
           {/* PR106-B §12 / PR106-F §5: the format hint, English with Urdu under it.
@@ -218,12 +222,13 @@ export default function CnicCapture({
               42101-1234567-1 inside the RTL Urdu line, not reversed. */}
           <p className="-mt-1.5 text-[11px] text-gray-500">
             {CNIC_FORMAT_HINT}
-            <span lang="ur" dir="rtl" className="mt-0.5 block">
+            <span lang="ur" dir="rtl" className="tm-ur-cap mt-0.5 block leading-snug">
               {CNIC_FORMAT_HINT_UR_LEAD} <Ltr>{CNIC_EXAMPLE}</Ltr>۔
             </span>
           </p>
-        </>
+        </div>
       )}
+      <div className="space-y-4">
       {/* Front + back, side by side. Each fills with the real photo once taken. */}
       {show !== 'number' && (
       <div className="flex gap-3">
@@ -261,11 +266,12 @@ export default function CnicCapture({
           <p className="text-[11px] leading-relaxed text-gray-500">
             Only our verification team sees it. It never appears on your profile.
           </p>
-          <p className="text-[11px] leading-relaxed text-gray-500" lang="ur" dir="rtl">
+          <p className="tm-ur-cap text-[11px] leading-snug text-gray-500" lang="ur" dir="rtl">
             صرف ہماری تصدیقی ٹیم دیکھتی ہے۔ یہ کبھی آپ کے پروفائل پر ظاہر نہیں ہوتا۔
           </p>
         </>
       )}
+      </div>
       {error && <p role="alert" className="text-[11px] font-bold text-tm-red">{error}</p>}
     </div>
   )

@@ -334,7 +334,7 @@ export async function createJob(
     return {
       ok: false,
       status: 409,
-      error: `You already have a tuition like this one (${existing.refId ?? ''}). Reopen it, or post anyway.\nآپ کی ایسی ہی ایک ٹیوشن پہلے سے موجود ہے۔ اسے دوبارہ کھولیں، یا پھر بھی پوسٹ کریں۔`,
+      error: `You already have a tuition like this one (${existing.refId ?? ''}). Reopen it, or post anyway.`,
       duplicate: existing,
     }
   }
@@ -348,7 +348,7 @@ export async function createJob(
   // with is_featured already true. parent_id is the authenticated parentId, so
   // the row still belongs to them; RLS is bypassed only for this trusted write.
   const admin = createAdminClient()
-  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
+  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.' }
 
   const { data: job, error } = await admin
     .from('jobs')
@@ -521,7 +521,7 @@ export async function createTeamJob(
   input.city = curatedCity
 
   const admin = createAdminClient()
-  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
+  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.' }
 
   const teamId = await teamParentId()
   if (!teamId) {
@@ -739,7 +739,7 @@ export async function updateTeamJob(
   input.city = curatedCity
 
   const admin = createAdminClient()
-  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
+  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.' }
 
   const teamId = await teamParentId()
   const { data: existing } = await admin
@@ -964,7 +964,7 @@ export async function closeJob(parentId: string, jobId: string): Promise<{ ok: t
   // status write goes through the service role — after the ownership check above
   // and re-scoped to this parent's own job (PR48 §2).
   const admin = createAdminClient()
-  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
+  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.' }
 
   const { error } = await admin
     .from('jobs')
@@ -1035,7 +1035,7 @@ export async function resumeJob(parentId: string, jobId: string): Promise<{ ok: 
   // jobs.status is locked from the member client (migration 103) — resume through
   // the service role, after the ownership check and re-scoped to this parent.
   const admin = createAdminClient()
-  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
+  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.' }
 
   // A tuition cannot go live without a contact number (owner, 12 Oct 2026). A
   // parent's own tuition uses their verified mobile.
@@ -1044,7 +1044,7 @@ export async function resumeJob(parentId: string, jobId: string): Promise<{ ok: 
     return {
       ok: false,
       status: 400,
-      error: 'Verify your mobile number first, then reopen this tuition. Tutors need a number to reach you.\nپہلے اپنا موبائل نمبر تصدیق کریں، پھر یہ ٹیوشن دوبارہ کھولیں۔',
+      error: 'Verify your mobile number first, then reopen this tuition. Tutors need a number to reach you.',
     }
   }
 
@@ -1139,7 +1139,7 @@ export async function hireApplicant(
   // suspension and Featured checks above, re-scoped to this parent's own job
   // (PR48 §2). The applications row is not locked and stays on the member client.
   const admin = createAdminClient()
-  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
+  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.' }
 
   const { error: appError } = await supabase
     .from('applications')

@@ -20,13 +20,12 @@ export default function PaymentReviewNotice({
   plan?: boolean
 }) {
   if (receipt.state === 'under_review') {
-    const [en, ur] = (plan ? RECEIPT_MESSAGES.receivedPlan : RECEIPT_MESSAGES.received).split('\n')
+    const en = plan ? RECEIPT_MESSAGES.receivedPlan : RECEIPT_MESSAGES.received
     return (
       <section role="status" className="rounded-2xl border border-tm-gold/30 bg-tm-tint-gold p-4 text-tm-gold-ink">
         <p className="text-sm font-black">Payment under review</p>
         <p className="mt-1 text-xs font-semibold leading-relaxed">
           {en}
-          <span lang="ur" dir="rtl" className="mt-0.5 block text-[11px]">{ur}</span>
         </p>
       </section>
     )

@@ -18,6 +18,7 @@ import { startPendingSignup, PENDING_COOKIE } from '@/lib/pendingSignup'
 import { CODE_TTL_MS } from '@/lib/otp'
 import { formatName } from '@/lib/formatName'
 import { creditNewAccount, refLinkVisit, staffCodeVisit } from '@/lib/staffSignups'
+import { deviceMarkFrom } from '@/lib/deviceMark'
 import { STAFF_REF_COOKIE, staffRefCookieOptions } from '@/lib/staffSignupsCore'
 
 // Signup.
@@ -75,10 +76,10 @@ const BLOCKED = 'We could not create an account with these details. If you think
 // break again if the trigger is ever lost.
 
 // The sign-up too-many response uses the owner's exact plain wording (PR76 §A.1),
-// English + Urdu, rather than the "wait about N minutes" phrasing.
+// in English, rather than the "wait about N minutes" phrasing.
 function tooManySignups(retryAfterSeconds: number): NextResponse {
   return NextResponse.json(
-    { error: AUTH_MSG.tooMany.en, errorUr: AUTH_MSG.tooMany.ur },
+    { error: AUTH_MSG.tooMany.en },
     { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } },
   )
 }
@@ -177,7 +178,6 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error: AUTH_MSG.emailTaken.en,
-          errorUr: AUTH_MSG.emailTaken.ur,
           signIn: true,
           fields: { identifier: AUTH_MSG.emailTaken.en },
         },
@@ -204,7 +204,7 @@ export async function POST(request: Request) {
           const m = AUTH_MSG[cls.key]
           const status = cls.key === 'emailTaken' ? 409 : cls.key === 'tooMany' ? 429 : 400
           return NextResponse.json(
-            { error: m.en, errorUr: m.ur, ...(cls.signIn ? { signIn: true } : {}), ...(cls.field ? { fields: { [cls.field]: m.en } } : {}) },
+            { error: m.en, ...(cls.signIn ? { signIn: true } : {}), ...(cls.field ? { fields: { [cls.field]: m.en } } : {}) },
             { status },
           )
         }
@@ -222,7 +222,7 @@ export async function POST(request: Request) {
       if (!madeTutor.ok) {
         return NextResponse.json({ error: 'Could not finish creating the account. Please try again.' }, { status: 500 })
       }
-      await creditNewAccount(tutorId, staffVisitId)
+      await creditNewAccount(tutorId, staffVisitId, Date.now(), deviceMarkFrom(request))
       const tutorOrigin = new URL(request.url).origin
       // The confirmation link goes out after the response; a send failure never
       // stops the signup (the dashboard reminder has "Resend email").
@@ -260,7 +260,7 @@ export async function POST(request: Request) {
     if (signUpError) {
       // PR75 §1/§2: a GoTrue error here is usually ACTIONABLE — a weak/leaked
       // password (the reported bug), an already-registered email, a send failure
-      // or a rate limit — so surface the exact plain message (English + Urdu),
+      // or a rate limit — so surface the exact plain message,
       // never the generic. Only a genuinely unexpected error falls through to
       // serverError (generic + reference code). The weak-password protection is
       // a security control and is NOT weakened; the fix is telling the member.
@@ -269,7 +269,7 @@ export async function POST(request: Request) {
         const m = AUTH_MSG[cls.key]
         const status = cls.key === 'emailTaken' ? 409 : cls.key === 'tooMany' ? 429 : 400
         return NextResponse.json(
-          { error: m.en, errorUr: m.ur, ...(cls.signIn ? { signIn: true } : {}), ...(cls.field ? { fields: { [cls.field]: m.en } } : {}) },
+          { error: m.en, ...(cls.signIn ? { signIn: true } : {}), ...(cls.field ? { fields: { [cls.field]: m.en } } : {}) },
           { status },
         )
       }
@@ -295,7 +295,7 @@ export async function POST(request: Request) {
           { status: 500 },
         )
       }
-      await creditNewAccount(uid, staffVisitId)
+      await creditNewAccount(uid, staffVisitId, Date.now(), deviceMarkFrom(request))
     }
 
     await bumpSiteVisit('signup_parent') // daily funnel count (15 Oct 2026); email tutors returned above
@@ -346,7 +346,6 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error: AUTH_MSG.mobileTaken.en,
-        errorUr: AUTH_MSG.mobileTaken.ur,
         signIn: true,
         fields: { identifier: AUTH_MSG.mobileTaken.en },
       },
@@ -363,7 +362,7 @@ export async function POST(request: Request) {
 
   if (existingEmail) {
     return NextResponse.json(
-      { error: AUTH_MSG.mobileTaken.en, errorUr: AUTH_MSG.mobileTaken.ur, signIn: true },
+      { error: AUTH_MSG.mobileTaken.en, signIn: true },
       { status: 409 },
     )
   }

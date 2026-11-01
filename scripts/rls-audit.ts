@@ -117,6 +117,9 @@ const NO_POLICY_OK: Record<string, string> = {
   _t1_unmigrated_rows: 'T1 migration receipt',
   _t2_remapped_subjects: 'T2 migration receipt',
   phone_otps: 'OTP codes: written and consumed by the server only, never read by a client',
+  member_device_marks:
+    'hashed device/IP of sign-ups and staff sign-ins (migration 220) for the self-referral rule — ' +
+    'written and read by the server only, never by a client key.',
   pending_signups:
     'unverified mobile signup drafts (migration 75): a bcrypt password hash and a live code, ' +
     'written and read by the server only. No client key may touch it — the account is created ' +

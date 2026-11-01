@@ -13,9 +13,9 @@ import { createClient } from '@/lib/supabase/client'
 import { homeForRole, nextForRole, type Role } from '@/lib/authRoutes'
 import { armEscape, STUCK_MESSAGE, submitError, submitJson } from '@/lib/submit'
 import { whatsappHref, SUPPORT_WHATSAPP_FALLBACK } from '@/lib/supportContacts'
-import { GENERIC_ERROR, supportWhatsappHref } from '@/lib/errorMessages'
+import { supportWhatsappHref } from '@/lib/errorMessages'
 import { useToast } from '@/components/ui/Toast'
-import { WELCOME_BACK, WELCOME_BACK_UR } from '@/lib/selfPauseCore'
+import { WELCOME_BACK } from '@/lib/selfPauseCore'
 import { recipientProblem } from '@/lib/notify/recipient'
 
 // The support WhatsApp link shown under the form (§3.4). The number is the one
@@ -55,7 +55,6 @@ export default function LoginForm({ next, role }: { next: string | null; role?: 
   const [rememberMe, setRememberMe] = useState(true)
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
-  const [errorUr, setErrorUr] = useState<string | null>(null)
   const [errorRef, setErrorRef] = useState<string | null>(null)
   const [stuckHref, setStuckHref] = useState<string | null>(null)
   const [needsConfirm, setNeedsConfirm] = useState<string | null>(null)
@@ -87,7 +86,6 @@ export default function LoginForm({ next, role }: { next: string | null; role?: 
     e.preventDefault()
     setLoading(true)
     setErrorMsg('')
-    setErrorUr(null)
     setErrorRef(null)
     setResendMsg('')
     setStuckHref(null)
@@ -106,15 +104,11 @@ export default function LoginForm({ next, role }: { next: string | null; role?: 
       needsPhoneVerify?: boolean
       restored?: boolean
       chooseRole?: boolean
-      errorUr?: string
       ref?: string
     }>('/api/auth/login', { identifier, password, rememberMe })
 
     if (!ok || !data) {
       setErrorMsg(error ?? 'Could not sign you in.')
-      // The Urdu line beside the English one (PR75 §2). Fall back to the generic
-      // Urdu when a ref is present but the route sent no specific line.
-      setErrorUr(data?.errorUr ?? (data?.ref ? GENERIC_ERROR.ur : null))
       setErrorRef(data?.ref ?? null)
       if (data?.needsConfirm) setNeedsConfirm(data.email ?? identifier)
       // A banned account is signed out server-side; there is no session to
@@ -128,8 +122,7 @@ export default function LoginForm({ next, role }: { next: string | null; role?: 
 
     // A self-paused account was brought back by this sign-in (owner, 8 Oct
     // 2026). The toast is mounted at the root, so it survives the navigation.
-    if (data.restored) toast.success(`${WELCOME_BACK}
-${WELCOME_BACK_UR}`)
+    if (data.restored) toast.success(WELCOME_BACK)
 
     // Verification before the dashboard (owner, 9 Sep): a mobile-first account
     // that has not verified its number — or a bridge number whose bridge was
@@ -213,11 +206,6 @@ ${WELCOME_BACK_UR}`)
               className="space-y-2 rounded-xl border border-tm-red/30 bg-tm-tint-red p-3 text-center text-xs font-bold text-tm-red"
             >
               <p>{errorMsg}</p>
-              {errorUr && (
-                <p lang="ur" dir="rtl" className="leading-relaxed">
-                  {errorUr}
-                </p>
-              )}
               {errorRef && (
                 <p className="text-[11px] font-normal text-tm-red/80">
                   Ref: <span className="font-mono">{errorRef}</span>{' '}

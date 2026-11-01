@@ -20,7 +20,7 @@ const LOCK_SQLSTATE = 'TMLCK'
 /**
  * Log an unexpected error with a reference code and return a plain 500. The
  * body is `{ error, ref }` — the form shows `error` (plain English; the client
- * adds the Urdu line and WhatsApp link) and the `ref` so support can trace it.
+ * adds the WhatsApp link) and the `ref` so support can trace it.
  *
  * A field-lock error (PR72 §E) is a KNOWN, safe case: it returns the plain
  * "contact support" message with a 403, not the generic 500.
@@ -28,14 +28,13 @@ const LOCK_SQLSTATE = 'TMLCK'
 export function serverError(error: unknown, context: string, status = 500): NextResponse {
   const code = (error as { code?: string } | null)?.code
   if (code === LOCK_SQLSTATE) {
-    return NextResponse.json({ error: LOCKED_FIELD_MESSAGE.en, errorUr: LOCKED_FIELD_MESSAGE.ur, locked: true }, { status: 403 })
+    return NextResponse.json({ error: LOCKED_FIELD_MESSAGE.en, locked: true }, { status: 403 })
   }
   const ref = makeRefCode()
   // One line, no PII: the ref, a short context tag, and the error itself. In
   // production this is the only place the real message survives.
   const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error)
   console.error(`[error ${ref}] ${context} — ${detail}`)
-  // errorUr so every screen can show the plain Urdu line beside the English one
-  // (PR75 §2); ref so the member can quote it to support.
-  return NextResponse.json({ error: GENERIC_ERROR.en, errorUr: GENERIC_ERROR.ur, ref }, { status })
+  // ref so the member can quote it to support.
+  return NextResponse.json({ error: GENERIC_ERROR.en, ref }, { status })
 }

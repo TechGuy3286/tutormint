@@ -33,9 +33,9 @@ import { FEE_LABEL } from '@/lib/display'
 
 export const runtime = 'nodejs'
 
-const SIGN_IN = 'Please sign in first, then try again.\nپہلے سائن ان کریں، پھر دوبارہ کوشش کریں۔'
+const SIGN_IN = 'Please sign in first, then try again.'
 const NOT_WORKING =
-  'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔'
+  'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.'
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
     .eq('code', planCode)
     .maybeSingle()
   if (!plan || !(plan.price_pkr as number)) {
-    return NextResponse.json({ error: 'Choose a package first.\nپہلے پیکج منتخب کریں۔' }, { status: 400 })
+    return NextResponse.json({ error: 'Choose a package first.' }, { status: 400 })
   }
 
   const { data: profile } = await supabase

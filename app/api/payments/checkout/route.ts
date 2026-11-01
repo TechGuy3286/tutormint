@@ -53,7 +53,7 @@ export async function POST(request: Request) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Please sign in first, then try again.\nپہلے سائن ان کریں، پھر دوبارہ کوشش کریں۔' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Please sign in first, then try again.' }, { status: 401 })
 
   const limit = await rateLimit('payment', user.id)
   if (!limit.allowed) return tooManyRequests(limit.retryAfterSeconds, 'payment attempts')
@@ -181,7 +181,7 @@ export async function POST(request: Request) {
   if (wantsTransfer && !transferOn) {
     return NextResponse.json(
       {
-        error: 'Bank transfer is not available right now. Please pay online instead.\nبینک ٹرانسفر ابھی دستیاب نہیں۔ آن لائن ادائیگی کریں۔',
+        error: 'Bank transfer is not available right now. Please pay online instead.',
         code: 'method_off',
       },
       { status: 400 },
@@ -196,8 +196,8 @@ export async function POST(request: Request) {
   if (!wantsTransfer && !onlineCheckoutOn(gateways)) {
     return NextResponse.json(
       transferOn
-        ? { error: 'Online payment is not available right now. Please pay by bank transfer.\nآن لائن ادائیگی ابھی دستیاب نہیں۔ بینک ٹرانسفر سے ادائیگی کریں۔', code: 'use_transfer' }
-        : { error: 'Payments are not available right now. Please try again later.\nادائیگی ابھی دستیاب نہیں۔ کچھ دیر بعد کوشش کریں۔', code: 'method_off' },
+        ? { error: 'Online payment is not available right now. Please pay by bank transfer.', code: 'use_transfer' }
+        : { error: 'Payments are not available right now. Please try again later.', code: 'method_off' },
       { status: transferOn ? 409 : 400 },
     )
   }
@@ -213,7 +213,7 @@ export async function POST(request: Request) {
         // Item 19: only point at bank transfer while it is switched on.
         transferOn
           ? { error: 'Online card payment isn’t open yet — please pay by bank transfer.', code: 'use_transfer' }
-          : { error: 'Online payment isn’t open yet. Please try again later.\nآن لائن ادائیگی ابھی دستیاب نہیں۔ کچھ دیر بعد کوشش کریں۔', code: 'method_off' },
+          : { error: 'Online payment isn’t open yet. Please try again later.', code: 'method_off' },
         { status: 409 },
       )
     }

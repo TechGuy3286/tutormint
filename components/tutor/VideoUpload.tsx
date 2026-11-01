@@ -303,10 +303,6 @@ export default function VideoUpload({
               <AlertCircle aria-hidden size={13} className="mt-px shrink-0" />
               {error}
             </p>
-            {/* PR106-C §9: a plain Urdu line under the English, never technical. */}
-            <p lang="ur" dir="rtl" className="mt-1 text-[11px] font-semibold">
-              ویڈیو اپ لوڈ نہیں ہو سکی۔ دوبارہ کوشش کریں یا تھوڑی دیر بعد کوشش کریں۔
-            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             {fileRef.current && (
@@ -335,9 +331,6 @@ export default function VideoUpload({
           <p className="flex items-start gap-1.5 text-[11px] font-semibold">
             <AlertCircle aria-hidden size={13} className="mt-px shrink-0" />
             {error}
-          </p>
-          <p lang="ur" dir="rtl" className="mt-1 text-[11px] font-semibold">
-            ویڈیو اپ لوڈ نہیں ہو سکی۔ دوبارہ کوشش کریں یا تھوڑی دیر بعد کوشش کریں۔
           </p>
         </div>
       )}

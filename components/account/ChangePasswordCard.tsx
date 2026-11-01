@@ -22,25 +22,25 @@ export default function ChangePasswordCard() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-    if (pw !== confirm) return setError('The two passwords do not match.\nدونوں پاس ورڈ ایک جیسے نہیں ہیں۔')
-    if (pw.length < 6) return setError('Use at least 6 characters.\nکم از کم 6 حروف استعمال کریں۔')
+    if (pw !== confirm) return setError('The two passwords do not match.')
+    if (pw.length < 6) return setError('Use at least 6 characters.')
     setBusy(true)
     const { error: err } = await createClient().auth.updateUser({ password: pw, current_password: current })
     setBusy(false)
     if (err) {
       setError(
         /current password|invalid/i.test(err.message) && !/same|different/i.test(err.message)
-          ? 'Your current password is not right.\nموجودہ پاس ورڈ درست نہیں۔'
+          ? 'Your current password is not right.'
           : /same|different/i.test(err.message)
-          ? 'Choose a password different from your current one.\nموجودہ پاس ورڈ سے مختلف پاس ورڈ چنیں۔'
-          : 'That did not save. Please try again, or message us on WhatsApp 0321 5872222.\nیہ محفوظ نہیں ہوا۔ دوبارہ کوشش کریں۔',
+          ? 'Choose a password different from your current one.'
+          : 'That did not save. Please try again, or message us on WhatsApp 0321 5872222.',
       )
       return
     }
     setCurrent('')
     setPw('')
     setConfirm('')
-    toast.success('Password changed.\nپاس ورڈ تبدیل ہو گیا۔')
+    toast.success('Password changed.')
   }
 
   return (

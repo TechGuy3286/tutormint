@@ -171,7 +171,7 @@ export async function avatarOriginalUrl(memberId: string, avatarUrl: string | nu
 // A member's upload: the original AND their cropped square
 // ---------------------------------------------------------------------------
 
-export type MemberPhotoResult = { ok: true; url: string; originalUrl: string } | { ok: false; status: 400 | 503; error: string; errorUr?: string }
+export type MemberPhotoResult = { ok: true; url: string; originalUrl: string } | { ok: false; status: 400 | 503; error: string }
 
 /**
  * Store a member's new profile photo: the photo as uploaded and the square they
@@ -187,14 +187,14 @@ export async function storeMemberPhoto(args: { userId: string; original: Buffer;
   try {
     files = await normaliseMemberPhoto(args.original, args.crop)
   } catch {
-    return { ok: false, status: 400, error: 'That file could not be read as a photo. Please choose another.', errorUr: 'یہ فائل تصویر کے طور پر نہیں کھل سکی۔ دوسری تصویر چنیں۔' }
+    return { ok: false, status: 400, error: 'That file could not be read as a photo. Please choose another.' }
   }
   const paths = memberPhotoPaths(args.userId, Date.now())
   const bucket = admin.storage.from('avatars')
   const a = await bucket.upload(paths.original, files.original, { contentType: 'image/jpeg', upsert: false })
   const b = a.error ? a : await bucket.upload(paths.crop, files.crop, { contentType: 'image/jpeg', upsert: false })
   if (a.error || b.error) {
-    return { ok: false, status: 400, error: 'The photo did not upload. Please try again.', errorUr: 'تصویر اپ لوڈ نہیں ہوئی۔ دوبارہ کوشش کریں۔' }
+    return { ok: false, status: 400, error: 'The photo did not upload. Please try again.' }
   }
   const originalUrl = bucket.getPublicUrl(paths.original).data.publicUrl
   const url = bucket.getPublicUrl(paths.crop).data.publicUrl

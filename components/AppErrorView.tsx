@@ -37,9 +37,6 @@ export default function AppErrorView({
       message="Please try again. If it keeps happening, contact us on WhatsApp."
       detail={
         <div className="space-y-2">
-          <p lang="ur" dir="rtl" className="text-sm leading-relaxed text-slate-700">
-            براہ کرم دوبارہ کوشش کریں۔ اگر یہ مسئلہ بار بار ہو تو واٹس ایپ پر ہم سے رابطہ کریں۔
-          </p>
           <div className="space-y-2 pt-2">
             <button
               type="button"

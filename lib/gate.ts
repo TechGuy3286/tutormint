@@ -34,16 +34,15 @@ import type { RejectedDoc } from '@/lib/badgeRule'
 /**
  * The "a required document was rejected" block (owner, PR106-H4 §2). A paid
  * tutor whose CNIC/photo/selfie staff rejected is blocked from new activity and
- * sees ONE screen naming the document, with a button to re-upload. English +
- * Urdu. No plan fixes this (kind 'blocked'); it clears on re-upload + approval.
+ * sees ONE screen naming the document, with a button to re-upload. English
+ * only. No plan fixes this (kind 'blocked'); it clears on re-upload + approval.
  */
 export function buildDocRejectedGate(doc: RejectedDoc, reuploadHref: string): Gate {
   return {
     kind: 'blocked',
     title: `Please upload a correct ${doc.label} to continue.`,
     body:
-      `Our team could not accept your ${doc.label}. Please upload a clear ${doc.label} and our team will review it again.\n\n` +
-      `ہماری ٹیم آپ کی ${doc.labelUr} قبول نہیں کر سکی۔ براہِ کرم واضح ${doc.labelUr} اپلوڈ کریں، ہماری ٹیم دوبارہ جائزہ لے گی۔`,
+      `Our team could not accept your ${doc.label}. Please upload a clear ${doc.label} and our team will review it again.`,
     audience: 'tutor',
     href: reuploadHref,
     ctaLabel: 'Upload now',
@@ -257,11 +256,10 @@ async function buildBaseGate(
       // address are optional — approved, they earn the green Verified badge.
       return {
         kind: 'verify',
-        title: 'Verify your mobile number · اپنا موبائل نمبر تصدیق کریں',
+        title: 'Verify your mobile number',
         body:
           'Posting a tuition, messaging tutors and requesting a demo need a verified mobile number. ' +
-          'It is free and takes a minute.\n\n' +
-          'ٹیوشن پوسٹ کرنے، ٹیوٹرز کو پیغام بھیجنے اور ڈیمو مانگنے کے لیے تصدیق شدہ موبائل نمبر ضروری ہے۔ یہ مفت ہے۔',
+          'It is free and takes a minute.',
         audience: 'parent',
         href: '/parent/dashboard/settings?open=mobile',
         ctaLabel: 'Verify mobile',
@@ -269,19 +267,17 @@ async function buildBaseGate(
       }
 
     case 'tutor_verify':
-      // The Rs 199 one-time verification fee gate (owner, 15 Sep 2026). Bilingual
-      // heading and body, consistent with onboarding. The client renders the
+      // The Rs 199 one-time verification fee gate (owner, 15 Sep 2026). English
+      // only (owner, 2 Nov 2026). The client renders the
       // inline CNIC-upload modal for a tutor 'verify' gate; the exact
       // outcome line below is the ONLY outcome language allowed here — visibility,
       // never a promise of being hired.
       return {
         kind: 'verify',
-        title: 'Get verified to apply · اپلائی کرنے کے لیے تصدیق کروائیں',
+        title: 'Get verified to apply',
         body:
           'Upload your CNIC (front and back) to become a verified tutor. Verified tutors are shown ' +
-          'to parents first.\n\n' +
-          'اپنا شناختی کارڈ (سامنے اور پیچھے) اپلوڈ کریں تاکہ آپ تصدیق شدہ ٹیوٹر بن جائیں۔ ' +
-          'تصدیق شدہ ٹیوٹرز والدین کو سب سے پہلے دکھائے جاتے ہیں۔',
+          'to parents first.',
         audience: 'tutor',
         plan,
         href: '/tutor/complete-profile?step=verify',

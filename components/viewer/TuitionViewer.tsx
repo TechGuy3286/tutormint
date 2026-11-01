@@ -11,6 +11,7 @@ import ViewNumberLink from '@/components/ViewNumberLink'
 import ReportButton from '@/components/ReportButton'
 import { genderApplyBlocked, genderPrefSentence } from '@/lib/genderPref'
 import { showApplyForViewer, type TuitionViewer } from '@/lib/tuitionViewerCore'
+import { posterToolsVisible, keepOpenNotice } from '@/lib/posterToolsCore'
 
 // The signed-in parts of a cached tuition page (push 3, owner 1 Nov 2026). The
 // page is the same HTML for everyone and renders as a guest sees it; when the
@@ -47,7 +48,7 @@ function useViewer(): Extract<TuitionViewer, { signedIn: true }> | null {
 export function PosterBannerActions({ jobId, paused }: { jobId: string; paused: boolean }) {
   const v = useViewer()
   if (!v) return null
-  if (v.isPoster && paused) return <ResumeInline jobId={jobId} />
+  if (paused && posterToolsVisible(v, v.teamPost)) return <ResumeInline jobId={jobId} admin={!v.isPoster} />
   if (v.isAdmin && !v.isPoster)
     return (
       <Link
@@ -60,19 +61,17 @@ export function PosterBannerActions({ jobId, paused }: { jobId: string; paused: 
   return null
 }
 
-/** Refresh and the "pauses in N days" line, for the poster or an admin. */
+/** Move to top and Keep it open — the tuition's poster only (the parent who
+ *  posted it, or staff on a team-posted tuition). */
 export function PosterOpenTools({ jobId, isOpen }: { jobId: string; isOpen: boolean }) {
   const v = useViewer()
-  if (!v || !isOpen || !(v.isPoster || v.isAdmin)) return null
+  if (!v || !isOpen || !posterToolsVisible(v, v.teamPost)) return null
+  const admin = v.isAdmin && !v.isPoster
   return (
     <>
-      <RefreshInline jobId={jobId} admin={v.isAdmin && !v.isPoster} />
-      {v.pauseLabel && (
-        <p className="rounded-xl bg-tm-bg p-3 text-[11px] font-semibold text-gray-500">
-          {v.pauseLabel === 'pauses today'
-            ? 'Pauses today unless you resume it — after that it is hidden from tutors until you resume it.'
-            : `This tuition ${v.pauseLabel} — after that, resume it to keep it visible to tutors.`}
-        </p>
+      <RefreshInline jobId={jobId} admin={admin} nextAt={v.refreshNextAt} />
+      {v.pauseDaysLeft != null && (
+        <RefreshInline jobId={jobId} admin={admin} nextAt={v.refreshNextAt} keepOpen notice={keepOpenNotice(v.pauseDaysLeft)} />
       )}
     </>
   )

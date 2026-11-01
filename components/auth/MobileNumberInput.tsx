@@ -12,8 +12,6 @@ import { normalisePkMobile } from '@/lib/phone'
 // keypad on phones. Controlled: the surface owns the value and its "send" action.
 
 export const MOBILE_HINT = 'Enter a Pakistani mobile number like 0300 1234567.'
-export const MOBILE_HINT_UR = 'پاکستانی موبائل نمبر درج کریں، جیسے 0300 1234567۔'
-
 /** True when the value normalises to a Pakistani MSISDN (the one format check). */
 export function isValidPkMobile(v: string): boolean {
   return !!normalisePkMobile(v)

@@ -38,7 +38,6 @@ test('the confirmation tells a paid-plan tutor the plan keeps running', () => {
   assert.ok(pauseConfirmText({ paidPlan: false }).en.startsWith('Your profile will be hidden and you will be signed out. Sign in any time to bring it back.'))
   assert.ok(!pauseConfirmText({ paidPlan: false }).en.includes('plan days'))
   assert.ok(pauseConfirmText({ paidPlan: true }).en.endsWith('Your plan days keep running while paused.'))
-  assert.ok(pauseConfirmText({ paidPlan: true }).ur.length > 20)
 })
 
 test('a self-paused tutor is out of the directory (TS mirror and the view)', () => {

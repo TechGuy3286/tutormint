@@ -171,13 +171,13 @@ test('dashboard profile cards carry Settings and Help & Support', () => {
   assert.match(src('components/parent/ParentHeaderCard.tsx'), /<AccountLinks settingsHref="\/parent\/dashboard\/settings" \/>/)
 })
 
-test('error page: one English line, one Urdu line, navy Try again, WhatsApp, plain homepage link, no Get help', () => {
+test('error page: one English line, no Urdu line, navy Try again, WhatsApp, plain homepage link, no Get help', () => {
   const html = render(
     createElement(AppErrorView, { error: Object.assign(new Error('x'), { digest: '2445384852' }), reset: () => {} }),
   )
   assert.match(html, /<h1[^>]*>Something went wrong at our end<\/h1>/)
   assert.match(html, /Please try again\. If it keeps happening, contact us on WhatsApp\./)
-  assert.equal((html.match(/lang="ur"/g) ?? []).length, 1)
+  assert.equal((html.match(/lang="ur"/g) ?? []).length, 0)
   assert.doesNotMatch(html, /This is our fault|Get help|text-\[11px\] text-gray-500">Something went wrong\./)
   assert.match(html, /<button[^>]*bg-tm-navy[^>]*>.*Try again<\/button>/)
   assert.match(html, /href="https:\/\/api\.whatsapp\.com\/send\?phone=923215872222[^"]*"[^>]*>.*Contact support on WhatsApp<\/a>/)

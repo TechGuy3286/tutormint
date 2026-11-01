@@ -26,14 +26,12 @@ const TONE = {
     chip: 'bg-white/15',
     title: 'text-white',
     line: 'text-white/90',
-    lineUr: 'text-white/80',
   },
   navy: {
     bar: 'bg-tm-navy hover:bg-tm-navy-hover text-white',
     chip: 'bg-white/15',
     title: 'text-white',
     line: 'text-white/90',
-    lineUr: 'text-white/80',
   },
   // Light-green tint, dark-green ink (all pass AA — see scripts/contrast-check.ts).
   green: {
@@ -41,7 +39,6 @@ const TONE = {
     chip: 'bg-white',
     title: 'text-tm-green-deep',
     line: 'text-tm-green-deep',
-    lineUr: 'text-tm-green-deep',
   },
 } as const
 
@@ -49,15 +46,12 @@ export default function DashboardActionBar({
   href,
   label,
   line,
-  lineUr,
   tone,
   icon,
 }: {
   href: string
   label: string
   line: string
-  /** The Urdu rendering of `line`, shown beneath it (PR71). */
-  lineUr?: string
   tone: 'red' | 'navy' | 'green'
   icon: ReactNode
 }) {
@@ -73,10 +67,6 @@ export default function DashboardActionBar({
       <span className="min-w-0 flex-1">
         <span className={`block text-sm font-black ${t.title}`}>{label}</span>
         <span className={`block text-[11px] font-medium ${t.line}`}>{line}</span>
-        {lineUr && (
-          // tm-ur-cap so the Urdu line is not bumped larger than the English (PR87 §2).
-          <span lang="ur" dir="rtl" className={`tm-ur-cap block text-[11px] font-medium ${t.lineUr}`}>{lineUr}</span>
-        )}
       </span>
       <ArrowRight aria-hidden size={18} className="shrink-0" />
     </Link>

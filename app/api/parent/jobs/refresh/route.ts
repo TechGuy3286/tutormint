@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Sign in to refresh your tuition.\nاپنی ٹیوشن ریفریش کرنے کے لیے سائن ان کریں۔' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Sign in to refresh your tuition.' }, { status: 401 })
 
   const parsed = await parseBody(request, Body)
   if (!parsed.ok) return parsed.response

@@ -580,7 +580,7 @@ export async function resolveTutorScope(
 
 // ---- PR85 (Part B): the tutor tuition feed with a 3-level fallback ----------
 export type FeedLevel = 1 | 2 | 3
-export type FeedMessage = { en: string; ur: string } | null
+export type FeedMessage = { en: string } | null
 
 function level1Scope(r: ResolvedTutor): TutorScope {
   const cityScopes = r.cities
@@ -598,13 +598,11 @@ function cityScopeFor(r: ResolvedTutor, cities: string[]): TutorScope {
 function areaFallbackMsg(cityWord: string): FeedMessage {
   return {
     en: `No tuitions in your chosen areas right now. Here are tuitions in ${cityWord}.`,
-    ur: `اس وقت آپ کے منتخب علاقوں میں کوئی ٹیوشن نہیں۔ یہ ${cityWord} میں ٹیوشنز ہیں۔`,
   }
 }
 function cityFallbackMsg(cityWord: string): FeedMessage {
   return {
     en: `No tuitions in ${cityWord} right now. Here are tuitions in nearby cities.`,
-    ur: `اس وقت ${cityWord} میں کوئی ٹیوشن نہیں۔ یہ قریبی شہروں کی ٹیوشنز ہیں۔`,
   }
 }
 

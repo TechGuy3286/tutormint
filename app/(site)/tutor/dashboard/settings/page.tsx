@@ -3,7 +3,8 @@
 import ChangePasswordCard from '@/components/account/ChangePasswordCard'
 import PauseAccountCard from '@/components/account/PauseAccountCard'
 import DeleteAccountCard from '@/components/account/DeleteAccountCard'
-import { PauseCircle, Trash2 } from 'lucide-react'
+import { PauseCircle, Trash2, PenLine } from 'lucide-react'
+import TaglineAboutEditor from '@/components/tutor/TaglineAboutEditor'
 import FileUpload from '@/components/FileUpload';
 import LiveSelfieCapture from '@/components/tutor/LiveSelfieCapture';
 import { compressUnder1MB } from '@/lib/imageCompress';
@@ -22,7 +23,7 @@ import {
 import IdentityCard from '@/components/identity/IdentityCard'
 import DocLockNotice, { combinedView } from '@/components/identity/DocLockNotice'
 import { canPick } from '@/lib/docLockCore'
-import { StatusCard, StepHeader, SettingsTile, Urdu } from '@/components/tutor/SettingsPieces'
+import { StatusCard, StepHeader, SettingsTile } from '@/components/tutor/SettingsPieces'
 import { READONLY_LINES, type CardStatus } from '@/lib/tutorSettingsCopy'
 import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange, feeLabelOf } from '@/lib/fee'
 import { FormChecklist, ChecklistStatus } from '@/components/forms/FormChecklist'
@@ -84,6 +85,9 @@ export default function TutorSettingsPage() {
   const [statuses, setStatuses] = useState<DocumentStatuses | null>(null);
   const [feePaid, setFeePaid] = useState(false);
   const [experienceYears, setExperienceYears] = useState<number | null>(null);
+  // Tagline & About (owner, 2 Nov 2026, Part F).
+  const [headline, setHeadline] = useState('');
+  const [bio, setBio] = useState('');
   // Monthly fee range (PR67) — the two fields, prefilled from the saved values.
   const [feeMin, setFeeMin] = useState("");
   const [feeMax, setFeeMax] = useState("");
@@ -246,6 +250,8 @@ export default function TutorSettingsPage() {
       setRealEmail(real);
       setEmailVerified(real !== "");
       setFeePaid(Boolean(tp?.verified_fee_paid_at));
+      setHeadline((tp?.headline as string | null) ?? '');
+      setBio((tp?.bio as string | null) ?? '');
       setExperienceYears(
         typeof tp?.experience_years === 'number' ? (tp.experience_years as number) : null,
       );
@@ -725,7 +731,6 @@ export default function TutorSettingsPage() {
           {/* The picture/selfie instruction (PR70 §4). */}
           <div className="rounded-xl bg-tm-tint-navy p-3">
             <p className="text-[11px] leading-relaxed text-tm-navy">{L.pictureNote.en}</p>
-            <p className="mt-1 text-[11px] leading-relaxed text-tm-navy" lang="ur" dir="rtl">{L.pictureNote.ur}</p>
           </div>
           {/* "Hide my photo from parents" (owner, 17 Oct 2026; PR70's show_avatar,
               inverted). Off by default; works even when the photo is approved and
@@ -734,7 +739,7 @@ export default function TutorSettingsPage() {
             <HidePhotoToggle hidden={!showAvatar} onChange={(h) => void saveShowAvatar(!h)} />
             {!showAvatar && (
               <p className="text-[11px] font-bold text-tm-gold-ink">
-                {L.hiddenFromParents.en} — <span lang="ur" dir="rtl">{L.hiddenFromParents.ur}</span>
+                {L.hiddenFromParents.en}
               </p>
             )}
           </div>
@@ -755,7 +760,6 @@ export default function TutorSettingsPage() {
               here, one line only. */}
           <p className="text-[11px] leading-relaxed text-gray-600">
             Only TutorMint’s verification team sees your selfie.
-            <span lang="ur" dir="rtl" className="ms-1">آپ کی سیلفی صرف ٹیوٹرمنٹ کی تصدیقی ٹیم دیکھتی ہے۔</span>
           </p>
           {selfieView === 'unlocked' && <DocLockNotice view="unlocked" doc="selfie" />}
           <div className="max-w-xs">
@@ -823,6 +827,25 @@ export default function TutorSettingsPage() {
   ];
 
   const step2Cards: CardDesc[] = [
+    {
+      key: 'about',
+      status: headline.trim() && bio.trim() ? 'completed' : 'missing',
+      icon: <PenLine size={20} aria-hidden />,
+      collapsible: true,
+      summary: headline.trim(),
+      body: (
+        <TaglineAboutEditor
+          key={`${headline}|${bio.length}`}
+          initialHeadline={headline}
+          initialBio={bio}
+          onSaved={(h, b) => {
+            setHeadline(h);
+            setBio(b);
+            collapse('about');
+          }}
+        />
+      ),
+    },
     {
       key: 'jobType',
       status: jobTypeStatus,
@@ -1184,7 +1207,6 @@ function ReadonlyLine({ kind, done, href }: { kind: 'fee' | 'experience'; done: 
   return (
     <div className="space-y-2">
       <p className="text-[11px] font-semibold text-gray-700">{done ? l.done.en : l.todo.en}</p>
-      <Urdu className="text-[11px] font-semibold text-gray-700">{done ? l.done.ur : l.todo.ur}</Urdu>
       {!done && l.cta.en && (
         <Link
           href={href}

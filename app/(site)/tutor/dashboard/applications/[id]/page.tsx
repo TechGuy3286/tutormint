@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
 import { getSessionUser } from '@/lib/auth'
-import { formatDate, appliedLabel } from '@/lib/datetime'
+import { formatDate } from '@/lib/datetime'
 import { budgetLabel } from '@/lib/feeBands'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
@@ -258,7 +258,6 @@ export default async function ApplicationDetailPage({ params }: { params: Params
             <Step
               label="You applied"
               at={application.created_at as string}
-              urdu={appliedLabel(application.created_at as string).ur}
               done
               first
               last={status === 'applied'}
@@ -327,7 +326,6 @@ function Fact({
 function Step({
   label,
   at,
-  urdu,
   done,
   first = false,
   last = false,
@@ -335,7 +333,6 @@ function Step({
 }: {
   label: string
   at: string | null
-  urdu?: string
   done: boolean
   first?: boolean
   last?: boolean
@@ -355,11 +352,6 @@ function Step({
         <span className="block text-[11px] text-gray-500">
           {at ? formatDate(at) : 'date not recorded'}
         </span>
-        {urdu && (
-          <span lang="ur" dir="rtl" className="block text-[11px] text-gray-500">
-            {urdu}
-          </span>
-        )}
       </span>
     </li>
   )

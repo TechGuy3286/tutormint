@@ -138,8 +138,8 @@ test('a receipt is a JPG, PNG, WebP or PDF of at most 4 MB', () => {
   assert.match(receiptFileProblem({ type: 'image/png', size: RECEIPT_MAX_BYTES + 1 }) ?? '', /larger than 4 MB/)
   assert.match(receiptFileProblem(null) ?? '', /Choose a photo or PDF/)
   assert.match(receiptFileProblem({ type: 'image/png', size: 0 }) ?? '', /Choose a photo or PDF/)
-  // Every refusal carries its Urdu line.
-  assert.ok((receiptFileProblem({ type: 'image/gif', size: 1 }) ?? '').includes('\n'))
+  // Error messages are English only (owner, 2 Nov 2026).
+  assert.ok(!(receiptFileProblem({ type: 'image/gif', size: 1 }) ?? '').includes('\n'))
   // The route applies the rule before it touches the database or storage.
   assert.ok(RECEIPT_ROUTE.indexOf('receiptFileProblem(file instanceof File') < RECEIPT_ROUTE.indexOf(".from('plans')"))
   assert.equal(receiptIsPdf('u/p-1.pdf'), true)

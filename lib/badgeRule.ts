@@ -67,17 +67,16 @@ export function tutorVerifiedBadgeOk(feePaid: boolean, docs: TutorDocs): boolean
 export type RejectedDoc = {
   key: 'cnic' | 'photo' | 'selfie'
   label: string
-  labelUr: string
   /** True once the member re-uploaded it and it is awaiting staff re-review
    *  (status back to pending/submitted but the reason still lingers). Drives
    *  "being reviewed" vs "please upload a correct …". */
   awaitingReview: boolean
 }
 
-const LABELS: Record<RejectedDoc['key'], { label: string; labelUr: string }> = {
-  cnic: { label: 'CNIC photo', labelUr: 'شناختی کارڈ کی تصویر' },
-  photo: { label: 'profile photo', labelUr: 'پروفائل تصویر' },
-  selfie: { label: 'selfie', labelUr: 'سیلفی' },
+const LABELS: Record<RejectedDoc['key'], { label: string }> = {
+  cnic: { label: 'CNIC photo' },
+  photo: { label: 'profile photo' },
+  selfie: { label: 'selfie' },
 }
 
 /** The FIRST blocked required document (CNIC → photo → selfie), or null. Drives

@@ -22,18 +22,15 @@ import type { FeeBenefitKey, FeeCardState } from '@/lib/tutorDashboard'
 // never settled. In <body> it has no transformed ancestor. It still opens ONLY
 // from a tap (the caller's onClick); nothing here opens it.
 
-export const FEE_BENEFIT_LINES: Record<FeeBenefitKey, { en: string; ur: string }> = {
+export const FEE_BENEFIT_LINES: Record<FeeBenefitKey, { en: string }> = {
   badge: {
     en: 'Green Verified badge — once the fee is paid and you send your CNIC, photo and selfie',
-    ur: 'سبز تصدیق شدہ بیج — فیس ادا کرنے اور اپنا شناختی کارڈ، تصویر اور سیلفی بھیجنے پر',
   },
   google: {
     en: 'Your TutorMint page can be found on Google — once our team approves your CNIC, photo and selfie',
-    ur: 'آپ کا ٹیوٹرمنٹ صفحہ گوگل پر مل سکے گا — جب ہماری ٹیم آپ کا شناختی کارڈ، تصویر اور سیلفی منظور کر لے',
   },
   basic: {
     en: 'On the Basic plan: apply to 10 tuitions a month, see 10 parents’ phone and email, and message parents in the app',
-    ur: 'بیسک پلان پر: ہر ماہ 10 ٹیوشنز کے لیے درخواست، 10 والدین کا فون اور ای میل، اور ایپ میں والدین کو پیغام',
   },
 }
 
@@ -71,7 +68,6 @@ export default function VerifyBenefitsDialog({
         <div className="flex items-start justify-between gap-2">
           <h2 className="text-sm font-black text-tm-navy">
             Your verification
-            <span lang="ur" dir="rtl" className="ms-2 text-[11px] font-semibold text-gray-500">آپ کی تصدیق</span>
           </h2>
           <button type="button" onClick={onClose} aria-label="Close"
             className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-gray-500 hover:bg-gray-100">
@@ -89,7 +85,6 @@ export default function VerifyBenefitsDialog({
               )}
               <span className={`text-[12px] leading-snug ${l.done ? 'text-slate-700' : 'text-gray-500'}`}>
                 {FEE_BENEFIT_LINES[l.key].en}
-                <span lang="ur" dir="rtl" className="mt-0.5 block text-[11px] text-gray-500">{FEE_BENEFIT_LINES[l.key].ur}</span>
               </span>
             </li>
           ))}
@@ -97,9 +92,6 @@ export default function VerifyBenefitsDialog({
 
         <p className="rounded-lg bg-tm-tint-green/60 px-3 py-2 text-[11px] leading-snug text-tm-green-deep">
           The one-time Verification Fee keeps fake and spam accounts off TutorMint, so parents can trust verified tutors.
-          <span lang="ur" dir="rtl" className="mt-0.5 block text-gray-500">
-            یہ ایک بار کی فیس جعلی اور اسپام اکاؤنٹس کو ٹیوٹرمنٹ سے دور رکھتی ہے، تاکہ والدین تصدیق شدہ ٹیوٹرز پر بھروسہ کر سکیں۔
-          </span>
         </p>
 
         {payHref && !state.paid && (
@@ -108,7 +100,6 @@ export default function VerifyBenefitsDialog({
             className="flex min-h-[44px] w-full items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white hover:bg-tm-red-hover"
           >
             Pay Verification Fee
-            <span lang="ur" dir="rtl" className="ms-1.5 text-[11px] font-semibold opacity-90">تصدیقی فیس ادا کریں</span>
           </Link>
         )}
       </div>

@@ -1,3 +1,4 @@
+import { bannedClaims } from '@/lib/brandClaims'
 // lib/ai/taglineBrief.ts
 //
 // The PURE half of the AI tagline & bio (PR106-G4a §3): the Claude prompt, the
@@ -10,13 +11,18 @@ import type { OnboardingAnswers } from '@/lib/onboarding/copy'
 
 export type TaglineCopy = { tagline: string; bio: string }
 
+/** The character limits shown and enforced on Tagline & About (owner, 2 Nov 2026). */
+export const TAGLINE_MAX = 120
+export const BIO_MAX = 1000
+
 export const TAGLINE_SYSTEM = [
   'You write a short public profile for a verified tutor on TutorMint, a Pakistani platform where parents find tutors.',
   "Write in the tutor's own calm, warm voice. Plain English a Pakistani parent reads easily. No corporate filler.",
   'Rules you must not break:',
   '- Use ONLY the facts given. Invent NOTHING — no exam results, pass rates, numbers of students, years, awards or reviews.',
   '- Never promise tuitions, jobs, results or income ("I will get you top marks" is forbidden).',
-  '- Never include a phone number, CNIC number, address, email, or an exact fee. (A broad fee range may be mentioned only if it is in the facts.)',
+  '- Never include a phone number, CNIC number, address, email, or any fee or price.',
+  '- No superlatives or ranking claims: never "best", "top", "No.1", "leading", "most trusted", "top-rated" or similar.',
   '- No emoji, no hashtags, no markdown, no greeting, no sign-off.',
   '- Tagline: ONE short line, under 70 characters (e.g. "O Level Physics tutor in Lahore").',
   '- Bio: two or three short sentences about what and how they teach, under 60 words.',
@@ -48,7 +54,11 @@ export function taglineForbidden(copy: TaglineCopy, opts: { address?: string | n
   const addr = (opts.address ?? '').trim()
   if (addr.length >= 8 && text.toLowerCase().includes(addr.toLowerCase())) return 'contains the address'
   if (!copy.tagline.trim() || !copy.bio.trim()) return 'empty'
-  if (copy.tagline.length > 120) return 'tagline too long'
+  if (copy.tagline.length > TAGLINE_MAX) return 'tagline too long'
+  if (copy.bio.length > BIO_MAX) return 'bio too long'
+  // No prices and no superlatives (owner, 2 Nov 2026).
+  if (/\b(rs\.?|pkr|rupees?)\s*\d|\d[\d,]*\s*(rs|pkr|rupees?)\b/i.test(text)) return 'mentions a price'
+  if (bannedClaims(text).length) return 'superlative'
   return null
 }
 

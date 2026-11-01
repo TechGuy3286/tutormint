@@ -940,7 +940,6 @@ export default function PostTuitionForm({
         >
           <div className="w-full space-y-3 rounded-t-3xl bg-white p-5 shadow-xl sm:max-w-md sm:rounded-3xl">
             <p className="text-sm font-black text-tm-navy">A tuition like this is already open</p>
-            <p lang="ur" dir="rtl" className="text-xs text-gray-500">ایسی ہی ایک ٹیوشن پہلے سے کھلی ہے۔</p>
             <div className="rounded-xl border border-gray-200 bg-tm-bg p-3">
               <p className="text-xs font-black text-tm-navy">{dup.refId} · {dup.title}</p>
               <p className="text-[11px] text-gray-500">

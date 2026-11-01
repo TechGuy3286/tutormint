@@ -32,13 +32,13 @@ export const RECEIPT_ACCEPT = Object.keys(RECEIPT_TYPES).join(',')
 /** Why a receipt file is refused, in plain English + Urdu; null when it is fine. */
 export function receiptFileProblem(file: { type: string; size: number } | null): string | null {
   if (!file || file.size <= 0) {
-    return 'Choose a photo or PDF of your receipt.\nاپنی رسید کی تصویر یا پی ڈی ایف منتخب کریں۔'
+    return 'Choose a photo or PDF of your receipt.'
   }
   if (!(file.type in RECEIPT_TYPES)) {
-    return 'The receipt must be a JPG, PNG or WebP image, or a PDF.\nرسید JPG، PNG، WebP تصویر یا پی ڈی ایف ہونی چاہیے۔'
+    return 'The receipt must be a JPG, PNG or WebP image, or a PDF.'
   }
   if (file.size > RECEIPT_MAX_BYTES) {
-    return 'That file is larger than 4 MB. Please send a smaller one.\nیہ فائل 4 ایم بی سے بڑی ہے۔ چھوٹی فائل بھیجیں۔'
+    return 'That file is larger than 4 MB. Please send a smaller one.'
   }
   return null
 }
@@ -143,11 +143,11 @@ export function channelLabel(provider: string, method: string | null): string {
 
 export const RECEIPT_MESSAGES = {
   received:
-    'Receipt received. We’ll check it and activate your verification soon.\nرسید مل گئی۔ ہم اسے چیک کر کے جلد آپ کی تصدیق فعال کر دیں گے۔',
+    'Receipt received. We’ll check it and activate your verification soon.',
   receivedPlan:
-    'Receipt received. We’ll check it and activate your plan soon.\nرسید مل گئی۔ ہم اسے چیک کر کے جلد آپ کا پلان فعال کر دیں گے۔',
+    'Receipt received. We’ll check it and activate your plan soon.',
   alreadyUnderReview:
-    'We already have your receipt and are checking it. You do not need to send it again.\nآپ کی رسید ہمارے پاس ہے اور چیک ہو رہی ہے۔ دوبارہ بھیجنے کی ضرورت نہیں۔',
+    'We already have your receipt and are checking it. You do not need to send it again.',
   bankOff:
-    'Bank transfer is not available right now. Please pay with JazzCash instead.\nبینک ٹرانسفر ابھی دستیاب نہیں۔ جاز کیش سے ادائیگی کریں۔',
+    'Bank transfer is not available right now. Please pay with JazzCash instead.',
 } as const

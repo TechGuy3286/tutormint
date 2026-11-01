@@ -14,7 +14,7 @@ import MobileNumberInput from '@/components/auth/MobileNumberInput'
 import OtpCodeEntry from '@/components/auth/OtpCodeEntry'
 import { useToast } from '@/components/ui/Toast'
 import { armEscape, submitJson } from '@/lib/submit'
-import { GENERIC_ERROR, supportWhatsappHref } from '@/lib/errorMessages'
+import { supportWhatsappHref } from '@/lib/errorMessages'
 import { SUPPORT_WHATSAPP_DISPLAY } from '@/lib/supportContacts'
 
 // Password reset, two ways in.
@@ -39,7 +39,7 @@ import { SUPPORT_WHATSAPP_DISPLAY } from '@/lib/supportContacts'
 type Mode = 'mobile' | 'email'
 type Screen = 'number' | 'code' | 'password'
 
-type Failure = { errorUr?: string; ref?: string; locked?: boolean; expired?: boolean; dailyLimit?: boolean; supportHref?: string }
+type Failure = { ref?: string; locked?: boolean; expired?: boolean; dailyLimit?: boolean; supportHref?: string }
 
 export default function ForgotPasswordForm() {
   const router = useRouter()
@@ -48,22 +48,19 @@ export default function ForgotPasswordForm() {
   const [mode, setMode] = useState<Mode>('mobile')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [errorUr, setErrorUr] = useState<string | null>(null)
   const [errorRef, setErrorRef] = useState<string | null>(null)
   const [supportHref, setSupportHref] = useState<string | null>(null)
 
   const clearError = () => {
     setError('')
-    setErrorUr(null)
     setErrorRef(null)
     setSupportHref(null)
   }
 
-  // Show a failure with its Urdu line, the reference code (transport failures)
+  // Show a failure with the reference code (transport failures)
   // and, for the daily limit, the support WhatsApp link.
   function showFailure(failed: string | null | undefined, data: Failure | null, fallback: string) {
     setError(failed ?? fallback)
-    setErrorUr(data?.errorUr ?? (data?.ref ? GENERIC_ERROR.ur : null))
     setErrorRef(data?.ref ?? null)
     setSupportHref(data?.supportHref ?? null)
   }
@@ -92,7 +89,6 @@ export default function ForgotPasswordForm() {
     // about whether an account exists).
     if (recipientProblem(email.trim())) {
       setError('Enter a valid email address, e.g. name@example.com.')
-      setErrorUr(null)
       return
     }
     if (inFlight.current) return
@@ -156,7 +152,6 @@ export default function ForgotPasswordForm() {
     clearError()
     if (password !== confirm) {
       setError('The two passwords do not match.')
-      setErrorUr('دونوں پاس ورڈ ایک جیسے نہیں ہیں۔')
       return
     }
     setBusy(true)
@@ -206,11 +201,6 @@ export default function ForgotPasswordForm() {
       className="space-y-2 rounded-xl border border-tm-red/30 bg-tm-tint-red p-3 text-center text-xs font-bold text-tm-red"
     >
       <p>{error}</p>
-      {errorUr && (
-        <p lang="ur" dir="rtl" className="leading-relaxed">
-          {errorUr}
-        </p>
-      )}
       {errorRef && (
         <p className="text-[11px] font-normal text-tm-red/80">
           Ref: <span className="font-mono">{errorRef}</span>{' '}
@@ -395,7 +385,6 @@ export default function ForgotPasswordForm() {
                   busyLabel="Checking…"
                   verifyLabel="Continue"
                   error={error || null}
-                  errorUr={errorUr}
                   errorRef={errorRef}
                   errorExtra={
                     supportExtra ?? (

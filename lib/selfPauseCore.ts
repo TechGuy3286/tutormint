@@ -17,10 +17,8 @@ export type PauseFacts = {
 }
 
 export const NOT_AVAILABLE = 'This member is not available right now.'
-export const NOT_AVAILABLE_UR = 'یہ ممبر ابھی دستیاب نہیں ہے۔'
 
 export const WELCOME_BACK = 'Welcome back, your profile is live again.'
-export const WELCOME_BACK_UR = 'خوش آمدید، آپ کی پروفائل دوبارہ لائیو ہے۔'
 
 /** Why this account may NOT pause itself, or null when it may. */
 export function pauseRefusal(f: PauseFacts): string | null {
@@ -37,12 +35,10 @@ export function shouldRestoreOnSignIn(f: PauseFacts): boolean {
 }
 
 /** The confirmation text. A tutor on Premium or Featured is told the plan keeps running. */
-export function pauseConfirmText(opts: { paidPlan: boolean }): { en: string; ur: string } {
+export function pauseConfirmText(opts: { paidPlan: boolean }): { en: string } {
   const en = ['Your profile will be hidden and you will be signed out. Sign in any time to bring it back.']
-  const ur = ['آپ کی پروفائل چھپا دی جائے گی اور آپ سائن آؤٹ ہو جائیں گے۔ واپس لانے کے لیے کسی بھی وقت سائن اِن کریں۔']
   if (opts.paidPlan) {
     en.push('Your plan days keep running while paused.')
-    ur.push('روکنے کے دوران آپ کے پلان کے دن چلتے رہیں گے۔')
   }
-  return { en: en.join(' '), ur: ur.join(' ') }
+  return { en: en.join(' ') }
 }

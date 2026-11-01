@@ -54,9 +54,6 @@ export default function PaymentBanner({ banner }: { banner: Banner }) {
     <section data-payment-banner="checkout" className="space-y-3 rounded-2xl border border-tm-navy/20 bg-tm-tint-navy p-4 text-xs font-bold text-tm-navy">
       <p>
         {checkoutLine(banner.label, banner.pricePkr)}
-        <span lang="ur" dir="rtl" className="mt-0.5 block font-semibold text-tm-navy">
-          آپ کی ایک ادائیگی ابھی باقی ہے — جاری رکھنے کے لیے دبائیں۔
-        </span>
       </p>
       <div className="flex flex-col gap-2 sm:flex-row">
         <Link

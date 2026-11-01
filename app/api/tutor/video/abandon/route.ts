@@ -17,7 +17,7 @@ export async function POST() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Please sign in first, then try again.\nپہلے سائن ان کریں، پھر دوبارہ کوشش کریں۔' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Please sign in first, then try again.' }, { status: 401 })
 
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
   if (me?.role !== 'tutor') return NextResponse.json({ error: 'Not a tutor.' }, { status: 403 })

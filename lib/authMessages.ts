@@ -1,12 +1,10 @@
 // lib/authMessages.ts
 //
-// Specific, plain, bilingual messages for the auth screens (PR75 §2). Client-safe
+// Specific, plain English messages for the auth screens (PR75 §2). Client-safe
 // (no server imports) so the forms and the routes read one source. A GoTrue error
 // that is actionable (weak password, email already taken, rate limit, send
 // failure) becomes an exact "here is what to fix" message; anything unexpected
 // falls through to the generic message + reference code (PR72).
-
-export type Bi = { en: string; ur: string }
 
 // The banned-login message is owner-locked, verbatim (Sunday 6 Sep): a banned
 // account is refused at login with this and no session is created. It lives here
@@ -18,46 +16,36 @@ export const BANNED_LOGIN_MESSAGE =
 export const AUTH_MSG = {
   emailTaken: {
     en: 'This email already has an account. Sign in instead.',
-    ur: 'اس ای میل کا پہلے سے اکاؤنٹ موجود ہے۔ اس کے بجائے سائن اِن کریں۔',
   },
   mobileTaken: {
     en: 'This number is already on TutorMint. To use it for a second role, contact support on WhatsApp 0321 5872222.',
-    ur: 'یہ نمبر پہلے سے TutorMint پر ہے۔ اسے دوسرے کردار کے لیے استعمال کرنے کے لیے واٹس ایپ 0321 5872222 پر سپورٹ سے رابطہ کریں۔',
   },
   weakPassword: {
     en: 'Please choose a stronger password — at least 8 characters, and not a common or easily guessed one.',
-    ur: 'براہ کرم مضبوط پاس ورڈ چنیں — کم از کم 8 حروف، اور کوئی عام یا آسانی سے اندازہ لگنے والا نہ ہو۔',
   },
   shortPassword: {
     en: 'Your password is too short. Use at least 8 characters.',
-    ur: 'آپ کا پاس ورڈ بہت چھوٹا ہے۔ کم از کم 8 حروف استعمال کریں۔',
   },
   invalidEmail: {
     en: 'Enter a valid email address, like name@example.com.',
-    ur: 'درست ای میل ایڈریس درج کریں، جیسے name@example.com۔',
   },
   invalidMobile: {
     en: 'Enter a Pakistani mobile number like 0300 1234567.',
-    ur: 'پاکستانی موبائل نمبر درج کریں، جیسے 0300 1234567۔',
   },
   emailSendFailed: {
     en: "We couldn't send the confirmation email. Please try again in a minute, or sign up with your mobile number.",
-    ur: 'ہم تصدیقی ای میل نہیں بھیج سکے۔ ایک منٹ بعد دوبارہ کوشش کریں، یا اپنے موبائل نمبر سے سائن اپ کریں۔',
   },
   tooMany: {
     en: 'Too many tries. Please wait a few minutes and try again.',
-    ur: 'بہت زیادہ کوششیں۔ براہ کرم چند منٹ انتظار کر کے دوبارہ کوشش کریں۔',
   },
   invalidCredentials: {
     en: 'That email/mobile and password do not match. Check them and try again.',
-    ur: 'ای میل/موبائل اور پاس ورڈ آپس میں نہیں ملتے۔ انہیں جانچ کر دوبارہ کوشش کریں۔',
   },
   // HOTFIX-64 §4: a raw GoTrue/DB failure ("Database error creating new user")
-  // must never reach the member. This friendly bilingual line replaces it on
+  // must never reach the member. This friendly line replaces it on
   // every signup/sign-in path; the real error is logged for staff.
   accountCreateFailed: {
     en: 'Something went wrong creating your account. Please try again, or message us on WhatsApp 0321 5872222.',
-    ur: 'آپ کا اکاؤنٹ بناتے ہوئے کچھ مسئلہ پیش آیا۔ براہ کرم دوبارہ کوشش کریں، یا ہمیں واٹس ایپ 0321 5872222 پر پیغام کریں۔',
   },
 } as const
 

@@ -5,7 +5,10 @@ import { createClient } from '@/lib/supabase/server'
 import { applyBlocksFor } from '@/lib/applyBlockServer'
 import { peekTuitionContact } from '@/lib/contactReveal'
 import { loadReceiptState } from '@/lib/payments/receipt'
-import { pauseCountdownLabel } from '@/lib/tuitionStatus'
+import { pauseCountdownLabel, pauseDueAtMs } from '@/lib/tuitionStatus'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { refreshAllowed } from '@/lib/duplicatesCore'
+import { posterToolsVisible } from '@/lib/posterToolsCore'
 import type { TuitionViewer } from '@/lib/tuitionViewerCore'
 import type { ApplyBlock } from '@/lib/applyBlock'
 
@@ -29,7 +32,7 @@ export async function GET(request: Request) {
   const supabase = await createClient()
   const [ent, { data: job }] = await Promise.all([
     getEntitlements(userId),
-    supabase.from('jobs').select('id, status, parent_id, created_at, resumed_at').eq('id', id).maybeSingle(),
+    supabase.from('jobs').select('id, status, parent_id, created_at, resumed_at, refreshed_at').eq('id', id).maybeSingle(),
   ])
   if (!job) return NextResponse.json({ error: 'Not found' }, { status: 404, ...NO_STORE })
   const isTutor = ent.audience === 'tutor'
@@ -52,12 +55,22 @@ export async function GET(request: Request) {
     applyBlock = (await applyBlocksFor(supabase, userId, ent, [{ id, status: job.status as string }]))[id] ?? null
     if (!ent.verified) feeReceiptPending = (await loadReceiptState(userId, 'verified')).state === 'under_review'
   }
-  const pauseLabel =
-    (isPoster || isAdmin) && job.status === 'open'
-      ? pauseCountdownLabel((job.resumed_at as string | null) ?? (job.created_at as string))
-      : null
+  // Team-posted: the poster account is the team account. Only asked for staff.
+  let teamPost = false
+  if (isAdmin && !isPoster && job.parent_id) {
+    const admin = createAdminClient()
+    const { data: p } = admin
+      ? await admin.from('profiles').select('is_team_account').eq('id', job.parent_id as string).maybeSingle()
+      : { data: null }
+    teamPost = !!p?.is_team_account
+  }
+  const tools = posterToolsVisible({ isPoster, isAdmin }, teamPost)
+  const base = (job.resumed_at as string | null) ?? (job.created_at as string)
+  const pauseLabel = tools && job.status === 'open' ? pauseCountdownLabel(base) : null
+  const pauseDaysLeft = tools && job.status === 'open' ? Math.max(0, Math.floor((pauseDueAtMs(base) - Date.now()) / 86_400_000)) : null
+  const refreshNextAt = tools ? refreshAllowed(job.refreshed_at as string | null).nextAt : null
   return NextResponse.json(
-    { signedIn: true, isTutor, isAdmin, isPoster, applied, tutorGender, applyBlock, feeReceiptPending, revealedContact, pauseLabel } satisfies TuitionViewer,
+    { signedIn: true, isTutor, isAdmin, isPoster, applied, tutorGender, applyBlock, feeReceiptPending, revealedContact, pauseLabel, teamPost, pauseDaysLeft, refreshNextAt } satisfies TuitionViewer,
     NO_STORE,
   )
 }

@@ -39,7 +39,7 @@ export default async function MemberEditPage({ params }: { params: Promise<{ id:
   }
 
   const [{ data: tutor }, { data: profile }, { data: history }] = await Promise.all([
-    admin.from('tutor_profiles').select('id, slug, full_name, city').eq('id', id).maybeSingle(),
+    admin.from('tutor_profiles').select('id, slug, full_name, city, headline, bio').eq('id', id).maybeSingle(),
     admin.from('profiles').select('id, full_name, role, cnic_number, cnic_verified_at').eq('id', id).maybeSingle(),
     admin.from('slug_history').select('old_slug, created_at').eq('tutor_id', id).order('created_at', { ascending: false }).limit(20),
   ])
@@ -69,6 +69,8 @@ export default async function MemberEditPage({ params }: { params: Promise<{ id:
           nameOwnerOnly={nameOwnerOnly({ role: 'tutor', cnicVerifiedAt: profile.cnic_verified_at as string | null })}
           slug={slug}
           canSlugEdit={canSlugEdit}
+          currentHeadline={(tutor.headline as string | null) ?? ''}
+          currentBio={(tutor.bio as string | null) ?? ''}
         />
       ) : (
         // A role that may not edit the fields still sees the profile address.

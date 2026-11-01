@@ -9,6 +9,10 @@
 
 export const TEAM_POSTER_LABEL = 'Posted by TutorMint team for a parent ✓'
 
+/** The badge a staff-posted tuition carries on PUBLIC cards and pages (owner,
+ *  2 Nov 2026) — in place of TEAM_POSTER_LABEL there. No poster name ever. */
+export const VERIFIED_TUITION_LABEL = 'Verified tuition'
+
 /** The name the team account shows as a conversation partner or a reported
  *  member (a person's name never appears for it). */
 export const TEAM_MEMBER_NAME = 'TutorMint team'

@@ -108,6 +108,11 @@ export const CARDS: Record<string, { title: Bilingual; hint?: Bilingual }> = {
     title: { en: 'Verification Fee', ur: 'تصدیقی فیس' },
     hint: { en: 'A one-time fee to verify your profile.', ur: 'آپ کی پروفائل کی تصدیق کے لیے ایک بار کی فیس۔' },
   },
+  // Tagline & About (owner, 2 Nov 2026). New text is English only.
+  about: {
+    title: { en: 'Tagline & About', ur: '' },
+    hint: { en: 'The line and short paragraph parents read on your profile.', ur: '' },
+  },
   jobType: {
     title: { en: 'Job type', ur: 'کام کی قسم' },
     hint: { en: 'Choose every title that fits you.', ur: 'ہر وہ عنوان چنیں جو آپ پر پورا اترے۔' },

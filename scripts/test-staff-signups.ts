@@ -183,7 +183,7 @@ test('the link credit survives the return-to through register and onboarding', (
   assert.equal((reg.match(/await creditNewAccount\(/g) ?? []).length, 2)
   assert.ok(reg.includes('staffCode: z.string().trim().max(40).optional()'))
   const verify = read('app/api/auth/register/verify/route.ts')
-  assert.ok(verify.includes('await creditNewAccount(result.userId, jar.get(STAFF_REF_COOKIE)?.value ?? null)'))
+  assert.ok(verify.includes('await creditNewAccount(result.userId, jar.get(STAFF_REF_COOKIE)?.value ?? null, Date.now(), deviceMarkFrom(request))'))
   // The return-to rides along untouched to onboarding.
   const next = '/tuitions/lahore/home-tutor-abc?apply=1'
   assert.equal(safeReturnTo(next), next)
