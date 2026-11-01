@@ -98,7 +98,7 @@ test('the guard answers 403 without calling Supabase, only while viewing', async
 })
 
 test('every server and browser Supabase client goes through the guard', () => {
-  assert.match(read('lib/supabase/fetch.ts'), /export const supabaseFetch: FetchFn = guardFetch\(makeSupabaseFetch\(\), requestIsViewAs\)/)
+  assert.match(read('lib/supabase/fetch.ts'), /export const supabaseFetch: FetchFn = guardStaticWrites\(guardFetch\(makeSupabaseFetch\(\), requestIsViewAs\)\)/)
   for (const f of ['lib/supabase/serverReal.ts', 'lib/supabase/admin.ts']) assert.match(read(f), /fetch: supabaseFetch/, f)
   const server = read('lib/supabase/server.ts')
   assert.match(server, /global: \{ fetch: supabaseFetch \}/)

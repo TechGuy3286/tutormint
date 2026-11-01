@@ -13,9 +13,11 @@ import 'server-only'
 // instance that made a change. Other instances catch up within the time
 // limit. Same signature as unstable_cache, so callers did not change shape.
 //
-// It counts its own use (calls, hits, refills per cache key) and adds the
-// counts to admin_summary 'cachestats' every few minutes, so the report can
-// say how many Runtime Cache reads and writes these calls would have been.
+// It counts its own use (calls, hits, refills per cache key) in memory only.
+// It never writes the counts anywhere: a cached page may be built while this
+// runs, and nothing during a cached page build may write to the database
+// (hotfix, 1 Nov 2026 — the old 5-minute save of these counts did, and turned
+// first renders into 500s).
 
 type Entry = { at: number; value: Promise<unknown> }
 type Opts = { revalidate?: number | false; tags?: string[] }
@@ -25,8 +27,6 @@ const tagIndex = new Map<string, Set<string>>()
 
 type Tally = { calls: number; hits: number; refills: number }
 const tally = new Map<string, Tally>()
-let lastFlush = Date.now()
-const FLUSH_EVERY_MS = 5 * 60_000
 
 export function memoize<A extends unknown[], R>(
   fn: (...args: A) => Promise<R>,
@@ -60,7 +60,6 @@ export function memoize<A extends unknown[], R>(
         if (entries.get(key)?.value === out) entries.delete(key)
       })
     }
-    maybeFlush(now)
     return out
   }
 }
@@ -76,32 +75,4 @@ export function invalidateMemoTag(tag: string): void {
 /** For tests. */
 export function memoTallyForTests(): Map<string, Tally> {
   return tally
-}
-
-function maybeFlush(now: number): void {
-  if (now - lastFlush < FLUSH_EVERY_MS || tally.size === 0) return
-  lastFlush = now
-  const delta = [...tally.entries()].map(([k, v]) => [k, { ...v }] as const)
-  tally.clear()
-  void flush(delta).catch(() => {})
-}
-
-type Stats = Record<string, Record<string, Tally>>
-
-async function flush(delta: (readonly [string, Tally])[]): Promise<void> {
-  const { createAdminClient } = await import('@/lib/supabase/admin')
-  const admin = createAdminClient()
-  if (!admin) return
-  const day = new Date().toISOString().slice(0, 10)
-  const { data } = await admin.from('admin_summary').select('payload').eq('key', 'cachestats').maybeSingle()
-  const stats = ((data?.payload as Stats | null) ?? {}) as Stats
-  const today = stats[day] ?? {}
-  for (const [k, v] of delta) {
-    const t = today[k] ?? { calls: 0, hits: 0, refills: 0 }
-    today[k] = { calls: t.calls + v.calls, hits: t.hits + v.hits, refills: t.refills + v.refills }
-  }
-  stats[day] = today
-  // Keep two weeks.
-  for (const d of Object.keys(stats).sort().slice(0, -14)) delete stats[d]
-  await admin.from('admin_summary').upsert({ key: 'cachestats', payload: stats, computed_at: new Date().toISOString() })
 }

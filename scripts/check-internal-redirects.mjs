@@ -183,7 +183,14 @@ async function main() {
       1,
     ),
   )
-  if (redirects.length > 0 || sitemapProblems.length > 0) process.exit(1)
+  // exitCode, not process.exit(): exiting while sockets are still closing
+  // crashes Node on Windows (libuv UV_HANDLE_CLOSING assertion), which is how
+  // the crawl used to die part-way with exit 127 (hotfix, 1 Nov 2026).
+  if (redirects.length > 0 || sitemapProblems.length > 0) process.exitCode = 1
 }
 
-if (process.argv[1] && process.argv[1].endsWith('check-internal-redirects.mjs')) main()
+if (process.argv[1] && process.argv[1].endsWith('check-internal-redirects.mjs'))
+  main().catch((e) => {
+    console.error('[check:links] stopped:', e)
+    process.exitCode = 2
+  })

@@ -24,7 +24,7 @@
 // without leaving a redirect behind.
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createClient } from '@/lib/supabase/server'
+import { createPublicClient } from '@/lib/supabase/public'
 
 /**
  * The tutor's current address for a retired one, or null if that address was
@@ -34,8 +34,10 @@ import { createClient } from '@/lib/supabase/server'
  * history forward, so however many times an address has moved there is exactly
  * one hop from any of them to the current page.
  */
+// The public client (anon may run tutor_slug_redirect): the tutor profile is a
+// cached page and must not read cookies while it is built (hotfix, 1 Nov 2026).
 export async function currentSlugForRetired(oldSlug: string): Promise<string | null> {
-  const supabase = await createClient()
+  const supabase = createPublicClient()
   const { data } = await supabase.rpc('tutor_slug_redirect', { p_old: oldSlug })
   return (data as string | null) ?? null
 }
