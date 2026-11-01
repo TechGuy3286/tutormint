@@ -109,6 +109,8 @@ const VIEW_DEFINER_OK: Record<string, string> = {
  * access, and only the service role reads them.
  */
 const NO_POLICY_OK: Record<string, string> = {
+  admin_summary: 'admin badges and Overview figures (migration 218) — service role only; pages read it on the server behind each screen role check',
+  admin_list_rows: 'People and Follow-ups rows already worked out (migration 218) — service role only; read on the server behind each screen role check',
   _t1_degrees_unconverted: 'T1 migration receipt',
   _t1_unmatched_subjects: 'T1 migration receipt',
   _t1_unmigrated_messages: 'T1 migration receipt',

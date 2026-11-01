@@ -106,7 +106,8 @@ test('card and queue share one rule; every count reads the one list', () => {
   // Since 21 Oct 2026 the badge sits on People only (the Verification group is
   // gone) and counts the People tabs' Waiting chips — the card statuses again,
   // through lib/tutorDocSummaries (tutorCardStatuses).
-  assert.ok(layout.includes("'/admin/users': waiting"))
+  // Push 2 (1 Nov 2026): the same waitingBadge rule, run by the summary job.
+  assert.ok(read('lib/adminSummaryCore.ts').includes("'/admin/users': b.peopleWaiting") && read('lib/adminSummary.ts').includes('waitingBadge('))
   assert.ok(!layout.includes("'/admin/tutors':"))
   assert.match(read('lib/tutorDocSummaries.ts'), /tutorCardStatuses\(/)
   assert.match(read('lib/overviewItems.ts'), /case 'todo-docs'[^]*docs\.get\(p\.id\)\?\.kind === 'waiting'/)

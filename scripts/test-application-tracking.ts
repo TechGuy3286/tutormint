@@ -175,8 +175,10 @@ test('the Follow-ups badge: own overdue applications; every one for the Owner', 
   assert.equal(overdueBadgeCount(items, OWNER, NOW), 3)
   assert.equal(overdueBadgeCount(items, PARTNER, NOW), 0)
   const layout = code('app/admin/layout.tsx')
-  assert.match(layout, /'\/admin\/applications': overdue/)
-  assert.match(layout, /overdueApplicationsCount\(actor\)/)
+  // Push 2 (1 Nov 2026): own overdue for staff, every one for the Owner — viewerCount over the stored tally.
+  assert.match(code('lib/adminSummaryCore.ts'), /'\/admin\/applications': viewerCount\(b\.appsOverdue, actor\)/)
+  assert.match(code('lib/adminSummary.ts'), /overdueApplicationsItems\(\)/)
+  void layout
 })
 
 test('filters: Mine for staff, All for the Owner; chips count every stage', () => {

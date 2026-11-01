@@ -8,15 +8,17 @@ import AccessDeniedNotice from '@/components/admin/AccessDeniedNotice'
 import MyLinkCard from '@/components/admin/MyLinkCard'
 import TeamOverviewCard from '@/components/admin/TeamOverviewCard'
 import { requireAdminRole, roleBadge, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
-import { loadOverviewList, type OverviewList } from '@/lib/overviewItems'
+import type { OverviewList } from '@/lib/overviewItems'
+import { readSummary, summaryUpdatedLabel, type OverviewPayload, type OverviewSummaryItem, type SectionsPayload } from '@/lib/adminSummary'
+import SummaryUpdated from '@/components/admin/SummaryUpdated'
+import TeamOverviewView from '@/components/admin/TeamOverviewView'
 import { OVERVIEW_ITEMS, SIGNUPS_TODAY_HREF, type OverviewItemKey } from '@/lib/overviewItemsCore'
 import { chipHref, OVERVIEW_KEY_CHIP } from '@/lib/tutorFollowUpCore'
 import { funnelSteps } from '@/lib/staffOutreachCore'
 import { TILE_TONE, type TileTone } from '@/lib/tileTones'
 import { smsProviderLabel } from '@/lib/sms'
 import { pkr } from '@/lib/reconciliationCore'
-import { loadSignupFunnel, type FunnelWindowResult } from '@/lib/siteVisits'
-import { loadAiAssistantTotals, loadSignupSources } from '@/lib/signupSources'
+import type { FunnelWindowResult } from '@/lib/siteVisits'
 import { AI_WINDOW_LABEL, type AiTotals, type AiWindowKey } from '@/lib/signupSourceCore'
 import type { SourceRow } from '@/lib/signupSourceCore'
 import { orderOverviewSections } from '@/lib/overviewOrderCore'
@@ -82,9 +84,14 @@ export default async function AdminHome({
 
   const may = (key: OverviewItemKey) => roleSatisfies(actor.adminRole, SCREEN_ACCESS[OVERVIEW_ITEMS[key].screen])
   const keys = [...CARD_KEYS, ...TODO_KEYS, ...STEP_KEYS, ...(LOST_KEYS.filter(Boolean) as OverviewItemKey[])].filter(may)
-  const lists = new Map<OverviewItemKey, OverviewList>(
-    await Promise.all(keys.map(async (k) => [k, await loadOverviewList(k, { days: funnelDays })] as const)),
-  )
+  // Pre-calculated (owner, 1 Nov 2026 — lib/adminSummary): the figures are
+  // worked out every minute something changes, at least every 10 minutes, and
+  // read here as one row each. Each list page (/admin/overview/<key>) is live.
+  const summary = await readSummary([`overview:${funnelDays}`, 'sections', 'state'])
+  const stored = (summary.get(`overview:${funnelDays}`)?.payload ?? {}) as OverviewPayload
+  const builtAt = ((summary.get('state')?.payload ?? {}) as { builtAt?: string | null }).builtAt ?? null
+  const stored2 = (summary.get('sections')?.payload ?? null) as SectionsPayload | null
+  const lists = new Map<OverviewItemKey, OverviewSummaryItem>(keys.filter((k) => stored[k]).map((k) => [k, stored[k]!] as const))
   // "Signed up today, not paid" opens the existing Unpaid signups list on its
   // Today filter (the same rows), not a second list.
   // The follow-up rows open Follow-ups → Tutors on their chip (owner, 20 Oct 2026).
@@ -101,8 +108,8 @@ export default async function AdminHome({
       // figures come from the rows the item's loader already reads (one
       // helper, lib/overviewTrendCore); a card without them falls back to its
       // list length.
-      card: l.card ?? {
-        today: k === 'revenue' ? pkr(l.amount ?? 0) : String(l.rows.length),
+      card: (l.card as NonNullable<OverviewList['card']> | null) ?? {
+        today: k === 'revenue' ? pkr(l.amount ?? 0) : String(l.count),
         yesterday: '—',
         last7: '—',
         bottom: null,
@@ -110,15 +117,15 @@ export default async function AdminHome({
     }
   })
   const todo = TODO_KEYS.filter((k) => lists.has(k))
-    .map((k) => ({ key: k, label: OVERVIEW_ITEMS[k].title, count: lists.get(k)!.rows.length, detail: lists.get(k)!.extra ?? null, note: lists.get(k)!.note ?? null }))
+    .map((k) => ({ key: k, label: OVERVIEW_ITEMS[k].title, count: lists.get(k)!.count, detail: lists.get(k)!.extra ?? null, note: (lists.get(k)!.note as OverviewList['note']) ?? null }))
     .filter((r) => r.count > 0)
   const seesMembers = STEP_KEYS.every((k) => lists.has(k))
   // The daily sign-up funnel (owner, 15 Oct 2026): the Owner and the Project
   // Managers only (SCREEN_ACCESS.signupFunnel is []).
-  const dailyFunnel = roleSatisfies(actor.adminRole, SCREEN_ACCESS.signupFunnel) ? await loadSignupFunnel() : null
+  const dailyFunnel = roleSatisfies(actor.adminRole, SCREEN_ACCESS.signupFunnel) ? (stored2?.funnel ?? null) : null
   // Where sign-ups came from (owner, 17 Oct 2026): the same people as the funnel.
-  const [sources, aiTotals] = dailyFunnel ? await Promise.all([loadSignupSources(), loadAiAssistantTotals()]) : [null, null]
-  const counts = STEP_KEYS.map((k) => lists.get(k)?.rows.length ?? 0)
+  const [sources, aiTotals] = dailyFunnel ? [stored2?.sources ?? null, stored2?.ai ?? null] : [null, null]
+  const counts = STEP_KEYS.map((k) => lists.get(k)?.count ?? 0)
   const funnel = funnelSteps(counts, STEP_KEYS.map((k) => OVERVIEW_ITEMS[k].title))
 
   // The SMS/OTP delivery provider (owner PR5b §1.1) — owner, Partner and admin,
@@ -255,7 +262,7 @@ export default async function AdminHome({
     { key: 'team', node: (
       <>
       {/* Team overview (owner, 24 Oct 2026): the Owner, the Project Managers and Supervisors. */}
-      {roleSatisfies(actor.adminRole, SCREEN_ACCESS.teamOverview) && <TeamOverviewCard />}
+      {roleSatisfies(actor.adminRole, SCREEN_ACCESS.teamOverview) && (stored2?.team ? <TeamOverviewView rows={stored2.team} /> : <TeamOverviewCard />)}
       </>
     ) },
     { key: 'signupToPayment', node: (
@@ -288,7 +295,7 @@ export default async function AdminHome({
           <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {funnel.map((step, i) => {
               const lost = LOST_KEYS[i]
-              const lostCount = lost ? (lists.get(lost)?.rows.length ?? 0) : 0
+              const lostCount = lost ? (lists.get(lost)?.count ?? 0) : 0
               return (
                 <li key={step.label} className="rounded-xl bg-tm-bg p-3">
                   <Link href={href(STEP_KEYS[i])} className="block hover:underline">
@@ -335,6 +342,7 @@ export default async function AdminHome({
   return (
     <div className="space-y-6">
       {denied && <AccessDeniedNotice />}
+      <SummaryUpdated label={summaryUpdatedLabel(builtAt)} />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-gray-500">
           Signed in as {shownEmail(actor.email) ?? 'staff'} · role <strong>{roleBadge(actor.adminRole)}</strong>

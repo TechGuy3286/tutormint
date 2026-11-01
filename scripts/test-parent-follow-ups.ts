@@ -101,7 +101,7 @@ test('no double message: an Applications message in the last 3 days means not du
 test('the badge counts overdue To do only', () => {
   const src = readFileSync('lib/parentFollowUps.ts', 'utf8')
   assert.match(src, /fuBadgeCount\(rows\.filter\(\(r\) => !r\.notInterested\)\.map\(\(r\) => r\.state\)\)/)
-  assert.match(readFileSync('app/admin/layout.tsx', 'utf8'), /'\/admin\/follow-ups': followUps \+ parentFollowUps/)
+  assert.match(readFileSync('lib/adminSummaryCore.ts', 'utf8'), /'\/admin\/follow-ups': \(may\.followUps \? b\.followUpsOverdue : 0\) \+ \(may\.parentFollowUps \? b\.parentOverdue : 0\)/)
 })
 
 test('six short templates, seeded, ending with {support_whatsapp}, no prices', () => {

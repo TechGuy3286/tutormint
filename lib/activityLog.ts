@@ -13,6 +13,7 @@
 // reports queue when a participant reports a thread.
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { markSummaryDirty } from '@/lib/summaryDirty'
 
 export type ActivityEvent =
   | 'registered'
@@ -145,6 +146,8 @@ export async function logActivity(params: {
   })
 
   if (error) console.error('[activity] failed to record', params.event, error.message)
+  // Admin badges, the Overview and the admin lists are pre-calculated (lib/adminSummary).
+  await markSummaryDirty(params.event)
 }
 
 /**

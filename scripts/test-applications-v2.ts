@@ -82,11 +82,14 @@ test('Applications is its own item in the Tuitions group, after Post a tuition, 
   assert.equal(group.items.find((i) => i.href === '/admin/applications')!.screen, 'applicantForwards')
   assert.equal(SECTION_LABELS.applications, 'Applications')
   const layout = code('app/admin/layout.tsx')
-  assert.match(layout, /'\/admin\/applications': overdue/)
+  // Push 2 (1 Nov 2026): the badge is read from the summary through navBadgesFrom.
+  assert.match(code('lib/adminSummaryCore.ts'), /'\/admin\/applications': viewerCount\(b\.appsOverdue, actor\)/)
   // The Follow-ups badge never counts applications: since 23 Oct 2026 it is its
   // own count, overdue Follow-ups → Tutors To do items.
-  assert.match(layout, /'\/admin\/follow-ups': followUps/)
-  assert.doesNotMatch(layout, /'\/admin\/follow-ups': overdue/)
+  const core = code('lib/adminSummaryCore.ts')
+  assert.match(core, /'\/admin\/follow-ups': \(may\.followUps \? b\.followUpsOverdue : 0\)/)
+  assert.doesNotMatch(core, /'\/admin\/follow-ups':[^\n]*appsOverdue/)
+  assert.match(layout, /navBadgesFrom\(/)
 })
 
 test('the badge: own overdue items, all for the Owner; Older tuitions never count', () => {

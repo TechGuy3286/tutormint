@@ -144,6 +144,25 @@ export async function overdueApplicationsByOwner(): Promise<Map<string, number>>
   return out
 }
 
+/** Every overdue To do item (not Older) with its owner — the badge for any
+ *  viewer comes from this (lib/adminSummaryCore viewerCount: the Owner sees the
+ *  total, everyone else their own). The same rule as todoBadgeCount. */
+export async function overdueApplicationsItems(): Promise<{ ownerId: string | null }[]> {
+  const admin = createAdminClient()
+  if (!admin) return []
+  const { counted, owners, jobCreated, hiddenJobs } = await loadCounted(admin)
+  const fus = await loadFollowUps(admin, counted.map((a) => a.id))
+  const now = Date.now()
+  const out: { ownerId: string | null }[] = []
+  for (const a of counted) {
+    const item = toItem(a, owners, jobCreated, hiddenJobs)
+    const due = dueState(item, fus.get(a.id) ?? [], now)
+    if (due.tab !== 'todo' || due.older || !due.overdue) continue
+    out.push({ ownerId: item.ownerId ?? null })
+  }
+  return out
+}
+
 /** The Follow-ups red badge for this staff member. Tolerant — 0 on any failure. */
 export const overdueApplicationsCount = cache(async (actor: AdminActor): Promise<number> => {
   const admin = createAdminClient()

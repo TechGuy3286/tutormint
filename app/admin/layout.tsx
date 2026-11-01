@@ -1,13 +1,8 @@
-import { overdueApplicationsCount } from '@/lib/applicationTracking'
-import { followUpsOverdueCount } from '@/lib/tutorFollowUps'
-import { cachedParentOverdueCount } from '@/lib/parentFollowUpsBadge'
-import { paidTutorsBadgeCount } from '@/lib/paidTutors'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 import AdminSearch from '@/components/admin/AdminSearch'
 import AdminShell from '@/components/admin/AdminShell'
-import { peopleWaitingCount } from '@/lib/peopleDirectory'
 import AdminSignOut from '@/components/admin/AdminSignOut'
 import BridgeBanner from '@/components/admin/BridgeBanner'
 import NotificationBell from '@/components/notifications/NotificationBell'
@@ -17,45 +12,25 @@ import { AdminReadOnlyProvider, ViewOnlyChip } from '@/components/admin/ReadOnly
 import { senderRefCode } from '@/lib/staffSignups'
 import { NAV_GROUPS, type NavGroup } from '@/lib/adminNav'
 import { unreadCount } from '@/lib/notificationFeed'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { readSummary } from '@/lib/adminSummary'
+import { navBadgesFrom, type BadgesPayload } from '@/lib/adminSummaryCore'
 import { createClient } from '@/lib/supabase/server'
 import { mfaState, inMfaGrace } from '@/lib/adminMfa'
 import MfaGate from '@/components/admin/MfaGate'
-import { receiptsWaitingCount } from '@/lib/payments/receipt'
 
-// Small sidebar count badges (owner PR9 §6.5): tutors with a document waiting,
-// and open reports. Cheap head-count reads; a zero shows no badge (the shell
-// omits it). Payments counts the bank-transfer receipts waiting for approval.
+// Sidebar count badges (owner PR9 §6.5; one read since 1 Nov 2026): worked out
+// by lib/adminSummary every minute something changes (at least every 10
+// minutes) and read here as ONE row — they used to cost every admin page 226
+// database calls and ~2 s. The same keys and role checks as before
+// (lib/adminSummaryCore navBadgesFrom); a zero shows no badge.
 async function navBadges(actor: AdminActor): Promise<Record<string, number>> {
-  const admin = createAdminClient()
-  if (!admin) return {}
-  const [overdue, reports, waiting, receipts, followUps, paidRed, parentFollowUps] = await Promise.all([
-    // Applications: overdue applications on this staff member's own tuitions —
-    // every overdue application for the Owner (owner, 22 Oct 2026); tuitions
-    // over 30 days old never count.
-    overdueApplicationsCount(actor),
-    admin.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'open'),
-    // Documents waiting for the Owner, tutors and parents together — the People
-    // tabs' own Waiting chips (owner, 21 Oct 2026; lib/peopleDirectory). Only
-    // roles that can open /admin/users see the badge.
-    peopleWaitingCount(),
-    // Payments: bank-transfer receipts waiting for a decision (owner, 11 Oct 2026).
-    receiptsWaitingCount(),
-    // Follow-ups → Tutors: overdue To do items only (owner, 23 Oct 2026).
-    roleSatisfies(actor.adminRole, SCREEN_ACCESS.unpaidSignups) ? followUpsOverdueCount() : Promise.resolve(0),
-    // Paid tutors: red rows in the viewer's cities, all for the Owner.
-    roleSatisfies(actor.adminRole, SCREEN_ACCESS.paidTutors) ? paidTutorsBadgeCount(actor) : Promise.resolve(0),
-    // Follow-ups → Parents: overdue To do items only (owner, 26 Oct 2026).
-    roleSatisfies(actor.adminRole, SCREEN_ACCESS.signups) ? cachedParentOverdueCount() : Promise.resolve(0),
-  ])
-  return {
-    '/admin/reports': reports.count ?? 0,
-    '/admin/payments': receipts,
-    '/admin/applications': overdue,
-    '/admin/users': waiting,
-    '/admin/follow-ups': followUps + parentFollowUps,
-    '/admin/paid-tutors': paidRed,
-  }
+  const b = (await readSummary(['badges'])).get('badges')?.payload as BadgesPayload | undefined
+  if (!b) return {}
+  return navBadgesFrom(b, actor, {
+    followUps: roleSatisfies(actor.adminRole, SCREEN_ACCESS.unpaidSignups),
+    paidTutors: roleSatisfies(actor.adminRole, SCREEN_ACCESS.paidTutors),
+    parentFollowUps: roleSatisfies(actor.adminRole, SCREEN_ACCESS.signups),
+  })
 }
 
 // Server gate for the whole /admin subtree, plus the shell.

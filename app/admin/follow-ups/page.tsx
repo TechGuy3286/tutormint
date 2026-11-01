@@ -1,7 +1,7 @@
 import { senderRefCode } from '@/lib/staffSignups'
 import { waHrefWithRef } from '@/lib/waLinkCore'
 import LoadMoreLink from '@/components/admin/LoadMoreLink'
-import { ADMIN_PAGE_SIZE, pageSlice, shownCount } from '@/lib/adminPagingCore'
+import { ADMIN_PAGE_SIZE, shownCount } from '@/lib/adminPagingCore'
 import Link from 'next/link'
 import { permanentRedirect, redirect } from 'next/navigation'
 
@@ -13,7 +13,6 @@ import { loadProfileShares } from '@/lib/profileShare'
 import {
   isSignupWindow,
   parseTutorScope,
-  signedUpIn,
   TUTOR_SCOPE_LABEL,
   TUTOR_SCOPES,
   UNPAID_WINDOW_DAYS,
@@ -21,16 +20,12 @@ import {
   type TutorScope,
 } from '@/lib/staffOutreachCore'
 import { loadOrphanedAccounts } from '@/lib/adminOrphans'
-import { loadTutorFollowUps } from '@/lib/tutorFollowUps'
 import {
-  chipCounts,
   FOLLOW_CHIP_LABEL,
   FOLLOW_CHIPS,
   legacyFollowUpsRedirect,
   parseFollowChip,
-  rowsForChip,
   type ChipFilter,
-  type FollowChip,
 } from '@/lib/tutorFollowUpCore'
 import {
   FOLLOW_UP_TABS,
@@ -39,15 +34,18 @@ import {
   pickFollowUpTab,
 } from '@/lib/followUpsPageCore'
 import QueueSearch from '@/components/admin/QueueSearch'
-import { FU_TAB_LABEL, parseFuTab, tabCounts, type FuTab } from '@/lib/tutorFollowUpTabsCore'
+import { FU_TAB_LABEL, parseFuTab, type FuTab } from '@/lib/tutorFollowUpTabsCore'
 
 import { legacyApplicationsHref } from '@/lib/applicationStageCore'
 
 import UnpaidSignupRow from './UnpaidSignupRow'
 import ParentFollowUpsBoard, { type ParentCard } from './ParentFollowUpsBoard'
-import { loadParentFollowUps } from '@/lib/parentFollowUps'
-import { PARENT_CHIP_LABEL, parentChipMatch, parseParentChip, type ParentChip } from '@/lib/parentFollowUpCore'
+import { PARENT_CHIP_LABEL, parseParentChip, type ParentChip } from '@/lib/parentFollowUpCore'
 import OrphansSection from './OrphansSection'
+import { listPage, readSummary, summaryUpdatedLabel } from '@/lib/adminSummary'
+import { PARENT_FU_LIST, sliceFromList, tutorFuList, windowRange } from '@/lib/adminSummaryCore'
+import type { TutorFollowRow } from '@/lib/tutorFollowUps'
+import type { ParentFollowRow as ParentRow } from '@/lib/parentFollowUps'
 
 // People → Follow-ups (owner, 15 Oct 2026): ONE page in place of Unpaid signups
 // and Abandoned signups (both old addresses redirect here, query kept).
@@ -164,32 +162,36 @@ async function TutorsTab({
   shownNoReply: number
 }) {
   const now = nowMs()
-  // The rows are cached per request for every viewer; the viewer's ref is added
-  // to the ready-made WhatsApp links here (owner, 23 Oct 2026).
-  let all = (await loadTutorFollowUps(scope)).map((r) =>
-    refCode ? { ...r, waHref: waHrefWithRef(r.waHref, refCode), feeReplyHref: waHrefWithRef(r.feeReplyHref, refCode) } : r,
-  )
-  // "Signed up today, not paid" (the Overview card): the fee-unpaid tutors who
-  // joined in the window — its number is the length of "Today".
-  if (window) all = all.filter((r) => !r.feePaid && signedUpIn(r.joinedAt, window, now))
-  const needle = q.toLowerCase()
-  if (needle) all = all.filter((r) => [r.name, r.city].some((v) => (v ?? '').toLowerCase().includes(needle)))
-  // To do / Followed up (owner, 23 Oct 2026): counted over the group, search and chip.
-  const items = all.map((r) => ({ row: r, chips: new Set<FollowChip>(r.chips), primary: r.primary }))
-  const counts = chipCounts(items)
-  const chipRows = rowsForChip(items, chip).map((x) => x.row)
-  const tabTotals = tabCounts(chipRows.map((r) => r.state))
-  const inTab = chipRows.filter((r) => r.state.tab === fuTab)
-  // To do: overdue first, then the rest in the chip's order. Followed up: soonest due first.
-  const rows =
-    fuTab === 'todo'
-      ? [...inTab.filter((r) => r.state.overdue), ...inTab.filter((r) => !r.state.overdue)]
-      : inTab.filter((r) => r.state.section === 'sent').sort((a, b) => Date.parse(a.state.dueAt ?? '') - Date.parse(b.state.dueAt ?? ''))
-  const noReplyAll = fuTab === 'sent' ? inTab.filter((r) => r.state.section === 'no_reply') : []
-  // Counted over the whole list above; only 25 (or ?n=) are sent and drawn.
-  const page = pageSlice(rows, shown)
-  const noReplyPage = pageSlice(noReplyAll, shownNoReply)
+  // Pre-calculated (owner, 1 Nov 2026 — lib/adminSummary): this group's rows are
+  // worked out every minute something changes; the search, chip, sign-up day,
+  // To do / Followed up split, counts and 25 rows come from SQL (admin_list_page).
+  const list = tutorFuList(scope)
+  const range = window ? windowRange(window, now) : null
+  const base = { fixed: window ? { feePaid: false } : {}, since: range?.since ?? null, until: range?.until ?? null, q, rows: [{ param: 'chips', value: chip }] }
+  const [res, nr, state] = await Promise.all([
+    listPage<TutorFollowRow>(list, {
+      ...base,
+      split: 'tabsec',
+      splitValues: [fuTab],
+      order: fuTab === 'todo' ? (chip === 'all' ? 'overdue_rank' : 'overdue') : 'sort_asc',
+      limit: shown,
+    }),
+    fuTab === 'sent'
+      ? listPage<TutorFollowRow>(list, { ...base, split: 'tabsec', splitValues: ['no_reply'], order: chip === 'all' ? 'overdue_rank' : 'pos', limit: shownNoReply })
+      : Promise.resolve(null),
+    readSummary(['state']),
+  ])
+  const builtAt = ((state.get('state')?.payload ?? {}) as { builtAt?: string | null }).builtAt ?? null
+  // The viewer's ref is added to the ready-made WhatsApp links here (owner, 23 Oct 2026).
+  const withRef = (r: TutorFollowRow) => (refCode ? { ...r, waHref: waHrefWithRef(r.waHref, refCode), feeReplyHref: waHrefWithRef(r.feeReplyHref, refCode) } : r)
+  const chipCountsRaw = res.rowCounts.chips ?? {}
+  const counts = Object.fromEntries((['all', ...FOLLOW_CHIPS] as ChipFilter[]).map((c) => [c, chipCountsRaw[c] ?? 0])) as Record<ChipFilter, number>
+  const tabTotals = { todo: res.split.todo ?? 0, sent: (res.split.sent ?? 0) + (res.split.no_reply ?? 0) }
+  const page = sliceFromList(res.rows.map((x) => withRef(x.row)), res.total, shown)
+  const noReplyPage = sliceFromList((nr?.rows ?? []).map((x) => withRef(x.row)), nr?.total ?? 0, shownNoReply)
   const noReply = noReplyPage.rows
+  const rows = page.rows
+  const noReplyAll = { length: noReplyPage.total }
   const shares = await loadProfileShares([...page.rows, ...noReply].map((r) => r.id))
   const href = (o: { scope?: TutorScope; chip?: ChipFilter; window?: SignupWindow | null; fu?: FuTab }) => {
     const sc = o.scope ?? scope
@@ -213,6 +215,7 @@ async function TutorsTab({
     <div className="space-y-4">
       <header className="space-y-1">
         <h2 className="text-lg font-black text-tm-navy">Tutors</h2>
+        <p className="text-[11px] text-gray-500">{summaryUpdatedLabel(builtAt)}. Lists are worked out every minute something changes.</p>
         <p className="text-xs text-gray-500">
           {scope === 'recent' &&
             `Tutors who joined in the last ${UNPAID_WINDOW_DAYS} days and have not finished, and anyone who started a payment and did not finish.`}
@@ -327,11 +330,16 @@ async function ParentsTab({
 }) {
   // The same To do / Followed up board as Tutors (owner, 26 Oct 2026 —
   // lib/parentFollowUpCore): one situation per parent and its own message.
-  const { rows: all } = await loadParentFollowUps()
-  const notInterestedCount = all.filter((r) => r.notInterested).length
-  const group = all.filter((r) => r.notInterested === showNotInterested)
-  const chipped = group.filter((r) => parentChipMatch(chip, r))
-  const toCard = (r: (typeof all)[number]): ParentCard => ({
+  // Pre-calculated (owner, 1 Nov 2026 — lib/adminSummary); counted and paged in SQL.
+  const pq = { fixed: { ni: showNotInterested }, rows: [{ param: 'pchip', value: chip }], split: 'tabsec' }
+  const [res, nr, fu] = await Promise.all([
+    listPage<ParentRow>(PARENT_FU_LIST, { ...pq, splitValues: [fuTab], order: fuTab === 'todo' ? 'overdue_sort' : 'pos', limit: shown }),
+    fuTab === 'sent' ? listPage<ParentRow>(PARENT_FU_LIST, { ...pq, splitValues: ['no_reply'], order: 'pos', limit: shownNoReply }) : Promise.resolve(null),
+    readSummary(['fu']),
+  ])
+  const notInterestedCount = ((fu.get('fu')?.payload ?? {}) as { parentNotInterested?: number }).parentNotInterested ?? 0
+  const pchip = res.rowCounts.pchip ?? {}
+  const toCard = (r: ParentRow): ParentCard => ({
     id: r.id,
     name: r.name,
     city: r.city,
@@ -343,10 +351,10 @@ async function ParentsTab({
     hasEmail: r.hasEmail,
     notInterested: r.notInterested,
   })
-  const todo = chipped.filter((r) => r.state.tab === 'todo').sort((a, b) => Number(b.state.overdue) - Number(a.state.overdue) || a.joinedAt.localeCompare(b.joinedAt))
-  const sent = chipped.filter((r) => r.state.section === 'sent')
-  const noReply = chipped.filter((r) => r.state.section === 'no_reply')
-  const list = fuTab === 'todo' ? todo : sent
+  const todoCount = res.split.todo ?? 0
+  const sentCount = res.split.sent ?? 0
+  const noReplyCount = res.split.no_reply ?? 0
+  const listTotal = res.total
   const base = { scope: showNotInterested ? 'not_interested' : undefined, chip: chip === 'all' ? undefined : chip }
 
   return (
@@ -371,7 +379,7 @@ async function ParentsTab({
             aria-current={fuTab === t ? 'page' : undefined}
             className={`-mb-px min-h-[44px] border-b-2 px-3 py-2.5 text-xs font-bold ${fuTab === t ? 'border-tm-red text-tm-navy' : 'border-transparent text-gray-600 hover:text-tm-navy'}`}
           >
-            {FU_TAB_LABEL[t]} <span className="text-gray-500">{t === 'todo' ? todo.length : sent.length + noReply.length}</span>
+            {FU_TAB_LABEL[t]} <span className="text-gray-500">{t === 'todo' ? todoCount : sentCount + noReplyCount}</span>
           </Link>
         ))}
       </nav>
@@ -383,14 +391,14 @@ async function ParentsTab({
             aria-current={chip === c ? 'page' : undefined}
             className={groupPill(chip === c)}
           >
-            {PARENT_CHIP_LABEL[c]} <span className={chip === c ? 'text-white' : 'text-gray-500'}>{group.filter((r) => parentChipMatch(c, r)).length}</span>
+            {PARENT_CHIP_LABEL[c]} <span className={chip === c ? 'text-white' : 'text-gray-500'}>{pchip[c] ?? 0}</span>
           </Link>
         ))}
       </nav>
       {/* 25 at a time (owner, 28 Oct 2026); the counts above are over the whole list. */}
-      <ParentFollowUpsBoard cards={pageSlice(list, shown).rows.map(toCard)} noReply={fuTab === 'sent' ? pageSlice(noReply, shownNoReply).rows.map(toCard) : []} />
-      {list.length > 0 && <LoadMoreLink shown={Math.min(shown, list.length)} total={list.length} noun="parents" />}
-      {fuTab === 'sent' && noReply.length > shownNoReply && <LoadMoreLink shown={shownNoReply} total={noReply.length} noun="parents with no reply" param="nr" />}
+      <ParentFollowUpsBoard cards={res.rows.map((x) => toCard(x.row))} noReply={fuTab === 'sent' ? (nr?.rows ?? []).map((x) => toCard(x.row)) : []} />
+      {listTotal > 0 && <LoadMoreLink shown={Math.min(shown, listTotal)} total={listTotal} noun="parents" />}
+      {fuTab === 'sent' && noReplyCount > shownNoReply && <LoadMoreLink shown={shownNoReply} total={noReplyCount} noun="parents with no reply" param="nr" />}
     </div>
   )
 }

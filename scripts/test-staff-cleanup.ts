@@ -278,7 +278,7 @@ test('the Team overview counts per staff member', () => {
   assert.equal(roleSatisfies('supervisor', SCREEN_ACCESS.teamOverview), true)
   assert.equal(roleSatisfies('operations', SCREEN_ACCESS.teamOverview), false)
   assert.equal(roleSatisfies('tuitions_staff', SCREEN_ACCESS.teamOverview), false)
-  assert.match(read('app/admin/page.tsx'), /roleSatisfies\(actor\.adminRole, SCREEN_ACCESS\.teamOverview\) && <TeamOverviewCard \/>/)
+  assert.match(read('app/admin/page.tsx'), /roleSatisfies\(actor\.adminRole, SCREEN_ACCESS\.teamOverview\) && \(stored2\?\.team \? <TeamOverviewView rows=\{stored2\.team\} \/> : <TeamOverviewCard \/>\)/)
 })
 
 // --------------------------------------------------------------- Part D ----

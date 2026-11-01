@@ -15,6 +15,8 @@ import { loadPaidTutors, paidTutorsBadgeCount } from '@/lib/paidTutors'
 import { receiptsWaitingCount } from '@/lib/payments/receipt'
 import { loadOverviewList } from '@/lib/overviewItems'
 import { OVERVIEW_ITEMS, type OverviewItemKey } from '@/lib/overviewItemsCore'
+import { listPage, readSummary } from '@/lib/adminSummary'
+import { PARENT_FU_LIST, peopleList, tutorFuList } from '@/lib/adminSummaryCore'
 
 // Admin page timings measured INSIDE production (owner, 1 Nov 2026 — Part A of
 // "Fast admin"). Runs the same server loaders the admin pages run, in the same
@@ -76,6 +78,21 @@ export async function GET(request: Request) {
     'Follow-ups': () => Promise.all([loadTutorFollowUps('recent'), loadParentFollowUps()]),
     Finance: () => Promise.all([loadFinance(), loadSettlementsBoard(month)]),
     'Paid tutors': () => loadPaidTutors(),
+    // Push 2 (owner, 1 Nov 2026): what the pages read now — the pre-calculated
+    // summary and the SQL-paged lists (lib/adminSummary).
+    'Badges (new)': () => readSummary(['badges']),
+    'Overview (new)': () => readSummary(['overview:7', 'sections', 'state']),
+    'People (new)': () =>
+      Promise.all([
+        readSummary(['people', 'state']),
+        listPage(peopleList('tutor'), { fixed: { excluded: false }, rows: [{ param: 'paid', value: 'all' }], split: 'docs', splitValues: null, limit: 25 }),
+      ]),
+    'Follow-ups (new)': () =>
+      Promise.all([
+        readSummary(['state']),
+        listPage(tutorFuList('recent'), { rows: [{ param: 'chips', value: 'all' }], split: 'tabsec', splitValues: ['todo'], order: 'overdue_rank', limit: 25 }),
+        listPage(PARENT_FU_LIST, { fixed: { ni: false }, rows: [{ param: 'pchip', value: 'all' }], split: 'tabsec', splitValues: ['todo'], order: 'overdue_sort', limit: 25 }),
+      ]),
   }
 
   // Count database round trips. The Supabase clients call the global fetch.

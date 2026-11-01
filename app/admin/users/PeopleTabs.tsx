@@ -5,23 +5,19 @@ import { roleBadge, roleMayWrite, roleSatisfies, SCREEN_ACCESS, type AdminRole }
 import { formatDate } from '@/lib/datetime'
 import { loadMemberCards } from '@/lib/overviewCards'
 import { loadProfileShares } from '@/lib/profileShare'
-import { duplicateTags, inTab, loadDirectory, loadDirectoryDocs, type DirectoryPerson } from '@/lib/peopleDirectory'
-import { openTags } from '@/lib/memberDuplicates'
+import { listPage, readSummary, summaryUpdatedLabel, type PeopleCardRow, type PeoplePayload } from '@/lib/adminSummary'
+import { chipCountsFromList, peopleList, poolCount, sliceFromList, splitCounts } from '@/lib/adminSummaryCore'
+import { DOC_FILTERS } from '@/lib/tutorDocSummaryCore'
 import {
-  DUP_WORDS,
-  EXCLUDE_WORDS,
   PARENT_CHIPS,
-  PARENT_VERIFICATION_WORDS,
   PEOPLE_TABS,
-  paidTag,
   peopleHref,
-  postedTag,
   type PeopleTab,
 } from '@/lib/peopleDirectoryCore'
-import OverviewCardGrid, { type FilterRow, type GridItem, type GridParent } from '@/components/admin/OverviewCardGrid'
+import OverviewCardGrid, { type FilterRow, type GridItem } from '@/components/admin/OverviewCardGrid'
 import LoadMoreLink from '@/components/admin/LoadMoreLink'
 import { pageSlice, shownCount } from '@/lib/adminPagingCore'
-import { gridView, pickChips, pickDocFilter } from '@/lib/cardGridPagingCore'
+import { pickChips, pickDocFilter } from '@/lib/cardGridPagingCore'
 
 // People — Tutors | Parents | Staff (owner, 21 Oct 2026). The one member
 // directory: it replaced Verification → Tutors, Verification → Parents,
@@ -33,7 +29,6 @@ import { gridView, pickChips, pickDocFilter } from '@/lib/cardGridPagingCore'
 // worked out HERE over the whole tab (lib/cardGridPagingCore); the browser gets
 // 25 cards at a time (?n=), and only those 25 have their card facts loaded.
 
-const TONE: Record<string, GridParent['verificationTone']> = { approved: 'good', waiting: 'pending', rejected: 'bad', none: 'neutral' }
 
 export default async function PeopleTabs({
   tab,
@@ -47,11 +42,19 @@ export default async function PeopleTabs({
   /** The address: ?q, the chips (?paid, ?posted, ?pv, ?docs) and ?n. */
   sp?: Record<string, string | string[] | undefined>
 }) {
-  const d = await loadDirectory()
-  const tutors = inTab(d.people, 'tutor', showAll)
-  const parents = inTab(d.people, 'parent', showAll)
-  const counts: Record<PeopleTab, number> = { tutors: tutors.length, parents: parents.length, staff: d.staff.length }
-  const hiddenCount = d.people.filter((p) => p.excluded !== null && p.role === (tab === 'parents' ? 'parent' : 'tutor')).length
+  // Pre-calculated (owner, 1 Nov 2026 — lib/adminSummary): the tab counts and
+  // staff list are one stored row; each tab's search, chips, counts and 25 rows
+  // come from admin_list_page in SQL.
+  const summary = await readSummary(['people', 'state'])
+  const d = (summary.get('people')?.payload ?? null) as PeoplePayload | null
+  const builtAt = ((summary.get('state')?.payload ?? {}) as { builtAt?: string | null }).builtAt ?? null
+  const staffList = d?.staff ?? []
+  const counts: Record<PeopleTab, number> = {
+    tutors: (d?.counts.tutors ?? 0) + (showAll ? (d?.hidden.tutor ?? 0) : 0),
+    parents: (d?.counts.parents ?? 0) + (showAll ? (d?.hidden.parent ?? 0) : 0),
+    staff: staffList.length,
+  }
+  const hiddenCount = (tab === 'parents' ? d?.hidden.parent : d?.hidden.tutor) ?? 0
   const isOwner = role === 'owner'
 
   const tabHref = (t: PeopleTab) => peopleHref(t, { all: showAll && t !== 'staff' ? '1' : null })
@@ -72,6 +75,7 @@ export default async function PeopleTabs({
           </Link>
         ))}
       </nav>
+      <p className="text-[11px] text-gray-500">{summaryUpdatedLabel(builtAt)}. Counts and lists are worked out every minute something changes.</p>
       <div className="flex flex-wrap items-center gap-2">
         {tab !== 'staff' && (
           <Link
@@ -113,12 +117,12 @@ export default async function PeopleTabs({
 
   if (tab === 'staff') {
     const seesActivity = roleSatisfies(role, SCREEN_ACCESS.staffActivity)
-    const staffPage = pageSlice(d.staff, shownCount(sp.n))
+    const staffPage = pageSlice(staffList, shownCount(sp.n))
     return (
       <div className="space-y-4">
         {header}
         <p className="text-xs text-gray-500">
-          {d.staff.length} team {d.staff.length === 1 ? 'account' : 'accounts'}. A staff member&rsquo;s own tutor or parent account is listed on the Tutors or Parents tab.
+          {staffList.length} team {staffList.length === 1 ? 'account' : 'accounts'}. A staff member&rsquo;s own tutor or parent account is listed on the Tutors or Parents tab.
         </p>
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {staffPage.rows.map((s) => (
@@ -155,16 +159,6 @@ export default async function PeopleTabs({
     )
   }
 
-  const list = tab === 'tutors' ? tutors : parents
-  const viewPeople = d.people.filter((p) => showAll || p.excluded === null)
-  const [docs, dupes] = await Promise.all([
-    tab === 'tutors' ? loadDirectoryDocs() : Promise.resolve(null),
-    // "Not a duplicate" hides a pair for good (owner, 26 Oct 2026).
-    duplicateTags(viewPeople).then(openTags),
-  ])
-
-  const badgeFor = (p: DirectoryPerson) => (p.banned ? 'Banned' : p.suspended ? 'Paused' : p.excluded ? EXCLUDE_WORDS[p.excluded] : null)
-
   const rows: FilterRow[] =
     tab === 'tutors'
       ? [
@@ -195,63 +189,58 @@ export default async function PeopleTabs({
           },
         ]
 
-  // The whole tab, searched, filtered and counted here — from facts already
-  // loaded (name, city, badge, email + mobile, the chips' tags, Documents).
-  const pool = list.map((p) => ({
-    p,
-    searchFields: [p.name, p.city, badgeFor(p)],
-    searchText: p.searchText,
-    tags: (tab === 'tutors'
-      ? { paid: paidTag(p.feePaidAt) }
-      : { posted: postedTag(p.parent?.tuitionsTotal ?? 0), pv: p.parent?.verification ?? 'none' }) as Record<string, string>,
-    docs: docs?.get(p.id) ?? null,
-  }))
+  // The tab, searched, filtered, counted and paged in SQL (admin_list_page),
+  // in the order lib/cardGridPagingCore always used.
   const q = (Array.isArray(sp.q) ? sp.q[0] : sp.q) ?? ''
   const sel = pickChips(rows, sp)
   const docFilter = tab === 'tutors' ? pickDocFilter(sp.docs) : null
-  const view = gridView(pool, { q, rows, sel, docFilter, shown: shownCount(sp.n) })
+  const shown = shownCount(sp.n)
+  const res = await listPage<PeopleCardRow>(peopleList(tab === 'tutors' ? 'tutor' : 'parent'), {
+    fixed: showAll ? {} : { excluded: false },
+    q,
+    rows: rows.map((r) => ({ param: r.param, value: sel[r.param] ?? 'all' })),
+    split: tab === 'tutors' ? 'docs' : null,
+    splitValues: docFilter && docFilter !== 'all' ? [docFilter] : null,
+    order: docFilter === 'waiting' ? 'sort_asc' : 'pos',
+    limit: shown,
+  })
+  const pool = poolCount(res, rows, sel)
+  const view = {
+    allCount: res.all,
+    searchedCount: res.searched,
+    rowCounts: chipCountsFromList(res.rowCounts, rows),
+    docCounts: docFilter ? splitCounts(res.split, DOC_FILTERS, pool) : null,
+    page: sliceFromList(res.rows, res.total, shown),
+  }
 
   // Card facts (photo, completion, share link) for the shown cards only.
-  const ids = view.page.rows.map((x) => x.p.id)
+  const ids = view.page.rows.map((x) => x.id)
   const [members, shares] = await Promise.all([
     loadMemberCards(ids),
     tab === 'tutors' ? loadProfileShares(ids) : Promise.resolve(null),
   ])
 
-  const items: GridItem[] = view.page.rows.map(({ p, tags, docs: tutorDocs }) => {
-    const parentWaiting = p.parent?.verification === 'waiting'
-    return {
-      id: p.id,
-      title: p.name,
-      detail: null,
-      href: `/admin/users/${p.id}`,
-      amount: null,
-      badge: badgeFor(p),
-      actions: [],
-      memberId: p.id,
-      reviewHref: tab === 'tutors' || parentWaiting ? `/admin/users/${p.id}#documents` : null,
-      member: members.get(p.id) ?? null,
-      docs: tutorDocs,
-      share: shares?.get(p.id) ?? null,
-      searchText: p.searchText,
-      tags,
-      parent: p.parent
-        ? {
-            mobileVerified: p.parent.mobileVerified,
-            tuitionsOpen: p.parent.tuitionsOpen,
-            tuitionsTotal: p.parent.tuitionsTotal,
-            plan: p.parent.plan,
-            verification: PARENT_VERIFICATION_WORDS[p.parent.verification],
-            verificationTone: TONE[p.parent.verification],
-            lastActive: p.parent.lastActive,
-          }
-        : null,
-      dupes: (dupes.get(p.id) ?? []).map((l) => ({ id: l.id, name: l.name, reason: DUP_WORDS[l.reason], reasonKey: l.reason })),
-    }
-  })
+  const items: GridItem[] = view.page.rows.map(({ id, row: p }) => ({
+    id,
+    title: p.name,
+    detail: null,
+    href: `/admin/users/${id}`,
+    amount: null,
+    badge: p.badge,
+    actions: [],
+    memberId: id,
+    reviewHref: tab === 'tutors' || p.parentWaiting ? `/admin/users/${id}#documents` : null,
+    member: members.get(id) ?? null,
+    docs: p.docs,
+    share: shares?.get(id) ?? null,
+    searchText: p.searchText,
+    tags: p.tags,
+    parent: p.parent,
+    dupes: showAll ? p.dupesAll : p.dupes,
+  }))
 
-  const videos = tab === 'tutors' ? list.filter((p) => p.videoWaiting).length : 0
-  const parentsWaiting = tab === 'tutors' ? parents.filter((p) => p.parent?.verification === 'waiting').length : 0
+  const videos = tab === 'tutors' ? (d?.videosWaiting ?? 0) : 0
+  const parentsWaiting = tab === 'tutors' ? (d?.parentsWaiting ?? 0) : 0
 
   return (
     <div className="space-y-4">

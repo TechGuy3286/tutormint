@@ -229,7 +229,8 @@ test('owner, Partner, admin and operations approve; Tuitions staff cannot', () =
   // The "Bank transfer receipts" chip became the amber "Receipt waiting —
   // review" badge at the top of Unpaid / Incomplete (owner, 21 Oct 2026).
   assert.match(queue, /WAITING_LABEL/)
-  assert.match(read('app/admin/layout.tsx'), /'\/admin\/payments': receipts/, 'sidebar badge')
+  assert.match(read('lib/adminSummaryCore.ts'), /'\/admin\/payments': b\.receipts/, 'sidebar badge')
+  assert.ok(read('lib/adminSummary.ts').includes('receiptsWaitingCount()'), 'counted by the same loader')
 })
 
 // ------------------------------------------------ no amount elsewhere --------

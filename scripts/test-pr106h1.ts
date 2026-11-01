@@ -78,7 +78,8 @@ test('approval queue: waiting conditions, order (paid first then oldest), chips'
   // "Approval needed" is People → Tutors · Waiting now (owner, 21 Oct 2026).
   assert.ok(page.includes("if (filter === 'approval') redirect(peopleHref('tutors', { docs: 'waiting' }))"), 'the old tab opens the Waiting chip')
   const layout = read('app/admin/layout.tsx')
-  assert.ok(layout.includes("'/admin/users': waiting"), 'sidebar count beside People')
+  // Push 2 (1 Nov 2026): the badge is worked out by the summary job and read through navBadgesFrom.
+  assert.ok(read('lib/adminSummaryCore.ts').includes("'/admin/users': b.peopleWaiting") && read('lib/adminSummary.ts').includes('waitingBadge('), 'sidebar count beside People')
 })
 
 // --------------------------------------------- STEP 4: rejection alerts -----

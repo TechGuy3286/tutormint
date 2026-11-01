@@ -13,6 +13,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/admin-summary",
+      "schedule": "* * * * *"
+    },
+    {
       "path": "/api/cron/sms-health",
       "schedule": "0 * * * *"
     }

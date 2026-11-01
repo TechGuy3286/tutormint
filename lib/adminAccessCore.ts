@@ -241,6 +241,9 @@ export const SCREEN_ACCESS = withSupervisor({
   // restricted tuitions_staff does NOT (its figures are refused), so this key
   // keeps it out of that role's nav and redirects it away from /admin.
   overview: ['admin', 'operations'] as AdminRole[],
+  // Refresh the pre-calculated Overview figures and badges (owner, 1 Nov 2026):
+  // not a change to any data, so the Partner may press it too.
+  summaryRefresh: ['admin', 'operations', 'partner'] as AdminRole[],
   // The tutor and parent verification queues: open to these roles; the
   // approve / reject decisions themselves are the Owner's alone (canApprove).
   tutors: ['admin', 'operations', 'partner'] as AdminRole[],

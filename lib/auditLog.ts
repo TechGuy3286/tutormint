@@ -10,6 +10,7 @@
 // construction, not by convention.
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { markSummaryDirty } from '@/lib/summaryDirty'
 import type { AdminRole } from '@/lib/adminAuth'
 
 export type AuditAction =
@@ -134,4 +135,6 @@ export async function logAdminAction(params: {
   })
 
   if (error) console.error('[audit] failed to record', params.action, error.message)
+  // Admin badges, the Overview and the admin lists are pre-calculated (lib/adminSummary).
+  await markSummaryDirty()
 }

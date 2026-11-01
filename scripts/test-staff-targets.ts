@@ -435,6 +435,6 @@ test('Follow-ups → Tutors groups', () => {
   assert.equal(parseTutorScope('older'), 'older')
   assert.equal(parseTutorScope('nonsense'), 'recent')
   const page = read('app/admin/follow-ups/page.tsx')
-  assert.ok(page.includes('loadTutorFollowUps(scope)'))
+  assert.ok(page.includes('tutorFuList(scope)')) // push 2: the group's stored list
   assert.ok(read('app/admin/follow-ups/UnpaidSignupRow.tsx').includes('Still to do:'))
 })

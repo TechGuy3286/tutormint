@@ -76,7 +76,8 @@ test('the toggle brings left-out accounts back; the default leaves them out', ()
   assert.match(src, /p\.role === role && \(showAll \|\| p\.excluded === null\)/)
   const tabs = read('app/admin/users/PeopleTabs.tsx')
   assert.ok(tabs.includes('Show staff & test accounts'))
-  assert.ok(tabs.includes("inTab(d.people, 'tutor', showAll)") && tabs.includes("inTab(d.people, 'parent', showAll)"))
+  // Push 2 (1 Nov 2026): every row is stored with its excluded flag; the default view asks for excluded: false.
+  assert.ok(tabs.includes('fixed: showAll ? {} : { excluded: false }') && read('lib/adminSummary.ts').includes('excluded: p.excluded !== null'))
   assert.ok(read('app/admin/users/page.tsx').includes("showAll={all === '1'}"))
 })
 
@@ -86,7 +87,7 @@ test('Paid / Unpaid: the Verification Fee by any method, Owner grant included', 
   assert.equal(paidTag(undefined), 'unpaid')
   // verified_fee_paid_at is the one fact — set by a payment AND by an Owner grant.
   assert.match(read('lib/peopleDirectory.ts'), /feePaidAt: \(t\?\.verified_fee_paid_at as string \| null\) \?\? null/)
-  assert.ok(read('app/admin/users/PeopleTabs.tsx').includes("{ paid: paidTag(p.feePaidAt) }"))
+  assert.ok(read('lib/adminSummary.ts').includes('{ paid: paidTag(p.feePaidAt) }'))
 })
 
 test('Parents: posted / not posted, and one verification chip each', () => {
@@ -194,9 +195,11 @@ test('the Verification group is gone; People carries the waiting badge', () => {
   assert.equal(waitingBadge(['waiting', 'approved', 'waiting', null, 'rejected'], ['waiting', 'approved', 'none']), 3)
   assert.equal(waitingBadge([], []), 0)
   const layout = read('app/admin/layout.tsx')
-  assert.ok(layout.includes('peopleWaitingCount()'))
-  assert.ok(layout.includes("'/admin/users': waiting"))
-  assert.ok(!layout.includes("'/admin/tutors':") && !layout.includes("'/admin/parents':"))
+  // Push 2 (1 Nov 2026): the summary job runs waitingBadge; the layout reads it through navBadgesFrom.
+  const core = read('lib/adminSummaryCore.ts')
+  assert.ok(read('lib/adminSummary.ts').includes('waitingBadge(') && layout.includes('navBadgesFrom('))
+  assert.ok(core.includes("'/admin/users': b.peopleWaiting"))
+  assert.ok(!core.includes("'/admin/tutors':") && !core.includes("'/admin/parents':"))
   // The badge, the Overview "Documents to approve" row and the chips read the
   // same loader and the same Waiting rule.
   const loader = read('lib/peopleDirectory.ts')

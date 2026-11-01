@@ -41,6 +41,9 @@ const EDIT: Key[] = [
   'statusImage', 'memberContactReveal',
   // Parent consent for listings (owner, 27 Oct 2026).
   'tuitionConsent',
+  // Refresh the pre-calculated admin summary (owner, 1 Nov 2026): changes no data,
+  // so the Partner may press it like admin and operations.
+  'summaryRefresh',
 ]
 
 test('the Partner may open every screen, and change only the tutor, parent and tuition areas', () => {
@@ -234,6 +237,7 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed' | 'ret
   'reports': 'edit',
   // Parent reviews (owner, 27 Oct 2026): approving / rejecting is the Owner's alone.
   'reviews/decide': 'owner',
+  'summary/refresh': 'edit',
   'social': 'view',
   'staff-signups/claims': 'retired',
   // Monthly targets (owner, 16 Oct 2026): Owner only by its own check

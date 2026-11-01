@@ -105,7 +105,8 @@ test('the Overview shows Paid today (never hidden at 0) from the list it opens',
   assert.ok(page.includes("'paid-today'") && !page.includes('paid-this-month'))
   // Square cards (owner, 17 Oct 2026): the card reads its loader's figures;
   // Paid's Today is the same rule as its Today list.
-  assert.ok(page.includes('card: l.card ?? {'))
+  // Push 2 (1 Nov 2026): the summary stores each item's card; the page reads it.
+  assert.ok(readFileSync('lib/adminSummary.ts', 'utf8').includes('card: l.card ?? null') && page.includes('readSummary('))
   const items = readFileSync('lib/overviewItems.ts', 'utf8')
   assert.ok(items.includes('card: paidCard'))
   assert.ok(items.includes("extra: `${month} this month · ${week} in the last 7 days`"))

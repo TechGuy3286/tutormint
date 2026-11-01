@@ -50,7 +50,7 @@ async function independentPeople(roles: string[]): Promise<{ id: string; created
 test('the Overview reads every number from the item list it links to', () => {
   const page = readFileSync('app/admin/page.tsx', 'utf8')
   // The six square cards (owner, 17 Oct 2026) read each item's own figures.
-  assert.ok(page.includes('card: l.card ?? {'))
+  assert.ok(page.includes('readSummary(')) // push 2: the stored card
   assert.ok(page.includes('count: lists.get(k)!.rows.length'))
   assert.ok(page.includes('lists.get(k)?.rows.length ?? 0'))
   assert.ok(page.includes('lists.get(lost)?.rows.length ?? 0'))
