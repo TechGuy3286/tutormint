@@ -45,6 +45,7 @@ export type TemplateId =
   | 'confirm_email'
   | 'switched_tutor_signin'
   | 'account_type_changed'
+  | 'email_changed_notice'
   | 'tuition_paused'
   | 'sms_alert'
   | 'account_erased'
@@ -286,6 +287,9 @@ export type TemplateInput =
   // sign in and were never told. Plain and short — no marketing, no prices.
   | { id: 'switched_tutor_signin'; name: string; supportWhatsapp: string }
   | { id: 'account_type_changed'; name: string; to: 'tutor' | 'parent'; supportWhatsapp: string }
+  // Security notice to the OLD real address after an email change (owner,
+  // 1 Nov 2026). One email, no button, no undo link; the new address is masked.
+  | { id: 'email_changed_notice'; maskedNew: string; supportWhatsapp: string }
   // Close account and erase data (owner, 27 Oct 2026). Sent BEFORE the address
   // is erased; essential. No name is kept after this, so none is used.
   | { id: 'account_erased'; supportWhatsapp: string }
@@ -685,6 +689,16 @@ export function render(input: TemplateInput): RenderedEmail {
         ],
         true,
         { label: 'Sign in', href: '/login' },
+      )
+    }
+
+    case 'email_changed_notice': {
+      // The owner's wording (1 Nov 2026). No button and no undo link on purpose.
+      return build(
+        'Your TutorMint email was changed',
+        'Your TutorMint email was changed',
+        [`Your TutorMint email was changed to ${input.maskedNew}. Not you? WhatsApp support: ${input.supportWhatsapp}.`],
+        true,
       )
     }
 

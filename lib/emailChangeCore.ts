@@ -16,6 +16,10 @@
 // is clicked (lib/emailConfirm confirmEmailFromLink). Supabase is never asked to
 // send anything, so the dashboard setting no longer matters.
 
+import { isSyntheticEmail } from "@/lib/phone"
+import { recipientProblem } from "@/lib/notify/recipient"
+import { maskEmailDisplay } from "@/lib/contactMaskCore"
+
 /** app_metadata keys holding a change that waits for its link. */
 export const PENDING_EMAIL_KEY = 'tm_pending_email'
 export const PENDING_EMAIL_AT_KEY = 'tm_pending_email_at'
@@ -56,4 +60,19 @@ export function emailChangeDecision(input: {
 /** The pending change a link may complete: only the exact address that is waiting. */
 export function pendingChangeMatches(pendingEmail: unknown, linkEmail: string): boolean {
   return typeof pendingEmail === 'string' && pendingEmail.trim().toLowerCase() === linkEmail.trim().toLowerCase() && !!linkEmail.trim()
+}
+
+/**
+ * The security notice after a change (owner, 1 Nov 2026): when the OLD sign-in
+ * address was a real email (not the mobile placeholder, not an erased account),
+ * it gets ONE short notice naming the new address masked — no link, no undo.
+ * Null when there is nobody to tell.
+ */
+export function oldAddressNotice(oldEmail: string | null | undefined, newEmail: string): { to: string; maskedNew: string } | null {
+  const old = (oldEmail ?? '').trim().toLowerCase()
+  const next = newEmail.trim().toLowerCase()
+  if (!old || old === next || isSyntheticEmail(old) || recipientProblem(old)) return null
+  const maskedNew = maskEmailDisplay(next)
+  if (!maskedNew) return null
+  return { to: old, maskedNew }
 }

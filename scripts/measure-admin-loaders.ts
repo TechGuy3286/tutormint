@@ -21,6 +21,15 @@ import { loadPaidTutors } from '../lib/paidTutors'
 import { loadOverviewList } from '../lib/overviewItems'
 import { OVERVIEW_ITEMS, type OverviewItemKey } from '../lib/overviewItemsCore'
 
+// Count the database round trips each page makes (Part A, 1 Nov 2026).
+let dbCalls = 0
+const realFetch = globalThis.fetch
+globalThis.fetch = ((...a: Parameters<typeof fetch>) => {
+  const u = String(a[0] instanceof Request ? a[0].url : a[0])
+  if (u.includes('.supabase.co')) dbCalls++
+  return realFetch(...a)
+}) as typeof fetch
+
 const runs = Number(process.argv[2] ?? 3)
 const out = process.argv[3]
 const pct = (a: number[], p: number) => [...a].sort((x, y) => x - y)[Math.min(a.length - 1, Math.floor((p / 100) * a.length))]
@@ -54,20 +63,23 @@ const pages: Record<string, () => Promise<number>> = {
 }
 
 async function main() {
-  const rows: { page: string; p50: number; p95: number; rows: number }[] = []
+  const rows: { page: string; p50: number; p95: number; rows: number; dbCalls: number }[] = []
   const only = process.env.PAGES ? process.env.PAGES.split(",") : null
   for (const [name, fn] of Object.entries(pages)) {
     if (only && !only.includes(name)) continue
     const t: number[] = []
     let n = 0
+    let calls = 0
     for (let i = 0; i < runs; i++) {
       const t0 = performance.now()
+      dbCalls = 0
       n = await fn()
+      calls = dbCalls
       t.push(performance.now() - t0)
     }
-    const r = { page: name, p50: Math.round(pct(t, 50)), p95: Math.round(pct(t, 95)), rows: n }
+    const r = { page: name, p50: Math.round(pct(t, 50)), p95: Math.round(pct(t, 95)), rows: n, dbCalls: calls }
     rows.push(r)
-    console.log(`${name.padEnd(14)} p50 ${String(r.p50).padStart(6)} ms  p95 ${String(r.p95).padStart(6)} ms  rows ${n}`)
+    console.log(`${name.padEnd(14)} p50 ${String(r.p50).padStart(6)} ms  p95 ${String(r.p95).padStart(6)} ms  rows ${n}  db calls ${calls}`)
   }
   if (out) writeFileSync(out, JSON.stringify({ at: new Date().toISOString(), runs, rows }, null, 2))
   process.exit(0)

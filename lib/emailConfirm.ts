@@ -11,7 +11,8 @@ import { logActivity } from '@/lib/activityLog'
 import { isSyntheticEmail } from '@/lib/phone'
 import { SITE_URL } from '@/lib/siteUrl'
 import { confirmEmailSigValid, confirmEmailUrl } from '@/lib/emailConfirmCore'
-import { PENDING_EMAIL_AT_KEY, PENDING_EMAIL_KEY, emailChangeDecision, pendingChangeMatches } from '@/lib/emailChangeCore'
+import { PENDING_EMAIL_AT_KEY, PENDING_EMAIL_KEY, emailChangeDecision, oldAddressNotice, pendingChangeMatches } from '@/lib/emailChangeCore'
+import { loadSupportWhatsApp } from '@/lib/applicationTemplates'
 
 // The same server-only secret lib/matchEmail signs with. Never sent to a browser.
 const secret = () => process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
@@ -93,6 +94,16 @@ async function completePendingChange(userId: string, email: string): Promise<{ o
     .select('role')
     .maybeSingle()
   await logActivity({ userId, event: 'email_confirmed', targetType: 'profile', targetId: userId, meta: { changed: true } }).catch(() => undefined)
+  // One security notice to the OLD address when it was a real email (owner,
+  // 1 Nov 2026). Sent once, here, as the change completes; never blocks it.
+  const notice = oldAddressNotice(got?.user?.email, e)
+  if (notice) {
+    const supportWhatsapp = await loadSupportWhatsApp(admin).catch(() => '')
+    await deliverEmail(
+      { email: notice.to, name: '' },
+      { id: 'email_changed_notice', maskedNew: notice.maskedNew, supportWhatsapp },
+    ).catch(() => undefined)
+  }
   return { ok: true, role: (p?.role as string | null) ?? null }
 }
 

@@ -21,7 +21,7 @@
 export const PLACEHOLDER_DOMAIN = /@users\.tutormint\.org$/i
 
 /** Always sent (rules 6–9 never hold them back). */
-export const CRITICAL_TEMPLATES = new Set(['confirm_email', 'password_reset', 'account_erased', 'bank_transfer_pending'])
+export const CRITICAL_TEMPLATES = new Set(['confirm_email', 'password_reset', 'account_erased', 'bank_transfer_pending', 'email_changed_notice'])
 
 /** Non-urgent member emails, combined into one daily summary per person. */
 export const SUMMARY_TEMPLATES = new Set(['welcome', 'tuition_match', 'tuition_paused', 'message_digest'])
@@ -34,6 +34,7 @@ export const STAFF_TEMPLATES = ['bank_transfer_pending', 'payment_alert', 'docum
 export const MEMBER_TEMPLATES = [
   'confirm_email',
   'account_erased',
+  'email_changed_notice',
   'welcome',
   'verification_decision',
   'application_progress',
@@ -59,13 +60,14 @@ export const MEMBER_TEMPLATES = [
 
 /** Shown in Notification settings and never switchable off: the ways back into
  *  an account. Password reset is sent by the sign-in system itself. */
-export const LOCKED_ON = new Set(['confirm_email', 'password_reset', 'account_erased'])
+export const LOCKED_ON = new Set(['confirm_email', 'password_reset', 'account_erased', 'email_changed_notice'])
 
 export const EMAIL_TYPE_LABEL: Record<string, string> = {
   bank_transfer_pending: 'Bank transfer waiting for approval (to the Owner)',
   password_reset: 'Password reset',
   confirm_email: 'Email confirmation',
   account_erased: 'Account erase confirmation',
+  email_changed_notice: 'Email changed (security notice to the old address)',
   payment_alert: 'New payment received',
   documents_reuploaded: 'Documents re-uploaded',
   duplicate_cnic: 'CNIC already on another account',
