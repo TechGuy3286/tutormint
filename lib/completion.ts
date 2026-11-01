@@ -103,6 +103,12 @@ export async function recomputeCompletion(userId: string): Promise<Completion | 
     await activatePausedIfListed(userId)
   }
 
+  // The tutor's own cached profile page is rebuilt (push 3, owner 1 Nov 2026).
+  {
+    const { revalidateTutorProfile } = await import('@/lib/publicRevalidate')
+    await revalidateTutorProfile(userId)
+  }
+
   // The landing cache is NOT cleared here any more (owner, 28 Oct 2026 — site
   // speed): every profile save, onboarding's autosave included, cleared it, so
   // it was rarely warm. Listing no longer depends on completion; a tutor's new

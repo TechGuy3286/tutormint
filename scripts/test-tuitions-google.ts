@@ -90,7 +90,7 @@ test('resume: open again → JobPosting, same URL, fresh validThrough', () => {
   // Apply and the contact line are hidden while not open.
   // (owner, 27 Oct 2026: also hidden while parent consent is not recorded.)
   assert.match(page, /state\.showContact && !job\.contactHidden && job\.contactTeaser/)
-  assert.match(page, /isTutor && state\.showContact && !job\.contactHidden && <ContactReveal/)
+  assert.match(page, /state\.showContact && !job\.contactHidden && <TutorContactReveal/)
   // "Similar open tuitions": same city + subject/level first, then the city.
   assert.match(page, /'Similar open tuitions'/)
   assert.match(page, /state\.isOpen \? 'neighbours' : 'match-first'/)

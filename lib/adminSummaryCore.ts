@@ -22,6 +22,10 @@ import { pkDayStart } from '@/lib/staffOutreachCore'
 export const SUMMARY_MAX_AGE_MS = 10 * 60_000
 /** A rebuild that started this long ago and never finished is presumed dead. */
 export const REBUILD_STALE_MS = 4 * 60_000
+/** A change waits until the last build is this old (push 3, owner 1 Nov 2026):
+ *  at most one automatic rebuild every 3 minutes, however busy the site is.
+ *  Refresh on the Overview (force) is never held back. */
+export const MIN_DIRTY_GAP_MS = 3 * 60_000
 
 // ------------------------------------------------------------------ state ---
 
@@ -41,7 +45,7 @@ export function needsRebuild(s: SummaryState, nowMs: number, force = false): boo
   if (!Number.isFinite(built)) return true
   if (nowMs - built >= SUMMARY_MAX_AGE_MS) return true
   const dirty = s.dirtyAt ? Date.parse(s.dirtyAt) : NaN
-  return Number.isFinite(dirty) && dirty > built
+  return Number.isFinite(dirty) && dirty > built && nowMs - built >= MIN_DIRTY_GAP_MS
 }
 
 /** "Updated just now" · "Updated 4 min ago" · "Updated 2 h ago". */

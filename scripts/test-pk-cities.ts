@@ -102,7 +102,7 @@ test('an empty new city has no page and no sitemap entry', () => {
   assert.match(pagesFn, /openRows\(\)/)
   assert.doesNotMatch(pagesFn, /location_cities/)
   assert.match(jobs, /export const CITY_PAGE_THRESHOLD = 3/)
-  const page = readFileSync('app/(site)/tuition-jobs/[city]/page.tsx', 'utf8')
+  const page = readFileSync('app/(site)/tuition-jobs/[city]/render.tsx', 'utf8')
   assert.match(page, /if \(!page\) notFound\(\)/)
   // And the sitemap lists a city hub only at 3+ open tuitions.
   const base = 'https://www.tutormint.org'

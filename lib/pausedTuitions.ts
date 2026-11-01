@@ -164,6 +164,6 @@ export async function resumeTuitionsAsStaff(actor: AdminActor, ids: string[]): P
       })
     }
   }
-  if (resumed.length > 0) revalidateLanding()
+  if (resumed.length > 0) revalidateLanding({ tutors: false })
   return { resumed, skipped, needNumber }
 }

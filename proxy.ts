@@ -15,6 +15,7 @@
 // Role checking is NOT done here -- it needs a profiles read, and proxy runs
 // on every request. The server layouts do that with getSessionUser().
 
+import { queryTwinPath } from '@/lib/queryTwinCore'
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
@@ -297,7 +298,15 @@ export async function proxy(request: NextRequest) {
   // Rebuilt after a token refresh (setAll below) so the page sees the NEW
   // session cookies, not the copy taken here.
   let forwarded = forwardHeaders(request)
-  let response = NextResponse.next({ request: forwarded })
+  // A query a cached page cannot read goes to its dynamic twin (lib/queryTwinCore).
+  const twin = queryTwinPath(request.nextUrl.pathname, request.nextUrl.searchParams)
+  const pass = () => {
+    if (!twin) return NextResponse.next({ request: forwarded })
+    const url = request.nextUrl.clone()
+    url.pathname = twin
+    return NextResponse.rewrite(url, { request: forwarded })
+  }
+  let response = pass()
   captureUtm(request, response)
   captureAnon(request, response)
 
@@ -320,7 +329,7 @@ export async function proxy(request: NextRequest) {
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
         forwarded = forwardHeaders(request)
-        response = NextResponse.next({ request: forwarded })
+        response = pass()
         // Re-applied because this REBUILDS the response, and anything set on
         // the old one is gone. Dropping it here would lose attribution on
         // exactly the requests that refreshed a token, which is a subset

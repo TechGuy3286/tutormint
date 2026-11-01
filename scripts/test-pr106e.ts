@@ -130,7 +130,8 @@ test('the dashboard views tile and the teaser share one weekly count + window', 
 })
 
 test('a profile view only notifies for a real parent/academy viewer', () => {
-  const src = read('app/(site)/tutor/[slug]/page.tsx')
+  // Recorded from the browser's beacon since push 3 (lib/profileViewRecord).
+  const src = read('lib/profileViewRecord.ts')
   assert.ok(/viewerRole === 'parent'|'parent'.*viewerRole/.test(src), 'guards on parent')
   assert.ok(/notifyProfileViewed/.test(src), 'the notify call is guarded')
 })

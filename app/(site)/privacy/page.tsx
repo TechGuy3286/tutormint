@@ -15,6 +15,10 @@ import LegalDoc, { entitySection, type LegalSection } from '@/components/LegalDo
 // The commitments here are the ones the code keeps. Retention periods in
 // section 6 are the ones we can actually honour today.
 
+// Cached for everyone and rebuilt at most hourly (push 3, owner 1 Nov 2026):
+// nothing on it depends on who is looking.
+export const revalidate = 3600
+
 export const metadata: Metadata = {
   title: pageTitle('Privacy Policy'),
   alternates: { canonical: '/privacy' },

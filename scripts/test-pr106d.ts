@@ -67,7 +67,7 @@ test('every name+badge surface puts the badges right after the name', () => {
   // Surfaces that moved badges onto the name line carry the PR106-D §3 marker.
   for (const f of [
     'components/TutorCard.tsx',
-    'app/(site)/tutor/[slug]/page.tsx',
+    'app/(site)/tutor/[slug]/profile.tsx',
     'app/(site)/parent/dashboard/job/[jobId]/ApplicantList.tsx',
     'app/(site)/parent/[id]/page.tsx',
     'components/messages/InboxShell.tsx',

@@ -1,8 +1,8 @@
+import { invalidateMemoTag } from '@/lib/memoCache'
 import { NextResponse } from 'next/server'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { saveLevelCore, saveSearchWords, saveTitleNames, saveUrduNames } from '@/lib/subjectsCore'
-import { revalidateTag } from 'next/cache'
 import { SMART_SEARCH_TAG } from '@/lib/smartSearch'
 import { parseBody, z } from '@/lib/validate'
 
@@ -56,6 +56,6 @@ export async function POST(request: Request) {
   )
   if (!titles.ok) return NextResponse.json({ error: titles.error }, { status: 400 })
   // The smart search reads the new words on its next request.
-  if (words.changed.length) revalidateTag(SMART_SEARCH_TAG, 'max')
+  if (words.changed.length) invalidateMemoTag(SMART_SEARCH_TAG)
   return NextResponse.json({ ok: true, added: result.added, removed: result.removed, urduChanged: urdu.changed.length, wordsChanged: words.changed.length })
 }

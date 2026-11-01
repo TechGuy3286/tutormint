@@ -14,6 +14,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { pageAllIn } from '@/lib/pageAll'
 import { planLabel } from '@/lib/display'
 import { loadUnpaidSignups, type UnpaidRow } from '@/lib/staffOutreach'
+import { inRunMemo, runMemo } from '@/lib/runMemo'
+import { TUTOR_SCOPES } from '@/lib/staffOutreachCore'
 import { loadFollowUpStates } from '@/lib/followUps'
 import { loadTutorDocSummaries } from '@/lib/tutorDocSummaries'
 import { formatDate } from '@/lib/datetime'
@@ -175,6 +177,19 @@ async function lastSeenFor(ids: string[]): Promise<Map<string, string>> {
 export const loadTutorFollowUps = cache(async (scope: TutorScope = 'recent'): Promise<TutorFollowRow[]> => {
   const now = new Date()
   const rows = await loadUnpaidSignups(now, scope)
+  if (!inRunMemo()) return buildFollowRows(rows, now)
+  // Inside the admin summary job (push 3): every tutor's row is built ONCE for
+  // all the groups, and each group is a pick from them, in its own order.
+  const built = await runMemo('tfu:built', async () => {
+    const union = new Map<string, UnpaidRow>()
+    for (const sc of [...TUTOR_SCOPES, 'open', 'started_payment'] as TutorScope[])
+      for (const r of await loadUnpaidSignups(now, sc)) if (!union.has(r.id)) union.set(r.id, r)
+    return new Map((await buildFollowRows([...union.values()], now)).map((r) => [r.id, r]))
+  })
+  return rows.map((r) => built.get(r.id)).filter((r): r is TutorFollowRow => !!r)
+})
+
+async function buildFollowRows(rows: UnpaidRow[], now: Date): Promise<TutorFollowRow[]> {
   if (rows.length === 0) return []
   const ids = rows.map((r) => r.id)
   const [states, docs, planBody, seen, contacts, fuTemplates, support] = await Promise.all([
@@ -281,7 +296,7 @@ export const loadTutorFollowUps = cache(async (scope: TutorScope = 'recent'): Pr
     })
   }
   return out
-})
+}
 
 /** The rows of one chip from the default group — the Overview rows' source. */
 export async function tutorsWithChip(chip: FollowChip): Promise<TutorFollowRow[]> {

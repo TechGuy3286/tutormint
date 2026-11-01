@@ -1,6 +1,6 @@
+import { memoize } from '@/lib/memoCache'
 import 'server-only'
 
-import { unstable_cache } from 'next/cache'
 
 import { brandLine } from '@/lib/brandClaims'
 import { createPublicClient } from '@/lib/supabase/public'
@@ -37,4 +37,4 @@ export async function currentBrandLine(): Promise<string> {
 
 /** The same line for a public page: recomputed at most once an hour, so the
  *  homepage does not count tutors on every request. */
-export const cachedBrandLine = unstable_cache(async () => currentBrandLine(), ['brand-line'], { revalidate: 3600 })
+export const cachedBrandLine = memoize(async () => currentBrandLine(), ['brand-line'], { revalidate: 3600 })

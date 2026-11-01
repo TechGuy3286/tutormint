@@ -42,6 +42,10 @@ import { cachedBrandLine } from '@/lib/brandLineServer'
 import { BRAND_LINE_GROWING } from '@/lib/brandClaims'
 import { HOME_CARDS, HOME_H1_LINES, HOME_TITLE, SITE_DESCRIPTION } from '@/lib/siteIdentity'
 
+// Cached for everyone and rebuilt at most hourly (push 3, owner 1 Nov 2026):
+// nothing on it depends on who is looking.
+export const revalidate = 3600
+
 export async function generateMetadata(): Promise<Metadata> {
   // From lib/siteIdentity (owner, 13 Oct 2026): the title and description name
   // BOTH sides — tutors for parents, tuitions for tutors. Metadata is one of the

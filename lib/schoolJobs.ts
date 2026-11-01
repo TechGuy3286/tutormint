@@ -8,9 +8,9 @@
 // Server-only. Anon may read open jobs and the taxonomy, so the public client
 // is enough. The rules are pure, in lib/schoolJobsCore.
 
+import { memoize } from '@/lib/memoCache'
 import 'server-only'
 
-import { unstable_cache } from 'next/cache'
 import { createPublicClient } from '@/lib/supabase/public'
 import { pageAll } from '@/lib/pageAll'
 import { testAccountIds } from '@/lib/testAccounts'
@@ -28,7 +28,7 @@ import {
 export { SCHOOL_HUB_THRESHOLD, schoolHubPath, schoolShortName, type SchoolGroup } from '@/lib/schoolJobsCore'
 
 /** The Admission Test Prep schools in the taxonomy (the level with no grade). */
-const taxonomySchools = unstable_cache(
+const taxonomySchools = memoize(
   async (): Promise<{ name: string }[]> => {
     const db = createPublicClient()
     const { data: cats } = await db.from('taxonomy_categories').select('slug').eq('no_grade', true)
@@ -76,10 +76,10 @@ export async function indexableSchoolHubs(): Promise<SchoolGroup[]> {
 }
 
 /** For LINK BLOCKS only (a tuition page's link to its school hub): ten minutes. */
-export const indexableSchoolHubsCached = unstable_cache(
+export const indexableSchoolHubsCached = memoize(
   async (): Promise<SchoolGroup[]> => indexableSchoolHubs(),
   ['school-job-hubs'],
-  { revalidate: 600, tags: [LANDING_TAG] },
+  { revalidate: 120, tags: [LANDING_TAG] },
 )
 
 export async function schoolGroupBySlug(slug: string): Promise<SchoolGroup | null> {

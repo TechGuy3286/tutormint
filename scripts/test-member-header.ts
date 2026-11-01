@@ -57,7 +57,9 @@ test('Logout signs out with the same flow: signOut, then home + refresh', () => 
 
 test('Navbar: tutors/parents get MemberHeader in order, never the dropdown', () => {
   const nav = src('components/Navbar.tsx')
-  const member = nav.slice(nav.indexOf('if (isMember) {'), nav.indexOf('return (\n    <Shell>\n      <NotificationBell'))
+  // The header is a client component since push 3; the member branch is the
+  // isMemberRole(s.role) block.
+  const member = nav.slice(nav.indexOf('if (isMemberRole(s.role)) {'), nav.lastIndexOf('return (\n    <Shell>\n      <NotificationBell'))
   assert.match(member, /<MemberHeader\b/)
   assert.doesNotMatch(member, /<UserMenu/)
   const s = src('components/MemberHeader.tsx')
@@ -149,7 +151,7 @@ test('dashboard profile cards render without throwing — tutor mid-onboarding, 
 
 test('signed-out header is unchanged (AuthCTA only)', () => {
   const s = src('components/Navbar.tsx')
-  assert.match(s, /if \(!session\) \{[\s\S]*?<Shell>\s*<AuthCTA \/>\s*<\/Shell>/)
+  assert.match(s, /if \(state\.status === 'guest'\) \{[\s\S]*?<Shell>\s*<AuthCTA \/>\s*<\/Shell>/)
 })
 
 test('admin header is unchanged: admin layout does not use the member header', () => {

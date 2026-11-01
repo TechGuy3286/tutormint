@@ -20,7 +20,9 @@
 // `app_settings` is publicly readable by policy, which is what makes this safe
 // to render on /terms and /about with the anon key.
 
-import { createClient } from '@/lib/supabase/server'
+// Cookie-free (push 3, 1 Nov 2026): these are public settings every visitor sees,
+// read the same for a guest and a member, so they never make a page dynamic.
+import { createPublicClient } from '@/lib/supabase/public'
 
 export const REG_NO_PLACEHOLDER = '{{COMPANY_REG_NO}}'
 export const NTN_PLACEHOLDER = '{{COMPANY_NTN}}'
@@ -56,7 +58,7 @@ export async function getCompany(): Promise<Company> {
   let stored = new Map<string, string | null>()
 
   try {
-    const supabase = await createClient()
+    const supabase = createPublicClient()
     const { data } = await supabase
       .from('app_settings')
       .select('key, value')

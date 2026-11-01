@@ -52,7 +52,10 @@ test('the page shows the heading, the three steps and one button', () => {
     'Verified tutors apply and you choose.',
   ])
   assert.equal(POST_TUITION_BUTTON, 'Post your tuition')
-  assert.equal((PAGE.match(/<Link\b/g) ?? []).length, 1, 'exactly one button')
+  // One button, drawn by PostTuitionButton in the browser since push 3.
+  assert.equal((PAGE.match(/<PostTuitionButton\b/g) ?? []).length, 1, 'exactly one button')
+  assert.equal((PAGE.match(/<Link\b/g) ?? []).length, 0)
+  assert.equal((readFileSync('components/session/PostTuitionButton.tsx', 'utf8').match(/<Link\b/g) ?? []).length, 1)
   assert.ok(PAGE.includes('<Breadcrumbs'))
   assert.ok(!/#[0-9a-f]{3,6}\b/i.test(PAGE), 'no raw hex')
 })

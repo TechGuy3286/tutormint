@@ -173,7 +173,7 @@ test('"Add search word" makes the search find results: subject, school, level an
   const lib = read('lib', 'unmetSearches.ts')
   assert.ok(lib.includes("from('taxonomy_aliases').insert({ kind, slug: target.slug, alias: word, created_by: actor.id })"))
   assert.ok(read('lib', 'subjectsCore.ts').includes("from('taxonomy_aliases').insert("))
-  assert.ok(lib.includes("action: 'taxonomy.search_words'") && lib.includes('revalidateTag(SMART_SEARCH_TAG'))
+  assert.ok(lib.includes("action: 'taxonomy.search_words'") && lib.includes('invalidateMemoTag(SMART_SEARCH_TAG'))
   assert.ok(lib.includes('now: await rerunSearch(input.query)') && lib.includes('loadSearchDictFresh()'), 'run again with the new word, not a cached list')
   const ui = read('app', 'admin', 'overview', 'todo-unmet', 'UnmetSearchesClient.tsx')
   assert.ok(ui.includes('Now finds ${resultsWord('))

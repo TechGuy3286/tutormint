@@ -9,6 +9,8 @@ import { pageAll, pageAllIn } from '@/lib/pageAll'
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { inRunMemo, runMemo } from '@/lib/runMemo'
+import { TUTOR_SCOPES } from '@/lib/staffOutreachCore'
 import { senderRefCode } from '@/lib/staffSignups'
 import { logAdminAction } from '@/lib/auditLog'
 import type { AdminRole } from '@/lib/adminAuth'
@@ -80,15 +82,31 @@ export type StartedInfo = {
  *  Whether a tutor has FINISHED needs their documents, so lib/tutorFollowUps
  *  drops the finished ones; this loader only decides the group. */
 export async function loadUnpaidSignups(now = new Date(), scope: TutorScope = 'recent'): Promise<UnpaidRow[]> {
+  // Inside the admin summary job every group is worked out from ONE load
+  // (lib/runMemo, push 3); a page asks for its one group as before.
+  if (inRunMemo()) {
+    const all = await runMemo('unpaid:all', () => loadUnpaidByScopes(now, [...ALL_SCOPES]))
+    return all.get(scope) ?? []
+  }
+  return (await loadUnpaidByScopes(now, [scope])).get(scope) ?? []
+}
+
+const ALL_SCOPES: TutorScope[] = [...TUTOR_SCOPES, 'open', 'started_payment']
+
+/** Every requested group from one load: the rows are the same for every group;
+ *  only which tutors are in it differs (tutorInScope). */
+export async function loadUnpaidByScopes(now: Date, scopes: TutorScope[]): Promise<Map<TutorScope, UnpaidRow[]>> {
+  const result = new Map<TutorScope, UnpaidRow[]>(scopes.map((sc) => [sc, []]))
   const admin = createAdminClient()
-  if (!admin) return []
+  if (!admin) return result
+  const onlyStarted = scopes.length === 1 && scopes[0] === 'started_payment'
   // Checkouts started and not finished — the chip, and the WhatsApp text for those rows.
   const started = await loadStartedNotFinished(now).catch(() => [])
   const startedBy = new Map<string, StartedInfo>()
   for (const s of started)
     if (s.userId && !startedBy.has(s.userId))
       startedBy.set(s.userId, { paymentId: s.id, planCode: s.planCode, startedAt: s.createdAt, provider: s.provider, providerRef: s.providerRef })
-  if (scope === 'started_payment' && startedBy.size === 0) return []
+  if (onlyStarted && startedBy.size === 0) return result
   let notFinishedBody = PAYMENT_NOT_FINISHED_FALLBACK
   if (startedBy.size > 0) {
     const { data: tpl } = await admin.from('admin_message_templates').select('body').eq('key', PAYMENT_NOT_FINISHED_KEY).maybeSingle()
@@ -98,7 +116,7 @@ export async function loadUnpaidSignups(now = new Date(), scope: TutorScope = 'r
   const excluded = new Set(directory.people.filter((p) => p.excluded !== null).map((p) => p.id))
   const cols = 'id, full_name, city, created_at, profile_completion, phone_number, whatsapp, is_suspended, is_banned, is_seed, is_team_account, admin_role'
   const profiles =
-    scope === 'started_payment'
+    onlyStarted
       ? (
           await pageAllIn([...startedBy.keys()], (part, from, to) =>
             admin.from('profiles').select(cols).eq('role', 'tutor').in('id', part).order('id').range(from, to),
@@ -119,7 +137,7 @@ export async function loadUnpaidSignups(now = new Date(), scope: TutorScope = 'r
       !excluded.has(p.id as string),
   )
   const ids = candidates.map((p) => p.id as string)
-  if (ids.length === 0) return []
+  if (ids.length === 0) return result
   const [tps, logs, stopped] = await Promise.all([
     pageAllIn(ids, (part, from, to) =>
       admin.from('tutor_profiles').select('id, city, verified_fee_paid_at, onboarded_at').in('id', part).order('id').range(from, to),
@@ -148,27 +166,23 @@ export async function loadUnpaidSignups(now = new Date(), scope: TutorScope = 'r
       at: l.created_at as string,
     })
   }
-  const out: UnpaidRow[] = []
   for (const p of candidates) {
     const t = tp.get(p.id as string)
     if (!t) continue // no tutor row
-    const inScope = tutorInScope(
-      {
-        joinedAt: p.created_at as string,
-        feeStamped: !!t.verified_fee_paid_at,
-        onboarded: !!t.onboarded_at,
-        startedPayment: startedBy.has(p.id as string),
-        notInterested: dismissed.has(p.id as string),
-      },
-      scope,
-      now.getTime(),
-    )
-    if (!inScope) continue
+    const scopeFacts = {
+      joinedAt: p.created_at as string,
+      feeStamped: !!t.verified_fee_paid_at,
+      onboarded: !!t.onboarded_at,
+      startedPayment: startedBy.has(p.id as string),
+      notInterested: dismissed.has(p.id as string),
+    }
+    const inScopes = scopes.filter((sc) => tutorInScope(scopeFacts, sc, now.getTime()))
+    if (inScopes.length === 0) continue
     const name = formatName(p.full_name as string | null) || '—'
     const stoppedAt = stopped.get(p.id as string)?.stoppedAt ?? null
     const missing = stopped.get(p.id as string)?.missing ?? []
     const msisdn = normalisePkMobile((p.whatsapp as string | null) || (p.phone_number as string | null))
-    out.push({
+    const row: UnpaidRow = {
       id: p.id as string,
       name,
       city: (t.city as string | null) || (p.city as string | null) || null,
@@ -191,9 +205,10 @@ export async function loadUnpaidSignups(now = new Date(), scope: TutorScope = 'r
       stoppedStep: stopped.get(p.id as string)?.stoppedStep ?? null,
       feePaid: !!t.verified_fee_paid_at,
       notInterested: dismissed.get(p.id as string) ?? null,
-    })
+    }
+    for (const sc of inScopes) result.get(sc)!.push(row)
   }
-  return out
+  return result
 }
 
 

@@ -137,4 +137,12 @@ export async function logAdminAction(params: {
   if (error) console.error('[audit] failed to record', params.action, error.message)
   // Admin badges, the Overview and the admin lists are pre-calculated (lib/adminSummary).
   await markSummaryDirty()
+  // A staff action on a member rebuilds that tutor's cached profile page (push
+  // 3, owner 1 Nov 2026) — a no-op for anyone who has no tutor profile.
+  if (TUTOR_TARGETS.has(params.targetType)) {
+    const { revalidateTutorProfile } = await import('@/lib/publicRevalidate')
+    await revalidateTutorProfile(params.targetId)
+  }
 }
+
+const TUTOR_TARGETS = new Set(['profile', 'tutor_profile', 'tutor', 'member', 'user'])

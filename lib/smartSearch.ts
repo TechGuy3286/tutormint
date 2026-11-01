@@ -1,3 +1,4 @@
+import { memoize } from '@/lib/memoCache'
 import 'server-only'
 
 // ONE smart search engine — the server half (owner, 8 Oct 2026). Loads the
@@ -7,7 +8,6 @@ import 'server-only'
 // level), level names for a level on its own, the city. Also logs every search
 // that found nothing (search_unmet) for the Overview to-do.
 
-import { unstable_cache } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { fetchTaxonomyTables } from '@/lib/taxonomyBuild'
 import { pageAll } from '@/lib/pageAll'
@@ -63,7 +63,7 @@ export async function loadSearchDictFresh(): Promise<Loaded> {
     }
 }
 
-export const loadSearchDict = unstable_cache(loadSearchDictFresh, ['smart-search-dict-v2'], { revalidate: 600, tags: [SMART_SEARCH_TAG] })
+export const loadSearchDict = memoize(loadSearchDictFresh, ['smart-search-dict-v2'], { revalidate: 600, tags: [SMART_SEARCH_TAG] })
 
 export type SmartResolved = {
   parsed: Parsed

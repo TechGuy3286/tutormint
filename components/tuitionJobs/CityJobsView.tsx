@@ -16,8 +16,7 @@ import { distinctWords, hubFaq, hubHeading, hubIntro, type HubFacts, type HubKin
 import { femalePageIntro } from '@/lib/femaleJobsCore'
 import { placeLabel } from '@/lib/place'
 import HubFaq from '@/components/seo/HubFaq'
-import { createClient } from '@/lib/supabase/server'
-import { getEntitlements } from '@/lib/entitlements'
+import ViewerJobsProvider from '@/components/viewer/ViewerJobsProvider'
 import { uniqueById } from '@/lib/infiniteMerge'
 import NewestTuitions from '@/components/seo/NewestTuitions'
 import { newestTuitionLinks, allLiveTuitionLinksInCity } from '@/lib/newestTuitions'
@@ -93,16 +92,8 @@ export default async function CityJobsView({
   const path = cityPagePath(page.citySlug, variant?.slug ?? null)
   const heading = variantHeading(page.city, variant)
 
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  let isTutor = false
-  if (user) {
-    const ent = await getEntitlements(user.id)
-    isTutor = ent.audience === 'tutor'
-  }
-  const showApply = !user || isTutor
+  // The page is the same for every visitor (push 3, 1 Nov 2026): it renders as
+  // a guest sees it and ViewerJobsProvider fills in the signed-in side.
 
   // Intro and FAQ from the page's own data (owner, 12 Oct 2026): the count, the
   // areas (busiest first), the levels and the pay present on the first window.
@@ -191,9 +182,10 @@ export default async function CityJobsView({
           </div>
         ) : (
           <>
+            <ViewerJobsProvider ids={jobs.map((j) => j.id)} save>
             <div className="space-y-4">
               {jobs.map((job) => (
-                <JobCard key={job.id} job={job} signedIn={!!user} showApply={showApply} headingLevel="h2" />
+                <JobCard key={job.id} job={job} signedIn={false} showApply headingLevel="h2" />
               ))}
             </div>
             <MoreJobs
@@ -208,15 +200,16 @@ export default async function CityJobsView({
               serverIds={jobs.map((j) => j.id)}
               total={total}
               serverCount={(pageNo - 1) * CITY_PAGE_SIZE + jobs.length}
-              signedIn={!!user}
-              showApply={showApply}
+              signedIn={false}
+              showApply
               adEvery={100000}
               viewerCity={null}
               viewerCities={null}
               viewerJobTypes={null}
-              saveable={isTutor}
+              saveable={false}
               savedIds={[]}
             />
+            </ViewerJobsProvider>
           </>
         )}
 

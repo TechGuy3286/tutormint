@@ -72,7 +72,7 @@ test('saved pending; the Owner decides; only approved reviews count and are publ
   assert.match(sql, /using \(status = 'approved' or parent_id = auth\.uid\(\) or public\.is_admin\(\)\)/)
   assert.match(sql, /r\.rating is not null and r\.status = 'approved'/)
   assert.match(sql, /where r\.tutor_id = d\.id and r\.status = 'approved'/, 'tutor_public_page lists approved only')
-  assert.match(read('app/(site)/tutor/[slug]/page.tsx'), /\.eq\('status', 'approved'\)/, 'the owner preview too')
+  assert.match(read('app/(site)/tutor/[slug]/profile.tsx'), /\.eq\('status', 'approved'\)/, 'the owner preview too')
   assert.equal(countsInRating('approved'), true)
   assert.equal(countsInRating('pending'), false)
   assert.equal(countsInRating('rejected'), false)

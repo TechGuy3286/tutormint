@@ -87,7 +87,7 @@ test('user_documents gains a status, and the display/count reads ignore paused r
   for (const f of [
     'lib/badgeFacts.ts', 'lib/completion.ts', 'lib/identity.ts', 'lib/tutorDocuments.ts',
     'app/(site)/parent/verify/page.tsx', 'app/(site)/tutor/dashboard/settings/page.tsx',
-    'app/(site)/tutor/[slug]/page.tsx', 'app/admin/users/[id]/page.tsx',
+    'app/(site)/tutor/[slug]/profile.tsx', 'app/admin/users/[id]/page.tsx',
     'app/api/identity/route.ts', 'lib/adminQueues.ts',
   ]) {
     assert.match(read(f), /\.eq\('status', 'active'\)/, `${f} filters user_documents to active`)

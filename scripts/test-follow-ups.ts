@@ -108,7 +108,7 @@ test('paying or finishing onboarding removes the member from both tabs', () => {
   const src = read('lib/staffOutreach.ts')
   // The paid rule moved into tutorInScope (owner, 16 Oct 2026).
   assert.match(src, /feeStamped: !!t\.verified_fee_paid_at/)
-  assert.match(src, /if \(!inScope\) continue/)
+  assert.match(src, /if \(inScopes\.length === 0\) continue/)
   const ov = read('lib/overviewItems.ts')
   // The Overview rows are chips of the merged Follow-ups list (owner, 20 Oct 2026).
   assert.match(ov, /tutorsWithChip\(chip\)/)

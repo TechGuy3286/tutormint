@@ -1,8 +1,5 @@
 import { List, Search } from 'lucide-react'
 import Link from 'next/link'
-import { headers } from 'next/headers'
-
-import { cityFromSegment } from '@/lib/slugs'
 
 // A tuition that is closed, filled, or was never real.
 //
@@ -24,14 +21,11 @@ import { cityFromSegment } from '@/lib/slugs'
 // components/, does not. So usePathname() is not available, and a not-found
 // boundary takes no props and cannot read route params either.
 //
-// Hence the header. proxy.ts puts the URL's city segment on /tuitions/*
-// requests and nothing else — no database read, the city is already in the
-// path. See the note there for why this is not the stale-path bug that the
-// same file's previous header was.
+// No city wording any more (push 3, owner 1 Nov 2026): reading the request
+// header made the whole tuition route dynamic, and the route is now cached for
+// everyone. The links go to every open tuition.
 
-export default async function TuitionNotFound() {
-  const city = cityFromSegment((await headers()).get('x-tm-tuition-city'))
-
+export default function TuitionNotFound() {
   return (
     <main className="mx-auto w-full max-w-3xl p-4 sm:p-6">
       <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-6 text-center sm:p-8">
@@ -40,11 +34,11 @@ export default async function TuitionNotFound() {
           This tuition has closed or is no longer available. The parent has finished hiring.
         </p>
         <p className="mx-auto max-w-md text-sm leading-relaxed text-slate-700">
-          New tuitions are posted every day{city ? ` in ${city}` : ''}, and applying is free.
+          New tuitions are posted every day, and applying is free.
         </p>
         <div className="flex flex-col items-center gap-2 pt-1 sm:flex-row sm:justify-center">
           <Link
-            href={city ? `/browse/tuitions?city=${encodeURIComponent(city)}` : '/browse/tuitions'}
+            href="/browse/tuitions"
             className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white transition-colors hover:bg-slate-700"
           >
             <Search aria-hidden size={14} />

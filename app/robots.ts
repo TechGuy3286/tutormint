@@ -39,6 +39,8 @@ export default function robots(): MetadataRoute.Robots {
           '/admin',
           '/admin/',
           '/api/',
+          // Query twins (push 3): reached only by a rewrite from the clean address.
+          '/qs/',
           '/tutor/dashboard',
           '/tutor/complete-profile',
           '/tutor/claim',

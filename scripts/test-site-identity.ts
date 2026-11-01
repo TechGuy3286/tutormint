@@ -174,7 +174,7 @@ test('Organization and WebSite are emitted once — by the site chrome, not by a
     'app/(site)/page.tsx',
     'app/(site)/about/page.tsx',
     'app/(site)/faq/page.tsx',
-    'app/(site)/tutor/[slug]/page.tsx',
+    'app/(site)/tutor/[slug]/profile.tsx',
     'app/(site)/tuitions/[city]/[slug]/page.tsx',
     'app/(site)/blog/[slug]/page.tsx',
     'components/landing/LandingView.tsx',
@@ -328,7 +328,7 @@ test('/llms.txt: both sides, the features, the key pages, no personal data', () 
 })
 
 test('the Indexing API is still told about tuition pages only', () => {
-  for (const f of ['app/(site)/about/page.tsx', 'app/(site)/tutor/[slug]/page.tsx', 'components/landing/LandingView.tsx', 'app/llms.txt/route.ts', 'lib/siteIdentity.ts']) {
+  for (const f of ['app/(site)/about/page.tsx', 'app/(site)/tutor/[slug]/profile.tsx', 'components/landing/LandingView.tsx', 'app/llms.txt/route.ts', 'lib/siteIdentity.ts']) {
     assert.ok(!/queueIndexingUpdate|notifyUrlUpdated|indexing_queue/.test(readFileSync(f, 'utf8')), f)
   }
 })

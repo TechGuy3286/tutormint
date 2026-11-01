@@ -234,6 +234,7 @@
     "test:deepscan": "tsx --test scripts/test-deep-scan.ts",
     "test:push1": "tsx --test scripts/test-push1.ts",
     "test:push2": "tsx --test scripts/test-push2.ts",
+    "test:push3": "tsx --conditions=react-server --test scripts/test-push3.ts",
     "test:push2:live": "tsx --conditions=react-server --env-file=.env.local --test scripts/test-push2-live.ts"
   },
   "dependencies": {

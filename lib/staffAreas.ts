@@ -1,3 +1,4 @@
+import { invalidateMemoTag } from '@/lib/memoCache'
 import 'server-only'
 
 // lib/staffAreas.ts
@@ -11,7 +12,6 @@ import 'server-only'
 // SEO: nothing here calls the Indexing API. A new area's hub is indexable only
 // with 3+ live tuitions, and is found through the sitemap like any other hub.
 
-import { revalidateTag } from 'next/cache'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
@@ -82,7 +82,7 @@ export async function addStaffArea(input: { city: string; name: string }, actor:
     targetId: String(id),
     detail: { city: city.name, before: null, after: saved, typed: input.name.slice(0, 120), from: 'post_a_tuition' },
   })
-  revalidateTag(AREA_ALIAS_TAG, 'max')
+  invalidateMemoTag(AREA_ALIAS_TAG)
   revalidateLanding()
   return { ok: true, area: saved, city: city.name as string, existed: false }
 }
@@ -152,7 +152,7 @@ export async function mergeStaffArea(input: { areaId: number; intoAreaId: number
     targetId: String(into.id),
     detail: { value: from.name, before: `Area added by staff (${from.name})`, after: into.name, from: 'staff_added_area', retiredAreaId: from.id },
   })
-  revalidateTag(AREA_ALIAS_TAG, 'max')
+  invalidateMemoTag(AREA_ALIAS_TAG)
   revalidateLanding()
   return { ok: true, from: from.name as string, into: into.name as string }
 }
@@ -315,7 +315,7 @@ export async function keepStaffArea(
     targetId: String(added.id),
     detail: { city: added.city, before: added.name, after: wanted, ...detail, jobIds: ids.slice(0, 200) },
   })
-  revalidateTag(AREA_ALIAS_TAG, 'max')
+  invalidateMemoTag(AREA_ALIAS_TAG)
   revalidateLanding()
   return { ok: true, area: wanted, renamedFrom: renamed ? added.name : null, landmark, tuitions: ids.length }
 }

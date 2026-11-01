@@ -30,7 +30,13 @@ import OpenTuitionsBlock from '@/components/blog/OpenTuitionsBlock'
 // honest best this stack allows. The sitemap drops the URL on unpublish, which
 // is the signal a crawler actually acts on.
 
-export const dynamic = 'force-dynamic'
+// Cached for everyone (push 3, owner 1 Nov 2026): rebuilt on publish, edit or
+// unpublish (revalidatePath in lib/blogPublish) and at most every 10 minutes,
+// so its live tuition cards stay current.
+export const revalidate = 600
+export async function generateStaticParams() {
+  return []
+}
 
 export async function generateMetadata({
   params,

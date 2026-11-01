@@ -21,6 +21,10 @@ import { faqJsonLd, jsonLdScript, pageDescription, pageTitle } from '@/lib/seo'
 // something the page does not is a manual-action risk, and it is how a promise
 // nobody made ends up in a search result.
 
+// Cached for everyone and rebuilt at most hourly (push 3, owner 1 Nov 2026):
+// nothing on it depends on who is looking.
+export const revalidate = 3600
+
 export const metadata: Metadata = {
   title: pageTitle('Questions and answers'),
   description: pageDescription(

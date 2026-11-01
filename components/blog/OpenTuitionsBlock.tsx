@@ -2,9 +2,7 @@ import Link from 'next/link'
 import { ArrowRight, Briefcase } from 'lucide-react'
 
 import JobCard from '@/components/JobCard'
-import { applyBlocksFor, type ApplyBlockMap } from '@/lib/applyBlockServer'
-import { getSessionUser } from '@/lib/auth'
-import { getEntitlements } from '@/lib/entitlements'
+import ViewerJobsProvider from '@/components/viewer/ViewerJobsProvider'
 import { browseJobs, NO_JOB_FILTERS, type JobFilters } from '@/lib/jobFeed'
 import type { JobCardData } from '@/components/JobCard'
 import { mastersForTopic } from '@/lib/blogRelevance'
@@ -24,7 +22,8 @@ import { liveJobsAllHref } from '@/lib/liveJobsCore'
 // or city at all gets the newest tuitions; any other post with nothing
 // relevant gets no block at all.
 //
-// Apply uses the existing gated flow on the card: a guest gets the sign-in
+// Rendered the same for every visitor (push 3, 1 Nov 2026); the signed-in
+// side is filled in by ViewerJobsProvider. Apply uses the existing gated flow on the card: a guest gets the sign-in
 // modal, a tutor gets the real button with the shared "why inactive" line, a
 // parent sees no Apply. No membership prices appear anywhere here.
 
@@ -94,21 +93,9 @@ export default async function OpenTuitionsBlock({
   /** A Live jobs block inside the post: its own heading id and wording. */
   live?: boolean
 }) {
-  const [{ jobs, step }, session] = await Promise.all([pick(city, subject, title, limit, tag), getSessionUser()])
+  const { jobs, step } = await pick(city, subject, title, limit, tag)
   // Nothing relevant: no block, rather than unrelated cards.
   if (jobs.length === 0 || !step) return null
-
-  const role = session?.profile?.role ?? null
-  const signedIn = !!session
-  const isTutor = role === 'tutor'
-  let blocks: ApplyBlockMap = {}
-  let viewerCity: string | null = null
-  if (session && isTutor) {
-    const ent = await getEntitlements(session.user.id)
-    const { createClient } = await import('@/lib/supabase/server')
-    blocks = await applyBlocksFor(await createClient(), session.user.id, ent, jobs)
-    viewerCity = session.profile?.city ?? null
-  }
 
   // "…in <city>" only when the cards were chosen by the city.
   const byCity = !!city && step.endsWith('city')
@@ -125,18 +112,15 @@ export default async function OpenTuitionsBlock({
           {step === 'newest' && !tag ? (live ? 'Live jobs' : 'Newest open tuitions') : `${kind}${where}`}
         </h2>
       </div>
-      <div className="space-y-4">
-        {jobs.map((job) => (
-          <JobCard
-            key={job.id}
-            job={job}
-            signedIn={signedIn}
-            showApply={!signedIn || isTutor}
-            applyBlock={blocks[job.id] ?? null}
-            viewerCity={viewerCity}
-          />
-        ))}
-      </div>
+      {/* The block is the same for everyone (push 3): the signed-in visitor's
+          Apply state and online chip are filled in by the browser. */}
+      <ViewerJobsProvider ids={jobs.map((j) => j.id)} chip>
+        <div className="space-y-4">
+          {jobs.map((job) => (
+            <JobCard key={job.id} job={job} signedIn={false} showApply />
+          ))}
+        </div>
+      </ViewerJobsProvider>
       <Link
         href={allHref}
         className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl bg-tm-navy px-5 text-xs font-bold text-white transition-colors hover:bg-tm-navy-hover"

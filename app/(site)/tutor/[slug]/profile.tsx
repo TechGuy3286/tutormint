@@ -1,0 +1,1099 @@
+// The tutor profile view, shared by the cached /tutor/[slug] page and the
+// owner-preview twin /qs/tutor/[slug] (push 3, owner 1 Nov 2026). Not a route
+// file: page.tsx and the twin import it.
+
+import Avatar from '@/components/Avatar'
+import CnicVerifiedChip from '@/components/CnicVerifiedChip'
+import { publicPhoto } from '@/lib/photoPrivacyCore'
+import Breadcrumbs from '@/components/Breadcrumbs'
+import NotFoundView from '@/components/NotFoundView'
+import type { Metadata } from 'next'
+import Link from 'next/link'
+import { notFound, permanentRedirect } from 'next/navigation'
+import { MapPin, Building2, Briefcase, Wallet, Lock, Phone, MessageCircle } from 'lucide-react'
+import { createPublicClient } from '@/lib/supabase/public'
+import TutorViewerProvider, { OwnPreviewRedirect, ProfileActionsIsland, ProfileReport, SelfOrOther, SignedInOnly, TutorContactBox } from '@/components/viewer/TutorViewer'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { formatSlots, availabilityToSlots } from '@/lib/timeSlots'
+import { getEntitlements, badgesForPlan, isFeaturedPlan } from '@/lib/entitlements'
+import { degreeLabels, linkedCertificateDocIds } from '@/lib/degrees'
+import { tutorProfileNoindex } from '@/lib/planBadges'
+import { tutorProfileIndexable } from '@/lib/seo/indexable'
+import { deriveCnicStatus } from '@/lib/cnicStatus'
+import { experienceLabel } from '@/lib/experienceLabel'
+import BadgeRow from '@/components/badges/BadgeRow'
+import NotVerifiedBadge from '@/components/badges/NotVerifiedBadge'
+import FeaturedTag from '@/components/badges/FeaturedTag'
+import SecureDocumentPreview from '@/components/SecureDocumentPreview'
+import { formatDate } from '@/lib/datetime'
+import { levelLabel } from '@/lib/display'
+import { feeLabelOf } from '@/lib/fee'
+import JobTypesChip from '@/components/JobTypesChip'
+import { jsonLdScript, pageDescription, pageTitle, socialMeta, tutorProfileJsonLd, seoDescription } from '@/lib/seo'
+import { tutorMetaDescription } from '@/lib/tutorMeta'
+import { shareImagePath, shareImageVersion, tutorOgDescription, tutorOgTitle } from '@/lib/seo/tutorOg'
+import { loadImageProfileFacts } from '@/lib/social/imageVersion'
+import { imageVersionKey, ogDrawFacts } from '@/lib/social/imageVersionCore'
+import { getLandingLinker } from '@/lib/landing'
+import { currentSlugForRetired } from '@/lib/tutorSlug'
+import { convertedTutorRedirect } from '@/lib/convertAccountCore'
+import { formatName } from '@/lib/formatName'
+import { distinctAreaLabels } from '@/lib/place'
+import { withAreaCities } from '@/lib/tutorAreaCities'
+import { withCanonAreas } from '@/lib/areaAliases'
+import { authHref } from '@/lib/returnTo'
+import { dedupeSubjects } from '@/lib/subjectDisplay'
+
+// The public tutor profile. Server component, results in the HTML.
+//
+// Everything a search engine and a parent need is rendered on the server:
+// name, headline, subjects, area, experience, reviews. The only client pieces
+// are the shortlist/demo buttons and the sign-in modal.
+//
+// Contact details are the one thing this page is careful about. They are not
+// in tutor_public_page() at all -- that function's column list is the
+// allowlist -- so they cannot leak into the HTML by accident. When the viewer
+// is entitled to them, they are fetched separately, after getEntitlements()
+// has said yes.
+
+
+type Params = Promise<{ slug: string }>
+
+type PublicTutor = {
+  id: string
+  slug: string
+  full_name: string
+  headline: string | null
+  bio: string | null
+  avatar_url: string | null
+  city: string | null
+  cities: string[] | null
+  area: string | null
+  areas: string[] | null
+  /** The city of each entry in `areas`, when known (lib/tutorAreaCities). */
+  area_cities?: (string | null)[] | null
+  teaching_mode: string | null
+  job_types: string[] | null
+  online_platforms: string[] | null
+  gender: string | null
+  hourly_rate_pkr: number | null
+  fee_min_pkr: number | null
+  fee_max_pkr: number | null
+  experience_years: number | null
+  degrees: string[] | null
+  video_youtube_id: string | null
+  video_status: string | null
+  rating_avg: string | number | null
+  rating_count: number | null
+  created_at: string
+  plan_code: string | null
+  subjects: { master_id: number; category: string; level: string; subject: string | null; school?: boolean }[]
+  slots: { id: string; text: string; booked: boolean }[]
+  availabilityText: string
+  reviews: { id: string; rating: number; comment: string | null; created_at: string; reviewer: string }[]
+  degree_documents: { id: string; label: string | null }[]
+}
+
+async function loadTutor(slug: string): Promise<PublicTutor | null> {
+  const supabase = createPublicClient()
+  const { data } = await supabase.rpc('tutor_public_page', { p_slug: slug })
+  const row = (data as PublicTutor[] | null)?.[0]
+  if (!row) return null
+  // Only reads anything when the area list repeats a name (lib/tutorAreaCities).
+  return (await withAreaCities(await withCanonAreas([row])))[0]
+}
+
+/**
+ * The OWNER's own preview of their public page (owner PR12 §3.2).
+ *
+ * A not-listed tutor is absent from tutor_visible_profiles, so tutor_public_page
+ * returns nothing and the public route 404s — but the tutor still needs to see
+ * how their page will look. This mirrors tutor_public_page's exact output from
+ * the base tables, via the service role, for ONE user id: the caller's own. The
+ * page only shows it when the returned slug matches the requested one, so a user
+ * can only ever preview THEIR OWN profile. Same public column allowlist — no
+ * contact fields — and it is never indexed (the route 404s for anyone else).
+ */
+async function loadTutorPreview(userId: string): Promise<PublicTutor | null> {
+  const admin = createAdminClient()
+  if (!admin) return null
+
+  const { data: tp } = await admin
+    .from('tutor_profiles')
+    .select(
+      'id, slug, full_name, headline, bio, avatar_url, show_avatar, city, area, teaching_mode, job_types, online_platforms, gender, hourly_rate_pkr, fee_min_pkr, fee_max_pkr, experience_years, degrees, video_youtube_id, video_status, rating_avg, rating_count, created_at',
+    )
+    .eq('id', userId)
+    .maybeSingle()
+  if (!tp || !tp.slug) return null
+
+  // Active tutor plan, highest search rank (for the badges). Separate reads
+  // rather than a nested join, so the shapes stay obvious.
+  let planCode: string | null = null
+  const { data: subs } = await admin
+    .from('subscriptions')
+    .select('plan_code')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .gt('expires_at', new Date().toISOString())
+  const planCodes = [...new Set((subs ?? []).map((s) => s.plan_code as string))]
+  if (planCodes.length > 0) {
+    const { data: plans } = await admin
+      .from('plans')
+      .select('code, search_rank, audience')
+      .in('code', planCodes)
+      .eq('audience', 'tutor')
+    let best = -1
+    for (const p of plans ?? []) {
+      const rank = (p.search_rank as number) ?? 0
+      if (rank > best) {
+        best = rank
+        planCode = p.code as string
+      }
+    }
+  }
+
+  // Subjects → {master_id, category, level, subject}, resolved from taxonomy and
+  // ordered exactly as tutor_public_page orders them.
+  let subjects: PublicTutor['subjects'] = []
+  const { data: subjRows } = await admin.from('tutor_subjects').select('master_id').eq('tutor_id', userId)
+  const masterIds = (subjRows ?? []).map((r) => r.master_id as number)
+  if (masterIds.length > 0) {
+    const { data: masters } = await admin
+      .from('taxonomy_master')
+      .select('id, category_slug, level_slug, subject_slug')
+      .in('id', masterIds)
+    const catSlugs = [...new Set((masters ?? []).map((m) => m.category_slug as string))]
+    const lvlSlugs = [...new Set((masters ?? []).map((m) => m.level_slug as string))]
+    const subSlugs = [...new Set((masters ?? []).map((m) => m.subject_slug as string).filter(Boolean))]
+    const [{ data: cats }, { data: lvls }, subjectsTax] = await Promise.all([
+      admin.from('taxonomy_categories').select('slug, name, sort_order, no_grade').in('slug', catSlugs.length ? catSlugs : ['x']),
+      admin.from('taxonomy_levels').select('slug, name, sort_order').in('slug', lvlSlugs.length ? lvlSlugs : ['x']),
+      subSlugs.length
+        ? admin.from('taxonomy_subjects').select('slug, name').in('slug', subSlugs)
+        : Promise.resolve({ data: [] as { slug: string; name: string }[] }),
+    ])
+    const catBy = new Map((cats ?? []).map((c) => [c.slug as string, c]))
+    const lvlBy = new Map((lvls ?? []).map((l) => [l.slug as string, l]))
+    const subBy = new Map((subjectsTax.data ?? []).map((s) => [s.slug as string, s.name as string]))
+    subjects = (masters ?? [])
+      .map((m) => {
+        const cat = catBy.get(m.category_slug as string)
+        const lvl = lvlBy.get(m.level_slug as string)
+        return {
+          master_id: m.id as number,
+          category: (cat?.name as string) ?? '',
+          level: (lvl?.name as string) ?? '',
+          subject: m.subject_slug ? (subBy.get(m.subject_slug as string) ?? null) : null,
+          // A no-grade level (Admission Test Prep) lists schools as its choices.
+          school: !!cat?.no_grade,
+          _cs: (cat?.sort_order as number) ?? 0,
+          _ls: (lvl?.sort_order as number) ?? 0,
+        }
+      })
+      .sort((a, b) => a._cs - b._cs || a._ls - b._ls || (a.subject ?? '').localeCompare(b.subject ?? ''))
+      .map(({ master_id, category, level, subject, school }) => ({ master_id, category, level, subject, school }))
+  }
+
+  const { data: slotRows } = await admin
+    .from('tutor_slots')
+    .select('id, slot_text, is_booked, created_at')
+    .eq('tutor_id', userId)
+    .order('created_at')
+  const slots = (slotRows ?? []).map((s) => ({
+    id: s.id as string,
+    text: (s.slot_text as string) ?? '',
+    booked: !!s.is_booked,
+  }))
+
+  // PR73 §A: the day+slot availability, as the one short line.
+  const { data: availRow } = await admin
+    .from('tutor_profiles')
+    .select('availability_list')
+    .eq('id', userId)
+    .maybeSingle()
+  const availabilityText = formatSlots(availabilityToSlots(availRow?.availability_list))
+
+  const { data: reviewRows } = await admin
+    .from('reviews')
+    .select('id, rating, comment, created_at, parent_id')
+    .eq('tutor_id', userId)
+    // Only approved reviews are shown (owner, 27 Oct 2026 — migration 204).
+    .eq('status', 'approved')
+    .order('created_at', { ascending: false })
+  const parentIds = [...new Set((reviewRows ?? []).map((r) => r.parent_id as string).filter(Boolean))]
+  const { data: parents } = parentIds.length
+    ? await admin.from('profiles').select('id, full_name').in('id', parentIds)
+    : { data: [] as { id: string; full_name: string | null }[] }
+  const parentName = new Map((parents ?? []).map((p) => [p.id as string, formatName(p.full_name as string | null) || 'A parent']))
+  const reviews = (reviewRows ?? []).map((r) => ({
+    id: r.id as string,
+    rating: r.rating as number,
+    comment: (r.comment as string) ?? null,
+    created_at: r.created_at as string,
+    reviewer: (parentName.get(r.parent_id as string) ?? 'A parent').split(' ')[0] || 'A parent',
+  }))
+
+  const { data: docRows } = await admin
+    .from('user_documents')
+    .select('id, label, preview_path, created_at')
+    .eq('user_id', userId)
+    .eq('kind', 'degree')
+    .eq('status', 'active') // PR106-H3 §1.4
+    .order('created_at')
+  const degree_documents = (docRows ?? [])
+    .filter((d) => d.preview_path)
+    .map((d) => ({ id: d.id as string, label: (d.label as string) ?? null }))
+
+  // The tutor's areas (PR68), for the owner's own preview. Fail-open to the single
+  // area if the table is not there yet (pre-migration).
+  let previewAreas: string[] | null = tp.area ? [tp.area as string] : null
+  let previewAreaCities: (string | null)[] | null = null
+  // PR85: the tutor's cities for the owner preview (main + any area cities).
+  let previewCities: string[] | null = tp.city ? [tp.city as string] : null
+  try {
+    const { data: areaRows } = await admin
+      .from('tutor_areas')
+      .select('city, area')
+      .eq('tutor_id', userId)
+      .order('created_at')
+    if (areaRows && areaRows.length > 0) {
+      previewAreas = areaRows.map((r) => r.area as string)
+      previewAreaCities = areaRows.map((r) => (r.city as string | null) ?? null)
+      const cs = [((tp.city as string) ?? '').trim(), ...areaRows.map((r) => ((r.city as string) ?? '').trim())]
+      const uniq = [...new Set(cs.filter(Boolean))]
+      if (uniq.length > 0) previewCities = uniq
+    }
+  } catch {
+    /* table not there yet — single area fallback */
+  }
+
+  return {
+    id: tp.id as string,
+    slug: tp.slug as string,
+    full_name: formatName(tp.full_name as string | null) || 'Your profile',
+    headline: (tp.headline as string) ?? null,
+    bio: (tp.bio as string) ?? null,
+    // The preview shows what parents will see: no photo when it is hidden.
+    avatar_url: publicPhoto(tp.avatar_url as string | null, { hidden: (tp as { show_avatar?: boolean | null }).show_avatar === false }),
+    city: (tp.city as string) ?? null,
+    cities: previewCities,
+    area: (tp.area as string) ?? null,
+    areas: previewAreas,
+    area_cities: previewAreaCities,
+    teaching_mode: (tp.teaching_mode as string) ?? null,
+    job_types: (tp.job_types as string[] | null) ?? null,
+    online_platforms: (tp.online_platforms as string[] | null) ?? null,
+    gender: (tp.gender as string) ?? null,
+    hourly_rate_pkr: (tp.hourly_rate_pkr as number) ?? null,
+    fee_min_pkr: (tp.fee_min_pkr as number) ?? null,
+    fee_max_pkr: (tp.fee_max_pkr as number) ?? null,
+    experience_years: (tp.experience_years as number) ?? null,
+    degrees: (tp.degrees as string[] | null) ?? null,
+    // Same rule as tutor_public_page: only an APPROVED video is shown.
+    video_youtube_id: tp.video_status === 'approved' ? ((tp.video_youtube_id as string) ?? null) : null,
+    video_status: (tp.video_status as string) ?? null,
+    rating_avg: (tp.rating_avg as number | string | null) ?? null,
+    rating_count: (tp.rating_count as number) ?? null,
+    created_at: (tp.created_at as string) ?? new Date().toISOString(),
+    plan_code: planCode,
+    subjects,
+    slots,
+    availabilityText,
+    reviews,
+    degree_documents,
+  }
+}
+
+export async function tutorProfileMetadata(slug: string): Promise<Metadata> {
+  const tutor = await loadTutor(slug)
+  // A hidden profile (paused/suspended/banned/unclaimed) renders 200 + noindex;
+  // an unknown slug 404s — both carry noindex either way.
+  if (!tutor) return { title: pageTitle('Tutor not found'), robots: { index: false, follow: true } }
+
+  // UNDER REVIEW renders but is NEVER indexed (owner, Part 6). Keeping the URL
+  // alive protects the page from a single report; it does not publish the amber
+  // notice to Google. The flag is not in tutor_public_page's fixed allowlist, so
+  // it is read here via the service role, per-request — the noindex drops the
+  // moment the flag clears. (The tutor is already out of tutor_directory and the
+  // sitemap; this closes the last path in.)
+  const flags = await tutorMetaFlags(tutor.id)
+
+  const subjects = Array.from(
+    new Set(tutor.subjects.map((s) => s.subject ?? s.level).filter(Boolean)),
+  ).slice(0, 3)
+
+
+  // SHARE-CARD GUARD (owner): the link preview must never present an
+  // under-review or unclaimed-import tutor as a hireable listing — no name, no
+  // photo. Those pages still RENDER (the claim link and the amber notice depend
+  // on it), but a shared card falls back to a neutral, branded default with no
+  // personal data. A normal listed tutor uses their name and photo.
+  if (flags.shareHidden) {
+    const title = pageTitle('Verified tutors in Pakistan')
+    const description = pageDescription('Find verified tutors across Pakistan')
+    return {
+      title,
+      description,
+      alternates: { canonical: `/tutor/${tutor.slug}` },
+      ...(tutorProfileNoindex(flags)
+        ? { robots: { index: false, follow: true } }
+        : {}),
+      ...socialMeta({ title, description, path: `/tutor/${tutor.slug}`, type: 'profile' }),
+    }
+  }
+
+  // The page name is the tutor and what they teach; the template adds the
+  // promise and the brand. A long name plus three subjects will be truncated
+  // by the search engine, which is preferable to dropping the brand.
+  // ≤ 60 characters (owner, 6 Oct 2026): "Name — Subject tutor in City | TutorMint"
+  // when it fits, the brand dropped when it does not, cut at a word otherwise.
+  // The title — and the og:title — is the first WHOLE form that fits ~60
+  // characters (owner, 21 Oct 2026 — PR C3): two subjects, one, the level range,
+  // the first name, no subject. Never cut inside a word or a subject. (An
+  // Admission Test Prep school choice reads as its level, as on the page.)
+  const ogSubjects = tutor.subjects.map((x) => (x.school ? x.level : (x.subject ?? x.level)))
+  const ogLevels = tutor.subjects.filter((x) => !x.school).map((x) => levelLabel(x.level))
+  const title = tutorOgTitle({ name: tutor.full_name, subjects: ogSubjects, levels: ogLevels, city: tutor.city })
+  // "<Name> — verified <subjects> tutor in <areas, city> (home/online). Contact
+  // directly on TutorMint, no commission." (owner, 13 Oct 2026). "verified" is
+  // said only when the page is indexable — fee paid and documents approved.
+  const description = seoDescription(
+    tutorMetaDescription({
+      name: tutor.full_name,
+      subjects,
+      city: tutor.city,
+      areas: tutor.areas && tutor.areas.length > 0 ? tutor.areas : tutor.area ? [tutor.area] : [],
+      jobTypes: tutor.job_types ?? [],
+      verified: !tutorProfileNoindex(flags),
+    }),
+  )
+
+  // The preview image's version key (owner, 26 Oct 2026 — lib/social/
+  // imageVersionCore): read from the live rows by the SAME reader the image route
+  // checks against, so an unchanged profile keeps its cached picture and any
+  // change (name, photo, hidden photo, subjects, city, headline, verification)
+  // is a new URL that WhatsApp fetches fresh.
+  const ogAdmin = createAdminClient()
+  const ogFacts = ogAdmin ? (await loadImageProfileFacts(ogAdmin, [tutor.id])).get(tutor.id) ?? null : null
+  const ogVersion = ogFacts
+    ? imageVersionKey(ogFacts, ogDrawFacts(ogFacts.verified))
+    : shareImageVersion({
+        avatar: tutor.avatar_url,
+        photoShown: !!publicPhoto(tutor.avatar_url, { hidden: flags.photoHidden }),
+        name: tutor.full_name,
+        verified: flags.verified && flags.cnicApproved && flags.profilePicApproved && flags.selfieApproved,
+        city: tutor.city,
+        subjects: ogSubjects.slice(0, 3),
+        headline: tutor.headline,
+      })
+
+  return {
+    title,
+    description,
+    alternates: { canonical: `/tutor/${tutor.slug}` },
+    // Indexable once 100% complete and not under review (owner rule 3, 10 Sep
+    // 2026): a listed tutor under 100% is fully searchable on-site but held out
+    // of Google until they finish. The noindex lifts automatically at 100%; no
+    // robots key is emitted otherwise, so it is indexable again the moment
+    // either condition clears.
+    // PR37 §4 — noindex, FOLLOW (not nofollow): held out of Google but its links
+    // are still crawled, matching the tuition page and the brief's exact value.
+    ...(tutorProfileNoindex(flags)
+      ? { robots: { index: false, follow: true } }
+      : {}),
+    // Their photo when they have one, the branded default otherwise. Complete
+    // OG + Twitter, so the card is never a bare link. See socialMeta.
+    // The preview card (PR C3): its own description (the headline or subjects,
+    // then the tagline) and a 1200×630 image in the C2 Wide design — the photo,
+    // or the grey silhouette when hidden; "I'm a Verified Tutor" only when
+    // verified, else a neutral "Tutor on TutorMint". The version in the URL
+    // changes with the photo, name or verification, so previews refresh.
+    ...socialMeta({
+      title,
+      description: tutorOgDescription({ headline: tutor.headline, subjects: ogSubjects, city: tutor.city }),
+      path: `/tutor/${tutor.slug}`,
+      // A hidden photo never reaches a share preview (owner, 17 Oct 2026).
+      image: shareImagePath(tutor.slug, ogVersion),
+      imageAlt: `${tutor.full_name} on TutorMint`,
+      type: 'profile',
+    }),
+  }
+}
+
+/** Does ANY tutor_profiles row carry this slug (public or not)? Service role —
+ *  the table is owner-or-admin under RLS. Decides 200+noindex vs a real 404. */
+/** A tutor profile hidden by a change to a parent account → its city. */
+async function convertedTutorCity(slug: string): Promise<{ city: string | null } | null> {
+  const admin = createAdminClient()
+  if (!admin) return null
+  const { data } = await admin.from('tutor_profiles').select('id, city, converted_to_parent_at').eq('slug', slug).maybeSingle()
+  if (!data?.converted_to_parent_at) return null
+  const { data: p } = await admin.from('profiles').select('role, city').eq('id', data.id as string).maybeSingle()
+  if (!p || p.role === 'tutor') return null
+  return { city: ((data.city as string | null) || (p.city as string | null)) ?? null }
+}
+
+async function tutorSlugExists(slug: string): Promise<boolean> {
+  const admin = createAdminClient()
+  if (!admin) return false
+  const { data } = await admin.from('tutor_profiles').select('id').eq('slug', slug).limit(1).maybeSingle()
+  return !!data
+}
+
+/**
+ * Is this tutor under review? Read via the service role — the flag is not in
+ * tutor_public_page's fixed column allowlist. Shared by generateMetadata (for
+ * the noindex) and the page body (for the amber notice), so both agree.
+ */
+async function tutorUnderReview(tutorId: string): Promise<boolean> {
+  const admin = createAdminClient()
+  if (!admin) return false
+  const { data } = await admin
+    .from('tutor_profiles')
+    .select('under_review')
+    .eq('id', tutorId)
+    .maybeSingle()
+  return !!data?.under_review
+}
+
+/** Self-paused (owner, 8 Oct 2026): noindex and no structured data, like under
+ *  review, but no amber notice. */
+async function tutorSelfPaused(tutorId: string): Promise<boolean> {
+  const admin = createAdminClient()
+  if (!admin) return false
+  const { data } = await admin.from('profiles').select('paused_by_user_at').eq('id', tutorId).maybeSingle()
+  return !!data?.paused_by_user_at
+}
+
+/**
+ * Flags generateMetadata needs that are not in tutor_public_page's allowlist,
+ * in one service-role read: whether the profile is under review (→ noindex) and
+ * whether it must be HIDDEN from the share card (under review, OR an import that
+ * has not been claimed — an unclaimed tutor never given a photo/name to the
+ * world through a preview).
+ */
+type TutorMetaFlags = {
+  underReview: boolean
+  shareHidden: boolean
+  isSeed: boolean
+  verified: boolean
+  // The index rule is completion = 100 AND fee paid AND staff-approved CNIC/
+  // photo/selfie (owner, PR100 + PR105 §3). Mirrors listed_tutor_slugs().
+  completion: number
+  cnicApproved: boolean
+  profilePicApproved: boolean
+  selfieApproved: boolean
+  /** "Hide my photo from parents" (owner, 17 Oct 2026). */
+  photoHidden: boolean
+}
+
+async function tutorMetaFlags(tutorId: string): Promise<TutorMetaFlags> {
+  const openDefault: TutorMetaFlags = {
+    underReview: false, shareHidden: false, isSeed: false, verified: true, completion: 100,
+    cnicApproved: true, profilePicApproved: true, selfieApproved: true, photoHidden: false,
+  }
+  const admin = createAdminClient()
+  if (!admin) return openDefault
+  const [{ data: tp }, { data: prof }] = await Promise.all([
+    admin
+      .from('tutor_profiles')
+      .select('under_review, imported, claimed_at, verified_fee_paid_at, show_avatar')
+      .eq('id', tutorId)
+      .maybeSingle(),
+    admin
+      .from('profiles')
+      .select('is_seed, is_test_name, profile_completion, verification_state, cnic_verified_at, cnic_number, cnic_image_path, profile_pic_status, selfie_status, paused_by_user_at')
+      .eq('id', tutorId)
+      .maybeSingle(),
+  ])
+  // A tutor who paused their own account (owner, 8 Oct 2026) is held out of
+  // Google exactly like one under review: the page renders, noindex. Folded into
+  // the under-review INPUT of the index rule only — no amber notice is shown.
+  const underReview = !!tp?.under_review || !!(prof?.paused_by_user_at as string | null)
+  const unclaimed = !!tp?.imported && !tp?.claimed_at
+  const cnicApproved =
+    deriveCnicStatus({
+      verification_state: (prof?.verification_state as string) ?? null,
+      cnic_verified_at: (prof?.cnic_verified_at as string) ?? null,
+      cnic_number: (prof?.cnic_number as string) ?? null,
+      cnic_image_path: (prof?.cnic_image_path as string) ?? null,
+    }) === 'approved'
+  return {
+    underReview,
+    shareHidden: underReview || unclaimed,
+    // A test-named account (owner, 8 Oct 2026) is a fixture for search engines:
+    // it still works, but is never indexed.
+    isSeed: !!(prof?.is_seed as boolean | null) || !!(prof?.is_test_name as boolean | null),
+    // PR100 — the one-time verification fee. Unpaid → noindex.
+    verified: !!(tp?.verified_fee_paid_at as string | null),
+    completion: (prof?.profile_completion as number | null) ?? 0,
+    cnicApproved,
+    profilePicApproved: (prof?.profile_pic_status as string | null) === 'approved',
+    selfieApproved: (prof?.selfie_status as string | null) === 'approved',
+    photoHidden: (tp as { show_avatar?: boolean | null } | null)?.show_avatar === false,
+  }
+}
+
+/**
+ * The profile, as everyone sees it. `ownerId` is set only by the owner-preview
+ * twin (/qs/tutor/[slug], dynamic): the signed-in tutor looking at their OWN
+ * page before it is public. The cached page passes null.
+ */
+export async function TutorProfileView({ slug, ownerId }: { slug: string; ownerId: string | null }) {
+  let tutor = await loadTutor(slug)
+
+  // Owner preview (§3.2): when the public page would 404 because the tutor is
+  // not yet in the public views, render it for the tutor THEMSELVES — but only
+  // when the slug is their own, so nobody can preview another tutor's page.
+  let preview = false
+  if (!tutor && ownerId) {
+    const own = await loadTutorPreview(ownerId)
+    if (own && own.slug === slug) {
+      tutor = own
+      preview = true
+    }
+  }
+
+  // An address that used to work still does.
+  //
+  // 308, which is what the App Router emits: permanentRedirect() and
+  // next.config redirects have no other setting, and Google and Bing treat it
+  // exactly as they treat 301 — it is the same instruction, minus the
+  // HTTP/1.0-era ambiguity about whether a POST may be replayed as a GET.
+  //
+  // THE LOOKUP RUNS ONLY WHEN THE PAGE WOULD 404, which is the whole reason it
+  // moved here from proxy.ts. There it had to run on every request to
+  // /tutor/<anything>, because nothing in a URL says whether an address is
+  // live or retired — a database round trip on this site's main organic-search
+  // surface to buy a status code nobody distinguishes.
+  //
+  // Straight to the CURRENT slug, never to another retired one: the lookup
+  // reads the tutor's live address rather than walking history forward, so a
+  // profile whose URL has changed three times still resolves in one hop.
+  if (!tutor) {
+    const moved = await currentSlugForRetired(slug)
+    if (moved && moved !== slug) permanentRedirect(`/tutor/${moved}`)
+    // Hidden because the account became a parent account (owner, 23 Oct 2026).
+    // proxy.ts answers this with a 301; this is the backstop for its minute
+    // of cache.
+    const converted = await convertedTutorCity(slug)
+    if (converted) permanentRedirect(convertedTutorRedirect(converted.city))
+    // A PAUSED (suspended), banned, hidden or unclaimed tutor's slug exists but
+    // is not public: keep 200 + noindex with the branded not-found body (owner,
+    // 5 Oct 2026, item 4 — "as now"), so an indexed URL never flaps. A slug that
+    // exists nowhere is a REAL 404 (notFound(), no streaming boundary above).
+    // The tutor themselves is sent on to their preview (OwnPreviewRedirect).
+    if (await tutorSlugExists(slug))
+      return (
+        <>
+          <NotFoundView />
+          <OwnPreviewRedirect slug={slug} />
+        </>
+      )
+    notFound()
+  }
+
+  // UNDER REVIEW delists but does not unpublish (owner, Part 5): the profile
+  // renders with a plain amber notice in place of contact and actions, and is
+  // noindex (generateMetadata). The signed-in parts — contact, certificates,
+  // report, the action bar, the view count — are filled in by the browser
+  // (components/viewer/TutorViewer), so this page is the same for everyone.
+  const underReview = await tutorUnderReview(tutor.id)
+  const selfPaused = await tutorSelfPaused(tutor.id)
+
+  // PR16 §1.2/§1.3 — badges turn on the VERIFICATION FEE, not visibility. The
+  // public RPC returns plan_code from an active subscription only, so a fee-paid
+  // Basic tutor (no subscription) has a null plan_code; read the fee directly and
+  // synthesise 'basic' so their Verified badge shows. A visible-but-unverified
+  // tutor gets NO badge and the "Not verified" chip below.
+  let feePaid = false
+  let completion = 0
+  let isSeedAcct = false
+  let cnicApproved = false
+  let profilePicApproved = false
+  let selfieApproved = false
+  let photoHidden = false
+  {
+    const admin = createAdminClient()
+    if (admin) {
+      const [{ data: fp }, { data: pr }] = await Promise.all([
+        admin.from('tutor_profiles').select('verified_fee_paid_at, show_avatar').eq('id', tutor.id).maybeSingle(),
+        admin
+          .from('profiles')
+          .select('profile_completion, is_seed, verification_state, cnic_verified_at, cnic_number, cnic_image_path, profile_pic_status, selfie_status')
+          .eq('id', tutor.id)
+          .maybeSingle(),
+      ])
+      feePaid = !!(fp?.verified_fee_paid_at as string | null)
+      photoHidden = (fp as { show_avatar?: boolean | null } | null)?.show_avatar === false
+      completion = (pr?.profile_completion as number | null) ?? 0
+      isSeedAcct = !!(pr?.is_seed as boolean | null)
+      cnicApproved =
+        deriveCnicStatus({
+          verification_state: (pr?.verification_state as string) ?? null,
+          cnic_verified_at: (pr?.cnic_verified_at as string) ?? null,
+          cnic_number: (pr?.cnic_number as string) ?? null,
+          cnic_image_path: (pr?.cnic_image_path as string) ?? null,
+        }) === 'approved'
+      profilePicApproved = (pr?.profile_pic_status as string | null) === 'approved'
+      selfieApproved = (pr?.selfie_status as string | null) === 'approved'
+    }
+  }
+  // The ONE index rule (PR100 + PR105 §3): completion = 100 AND fee paid AND
+  // staff-approved CNIC/photo/selfie, not seed/under review. Gates the
+  // Person/Service structured data below, same as the page's noindex — so a
+  // crawler is never handed schema for a page held out of Google.
+  const indexable = tutorProfileIndexable({
+    feePaid, completion, isSeed: isSeedAcct, underReview: underReview || selfPaused,
+    cnicApproved, profilePicApproved, selfieApproved,
+  })
+  const effectivePlan = tutor.plan_code ?? (feePaid ? 'basic' : null)
+
+  // PR105-B §1 — the Verified badge needs staff-approved CNIC, photo AND selfie
+  // (replacing the old reviewed-degree rule). A verified, plan-holding tutor whose
+  // documents are not yet all approved shows their plan-tier badges but not
+  // Verified.
+  const degreeLines = degreeLabels(tutor.degrees)
+  // PR106-C §1.1 — Certificates show ONLY the document LINKED to a degree entry
+  // (its docId). An orphan/unlinked document (e.g. a photo uploaded where a
+  // certificate was expected) is never shown; a degree with no certificate shows
+  // nothing. Applied here so it covers BOTH the public RPC path (loadTutor →
+  // tutor_public_page) and the owner preview (loadTutorPreview).
+  const linkedCertIds = new Set(linkedCertificateDocIds(tutor.degrees))
+  const certificateDocs = tutor.degree_documents.filter((d) => linkedCertIds.has(d.id))
+  const docsApproved = cnicApproved && profilePicApproved && selfieApproved
+  const wouldBeBadges = badgesForPlan(effectivePlan, feePaid, docsApproved)
+  // §3.3: in the OWNER PREVIEW the tutor is not listed, so no badge is true yet
+  // — the badge row is suppressed and the plan-derived ones are named as pending
+  // below instead. On the live page the badges are shown as normal.
+  const badges = preview ? [] : wouldBeBadges
+  // "Not verified" chip: shown on a live (non-preview) profile for a visible tutor
+  // who has not paid the fee, so the true state reads on the card (PR16 §1.3).
+  const showNotVerified = !preview && !feePaid
+  const rating = Number(tutor.rating_avg ?? 0)
+  const reviews = tutor.rating_count ?? 0
+
+  // Subjects grouped by the level they are taught at.
+  //
+  // The master_id travels with the label so each chip can link to the tutors
+  // who teach that exact level-and-subject. Matching everywhere on this
+  // platform is on master_id, so a link built from the label alone would be a
+  // text search wearing a filter's clothes.
+  const byLevel = new Map<string, { label: string; masterId: number }[]>()
+  const levelMaster = new Map<string, number>()
+  for (const s of tutor.subjects) {
+    const key = `${s.category} — ${s.level}`
+    if (!byLevel.has(key)) byLevel.set(key, [])
+    if (!levelMaster.has(key)) levelMaster.set(key, s.master_id)
+    // A school's name is not shown as a subject (owner, 17 Oct 2026): its level
+    // shows as the one chip instead. Each subject once per level (lib/subjectDisplay).
+    if (s.subject && !s.school) byLevel.get(key)!.push({ label: s.subject, masterId: s.master_id })
+  }
+  for (const [key, list] of byLevel) byLevel.set(key, dedupeSubjects(list))
+
+  /**
+   * The landing page for this subject in this tutor's city when one exists,
+   * the browse filter otherwise. One helper decides, so a chip never points at
+   * a page that is not there.
+   */
+  const linker = await getLandingLinker()
+  const subjectHref = (masterId: number) => linker.tutorSubjectHref(masterId, tutor.city)
+
+  // ProfilePage whose mainEntity is the Person (owner, 13 Oct 2026). No
+  // rating, no fee, no contact detail; the photo only when it is a real one.
+  // PR100 — structured data is emitted ONLY when the page is indexable
+  // (completion = 100 AND fee paid) and not a preview. A noindex page must not
+  // hand a crawler a Person/Service schema for what the noindex withholds.
+  const profileSchema =
+    indexable && !preview
+      ? tutorProfileJsonLd({
+          slug: tutor.slug,
+          name: tutor.full_name,
+          // Left out of JSON-LD when the tutor hid their photo (owner, 17 Oct 2026).
+          avatarUrl: publicPhoto(tutor.avatar_url, { hidden: photoHidden }),
+          city: tutor.city,
+          areas: tutor.areas && tutor.areas.length > 0 ? tutor.areas : tutor.area ? [tutor.area] : [],
+          subjects: tutor.subjects.map((x) => x.subject).filter(Boolean) as string[],
+          levels: tutor.subjects.map((x) => x.level).filter(Boolean) as string[],
+        })
+      : null
+
+  return (
+    <TutorViewerProvider tutorId={tutor.id}>
+    <main className="min-h-screen bg-tm-bg px-4 pb-28 pt-6 text-slate-700 sm:px-6 sm:pb-8 lg:px-8">
+      {/* Plain-terms label for the activity tracker (PR99 §2). Hidden. */}
+      <span hidden data-tm-page-label={`Viewed tutor ${tutor.full_name ?? ''}`.trim()} />
+      {profileSchema && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdScript(profileSchema)} />
+      )}
+      <div className="mx-auto max-w-3xl space-y-4">
+        {/* The breadcrumb replaces the bespoke "← All tutors" link: two ways
+            back to the same page is one more than anyone needs, and only one
+            of them was in the BreadcrumbList. */}
+        <Breadcrumbs
+          // Home › Tutors › City › Name (owner, 12 Oct 2026).
+          items={[
+            { label: 'Tutors', href: '/browse/tutors' },
+            ...(tutor.city ? [{ label: tutor.city, href: `/browse/tutors?city=${encodeURIComponent(tutor.city)}` }] : []),
+            { label: tutor.full_name },
+          ]}
+        />
+
+        {/* Owner preview (§3.2): this page is not live to parents yet — the tutor
+            is seeing their own profile as it will look once listed. */}
+        {preview && (
+          <section
+            role="status"
+            className="rounded-2xl border border-tm-gold/40 bg-tm-tint-gold p-3 text-tm-gold-ink sm:p-4"
+          >
+            <p className="text-xs font-black">Preview — not visible to parents</p>
+            <p className="mt-0.5 text-[11px] leading-relaxed">
+              This is how your public page will look once you&rsquo;re listed. Right now only you can
+              see it. Finish the steps on your dashboard to go live.
+            </p>
+          </section>
+        )}
+
+        {/* ------------------------------------------------------- header --- */}
+        <section className="relative rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
+          {isFeaturedPlan(tutor.plan_code) && (
+            <FeaturedTag className="absolute right-3 top-3 sm:right-4 sm:top-4" />
+          )}
+
+          <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+            <Avatar
+              name={tutor.full_name}
+              src={publicPhoto(tutor.avatar_url, { hidden: photoHidden })}
+              initials={photoHidden}
+              gender={tutor.gender}
+              decorative
+              className="h-24 w-24 text-2xl sm:h-36 sm:w-36 sm:text-4xl"
+              px={144}
+              sizes="(min-width: 640px) 144px, 96px"
+              priority
+            />
+
+            <div className="min-w-0 flex-1 space-y-2">
+              {/* PR106-D §3 — the name and ALL badges on ONE wrapping line, badges
+                  directly after the name. A badge links to the FAQ entry that says
+                  what it means. */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <h1 className="text-xl font-black leading-tight text-tm-navy sm:text-2xl">
+                  {tutor.full_name}
+                </h1>
+                {badges.length > 0 && (
+                  <Link href="/faq#parents" className="inline-flex" aria-label="What the badges mean">
+                    <BadgeRow badges={badges} size="md" showLabel />
+                  </Link>
+                )}
+                {showNotVerified && <NotVerifiedBadge />}
+                {!preview && cnicApproved && <CnicVerifiedChip />}
+              </div>
+              {tutor.headline && (
+                <p className="text-sm font-bold text-tm-green-deep">{tutor.headline}</p>
+              )}
+              {/* Rating on its own line below the name. */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span className="text-xs font-bold text-slate-700">
+                  {reviews > 0 ? (
+                    <>
+                      ★ {rating.toFixed(1)}{' '}
+                      <span className="font-normal text-gray-500">({reviews} reviews)</span>
+                    </>
+                  ) : (
+                    <span className="font-normal text-gray-500">New tutor · no reviews yet</span>
+                  )}
+                </span>
+              </div>
+              {/* §3.3: the preview names the badges that will become true once
+                  the tutor is listed, rather than showing them as if earned. */}
+              {preview && wouldBeBadges.length > 0 && (
+                <p className="text-[11px] font-bold text-tm-gold-ink">
+                  {wouldBeBadges.join(' · ')} — active once you&rsquo;re listed
+                </p>
+              )}
+
+              <JobTypesChip types={tutor.job_types} className="mt-0.5" />
+
+              <div className="grid grid-cols-1 gap-1.5 pt-1 sm:grid-cols-2">
+                <p className="flex items-start gap-2 text-xs">
+                  <MapPin size={14} className="mt-0.5 shrink-0 text-gray-500" />
+                  {/* All the tutor's areas (PR68). */}
+                  {(() => {
+                    // Distinct labels only (owner, 10 Oct 2026): never the same area twice.
+                    const hasList = !!tutor.areas && tutor.areas.length > 0
+                    const list = distinctAreaLabels(hasList ? tutor.areas : tutor.area ? [tutor.area] : [], tutor.city, {
+                      cities: tutor.cities,
+                      areaCities: hasList ? tutor.area_cities : null,
+                    })
+                    if (list.length === 0) return <span>Area not set</span>
+                    return (
+                      <span>
+                        {list.map((a, i) => (
+                          <span key={a.label}>
+                            {i > 0 && ', '}
+                            {a.city ? (
+                              <Link
+                                href={`/browse/tutors?city=${encodeURIComponent(a.city)}&area=${encodeURIComponent(a.area)}`}
+                                className="font-semibold hover:text-tm-red hover:underline"
+                              >
+                                {a.label}
+                              </Link>
+                            ) : (
+                              a.label
+                            )}
+                          </span>
+                        ))}
+                      </span>
+                    )
+                  })()}
+                </p>
+                <p className="flex flex-wrap items-center gap-2 text-xs">
+                  <Building2 size={14} className="text-gray-500" />
+                  {(() => {
+                    // PR85: up to 2 cities, each linking to its browse filter.
+                    const cityList = (tutor.cities && tutor.cities.length > 0
+                      ? tutor.cities
+                      : tutor.city
+                        ? [tutor.city]
+                        : []
+                    ).slice(0, 2)
+                    if (cityList.length === 0) return 'Online'
+                    return cityList.map((c, i) => (
+                      <span key={c}>
+                        {i > 0 && <span className="text-gray-500">·</span>}{' '}
+                        <Link href={`/browse/tutors?city=${encodeURIComponent(c)}`} className="font-semibold hover:text-tm-red hover:underline">
+                          {c}
+                        </Link>
+                      </span>
+                    ))
+                  })()}
+                </p>
+                {/* Real teaching experience from onboarding step 9, not account
+                    age (PR94 Part 1). English only (PR97). */}
+                <p className="flex items-start gap-2 text-xs">
+                  <Briefcase size={14} className="mt-px shrink-0 text-gray-500" />
+                  <span>{experienceLabel(tutor.experience_years).en}</span>
+                </p>
+                {feeLabelOf(tutor) ? (
+                  <p className="flex items-center gap-2 text-xs font-black text-tm-navy">
+                    <Wallet size={14} className="text-gray-500" />
+                    {feeLabelOf(tutor)}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* --------------------------------------------------- under review --- */}
+        {underReview && (
+          <section
+            role="status"
+            className="rounded-2xl border border-tm-gold/40 bg-tm-tint-gold p-4 text-tm-gold-ink sm:p-6"
+          >
+            <p className="text-sm font-black">This profile is under review</p>
+            <p className="mt-1 text-xs leading-relaxed">
+              <SelfOrOther
+                self="Your profile is temporarily under review while our team checks a report. It is hidden from search and contact is paused until the review is complete. Nothing has been deleted."
+                other="This tutor’s profile is temporarily under review while our team checks a report. Contact and messaging are paused until it is complete."
+              />
+            </p>
+          </section>
+        )}
+
+        {/* ------------------------------------------------------ contact --- */}
+        {/* Locked for a guest; the number shows only for a viewer allowed to see
+            it, read in the browser (TutorContactBox), never in this HTML. */}
+        {!underReview && <TutorContactBox tutorName={tutor.full_name} />}
+
+        {/* -------------------------------------------------------- video --- */}
+        {/* §3.4: the embed shows only for an APPROVED video. video_youtube_id is
+            already approved-gated in both loaders; the status check is explicit
+            belt-and-braces so a non-approved video can never render. */}
+        {tutor.video_status === 'approved' && tutor.video_youtube_id && (
+          <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
+            <h2 className="pb-3 text-sm font-black text-tm-navy">Video introduction</h2>
+            <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
+              <iframe
+                src={`https://www.youtube-nocookie.com/embed/${tutor.video_youtube_id}`}
+                title={`${tutor.full_name} introduction`}
+                allow="accelerometer; clipboard-write; encrypted-media; picture-in-picture"
+                allowFullScreen
+                className="h-full w-full"
+              />
+            </div>
+          </section>
+        )}
+
+        {/* ---------------------------------------------------------- bio --- */}
+        {/* §3.2: hide About when there is no bio, or when the bio just repeats
+            the headline (a duplicate block reads as a bug). */}
+        {tutor.bio && tutor.bio.trim() && tutor.bio.trim() !== (tutor.headline ?? '').trim() && (
+          <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
+            <h2 className="pb-2 text-sm font-black text-tm-navy">About</h2>
+            <p className="whitespace-pre-line text-xs leading-relaxed">{tutor.bio}</p>
+          </section>
+        )}
+
+        {/* ----------------------------------------------------- subjects --- */}
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
+          <h2 className="pb-3 text-sm font-black text-tm-navy">Subjects and levels</h2>
+          {byLevel.size === 0 ? (
+            <p className="text-xs text-gray-500">Subjects are being added.</p>
+          ) : (
+            <div className="space-y-3">
+              {[...byLevel.entries()].map(([level, subjects]) => (
+                <div key={level} className="space-y-1.5">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                    {levelLabel(level)}
+                  </p>
+                  {/* Every mention of a thing links to the thing. A
+                      level-leaf (Test Preparation, Sports, Holy Quran) has no
+                      subject list, so the level itself is the selectable item
+                      and the chip is the link. */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {subjects.length === 0 ? (
+                      <Link
+                        href={subjectHref(levelMaster.get(level) ?? 0)}
+                        className="rounded-full bg-tm-bg px-2.5 py-1 text-[11px] font-bold text-slate-700 ring-1 ring-gray-200 hover:ring-tm-navy"
+                      >
+                        {levelLabel(level.split(' — ')[1] ?? level)}
+                      </Link>
+                    ) : (
+                      subjects.map((s) => (
+                        <Link
+                          key={s.masterId}
+                          href={subjectHref(s.masterId)}
+                          className="rounded-full bg-tm-bg px-2.5 py-1 text-[11px] font-bold text-slate-700 ring-1 ring-gray-200 hover:ring-tm-navy"
+                        >
+                          {s.label}
+                        </Link>
+                      ))
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* ------------------------------------------------------ degrees --- */}
+        {/* §3.1: degrees render through degreeLabels, so a row stored as a JSON
+            string ({"title":"…"}) shows its title, not raw braces. */}
+        {degreeLines.length > 0 || certificateDocs.length > 0 ? (
+          <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
+            <h2 className="pb-3 text-sm font-black text-tm-navy">Qualifications</h2>
+            <ul className="space-y-1.5">
+              {degreeLines.map((d, i) => (
+                <li key={i} className="text-xs font-semibold text-tm-navy">
+                  {d}
+                </li>
+              ))}
+            </ul>
+
+            {certificateDocs.length > 0 && (
+              <div className="pt-4">
+                <p className="pb-2 text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                  Certificates
+                </p>
+                <SignedInOnly
+                  guest={
+                    <p className="rounded-xl bg-tm-bg p-3 text-xs text-gray-500">
+                      {/* Back to this profile after signing in (owner, 15 Oct 2026). */}
+                      <Link href={authHref('/login', `/tutor/${slug}`, 'parent')} className="font-bold text-tm-red hover:underline">
+                        Sign in
+                      </Link>{' '}
+                      to view {certificateDocs.length} uploaded certificate
+                      {certificateDocs.length === 1 ? '' : 's'}.
+                    </p>
+                  }
+                >
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {certificateDocs.map((doc) => (
+                      <SecureDocumentPreview key={doc.id} documentId={doc.id} alt={doc.label ?? 'Degree certificate'} />
+                    ))}
+                  </div>
+                </SignedInOnly>
+                <p className="pt-2 text-[10px] leading-relaxed text-gray-500">
+                  Certificates are shown as watermarked previews and are protected against casual
+                  copying. Originals are never published.
+                </p>
+              </div>
+            )}
+          </section>
+        ) : null}
+
+        {/* ------------------------------------------------- availability --- */}
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
+          <h2 className="pb-3 text-sm font-black text-tm-navy">Availability</h2>
+          {tutor.availabilityText ? (
+            // PR73 §A: the day+slot line, e.g. "Mon, Tue, Wed: Evening · Sat: Morning".
+            <p className="text-xs font-semibold text-tm-navy">{tutor.availabilityText}</p>
+          ) : tutor.slots.length === 0 ? (
+            <p className="text-xs text-gray-500">
+              No fixed slots published. Request a demo and agree a time directly.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {tutor.slots.map((s) => (
+                <span
+                  key={s.id}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${
+                    s.booked
+                      ? 'bg-gray-100 text-gray-700 ring-gray-200 line-through'
+                      : 'bg-tm-bg text-tm-navy ring-gray-200'
+                  }`}
+                >
+                  {s.text}
+                </span>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* ------------------------------------------------------ reviews --- */}
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
+          <h2 className="pb-3 text-sm font-black text-tm-navy">
+            Reviews {reviews > 0 ? `(${reviews})` : ''}
+          </h2>
+          {tutor.reviews.length === 0 ? (
+            <p className="text-xs text-gray-500">
+              No written reviews yet. Reviews are left by parents after a tuition.
+            </p>
+          ) : (
+            <ul className="space-y-4">
+              {tutor.reviews.map((r) => (
+                <li key={r.id} className="space-y-1 border-b border-gray-100 pb-3 last:border-0">
+                  <p className="text-xs font-black text-tm-navy">
+                    ★ {Number(r.rating).toFixed(1)}{' '}
+                    <span className="font-semibold text-gray-500">· {r.reviewer}</span>
+                  </p>
+                  {r.comment && <p className="text-xs leading-relaxed">{r.comment}</p>}
+                  <p className="text-[10px] text-gray-500">
+                    {formatDate(r.created_at)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {/* Reporting a profile. Signed-in only: an anonymous report has nobody
+            to ask about it, and a moderator needs to be able to see who filed
+            it when the same profile is reported five times in an hour. */}
+        <ProfileReport tutorId={tutor.id} />
+      </div>
+
+      {/* Sticky primary actions on mobile, inline from sm. Suppressed while the
+          profile is under review — apply/message/demo are exactly the
+          affordances the amber notice replaces. Also absent for a TUTOR viewing
+          another tutor (owner, 5 Oct 2026): no Message, Demo or Shortlist —
+          the server refuses all three for a tutor account. The own-profile
+          locked bar (isSelf) stays. */}
+      <ProfileActionsIsland tutorId={tutor.id} tutorName={tutor.full_name} underReview={underReview} />
+    </main>
+    </TutorViewerProvider>
+  )
+}

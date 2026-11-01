@@ -45,9 +45,9 @@ test('header: Join free and Login for a signed-out visitor only, never where the
   assert.ok(cta.includes('href={joinHref}') && cta.includes('Join free') && cta.includes('href="/login"'))
   // Join free is the primary (red) button, Login the secondary (outline).
   assert.ok(cta.indexOf('bg-tm-red') < cta.indexOf('border-tm-navy'))
-  // The Navbar renders AuthCTA only in the no-session branch.
+  // The Navbar renders AuthCTA only in the guest branch (a client component since push 3).
   const nav = read('components/Navbar.tsx')
-  const noSession = nav.slice(nav.indexOf('if (!session) {'), nav.indexOf("const role = session.profile?.role"))
+  const noSession = nav.slice(nav.indexOf("if (state.status === 'guest') {"), nav.indexOf("if (state.status === 'checking') {"))
   assert.ok(noSession.includes('<AuthCTA />'))
   assert.equal((nav.match(/<AuthCTA/g) ?? []).length, 1)
 })
@@ -257,7 +257,8 @@ test('daily sign-up funnel: real browsers, counts only, drop at each step', () =
   assert.ok(!/\bip\b|visitor|user_id|anon/i.test(table))
   assert.equal(roleSatisfies('admin', SCREEN_ACCESS.signupFunnel), false)
   assert.equal(roleSatisfies('partner', SCREEN_ACCESS.signupFunnel), true)
-  assert.ok(read('components/SiteChrome.tsx').includes('{!session && <VisitBeacon />}'))
+  assert.ok(read('components/SiteChrome.tsx').includes('<GuestVisitBeacon />'))
+  assert.ok(read('components/session/SessionChromeBits.tsx').includes("useHeaderSession().status === 'guest' ? <VisitBeacon /> : null"))
 })
 
 test('Notify me asks for an email only', () => {

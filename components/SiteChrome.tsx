@@ -1,15 +1,11 @@
 import Footer from '@/components/Footer'
 import Navbar from '@/components/Navbar'
-import MessagesDock from '@/components/messages/MessagesDock'
-import VisitBeacon from '@/components/VisitBeacon'
-import { getSessionUser } from '@/lib/auth'
-import { unreadMessageCount } from '@/lib/messaging'
+import HeaderSessionProvider from '@/components/session/HeaderSessionProvider'
+import { GuestVisitBeacon, MemberDock, SessionBanner } from '@/components/session/SessionChromeBits'
 import { getSupportContact, supportContactFromEnv, whatsappHref } from '@/lib/support'
 import { getCompany } from '@/lib/company'
 import { jsonLdScript, siteGraphJsonLd } from '@/lib/seo'
 import StaffRefCapture from '@/components/StaffRefCapture'
-import ViewAsBanner from '@/components/ViewAsBanner'
-import { currentViewAs } from '@/lib/viewAs'
 
 // The public site's chrome: header, main, footer — plus (PR 4) the desktop
 // messages dock. The floating WhatsApp support button was removed (PR21 — it
@@ -41,54 +37,37 @@ import { currentViewAs } from '@/lib/viewAs'
 // It is also used directly by app/not-found.tsx, which handles URLs that match
 // no route: that file renders inside the ROOT layout, outside every group, so
 // it has to bring its own chrome.
+// PUSH 3 (owner, 1 Nov 2026): IT NO LONGER READS THE SESSION. A cookies() read
+// here made every public page render per request. Everything that depends on who
+// is looking — the header's signed-in side, the View-as banner, the visit beacon,
+// the messages dock and the footer's guest links — is decided in the browser by
+// HeaderSessionProvider, so the page around it can be cached at the CDN.
 export default async function SiteChrome({ children }: { children: React.ReactNode }) {
-  const session = await getSessionUser() // React-cache()d — shared with Navbar.
-  const role = session?.profile?.role ?? null
-  const isMember = (role === 'tutor' || role === 'parent') && !!session
-
-  // Env-only + the one constant, so there is no DB read here (a cookies() read in
-  // the chrome would make every page dynamic — see lib/support.ts).
+  // Env-only + the one constant, so there is no DB read here.
   const supportHref = whatsappHref(
     supportContactFromEnv().whatsapp,
     'Assalam-o-Alaikum, I need some help with TutorMint.',
   )
-  const dockUnread = isMember ? await unreadMessageCount(session.user.id) : 0
-  const dockRole = role === 'tutor' ? 'tutor' : 'parent'
-  const basePath = role === 'tutor' ? '/tutor/dashboard/messages' : '/parent/dashboard/messages'
-
-  // Organization + WebSite, ONCE on every public page (owner, 13 Oct 2026) —
-  // the homepage no longer emits its own. The legal facts and the support number
-  // come from app_settings (env fallback), never from page source.
+  // Organization + WebSite, ONCE on every public page (owner, 13 Oct 2026). The
+  // legal facts and the support number come from app_settings (env fallback),
+  // read with the cookie-free public client.
   const [company, support] = await Promise.all([getCompany(), getSupportContact()])
-  // "View as" (owner, 26 Oct 2026): the read-only banner while the Owner views
-  // this member's account.
-  const viewAs = isMember ? await currentViewAs() : null
 
   return (
-    <>
+    <HeaderSessionProvider>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={jsonLdScript(siteGraphJsonLd(company, support.whatsapp))}
       />
-      {viewAs && <ViewAsBanner name={viewAs.name} />}
+      <SessionBanner />
       <Navbar />
-      {/* Signed-out page views feed the daily sign-up funnel (owner, 15 Oct 2026). */}
-      {!session && <VisitBeacon />}
+      <GuestVisitBeacon />
       {/* A staff link (?ref=<code>) on any page: saved for 30 days, then taken
           out of the address bar (owner, 23 Oct 2026). */}
       <StaffRefCapture />
       <main className="flex-1">{children}</main>
       <Footer />
-      {isMember && (
-        <>
-          {/* Bottom padding equal to the collapsed dock bar's height, desktop
-              only, so the fixed bar never sits over the footer's last links
-              (owner PR5b §2.3). The phone floating button that used to need its
-              own bottom padding is gone (PR21). */}
-          <div aria-hidden className="hidden h-12 lg:block" />
-          <MessagesDock role={dockRole} basePath={basePath} initialUnread={dockUnread} supportHref={supportHref} />
-        </>
-      )}
-    </>
+      <MemberDock supportHref={supportHref} />
+    </HeaderSessionProvider>
   )
 }

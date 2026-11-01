@@ -16,8 +16,8 @@
 // from its level+subject display names; a city is the display string, slugged
 // with citySegment().
 
+import { memoize } from '@/lib/memoCache'
 import { pageAll, pageAllIn } from '@/lib/pageAll'
-import { unstable_cache } from 'next/cache'
 import { cache } from 'react'
 import { createPublicClient } from '@/lib/supabase/public'
 import { fetchTaxonomyTables } from '@/lib/taxonomyBuild'
@@ -32,7 +32,6 @@ export const LANDING_THRESHOLD = 3
 export const LANDING_TAG = 'landing'
 
 /** A few hours: fresh enough for a directory, cheap enough to serve from cache. */
-const LANDING_REVALIDATE = 60 * 60 * 3
 /** The shared live set the pages and sitemap read: five minutes, or until a listing changes. */
 export const LANDING_LIVE_REVALIDATE = 300
 
@@ -80,7 +79,7 @@ type SubjectIndex = {
   bySlug: Map<string, SubjectMeta>
 }
 
-const loadSubjectIndex = unstable_cache(
+const loadSubjectIndex = memoize(
   async (): Promise<{ all: SubjectMeta[]; deduped: SubjectMeta[] }> => {
     const db = createPublicClient()
     // Paginated (fetchTaxonomyTables): taxonomy_master is 4,500+ rows and a bare
@@ -254,12 +253,14 @@ async function withVerified(combos: LandingCombo[]): Promise<LandingCombo[]> {
  * it on demand. Includes counts BELOW the threshold too — the admin view wants
  * the near-misses, and the page/sitemap filter to >= threshold themselves.
  */
-export const liveCombinationsAll = unstable_cache(
+export const liveCombinationsAll = memoize(
   async (): Promise<LandingCombo[]> => {
     return withVerified(foldCombos(await readLandingCombinations(), (await subjectIndex()).byMaster))
   },
   ['landing-combinations-v3'],
-  { revalidate: LANDING_REVALIDATE, tags: [LANDING_TAG] },
+  // In-memory now (push 3): another server instance cannot be cleared at once,
+  // so the answer is kept 5 minutes, not 3 hours.
+  { revalidate: LANDING_LIVE_REVALIDATE, tags: [LANDING_TAG] },
 )
 
 /** Only the combinations that clear the threshold — the pages that are indexable,
@@ -288,7 +289,7 @@ export async function liveCombinationsAllUncached(): Promise<LandingCombo[]> {
  * listing changes (the LANDING_TAG): the page and the sitemap read the same
  * entry, so they still cannot disagree. Within one request the read happens once.
  */
-const liveCombinationsShared = unstable_cache(
+const liveCombinationsShared = memoize(
   async (): Promise<LandingCombo[]> => liveCombinationsAllUncached(),
   ['landing-combinations-live-v1'],
   { revalidate: LANDING_LIVE_REVALIDATE, tags: [LANDING_TAG] },

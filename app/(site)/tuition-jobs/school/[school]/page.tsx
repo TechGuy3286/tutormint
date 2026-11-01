@@ -13,8 +13,7 @@ import { cityPagePath, indexableCityPagesCached } from '@/lib/cityJobs'
 import { collectionPageJsonLd, jsonLdScript, seoTitle, socialMeta } from '@/lib/seo'
 import { absoluteUrl } from '@/lib/siteUrl'
 import { citySegment, tuitionPath } from '@/lib/slugs'
-import { createClient } from '@/lib/supabase/server'
-import { getEntitlements } from '@/lib/entitlements'
+import ViewerJobsProvider from '@/components/viewer/ViewerJobsProvider'
 
 // /tuition-jobs/school/[school] — "<School> teacher jobs" (owner, 12 Oct 2026).
 //
@@ -24,7 +23,13 @@ import { getEntitlements } from '@/lib/entitlements'
 // 3 open posts; below that it still works for a visitor but is noindex, follow.
 // A school no open post names is a 404.
 
-export const dynamic = 'force-dynamic'
+// Cached for everyone (push 3, owner 1 Nov 2026): rebuilt when its tuitions
+// change and at most every 10 minutes; the signed-in side of the cards is
+// filled in by the browser (ViewerJobsProvider).
+export const revalidate = 600
+export async function generateStaticParams() {
+  return []
+}
 
 type Params = Promise<{ school: string }>
 
@@ -57,13 +62,6 @@ export default async function SchoolJobsPage({ params }: { params: Params }) {
   const heading = hubHeading('school', group.name)
   const facts = hubFactsFrom(count, jobs)
   const indexable = count >= SCHOOL_HUB_THRESHOLD
-
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  const isTutor = user ? (await getEntitlements(user.id)).audience === 'tutor' : false
-  const showApply = !user || isTutor
 
   // Related hubs — only ones that exist: this school's own cities, then the
   // other schools with 3+ open posts.
@@ -100,11 +98,13 @@ export default async function SchoolJobsPage({ params }: { params: Params }) {
             </Link>
           </div>
         ) : (
-          <div className="space-y-4">
-            {cards.map((job) => (
-              <JobCard key={job.id} job={job} signedIn={!!user} showApply={showApply} headingLevel="h2" />
-            ))}
-          </div>
+          <ViewerJobsProvider ids={cards.map((j) => j.id)}>
+            <div className="space-y-4">
+              {cards.map((job) => (
+                <JobCard key={job.id} job={job} signedIn={false} showApply headingLevel="h2" />
+              ))}
+            </div>
+          </ViewerJobsProvider>
         )}
 
         {indexable && cards.length > 0 && <HubFaq items={hubFaq('school', group.name, facts)} path={path} />}

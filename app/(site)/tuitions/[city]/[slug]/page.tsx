@@ -3,22 +3,18 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound, permanentRedirect } from 'next/navigation'
 import { Briefcase, CalendarDays, Clock, GraduationCap, MapPin, ShieldCheck, Wallet, UserRound } from 'lucide-react'
-import { genderPrefSentence, genderApplyBlocked } from '@/lib/genderPref'
+import { genderPrefSentence } from '@/lib/genderPref'
 
 import Avatar from '@/components/Avatar'
-import ContactReveal from '@/components/ContactReveal'
-import ViewNumberLink from '@/components/ViewNumberLink'
+import TuitionViewerProvider, { ApplyIsland, ContactLine, PosterBannerActions, PosterOpenTools, SignedInReport, TeamTuitionBox, TutorContactReveal } from '@/components/viewer/TuitionViewer'
+import ViewerJobsProvider from '@/components/viewer/ViewerJobsProvider'
 import BadgeRow from '@/components/badges/BadgeRow'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import TimeAgo from '@/components/TimeAgo'
-import ReportButton from '@/components/ReportButton'
 import { TEAM_POSTER_LABEL } from '@/lib/teamPosterCore'
 import { budgetLabel } from '@/lib/feeBands'
-import { createClient } from '@/lib/supabase/server'
-import { getEntitlements } from '@/lib/entitlements'
 import { jobByPublicSlug, similarOpenTuitions } from '@/lib/jobFeed'
-import { peekTuitionContact } from '@/lib/contactReveal'
 import { isHiddenTuition } from '@/lib/hiddenTuitionCore'
 import { hiddenTuitionTargetFor } from '@/lib/hiddenTuition'
 import { isComplaintPaused } from '@/lib/contactWithdrawCore'
@@ -28,7 +24,6 @@ import { isFixtureTuition } from '@/lib/fixtures'
 import { tuitionIndexable } from '@/lib/seo/indexable'
 import JobCard from '@/components/JobCard'
 import SubjectsByGrade from '@/components/SubjectsByGrade'
-import ResumeInline from './ResumeInline'
 import { citySegment } from '@/lib/slugs'
 import { formatDate } from '@/lib/datetime'
 import { jobType } from '@/lib/display'
@@ -43,18 +38,13 @@ import { jobPostingEmploymentType, jobPostingDescription } from '@/lib/jobPostin
 import { genderPrefWord } from '@/lib/genderPref'
 import { placeLabel } from '@/lib/place'
 import { ONLINE_JOB_TITLE } from '@/lib/jobTitlesCore'
-import RefreshInline from './RefreshInline'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { preferHumanTitle } from '@/lib/jobDisplayTitle'
 import { isSubjectSlug, resolveLandingAny, landingIndexable, getLandingLinker } from '@/lib/landing'
 import LandingView from '@/components/landing/LandingView'
-import ApplyPanel from './ApplyPanel'
 import { publicAppliedLine } from '@/lib/applicationStageCore'
 import { areaWithoutCity } from '@/lib/place'
 import { areaWithLandmark } from '@/lib/staffAreaCore'
-import { applyBlocksFor } from '@/lib/applyBlockServer'
-import { loadReceiptState } from '@/lib/payments/receipt'
-import type { ApplyBlock } from '@/lib/applyBlock'
 
 // THIS ROUTE SERVES TWO PAGES. Next forbids two dynamic param names at one
 // position, so /tuitions/[city]/[subject] (the T9.1 landing) cannot be its own
@@ -96,7 +86,15 @@ import type { ApplyBlock } from '@/lib/applyBlock'
 // therefore does not break the link they already shared -- the old URL still
 // resolves and this page redirects it to the canonical one.
 
-export const dynamic = 'force-dynamic'
+// Cached for everyone (push 3, owner 1 Nov 2026): the page renders as a guest
+// sees it and is rebuilt when the tuition changes (revalidatePath through
+// lib/publicRevalidate) and at most every 10 minutes. The signed-in parts
+// (Apply state, an earlier number reveal, the poster's Resume / Refresh) are
+// filled in by the browser (components/viewer/TuitionViewer).
+export const revalidate = 600
+export async function generateStaticParams() {
+  return []
+}
 
 type Params = Promise<{ city: string; slug: string }>
 
@@ -283,64 +281,11 @@ export default async function TuitionPage({ params }: { params: Params }) {
   // no JobPosting and its canonical points at the original (set in metadata).
   const repeatOf = job.status === 'open' ? await repeatOfOlderOpen(job.id) : null
 
-  // ------------------------------------------------------------- the viewer --
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  let isTutor = false
-  let applied = false
-  let tutorGender: string | null = null
-  let isPoster = false
-  let isAdmin = false
-  let applyBlock: ApplyBlock | null = null
-  // The tutor's Verification Fee receipt is with staff (owner, 15 Oct 2026).
-  let feeReceiptPending = false
-  // PR92 Part A.3: the full tuition contact when the signed-in tutor ALREADY has
-  // access (applied / viewed before) — shown on the contact line instead of the
-  // masked teaser, with no spend.
-  let revealedContact: Awaited<ReturnType<typeof peekTuitionContact>> = null
-
-  if (user) {
-    const ent = await getEntitlements(user.id)
-    isTutor = ent.audience === 'tutor'
-    isAdmin = ent.role === 'admin'
-    isPoster = job.parent_id === user.id
-    if (isTutor) {
-      const [{ data: mine }, { data: me }, peeked] = await Promise.all([
-        supabase.from('applications').select('id').eq('tutor_id', user.id).eq('job_id', job.id).maybeSingle(),
-        supabase.from('tutor_profiles').select('gender').eq('id', user.id).maybeSingle(),
-        peekTuitionContact(user.id, job.id),
-      ])
-      applied = !!mine
-      tutorGender = (me?.gender as string | null) ?? null
-      revealedContact = peeked
-      // Why Apply is inactive (owner, 5 Oct 2026) — the one shared rule.
-      applyBlock = (await applyBlocksFor(supabase, user.id, ent, [{ id: job.id, status: job.status }]))[job.id] ?? null
-      if (!ent.verified) feeReceiptPending = (await loadReceiptState(user.id, 'verified')).state === 'under_review'
-    }
-  }
-
-  // §7 — the poster (and admin) see when their OPEN tuition will auto-pause,
-  // derived at read time from coalesce(resumed_at, created_at) + 20 days. The
-  // poster reads their own row, so no service role is needed.
-  let pauseLabel: string | null = null
-  if ((isPoster || isAdmin) && state.isOpen) {
-    const { data: clock } = await supabase
-      .from('jobs')
-      .select('created_at, resumed_at')
-      .eq('id', job.id)
-      .maybeSingle()
-    const base =
-      (clock?.resumed_at as string | null) ?? (clock?.created_at as string | null) ?? job.created_at
-    pauseLabel = pauseCountdownLabel(base)
-  }
-
   // A non-open tuition is never a dead end (§3): offer similar OPEN tuitions,
   // same city first then same subject, plus the browse links already below.
-  // PR85 Part C: a signed-in tutor's "similar" list is gender-filtered.
-  const similarGender = isTutor ? tutorGender : null
+  // PR85 Part C: a signed-in tutor's "similar" list is gender-filtered — in the
+  // browser now (ViewerJobsProvider hideGender), as the page is cached.
+  const similarGender = null
   // Item 12 — EVERY tuition page carries "Similar tuitions": up to 6 open
   // tuitions matched by city (the immediate neighbours, always), then level,
   // then subject — neighbour linking, so every tuition page is linked from
@@ -402,8 +347,6 @@ export default async function TuitionPage({ params }: { params: Params }) {
   // the SAME server rule (genderApplyBlocked), so the button and the API agree.
   // An unset tutor gender never blocks (owner, 11 Sep 2026).
   const genderSentence = genderPrefSentence(job.gender_preference)
-  const genderBlockedNotice =
-    isTutor && genderApplyBlocked(job.gender_preference, tutorGender) ? genderSentence : null
 
   // A staff-posted team tuition carries the real external parent's contact
   // (job_contacts). Since PR57 it is revealed through the SAME counted flow as a
@@ -414,7 +357,6 @@ export default async function TuitionPage({ params }: { params: Params }) {
   // Guests see Apply -- pressing it is what opens the sign-in modal. A parent
   // browsing the board has no use for it. Only an OPEN tuition shows Apply; a
   // paused/closed/hired one hides it (and the server refuses regardless, §4).
-  const showApply = state.isOpen && (!user || isTutor)
   const url = absoluteUrl(`/tuitions/${canonicalCity}/${job.public_slug}`)
   const budget = budgetLabel(job.budget_min_pkr, job.budget_max_pkr, job.budget_pkr)
   const mode = jobType(job.teaching_mode)
@@ -430,6 +372,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
   })
 
   return (
+    <TuitionViewerProvider jobId={job.id}>
     <main className="mx-auto w-full max-w-3xl space-y-4 p-4 sm:p-6">
       {/* The activity tracker reads this to label the page view in plain terms
           (PR99 §2): "Viewed tuition TM-1450". Hidden; carries no contact data. */}
@@ -521,16 +464,8 @@ export default async function TuitionPage({ params }: { params: Params }) {
           >
             <p className="text-xs font-bold">{state.banner.text}</p>
             {/* The poster's own Resume, inline (§5) — reuses /api/parent/jobs/resume. */}
-            {isPoster && job.status === 'paused' && <ResumeInline jobId={job.id} />}
             {/* An admin manages pause/resume on the admin tuition page (§5). */}
-            {isAdmin && !isPoster && (
-              <Link
-                href={`/admin/jobs/${job.id}`}
-                className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-current px-4 text-xs font-bold"
-              >
-                Manage this tuition in admin
-              </Link>
-            )}
+            <PosterBannerActions jobId={job.id} paused={job.status === 'paused'} />
           </div>
         )}
 
@@ -540,16 +475,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
             applications until the sweep actually pauses it. */}
         {/* Item 16 — the poster (and an admin) can Refresh an open tuition from
             its own page: top of Browse, fresh 20 days, same URL; once every 3 days. */}
-        {(isPoster || isAdmin) && state.isOpen && (
-          <RefreshInline jobId={job.id} admin={isAdmin && !isPoster} />
-        )}
-        {pauseLabel && state.isOpen && (
-          <p className="rounded-xl bg-tm-bg p-3 text-[11px] font-semibold text-gray-500">
-            {pauseLabel === 'pauses today'
-              ? 'Pauses today unless you resume it — after that it is hidden from tutors until you resume it.'
-              : `This tuition ${pauseLabel} — after that, resume it to keep it visible to tutors.`}
-          </p>
-        )}
+        <PosterOpenTools jobId={job.id} isOpen={state.isOpen} />
 
         {job.under_review && (
           <p className="inline-flex items-center gap-1.5 rounded-full bg-tm-tint-gold px-3 py-1 text-[11px] font-black uppercase tracking-wide text-tm-gold-ink">
@@ -696,28 +622,17 @@ export default async function TuitionPage({ params }: { params: Params }) {
         {/* Parent consent not recorded + the Owner's switch on (off by default):
             no contact line at all, and nothing about consent (owner, 27 Oct 2026). */}
         {state.showContact && !job.contactHidden && job.contactTeaser && (
-          <p className="flex flex-wrap items-center gap-1.5 rounded-xl bg-tm-tint-navy px-3 py-2 text-sm font-semibold text-tm-navy">
-            Contact:{' '}
-            {revealedContact ? null : <span className="tabular-nums">{job.contactTeaser}</span>}
-            <ViewNumberLink jobId={job.id} signedIn={!!user} canReveal={isTutor} initialContact={revealedContact} />
-          </p>
+          <ContactLine jobId={job.id} teaser={job.contactTeaser} />
         )}
 
-        {showApply && (
-          <div className="border-t border-gray-100 pt-4">
-            <ApplyPanel
-              jobId={job.id}
-              title={pageHeadline}
-              signedIn={!!user}
-              applied={applied}
-              underReview={!!job.under_review}
-              genderBlockedNotice={genderBlockedNotice}
-              city={job.city}
-              applyBlock={applyBlock}
-              feeReceiptPending={feeReceiptPending}
-            />
-          </div>
-        )}
+        <ApplyIsland
+          jobId={job.id}
+          title={pageHeadline}
+          isOpen={state.isOpen}
+          underReview={!!job.under_review}
+          genderPreference={job.gender_preference ?? null}
+          city={job.city}
+        />
       </article>
 
 
@@ -766,36 +681,16 @@ export default async function TuitionPage({ params }: { params: Params }) {
               {/* PR91: a tuition reveal is per-TUITION (jobId), so it draws one
                   pool unit once per tuition and also surfaces any number in the
                   listing text — not a per-parent reveal. */}
-              {isTutor && state.showContact && !job.contactHidden && <ContactReveal jobId={job.id} className="pt-1" />}
+              {state.showContact && !job.contactHidden && <TutorContactReveal jobId={job.id} className="pt-1" />}
             </div>
           </div>
 
-          {user && (
-            <ReportButton
-              reportedId={job.parent_id}
-              targetType="job"
-              targetId={job.id}
-              label="Report this post"
-            />
-          )}
+          <SignedInReport reportedId={job.parent_id} targetType="job" targetId={job.id} label="Report this post" />
         </section>
       )}
 
       {/* Team tuition (PR72 §D): keep the contact reveal + Report, no identity. */}
-      {job.parent_id && job.posted_by_team && user && (
-        <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
-          {isTutor && state.showContact && !job.contactHidden && <ContactReveal jobId={job.id} />}
-          {user && (
-            <ReportButton
-              reportedId={null}
-              targetType="job"
-              targetId={job.id}
-              teamJob
-              label="Report this post"
-            />
-          )}
-        </section>
-      )}
+      {job.parent_id && job.posted_by_team && <TeamTuitionBox jobId={job.id} showContact={state.showContact && !job.contactHidden} />}
 
       {/* Item 12 — "Similar tuitions" on every tuition page: up to 6 open
           tuitions, city first, then level, then subject. On a paused/closed/hired
@@ -803,17 +698,13 @@ export default async function TuitionPage({ params }: { params: Params }) {
       {similar.length > 0 && (
         <section className="space-y-3">
           <h2 className="text-sm font-black text-tm-navy">{state.isOpen ? 'Similar tuitions' : 'Similar open tuitions'}</h2>
-          <div className="space-y-4">
-            {similar.map((t) => (
-              <JobCard
-                key={t.id}
-                job={t}
-                signedIn={!!user}
-                showApply={!user || isTutor}
-                viewerCity={job.city}
-              />
-            ))}
-          </div>
+          <ViewerJobsProvider ids={similar.map((t) => t.id)} chip hideGender>
+            <div className="space-y-4">
+              {similar.map((t) => (
+                <JobCard key={t.id} job={t} signedIn={false} showApply />
+              ))}
+            </div>
+          </ViewerJobsProvider>
         </section>
       )}
 
@@ -876,13 +767,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
               </h2>
               <div className="space-y-4">
                 {relatedOpen.map((t) => (
-                  <JobCard
-                    key={t.id}
-                    job={t}
-                    signedIn={!!user}
-                    showApply={!user || isTutor}
-                    viewerCity={job.city}
-                  />
+                  <JobCard key={t.id} job={t} signedIn={false} showApply />
                 ))}
               </div>
             </>
@@ -912,6 +797,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
         </Link>
       </section>
     </main>
+    </TuitionViewerProvider>
   )
 }
 

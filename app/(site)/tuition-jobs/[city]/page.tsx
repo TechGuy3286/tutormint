@@ -1,20 +1,26 @@
 import type { Metadata } from 'next'
-import { notFound } from 'next/navigation'
 
-import CityJobsView, { variantHub } from '@/components/tuitionJobs/CityJobsView'
+import { variantHub } from '@/components/tuitionJobs/CityJobsView'
 import { hubDescription, hubTitle } from '@/lib/hubCopy'
 import { CITY_PAGE_THRESHOLD, cityPageBySlug, cityPagePath } from '@/lib/cityJobs'
 import { seoTitle, socialMeta } from '@/lib/seo'
+import { renderCityPage } from './render'
 
 // /tuition-jobs/[city] — "Tuition jobs in [City]" (owner, 6 Oct 2026, item 6).
 // Server-rendered; indexable (and in the sitemap) from 3 open tuitions, noindex
 // follow below that — it becomes indexable by itself once it reaches 3. A city
 // with no open tuition at all is a 404.
 
-export const dynamic = 'force-dynamic'
+// Cached for everyone (push 3, owner 1 Nov 2026): rebuilt when one of its
+// tuitions changes (revalidatePath via lib/publicRevalidate) and at most every
+// 10 minutes. ?page= is sent to the twin under /qs by proxy.ts, so this page
+// never reads the query.
+export const revalidate = 600
+export async function generateStaticParams() {
+  return []
+}
 
 type Params = Promise<{ city: string }>
-type Search = Promise<{ page?: string }>
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { city } = await params
@@ -34,10 +40,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   }
 }
 
-export default async function CityTuitionJobsPage({ params, searchParams }: { params: Params; searchParams: Search }) {
-  const [{ city }, sp] = await Promise.all([params, searchParams])
-  const page = await cityPageBySlug(city)
-  if (!page) notFound()
-  const n = Math.max(1, Math.floor(Number(sp.page) || 1))
-  return <CityJobsView page={page} variant={null} pageNo={n} />
+export default async function CityTuitionJobsPage({ params }: { params: Params }) {
+  const { city } = await params
+  return renderCityPage(city, 1)
 }

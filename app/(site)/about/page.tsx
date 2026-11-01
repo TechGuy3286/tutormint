@@ -19,7 +19,9 @@ import { SITE_DESCRIPTION, SITE_FEATURES, SITE_HOW_IT_WORKS, SITE_TAGLINE, SITE_
 // What it says now is what the code does. The entity block comes from
 // app_settings, so the SECP number and NTN can be filled in without a deploy.
 
-export const dynamic = 'force-dynamic'
+// Cached for everyone and rebuilt at most hourly (push 3, owner 1 Nov 2026):
+// nothing on it depends on who is looking.
+export const revalidate = 3600
 
 const ABOUT_TITLE = seoTitle('About TutorMint — Tutors and Tuitions in Pakistan')
 

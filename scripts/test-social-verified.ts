@@ -601,7 +601,7 @@ mainTest('the profile og:image never says Verified for an unverified tutor, neve
   assert.notEqual(shareImageVersion({ ...base, verified: false }), v)
   assert.equal(shareImageVersion({ ...base, photoShown: false }), shareImageVersion({ ...base, avatar: 'https://x/c.jpg', photoShown: false }), 'a hidden photo’s URL is not part of it')
   assert.equal(shareImagePath('ayesha-khan', v), `/og/tutor/ayesha-khan?v=${v}`)
-  const page = src('app/(site)/tutor/[slug]/page.tsx')
+  const page = src('app/(site)/tutor/[slug]/profile.tsx')
   assert.match(page, /image: shareImagePath\(/)
   assert.match(page, /const title = tutorOgTitle\(/)
   if (samples) {

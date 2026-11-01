@@ -1,3 +1,4 @@
+import { invalidateMemoTag } from '@/lib/memoCache'
 import 'server-only'
 
 // lib/locationReview.ts
@@ -18,7 +19,6 @@ import 'server-only'
 // The loader only reads and suggests — it writes nothing. Suggestions are never
 // saved until staff approve them here.
 
-import { revalidateTag } from 'next/cache'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { pageAll } from '@/lib/pageAll'
@@ -255,7 +255,7 @@ export async function applyLocationActions(actions: ReviewAction[], actor: Actor
   }
 
   // The hubs and labels read the new mapping at once.
-  revalidateTag(AREA_ALIAS_TAG, 'max')
+  invalidateMemoTag(AREA_ALIAS_TAG)
   revalidateLanding()
 
   // Hubs are NOT sent to the Indexing API (owner, 16 Oct 2026): it is for single

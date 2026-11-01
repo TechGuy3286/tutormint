@@ -21,16 +21,16 @@ test('cached public reads are cleared when their data changes', () => {
   // Landing pages + sitemap share ONE live cache entry, tagged and cleared by
   // revalidateLanding() on every listing change.
   const landing = src('lib/landing.ts')
-  assert.match(landing, /const liveCombinationsShared = unstable_cache\(/)
+  assert.match(landing, /const liveCombinationsShared = memoize\(/)
   assert.match(landing, /tags: \[LANDING_TAG\]/)
   assert.match(landing, /const all = await liveCombinationsForPages\(\)/)
   assert.match(src('lib/sitemaps.ts'), /liveCombinationsForPages\(\)/)
-  assert.match(src('lib/landingRevalidate.ts'), /revalidateTag\(LANDING_TAG/)
+  assert.match(src('lib/landingRevalidate.ts'), /invalidateMemoTag\(LANDING_TAG/)
   // Tuition pages: the repeat check is cached under TUITION_TAG, cleared on
   // every tuition change through the Indexing API helpers.
   const dup = src('lib/duplicates.ts')
-  assert.match(dup, /unstable_cache\(repeatOfOlderOpenFresh, \[[^\]]+\], \{ revalidate: TUITION_REVALIDATE, tags: \[TUITION_TAG\] \}\)/)
-  assert.match(src('lib/landingRevalidate.ts'), /revalidateTag\(TUITION_TAG/)
+  assert.match(dup, /memoize\(repeatOfOlderOpenFresh, \[[^\]]+\], \{ revalidate: TUITION_REVALIDATE, tags: \[TUITION_TAG\] \}\)/)
+  assert.match(src('lib/landingRevalidate.ts'), /invalidateMemoTag\(TUITION_TAG/)
   const idx = src('lib/googleIndexing.ts')
   const upd = idx.slice(idx.indexOf('export function queueIndexingUpdate'), idx.indexOf('export function queueIndexingForStatus'))
   assert.match(upd, /revalidateTuitions\(\)/)
@@ -138,12 +138,12 @@ test('every admin list pages 25 at a time with Load more', () => {
 
 test('the landing near-duplicate check is cached, and profile saves no longer clear the landing cache', () => {
   const o = src('lib/landingOverlap.ts')
-  assert.match(o, /unstable_cache\(loadLandingMembers, \[[^\]]+\], \{ revalidate: LANDING_LIVE_REVALIDATE, tags: \[LANDING_TAG, TUITION_TAG\] \}\)/)
+  assert.match(o, /memoize\(loadLandingMembers, \[[^\]]+\], \{ revalidate: LANDING_LIVE_REVALIDATE, tags: \[LANDING_TAG, TUITION_TAG\] \}\)/)
   assert.match(o, /overlapNoindexSet\(await membersForRequest\(\)\)/)
   assert.doesNotMatch(src('lib/completion.ts'), /revalidateLanding\(\)/)
   // Listing changes still clear it at once.
   assert.match(src('app/api/admin/tutors/moderate/route.ts'), /revalidateLanding\(\)/)
-  assert.match(src('lib/jobs.ts'), /revalidateLanding\(\)/)
+  assert.match(src('lib/jobs.ts'), /revalidateLanding\(\{ tutors: false \}\)/)
 })
 
 test('Follow-ups counts subjects in one paged read, not one request per tutor', () => {

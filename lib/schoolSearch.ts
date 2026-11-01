@@ -1,3 +1,4 @@
+import { memoize } from '@/lib/memoCache'
 import 'server-only'
 
 // lib/schoolSearch.ts
@@ -8,7 +9,6 @@ import 'server-only'
 // the school), return the row to show. No page is created here: the row only
 // ever links to a page that already renders.
 
-import { unstable_cache } from 'next/cache'
 
 import { slugify } from '@/lib/slugs'
 import { LANDING_TAG } from '@/lib/landing'
@@ -17,7 +17,7 @@ import { schoolDictionary, schoolGroups, schoolHubPath } from '@/lib/schoolJobs'
 import { matchSchool, schoolRowLabel } from '@/lib/schoolSearchCore'
 
 /** Every school a post names today, with its cities. Ten minutes: this runs per keystroke. */
-const groupsCached = unstable_cache(async () => schoolGroups(), ['school-search-groups'], { revalidate: 600, tags: [LANDING_TAG] })
+const groupsCached = memoize(async () => schoolGroups(), ['school-search-groups'], { revalidate: 600, tags: [LANDING_TAG] })
 
 export type SchoolSuggestion = {
   /** The school's name as we know it. */

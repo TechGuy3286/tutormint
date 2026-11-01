@@ -10,6 +10,7 @@ import 'server-only'
 // Overview's Refresh button.
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { withRunMemo } from '@/lib/runMemo'
 import {
   addRunToTally,
   needsRebuild,
@@ -264,6 +265,11 @@ function tutorFuRows(rows: TutorFollowRow[]): ListRowIn[] {
  * reported and leaves the previous figures in place.
  */
 export async function rebuildAdminSummary(opts: { force?: boolean } = {}): Promise<{ ran: boolean; ms: number; cpuMs?: number; failed: string[] }> {
+  // One run shares its heavy loads (lib/runMemo — push 3, owner 1 Nov 2026).
+  return withRunMemo(() => rebuildOnce(opts))
+}
+
+async function rebuildOnce(opts: { force?: boolean }): Promise<{ ran: boolean; ms: number; cpuMs?: number; failed: string[] }> {
   const t0 = Date.now()
   const admin = createAdminClient()
   if (!admin) return { ran: false, ms: 0, failed: ['no database'] }

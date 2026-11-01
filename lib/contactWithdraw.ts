@@ -398,7 +398,7 @@ export async function withdrawContact(args: { actor: AdminActor; actorName: stri
     detail: { reason, ...summary, alreadyListed: !!live },
   })
 
-  revalidateLanding()
+  revalidateLanding({ tutors: false })
   return { ok: true, withdrawalId, closed: closedRefs.length, contactsCleared, leadsCleared, listed: true, parentAccounts }
 }
 
@@ -548,7 +548,7 @@ export async function pauseContact(args: { actor: AdminActor; actorName: string;
     targetId: holdId,
     detail: { reason, paused, skipped, refs },
   })
-  revalidateLanding()
+  revalidateLanding({ tutors: false })
   return { ok: true, holdId, paused, skipped }
 }
 
@@ -616,7 +616,7 @@ export async function unpauseContact(args: { actor: AdminActor; actorName: strin
     targetId: args.holdId,
     detail: { reason: args.reason.trim(), restored, leftAlone },
   })
-  revalidateLanding()
+  revalidateLanding({ tutors: false })
   return { ok: true, restored, leftAlone }
 }
 

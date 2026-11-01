@@ -1,3 +1,4 @@
+import { memoize } from '@/lib/memoCache'
 import 'server-only'
 
 // lib/areaAliases.ts
@@ -11,7 +12,6 @@ import 'server-only'
 // Tolerant: before migration 166 (or on any read error) there are simply no
 // aliases, and everything behaves as it did.
 
-import { unstable_cache } from 'next/cache'
 
 import { createPublicClient } from '@/lib/supabase/public'
 import { pageAll } from '@/lib/pageAll'
@@ -41,7 +41,7 @@ export async function loadAliasRowsFresh(): Promise<AliasRow[]> {
   }
 }
 
-const cachedRows = unstable_cache(loadAliasRowsFresh, ['area-alias-rows-v1'], { revalidate: 600, tags: [AREA_ALIAS_TAG] })
+const cachedRows = memoize(loadAliasRowsFresh, ['area-alias-rows-v1'], { revalidate: 600, tags: [AREA_ALIAS_TAG] })
 
 export async function loadAliasRows(opts: { fresh?: boolean } = {}): Promise<AliasRow[]> {
   return opts.fresh ? loadAliasRowsFresh() : cachedRows()

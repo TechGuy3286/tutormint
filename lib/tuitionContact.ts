@@ -107,7 +107,7 @@ export async function saveTuitionContactNumber(args: { actor: AdminActor; jobId:
     resumed = (back ?? []).length === 1
     if (resumed) {
       queueIndexingUpdate({ public_slug: (job.public_slug as string | null) ?? null, city: (job.city as string | null) ?? null })
-      revalidateLanding()
+      revalidateLanding({ tutors: false })
     }
   }
 

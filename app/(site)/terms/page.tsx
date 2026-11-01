@@ -16,6 +16,10 @@ import LegalDoc, { entitySection, type LegalSection } from '@/components/LegalDo
 // Every commitment below matches something the code actually enforces. Where
 // the two ever disagree, the code is the bug.
 
+// Cached for everyone and rebuilt at most hourly (push 3, owner 1 Nov 2026):
+// nothing on it depends on who is looking.
+export const revalidate = 3600
+
 export const metadata: Metadata = {
   title: pageTitle('Terms of Service'),
   alternates: { canonical: '/terms' },

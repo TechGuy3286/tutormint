@@ -91,13 +91,13 @@ test('every admin loader sends the masked number, never the full one', () => {
 })
 
 test('public surfaces never carry the CNIC number — only a "CNIC verified" chip', () => {
-  for (const f of ['components/TutorCard.tsx', 'app/(site)/tutor/[slug]/page.tsx', 'components/CnicVerifiedChip.tsx']) {
+  for (const f of ['components/TutorCard.tsx', 'app/(site)/tutor/[slug]/profile.tsx', 'components/CnicVerifiedChip.tsx']) {
     const src = read(f)
     assert.doesNotMatch(src, /maskCnic|formatCnic|cnicNumber\b/, `${f} must not show a CNIC number`)
   }
   assert.match(read('components/CnicVerifiedChip.tsx'), /CNIC verified/)
   assert.match(read('components/TutorCard.tsx'), /tutor\.cnic_verified && <CnicVerifiedChip \/>/)
-  assert.match(read('app/(site)/tutor/[slug]/page.tsx'), /cnicApproved && <CnicVerifiedChip \/>/)
+  assert.match(read('app/(site)/tutor/[slug]/profile.tsx'), /cnicApproved && <CnicVerifiedChip \/>/)
 })
 
 // --------------------------------------------------------------- Part B ----
@@ -130,7 +130,7 @@ test('a hidden photo never reaches the card, profile, OG or JSON-LD output', () 
   assert.match(browse, /avatar_url: publicPhoto\(avatarUrl, \{ hidden \}\)/)
   assert.equal((browse.match(/trustFields\(|withTrust\(t, trust\)/g) ?? []).length >= 3, true)
   assert.match(read('components/TutorCard.tsx'), /src=\{tutor\.photo_hidden \? null : tutor\.avatar_url\}/)
-  const page = read('app/(site)/tutor/[slug]/page.tsx')
+  const page = read('app/(site)/tutor/[slug]/profile.tsx')
   // The og:image is the generated share card (PR C3, 21 Oct 2026): its version
   // knows whether the photo is shown, and the card itself draws the silhouette
   // for a hidden photo — the real URL is never read then.

@@ -28,6 +28,9 @@ import { canonArea } from '@/lib/areaAliasCore'
 import { FEMALE_JOBS_OR } from '@/lib/femaleJobsCore'
 import { testAccountIds } from '@/lib/testAccounts'
 import { createClient } from '@/lib/supabase/server'
+// Public data (jobs, subjects, the directory, rank_tutors) is read with the
+// cookie-free client (push 3, 1 Nov 2026), so cached public pages stay cached.
+import { createPublicClient } from '@/lib/supabase/public'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ONLINE_JOB_TITLE } from '@/lib/jobTitlesCore'
 import { orderCitiesByDistance } from '@/lib/cityDistance'
@@ -168,7 +171,7 @@ async function jobContactRaw(
 async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData[]> {
   if (rawJobs.length === 0) return []
 
-  const supabase = await createClient()
+  const supabase = createPublicClient()
   const jobIds = rawJobs.map((j) => j.id as string)
   const jobContacts = await jobContactRaw(jobIds)
   // Parent consent not recorded + the Owner's switch on (owner, 27 Oct 2026):
@@ -421,7 +424,7 @@ export async function matchingJobsForTutor(
   jobTypes: readonly string[] | null = null,
   limit = 5,
 ): Promise<JobCardData[]> {
-  const supabase = await createClient()
+  const supabase = createPublicClient()
 
   const { data: mine } = await supabase
     .from('tutor_subjects')
@@ -739,7 +742,7 @@ export async function browseJobs(
   offset = 0,
   cursor: string | null = null,
 ): Promise<{ jobs: JobCardData[]; total: number; nextCursor: string | null }> {
-  const supabase = await createClient()
+  const supabase = createPublicClient()
 
   // The subject master(s) to filter by. An explicit ?subject= is one master; a
   // resolved query is every level of the subject (owner PR13 §3). When neither
@@ -1037,7 +1040,7 @@ export function slimForCard(job: JobCardData): JobCardData {
  */
 /** Read once per request — the tuition page asks for its metadata and its body. */
 export const jobByPublicSlug = cache(async (slug: string): Promise<JobCardData | null> => {
-  const supabase = await createClient()
+  const supabase = createPublicClient()
   const { data } = await supabase
     .from('jobs')
     .select(JOB_COLUMNS)
@@ -1076,7 +1079,7 @@ export async function similarOpenTuitions(
    *  newest first, live only. 'neighbours' (default): the open page's order. */
   order: 'neighbours' | 'match-first' = 'neighbours',
 ): Promise<JobCardData[]> {
-  const supabase = await createClient()
+  const supabase = createPublicClient()
   const collected = new Map<string, Record<string, unknown>>()
 
   const add = (rows: Record<string, unknown>[] | null | undefined) => {
@@ -1189,7 +1192,7 @@ export async function similarOpenTuitions(
  */
 export async function openJobsByIds(ids: string[], limit = 60): Promise<JobCardData[]> {
   if (ids.length === 0) return []
-  const supabase = await createClient()
+  const supabase = createPublicClient()
   const { data } = await supabase
     .from('jobs')
     .select(JOB_COLUMNS)
@@ -1203,7 +1206,7 @@ export async function openJobsByIds(ids: string[], limit = 60): Promise<JobCardD
 
 /** One job by its human id or uuid, for the detail view. */
 export async function jobByRef(ref: string): Promise<JobCardData | null> {
-  const supabase = await createClient()
+  const supabase = createPublicClient()
   const isUuid = /^[0-9a-f-]{36}$/i.test(ref)
 
   const { data } = await supabase

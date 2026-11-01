@@ -127,6 +127,8 @@ test('the banner, the 30-minute limit, Exit and the logging stay', () => {
   assert.match(lib, /action: 'member\.view_as_start'/)
   assert.match(lib, /action: 'member\.view_as_end'/)
   assert.match(read('components/ViewAsBanner.tsx'), /Viewing as \{name\} — read only/)
-  assert.match(read('components/SiteChrome.tsx'), /await currentViewAs\(\)/)
+  // The banner is drawn in the browser from the header session (push 3).
+  assert.match(read('lib/headerSession.ts'), /currentViewAs\(\)/)
+  assert.match(read('components/SiteChrome.tsx'), /<SessionBanner \/>/)
   assert.match(read('app/api/cron/every-5-min/route.ts'), /await endExpiredViews\(\)/)
 })

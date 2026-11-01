@@ -88,7 +88,7 @@ test('a non-master subject is refused on profile save (and by staff edits)', () 
 
 test('school names are not shown as subjects (card and profile)', () => {
   assert.match(read('lib/browseTutors.ts'), /schoolCats\.has\(m\.category_slug/)
-  assert.match(read('app/(site)/tutor/[slug]/page.tsx'), /if \(s\.subject && !s\.school\)/)
+  assert.match(read('app/(site)/tutor/[slug]/profile.tsx'), /if \(s\.subject && !s\.school\)/)
 })
 
 test('the 4 card buttons are unchanged: labels, colours, actions, order', () => {
@@ -112,7 +112,7 @@ test('the card has no areas, no big roles pill, and fixed-height rows', () => {
   assert.match(card, /<span className="truncate">\{tutor\.full_name\}<\/span>/)
   assert.match(card, /line-clamp-2 min-h-\[2lh\]/)
   // The profile page keeps the full roles chip.
-  assert.match(read('app/(site)/tutor/[slug]/page.tsx'), /<JobTypesChip types=\{tutor\.job_types\}/)
+  assert.match(read('app/(site)/tutor/[slug]/profile.tsx'), /<JobTypesChip types=\{tutor\.job_types\}/)
 })
 
 test('"Pay later" is absent on /pay/choose; Back stays', () => {

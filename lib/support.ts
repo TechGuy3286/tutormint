@@ -13,7 +13,9 @@
 // or an email address in page source, and support contacts are exactly the kind
 // of thing that changes without anyone thinking to open a code editor.
 
-import { createClient } from '@/lib/supabase/server'
+// Cookie-free (push 3, 1 Nov 2026): these are public settings every visitor sees,
+// read the same for a guest and a member, so they never make a page dynamic.
+import { createPublicClient } from '@/lib/supabase/public'
 import {
   SUPPORT_WHATSAPP_FALLBACK,
   SUPPORT_EMAIL_FALLBACK,
@@ -52,7 +54,7 @@ export async function getSupportContact(): Promise<SupportContact> {
   let stored = new Map<string, string | null>()
 
   try {
-    const supabase = await createClient()
+    const supabase = createPublicClient()
     const { data } = await supabase
       .from('app_settings')
       .select('key, value')

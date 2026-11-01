@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { citySegment } from '@/lib/slugs'
 import { pageAll } from '@/lib/pageAll'
 import { revalidateTuitions } from '@/lib/landingRevalidate'
+import { revalidatePublicTuition } from '@/lib/publicRevalidate'
 import { isPauseDue } from '@/lib/tuitionStatus'
 import {
   normalisePrivateKey,
@@ -431,8 +432,10 @@ function runAfter(fn: () => Promise<void>): void {
  * of everything else waiting (owner, 16 Oct 2026).
  */
 export function queueIndexingUpdate(job: { public_slug?: string | null; city?: string | null }, opts: { newPost?: boolean } = {}): void {
-  // Cached tuition reads are cleared on every change (owner, 28 Oct 2026).
+  // Cached tuition reads are cleared on every change (owner, 28 Oct 2026), and
+  // the cached public pages that show it are rebuilt (push 3).
   revalidateTuitions()
+  revalidatePublicTuition(job)
   const url = tuitionUrl(job)
   if (!url) return
   runAfter(() => enqueueAndDrain(url, 'URL_UPDATED', opts.newPost ? PRIORITY_NEW_POST : PRIORITY_CHANGE))
@@ -451,6 +454,7 @@ export function queueIndexingForStatus(job: { public_slug?: string | null; city?
 
 /** Queue a URL_DELETED: the tuition is closed or hired. */
 export function queueIndexingDelete(job: { public_slug?: string | null; city?: string | null }): void {
+  revalidatePublicTuition(job)
   const url = tuitionUrl(job)
   if (!url) return
   runAfter(() => enqueueAndDrain(url, 'URL_DELETED', PRIORITY_CHANGE))

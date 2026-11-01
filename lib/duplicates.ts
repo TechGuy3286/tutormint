@@ -4,11 +4,11 @@
 // service role (jobs is public-read for open rows only; the check needs paused
 // ones too). The RULES are in lib/duplicatesCore.ts.
 
+import { memoize } from '@/lib/memoCache'
 import { pageAll, pageAllIn } from '@/lib/pageAll'
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { unstable_cache } from 'next/cache'
 import { cache } from 'react'
 import { TUITION_REVALIDATE, TUITION_TAG } from '@/lib/cacheTags'
 import { citySegment } from '@/lib/slugs'
@@ -287,5 +287,5 @@ export async function recentRepeats(since: Date): Promise<RepeatPair[]> {
  * in the city. Cached for five minutes per tuition, cleared at once whenever any
  * tuition changes (TUITION_TAG, lib/cacheTags), and read once per request.
  */
-const repeatCached = unstable_cache(repeatOfOlderOpenFresh, ['repeat-of-older-open-v1'], { revalidate: TUITION_REVALIDATE, tags: [TUITION_TAG] })
+const repeatCached = memoize(repeatOfOlderOpenFresh, ['repeat-of-older-open-v1'], { revalidate: TUITION_REVALIDATE, tags: [TUITION_TAG] })
 export const repeatOfOlderOpen = cache((jobId: string): Promise<ExistingTuition | null> => repeatCached(jobId))

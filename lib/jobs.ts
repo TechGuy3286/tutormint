@@ -432,7 +432,7 @@ export async function createJob(
   )
 
   // A new open tuition can open a (city, subject) tuition landing page.
-  revalidateLanding()
+  revalidateLanding({ tutors: false })
   // Google Indexing API (item 3): published. Never blocks; skipped without credentials.
   queueIndexingUpdate({ public_slug: (job.public_slug as string) ?? null, city: input.city }, { newPost: true })
 
@@ -676,7 +676,7 @@ export async function createTeamJob(
   })
 
   await notifyMatchingTutors(job.id as string, (job.public_slug as string) ?? null, input)
-  revalidateLanding()
+  revalidateLanding({ tutors: false })
   queueIndexingUpdate({ public_slug: (job.public_slug as string) ?? null, city: input.city }, { newPost: true })
 
   return {
@@ -858,7 +858,7 @@ export async function updateTeamJob(
     queueIndexingUpdate({ public_slug: (existing.public_slug as string | null) ?? null, city: next.city })
   }
 
-  revalidateLanding()
+  revalidateLanding({ tutors: false })
   return { ok: true, publicSlug: (existing.public_slug as string) ?? null }
 }
 
@@ -1000,7 +1000,7 @@ export async function closeJob(parentId: string, jobId: string): Promise<{ ok: t
 
   // A closed tuition can close its landing pages (drop the count below the
   // threshold), so refresh the landing cache.
-  revalidateLanding()
+  revalidateLanding({ tutors: false })
   // Closed: Google is told the page is gone (URL_DELETED).
   queueIndexingDelete({ public_slug: (job.public_slug as string | null) ?? null, city: (job.city as string | null) ?? null })
 
@@ -1059,7 +1059,7 @@ export async function resumeJob(parentId: string, jobId: string): Promise<{ ok: 
 
   // Resuming can re-open a landing page (push a city×subject count back over the
   // threshold), so refresh the landing cache.
-  revalidateLanding()
+  revalidateLanding({ tutors: false })
   queueIndexingUpdate({ public_slug: (job.public_slug as string | null) ?? null, city: (job.city as string | null) ?? null })
 
   return { ok: true }
@@ -1252,7 +1252,7 @@ export async function hireApplicant(
   })
 
   // Hiring closes the tuition, so it may close a landing page.
-  revalidateLanding()
+  revalidateLanding({ tutors: false })
   queueIndexingDelete({ public_slug: (job.public_slug as string | null) ?? null, city: (job.city as string | null) ?? null })
 
   // Counted only after the hire succeeded — same order as applications.

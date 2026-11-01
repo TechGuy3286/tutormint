@@ -405,7 +405,7 @@ test('BreadcrumbList on every public page type', () => {
   assert.match(crumbs, /\{ label: 'Home', href: '\/' \}/, 'Home is always the first crumb')
   const pages: Record<string, string> = {
     'tuition page': 'app/(site)/tuitions/[city]/[slug]/page.tsx',
-    'tutor profile': 'app/(site)/tutor/[slug]/page.tsx',
+    'tutor profile': 'app/(site)/tutor/[slug]/profile.tsx',
     'city and area hub': 'components/tuitionJobs/CityJobsView.tsx',
     'school hub': 'app/(site)/tuition-jobs/school/[school]/page.tsx',
     'landing hub': 'components/landing/LandingView.tsx',

@@ -101,7 +101,7 @@ test('A. staff, test, paused, banned and paid accounts are not in the number', (
     assert.ok(lib.includes(piece), piece)
   // Since 21 Oct 2026 the Follow-ups list keeps a paid tutor who has not
   // finished; the CARD counts only fee-unpaid sign-ups (lib/overviewItems).
-  assert.ok(lib.includes('feeStamped: !!t.verified_fee_paid_at') && lib.includes('if (!inScope) continue'))
+  assert.ok(lib.includes('feeStamped: !!t.verified_fee_paid_at') && lib.includes('if (inScopes.length === 0) continue'))
   assert.equal(tutorInScope({ joinedAt: new Date().toISOString(), feeStamped: true, feeApproved: true, onboarded: false }, 'recent', Date.now()), true)
   assert.ok(read('lib', 'overviewItems.ts').includes('.filter((r) => !r.feePaid)'), 'a tutor who paid is left out of the number')
   assert.ok(lib.includes(".eq('role', 'tutor')"))

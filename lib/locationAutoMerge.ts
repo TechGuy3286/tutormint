@@ -1,3 +1,4 @@
+import { invalidateMemoTag } from '@/lib/memoCache'
 import 'server-only'
 
 // lib/locationAutoMerge.ts — the automatic merges of the Locations clean-up
@@ -12,7 +13,6 @@ import 'server-only'
 // (location.auto_merge_undo, target = the merge's Audit id), so a merge is
 // undone once.
 
-import { revalidateTag } from 'next/cache'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
@@ -89,7 +89,7 @@ export async function undoAutoMerge(auditId: string, actor: Actor): Promise<{ ok
     targetId: auditId,
     detail: { city: rec.city, value: rec.value, before: rec.intoName, after: rec.kind === 'staff_area' ? `Area added by staff (${rec.value}) restored` : 'Free text', kind: rec.kind },
   })
-  revalidateTag(AREA_ALIAS_TAG, 'max')
+  invalidateMemoTag(AREA_ALIAS_TAG)
   revalidateLanding()
   return { ok: true, line: `“${rec.value}” no longer counts as ${rec.intoName}.` }
 }

@@ -114,7 +114,7 @@ test('no initials fallback is left: nothing renders letters, no tint class', () 
 test('every member avatar goes through the shared component and passes gender where one exists', () => {
   const passes = [
     'components/TutorCard.tsx',
-    'app/(site)/tutor/[slug]/page.tsx',
+    'app/(site)/tutor/[slug]/profile.tsx',
     'components/tutor/TutorHeaderCard.tsx',
     'components/MemberHeader.tsx',
     'components/messages/ConversationList.tsx',
@@ -131,7 +131,8 @@ test('every member avatar goes through the shared component and passes gender wh
   assert.match(read('lib/browseTutors.ts'), /avatar_url, gender, city/)
   assert.match(read('lib/messaging.ts'), /otherGender: genders\.get\(otherId\) \?\? null/)
   assert.match(read('lib/overviewCards.ts'), /gender: \(t\?\.gender as string \| null\) \?\? null/)
-  assert.match(read('components/Navbar.tsx'), /role === 'tutor' \? createClient\(\)\.then\(\(c\) => tutorGender\(c, session\.user\.id\)\)/)
+  // The header's facts are read by /api/session/header since push 3 (lib/headerSession).
+  assert.match(read('lib/headerSession.ts'), /role === 'tutor' \? createClient\(\)\.then\(\(c\) => tutorGender\(c, session\.user\.id\)\)/)
 })
 
 test('the three files: static, greyscale, under 1 KB, head-and-shoulders only', () => {
@@ -148,7 +149,7 @@ test('the three files: static, greyscale, under 1 KB, head-and-shoulders only', 
 })
 
 test('the default is never an og:image or structured-data image', () => {
-  for (const p of ['lib/seo.ts', 'app/(site)/tutor/[slug]/page.tsx', 'app/(site)/tuitions/[city]/[slug]/page.tsx', 'app/(site)/parent/[id]/page.tsx']) {
+  for (const p of ['lib/seo.ts', 'app/(site)/tutor/[slug]/profile.tsx', 'app/(site)/tuitions/[city]/[slug]/page.tsx', 'app/(site)/parent/[id]/page.tsx']) {
     const s = read(p)
     assert.doesNotMatch(s, /\/avatars\/|defaultAvatarSrc|DEFAULT_AVATAR_FILES/, `${p} never names a default avatar file`)
   }

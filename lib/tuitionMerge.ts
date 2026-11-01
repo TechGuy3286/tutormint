@@ -66,7 +66,7 @@ export async function mergeTuition(repeatId: string, survivorId: string, actor: 
 
   queueIndexingDelete({ public_slug: repeat.public_slug as string | null, city: repeat.city as string | null })
   queueIndexingUpdate({ public_slug: survivor.public_slug as string | null, city: survivor.city as string | null })
-  revalidateLanding()
+  revalidateLanding({ tutors: false })
 
   await logAdminAction({
     actorId: actor.id,
@@ -121,7 +121,7 @@ export async function refreshTuition(jobId: string, actor: Actor, parentId: stri
     .eq('id', jobId)
   if (error) return { ok: false, status: 500, error: error.message }
   queueIndexingUpdate({ public_slug: job.public_slug as string | null, city: job.city as string | null })
-  revalidateLanding()
+  revalidateLanding({ tutors: false })
   if (actor.kind === 'admin') {
     await logAdminAction({
       actorId: actor.id,

@@ -131,7 +131,7 @@ test('B: no pre-filled builder uses wa.me any more (only fixed English member li
     'lib/docLockCore.ts',
     'lib/errorMessages.ts',
     'lib/payments/receiptCore.ts',
-    'app/(site)/tutor/[slug]/page.tsx',
+    'app/(site)/tutor/[slug]/profile.tsx',
   ])
   const files = [
     'lib/adminWhatsAppCore.ts',

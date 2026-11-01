@@ -1,6 +1,9 @@
 import { cache } from 'react'
 
 import { createClient } from '@/lib/supabase/server'
+// Public data (jobs, subjects, the directory, rank_tutors) is read with the
+// cookie-free client (push 3, 1 Nov 2026), so cached public pages stay cached.
+import { createPublicClient } from '@/lib/supabase/public'
 import { encodeCursor, decodeCursor } from '@/lib/cursor'
 import { getLandingLinker } from '@/lib/landing'
 import { reconcileSubjectQuery, resolveSmartQuery } from '@/lib/smartSearch'
@@ -93,7 +96,7 @@ export function tutorFiltersToParams(f: TutorFilters): Record<string, string> {
  */
 export async function listedTutorsInCity(city: string | null): Promise<number> {
   if (!city) return 0
-  const supabase = await createClient()
+  const supabase = createPublicClient()
   const { count } = await supabase
     .from('tutor_directory')
     .select('id', { count: 'exact', head: true })
@@ -138,7 +141,7 @@ export const rankedTutors = (args: RankArgs): Promise<RankResult> => rankedTutor
 
 const rankedTutorsCached = cache(async (key: string): Promise<RankResult> => {
   const { filters, limit, offset = 0, cursor = null } = JSON.parse(key) as RankArgs
-  const supabase = await createClient()
+  const supabase = createPublicClient()
   const after = decodeCursor<TutorCursor>(cursor)
 
   // A free-text query with no explicit subject resolves to subject master(s) —
@@ -334,7 +337,7 @@ export function cursorFor(row: RankedTutor): string {
  * public; a missing service key just means no badge, never a broken card.
  */
 export async function tutorCardBySlug(slug: string): Promise<TutorCardData | null> {
-  const supabase = await createClient()
+  const supabase = createPublicClient()
   const { data } = await supabase
     .from('tutor_directory')
     .select(
@@ -398,7 +401,7 @@ export async function tutorCardBySlug(slug: string): Promise<TutorCardData | nul
  */
 export async function tutorCardsByIds(ids: string[]): Promise<TutorCardData[]> {
   if (ids.length === 0) return []
-  const supabase = await createClient()
+  const supabase = createPublicClient()
   const { data } = await supabase
     .from('tutor_directory')
     .select(

@@ -1,3 +1,4 @@
+import { memoize } from '@/lib/memoCache'
 import 'server-only'
 
 // lib/tutorFacets.ts
@@ -10,7 +11,6 @@ import 'server-only'
 // cached for five minutes; it is cleared with the landing cache whenever a
 // tutor is listed or unlisted.
 
-import { unstable_cache } from 'next/cache'
 
 import { createPublicClient } from '@/lib/supabase/public'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -57,11 +57,11 @@ export async function loadTutorIndexFresh(): Promise<IndexedTutor[]> {
   }))
 }
 
-const cachedIndex = unstable_cache(loadTutorIndexFresh, ['tutor-filter-index-v1'], { revalidate: 300, tags: [LANDING_TAG] })
+const cachedIndex = memoize(loadTutorIndexFresh, ['tutor-filter-index-v1'], { revalidate: 300, tags: [LANDING_TAG] })
 
 type Tax = { rows: TaxRow[]; categories: string[]; levels: Record<string, string[]> }
 
-const cachedTax = unstable_cache(
+const cachedTax = memoize(
   async (): Promise<Tax> => {
     const tables = await fetchTaxonomyTables(createPublicClient())
     if (!tables) return { rows: [], categories: [], levels: {} }

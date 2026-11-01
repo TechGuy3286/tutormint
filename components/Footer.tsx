@@ -19,9 +19,8 @@
 //   * A link in both the Tutors and Parents sections (Sign Up, Login) appears
 //     ONCE on mobile — deduped by href across the sections.
 //
-// signedIn comes from getSessionUser(), which is React-cache()d and already
-// called by the Navbar in the same render, so this adds no auth round trip and
-// no new dynamic cost the Navbar has not already paid.
+// Whether someone is signed in is decided in the browser (GuestOnly, push 3,
+// 1 Nov 2026): the footer reads no cookie, so the pages it sits on can be cached.
 //
 // Nothing is hardcoded: the support email, WhatsApp number and five social
 // profiles are environment-configured, and a channel with nothing set is not
@@ -37,7 +36,7 @@ import { SITE_LOGO_DARK_PATH } from '@/lib/siteIdentity'
 import { ChevronDown } from 'lucide-react'
 import FooterTagline from '@/components/FooterTagline'
 import { supportContactFromEnv, formatSupportWhatsApp, whatsappHref } from '@/lib/support'
-import { getSessionUser } from '@/lib/auth'
+import { GuestOnly } from '@/components/session/SessionChromeBits'
 
 type SocialLink = {
   name: string
@@ -50,7 +49,7 @@ type SocialLink = {
   rel?: string
 }
 /** `hideOnHome`: the homepage lists these itself, so the footer leaves them out there. */
-type FooterLink = { label: string; href: string; hideOnHome?: boolean }
+type FooterLink = { label: string; href: string; hideOnHome?: boolean; guestOnly?: boolean }
 type LinkColumn = { heading: string; links: FooterLink[] }
 
 /**
@@ -86,12 +85,13 @@ function socialLinks(supportWhatsapp: string | null): SocialLink[] {
   return links
 }
 
-/** The two link columns whose auth links are hidden once signed in. `cityLinks`
+/** The two link columns whose auth links are hidden once signed in (in the
+ *  browser, GuestOnly — push 3, so the footer reads no cookie). `cityLinks`
  *  are the "Tuition jobs in [City]" pages at 3+ open tuitions (owner, 6 Oct 2026). */
-function linkColumns(signedIn: boolean, cityLinks: FooterLink[] = []): LinkColumn[] {
-  const auth: FooterLink[] = signedIn ? [] : [
-    { label: 'Sign Up', href: '/register' },
-    { label: 'Login', href: '/login' },
+function linkColumns(cityLinks: FooterLink[] = []): LinkColumn[] {
+  const auth: FooterLink[] = [
+    { label: 'Sign Up', href: '/register', guestOnly: true },
+    { label: 'Login', href: '/login', guestOnly: true },
   ]
   return [
     {
@@ -132,7 +132,6 @@ function linkColumns(signedIn: boolean, cityLinks: FooterLink[] = []): LinkColum
 export default async function Footer() {
   const support = supportContactFromEnv()
   const socials = socialLinks(support.whatsapp)
-  const signedIn = !!(await getSessionUser())
   // The city tuition-jobs pages (live, 3+ open tuitions) — up to five in the
   // tutors column so they are never orphans. A read error leaves them out.
   let cityLinks: FooterLink[] = []
@@ -147,7 +146,7 @@ export default async function Footer() {
   } catch {
     cityLinks = []
   }
-  const columns = linkColumns(signedIn, cityLinks)
+  const columns = linkColumns(cityLinks)
   const year = new Date().getFullYear()
 
   return (
@@ -332,7 +331,8 @@ function MobileSections({ columns }: { columns: LinkColumn[] }) {
               </Link>
             </li>
           )
-          return l.hideOnHome ? <HideOnHome key={l.href + l.label}>{item}</HideOnHome> : item
+          const shown = l.guestOnly ? <GuestOnly key={l.href + l.label}>{item}</GuestOnly> : item
+          return l.hideOnHome ? <HideOnHome key={l.href + l.label}>{shown}</HideOnHome> : shown
         })}
             </ul>
           </details>
@@ -411,7 +411,8 @@ function FooterColumn({ heading, links }: { heading: string; links: FooterLink[]
               </Link>
             </li>
           )
-          return l.hideOnHome ? <HideOnHome key={l.href + l.label}>{item}</HideOnHome> : item
+          const shown = l.guestOnly ? <GuestOnly key={l.href + l.label}>{item}</GuestOnly> : item
+          return l.hideOnHome ? <HideOnHome key={l.href + l.label}>{shown}</HideOnHome> : shown
         })}
       </ul>
     </div>

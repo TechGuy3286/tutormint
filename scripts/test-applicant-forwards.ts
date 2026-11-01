@@ -297,7 +297,7 @@ test('the uploaded photo file is never changed, and the saved rotation reaches e
   // Applied everywhere: every surface reads avatar_url, which now names the turned copy.
   assert.match(save, /\.from\('profiles'\)\.update\(\{ avatar_url: newUrl \}\)/)
   for (const reader of ['components/Avatar.tsx', 'lib/seo.ts']) assert.ok(read(reader).length > 0)
-  assert.match(read('app/(site)/tutor/[slug]/page.tsx'), /avatar_url/)
+  assert.match(read('app/(site)/tutor/[slug]/profile.tsx'), /avatar_url/)
   // Same access as documents; the Partner is refused (a POST behind checkAdminRole).
   const route = code('app/api/admin/profile-photo/rotate/route.ts')
   assert.match(route, /export async function POST/)

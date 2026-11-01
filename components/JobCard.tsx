@@ -27,6 +27,7 @@ import type { BadgeName } from '@/lib/planBadges'
 import { placeLabel } from '@/lib/place'
 import ApplyReasonLine from '@/components/ApplyReasonLine'
 import type { ApplyBlock } from '@/lib/applyBlock'
+import { useViewerJobs } from '@/components/viewer/ViewerJobsProvider'
 
 // A posted tuition, in the same card language as TutorCard.
 //
@@ -143,7 +144,35 @@ export type JobCardData = {
   postal_code?: string | null
 }
 
-export default function JobCard({
+/**
+ * The job card. On a cached public page (push 3, owner 1 Nov 2026) it is first
+ * rendered as a guest sees it; inside a ViewerJobsProvider, once the visitor is
+ * known to be signed in, it is drawn again with their state — Apply state, saved
+ * heart (when the page offers saving), the online chip (when the provider
+ * says so), and no Apply for a parent. Props a page passes itself
+ * (Browse, the dashboards) always win.
+ */
+export default function JobCard(props: React.ComponentProps<typeof JobCardInner>) {
+  const { payload: v, chip, save, hideGender } = useViewerJobs()
+  if (!v || !v.signedIn) return <JobCardInner key="guest" {...props} />
+  const id = props.job.id
+  if (hideGender && v.isTutor && v.genderBlocked?.includes(id)) return null
+  return (
+    <JobCardInner
+      key="viewer"
+      {...props}
+      signedIn
+      showApply={!!props.showApply && v.isTutor}
+      applyBlock={props.applyBlock ?? v.blocks[id] ?? null}
+      viewerCities={props.viewerCities ?? (chip && v.isTutor && v.cities.length ? v.cities : null)}
+      viewerJobTypes={props.viewerJobTypes ?? (chip && v.isTutor && v.jobTypes.length ? v.jobTypes : null)}
+      saveable={!!props.saveable || (save && v.isTutor)}
+      initiallySaved={!!props.initiallySaved || v.saved.includes(id)}
+    />
+  )
+}
+
+function JobCardInner({
   job,
   href,
   signedIn = false,

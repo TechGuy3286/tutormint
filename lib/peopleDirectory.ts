@@ -11,6 +11,7 @@
 // decide staff links and possible duplicates; nothing here is logged.
 
 import 'server-only'
+import { runMemo } from '@/lib/runMemo'
 
 import { cache } from 'react'
 
@@ -95,7 +96,9 @@ async function lastActiveFor(admin: NonNullable<ReturnType<typeof createAdminCli
 
 /** Every member account with its facts, and the staff list. One read per
  *  request (React cache). */
-export const loadDirectory = cache(async (): Promise<Directory> => {
+export const loadDirectory = cache((): Promise<Directory> => runMemo('directory', loadDirectoryFresh))
+
+async function loadDirectoryFresh(): Promise<Directory> {
   const admin = createAdminClient()
   if (!admin) return { people: [], staff: [] }
 
@@ -245,7 +248,7 @@ export const loadDirectory = cache(async (): Promise<Directory> => {
     .sort((a, b) => a.name.localeCompare(b.name))
 
   return { people, staff }
-})
+}
 
 /** The duplicate tags for a set of people (the ones the view shows). */
 export const loadDuplicateFacts = cache(async (): Promise<Map<string, { phones: string[]; cnic: string | null; linkedId: string | null }>> => {
@@ -286,10 +289,12 @@ export async function directoryCounts(): Promise<{ tutors: number; parents: numb
 }
 
 /** Every tutor's Documents status, for the default Tutors tab (one batch). */
-export const loadDirectoryDocs = cache(async (): Promise<Map<string, CardDocs>> => {
+export const loadDirectoryDocs = cache((): Promise<Map<string, CardDocs>> => runMemo('directory-docs', loadDirectoryDocsFresh))
+
+async function loadDirectoryDocsFresh(): Promise<Map<string, CardDocs>> {
   const d = await loadDirectory()
   return loadTutorDocSummaries(inTab(d.people, 'tutor', true).map((p) => p.id))
-})
+}
 
 /** The People sidebar badge: documents waiting for the Owner — tutors in the
  *  Tutors tab's "Waiting" chip plus parents in "Waiting for review". */

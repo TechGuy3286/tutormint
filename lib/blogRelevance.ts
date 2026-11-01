@@ -1,6 +1,6 @@
+import { memoize } from '@/lib/memoCache'
 import 'server-only'
 
-import { unstable_cache } from 'next/cache'
 
 import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { createPublicClient } from '@/lib/supabase/public'
@@ -40,7 +40,7 @@ export type LandingItem = {
  * the narrower half of a near-duplicate pair — the same two conditions the page
  * uses for its own robots tag. Cached with the landing set.
  */
-export const indexableLandingItems = unstable_cache(
+export const indexableLandingItems = memoize(
   async (): Promise<LandingItem[]> => {
     const [pages, overlap] = await Promise.all([
       liveLandingPages(),
@@ -92,7 +92,7 @@ export async function mastersForTopic(topic: PostTopic): Promise<{ both: number[
  * The indexable tutors (the sitemap's own list) with their city and what they
  * teach — what "may the writer name this tutor?" is decided on.
  */
-export const indexableTutorsForPosts = unstable_cache(
+export const indexableTutorsForPosts = memoize(
   async (): Promise<(TutorForPost & { name: string })[]> => {
     const db = createPublicClient()
     const rows = await pageAll((from, to) => db.rpc('listed_tutor_slugs').order('slug').range(from, to))

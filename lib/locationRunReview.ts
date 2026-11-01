@@ -1,3 +1,4 @@
+import { invalidateMemoTag } from '@/lib/memoCache'
 import 'server-only'
 
 // lib/locationRunReview.ts
@@ -23,7 +24,6 @@ import 'server-only'
 // A merged area's old hub address moves on with a 301 — its name is saved as a
 // spelling of the area it joined, which proxy.ts → lib/areaHubRedirect reads.
 
-import { revalidateTag } from 'next/cache'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { pageAll } from '@/lib/pageAll'
@@ -519,7 +519,7 @@ export async function applyRunActions(actions: RunAction[], actor: Actor): Promi
       out.push({ kind: a.kind, id: a.id, ok: false, message: 'That did not save. Please try again.' })
     }
   }
-  revalidateTag(AREA_ALIAS_TAG, 'max')
+  invalidateMemoTag(AREA_ALIAS_TAG)
   revalidateLanding()
   return out
 }

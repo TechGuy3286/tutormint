@@ -15,10 +15,13 @@ import { pageTitle, pageDescription, socialMeta, seoTitle, seoDescription } from
 // liveLandingPagesUncached), so the page and the sitemap can never disagree.
 // Only a combination with no listing at all is a 404.
 //
-// DYNAMIC: the route reads through the cookie-scoped ranking query (and
-// rank_tutors rotates daily on purpose). See lib/landing.ts.
-
-export const dynamic = 'force-dynamic'
+// Cached for everyone (push 3, owner 1 Nov 2026): it renders as a guest sees
+// it, is rebuilt when a listing that can change it changes (revalidateLanding)
+// and at most every 10 minutes (rank_tutors rotates daily on purpose).
+export const revalidate = 600
+export async function generateStaticParams() {
+  return []
+}
 
 type Params = Promise<{ city: string; subject: string }>
 

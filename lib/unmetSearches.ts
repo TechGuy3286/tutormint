@@ -10,9 +10,9 @@
 //   • Mark done — a row in search_unmet_done (who, when, an optional note).
 // Nothing is deleted.
 
+import { invalidateMemoTag } from '@/lib/memoCache'
 import 'server-only'
 
-import { revalidateTag } from 'next/cache'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
@@ -129,7 +129,7 @@ export async function addSearchWord(input: { query: string; word: string; kind: 
       targetId: target.slug,
       detail: { changed: [{ [target.kind]: target.name, added: [word], removed: [] }], from: 'unmet_searches', search: input.query.slice(0, 200) },
     })
-    revalidateTag(SMART_SEARCH_TAG, 'max')
+    invalidateMemoTag(SMART_SEARCH_TAG)
   }
   return { ok: true, word, target: target.name, now: await rerunSearch(input.query) }
 }
@@ -241,7 +241,7 @@ export async function addSubjectFromSearch(
     detail: { search: input.query.slice(0, 200), before: existed ? `${name} (not at ${level.name as string})` : null, after: `${name} at ${level.name as string}` },
   })
   try {
-    revalidateTag(SMART_SEARCH_TAG, 'max')
+    invalidateMemoTag(SMART_SEARCH_TAG)
   } catch {
     /* not in a request scope */
   }

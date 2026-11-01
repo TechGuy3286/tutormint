@@ -14,6 +14,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { markSummaryDirty } from '@/lib/summaryDirty'
+import { DIRTY_IGNORED_EVENTS } from '@/lib/adminSummaryCore'
 
 export type ActivityEvent =
   | 'registered'
@@ -148,6 +149,12 @@ export async function logActivity(params: {
   if (error) console.error('[activity] failed to record', params.event, error.message)
   // Admin badges, the Overview and the admin lists are pre-calculated (lib/adminSummary).
   await markSummaryDirty(params.event)
+  // A member's own change rebuilds their cached profile page (push 3, owner
+  // 1 Nov 2026); sign-ins, searches, messages and views change nothing on it.
+  if (!DIRTY_IGNORED_EVENTS.has(params.event)) {
+    const { revalidateTutorProfile } = await import('@/lib/publicRevalidate')
+    await revalidateTutorProfile(params.userId)
+  }
 }
 
 /**

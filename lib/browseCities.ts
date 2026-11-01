@@ -6,9 +6,9 @@
 // sign-up forms. Cached for ten minutes; public data only (open tuitions are
 // world-readable, tutor_directory is the public listing view).
 
+import { memoize } from '@/lib/memoCache'
 import 'server-only'
 
-import { unstable_cache } from 'next/cache'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { pageAll } from '@/lib/pageAll'
@@ -28,4 +28,4 @@ async function activeCities(): Promise<string[]> {
   return [...seen.values()]
 }
 
-export const browseCitiesCached = unstable_cache(activeCities, ['browse-active-cities'], { revalidate: 600 })
+export const browseCitiesCached = memoize(activeCities, ['browse-active-cities'], { revalidate: 600 })

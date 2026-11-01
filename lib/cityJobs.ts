@@ -6,9 +6,9 @@
 //
 // Server-only. Anon may read open jobs, so the public client is enough.
 
+import { memoize } from '@/lib/memoCache'
 import 'server-only'
 
-import { unstable_cache } from 'next/cache'
 import { createPublicClient } from '@/lib/supabase/public'
 import { LANDING_TAG } from '@/lib/landing'
 import { citySegment, cityFromSegment } from '@/lib/slugs'
@@ -70,10 +70,10 @@ export async function curatedAreasByCity(): Promise<Map<string, string[]>> {
 }
 
 // Locations changes rarely: ten minutes, cleared with the landing cache.
-const curatedCached = unstable_cache(
+const curatedCached = memoize(
   async (): Promise<[string, string[]][]> => [...(await curatedAreasByCity()).entries()],
   ['curated-areas-by-city'],
-  { revalidate: 600, tags: [LANDING_TAG] },
+  { revalidate: 120, tags: [LANDING_TAG] },
 )
 
 async function curatedMap(): Promise<Map<string, string[]>> {
@@ -126,17 +126,17 @@ export async function indexableCityPages(): Promise<CityPage[]> {
  * landing cache when a tuition opens or closes. A page's own index/noindex and
  * the sitemap read the live list above, never this.
  */
-export const indexableCityPagesCached = unstable_cache(
+export const indexableCityPagesCached = memoize(
   async (): Promise<CityPage[]> => indexableCityPages(),
   ['city-job-hubs'],
-  { revalidate: 600, tags: [LANDING_TAG] },
+  { revalidate: 120, tags: [LANDING_TAG] },
 )
 
 /** Every city page with its variants, cached ten minutes and cleared with the
  *  landing cache (a merge clears it at once). For search filters only — a
  *  page's own index/noindex and the sitemap read the live list. */
-const cityPagesCached = unstable_cache(async (): Promise<CityPage[]> => cityPages(), ['city-job-pages-all'], {
-  revalidate: 600,
+const cityPagesCached = memoize(async (): Promise<CityPage[]> => cityPages(), ['city-job-pages-all'], {
+  revalidate: 120,
   tags: [LANDING_TAG],
 })
 

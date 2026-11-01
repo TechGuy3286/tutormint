@@ -209,7 +209,9 @@ test('switch: the reveal, earlier reveals and the reveal status all check consen
   const page = read('app/(site)/tuitions/[city]/[slug]/page.tsx')
   assert.doesNotMatch(page, /job\.contactHidden && \(/, 'no hidden-contact line is drawn (hotfix)')
   assert.match(page, /!job\.contactHidden && job\.contactTeaser/)
-  assert.match(page, /!job\.contactHidden && <ContactReveal/)
+  // The tutor's reveal is a browser island since push 3 (components/viewer/TuitionViewer).
+  assert.match(page, /!job\.contactHidden && <TutorContactReveal/)
+  assert.match(page, /showContact=\{state\.showContact && !job\.contactHidden\}/)
   assert.match(read('lib/tuitionConsent.ts'), /action: 'settings\.hide_unconsented_numbers'/)
 })
 

@@ -109,7 +109,7 @@ test('the version key changes with subjects, city or headline — and only with 
 })
 
 test('every image URL carries the key and the routes check it', () => {
-  assert.match(read('app/(site)/tutor/[slug]/page.tsx'), /imageVersionKey\(ogFacts, ogDrawFacts\(ogFacts\.verified\)\)/)
+  assert.match(read('app/(site)/tutor/[slug]/profile.tsx'), /imageVersionKey\(ogFacts, ogDrawFacts\(ogFacts\.verified\)\)/)
   assert.match(read('app/og/tutor/[slug]/route.tsx'), /imageCacheControl\(new URL\(request\.url\)\.searchParams\.get\('v'\), live, 'public'\)/)
   assert.match(read('app/api/admin/social/image/route.tsx'), /imageCacheControl\(url\.searchParams\.get\('k'\), live, 'private'\)/)
   assert.match(read('app/admin/social/SocialClient.tsx'), /p\.set\('k', imageVersionKey\(tutor\.imageFacts, \{ template, format, variant, crop \}\)\)/)

@@ -79,7 +79,9 @@ test('rebuild: when nothing was built, when 10 minutes old, when something chang
   assert.equal(needsRebuild({ builtAt: null, startedAt: null, dirtyAt: null }, T0), true)
   const fresh = { builtAt: iso(T0 - 60_000), startedAt: iso(T0 - 90_000), dirtyAt: null }
   assert.equal(needsRebuild(fresh, T0), false)
-  assert.equal(needsRebuild({ ...fresh, dirtyAt: iso(T0 - 30_000) }, T0), true)
+  // Push 3: a change waits until the last build is 3 minutes old.
+  assert.equal(needsRebuild({ ...fresh, dirtyAt: iso(T0 - 30_000) }, T0), false)
+  assert.equal(needsRebuild({ builtAt: iso(T0 - 3 * 60_000), startedAt: iso(T0 - 4 * 60_000), dirtyAt: iso(T0 - 30_000) }, T0), true)
   assert.equal(needsRebuild({ ...fresh, dirtyAt: iso(T0 - 70_000) }, T0), false, 'a change before the build is already in it')
   assert.equal(needsRebuild({ ...fresh, builtAt: iso(T0 - SUMMARY_MAX_AGE_MS), startedAt: iso(T0 - SUMMARY_MAX_AGE_MS - 60_000) }, T0), true)
   assert.equal(needsRebuild(fresh, T0, true), true, 'Refresh forces it')

@@ -8,16 +8,23 @@ import { indexableSchoolHubsCached } from '@/lib/schoolJobs'
 import { schoolHubPath } from '@/lib/schoolJobsCore'
 import { cityFromSegment, slugify } from '@/lib/slugs'
 import { seoTitle, socialMeta } from '@/lib/seo'
+import { renderVariantPage } from './render'
 import { femalePageTitle } from '@/lib/femaleJobsCore'
 
 // /tuition-jobs/[city]/[variant] — female / online / an area (owner, 6 Oct 2026,
 // item 6). Same rules as the city page: indexable from 3 open tuitions, noindex
 // follow below, 404 only when the variant has no open tuition at all.
 
-export const dynamic = 'force-dynamic'
+// Cached for everyone (push 3, owner 1 Nov 2026): rebuilt when one of its
+// tuitions changes (revalidatePath via lib/publicRevalidate) and at most every
+// 10 minutes. ?page= is sent to the twin under /qs by proxy.ts, so this page
+// never reads the query.
+export const revalidate = 600
+export async function generateStaticParams() {
+  return []
+}
 
 type Params = Promise<{ city: string; variant: string }>
-type Search = Promise<{ page?: string }>
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { city, variant } = await params
@@ -39,28 +46,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   }
 }
 
-export default async function CityVariantPage({ params, searchParams }: { params: Params; searchParams: Search }) {
-  const [{ city, variant }, sp] = await Promise.all([params, searchParams])
-  const page = await cityPageBySlug(city)
-  const v = page?.variants.find((x) => x.slug === variant) ?? null
-  if (!v) {
-    // Not a hub of this city (owner, 13 Oct 2026). An address a tuition's saved
-    // area once made — a school's name, a street address, an area that is not in
-    // Locations — is sent on, permanently: to the school's hub when it has one,
-    // else to the city hub. (A merged AREA is a 301 in proxy.ts before this
-    // runs.) An address nothing ever made is a real 404.
-    const cityName = page?.city ?? cityFromSegment(city)
-    const retired = cityName ? await retiredAreaValue(cityName, variant) : null
-    if (!retired) notFound()
-    if (retired.school) {
-      const slug = slugify(retired.school)
-      const hubs = await indexableSchoolHubsCached().catch(() => [])
-      if (hubs.some((h) => h.slug === slug)) permanentRedirect(schoolHubPath(slug))
-    }
-    // Any curated-area hub is kept even when it has no open tuition today.
-    permanentRedirect(page ? cityPagePath(page.citySlug) : '/browse/tuitions')
-  }
-  if (!page) notFound()
-  const n = Math.max(1, Math.floor(Number(sp.page) || 1))
-  return <CityJobsView page={page} variant={v} pageNo={n} />
+export default async function CityVariantPage({ params }: { params: Params }) {
+  const { city, variant } = await params
+  return renderVariantPage(city, variant, 1)
 }
