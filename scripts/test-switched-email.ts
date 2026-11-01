@@ -78,14 +78,10 @@ test('a dry run sends nothing and writes nothing', () => {
   // loadFacts (the only code before it) reads only.
   const before = lib.slice(0, dry)
   assert.ok(!/\.(insert|update|upsert|delete)\(/.test(before))
-  // The script must be told which: exactly one of --dry-run / --send.
-  const script = read('scripts', 'send-switched-tutor-email.ts')
-  assert.ok(script.includes("if (dryRun === send) throw new Error('Pass exactly one of --dry-run or --send.')"))
-  assert.ok(script.includes('body: JSON.stringify({ dryRun })'))
-  // The route needs CRON_SECRET and answers with counts only.
-  const route = read('app', 'api', 'internal', 'switched-tutor-email', 'route.ts')
-  assert.ok(route.includes('if (!cronAuthorised(request)) return NextResponse.json'))
-  assert.ok(!/email:|full_name/.test(route))
+  // The one-time send is done; its script and internal route were retired
+  // (owner, 31 Oct 2026). The one_off_emails rows that recorded it are kept.
+  assert.throws(() => read('scripts', 'send-switched-tutor-email.ts'))
+  assert.throws(() => read('app', 'api', 'internal', 'switched-tutor-email', 'route.ts'))
 })
 
 test('the email: the owner’s subject, plain and short, no price, sign-in link and support number', () => {

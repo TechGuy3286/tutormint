@@ -134,8 +134,7 @@ async function notifyUrl(url: string, type: 'URL_UPDATED' | 'URL_DELETED'): Prom
     const auth = new google.auth.JWT({ email: creds.email, key: creds.key, scopes: [SCOPE] })
     const indexing = google.indexing({ version: 'v3', auth })
     await indexing.urlNotifications.publish({ requestBody: { url, type } })
-    // (credentials() is non-null here, so this is never the "skipped" log line.)
-    console.info(`[indexing] ${type} accepted for ${url}`)
+    // Accepted notices are recorded on indexing_queue / indexing_attempts; no log line.
     return { ok: true, url }
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e)

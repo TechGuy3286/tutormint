@@ -86,7 +86,7 @@ test('every subject save route checks the limit before it writes; other saves ar
   assert.ok(edit.indexOf('subjectLimitRefusal(admin, ids, oldIds)') < edit.indexOf("from('tutor_subjects').delete()"))
   const onb = readFileSync('app/api/tutor/onboarding/route.ts', 'utf8')
   assert.ok(onb.indexOf('subjectLimitRefusal(') > 0 && onb.indexOf('subjectLimitRefusal(') < onb.indexOf("from('tutor_subjects').delete()"))
-  for (const f of ['components/tutor/NewOnboardingFlow.tsx', 'components/tutor/SubjectLevelEditor.tsx', 'components/tutor/CompleteProfileFlow.tsx', 'app/admin/tutors/[id]/TutorFieldEditor.tsx']) {
+  for (const f of ['components/tutor/NewOnboardingFlow.tsx', 'components/tutor/SubjectLevelEditor.tsx', 'components/tutor/CompleteProfileFlow.tsx', 'app/admin/users/[id]/edit/TutorFieldEditor.tsx']) {
     assert.ok(readFileSync(f, 'utf8').includes('SubjectLimitNote'), `${f} shows the counter`)
   }
 })

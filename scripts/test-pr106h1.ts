@@ -46,9 +46,9 @@ test('the payment-alert setting is OWNER-only', () => {
   assert.match(route, /checkAdminRole\(\.\.\.SCREEN_ACCESS\.paymentsSwitches\)/, 'owner-only screen (paymentsSwitches = [])')
   assert.match(route, /requireFreshAuth/, 'fresh password required')
   assert.match(route, /detail: \{ count: list\.length \}/, 'audit logs the count, not the addresses')
-  // Moved with the bank details to the owner-only Payment gateways page (11 Oct 2026).
-  const page = read('app/admin/payments/settings/gateways/page.tsx')
-  assert.match(page, /requireAdminRole\(\.\.\.SCREEN_ACCESS\.paymentGateways\)/, 'an owner-only page')
+  // Bank details live on the one owner-only Payments → Settings page (owner, 31 Oct 2026).
+  const page = read('app/admin/payments/settings/page.tsx')
+  assert.match(page, /requireAdminRole\(\.\.\.SCREEN_ACCESS\.paymentsSwitches\)/, 'an owner-only page')
   // The alert-address form is gone (owner, 27 Oct 2026): alert emails are set in
   // the owner-only Notification settings, and go to the Owner account only.
   assert.ok(page.includes('/admin/settings/notifications'), 'points at Notification settings')
@@ -98,7 +98,9 @@ test('reject requires a reason and sends email + in-app + WhatsApp with NO CNIC 
   // of it reaches the message.)
   const wa = ui.slice(ui.indexOf('const whatsappHref = (() => {'), ui.indexOf('})()', ui.indexOf('const whatsappHref = (() => {')))
   assert.ok(wa.length > 0 && !/cnic_number|cnicNumber|Masked/.test(wa), 'no CNIC number in the WhatsApp message')
-  assert.match(read('app/admin/tutors/[id]/page.tsx'), /cnicNumberMasked=\{maskCnicHeavy\(/, 'the card only ever gets the heavily masked number')
+  // The tutor record page became the member page's Edit tab (owner, 31 Oct 2026).
+  assert.match(read('app/admin/users/[id]/page.tsx'), /cnicNumberMasked: maskCnicHeavy\(/, 'the card only ever gets the heavily masked number')
+  assert.match(read('app/admin/users/[id]/edit/page.tsx'), /cnicNumberMasked=\{maskCnicHeavy\(/, 'the Edit tab too')
   assert.match(ui, /<RejectReasonPicker/, 'reason picker: quick reasons')
   assert.match(read('components/admin/RejectReasonPicker.tsx'), /<textarea/, 'reason picker: optional free text')
 })
@@ -128,6 +130,5 @@ test('View as tutor is owner-only, read-only and audited', () => {
   // read-only by construction: service-role READ for display, no mutation control
   assert.match(page, /no control that writes/, 'documents the read-only guarantee')
   assert.ok(!/method: 'POST'|<form|adminFetch|onSubmit/.test(page), 'the page has no write path')
-  const tutorPage = read('app/admin/tutors/[id]/page.tsx')
-  assert.match(tutorPage, /isOwner && \(\s*\n?\s*<Link\s+href=\{`\/admin\/view-as\/\$\{id\}`\}/, 'owner-only button on the member page')
+  assert.match(read('app/admin/users/[id]/page.tsx'), /<ViewAsButton memberId=\{id\} \/>/, 'the View as button on the member page')
 })

@@ -38,6 +38,7 @@ export type AdminScreen =
   | 'emailUsage'
   | 'contactWithdraw'
   | 'emailHealth'
+  | 'messaging'
   | 'finance'
   | 'revenue'
   | 'paymentAmounts'
@@ -104,7 +105,6 @@ export const NAV_GROUPS: NavGroup[] = [
       // and Abandoned signups (tabs Tutors | Parents & email not confirmed |
       // Orphaned accounts). Tuitions staff see the Tutors tab only.
       { href: '/admin/follow-ups', label: 'Follow-ups', icon: 'phone', screen: 'unpaidSignups' },
-      { href: '/admin/users/featured-whatsapp', label: 'Featured WhatsApp', icon: 'messageCircle', screen: 'featuredWhatsapp' },
       { href: '/admin/team', label: 'Team', icon: 'key', screen: 'team' },
     ],
   },
@@ -145,13 +145,12 @@ export const NAV_GROUPS: NavGroup[] = [
       // Owner only, plus the view-only Partner (owner, 8 Oct 2026, item 4).
       // Settlement check is a tab of it (owner, 15 Oct 2026).
       { href: '/admin/finance', label: 'Finance', icon: 'scale', screen: 'finance' },
-      { href: '/admin/payments/settings', label: 'Settings', icon: 'listChecks', screen: 'paymentsSwitches' },
-      { href: '/admin/payments/settings/gateways', label: 'Payment gateways', icon: 'card', screen: 'paymentGateways' },
+      // One page for every payment setting (owner, 31 Oct 2026).
+      { href: '/admin/payments/settings', label: 'Payment settings', icon: 'listChecks', screen: 'paymentsSwitches' },
       { href: '/admin/settings/subjects', label: 'Subjects', icon: 'listChecks', screen: 'subjectsCore' },
-      { href: '/admin/settings/sms', label: 'SMS', icon: 'messageCircle', screen: 'smsHealth' },
-      { href: '/admin/settings/email', label: 'Email', icon: 'messageCircle', screen: 'emailHealth' },
+      // Email, Email usage and SMS on one page (owner, 31 Oct 2026).
+      { href: '/admin/settings/messaging', label: 'Messaging', icon: 'messageCircle', screen: 'messaging' },
       { href: '/admin/settings/notifications', label: 'Notification settings', icon: 'listChecks', screen: 'notificationSettings' },
-      { href: '/admin/settings/email-usage', label: 'Email usage', icon: 'messageCircle', screen: 'emailUsage' },
       { href: '/admin/plans', label: 'Plans', icon: 'card', screen: 'plans' },
     ],
   },
@@ -172,7 +171,6 @@ export const NAV_GROUPS: NavGroup[] = [
     title: 'Growth',
     color: 'mint', // #9AE899
     items: [
-      { href: '/admin/ads', label: 'Advertisements', icon: 'megaphone', screen: 'ads' },
       { href: '/admin/social', label: 'Social posts', icon: 'camera', screen: 'social' },
       { href: '/admin/seo/landing', label: 'Landing pages', icon: 'search', screen: 'seo' },
       { href: '/admin/seo/locations', label: 'Locations', icon: 'mapPin', screen: 'seo' },
@@ -201,6 +199,7 @@ export const SECTION_LABELS: Record<string, string> = {
   review: 'Review new wording',
   inbox: 'Team inbox',
   ads: 'Advertisements',
+  messaging: 'Messaging',
   audit: 'Audit',
   blog: 'Blog',
   queue: 'Content queue',

@@ -148,6 +148,12 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
     .maybeSingle()
   const contact = normaliseStoredContact(contactRow as Parameters<typeof normaliseStoredContact>[0])
   const contactName = contact?.contact_name ?? null
+  // Number first (owner, 31 Oct 2026): the parent account this number belongs to.
+  const { data: linkRow } = await admin.from('job_contacts').select('parent_account_id').eq('job_id', job.id).maybeSingle()
+  const linkedParentId = (linkRow?.parent_account_id as string | null) ?? null
+  const { data: linkedParent } = linkedParentId
+    ? await admin.from('profiles').select('id, full_name').eq('id', linkedParentId).maybeSingle()
+    : { data: null }
   const contactMsisdn = normalisePkMobile(contact?.contact_phone ?? null)
   const contactWaMsisdn = normalisePkMobile(contact?.contact_whatsapp ?? null)
 
@@ -353,6 +359,16 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
             sitemap or structured data).
           </p>
           <dl className="space-y-1 text-xs">
+            {linkedParent && (
+              <div className="flex items-center gap-2">
+                <dt className="font-semibold text-gray-600">Parent account:</dt>
+                <dd>
+                  <Link href={`/admin/users/${linkedParent.id as string}`} className="font-black text-tm-navy underline">
+                    {formatName((linkedParent.full_name as string | null) ?? '') || 'Parent'}
+                  </Link>
+                </dd>
+              </div>
+            )}
             {contactName && (
               <div className="flex items-center gap-2">
                 <dt className="sr-only">Name</dt>

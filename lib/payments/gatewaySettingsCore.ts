@@ -14,11 +14,11 @@
 //   • Who pays PayPro's service fee is set in the PayPro account; the API only
 //     reports it back (IsFeeApplied). There is nothing to toggle here.
 
-export type GatewayId = 'paypro' | 'assanpay'
+// AssanPay was never live and its code was removed (owner, 31 Oct 2026).
+export type GatewayId = 'paypro'
 
 export const GATEWAYS: { id: GatewayId; name: string }[] = [
   { id: 'paypro', name: 'PayPro' },
-  { id: 'assanpay', name: 'AssanPay' },
 ]
 
 export type MethodKey = 'paypro_online' | 'bank_transfer'
@@ -50,9 +50,8 @@ export function parseGatewaySettings(rows: { key: string; value: string | null }
     const v = m.get(key)
     return v === 'true' ? true : v === 'false' ? false : fallback
   }
-  const active = m.get(GATEWAY_KEYS.active)
   return {
-    active: active === 'assanpay' ? 'assanpay' : 'paypro',
+    active: 'paypro',
     methods: {
       paypro_online: bool(GATEWAY_KEYS.paypro_online, DEFAULT_GATEWAY_SETTINGS.methods.paypro_online),
       bank_transfer: bool(GATEWAY_KEYS.bank_transfer, DEFAULT_GATEWAY_SETTINGS.methods.bank_transfer),

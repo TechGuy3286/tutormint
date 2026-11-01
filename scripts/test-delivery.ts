@@ -185,39 +185,10 @@ test('the BRIDGE_OTP stopgap is allowed on the live site, and does not trip the 
   assert.equal(expired.code, null, 'past its expiry the bridge stops verifying, even on the live site')
 })
 
-test('the payment simulator follows VERCEL_ENV too', async () => {
-  const { execFileSync } = await import('node:child_process')
-
-  const script = `
-    const { simulatorEnabled } = require('./lib/payments/provider.ts')
-    console.log(JSON.stringify({ enabled: simulatorEnabled() }))
-  `
-  const run = (env: Record<string, string>) =>
-    JSON.parse(
-      execFileSync(process.execPath, ['--import', 'tsx', '-e', script], {
-        encoding: 'utf8',
-        env: {
-          ...process.env,
-          VERCEL_ENV: '',
-          PAYMENTS_SIMULATOR: 'true',
-          PAYMENTS_SIMULATOR_SECRET: 'test-secret',
-          ...env,
-        },
-      }).trim(),
-    ) as { enabled: boolean }
-
-  assert.equal(run({ NODE_ENV: 'production', VERCEL_ENV: 'preview' }).enabled, true)
-  assert.equal(run({ NODE_ENV: 'production', VERCEL_ENV: 'production' }).enabled, false)
-  assert.equal(run({ NODE_ENV: 'production' }).enabled, false, 'local production build')
-
-  // Still requires its own two variables, whatever the environment.
-  const noSecret = JSON.parse(
-    execFileSync(process.execPath, ['--import', 'tsx', '-e', script], {
-      encoding: 'utf8',
-      env: { ...process.env, VERCEL_ENV: 'preview', PAYMENTS_SIMULATOR: 'true', PAYMENTS_SIMULATOR_SECRET: '' },
-    }).trim(),
-  ) as { enabled: boolean }
-  assert.equal(noSecret.enabled, false, 'no secret, no simulator — even on preview')
+test('the payment simulator was removed (owner, 31 Oct 2026)', async () => {
+  const { existsSync } = await import('node:fs')
+  assert.equal(existsSync('lib/payments/simulator.ts'), false)
+  assert.equal(existsSync('lib/payments/assanpay.ts'), false)
 })
 
 // ----------------------------------------------------------------- email ---

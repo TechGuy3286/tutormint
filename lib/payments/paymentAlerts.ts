@@ -39,7 +39,7 @@ function nowPkt(): string {
 async function emailOwner(input: Parameters<typeof deliverEmail>[1], tag: string): Promise<void> {
   for (const email of await paymentAlertEmails()) {
     const r = await deliverEmail({ email }, input)
-    if (!r.ok) console.info(`[${tag}] email not sent: ${r.reason}`)
+    if (!r.ok) console.warn(`[${tag}] alert email not sent: ${r.reason}`)
   }
 }
 

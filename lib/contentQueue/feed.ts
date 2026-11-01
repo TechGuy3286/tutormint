@@ -134,13 +134,13 @@ export async function getSuggestion(id: string): Promise<Suggestion | null> {
 }
 
 /** Published posts last touched 12+ months ago — due a refresh. */
-export async function postsDueForRefresh(limit = 10): Promise<{ id: string; title: string; slug: string; publishedAt: string }[]> {
+export async function postsDueForRefresh(limit = 10): Promise<{ id: string; title: string; slug: string; publishedAt: string; audience: string | null; cluster: string | null }[]> {
   const admin = createAdminClient()
   if (!admin) return []
   const cutoff = new Date(Date.now() - 365 * 86_400_000).toISOString()
   const { data } = await admin
     .from('posts')
-    .select('id, title, slug, published_at')
+    .select('id, title, slug, published_at, audience, cluster')
     .eq('status', 'published')
     .lte('published_at', cutoff)
     .order('published_at', { ascending: true })
@@ -150,5 +150,7 @@ export async function postsDueForRefresh(limit = 10): Promise<{ id: string; titl
     title: r.title as string,
     slug: r.slug as string,
     publishedAt: r.published_at as string,
+    audience: (r.audience as string | null) ?? null,
+    cluster: (r.cluster as string | null) ?? null,
   }))
 }

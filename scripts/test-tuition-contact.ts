@@ -142,7 +142,7 @@ test('B. anything else is refused with the plain message — form, API and bulk 
   // The form: required for staff, checked before the round trip.
   const form = read('components', 'forms', 'PostTuitionForm.tsx')
   assert.ok(form.includes('Parent contact number (required)') && form.includes('aria-required="true"'))
-  assert.ok(form.includes('if (adminExtras) {\n        const number = parseContactNumber(v.contactPhone)\n        if (!number.ok) throw new Error(number.error)'))
+  assert.ok(form.includes('if (adminExtras) {\n        const number = parseContactNumber(contactPhoneValue)\n        if (!number.ok) throw new Error(number.error)'))
   // The API: Post a tuition AND Edit tuition refuse without it, before anything is written.
   const jobs = read('lib', 'jobs.ts')
   assert.equal((jobs.match(/const number = parseContactNumber\(input\.contactPhone\)\n  if \(!number\.ok\) return \{ ok: false, status: 400, error: number\.error \}/g) ?? []).length, 2, 'createTeamJob and updateTeamJob')

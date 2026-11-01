@@ -70,6 +70,8 @@ test('every /api/admin write route goes through checkAdminRole', () => {
     const src = readFileSync(f, 'utf8')
     if (!/export (async )?function (POST|PUT|PATCH|DELETE)/.test(src)) continue
     if (ALLOW.has(f)) continue
+    // A retired route (owner, 31 Oct 2026) answers 410 to everyone and touches nothing.
+    if (/return retiredApi\(\)/.test(src) && !/createAdminClient|from\('/.test(src)) continue
     assert.ok(/checkAdminRole\(|checkAdminSelf\(/.test(src), `${f} must call checkAdminRole`)
   }
   const test = readFileSync(path.join('app', 'api', 'admin', 'paypro', 'test-order', 'route.ts'), 'utf8')

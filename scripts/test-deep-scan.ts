@@ -84,7 +84,7 @@ test('no Pay later, consent switch or PayPro health on any screen', () => {
   assert.ok(!read('app/admin/payments/settings/page.tsx').includes('PAYPRO_RETIRED_LINE'))
   assert.ok(!NAV_GROUPS.some((g) => g.items.some((i) => i.href === '/admin/settings/privacy')))
   // The PayPro listener, the reconcile cron and the settlement report stay (cut-off 25 Nov 2026).
-  for (const p of ['app/paypro/uis/route.ts', 'app/api/cron/paypro-reconcile/route.ts', 'app/admin/finance/paypro/page.tsx', 'components/admin/PayproSettlementCard.tsx']) {
+  for (const p of ['app/paypro/uis/route.ts', 'app/api/cron/every-5-min/route.ts', 'app/admin/finance/paypro/page.tsx', 'components/admin/PayproSettlementCard.tsx']) {
     assert.ok(existsSync(p), `${p} kept`)
   }
   assert.match(read('app/api/admin/payments/gateways/route.ts'), /method: z\.enum\(\['bank_transfer'\]\)/)
@@ -183,6 +183,7 @@ const WA_REGISTRY: Record<string, 'parent-situation' | 'parent-specific' | 'not-
   'components/admin/TutorDocumentReview.tsx': 'not-parent',
   'app/admin/overview/todo-unmet/UnmetSearchesClient.tsx': 'not-parent', // hiring post share
   'app/api/admin/follow-ups/status-image/route.ts': 'not-parent',
+  'app/api/admin/follow-ups/social-links/route.ts': 'not-parent',
   'lib/documentsApproved.ts': 'not-parent',
   'lib/documentsApprovedCore.ts': 'not-parent',
   'lib/staffOutreachCore.ts': 'not-parent',

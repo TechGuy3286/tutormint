@@ -393,7 +393,7 @@ export default function TutorModerationClient({
                     record, not the marketing page -- nobody clicking a name in
                     a moderation queue is asking for a public profile. */}
                 <Link
-                  href={`/admin/tutors/${open.id}`}
+                  href={`/admin/users/${open.id}`}
                   className="block truncate text-base font-black text-tm-navy hover:text-tm-red hover:underline"
                 >
                   {open.fullName}

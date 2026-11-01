@@ -175,7 +175,7 @@ export async function rateLimit(
       ? { allowed: false, retryAfterSeconds: budget.windowSeconds }
       : { allowed: true }
   } catch (e) {
-    console.error('[rateLimit] failed, allowing through:', e)
+    console.error('[rateLimit] failed, allowing through:', e instanceof Error ? e.message : String(e))
     return { allowed: true }
   }
 }

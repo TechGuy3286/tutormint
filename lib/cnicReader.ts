@@ -106,7 +106,7 @@ export async function readCnicFromDocument(documentId: string): Promise<CnicRead
         .eq('id', documentId)
     },
   })
-  console.info(`[cnic-read] doc=${documentId} outcome=${result.status}${'cached' in result && result.cached ? ' (cached)' : ''}`)
+  // The outcome is stored on the document row (cnic_read_*); no log line per read.
   return result
 }
 

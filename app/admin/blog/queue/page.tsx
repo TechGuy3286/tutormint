@@ -2,7 +2,7 @@ import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { roleMayWrite } from '@/lib/adminAccessCore'
 import { listSuggestions, postsDueForRefresh } from '@/lib/contentQueue/feed'
 import { loadSearchTopics } from '@/lib/contentQueue/searchTopicsServer'
-import { tutorSideFirst } from '@/lib/contentQueue/searchTopics'
+import { tutorSideFirst, tutorTopicsFirst } from '@/lib/contentQueue/searchTopics'
 import QueueClient, { type SearchTopicView } from '@/components/admin/blog/QueueClient'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -43,6 +43,7 @@ export default async function ContentQueuePage() {
       clicks: t.clicks,
       queries: t.queries.slice(0, 10),
       coveredBy: t.coveredBy,
+      hidden: t.hidden,
       suggestionId: row?.id ?? null,
       status: row?.status ?? null,
       draftPostId: row?.postId ?? null,
@@ -53,8 +54,8 @@ export default async function ContentQueuePage() {
   return (
     <QueueClient
       content={tutorSideFirst(content.filter((s) => !searchFps.has(s.fingerprint ?? '') && s.source !== 'gsc'))}
-      recruitment={recruitment}
-      refresh={refresh}
+      recruitment={tutorTopicsFirst(recruitment)}
+      refresh={tutorTopicsFirst(refresh)}
       searchTopics={searchTopics}
       searchSource={
         search

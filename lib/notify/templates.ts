@@ -726,7 +726,7 @@ export function render(input: TemplateInput): RenderedEmail {
         'SMS may not be sending',
         [input.message, ...input.reasons],
         true,
-        { label: 'Open Admin → Settings → SMS', href: '/admin/settings/sms' },
+        { label: 'Open Admin → Settings → Messaging', href: '/admin/settings/messaging#sms' },
       )
 
     case 'tuition_paused':

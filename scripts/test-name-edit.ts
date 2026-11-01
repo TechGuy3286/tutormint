@@ -76,7 +76,7 @@ test('route: reason, owner-only, history, audit, timeline', () => {
 })
 
 test('UI: Name section on the tutor editor, Edit name on the parent page, the hint, the address prompt', () => {
-  const editor = read('app/admin/tutors/[id]/TutorFieldEditor.tsx')
+  const editor = read('app/admin/users/[id]/edit/TutorFieldEditor.tsx')
   assert.match(editor, /title="Name"/)
   assert.match(editor, /<NameEditForm/)
   assert.match(editor, /afterSave=\{<SlugField/)
@@ -85,5 +85,5 @@ test('UI: Name section on the tutor editor, Edit name on the parent page, the hi
   assert.match(form, /VERIFIED_NAME_HINT/)
   assert.match(form, /Save address/)
   assert.equal(VERIFIED_NAME_HINT, 'Check the spelling against the approved CNIC')
-  assert.match(read('app/admin/tutors/[id]/TutorFieldHistory.tsx'), /name: 'Name'/)
+  assert.match(read('app/admin/users/[id]/edit/TutorFieldHistory.tsx'), /name: 'Name'/)
 })

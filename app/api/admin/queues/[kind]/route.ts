@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 
 import { checkAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import {
-  loadAdList,
   loadBlockList,
   loadParentQueue,
   loadPaymentQueue,
@@ -48,7 +47,8 @@ const LOADERS: Record<QueueKind, (args: Args) => Promise<{
   subscriptions: ({ cursor }) => loadSubscriptionLedger({ cursor, limit: QUEUE_PAGE }),
   reports: ({ filter, cursor }) => loadReportQueue({ filter, cursor, limit: QUEUE_PAGE }),
   blocks: ({ cursor }) => loadBlockList({ cursor, limit: QUEUE_PAGE }),
-  ads: ({ cursor }) => loadAdList({ cursor, limit: QUEUE_PAGE }),
+  // Advertisements retired (owner, 31 Oct 2026): the list is empty; the data is kept.
+  ads: async () => ({ rows: [], nextCursor: null, total: 0 }),
   // The one list scoped to a subject rather than to a filter. `userId` comes
   // from the query string and is used only as an equality on user_id -- the
   // permission that matters is SCREEN_ACCESS.users, checked above, because an

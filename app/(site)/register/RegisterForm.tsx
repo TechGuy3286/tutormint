@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { BUTTON_NOT_READY, BUTTON_READY, registerHint, registerReady } from '@/lib/registerFormCore'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -76,6 +76,9 @@ export default function RegisterForm({
   const staffCode = (initialStaffCode ?? '').trim()
   const refCode = (initialRefCode ?? '').trim()
   const [loading, setLoading] = useState(false)
+  // One sign-up per tap (owner, 31 Oct 2026): a double click in the same frame,
+  // before 'loading' renders, sends one request (one SMS or one email).
+  const inFlight = useRef(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [errorUr, setErrorUr] = useState<string | null>(null)
   const [errorRef, setErrorRef] = useState<string | null>(null)
@@ -141,6 +144,8 @@ export default function RegisterForm({
       return
     }
 
+    if (inFlight.current) return
+    inFlight.current = true
     setLoading(true)
     const { ok, data, error: failed } = await submitJson<{
       next?: string
@@ -164,6 +169,7 @@ export default function RegisterForm({
         signIn: data?.signIn,
         fields: data?.fields,
       })
+      inFlight.current = false
       setLoading(false)
       return
     }
@@ -191,6 +197,7 @@ export default function RegisterForm({
     // left watching a spinner on a form they have already submitted; re-pressing
     // would only start a second attempt. The SubmitEscape link carries them on.
     armEscape(() => {
+      inFlight.current = false
       setLoading(false)
       setStuckHref(target)
       setErrorMsg(STUCK_MESSAGE)

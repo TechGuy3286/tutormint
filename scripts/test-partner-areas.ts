@@ -53,7 +53,7 @@ test('the Partner may open every screen, and change only the tutor, parent and t
 test('every view-only area refuses a Partner write; the Owner is unaffected', () => {
   const VIEW: Key[] = [
     'finance', 'revenue', 'paymentAmounts', 'payments', 'paymentsApprove', 'paymentsRefund', 'paymentsSettings', 'paymentsSwitches',
-    'paymentGateways', 'smsHealth', 'emailHealth', 'reconciliation', 'plans', 'plansMutate', 'subjectsCore', 'secondRole', 'team', 'audit', 'seo', 'unmetSearches',
+    'paymentGateways', 'smsHealth', 'emailHealth', 'messaging', 'reconciliation', 'plans', 'plansMutate', 'subjectsCore', 'secondRole', 'team', 'audit', 'seo', 'unmetSearches',
     'ads', 'social', 'cleanup', 'blog', 'blogPublish', 'blogApprove', 'blogQueue', 'blogGenerate', 'blogQueueDraft', 'contentQueueUpload', 'staffActivity', 'signupFunnel', 'usersExport', 'overview',
     'staffSignupsAll', 'staffSignupClaim', 'staffClaimsReview', 'mySignups', 'cityOwners', 'supportNumber',
     // Convert account type (owner, 23 Oct 2026): the site Owner only.
@@ -105,8 +105,9 @@ function walk(dir: string): string[] {
 //   view   the write is refused with 403
 //   owner  owner only by its own check
 //   self   the staff member's own two-factor
-const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
-  'ads': 'view',
+// 'retired' (owner, 31 Oct 2026): the route answers 410 to everyone and changes nothing.
+const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed' | 'retired'> = {
+  'ads': 'retired',
   'applicant-forwards/forward': 'edit',
   'applicant-forwards/outcome': 'edit',
   // Application tracking (owner, 22 Oct 2026): a Partner changes stages on the
@@ -154,6 +155,8 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   // (owner, 26 Oct 2026).
   'follow-ups/parent': 'edit',
   'follow-ups/status-image': 'edit',
+  // Send social links (owner, 31 Oct 2026), beside Send status image.
+  'follow-ups/social-links': 'edit',
   'members/reveal-contact': 'edit',
   // Edit name (owner, 27 Oct 2026): tutorEdit / parents, both name the Partner;
   // a verified tutor's name is refused to anyone but the Owner inside the route.
@@ -177,6 +180,8 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   'jobs/contact-number': 'edit',
   // Parent consent (owner, 27 Oct 2026): "Parent agreed" on the consent chip.
   'jobs/create': 'edit',
+  // Number first (owner, 31 Oct 2026): the check before the staff form opens.
+  'jobs/number-check': 'edit',
   'jobs/paused': 'edit',
   // "Add as new area" while posting is an edit; merging areas is Locations (view).
   'locations/area': 'mixed',
@@ -194,7 +199,7 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   'onboarding-mode': 'view',
   'orphans/create': 'edit',
   'outreach/contact': 'edit',
-  'outreach/featured': 'edit',
+  'outreach/featured': 'retired',
   'parents/document-review': 'edit',
   'payments/alert-emails': 'view',
   'payments/bank-details': 'view',
@@ -230,11 +235,11 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed'> = {
   // Parent reviews (owner, 27 Oct 2026): approving / rejecting is the Owner's alone.
   'reviews/decide': 'owner',
   'social': 'view',
-  'staff-signups/claims': 'view',
+  'staff-signups/claims': 'retired',
   // Monthly targets (owner, 16 Oct 2026): Owner only by its own check
   // (refuseUnlessOwnerTargets → 403 + the Owner is alerted).
   'team-activity/targets': 'owner',
-  'staff-signups/claims/decide': 'view',
+  'staff-signups/claims/decide': 'retired',
   'taxonomy/core': 'view',
   'team': 'view',
   'tutors/clear-mobile': 'edit',
@@ -274,6 +279,10 @@ test('every admin write route is classified, and its own access list agrees', ()
     seen.add(key)
     const want = ROUTES[key]
     assert.ok(want, `classify the new admin write route "${key}" in scripts/test-partner-areas.ts`)
+    if (want === 'retired') {
+      assert.match(src, /return retiredApi\(\)/, `${key} is retired`)
+      continue
+    }
     if (want === 'self' || want === 'owner') continue
     const g = gates(src)
     assert.ok(g.length > 0, `${key} calls checkAdminRole with a readable access list`)

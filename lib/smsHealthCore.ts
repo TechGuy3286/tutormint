@@ -197,5 +197,5 @@ export function failureWindowStart(now: number, lastAlertAt: number | null): num
 
 export function smsAlertMessage(lastSuccessAt: string | null): string {
   const when = lastSuccessAt ? pkTime(lastSuccessAt) : 'never (no successful SMS on record)'
-  return `SMS may not be sending — last successful SMS at ${when}. Check Admin → Settings → SMS.`
+  return `SMS may not be sending — last successful SMS at ${when}. Check Admin → Settings → Messaging.`
 }

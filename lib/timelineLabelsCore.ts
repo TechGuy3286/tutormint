@@ -174,6 +174,8 @@ export const AUDIT_LABELS: Record<string, string> = {
   'job.merge': 'Merged a repeated tuition into the original',
   'job.city_correct': 'Corrected a tuition’s city',
   'job.contact_number': 'Added the parent’s contact number',
+  // Number first (owner, 31 Oct 2026): a Do-not-use or on-hold number refused at step one.
+  'job.number_blocked': 'Tried to post a tuition with a blocked number',
   'job.consent_record': 'Recorded the parent’s consent to be listed',
   'job.consent_ask': 'Asked the parent on WhatsApp to agree to be listed',
   'settings.email_type': 'Switched an email type on or off',

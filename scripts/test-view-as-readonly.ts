@@ -128,5 +128,5 @@ test('the banner, the 30-minute limit, Exit and the logging stay', () => {
   assert.match(lib, /action: 'member\.view_as_end'/)
   assert.match(read('components/ViewAsBanner.tsx'), /Viewing as \{name\} — read only/)
   assert.match(read('components/SiteChrome.tsx'), /await currentViewAs\(\)/)
-  assert.match(read('app/api/cron/paypro-reconcile/route.ts'), /await endExpiredViews\(\)/)
+  assert.match(read('app/api/cron/every-5-min/route.ts'), /await endExpiredViews\(\)/)
 })

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { resendAllowed } from '@/lib/submitGuard'
 import { Mail } from 'lucide-react'
 
 import { useToast } from '@/components/ui/Toast'
@@ -13,8 +14,16 @@ export default function EmailConfirmReminder({ email }: { email: string }) {
   const toast = useToast()
   const [busy, setBusy] = useState(false)
   const [sent, setSent] = useState(false)
+  // One email per tap, and none again for a minute (owner, 31 Oct 2026).
+  const inFlight = useRef(false)
+  const [sentAt, setSentAt] = useState<number | null>(null)
 
   const resend = async () => {
+    if (!resendAllowed({ busy: inFlight.current, lastSentAt: sentAt, now: Date.now() })) {
+      toast.success('Email already sent. Check your inbox, or try again in a minute.')
+      return
+    }
+    inFlight.current = true
     setBusy(true)
     try {
       const res = await fetch('/api/account/email/resend', { method: 'POST' })
@@ -24,10 +33,12 @@ export default function EmailConfirmReminder({ email }: { email: string }) {
         return
       }
       setSent(true)
+      setSentAt(Date.now())
       toast.success(j.alreadyConfirmed ? 'Your email is already confirmed.' : `Email sent to ${email}.`)
     } catch {
       toast.error('We could not reach TutorMint. Check your internet connection and try again.')
     } finally {
+      inFlight.current = false
       setBusy(false)
     }
   }

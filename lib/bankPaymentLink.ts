@@ -272,7 +272,6 @@ export async function linkCreditToMember(
             { userId: input.memberId },
             { id: 'plan_activated', name, planName: plan!.name, expiresAt: expiresAt ? formatDate(expiresAt) : 'the day your plan starts', amountPkr: input.amountPkr },
           )
-    if (!mailed.ok) console.info('[bank-link] receipt email not sent:', mailed.reason, input.memberId)
 
     await logActivity({
       userId: input.memberId,

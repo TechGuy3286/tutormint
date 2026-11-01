@@ -139,7 +139,7 @@ test('every city-choosing form uses the searchable picker', () => {
     'components/tutor/CompleteProfileFlow.tsx',
     'components/tutor/TutorCitiesEditor.tsx',
     'app/(site)/parent/dashboard/settings/SettingsClient.tsx',
-    'app/admin/tutors/[id]/TutorFieldEditor.tsx',
+    'app/admin/users/[id]/edit/TutorFieldEditor.tsx',
   ]) assert.match(readFileSync(f, 'utf8'), /<CityPicker/, f)
   // Staff posting stays curated-only on the server.
   assert.match(readFileSync('lib/jobs.ts', 'utf8'), /if \(!curatedCity\) return \{ ok: false, status: 400, error: 'Choose the city from the list\.' \}/)

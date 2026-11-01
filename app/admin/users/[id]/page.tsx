@@ -45,6 +45,9 @@ import { loadRefundDues } from '@/lib/feeMatch'
 import { selfiePhotoMatchUsers } from '@/lib/selfieMatch'
 import { canApprove } from '@/lib/adminAccessCore'
 import MemberTabs from '@/components/admin/MemberTabs'
+import SendSocialLinksButton from '@/components/admin/SendSocialLinksButton'
+import { socialLinksAllowed } from '@/lib/socialLinksCore'
+import { memberEditHref } from '@/lib/memberEditCore'
 import ConvertAccountCard from '@/components/admin/ConvertAccountCard'
 import EraseAccountCard from '@/components/admin/EraseAccountCard'
 import MaskedContact from '@/components/admin/MaskedContact'
@@ -352,6 +355,9 @@ export default async function AdminMemberPage({
                 {statusImage?.allowed && statusImage.key && roleSatisfies(actor.adminRole, SCREEN_ACCESS.statusImage) && (
                   <SendStatusImageButton memberId={id} name={formatName(profile.full_name as string | null)} imageKey={statusImage.key} />
                 )}
+                {/* Paid tutors only (owner, 31 Oct 2026); the route checks again. */}
+                {socialLinksAllowed({ role: profile.role as string | null, feePaidAt: (tutor?.verified_fee_paid_at as string | null) ?? null }) &&
+                  roleSatisfies(actor.adminRole, SCREEN_ACCESS.statusImage) && <SendSocialLinksButton memberId={id} />}
               </div>
             )}
             {/* Masked, with a logged Show (owner, 26 Oct 2026). The auto-made
@@ -402,7 +408,7 @@ export default async function AdminMemberPage({
           </div>
         </div>
       </header>
-      <MemberTabs memberId={id} current="profile" showProfile />
+      <MemberTabs memberId={id} current="profile" showProfile showEdit={isTutor && roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutors)} />
 
       {profile.is_banned && (
         <p className="rounded-2xl border border-tm-red/30 bg-tm-tint-red p-3 text-xs leading-relaxed text-tm-red">
@@ -538,7 +544,7 @@ export default async function AdminMemberPage({
         </section>
       )}
 
-      {/* Edit name (owner, 27 Oct 2026) — parents here; tutors on /admin/tutors/[id]. */}
+      {/* Edit name (owner, 27 Oct 2026) — parents here; tutors on the Edit tab. */}
       {isParent && roleMayWrite(actor.adminRole, SCREEN_ACCESS.parents) && (
         <details className="rounded-2xl border border-gray-200 bg-white p-4">
           <summary className="cursor-pointer text-xs font-black text-tm-navy">Edit name</summary>
@@ -566,7 +572,7 @@ export default async function AdminMemberPage({
         hasMobile={!!profile.phone_number}
         whatsappMsisdn={memberMsisdn}
         callMsisdn={callMsisdn}
-        editTutorHref={isTutor && roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutors) ? `/admin/tutors/${id}` : null}
+        editTutorHref={isTutor && roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutors) ? memberEditHref(id) : null}
         secondRole={
           roleMayWrite(actor.adminRole, SCREEN_ACCESS.secondRole) && profile.role !== 'admin' ? (
             <SecondRoleCard

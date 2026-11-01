@@ -46,14 +46,15 @@ test('a big photo is shrunk; a non-image is sent as it is', async () => {
   assert.equal(await prepareUploadImage(pdf, async () => small), pdf)
 })
 
-test('all three paths shrink in the browser, check 4 MB, and answer 413 on the server', () => {
-  for (const p of ['components/messages/Conversation.tsx', 'app/admin/ads/AdsClient.tsx', 'app/admin/payments/RefundControl.tsx']) {
+// Advertisements were retired on 31 Oct 2026 (owner): its upload path is gone.
+test('both remaining paths shrink in the browser, check 4 MB, and answer 413 on the server', () => {
+  for (const p of ['components/messages/Conversation.tsx', 'app/admin/payments/RefundControl.tsx']) {
     const s = read(p)
     assert.match(s, /prepareUploadImage\(/, p)
     assert.match(s, /uploadFileProblem\(/, p)
     assert.match(s, /uploadErrorMessage\(/, p)
   }
-  for (const p of ['app/api/messages/media/route.ts', 'app/api/admin/ads/route.ts', 'app/api/admin/payments/refund/route.ts']) {
+  for (const p of ['app/api/messages/media/route.ts', 'app/api/admin/payments/refund/route.ts']) {
     const s = read(p)
     assert.match(s, /tooLargeMessage\(/, p)
     assert.match(s, /status: 413/, p)

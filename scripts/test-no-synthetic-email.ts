@@ -65,8 +65,8 @@ test('no admin screen renders a raw email', () => {
 })
 
 test('change history and the audit log show the actor label', () => {
-  assert.match(read('app/admin/tutors/[id]/TutorFieldHistory.tsx'), /changed_by_label/)
-  assert.doesNotMatch(read('app/admin/tutors/[id]/TutorFieldHistory.tsx'), /changed_by_email \?/)
+  assert.match(read('app/admin/users/[id]/edit/TutorFieldHistory.tsx'), /changed_by_label/)
+  assert.doesNotMatch(read('app/admin/users/[id]/edit/TutorFieldHistory.tsx'), /changed_by_email \?/)
   assert.match(read('lib/fieldHistory.ts'), /actorLabel\(/)
   assert.match(read('lib/auditFeed.ts'), /actor_label = actorLabel\(/)
   assert.match(read('app/admin/audit/AuditEntry.tsx'), /actor_label/)

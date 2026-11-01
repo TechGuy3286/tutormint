@@ -60,7 +60,7 @@ test('it expires after 30 minutes, and a forged or stretched ticket is refused',
   assert.equal(readTicket('nonsense', SECRET), null)
   assert.equal(ticketExpired(t, NOW + VIEW_AS_MS), true)
   assert.equal(viewAsDecision(t, { method: 'GET', pathname: '/tutor/dashboard' }, NOW + VIEW_AS_MS + 1), 'exit')
-  assert.match(read('app/api/cron/paypro-reconcile/route.ts'), /await endExpiredViews\(\)/, 'ended even when the browser never comes back')
+  assert.match(read('app/api/cron/every-5-min/route.ts'), /await endExpiredViews\(\)/, 'ended even when the browser never comes back')
 })
 
 test('start and end are logged (Audit and the member’s Activity tab); no password or code is shown', () => {

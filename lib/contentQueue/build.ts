@@ -394,7 +394,7 @@ export async function rebuildContentQueue(now = new Date()): Promise<RebuildResu
       errors.push(`search topics: ${String(e)}`)
       return []
     })
-  const searchCands = searchTopics.filter((t) => !t.coveredBy).slice(0, SEARCH_TOPIC_LIMIT).map(searchTopicCandidate)
+  const searchCands = searchTopics.filter((t) => !t.coveredBy && !t.hidden).slice(0, SEARCH_TOPIC_LIMIT).map(searchTopicCandidate)
   const searchCovered = searchTopics.filter((t) => t.coveredBy)
   // Evergreen tutor-career topics — at most 40% of the visible queue.
   content.push(...careerCandidates())

@@ -22,7 +22,7 @@ import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { inTab, loadDirectory, loadDirectoryDocs } from '@/lib/peopleDirectory'
 import { OVERVIEW_KEY_PEOPLE } from '@/lib/peopleDirectoryCore'
-import { loadUnpaidSignups, loadFeaturedWhatsapp } from '@/lib/staffOutreach'
+import { loadUnpaidSignups } from '@/lib/staffOutreach'
 import { isTestName, stuckBreakdown } from '@/lib/staffOutreachCore'
 import type { FollowUpSource } from '@/lib/followUpCore'
 import { tutorsWithChip } from '@/lib/tutorFollowUps'
@@ -108,7 +108,6 @@ const PK_DATE = (iso: string) => formatDate(iso)
 // who already paid the fee (a plan checkout); "Signed up, not paid" is the
 // fee-unpaid ones only.
 const unpaid = cache(async () => (await loadUnpaidSignups(new Date())).filter((r) => !r.feePaid))
-const featured = cache(async () => loadFeaturedWhatsapp(new Date()))
 
 /**
  * The three follow-up to-do rows are chips of ONE list, Follow-ups → Tutors
@@ -285,9 +284,9 @@ export async function loadOverviewList(
             detail: `Paid ${formatDateTime(r.at)}${r.ref ? ` · ${r.ref}` : ''}`,
             href: `/admin/users/${r.userId}`,
             badge: DOC_WORD[docs],
-            actions: [{ label: 'Review documents', href: `/admin/tutors/${r.userId}` }],
+            actions: [{ label: 'Review documents', href: `/admin/users/${r.userId}#documents` }],
             memberId: r.userId as string,
-            reviewHref: `/admin/tutors/${r.userId}`,
+            reviewHref: `/admin/users/${r.userId}#documents`,
           }
         }),
         filter:
@@ -530,10 +529,10 @@ export async function loadOverviewList(
             `${f.attempts} attempt${f.attempts === 1 ? '' : 's'}`,
             f.error,
           ].filter(Boolean).join(' · '),
-          href: '/admin/settings/email',
+          href: '/admin/settings/messaging#email',
         })),
         filter: 'emails that permanently failed in the last 7 days',
-        workHref: '/admin/settings/email',
+        workHref: '/admin/settings/messaging#email',
       }
     }
 
@@ -606,23 +605,6 @@ export async function loadOverviewList(
         }),
         filter: 'open and pausing automatically in the next 2 days',
         workHref: '/admin/jobs?status=open',
-      }
-    }
-
-    case 'todo-featured': {
-      const f = await featured()
-      const rows = f.rows.filter((r) => r.matches.length > 0)
-      return {
-        key,
-        rows: rows.map((r) => ({
-          id: r.tutorId,
-          title: r.name,
-          detail: `${r.matches.length} new matching tuition${r.matches.length === 1 ? '' : 's'}`,
-          href: '/admin/users/featured-whatsapp',
-          memberId: r.tutorId,
-        })),
-        filter: 'on Featured with new matching tuitions not yet sent',
-        workHref: '/admin/users/featured-whatsapp',
       }
     }
 

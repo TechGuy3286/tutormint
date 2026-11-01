@@ -68,7 +68,8 @@ test('PayPro is retired: no JazzCash (PayPro) option; the checkout hook is uncha
   assert.match(CHECKOUT, /startPayproCheckout\(\{/, 'creates the PayPro order')
   assert.match(CHECKOUT, /amountPkr: plan\.price_pkr as number/, 'amount from the plan, never the request')
   // Gateway payments activate with no staff approval…
-  assert.match(read('app/api/payments/webhook/route.ts'), /activatePayment\(\{ paymentId: payment\.id as string, source: 'gateway' \}\)/)
+  // (The generic gateway webhook was removed with AssanPay and the simulator, 31 Oct 2026.)
+  assert.doesNotMatch(read('app/api/payments/webhook/route.ts'), /activatePayment/)
   assert.match(read('lib/payments/payproReconcile.ts'), /activatePayment\(\{ paymentId: row\.id, source: 'gateway' \}\)/)
   // …and staff cannot approve one by hand.
   assert.match(DECIDE, /payment\.provider !== 'manual'/, 'only a bank transfer is decided by staff')
@@ -115,8 +116,9 @@ test('"Other method" is hidden when the bank details are empty or the switch is 
 
 test('the bank details are entered by the owner only, on Payment gateways', () => {
   assert.match(read('app/api/admin/payments/bank-details/route.ts'), /checkAdminRole\(\.\.\.SCREEN_ACCESS\.paymentGateways\)/)
-  const page = read('app/admin/payments/settings/gateways/page.tsx')
-  assert.match(page, /id="bank-details"/)
+  // One Payments → Settings page since 31 Oct 2026; the bank details are its own section.
+  const page = read('app/admin/payments/settings/page.tsx')
+  assert.match(page, /id="bank-transfer"/)
   assert.match(page, /<BankDetailsForm/)
   assert.match(read('app/admin/payments/settings/gateways/GatewaysClient.tsx'), /Show bank transfer to members/)
   for (const r of ['admin', 'operations', 'tuitions_staff'] as const) {

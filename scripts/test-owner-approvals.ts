@@ -42,7 +42,6 @@ const APPROVAL_ROUTES = [
   'app/api/admin/profile-photo/crop/route.ts',
   'app/api/admin/payments/decide/route.ts',
   'app/api/admin/payments/bank-link/route.ts',
-  'app/api/admin/staff-signups/claims/decide/route.ts',
 ]
 
 /** What the guard answers: the Owner passes, every other role gets 403. */
@@ -114,9 +113,8 @@ test('approval controls are hidden for non-Owners on every screen', () => {
     ['app/admin/tutors/videos/TutorModerationClient.tsx', '{ownerApproves && <>'],
     // The edit screen's upload sections are open to staff who edit tutors
     // (owner, 19 Oct 2026); only the Owner's upload is saved as approved.
-    ['app/admin/tutors/[id]/TutorFieldEditor.tsx', "read.statusLabel === 'Approved'"],
+    ['app/admin/users/[id]/edit/TutorFieldEditor.tsx', "read.statusLabel === 'Approved'"],
     ['app/admin/payments/page.tsx', '&& canApproveRole(actor.adminRole)'],
-    ['app/admin/team-activity/claims/page.tsx', '&& canApprove(actor.adminRole)'],
   ]
   for (const [f, needle] of gated) assert.ok(read(f).includes(needle), f)
 })
@@ -125,7 +123,8 @@ test('Claims to review: Owner decides; Admin and Project Managers view', () => {
   assert.equal(roleSatisfies('admin', SCREEN_ACCESS.staffClaimsReview), true, 'Admin still opens the list')
   assert.equal(roleSatisfies('partner', SCREEN_ACCESS.staffClaimsReview), true)
   for (const r of NON_OWNERS) assert.equal(canApprove(r), false, r)
-  assert.ok(read('app/api/admin/staff-signups/claims/decide/route.ts').includes('refuseUnlessOwnerApproval(gate.actor'))
+  // Staff claims were retired (owner, 31 Oct 2026): the decide route answers 410 to everyone.
+  assert.ok(read('app/api/admin/staff-signups/claims/decide/route.ts').includes('return retiredApi()'))
 })
 
 test('Team page role descriptions', () => {

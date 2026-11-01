@@ -31,7 +31,6 @@ export const OVERVIEW_ITEM_KEYS = [
   'todo-due',
   'todo-flagged',
   'todo-pausing',
-  'todo-featured',
   'todo-unmet',
   'todo-email-failed',
   // signup to payment (each takes ?days=7|30)
@@ -80,7 +79,6 @@ export const OVERVIEW_ITEMS: Record<OverviewItemKey, OverviewItemMeta> = {
   'todo-due': { title: 'Paid by customers, waiting for PayPro payout', screen: 'finance', noun: ['order', 'orders'] },
   'todo-flagged': { title: 'Flagged messages and reports', screen: 'reports', noun: ['item', 'items'] },
   'todo-pausing': { title: 'Tuitions auto-pausing in the next 2 days', screen: 'jobs', noun: ['tuition', 'tuitions'] },
-  'todo-featured': { title: 'Featured tutors with new matches', screen: 'featuredWhatsapp', noun: ['tutor', 'tutors'] },
   'todo-unmet': { title: 'Unmet searches this week', screen: 'unmetSearches', noun: ['search', 'searches'] },
   // Every email send is recorded (owner, 16 Oct 2026, migration 183); this is
   // the ones that permanently failed in the last 7 days.

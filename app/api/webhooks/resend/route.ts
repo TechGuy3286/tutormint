@@ -45,7 +45,6 @@ export async function POST(request: Request) {
       if (!live) await admin.from('email_do_not_send').insert({ address_hash: hash, masked: maskAddress(a), reason: action.reason, event_id: action.emailId })
     }
     const marked = action.addresses.length
-    console.info(`[resend-webhook] ${action.reason}: ${marked} marked do not email`)
   } else if (action.kind === 'opened') {
     await admin.from('email_sends').update({ opened_at: new Date().toISOString() }).eq('provider_id', action.emailId).is('opened_at', null)
   }

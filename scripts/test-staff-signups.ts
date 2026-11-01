@@ -151,10 +151,9 @@ test('permissions: who claims, who decides, who sees everyone, Admin opens Staff
   // Everyone on the board vs own row only.
   for (const r of ['owner', 'partner', 'admin']) assert.equal(seesEveryone(r), true, r)
   for (const r of ['operations', 'tuitions_staff']) assert.equal(seesEveryone(r), false, r)
-  const decide = read('app/api/admin/staff-signups/claims/decide/route.ts')
-  assert.ok(decide.includes('checkAdminRole(...SCREEN_ACCESS.staffClaimsReview)'))
-  const claim = read('app/api/admin/staff-signups/claims/route.ts')
-  assert.ok(claim.includes('checkAdminRole(...SCREEN_ACCESS.staffSignupClaim)'))
+  // Staff claims were retired (owner, 31 Oct 2026): both routes answer 410 and change nothing.
+  assert.ok(read('app/api/admin/staff-signups/claims/decide/route.ts').includes('return retiredApi()'))
+  assert.ok(read('app/api/admin/staff-signups/claims/route.ts').includes('return retiredApi()'))
 })
 
 test('a participant cannot see another participant’s row or list (403)', () => {
@@ -244,5 +243,6 @@ test('no prices or amounts on the board; mobiles masked', () => {
   // The lists behind the numbers show the same columns as My sign-ups (owner,
   // 16 Oct 2026) — the full phone, never a CNIC, document or payment detail.
   assert.ok(read('app/admin/team-activity/accounts/page.tsx').includes('rowsForAccounts(result.accounts, await senderRefCode(actor.id))'))
-  assert.ok(read('app/admin/team-activity/claims/page.tsx').includes('maskMobile(c.memberMobile)'))
+  // The claims review page was retired (owner, 31 Oct 2026); it redirects.
+  assert.ok(read('app/admin/team-activity/claims/page.tsx').includes('permanentRedirect('))
 })

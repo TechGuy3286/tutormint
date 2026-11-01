@@ -56,7 +56,8 @@ test('Team activity → Paid sign-ups: every staff row, the source columns, the 
   assert.ok(read('lib/staffSignups.ts').includes('const everyone = seesEveryone(viewer.adminRole)'))
   // …but claims are reviewed by the Owner and Admin only.
   assert.equal(roleSatisfies('supervisor', SCREEN_ACCESS.staffClaimsReview), false)
-  assert.ok(read('app/admin/team-activity/PaidTab.tsx').includes('SCREEN_ACCESS.staffClaimsReview'))
+  // Staff claims retired (owner, 31 Oct 2026): the Paid tab no longer reviews claims.
+  assert.ok(!read('app/admin/team-activity/PaidTab.tsx').includes('Claims to review'))
   // Other staff still see only their own row.
   assert.equal(seesEveryone('operations'), false)
   assert.equal(targetScope('tuitions_staff', true), 'target_self')

@@ -64,7 +64,6 @@ function expiryReminderEmail(params: {
 async function sendSweepEmails(items: { to: { userId: string }; input: TemplateInput }[], job: string, label: string): Promise<void> {
   const results = await deliverEmailBulk(items, job).catch(() => [])
   results.forEach((r, i) => {
-    if (!r.ok) console.info(`[expiry] ${label} email not sent:`, r.reason, items[i].to.userId)
   })
 }
 

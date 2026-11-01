@@ -53,8 +53,7 @@ export async function deliverEmail(
   const channel = getEmailChannel()
   const result = await channel.send(prepared.message)
 
-  // Never the address in a log line (owner, 27 Oct 2026).
-  if (!result.ok) console.info(`[notify] ${input.id} not sent: ${result.reason}`)
+  // Every send and its reason is recorded in email_sends (lib/email/record); no log line.
   return result
 }
 

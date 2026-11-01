@@ -123,7 +123,6 @@ test('every member avatar goes through the shared component and passes gender wh
     'components/messages/Conversation.tsx',
     'components/admin/OverviewCardGrid.tsx',
     'app/admin/tutors/videos/TutorModerationClient.tsx',
-    'app/admin/tutors/[id]/page.tsx',
     'app/admin/jobs/[id]/page.tsx',
     'app/(site)/tutor/dashboard/settings/page.tsx',
   ]

@@ -295,7 +295,7 @@ function TutorLine({ tutor, checked, onToggle, canSelect, canOpenMembers }: { tu
             </a>
           )}
           {canOpenMembers && (
-            <Link href={`/admin/tutors/${tutor.id}`} className="inline-flex min-h-[28px] items-center text-tm-navy hover:underline">
+            <Link href={`/admin/users/${tutor.id}`} className="inline-flex min-h-[28px] items-center text-tm-navy hover:underline">
               Admin page
             </Link>
           )}

@@ -14,7 +14,7 @@ import AdminWhatsAppLink from '@/components/admin/AdminWhatsAppLink'
 //   Warn · Suspend or ban ▾ (Suspend / Reinstate, Ban for fraud)
 //   Contact: Message (the in-app TutorMint Team channel) · WhatsApp · Call
 //   Verify mobile manually · Change mobile · Grant or revoke a plan ·
-//   Edit tutor record · Create parent account
+//   Edit tab (tutors) · Create parent account
 //
 // Warn, suspend, reinstate and ban go through the same route and the same
 // lib/moderation.ts as the reports queue, with the same confirm steps (a
@@ -35,6 +35,7 @@ export default function MemberActions({
   isSelf,
   isStaff,
   isOwner,
+  isTutor = false,
   canVerifyMobile,
   mobileVerified,
   hasMobile,
@@ -348,7 +349,8 @@ export default function MemberActions({
                 Verify mobile manually
               </button>
             )}
-            {moderable && canModerate && !banned && canVerifyMobile && (
+            {/* A tutor's mobile is changed on the Edit tab (owner, 31 Oct 2026) — one tool, not two. */}
+            {moderable && canModerate && !banned && canVerifyMobile && !isTutor && (
               <button
                 type="button"
                 onClick={() => setOpen('change-mobile')}
@@ -367,7 +369,7 @@ export default function MemberActions({
             {editTutorHref && (
               <Link href={editTutorHref} className={`${BTN} border border-gray-200 text-slate-700 hover:border-tm-navy`}>
                 <Pencil aria-hidden size={14} />
-                Edit tutor record
+                Edit name, mobile, documents and subjects
               </Link>
             )}
           </div>

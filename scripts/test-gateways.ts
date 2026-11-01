@@ -46,9 +46,8 @@ test('at least one method must stay on', () => {
 })
 
 test('an unconfigured gateway cannot be made active; online checkout needs PayPro active and on', () => {
-  assert.match(activeChangeError('assanpay', { paypro: true, assanpay: false }) ?? '', /AssanPay is not configured/)
-  assert.equal(activeChangeError('paypro', { paypro: true, assanpay: false }), null)
-  assert.equal(onlineCheckoutOn({ ...DEFAULT_GATEWAY_SETTINGS, active: 'assanpay' }), false)
+  assert.match(activeChangeError('paypro', { paypro: false }) ?? '', /PayPro is not configured/)
+  assert.equal(activeChangeError('paypro', { paypro: true }), null)
   assert.equal(onlineCheckoutOn({ ...DEFAULT_GATEWAY_SETTINGS, methods: { paypro_online: false, bank_transfer: true } }), false)
 })
 

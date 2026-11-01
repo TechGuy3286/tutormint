@@ -351,11 +351,8 @@ test('privacy and cost: only the image is sent, nothing is logged, the button is
   const route = code('app/api/admin/documents/read-cnic/route.ts')
   assert.match(route, /rateLimit\('cnic_read', gate\.actor\.id\)/)
   assert.match(code('lib/rateLimit.ts'), /cnic_read: \{ windowSeconds: 60, max: 10 \}/)
-  // The backlog route returns the number masked, never whole.
-  const internal = code('app/api/internal/suggest-cnic-numbers/route.ts')
-  assert.match(internal, /cronAuthorised\(request\)/)
-  assert.match(internal, /maskToLast4\(result\.number\)/)
-  assert.doesNotMatch(internal, /number: result\.number/)
+  // The one-off backlog route was retired (owner, 31 Oct 2026).
+  assert.ok(!existsSync(join(process.cwd(), 'app/api/internal/suggest-cnic-numbers/route.ts')))
 })
 
 test('a suggestion is never saved as the confirmed number without a person pressing save', () => {
@@ -365,7 +362,6 @@ test('a suggestion is never saved as the confirmed number without a person press
     'lib/cnicReaderCore.ts',
     'app/api/admin/documents/read-cnic/route.ts',
     'app/api/identity/cnic-suggestion/route.ts',
-    'app/api/internal/suggest-cnic-numbers/route.ts',
     'lib/useCnicSuggestion.ts',
   ]) {
     const s = code(p)

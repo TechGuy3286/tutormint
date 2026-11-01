@@ -94,7 +94,7 @@ async function build(): Promise<ApprovalRow[]> {
       paid: !!t?.verified_fee_paid_at,
       createdAt: (p.created_at as string) ?? '',
       kind: 'tutor',
-      href: `/admin/tutors/${p.id as string}`,
+      href: `/admin/users/${p.id as string}#documents`,
     })
   }
 

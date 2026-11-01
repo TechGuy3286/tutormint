@@ -23,7 +23,7 @@ export const RETIRED_TEMPLATE_KEYS = [
 ] as const
 
 /** Templates a screen fills with its own data — never hand-picked in compose. */
-const SCREEN_ONLY = new Set(['seeded_tuition_live', 'applicants_forward', 'profile_share', 'status_image_verified', 'city_hiring_post'])
+const SCREEN_ONLY = new Set(['seeded_tuition_live', 'applicants_forward', 'profile_share', 'status_image_verified', 'city_hiring_post', 'social_links'])
 
 export function isRetired(t: RetirableTemplate): boolean {
   return !!t.retired

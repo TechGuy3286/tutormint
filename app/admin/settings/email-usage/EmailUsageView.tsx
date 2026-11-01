@@ -12,7 +12,7 @@ export default function EmailUsageView({ rows, dailyLimit }: { rows: UsageRow[];
   return (
     <div className="mx-auto max-w-5xl space-y-5" data-email-usage="">
       <header className="space-y-1">
-        <h1 className="text-lg font-black text-tm-navy">Email usage</h1>
+        <h2 className="text-base font-black text-tm-navy">Email usage by day and type</h2>
         <p className="text-xs text-gray-500">
           Last 30 days, by UTC day. Daily limit {dailyLimit}; from {criticalOnlyFrom(dailyLimit)} only critical emails go and the rest wait for the next
           day. Sign-up confirmations and password resets sent by the sign-in system are not in this log.

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AtSign, CheckCircle2, Clock } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase/client'
@@ -13,7 +13,7 @@ import { TextLinesSkeleton } from '@/components/Skeletons'
 // A mobile-signup account has a synthetic address delivered to nowhere; this is
 // where they add a real one so we can send receipts and reminders. It is
 // confirmed by a LINK before it is used for sending (§4.3): submitting sends a
-// Supabase confirmation link to the new address, and it shows "Email not
+// TutorMint confirmation link to the new address, and it shows "Email not
 // confirmed" until the link is clicked. Self-contained — reads the auth user
 // itself and posts to /api/account/email — so it drops into either settings
 // page with one line.
@@ -26,6 +26,7 @@ export default function EmailCard() {
   const [pending, setPending] = useState<string | null>(null) // awaiting confirmation
   const [value, setValue] = useState('')
   const [busy, setBusy] = useState(false)
+  const sending = useRef(false)
   const [editing, setEditing] = useState(false)
 
   useEffect(() => {
@@ -36,8 +37,10 @@ export default function EmailCard() {
         if (!live) return
         const email = user?.email ?? null
         setCurrent(email && !isSyntheticEmail(email) ? email : null)
-        // Supabase exposes an unconfirmed change as new_email.
-        const ne = (user as { new_email?: string | null } | null)?.new_email ?? null
+        // A change waiting for its link (lib/emailChangeCore). Older changes made
+        // through Supabase's own flow show as new_email.
+        const own = user?.app_metadata?.tm_pending_email as string | null | undefined
+        const ne = own || ((user as { new_email?: string | null } | null)?.new_email ?? null)
         setPending(ne && ne.trim() ? ne : null)
       })
       .catch(() => {})
@@ -54,6 +57,9 @@ export default function EmailCard() {
       toast.error('Enter a valid email address.')
       return
     }
+    // A second click in the same frame, before busy has rendered, sends nothing.
+    if (sending.current) return
+    sending.current = true
     setBusy(true)
     try {
       const res = await fetch('/api/account/email', {
@@ -73,6 +79,7 @@ export default function EmailCard() {
     } catch {
       toast.error('We could not reach TutorMint. Check your internet connection and try again.\nرابطہ نہیں ہو سکا۔ انٹرنیٹ چیک کر کے دوبارہ کوشش کریں۔')
     } finally {
+      sending.current = false
       setBusy(false)
     }
   }

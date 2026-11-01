@@ -1,7 +1,8 @@
 'use client'
 import { Mail } from 'lucide-react'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { resendAllowed } from '@/lib/submitGuard'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
@@ -58,6 +59,10 @@ export default function LoginForm({ next, role }: { next: string | null; role?: 
   const [errorRef, setErrorRef] = useState<string | null>(null)
   const [stuckHref, setStuckHref] = useState<string | null>(null)
   const [needsConfirm, setNeedsConfirm] = useState<string | null>(null)
+  // One confirmation email per tap, and none again for a minute (owner, 31 Oct 2026).
+  const resendBusy = useRef(false)
+  const [resendSentAt, setResendSentAt] = useState<number | null>(null)
+  const [resending, setResending] = useState(false)
   const [supportHref, setSupportHref] = useState<string | null>(null)
   const [resendMsg, setResendMsg] = useState('')
   const [choosing, setChoosing] = useState(false)
@@ -149,23 +154,30 @@ ${WELCOME_BACK_UR}`)
   }
 
   const handleResend = async () => {
+    if (!resendAllowed({ busy: resendBusy.current, lastSentAt: resendSentAt, now: Date.now() })) return
     setResendMsg('')
     // Supabase Auth sends over Resend SMTP, which refuses a malformed address.
     if (recipientProblem((needsConfirm ?? identifier).trim())) {
       setResendMsg('Enter a valid email address, e.g. name@example.com.')
       return
     }
+    resendBusy.current = true
+    setResending(true)
     try {
       const supabase = createClient()
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email: (needsConfirm ?? identifier).trim(),
       })
+      if (!error) setResendSentAt(Date.now())
       setResendMsg(
         error ? `Could not resend: ${error.message}` : 'Confirmation email sent — check your inbox.',
       )
     } catch (e) {
       setResendMsg(submitError(e, 'Could not resend the confirmation email.'))
+    } finally {
+      resendBusy.current = false
+      setResending(false)
     }
   }
 
@@ -227,7 +239,8 @@ ${WELCOME_BACK_UR}`)
                 <button
                   type="button"
                   onClick={handleResend}
-                  className="inline-flex items-center gap-1.5 min-h-[44px] w-full rounded-xl bg-tm-black px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-tm-green-deep"
+                  disabled={resending || resendSentAt != null}
+                  className="inline-flex items-center gap-1.5 min-h-[44px] w-full rounded-xl bg-tm-black disabled:opacity-60 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-tm-green-deep"
                 >
                   <Mail aria-hidden size={14} />
                   Resend confirmation email

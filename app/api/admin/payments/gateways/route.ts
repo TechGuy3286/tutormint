@@ -69,7 +69,7 @@ export async function POST(request: Request) {
     actor: gate.actor,
     area: 'Payment gateway settings',
     changes: [{ label: [detail.change, detail.method].filter(Boolean).join(' — '), before: word(detail.from), after: word(detail.to) }],
-    href: '/admin/payments/settings/gateways',
+    href: '/admin/payments/settings#bank-transfer',
   })
 
   return NextResponse.json({ ok: true })

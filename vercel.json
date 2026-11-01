@@ -9,7 +9,7 @@
       "schedule": "0 3 * * *"
     },
     {
-      "path": "/api/cron/paypro-reconcile",
+      "path": "/api/cron/every-5-min",
       "schedule": "*/5 * * * *"
     },
     {

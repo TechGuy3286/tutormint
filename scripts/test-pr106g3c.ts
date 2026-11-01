@@ -81,7 +81,7 @@ test('Contact shows only missing items: mobile-signup vs email-signup', () => {
 })
 
 test('Payment settings link in the nav + button, and the page title is "Payment settings"', () => {
-  assert.match(read('lib/adminNav.ts'), /\/admin\/payments\/settings', label: 'Settings'.*screen: 'paymentsSwitches'/, 'owner-only nav item')
+  assert.match(read('lib/adminNav.ts'), /\/admin\/payments\/settings', label: 'Payment settings'.*screen: 'paymentsSwitches'/, 'owner-only nav item')
   assert.match(read('app/admin/payments/page.tsx'), /href="\/admin\/payments\/settings"[\s\S]*?Settings/, 'a Settings button on the payments page')
   assert.match(read('app/admin/payments/settings/page.tsx'), /Payment settings<\/h1>/, 'page title is "Payment settings"')
 })

@@ -216,7 +216,7 @@ export async function runSmsHealthCheck(now = Date.now()): Promise<{ fired: bool
   const { data: owners } = await admin.from('profiles').select('id').eq('role', 'admin').eq('admin_role', 'owner')
   for (const o of owners ?? []) {
     const ownerId = o.id as string
-    await notify({ userId: ownerId, kind: 'sms_alert', title: 'SMS may not be sending', body: message, href: '/admin/settings/sms' })
+    await notify({ userId: ownerId, kind: 'sms_alert', title: 'SMS may not be sending', body: message, href: '/admin/settings/messaging#sms' })
     await deliverEmail({ userId: ownerId }, { id: 'sms_alert', message, reasons: decision.reasons }).catch(() => {})
   }
   console.warn('[sms-health] alert sent:', decision.reasons.join(' '))

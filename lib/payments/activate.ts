@@ -216,7 +216,6 @@ export async function activatePayment(params: {
         amountPkr: (payment.amount_pkr as number) ?? 0,
       },
     )
-    if (!feeMailed.ok) console.info('[activate] fee receipt email not sent:', feeMailed.reason, userId)
 
     // STAFF alert (PR106-H1 §2) — once per payment (this branch runs only on a
     // fresh activation; a replayed callback returned alreadyActive above).
@@ -361,7 +360,6 @@ export async function activatePayment(params: {
       amountPkr: (payment.amount_pkr as number) ?? 0,
     },
   )
-  if (!mailed.ok) console.info('[activate] receipt email not sent:', mailed.reason, userId)
 
   // STAFF alert (PR106-H1 §2) — fresh activation only, so one per payment.
   await sendPaymentAlert({

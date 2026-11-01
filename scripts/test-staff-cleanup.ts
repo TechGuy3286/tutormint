@@ -297,7 +297,8 @@ test('a sign-up with no valid staff link is credited to Admin (direct) and new c
   assert.match(lib, /export async function loadAdminDirectAccounts/)
   assert.equal(CLAIMS_OPEN, false)
   assert.match(lib, /if \(!CLAIMS_OPEN\) return \{ ok: false, status: 410/)
-  assert.match(read('app/admin/team-activity/PaidTab.tsx'), /isParticipant && CLAIMS_OPEN && <ClaimForm \/>/)
+  // Staff claims retired (owner, 31 Oct 2026): no claim form anywhere.
+  assert.doesNotMatch(read('app/admin/team-activity/PaidTab.tsx'), /<ClaimForm/)
   assert.match(read('app/admin/team-activity/SourceTable.tsx'), /Direct \(Admin\)/)
 })
 

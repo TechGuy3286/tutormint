@@ -1,59 +1,24 @@
 // lib/payments/index.ts
 //
-// Which provider is live, and how an inbound webhook is matched to one.
+// Which provider a new purchase goes through.
+//
+// Since 31 Oct 2026 there is only one: manual bank transfer (the PayPro card
+// checkout was retired on 26 Oct and its own routes — /paypro/uis and the
+// 5-minute re-check — run until the cut-off). The never-live AssanPay adapter
+// and the non-production payment simulator were removed, with their routes
+// (/pay/simulator, /api/payments/simulate) and the generic gateway webhook.
 
-import { assanpay } from './assanpay'
 import { manual } from './manual'
-import { simulator } from './simulator'
-import type { PaymentProvider, WebhookEvent } from './provider'
+import type { PaymentProvider } from './provider'
 
 export * from './provider'
-export { assanpay, manual, simulator }
+export { manual }
 
-/**
- * The provider a new purchase goes through.
- *
- * Order is deliberate. The simulator can only be configured outside
- * production, so it winning there is safe and makes local testing the default.
- * AssanPay takes over the moment its variables exist. Manual transfer is the
- * floor: it needs no integration, so there is always something to sell
- * through, and it never silently pretends to be instant.
- */
 export function getProvider(): PaymentProvider {
-  if (simulator.isConfigured()) return simulator
-  if (assanpay.isConfigured()) return assanpay
   return manual
 }
 
-/**
- * Is a real payment gateway live? (PR16 §5.2)
- *
- * True only when the AssanPay gateway is configured. Until then the payment page
- * shows "Payments open soon" with a support link and NO form, rather than the
- * manual bank-transfer flow — the owner's decision while the gateway is being
- * signed off. The simulator (non-production only) counts as live so local/preview
- * testing still exercises the checkout path.
- */
+/** Is a card gateway live? No: members pay by bank transfer. */
 export function paymentsGatewayLive(): boolean {
-  return getProvider().id !== 'manual'
-}
-
-/**
- * Verify a webhook against every provider that could have sent one.
- *
- * Each verifier returns null when the request is not its own, so an
- * unsigned or wrongly-signed request matches nothing and the route answers
- * 401. Manual is not consulted -- a bank transfer has no webhook, and adding
- * one would be a way to activate a plan without a signature.
- */
-export async function verifyInboundWebhook(
-  request: Request,
-  rawBody: string,
-): Promise<WebhookEvent | null> {
-  for (const p of [simulator, assanpay]) {
-    if (!p.isConfigured()) continue
-    const event = await p.verifyWebhook(request, rawBody)
-    if (event) return event
-  }
-  return null
+  return false
 }

@@ -211,7 +211,7 @@ function consolePrint(m: EmailMessage): void {
     [
       '',
       '─── EMAIL (CONSOLE — no RESEND_API_KEY set) ──────────────────',
-      `To:      ${m.to}`,
+      `To:      ${maskAddressForLog(m.to)}`,
       `From:    ${mailFrom()}`,
       `Subject: ${m.subject}`,
       '',
@@ -432,4 +432,10 @@ export async function resendDomainTracking(domain = 'tutormint.org'): Promise<{ 
   } catch (e) {
     return { found: false, openTracking: null, clickTracking: null, status: 0, error: e instanceof Error ? e.message : 'network error' }
   }
+}
+
+/** Development console only: the first two letters and the domain, never the whole address. */
+export function maskAddressForLog(address: string): string {
+  const at = address.lastIndexOf('@')
+  return at < 0 ? '•••' : `${address.slice(0, Math.min(2, at))}•••${address.slice(at)}`
 }

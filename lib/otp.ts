@@ -423,8 +423,8 @@ function reportSend(o: {
   ]
     .filter(Boolean)
     .join(' ')
-  if (o.ok) console.info(line)
-  else console.warn(line)
+  // Successful sends are recorded in sms_sends (lib/smsLog); only failures log.
+  if (!o.ok) console.warn(line)
 }
 
 /**

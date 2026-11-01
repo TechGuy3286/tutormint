@@ -1089,6 +1089,9 @@ function ContactStep({ facts, smsAvailable, shell, onDone, onRefresh, saveProfil
   const [email, setEmailRaw] = useState(facts.email)
   const setEmail = (v: string) => { setEmailRaw(v); setFacts((f) => (f ? { ...f, email: v } : f)) }
   const emailValid = looksLikeEmail(email.trim().toLowerCase())
+  // One confirmation per Next (owner, 31 Oct 2026): a double tap sends once.
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const emailInFlight = useRef(false)
 
   if (screen === 'mobile') return <MobileVerifyScreen facts={facts} smsAvailable={smsAvailable} shell={shell} onError={onError} onVerified={async () => { await onRefresh(); next() }} />
 
@@ -1116,10 +1119,13 @@ function ContactStep({ facts, smsAvailable, shell, onDone, onRefresh, saveProfil
     const e = email.trim().toLowerCase()
     if (!e) { next(); return }
     if (!emailValid) { onError('Enter a valid email address, or leave it blank.'); return }
+    if (emailInFlight.current) return
+    emailInFlight.current = true
+    setSendingEmail(true)
     try {
       const res = await fetch('/api/account/email', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: e }) })
       if (!res.ok) { onError((await res.json().catch(() => ({}))).error ?? 'We couldn’t send the confirmation link. Please try again.'); return }
-    } catch { onError('We couldn’t send the confirmation link. Please try again.'); return }
+    } catch { onError('We couldn’t send the confirmation link. Please try again.'); return } finally { emailInFlight.current = false; setSendingEmail(false) }
     next()
   }
   // "Email (optional)" — plain English, no Urdu on these simple words (owner
@@ -1129,6 +1135,7 @@ function ContactStep({ facts, smsAvailable, shell, onDone, onRefresh, saveProfil
   return shell({
     headingEn: 'Email (optional)', headingUr: undefined,
     onNext: () => void submitEmail(),
+    nextDisabled: sendingEmail,
     children: (
       <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" aria-label="Email (optional)"
         inputMode="email" autoCapitalize="none" autoCorrect="off"

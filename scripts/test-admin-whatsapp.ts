@@ -198,7 +198,8 @@ test('the previously blank buttons go through the route', () => {
   assert.match(read('components/admin/AdminWhatsAppLink.tsx'), /adminWhatsAppRoute\(memberId, from\)/)
   assert.match(read('app/admin/users/MemberRow.tsx'), /<WhatsappChatButton memberId=\{r\.id\} from="people"/)
   assert.match(read('app/admin/tutors/videos/TutorModerationClient.tsx'), /<WhatsappChatButton memberId=\{t\.id\} from="tutor_queue"/)
-  assert.match(read('app/admin/tutors/[id]/page.tsx'), /from="tutor_record"/)
+  // The tutor record page became the member page's Edit tab (31 Oct 2026); its WhatsApp button went with it.
+  assert.match(read('app/admin/tutors/[id]/page.tsx'), /permanentRedirect\(/)
   const route = read('app/api/admin/whatsapp/route.ts')
   assert.match(route, /action: 'member\.whatsapp_open'/)
   assert.match(route, /messageType: wa\.type/)

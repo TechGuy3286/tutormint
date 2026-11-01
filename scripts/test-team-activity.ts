@@ -120,7 +120,8 @@ test('Paid sign-ups sort by paid first; the Team total is the sum of paid', () =
   // Pending / Signed up replaced the in-progress steps (owner, 16 Oct 2026).
   assert.ok(tab.includes('Pending and signed up'))
   assert.ok(!tab.includes('Mobile verified'))
-  assert.ok(tab.includes('Claims to review ('))
+  // Staff claims retired (owner, 31 Oct 2026): no Claims to review link.
+  assert.ok(!tab.includes('Claims to review ('))
   // The team strip comes before the cards.
   assert.ok(tab.indexOf('<TeamStrip') < tab.indexOf('<Card '))
 })

@@ -437,6 +437,7 @@ test('no phone, email or account number in a log line of the new code', () => {
   // The audit details of the new actions carry ids and amounts only.
   const fm = read('lib/feeMatch.ts')
   assert.ok(!/detail: \{[^}]*(phone|email|iban|account_number|senderName)/.test(fm))
-  // The email path never logs the recipient.
-  assert.match(read('lib/notify/index.ts'), /console\.info\(`\[notify\] \$\{input\.id\} not sent: \$\{result\.reason\}`\)/)
+  // The email path never logs the recipient — since 31 Oct 2026 it logs nothing
+  // (email_sends records every send and its reason).
+  assert.doesNotMatch(read('lib/notify/index.ts'), /console\.(log|info)\(/)
 })

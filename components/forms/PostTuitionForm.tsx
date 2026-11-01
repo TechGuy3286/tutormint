@@ -23,6 +23,9 @@ import { loadFormDraft, saveFormDraft, clearFormDraft } from '@/lib/formDraft'
 import { TextLinesSkeleton } from '@/components/Skeletons'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { parseContactNumber } from '@/lib/tuitionContactCore'
+import NumberFirstGate, { type NumberPassed } from '@/components/forms/NumberFirstGate'
+import { maskNumber } from '@/lib/numberFirstCore'
+import { normalisePkMobile } from '@/lib/phone'
 import { EMPLOYMENT_TYPES, defaultEmploymentType, staffJobFieldProblem } from '@/lib/jobFieldsCore'
 import { postcodeFor } from '@/lib/postcodes'
 
@@ -206,6 +209,7 @@ export default function PostTuitionForm({
   onSubmit,
   staffPost = false,
   onReopen,
+  numberFirst,
 }: {
   children?: { id: string; name: string; class_level: string | null }[]
   initial?: Partial<PostTuitionValues>
@@ -223,6 +227,9 @@ export default function PostTuitionForm({
   staffPost?: boolean
   /** "Reopen this one": resume the existing tuition if paused, then go to it. */
   onReopen?: (hit: DuplicateHit) => Promise<void>
+  /** Staff: 'Number first' (owner, 31 Oct 2026). The form opens only after the
+   *  parent's number passes /api/admin/jobs/number-check. */
+  numberFirst?: { where: 'post' | 'edit'; jobId?: string }
 }) {
   const [v, setV] = useState<PostTuitionValues>({ ...EMPTY, ...initial })
   const [busy, setBusy] = useState(false)
@@ -232,6 +239,14 @@ export default function PostTuitionForm({
   const [dupReason, setDupReason] = useState('')
   const [dupBusy, setDupBusy] = useState(false)
   const [levelLeaf, setLevelLeaf] = useState(false)
+  // Number first: the checked number. An edit starts with the saved number,
+  // which needs no check unless it is changed.
+  const [numberPassed, setNumberPassed] = useState<NumberPassed | null>(() => {
+    if (!numberFirst || numberFirst.where !== 'edit') return null
+    const m = normalisePkMobile(initial?.contactPhone ?? '')
+    return m ? { phone: initial?.contactPhone ?? '', masked: maskNumber(m), parent: null } : null
+  })
+  const contactPhoneValue = numberFirst ? numberPassed?.phone ?? '' : v.contactPhone
 
   // PR73 §A: schedule is a day+slot grid. In edit mode, pre-fill from the job's
   // existing timings text (the old column) — the tutor re-confirms on the grid.
@@ -423,7 +438,7 @@ export default function PostTuitionForm({
       // Staff: the parent contact number is required (owner, 12 Oct 2026). The
       // server refuses without it too; this only says so before the round trip.
       if (adminExtras) {
-        const number = parseContactNumber(v.contactPhone)
+        const number = parseContactNumber(contactPhoneValue)
         if (!number.ok) throw new Error(number.error)
         // Job Posting fields (owner, 28 Oct 2026): the server refuses too.
         const fields = staffJobFieldProblem({
@@ -465,7 +480,7 @@ export default function PostTuitionForm({
         childId: v.childId || null,
         origin: v.origin || null,
         contactName: v.contactName || null,
-        contactPhone: v.contactPhone || null,
+        contactPhone: contactPhoneValue || null,
         contactWhatsapp: v.contactWhatsapp || null,
         contactEmail: v.contactEmail || null,
         contactAddress: v.contactAddress || null,
@@ -502,6 +517,25 @@ export default function PostTuitionForm({
     } finally {
       setBusy(false)
     }
+  }
+
+  // Number first: until the number passes, only step one is shown. The values
+  // already typed stay in state, so 'Change number' never loses them.
+  if (numberFirst && !numberPassed) {
+    return (
+      <div className="space-y-4">
+        <NumberFirstGate
+          where={numberFirst.where}
+          jobId={numberFirst.jobId}
+          initialPhone={numberFirst.where === 'edit' ? initial?.contactPhone ?? '' : ''}
+          heading={numberFirst.where === 'edit' ? "Parent's new phone number" : "Parent's phone number"}
+          onPassed={(r) => {
+            setNumberPassed(r)
+            set('contactPhone', r.phone)
+          }}
+        />
+      </div>
+    )
   }
 
   return (
@@ -817,19 +851,42 @@ export default function PostTuitionForm({
                     className={FIELD}
                   />
                 </label>
-                <label className="block space-y-1">
-                  <span className={LABEL}>Parent contact number (required)</span>
-                  <input
-                    value={v.contactPhone}
-                    onChange={(e) => set('contactPhone', e.target.value)}
-                    placeholder="0300 1234567"
-                    inputMode="tel"
-                    autoComplete="off"
-                    required
-                    aria-required="true"
-                    className={FIELD}
-                  />
-                </label>
+                {numberFirst && numberPassed ? (
+                  <div className="space-y-1">
+                    <span className={LABEL}>Parent contact number (required)</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-tm-bg px-3 text-xs font-bold text-tm-navy">
+                        {numberPassed.masked} · checked
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setNumberPassed(null)}
+                        className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-tm-navy hover:border-tm-navy"
+                      >
+                        Change number
+                      </button>
+                    </div>
+                    {numberPassed.parent && (
+                      <p className="text-[11px] font-semibold text-tm-navy">
+                        Linked to the parent account of {numberPassed.parent.name}.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <label className="block space-y-1">
+                    <span className={LABEL}>Parent contact number (required)</span>
+                    <input
+                      value={v.contactPhone}
+                      onChange={(e) => set('contactPhone', e.target.value)}
+                      placeholder="0300 1234567"
+                      inputMode="tel"
+                      autoComplete="off"
+                      required
+                      aria-required="true"
+                      className={FIELD}
+                    />
+                  </label>
+                )}
                 <label className="block space-y-1">
                   <span className={LABEL}>WhatsApp number</span>
                   <input

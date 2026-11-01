@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { serverError } from '@/lib/errorResponse'
+import { requestEmailChange } from '@/lib/emailConfirm'
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -11,18 +11,17 @@ import { RELOAD_AND_RETRY } from '@/lib/tutorSubjectCap'
 
 // Add or change the member's email (PR29 §4).
 //
-// CONFIRMED BY A LINK before it is used (§4.3). This used to set the address
-// pre-confirmed (admin updateUserById + email_confirm:true), so an unowned
-// address became live immediately. Now supabase.auth.updateUser({ email })
-// leaves the account's real email UNCHANGED and emails a confirmation link to
-// the NEW address; profiles.email only becomes that address when the link is
-// clicked (app/api/auth/callback → syncConfirmedEmail). deliverEmail sends only
-// to a real profiles.email, never a synthetic one, so nothing reaches an
-// unconfirmed address in the meantime.
+// CONFIRMED BY A LINK before it is used (§4.3). Since 31 Oct 2026 this sends
+// ONE TutorMint confirmation to the new address and nothing else
+// (lib/emailConfirm requestEmailChange; rules lib/emailChangeCore). It no
+// longer calls supabase.auth.updateUser({ email }), whose "Secure email change"
+// mailed the old address too — for a mobile sign-up that is the no-mailbox
+// placeholder, so every change sent a pair. The sign-in address and
+// profiles.email change only when the link is clicked.
 //
 // Scoped to the signed-in user via the cookie client — a member changes only
-// their own email, and Supabase enforces auth-email uniqueness and sends the
-// mail. The admin client is used only for the pre-check and the activity log.
+// their own email. The admin client is used for the pre-check, the pending
+// change and the activity log.
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -71,13 +70,15 @@ export async function POST(request: Request) {
   }
 
   const origin = new URL(request.url).origin
-  const { error } = await supabase.auth.updateUser(
-    { email },
-    { emailRedirectTo: `${origin}/api/auth/callback` },
-  )
-  if (error) {
-    return serverError(error, 'account/email')
-  }
+  const out = await requestEmailChange({
+    userId: user.id,
+    email,
+    currentAuthEmail: user.email ?? null,
+    appMetadata: (user.app_metadata ?? null) as Record<string, unknown> | null,
+    origin,
+  })
+  if (!out.ok) return NextResponse.json({ error: out.reason }, { status: out.status })
+  if (!out.sent) return NextResponse.json({ ok: true, pending: email, alreadySent: true })
 
   // The address is pending until the link is clicked; the confirmation, not this
   // request, is what changes profiles.email. Log the request (not a value change).

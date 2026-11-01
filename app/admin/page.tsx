@@ -52,7 +52,6 @@ const TODO_KEYS: OverviewItemKey[] = [
   'todo-due',
   'todo-flagged',
   'todo-pausing',
-  'todo-featured',
   'todo-unmet',
   'todo-email-failed',
 ]
@@ -198,7 +197,7 @@ export default async function AdminHome({
       {/* ------------------------------------------------------ today's to-do */}
       {readerRed && (
         <Link
-          href="/admin/finance/settings"
+          href="/admin/payments/settings#fee-match-and-reader"
           role="alert"
           data-reader-alert=""
           className="flex min-h-[56px] items-center gap-3 rounded-2xl border border-tm-red/30 bg-tm-tint-red px-4 py-3 text-xs font-bold text-tm-red sm:px-5"

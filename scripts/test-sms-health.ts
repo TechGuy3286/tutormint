@@ -176,7 +176,7 @@ test('at most one alert per 6 hours', () => {
 test('the alert message names the last successful SMS in Pakistan time', () => {
   assert.equal(
     smsAlertMessage('2026-10-13T17:22:00Z'),
-    'SMS may not be sending — last successful SMS at 13 Oct 2026, 10:22 PM PKT. Check Admin → Settings → SMS.',
+    'SMS may not be sending — last successful SMS at 13 Oct 2026, 10:22 PM PKT. Check Admin → Settings → Messaging.',
   )
   assert.match(smsAlertMessage(null), /never/)
 })

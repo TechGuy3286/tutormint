@@ -95,7 +95,7 @@ test('the warning is recorded at upload and shown on the three staff screens', (
   assert.ok(read('app/api/admin/tutors/media/route.ts').includes('checkSelfieAgainstProfilePhoto('))
   assert.ok(read('components/admin/TutorDocumentReview.tsx').includes('<SelfieMatchWarning'))
   assert.ok(read('app/admin/users/[id]/page.tsx').includes('selfieLooksLikePhoto='))
-  assert.ok(read('app/admin/tutors/[id]/page.tsx').includes('selfieLooksLikePhoto='))
+  assert.ok(read('app/admin/users/[id]/page.tsx').includes('selfieLooksLikePhoto='))
   assert.ok(read('components/admin/OverviewCardGrid.tsx').includes('<SelfieMatchWarning'))
   // A warning only: nothing in the check approves, rejects or refuses.
   const lib = read('lib/selfieMatch.ts')

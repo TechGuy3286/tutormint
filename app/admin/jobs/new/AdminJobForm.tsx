@@ -83,6 +83,7 @@ export default function AdminJobForm({ draftKey }: { draftKey?: string }) {
       busyLabel="Posting…"
       onSubmit={onSubmit}
       staffPost
+      numberFirst={{ where: 'post' }}
       onReopen={async (hit) => {
         if (hit.status === 'paused') {
           await adminFetch('/api/admin/jobs/action', {

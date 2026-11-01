@@ -29,6 +29,7 @@ import { PARENT_DEFAULTS, PARENT_PLACEHOLDERS, PARENT_TEMPLATES } from '@/lib/pa
 import { CONSENT_ASK_DEFAULT, CONSENT_ASK_KEY, CONSENT_ASK_PLACEHOLDERS } from '@/lib/tuitionConsentCore'
 import { STATUS_IMAGE_DEFAULT, STATUS_IMAGE_TEMPLATE_KEY, STATUS_PLACEHOLDERS, statusSaveProblem } from '@/lib/social/statusImageCore'
 import { PROFILE_SHARE_DEFAULT, PROFILE_SHARE_PLACEHOLDERS, PROFILE_SHARE_TEMPLATE_KEY } from '@/lib/profileShareCore'
+import { SOCIAL_LINKS_DEFAULT, SOCIAL_LINKS_PLACEHOLDERS, SOCIAL_LINKS_TEMPLATE_KEY } from '@/lib/socialLinksCore'
 
 export type GroupTemplateInfo = {
   key: string
@@ -86,6 +87,11 @@ export const SHARE_GROUP: readonly GroupTemplateInfo[] = [
   { key: PROFILE_SHARE_TEMPLATE_KEY, recipient: 'parent', placeholders: PROFILE_SHARE_PLACEHOLDERS, defaultBody: PROFILE_SHARE_DEFAULT },
 ]
 
+/** "Send social links" on a paid tutor's member page (owner, 31 Oct 2026). */
+export const SOCIAL_GROUP: readonly GroupTemplateInfo[] = [
+  { key: SOCIAL_LINKS_TEMPLATE_KEY, recipient: 'tutor', placeholders: SOCIAL_LINKS_PLACEHOLDERS, defaultBody: SOCIAL_LINKS_DEFAULT },
+]
+
 /** "Ask parent" on a "Consent not recorded" chip (owner, 27 Oct 2026). */
 export const CONSENT_GROUP: readonly GroupTemplateInfo[] = [
   { key: CONSENT_ASK_KEY, recipient: 'parent', placeholders: CONSENT_ASK_PLACEHOLDERS, defaultBody: CONSENT_ASK_DEFAULT },
@@ -99,6 +105,7 @@ export function groupTemplateInfo(key: string): GroupTemplateInfo | null {
     PARENTS_GROUP.find((t) => t.key === key) ??
     STATUS_GROUP.find((t) => t.key === key) ??
     SHARE_GROUP.find((t) => t.key === key) ??
+    SOCIAL_GROUP.find((t) => t.key === key) ??
     null
   )
 }

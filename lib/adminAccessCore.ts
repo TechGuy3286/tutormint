@@ -293,6 +293,10 @@ export const SCREEN_ACCESS = withSupervisor({
   // Admin → Settings → Email (owner, 16 Oct 2026): the send log and failed
   // emails. Owner and admin; the Partner views. Read only — no write route.
   emailHealth: ['admin'] as AdminRole[],
+  // Admin → Settings → Messaging (owner, 31 Oct 2026): Email, Email usage and
+  // SMS on one page. The page opens to emailHealth's roles; the usage and SMS
+  // sections show only to the roles in their own lists (emailUsage, smsHealth).
+  messaging: ['admin'] as AdminRole[],
   // Admin → Settings → Subjects (owner, 7 Oct 2026): which subjects are a
   // level's "Main subjects". Owner and admin only, enforced on the server.
   subjectsCore: ['admin'] as AdminRole[],

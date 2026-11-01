@@ -34,7 +34,7 @@ export default async function ViewAsTutorPage({ params }: { params: Promise<{ id
     .select('full_name, role, avatar_url')
     .eq('id', id)
     .maybeSingle()
-  if (!p || p.role !== 'tutor') redirect(`/admin/tutors/${id}`)
+  if (!p || p.role !== 'tutor') redirect(`/admin/users/${id}`)
 
   const { data: tp } = await admin.from('tutor_profiles').select('slug, city, gender').eq('id', id).maybeSingle()
   const name = formatName(p.full_name as string | null) || 'Tutor'
@@ -75,7 +75,7 @@ export default async function ViewAsTutorPage({ params }: { params: Promise<{ id
           Viewing as {name} — read-only
         </p>
         <Link
-          href={`/admin/tutors/${id}`}
+          href={`/admin/users/${id}`}
           className="inline-flex min-h-[36px] items-center gap-1.5 rounded-xl bg-tm-navy px-3 text-xs font-bold text-white hover:bg-tm-navy-hover"
         >
           <X aria-hidden size={14} /> Exit

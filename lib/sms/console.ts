@@ -20,7 +20,7 @@ export const consoleProvider: SmsProvider = {
   },
 
   async send(to: string, body: string): Promise<SmsResult> {
-    console.log(`\n─── SMS (CONSOLE — no provider configured) ───\nTo: ${to}\n${body}\n──────────────────────────────────────────────\n`)
+    console.log(`\n─── SMS (CONSOLE — no provider configured) ───\nTo: ${to.replace(/\d(?=\d{3})/g, '•')}\n${body}\n──────────────────────────────────────────────\n`)
     return { ok: true, provider: 'console' }
   },
 }

@@ -4,7 +4,7 @@ import RolePicker from '@/components/auth/RolePicker'
 import { ArrowLeft, Smartphone } from 'lucide-react'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -81,6 +81,9 @@ export default function ForgotPasswordForm() {
   const [confirm, setConfirm] = useState('')
   const [fallbackLogin, setFallbackLogin] = useState(false)
   const [choosing, setChoosing] = useState(false)
+  // One email or SMS per tap (owner, 31 Oct 2026): a second press while the
+  // first is still going sends nothing.
+  const inFlight = useRef(false)
 
   async function submitEmail(e: React.FormEvent) {
     e.preventDefault()
@@ -92,6 +95,8 @@ export default function ForgotPasswordForm() {
       setErrorUr(null)
       return
     }
+    if (inFlight.current) return
+    inFlight.current = true
     setError('')
     setBusy(true)
     try {
@@ -105,15 +110,20 @@ export default function ForgotPasswordForm() {
     } finally {
       setEmailSent(true)
       setBusy(false)
+      inFlight.current = false
     }
   }
 
   // Screen 1 → 2. The same next screen whether or not the number is a member's.
   async function requestCode(e: React.FormEvent) {
     e.preventDefault()
+    if (inFlight.current) return
+    inFlight.current = true
     setBusy(true)
     clearError()
-    const { ok, data, error: failed } = await submitJson<Failure>('/api/auth/reset', { action: 'request', mobile })
+    const { ok, data, error: failed } = await submitJson<Failure>('/api/auth/reset', { action: 'request', mobile }).finally(() => {
+      inFlight.current = false
+    })
     if (!ok) {
       showFailure(failed, data, 'Could not send a code right now.')
       setBusy(false)

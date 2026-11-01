@@ -178,6 +178,7 @@ export default function InboxClient({
           <ApplicationTemplates templates={templates} supportDisplay={supportDisplay} isOwner={isOwner} group="parents" />
           <ApplicationTemplates templates={templates} supportDisplay={supportDisplay} isOwner={isOwner} group="status" />
           <ApplicationTemplates templates={templates} supportDisplay={supportDisplay} isOwner={isOwner} group="share" />
+          <ApplicationTemplates templates={templates} supportDisplay={supportDisplay} isOwner={isOwner} group="social" />
           {/* The Consent group ("Ask parent") is inactive since 27 Oct 2026. */}
           <TemplatesEditor templates={templates.filter((t) => !t.retired && !groupTemplateInfo(t.key))} />
           <RetiredTemplates templates={templates.filter((t) => t.retired)} />

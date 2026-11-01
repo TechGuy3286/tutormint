@@ -72,6 +72,8 @@ export type SearchTopic = {
   /** The queries behind the topic, most searched first. */
   queries: QueryRow[]
   coveredBy: { label: string; path: string } | null
+  /** A junk Google search (isJunkQuery): kept, but shown only behind "Show hidden" and never queued. */
+  hidden: boolean
 }
 
 export type TopicContext = {
@@ -91,6 +93,29 @@ const STOP = new Set([
   'in', 'for', 'the', 'a', 'an', 'of', 'at', 'to', 'and', 'or', 'on', 'with', 'my', 'me', 'near', 'nearby', 'best', 'top',
   'is', 'are', 'how', 'what', 'where', 'which', 'who', 'can', 'do', 'i', 'pakistan', 'pk', 'area', 'city', 'from',
 ])
+
+/**
+ * A junk Google search (owner, 31 Oct 2026): hidden from the Content queue
+ * (behind "Show hidden") and never turned into a topic to write. Junk is a
+ * search made only of single characters or numbers ("a", "5", "a 1"), a brand
+ * name alone in any order ("mint tutor", "mint", "tutor mint"), or a word
+ * repeated back to back ("teacher teacher").
+ */
+export function isJunkQuery(q: string): boolean {
+  const words = normaliseQuery(q).split(' ').filter(Boolean)
+  if (words.length === 0) return true
+  if (words.every((w) => w.length === 1 || /^\d+$/.test(w))) return true
+  const brand = new Set(['mint', 'tutor', 'tutors', 'tutormint', 'tutormints'])
+  if (words.every((w) => brand.has(w)) && words.some((w) => w.startsWith('mint') || w.startsWith('tutormint'))) return true
+  for (let i = 1; i < words.length; i++) if (words[i] === words[i - 1]) return true
+  return false
+}
+
+/** Topics in the order every Content queue list uses: tutor topics first. */
+export function tutorTopicsFirst<T extends { side?: Side | null; audience?: string | null; cluster?: string | null }>(items: readonly T[]): T[] {
+  const isTutor = (t: T) => t.side === 'tutor' || t.audience === 'tutors' || t.cluster === 'tutor-career'
+  return [...items.filter(isTutor), ...items.filter((t) => !isTutor(t))]
+}
 
 /** Lower case, punctuation to spaces, one space. */
 export function normaliseQuery(q: string): string {
@@ -176,7 +201,7 @@ function sameCity(a: string | null | undefined, b: string | null | undefined): b
 }
 
 /** The page or post that already answers a topic, or null. */
-export function coveredBy(t: Omit<SearchTopic, 'coveredBy'>, words: string[], ctx: Pick<TopicContext, 'pages' | 'posts'>): { label: string; path: string } | null {
+export function coveredBy(t: Omit<SearchTopic, 'coveredBy' | 'hidden'>, words: string[], ctx: Pick<TopicContext, 'pages' | 'posts'>): { label: string; path: string } | null {
   // A post answers it when its title has every word of the topic and the same
   // city (or neither names a city).
   const topicWords = t.side === 'tutor' ? ['job', ...(t.female ? ['female'] : []), ...(t.online ? ['online'] : []), ...(t.school ? ['school'] : [])] : words
@@ -229,13 +254,15 @@ export function usableQueries(rows: QueryRow[]): QueryRow[] {
 
 /** Every topic (covered ones included), tutor-side first, then by searches. */
 export function buildSearchTopics(rows: QueryRow[], ctx: TopicContext): SearchTopic[] {
-  const groups = new Map<string, { parsed: ParsedQuery; queries: QueryRow[] }>()
+  const groups = new Map<string, { parsed: ParsedQuery; queries: QueryRow[]; junk: boolean }>()
   for (const q of usableQueries(rows)) {
     const parsed = parseQuery(q.query, ctx)
-    const key = groupKey(parsed)
+    // A junk search is its own hidden topic: never grouped into a real one.
+    const junk = isJunkQuery(q.query)
+    const key = junk ? `junk|${normaliseQuery(q.query)}` : groupKey(parsed)
     const g = groups.get(key)
     if (g) g.queries.push(q)
-    else groups.set(key, { parsed, queries: [q] })
+    else groups.set(key, { parsed, queries: [q], junk })
   }
   const topics: SearchTopic[] = []
   for (const [key, g] of groups) {
@@ -246,7 +273,7 @@ export function buildSearchTopics(rows: QueryRow[], ctx: TopicContext): SearchTo
     const impressions = queries.reduce((s, q) => s + q.impressions, 0)
     const clicks = queries.reduce((s, q) => s + q.clicks, 0)
     const parentMeta = clusterForQuery(top.query, ctx.cities)
-    const base: Omit<SearchTopic, 'coveredBy'> = {
+    const base: Omit<SearchTopic, 'coveredBy' | 'hidden'> = {
       key,
       fingerprint: `gsc:${slugify(key.replace(/\|/g, ' ')) || 'q'}`,
       title: p.side === 'tutor' ? tutorTopicTitle({ ...p, home: queries.some((q) => /\bhome\b/i.test(q.query)) }) : titleFromQuery(top.query),
@@ -262,7 +289,7 @@ export function buildSearchTopics(rows: QueryRow[], ctx: TopicContext): SearchTo
       clicks,
       queries,
     }
-    topics.push({ ...base, coveredBy: coveredBy(base, p.words, ctx) })
+    topics.push({ ...base, coveredBy: g.junk ? null : coveredBy(base, p.words, ctx), hidden: g.junk })
   }
   return topics.sort(
     (a, b) => (a.side === b.side ? 0 : a.side === 'tutor' ? -1 : 1) || b.impressions - a.impressions || b.clicks - a.clicks || a.title.localeCompare(b.title),

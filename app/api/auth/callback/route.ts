@@ -150,7 +150,7 @@ async function syncConfirmedEmail(): Promise<void> {
       await admin.from('profiles').update({ email: user.email, email_verified: true, email_pending_confirm: false }).eq('id', user.id)
     }
   } catch (e) {
-    console.error('[auth/callback] email sync failed', e)
+    console.error('[auth/callback] email sync failed', e instanceof Error ? e.message : String(e))
   }
 }
 
@@ -209,7 +209,7 @@ async function sendWelcomeOnce(): Promise<boolean> {
       try {
         tuitions = await recentOpenTuitionsForWelcome(4)
       } catch (e) {
-        console.error('[auth/callback] welcome tuition query failed', e)
+        console.error('[auth/callback] welcome tuition query failed', e instanceof Error ? e.message : String(e))
       }
     }
 
@@ -227,7 +227,7 @@ async function sendWelcomeOnce(): Promise<boolean> {
     return true
   } catch (e) {
     // Never let a welcome email stop somebody from getting into their account.
-    console.error('[auth/callback] welcome email failed', e)
+    console.error('[auth/callback] welcome email failed', e instanceof Error ? e.message : String(e))
     return false
   }
 }

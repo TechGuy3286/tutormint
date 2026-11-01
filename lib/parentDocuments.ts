@@ -292,7 +292,6 @@ export async function reviewParentDocument(params: {
       { userId: parentId },
       { id: 'verification_rejected', name: before.name, what: label, reason, href: verifyHref, audience: isTutorAccount ? 'tutor' : 'parent' },
     )
-    if (!mailed.ok) console.info('[parent-review] rejection email not sent:', mailed.reason, parentId)
   } else if (verified && !before.verified) {
     await notify({
       userId: parentId,
@@ -305,7 +304,6 @@ export async function reviewParentDocument(params: {
       { userId: parentId },
       { id: 'verification_decision', name: before.name, decision: 'approved', subjectOfDecision: 'cnic', reason: '' },
     )
-    if (!mailed.ok) console.info('[parent-review] approval email not sent:', mailed.reason, parentId)
   } else {
     await notify({
       userId: parentId,
@@ -328,7 +326,6 @@ export async function reviewParentDocument(params: {
         note: item === 'cnic' ? 'Your address is the last step before you are verified.' : 'Your CNIC is the last step before you are verified.',
       },
     )
-    if (!mailed.ok) console.info('[parent-review] approval email not sent:', mailed.reason, parentId)
   }
 
   return { ok: true, verified }
@@ -405,6 +402,5 @@ async function decideParentCnicRereview(params: {
           audience: 'parent',
         },
       )
-  if (!mailed.ok) console.info('[parent-review] decision email not sent:', mailed.reason, parentId)
   return { ok: true, verified: before.verified }
 }

@@ -218,13 +218,7 @@ export const sendpkProvider: SmsProvider = {
     const parsed = parseSendpkResponse(text)
 
     if (parsed.ok) {
-      // Per send at info: at 4.80 PKR a message a runaway loop is a real cost,
-      // and remaincredit falling is the earliest warning. Never the api_key,
-      // never the number, never the code.
-      console.info(
-        `[sms] sendpk ok messageid=${parsed.messageid || '?'} ` +
-          `totalprice=${parsed.totalprice ?? '?'} remaincredit=${JSON.stringify(parsed.remaincredit ?? '?')}`,
-      )
+      // A successful send is recorded in sms_sends (lib/smsLog) — nothing logged here.
       // Carry the messageid so it lands in the OTP log line (reportSend).
       return { ok: true, provider: 'sendpk', id: parsed.messageid || null }
     }

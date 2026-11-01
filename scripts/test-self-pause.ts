@@ -109,5 +109,5 @@ test('the Overview shows Paid today (never hidden at 0) from the list it opens',
   const items = readFileSync('lib/overviewItems.ts', 'utf8')
   assert.ok(items.includes('card: paidCard'))
   assert.ok(items.includes("extra: `${month} this month · ${week} in the last 7 days`"))
-  assert.ok(items.includes("{ label: 'Review documents', href: `/admin/tutors/${r.userId}` }"))
+  assert.ok(items.includes("{ label: 'Review documents', href: `/admin/users/${r.userId}#documents` }"))
 })

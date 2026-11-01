@@ -67,7 +67,7 @@ export default async function MemberActivityPage({ params }: { params: Promise<{
           {profile.city ? ` · ${profile.city}` : ''}
         </p>
       </header>
-      <MemberTabs memberId={id} current="activity" showProfile={roleSatisfies(actor.adminRole, SCREEN_ACCESS.usersView)} />
+      <MemberTabs memberId={id} current="activity" showProfile={roleSatisfies(actor.adminRole, SCREEN_ACCESS.usersView)} showEdit={profile?.role === 'tutor' && roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutors)} />
 
       <section aria-label="Summary" className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         {strip.map((s) => (

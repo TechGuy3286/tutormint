@@ -108,7 +108,7 @@ export async function POST(request: Request) {
     actor: gate.actor,
     area: 'Bank transfer details',
     changes: [...changes, ...qrChange],
-    href: '/admin/payments/settings/gateways#bank-details',
+    href: '/admin/payments/settings#bank-transfer',
   })
 
   return NextResponse.json({ ok: true })

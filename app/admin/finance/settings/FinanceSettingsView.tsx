@@ -32,6 +32,7 @@ export default function FinanceSettingsView({
   red,
   switchNode,
   feeRangeNode = null,
+  embedded = false,
 }: {
   s: FinanceSettingsState
   cutoff: string
@@ -39,13 +40,17 @@ export default function FinanceSettingsView({
   switchNode: ReactNode
   /** The Fee match range form (owner, 27 Oct 2026). */
   feeRangeNode?: ReactNode
+  /** Drawn inside Payments → Settings (owner, 31 Oct 2026): no page header. */
+  embedded?: boolean
 }) {
   return (
-    <div className="mx-auto max-w-xl space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-lg font-black text-tm-navy">Finance settings</h1>
-        <p className="text-xs text-gray-500">The fee match range, the bank email reader and the PayPro cut-off.</p>
-      </header>
+    <div className={embedded ? 'space-y-6' : 'mx-auto max-w-xl space-y-6'}>
+      {!embedded && (
+        <header className="space-y-1">
+          <h1 className="text-lg font-black text-tm-navy">Finance settings</h1>
+          <p className="text-xs text-gray-500">The fee match range, the bank email reader and the PayPro cut-off.</p>
+        </header>
+      )}
 
       {feeRangeNode}
 

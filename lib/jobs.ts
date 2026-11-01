@@ -36,6 +36,7 @@ import { upgradeHref } from '@/lib/upgradePath'
 import { buildGate, type Gate } from '@/lib/gate'
 import { logActivity } from '@/lib/activityLog'
 import { logAdminAction } from '@/lib/auditLog'
+import { linkTuitionToParentByNumber } from '@/lib/numberFirst'
 import { notify, notifyMany } from '@/lib/notifications'
 import { tuitionPath } from '@/lib/slugs'
 import { normaliseGenderPref, genderApplyBlocked } from '@/lib/genderPref'
@@ -633,6 +634,9 @@ export async function createTeamJob(
       await admin.from('jobs').delete().eq('id', job.id)
       return { ok: false, status: 400, error: contactError.message }
     }
+    // Number first (owner, 31 Oct 2026): a number that belongs to a parent
+    // account links the tuition to it (job_contacts.parent_account_id).
+    await linkTuitionToParentByNumber(job.id as string, number.msisdn).catch(() => null)
   }
 
   await writeScheduleSlots(admin, job.id as string, input.scheduleSlots)
@@ -822,6 +826,7 @@ export async function updateTeamJob(
       .from('job_contacts')
       .upsert({ job_id: jobId, ...contact.record, created_by: actor.id }, { onConflict: 'job_id' })
     changed.push('contact')
+    await linkTuitionToParentByNumber(jobId, number.msisdn).catch(() => null)
   } else {
     const { data: had } = await admin.from('job_contacts').select('job_id').eq('job_id', jobId).maybeSingle()
     if (had) {

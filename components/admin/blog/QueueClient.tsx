@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/Toast'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { clusterLabel } from '@/lib/blog'
 import type { Suggestion } from '@/lib/contentQueue/feed'
+import { tutorTopicsFirst } from '@/lib/contentQueue/searchTopics'
 
 // The content queue (owner, 28 Oct 2026). First: topics from real Google
 // searches, tutor-side first, each with the queries behind it (impressions and
@@ -26,6 +27,8 @@ export type SearchTopicView = {
   clicks: number
   queries: { query: string; impressions: number; clicks: number }[]
   coveredBy: { label: string; path: string } | null
+  /** A junk search (lib/contentQueue/searchTopics isJunkQuery): shown only behind "Show hidden". */
+  hidden?: boolean
   suggestionId: string | null
   status: string | null
   draftPostId: string | null
@@ -66,6 +69,7 @@ export default function QueueClient({
   const [dismissing, setDismissing] = useState<string | null>(null)
   const [reason, setReason] = useState('')
   const [showCovered, setShowCovered] = useState(false)
+  const [showHidden, setShowHidden] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   async function act(action: string, extra: Record<string, unknown>, ok: string) {
@@ -124,8 +128,10 @@ export default function QueueClient({
     await act('upload_queries', { csv }, 'Search Console queries uploaded. The queue was rebuilt.')
   }
 
-  const open = searchTopics.filter((t) => !t.coveredBy)
-  const covered = searchTopics.filter((t) => t.coveredBy)
+  // Tutor topics first in every list (owner, 31 Oct 2026); junk searches only behind "Show hidden".
+  const open = tutorTopicsFirst(searchTopics.filter((t) => !t.coveredBy && !t.hidden))
+  const covered = tutorTopicsFirst(searchTopics.filter((t) => t.coveredBy && !t.hidden))
+  const hiddenTopics = tutorTopicsFirst(searchTopics.filter((t) => t.hidden))
 
   return (
     <div className="space-y-4">
@@ -220,6 +226,25 @@ export default function QueueClient({
                         {t.coveredBy!.label}
                       </Link>
                     </p>
+                    <QueryList queries={t.queries.slice(0, 4)} />
+                  </article>
+                ))}
+            </section>
+          )}
+
+          {hiddenTopics.length > 0 && (
+            <section className="space-y-2" data-hidden-topics="">
+              <button
+                type="button"
+                onClick={() => setShowHidden((v) => !v)}
+                className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-[11px] font-bold text-slate-700 hover:border-tm-navy"
+              >
+                {showHidden ? 'Hide' : 'Show hidden'} ({hiddenTopics.length}) — junk searches: single letters or numbers, a brand name alone, repeated words
+              </button>
+              {showHidden &&
+                hiddenTopics.map((t) => (
+                  <article key={t.fingerprint} className="space-y-1 rounded-2xl border border-gray-200 bg-white p-3">
+                    <p className="text-xs font-bold text-slate-700">{t.title}</p>
                     <QueryList queries={t.queries.slice(0, 4)} />
                   </article>
                 ))}

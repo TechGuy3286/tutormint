@@ -13,7 +13,6 @@ import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { pproConfigured } from './paypro'
-import { assanpay } from './assanpay'
 import {
   DEFAULT_GATEWAY_SETTINGS,
   GATEWAY_KEYS,
@@ -41,7 +40,7 @@ export async function getGatewaySettings(): Promise<GatewaySettings> {
 }
 
 export function gatewayConfigured(): Record<GatewayId, boolean> {
-  return { paypro: pproConfigured(), assanpay: assanpay.isConfigured() }
+  return { paypro: pproConfigured() }
 }
 
 /** Record a callback received or an error hit. `message` must be plain English
@@ -75,7 +74,7 @@ export async function loadGatewayHealth(): Promise<{ gateways: GatewayHealth[]; 
   const empty = (id: GatewayId, name: string): GatewayHealth => ({
     id, name, connected: configured[id], lastSuccessAt: null, lastError: null, lastCallbackAt: null, pendingOverHour: 0,
   })
-  if (!admin) return { gateways: [empty('paypro', 'PayPro'), empty('assanpay', 'AssanPay')], fee: { lastReported: null, lastOrderAt: null } }
+  if (!admin) return { gateways: [empty('paypro', 'PayPro')], fee: { lastReported: null, lastOrderAt: null } }
 
   const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
   const one = async (id: GatewayId, name: string): Promise<GatewayHealth> => {
@@ -114,16 +113,15 @@ export async function loadGatewayHealth(): Promise<{ gateways: GatewayHealth[]; 
     }
   }
 
-  const [paypro, assan, latestOrder] = await Promise.all([
+  const [paypro, latestOrder] = await Promise.all([
     one('paypro', 'PayPro'),
-    one('assanpay', 'AssanPay'),
     admin.from('payments').select('raw, created_at').eq('provider', 'paypro')
       .order('created_at', { ascending: false }).limit(1).maybeSingle(),
   ])
   const raw = (latestOrder.data?.raw as { paypro?: { isFeeApplied?: unknown } } | null) ?? null
   const reported = raw?.paypro?.isFeeApplied
   return {
-    gateways: [paypro, assan],
+    gateways: [paypro],
     fee: {
       lastReported: reported === undefined || reported === null || reported === '' ? null : String(reported),
       lastOrderAt: (latestOrder.data?.created_at as string | null) ?? null,

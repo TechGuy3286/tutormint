@@ -83,7 +83,7 @@ export default async function SettlementTab({ sp, extra }: { sp: { from?: string
         <h1 className="text-lg font-black text-tm-navy">Finance</h1>
         <p className="text-xs text-gray-500">What customers paid, and what has reached the bank — Pakistan time.</p>
         <p className="text-xs">
-          <Link href="/admin/finance/settings" className="font-bold text-tm-red underline">Finance settings</Link>
+          <Link href="/admin/payments/settings#fee-match-and-reader" className="font-bold text-tm-red underline">Finance settings</Link>
           <span className="text-gray-500"> · Bank email reader: {READER_STATUS_LABEL[reader.status]}</span>
         </p>
       </header>
@@ -91,7 +91,7 @@ export default async function SettlementTab({ sp, extra }: { sp: { from?: string
       {readerRed && (
         <section role="alert" className="rounded-2xl border border-tm-red/30 bg-tm-tint-red p-4 text-xs font-bold text-tm-red" data-reader-alert="">
           The bank email reader has not worked for over an hour ({reader.lastError ?? READER_STATUS_LABEL[reader.status]}). New bank credits are not being added.{' '}
-          <Link href="/admin/finance/settings" className="underline">Open Finance settings</Link>
+          <Link href="/admin/payments/settings#fee-match-and-reader" className="underline">Open Finance settings</Link>
         </section>
       )}
 

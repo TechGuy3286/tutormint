@@ -77,7 +77,7 @@ export default async function AdminPaymentsPage({
         <div className="flex flex-wrap gap-2">
           {canGateways && (
             <Link
-              href="/admin/payments/settings/gateways#bank-details"
+              href="/admin/payments/settings#bank-transfer"
               className="gap-1.5 inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
             >
               <Landmark aria-hidden size={14} />

@@ -92,6 +92,7 @@ export default function AdminJobEditForm({
       <PostTuitionForm
         teamBanner
         adminExtras
+        numberFirst={{ where: 'edit', jobId }}
         mode="edit"
         initial={initial}
         submitLabel="Save changes"

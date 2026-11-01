@@ -231,7 +231,8 @@
     "test:adminpaging": "tsx --test scripts/test-admin-paging.ts",
     "test:locationbuckets": "tsx --test scripts/test-location-buckets.ts",
     "test:sitespeed": "tsx --test scripts/test-site-speed.ts",
-    "test:deepscan": "tsx --test scripts/test-deep-scan.ts"
+    "test:deepscan": "tsx --test scripts/test-deep-scan.ts",
+    "test:push1": "tsx --test scripts/test-push1.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",
@@ -263,6 +264,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
+    "pg": "^8.23.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
     "typescript": "^5"

@@ -312,7 +312,7 @@ export async function POST(request: Request) {
       utm_content: acquisition?.utm_content ?? null,
       // `method` is the money instrument. A simulated purchase is pretending
       // to be the gateway, so it records the gateway.
-      method: provider.id === 'manual' ? null : 'assanpay',
+      method: null,
     })
     .select('id')
     .single()

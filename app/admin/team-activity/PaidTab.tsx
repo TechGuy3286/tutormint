@@ -11,7 +11,6 @@ import { isParticipantRole, type MemberRole, type StaffStatus, type Step } from 
 import { PACE_LABEL, monthLabel, perDayLabel, type MonthKey, type Pace, type PaceStatus } from '@/lib/staffTargetsCore'
 import { roleSatisfies, SCREEN_ACCESS, type AdminActor } from '@/lib/adminAuth'
 
-import ClaimForm from './ClaimForm'
 import { CLAIMS_OPEN } from '@/lib/staffSignupsCore'
 import CumulativeChart from './CumulativeChart'
 import MonthPicker from './MonthPicker'
@@ -58,13 +57,6 @@ const STATUS_BAR: Record<PaceStatus, string> = {
 export default async function PaidTab({ actor, month }: { actor: AdminActor; month: MonthKey }) {
   const board = await loadTargetBoard(actor, month)
   const everyone = board.scope === 'everyone'
-  // A Manager sees every row but does not review claims (Owner and Admin do).
-  const reviewsClaims = everyone && roleSatisfies(actor.adminRole, SCREEN_ACCESS.staffClaimsReview)
-  const isParticipant = isParticipantRole(actor.adminRole)
-  const [myClaims, pending] = await Promise.all([
-    isParticipant ? loadClaims({ id: actor.id, adminRole: 'self' }) : Promise.resolve([]),
-    reviewsClaims ? pendingClaimCount() : Promise.resolve(0),
-  ])
   const label = monthLabel(month)
   const current = board.tense === 'current'
 
@@ -74,11 +66,6 @@ export default async function PaidTab({ actor, month }: { actor: AdminActor; mon
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <MonthPicker month={month} options={board.months.map((m) => ({ key: m, label: monthLabel(m) }))} />
-        {reviewsClaims && (
-          <Link href="/admin/team-activity/claims" className="text-xs font-bold text-tm-red hover:underline">
-            Claims to review ({pending})
-          </Link>
-        )}
       </div>
 
       <SourceTable actor={actor} />
@@ -173,28 +160,7 @@ export default async function PaidTab({ actor, month }: { actor: AdminActor; mon
         once on the day it was approved (Pakistan time). A refund removes it from that month. Free grants do not count.
       </p>
 
-      {/* New claims are closed (owner, 24 Oct 2026): a sign-up with no staff
-          link is credited to Admin. Claims already made stay listed below. */}
-      {isParticipant && CLAIMS_OPEN && <ClaimForm />}
-
-      {isParticipant && myClaims.length > 0 && (
-        <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
-          <h2 className="text-sm font-black text-tm-navy">Your claims</h2>
-          <ul className="divide-y divide-gray-100 text-xs">
-            {myClaims.map((c) => (
-              <li key={c.id} className="flex flex-wrap items-baseline justify-between gap-2 py-2">
-                <span>
-                  <span className="font-bold text-slate-800">{c.memberName}</span>{' '}
-                  <span className="text-gray-500">{c.memberMobile ? maskMobile(c.memberMobile) : ''}</span>
-                  <span className="block text-gray-500">Claimed {formatDateTime(c.createdAt)}</span>
-                  {c.reason && <span className="block text-gray-600">Reason: {c.reason}</span>}
-                </span>
-                <ClaimPill status={c.status} />
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      {/* Staff claims retired (owner, 31 Oct 2026): off every screen; the claims are kept. */}
     </div>
   )
 }
