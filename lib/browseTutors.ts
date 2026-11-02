@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 // Public data (jobs, subjects, the directory, rank_tutors) is read with the
 // cookie-free client (push 3, 1 Nov 2026), so cached public pages stay cached.
 import { createPublicClient } from '@/lib/supabase/public'
+import { plainSupabaseError } from '@/lib/supabase/fetch'
 import { encodeCursor, decodeCursor } from '@/lib/cursor'
 import { getLandingLinker } from '@/lib/landing'
 import { reconcileSubjectQuery, resolveSmartQuery } from '@/lib/smartSearch'
@@ -197,6 +198,10 @@ const rankedTutorsCached = cache(async (key: string): Promise<RankResult> => {
     p_after_hash: after?.h ?? null,
     p_after_completion: after?.c ?? null,
   })
+
+  // Never silent again (hotfix, 2 Nov 2026): a failed directory read was the
+  // bare 'could not be loaded' box with nothing in the logs. Code + one line only.
+  if (error) console.error(`[rank_tutors] failed code=${error.code ?? '?'} ${plainSupabaseError(error.message)}`)
 
   // Migration 137 — rank_tutors returns `fee_paid` directly (the tier now folds
   // the Verified-BADGE rule in, +10, so verified tutors lead and verification-
