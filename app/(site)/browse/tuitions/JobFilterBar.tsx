@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { SlidersHorizontal, X } from 'lucide-react'
 import { useJobTitles } from '@/lib/jobTitles'
+import { useWarmOnIntent } from '@/lib/useWarmOnIntent'
 import CityPicker from '@/components/forms/CityPicker'
 import { useBrowseCities } from '@/lib/useBrowseCities'
 import { browseCityOptions } from '@/lib/pkCitiesCore'
@@ -37,13 +38,17 @@ const FIELD =
 export default function JobFilterBar({ values }: { values: JobFilterValues }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  // Option lists load once the visitor touches the page (or a filter is set,
+  // or the phone panel is open) — not while the page loads (owner, 2 Nov 2026).
+  const hasFilter = Object.values(values).some(Boolean)
+  const warm = useWarmOnIntent(open || hasFilter)
 
   // Only cities with an open tuition or a listed tutor (owner, 20 Oct 2026), in
   // a searchable picker: never hundreds of empty towns. Every city stays
   // choosable on the posting and sign-up forms.
   const active = useBrowseCities()
   const cities = browseCityOptions(active ?? [], active ?? [], values.city)
-  const { titles: jobTitles } = useJobTitles()
+  const { titles: jobTitles } = useJobTitles(warm)
 
   const [categories, setCategories] = useState<string[]>([])
   const [levels, setLevels] = useState<string[]>([])
@@ -56,9 +61,10 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
   const [noGrade, setNoGrade] = useState<string[]>([])
 
   useEffect(() => {
+    if (!warm) return
     fetchLevels().then(setCategories).catch(() => setCategories([]))
     fetchNoGradeLevels().then(setNoGrade).catch(() => setNoGrade([]))
-  }, [])
+  }, [warm])
 
   useEffect(() => {
     if (!category) {

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { SlidersHorizontal, X } from 'lucide-react'
 import { GENDERS } from '@/lib/locations'
 import { useJobTitles } from '@/lib/jobTitles'
+import { useWarmOnIntent } from '@/lib/useWarmOnIntent'
 import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
 import CityPicker from '@/components/forms/CityPicker'
@@ -60,6 +61,10 @@ function choices(all: string[], counted: Option[] | undefined, chosen?: string):
 export default function TutorFilterBar({ values, facets }: { values: FilterValues; facets?: TutorFacets | null }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  // Option lists load once the visitor touches the page (or a filter is set,
+  // or the phone panel is open) — not while the page loads (owner, 2 Nov 2026).
+  const hasFilter = Object.values(values).some(Boolean)
+  const warm = useWarmOnIntent(open || hasFilter)
 
   // Taxonomy cascade
   const [categories, setCategories] = useState<string[]>([])
@@ -73,9 +78,10 @@ export default function TutorFilterBar({ values, facets }: { values: FilterValue
   const [noGrade, setNoGrade] = useState<string[]>([])
 
   useEffect(() => {
+    if (!warm) return
     fetchLevels().then(setCategories).catch(() => setCategories([]))
     fetchNoGradeLevels().then(setNoGrade).catch(() => setNoGrade([]))
-  }, [])
+  }, [warm])
 
   useEffect(() => {
     if (!category) {
@@ -102,8 +108,8 @@ export default function TutorFilterBar({ values, facets }: { values: FilterValue
   // Cities/areas from the DB (migration 73), one source. The filter stays a
   // select (it writes the URL on change) — free-text entry lives on the post
   // and profile forms, not here.
-  const { map } = useCityAreas()
-  const { titles: jobTitles } = useJobTitles()
+  const { map } = useCityAreas(warm)
+  const { titles: jobTitles } = useJobTitles(warm)
   const areas = useMemo(() => areasForCity(map, values.city), [map, values.city])
   // Cities (owner, 20 Oct 2026): only those with tutors for the current filters
   // (the facet counts), else those with an open tuition or a listed tutor —

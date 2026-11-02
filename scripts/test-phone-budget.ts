@@ -91,3 +91,15 @@ test('taps answer at once', () => {
   assert.match(css, /:active \{\s*filter: brightness\(0\.9\);/)
   assert.match(css, /touch-action: manipulation;/)
 })
+
+test('Browse filter bars load their option lists only once the visitor touches the page', () => {
+  for (const f of ['app/(site)/browse/tutors/TutorFilterBar.tsx', 'app/(site)/browse/tuitions/JobFilterBar.tsx']) {
+    const s = read(f)
+    assert.match(s, /const warm = useWarmOnIntent\(open \|\| hasFilter\)/, f)
+    assert.match(s, /if \(!warm\) return\n\s*fetchLevels\(\)/, f)
+    assert.match(s, /useJobTitles\(warm\)/, f)
+    assert.doesNotMatch(s, /useCityAreas\(\)|useJobTitles\(\)/, f)
+  }
+  const hook = read('lib/useWarmOnIntent.ts')
+  for (const e of ['pointermove', 'pointerdown', 'keydown', 'touchstart']) assert.ok(hook.includes(`'${e}'`), e)
+})

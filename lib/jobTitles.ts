@@ -33,11 +33,12 @@ export async function fetchJobTitles(): Promise<string[]> {
 }
 
 /** React hook: the ordered Job Type titles, loaded once. Empty until resolved. */
-export function useJobTitles(): { titles: string[]; loading: boolean } {
+export function useJobTitles(enabled = true): { titles: string[]; loading: boolean } {
   const [titles, setTitles] = useState<string[]>(cache ?? [])
   const [loading, setLoading] = useState(!cache)
 
   useEffect(() => {
+    if (!enabled) return
     if (cache) {
       setTitles(cache)
       setLoading(false)
@@ -55,7 +56,7 @@ export function useJobTitles(): { titles: string[]; loading: boolean } {
     return () => {
       alive = false
     }
-  }, [])
+  }, [enabled])
 
   return { titles, loading }
 }

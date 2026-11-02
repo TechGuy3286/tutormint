@@ -50,11 +50,12 @@ export function addAreaToCache(city: string, area: string): void {
 }
 
 /** React hook: the city/area map, loaded once. Empty until it resolves. */
-export function useCityAreas(): { map: CityAreaMap; loading: boolean } {
+export function useCityAreas(enabled = true): { map: CityAreaMap; loading: boolean } {
   const [map, setMap] = useState<CityAreaMap>(cache ?? EMPTY)
   const [loading, setLoading] = useState(!cache)
 
   useEffect(() => {
+    if (!enabled) return
     if (cache) {
       setMap(cache)
       setLoading(false)
@@ -72,7 +73,7 @@ export function useCityAreas(): { map: CityAreaMap; loading: boolean } {
     return () => {
       alive = false
     }
-  }, [])
+  }, [enabled])
 
   return { map, loading }
 }
