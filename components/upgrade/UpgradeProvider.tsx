@@ -2,7 +2,11 @@
 
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import type { Gate } from '@/lib/gate'
-import UpgradeSheet from './UpgradeSheet'
+import dynamic from 'next/dynamic'
+
+// The sheet (and the CNIC window inside it) is only downloaded when a gate
+// actually opens — never on a page load (owner, 2 Nov 2026, phone speed).
+const UpgradeSheet = dynamic(() => import('./UpgradeSheet'), { ssr: false })
 
 // One sheet for the whole app, opened from anywhere.
 //

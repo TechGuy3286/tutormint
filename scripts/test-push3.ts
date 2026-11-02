@@ -114,12 +114,12 @@ test('cached pages: the build prerender manifest lists them as cached (when a bu
   if (!existsSync(manifest)) return
   const m = JSON.parse(read(manifest)) as { routes: Record<string, unknown>; dynamicRoutes: Record<string, unknown> }
   const known = new Set([...Object.keys(m.routes), ...Object.keys(m.dynamicRoutes)])
-  for (const r of ['/', '/about', '/faq', '/post-tuition', '/blog', '/blog/[slug]', '/tutor/[slug]', '/tuitions/[city]/[slug]', '/tuition-jobs/[city]', '/tuition-jobs/[city]/[variant]', '/tuition-jobs/school/[school]', '/tutors/[city]/[subject]'])
+  for (const r of ['/', '/about', '/faq', '/post-tuition', '/blog', '/blog/[slug]', '/tutor/[slug]', '/tuitions/[city]/[slug]', '/tuition-jobs/[city]', '/tuition-jobs/[city]/[variant]', '/tuition-jobs/school/[school]', '/tutors/[city]/[subject]', '/browse/tutors', '/browse/tuitions'])
     assert.ok(known.has(r), `${r} is not cached in the build`)
 })
 
 test('personal pages stay dynamic on purpose', () => {
-  for (const d of ['account', 'login', 'register', 'parent', 'tutor/dashboard', 'tutor/onboarding', 'pay', 'verify-phone', 'browse'])
+  for (const d of ['account', 'login', 'register', 'parent', 'tutor/dashboard', 'tutor/onboarding', 'pay', 'verify-phone'])
     assert.match(read(`app/(site)/${d}/layout.tsx`), /export const dynamic = 'force-dynamic'/, d)
 })
 
@@ -151,7 +151,7 @@ test('query twins: only the query a cached page cannot read goes to the twin', (
   assert.equal(queryTwinPath('/tutor/ali-raza-tutor', P('preview=1')), '/qs/tutor/ali-raza-tutor')
   assert.equal(queryTwinPath('/tutor/ali-raza-tutor', P('message=1')), null, 'message=1 is read in the browser')
   assert.equal(queryTwinPath('/qs/blog', P('cluster=x')), null)
-  assert.match(read('proxy.ts'), /queryTwinPath\(request\.nextUrl\.pathname, request\.nextUrl\.searchParams\)/)
+  assert.match(read('proxy.ts'), /queryTwinPath\(request\.nextUrl\.pathname, request\.nextUrl\.searchParams, hasAuthCookie\(/)
   assert.match(read('app/robots.ts'), /'\/qs\/'/)
   for (const f of ['app/(site)/qs/blog/page.tsx', 'app/(site)/qs/tuition-jobs/[city]/page.tsx', 'app/(site)/qs/tuition-jobs/[city]/[variant]/page.tsx', 'app/(site)/qs/tutor/[slug]/page.tsx'])
     assert.match(read(f), /force-dynamic/, f)

@@ -89,8 +89,8 @@ test('useInfinite applies the merge on append and on restore; the public lists p
   assert.match(s, /setItems\(\(prev\) => mergeUnique\(prev, page\.items, serverIdsRef\.current\)\)/)
   assert.match(s, /if \(!snapshotUsable\(s\.items, serverIdsRef\.current\)\)/)
   for (const f of [
-    'app/(site)/browse/tutors/page.tsx',
-    'app/(site)/browse/tuitions/page.tsx',
+    'app/(site)/browse/tutors/BrowseTutorsView.tsx',
+    'app/(site)/browse/tuitions/BrowseTuitionsView.tsx',
     'components/landing/LandingView.tsx',
     'components/tuitionJobs/CityJobsView.tsx',
   ]) {

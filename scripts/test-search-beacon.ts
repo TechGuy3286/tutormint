@@ -66,7 +66,7 @@ test('the rules a beacon search still passes through', () => {
 })
 
 test('rendering a Browse page never writes a search row; only the beacon route does', () => {
-  for (const f of ['app/(site)/browse/tutors/page.tsx', 'app/(site)/browse/tuitions/page.tsx']) {
+  for (const f of ['app/(site)/browse/tutors/BrowseTutorsView.tsx', 'app/(site)/browse/tuitions/BrowseTuitionsView.tsx']) {
     const src = readFileSync(f, 'utf8')
     for (const call of ['logSearchPerformed(', 'logAnonSearch(', 'logUnmetSearch(']) {
       assert.ok(!src.includes(call), `${f} must not call ${call}`)

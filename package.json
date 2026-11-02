@@ -238,7 +238,8 @@
     "test:push2:live": "tsx --conditions=react-server --env-file=.env.local --test scripts/test-push2-live.ts",
     "test:staticrender": "tsx --test scripts/test-static-render.ts",
     "test:staticrender:live": "node scripts/test-static-render-live.mjs",
-    "test:nov2push1": "tsx --test scripts/test-nov2-push1.ts"
+    "test:nov2push1": "tsx --test scripts/test-nov2-push1.ts",
+    "test:phonebudget": "tsx --test scripts/test-phone-budget.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",
@@ -256,7 +257,6 @@
     "qrcode": "^1.5.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "recharts": "^3.10.1",
     "server-only": "^0.0.1",
     "sharp": "^0.35.3",
     "zod": "^4.5.4"

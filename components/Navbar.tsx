@@ -4,9 +4,18 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { SITE_LOGO_PATH } from '@/lib/siteIdentity'
 import AuthCTA from '@/components/AuthCTA'
-import NotificationBell from '@/components/notifications/NotificationBell'
-import UserMenu from '@/components/UserMenu'
-import MemberHeader from '@/components/MemberHeader'
+import dynamic from 'next/dynamic'
+
+// The signed-in parts are downloaded only for a visitor with a session (owner,
+// 2 Nov 2026, phone speed): a guest never pays for the bell, the menu or the
+// member header. While they load, a placeholder of the same size holds the row.
+const slot = (w: string) =>
+  function HeaderSlot() {
+    return <span aria-hidden className={`block h-11 ${w} animate-pulse rounded-xl bg-gray-100`} />
+  }
+const NotificationBell = dynamic(() => import('@/components/notifications/NotificationBell'), { ssr: false, loading: slot('w-11') })
+const UserMenu = dynamic(() => import('@/components/UserMenu'), { ssr: false, loading: slot('w-28') })
+const MemberHeader = dynamic(() => import('@/components/MemberHeader'), { ssr: false, loading: slot('w-56') })
 import { useHeaderSession } from '@/components/session/HeaderSessionProvider'
 import { dashboardHrefFor, emptyNotificationsFor, isMemberRole } from '@/lib/headerSessionCore'
 

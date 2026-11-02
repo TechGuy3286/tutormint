@@ -29,7 +29,8 @@ export const VIEW_AS_OWNER_COOKIE = 'tm_view_as_owner'
 /** Readable by the browser: the member's id, so the browser client answers as
  *  the member and refuses every write too. */
 export const VIEW_AS_UI_COOKIE = 'tm_view_as_ui'
-export const VIEW_AS_EXIT_PATH = '/api/admin/view-as/exit'
+import { VIEW_AS_EXIT_PATH } from './viewAsPaths'
+export { VIEW_AS_EXIT_PATH }
 export const VIEW_AS_READ_ONLY = 'Viewing as this member — read only. Exit to make changes.'
 
 export type ViewAsTicket = { id: string; expiresAt: number }

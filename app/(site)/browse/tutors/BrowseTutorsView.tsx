@@ -1,0 +1,494 @@
+import { Globe, Plus } from 'lucide-react'
+import { postTuitionHref } from '@/lib/signupLinks'
+import { browseTutorsMeta, browseTuitionsMeta } from '@/lib/browseMeta'
+import Breadcrumbs from '@/components/Breadcrumbs'
+import TrackSearch from '@/components/TrackSearch'
+import { parseMode } from '@/lib/locations'
+import { isOnlineTitle } from '@/lib/jobTitlesCore'
+import type { Metadata } from 'next'
+import Link from 'next/link'
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { getEntitlements } from '@/lib/entitlements'
+import SearchBeacon from '@/components/search/SearchBeacon'
+import { searchBeaconToken } from '@/lib/searchBeacon'
+import { schoolSuggestionFor } from '@/lib/schoolSearch'
+import SchoolSuggestionRow from '@/components/search/SchoolSuggestionRow'
+import TutorCard, { type TutorCardData, type CardViewer } from '@/components/TutorCard'
+import AdSlot from '@/components/ads/AdSlot'
+import InlineAd from '@/components/ads/InlineAd'
+import { createPublicClient } from '@/lib/supabase/public'
+import TutorFilterBar, { type FilterValues } from './TutorFilterBar'
+import MoreTutors from './MoreTutors'
+import PopularLandingLinks from '@/components/landing/PopularLandingLinks'
+import { rankedTutors, tutorFiltersFrom, tutorFiltersToParams } from '@/lib/browseTutors'
+import SearchChips from '@/components/search/SearchChips'
+import { tutorFallback } from '@/lib/searchFallback'
+import { tutorFacets } from '@/lib/tutorFacets'
+import { reconcileSubjectQuery, resolveSmartQuery } from '@/lib/smartSearch'
+import NotifyMe from '@/components/search/NotifyMe'
+import { uniqueById } from '@/lib/infiniteMerge'
+
+// /browse/tutors -- a server component, on purpose.
+//
+// This page and /tutor/[slug] are the platform's organic-search surface.
+// CLAUDE.md: results must be present in the HTML, and a client-side
+// "Loading directory..." fetch is not acceptable. Everything below is
+// rendered on the server; the only client code on the page is the filter bar,
+// the shortlist/demo buttons and the sign-in modal.
+//
+// Ranking is not done here either. rank_tutors() in the database applies the
+// whole algorithm -- tier, then location, then Bayesian rating, then the daily
+// rotation -- and this page renders the rows in the order it got them.
+
+
+
+const PAGE_SIZE = 12
+const AD_EVERY = 8
+
+type SearchParams = Promise<Record<string, string | string[] | undefined>>
+
+function one(v: string | string[] | undefined): string {
+  return (Array.isArray(v) ? v[0] : v)?.trim() ?? ''
+}
+
+function intOrNull(v: string): number | null {
+  const n = Number(v)
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : null
+}
+
+/** Display label for a taxonomy_master id, for headings and <title>. */
+async function subjectLabel(masterId: number | null): Promise<string | null> {
+  if (!masterId) return null
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('taxonomy_master')
+    .select('level_slug, subject_slug')
+    .eq('id', masterId)
+    .maybeSingle()
+  if (!data) return null
+
+  const [level, subject] = await Promise.all([
+    supabase.from('taxonomy_levels').select('name').eq('slug', data.level_slug).maybeSingle(),
+    data.subject_slug
+      ? supabase.from('taxonomy_subjects').select('name').eq('slug', data.subject_slug).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
+
+  const levelName = level.data?.name ?? null
+  const subjectName = (subject.data as { name?: string } | null)?.name ?? null
+  if (subjectName && levelName) return `${levelName} ${subjectName}`
+  return subjectName ?? levelName
+}
+
+/**
+ * rel=prev / rel=next for the ?page=N series.
+ *
+ * The list scrolls for a person, but a crawler does not scroll: without these
+ * links the only page of the directory it can ever reach is the first one, and
+ * every tutor past position 12 would be invisible to search. Next emits them
+ * from `metadata.pagination`.
+ *
+ * Built from the live searchParams so a filter added later is carried into the
+ * series automatically — a rel=next that silently dropped ?city= would point
+ * the crawler at a different list from the one it is reading.
+ */
+function paginationLinks(
+  base: string,
+  sp: Record<string, string | string[] | undefined>,
+  page: number,
+  hasNext: boolean,
+) {
+  const href = (n: number) => {
+    const params = new URLSearchParams()
+    for (const [k, v] of Object.entries(sp)) {
+      if (k === 'page') continue
+      const first = Array.isArray(v) ? v[0] : v
+      if (first) params.set(k, first)
+    }
+    if (n > 1) params.set('page', String(n))
+    const qs = params.toString()
+    return qs ? `${base}?${qs}` : base
+  }
+
+  return {
+    previous: page > 1 ? href(page - 1) : undefined,
+    next: hasNext ? href(page + 1) : undefined,
+  }
+}
+
+export async function tutorsMetadata(sp: Record<string, string | string[] | undefined>): Promise<Metadata> {
+  const city = one(sp.city)
+  const label = await subjectLabel(intOrNull(one(sp.subject)))
+
+  // "Find tutors" (owner, 5 Oct 2026). Verified tutors are listed first, but
+  // not every listed tutor is verified yet, so neither the title nor the
+  // description claims they all are.
+  // Owner, 12 Oct 2026 (Search Console: 109 impressions at position 2.5, no
+  // clicks): the title says what the page offers and the description names the
+  // cities and "free to join, no commission". Both built in lib/browseMeta.
+  const { title, description } = browseTutorsMeta(label, city)
+
+  const page = Math.max(1, intOrNull(one(sp.page)) ?? 1)
+  // Identical arguments to the page body's own call, so React's cache() serves
+  // both from one query rather than asking the directory twice per request.
+  const { total } = await rankedTutors({
+    filters: tutorFiltersFrom((k) => one(sp[k])),
+    limit: PAGE_SIZE,
+    offset: (page - 1) * PAGE_SIZE,
+  })
+
+  return {
+    title,
+    description,
+    pagination: paginationLinks('/browse/tutors', sp, page, page * 12 < total),
+    alternates: { canonical: city ? `/browse/tutors?city=${encodeURIComponent(city)}` : '/browse/tutors' },
+    openGraph: { title, description, type: 'website' },
+  }
+}
+
+/**
+ * The page body. `guest` = the cached signed-out view of the bare address
+ * (owner, 2 Nov 2026, phone speed): no session is read, no ad is chosen on the
+ * server (the inline slot is the client InlineAd), nothing is written. Every
+ * other request — any filter, or a sign-in cookie — reaches the live twin
+ * under /qs (proxy.ts, lib/queryTwinCore), which renders exactly as before.
+ */
+export async function BrowseTutorsView({ sp, guest = false }: { sp: Record<string, string | string[] | undefined>; guest?: boolean }) {
+
+  const city = one(sp.city)
+  const area = one(sp.area)
+  const mode = parseMode(one(sp.mode)) ?? ''
+  const gender = one(sp.gender)
+  const feeMin = one(sp.feeMin)
+  const feeMax = one(sp.feeMax)
+  const q = one(sp.q)
+  const page = Math.max(1, intOrNull(one(sp.page)) ?? 1)
+  // A dropdown subject AND typed words naming a different subject: the typed
+  // search wins (owner, 28 Oct 2026 — the 24 Oct "English" miss).
+  const { subjectId, smart: typedSmart } = await reconcileSubjectQuery(intOrNull(one(sp.subject)), q)
+  // "tuition jobs" typed on Find tutors is a tutor looking for work.
+  if (typedSmart?.parsed.jobs && !typedSmart.parsed.subject && !typedSmart.parsed.levels.length) {
+    redirect(`/browse/tuitions?q=${encodeURIComponent(q)}`)
+  }
+
+  /**
+   * The current search with some filters dropped.
+   *
+   * Built from the live searchParams rather than assembled from the parsed
+   * values, so a filter added later is carried across without anybody having
+   * to remember to add it here — the failure mode being a "search the whole
+   * city" link that silently discards the subject the parent came for.
+   */
+  const widen = (drop: Record<string, undefined>) => {
+    const next = new URLSearchParams()
+    for (const [k, v] of Object.entries(sp)) {
+      if (k in drop || k === 'page') continue
+      const one = Array.isArray(v) ? v[0] : v
+      if (one) next.set(k, one)
+    }
+    const qs = next.toString()
+    return qs ? `/browse/tutors?${qs}` : '/browse/tutors'
+  }
+
+  // The cached guest view reads no cookie (owner, 2 Nov 2026).
+  const supabase = guest ? (createPublicClient() as unknown as Awaited<ReturnType<typeof createClient>>) : await createClient()
+
+  // The first window is rendered here, on the server, exactly as before: this
+  // page is the platform's organic-search surface and the tutors must be in the
+  // HTML. ?page=N still resolves, still server-side, so a crawler that has
+  // followed rel=next and a member who shared a deep link both get real markup.
+  //
+  // Everything BELOW this window is appended by MoreTutors from a keyset
+  // cursor, because offset paging repeats and skips rows as the directory
+  // changes underneath a reader. See supabase/migrations/32.
+  const listFilters = tutorFiltersFrom((k) => one(sp[k]))
+
+  // §4.1/§4.4/§3: a committed misspelled/Roman-Urdu query ("hisab" → Mathematics)
+  // resolves to the subject the typeahead would suggest, across EVERY level, and
+  // filters by it — the resolution itself happens inside rankedTutors (so the
+  // first window and load-more agree); here we only compute the label for the
+  // "Showing results for …" line.
+  const { tutors: rankedRows, total, nextCursor, error, parsed } = await rankedTutors({
+    filters: listFilters,
+    limit: PAGE_SIZE,
+    offset: (page - 1) * PAGE_SIZE,
+  })
+  // One card per tutor, whatever the source returned (owner, 10 Oct 2026).
+  const tutors = uniqueById(rankedRows)
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  // Who is looking. Guests get the full page -- browsing never asks for an
+  // account -- and only the transactional buttons behave differently.
+  const {
+    data: { user },
+  } = guest ? { data: { user: null } } : await supabase.auth.getUser()
+
+  let viewer: CardViewer = {
+    signedIn: false,
+    role: null,
+    verifiedParent: false,
+    canInitiateMessage: false,
+  }
+  let saved = new Set<string>()
+  // Only for the house-ad upsell filter, so an inline ad never pitches a plan
+  // the viewer already holds.
+  let viewerPlan: string | null = null
+
+  if (user) {
+    const ent = await getEntitlements(user.id)
+    viewerPlan = ent.plan
+    viewer = {
+      signedIn: true,
+      id: user.id,
+      role: ent.role,
+      verifiedParent: ent.audience === 'parent' && !!ent.plan,
+      canInitiateMessage: ent.canInitiateMessage,
+    }
+
+    const { data: shortlisted } = await supabase.from('shortlists').select('tutor_id')
+    saved = new Set((shortlisted ?? []).map((s) => s.tutor_id as string))
+
+  }
+
+  // SEARCH LOGGING (owner, 13 Oct 2026): rendering this page writes NOTHING.
+  // The page hands the browser a signed ticket for the search it showed, and a
+  // real browser that has loaded it posts the ticket back once
+  // (components/search/SearchBeacon → POST /api/search/log). Only that post
+  // records the search — on the member's timeline or, for a guest, in the
+  // anonymous log — so a crawler that only fetches the page adds no row, and a
+  // parent landing from Google on their first visit is counted. No free-text
+  // query is stored except for a search that found nothing (below).
+  const filtered = !!(subjectId || city || area || mode || gender || feeMin || feeMax || q)
+
+  // Nothing found (owner, 8 Oct 2026): log it, then show the nearest match with
+  // a clear line — never an unrelated subject, never a blank page.
+  let fallback: Awaited<ReturnType<typeof tutorFallback>> = null
+  let unmetQuery: string | null = null
+  if (tutors.length === 0 && !error && (q || city || subjectId)) {
+    // The miss is logged by the beacon too (the ticket carries the typed search).
+    unmetQuery = q || null
+    fallback = await tutorFallback(listFilters, parsed, PAGE_SIZE)
+  }
+  // A school's name typed into the search (owner, 13 Oct 2026): a row to the
+  // school's page. A school is never treated as a subject.
+  const school = q ? await schoolSuggestionFor(q) : null
+  const beaconToken = searchBeaconToken({
+    s: 'tutors',
+    f: { master_id: subjectId, city: city || null, area: area || null, mode: mode || null, gender: gender || null },
+    x: filtered,
+    r: total,
+    u: unmetQuery,
+  })
+
+  // The dropdowns show only options that have a tutor, with counts (owner,
+  // 13 Oct 2026). The subject is the dropdown's id, or what the typed search means.
+  const facetSubject = subjectId ? [subjectId] : q ? ((await resolveSmartQuery(q).catch(() => null))?.masterIds ?? null) : null
+  const facets = await tutorFacets({ city: city || parsed?.city || null, area: area || null, masterIds: facetSubject })
+  // A zero result never ends the page: a way to post, and a way to be told.
+  // Through sign-up with Parent selected, the city and area carried on (owner, 24 Oct 2026).
+  const postHref = postTuitionHref({ city, area })
+
+  const label = await subjectLabel(subjectId)
+  // "Find tutors" (owner, 5 Oct 2026) — the list holds verified tutors first and
+  // verification-in-progress after, so the heading no longer says "Verified".
+  const heading = label ? `${label} tutors` : 'Find tutors'
+
+  const filters: FilterValues = {
+    subject: subjectId ? String(subjectId) : '',
+    subjectLabel: label,
+    city,
+    area,
+    mode,
+    gender,
+    feeMin,
+    feeMax,
+    q,
+  }
+
+  const pageHref = (n: number) => {
+    const params = new URLSearchParams()
+    for (const [k, v] of Object.entries({ subject: filters.subject, city, area, mode, gender, feeMin, feeMax, q })) {
+      if (v) params.set(k, v)
+    }
+    if (n > 1) params.set('page', String(n))
+    return params.toString() ? `/browse/tutors?${params}` : '/browse/tutors'
+  }
+
+  return (
+    <main className="min-h-screen bg-tm-bg px-4 py-4 text-slate-700 sm:px-6 sm:py-6 lg:px-8">
+      <SearchBeacon token={beaconToken} />
+      <div className="mx-auto max-w-5xl space-y-4">
+        <Breadcrumbs items={[{ label: 'Find tutors' }]} />
+        <header className="space-y-1">
+          <h1 className="text-xl font-black text-tm-navy sm:text-2xl">
+            {heading}
+            {city ? ` in ${city}` : ''}
+          </h1>
+          <p className="text-xs text-gray-500">
+            {/* The live count for everyone; "free to browse, no account needed"
+                only for a signed-out visitor (owner, 5 Oct 2026). */}
+            {total === 0
+              ? 'No tutors match these filters yet.'
+              : `${total} tutor${total === 1 ? '' : 's'}${viewer.signedIn ? '' : ' · free to browse, no account needed'}`}
+          </p>
+          {/* What the smart search read, as removable chips (owner, 8 Oct 2026). */}
+          <SearchChips parsed={parsed} q={q} basePath="/browse/tutors" params={{ subject: filters.subject, city, area, mode, gender, feeMin, feeMax, q }} />
+        </header>
+
+        <TutorFilterBar values={filters} facets={facets} />
+
+        {school && <SchoolSuggestionRow school={school} />}
+
+        {error && (
+          <p className="rounded-2xl border border-tm-red/30 bg-tm-tint-red p-4 text-xs font-bold text-tm-red">
+            The directory could not be loaded. Please try again.
+          </p>
+        )}
+
+        {tutors.length === 0 && !error && fallback ? (
+          <div className="space-y-4">
+            <div className="space-y-1 rounded-2xl border border-tm-navy/20 bg-tm-tint-navy p-3 text-tm-navy">
+              <h2 className="text-sm font-black">Closest tutors</h2>
+              <p className="text-xs font-bold">{fallback.line.en}</p>
+            </div>
+            {fallback.tutors.map((t, i) => (
+              <TutorCard
+                key={t.id}
+                tutor={t}
+                viewer={viewer}
+                initiallySaved={saved.has(t.id)}
+                showMessage={!viewer.signedIn || viewer.role !== 'tutor'}
+                headingLevel="h2"
+                priority={i === 0}
+              />
+            ))}
+            <div className="mx-auto max-w-md space-y-3">
+              <Link
+                href={postHref}
+                className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-red px-4 text-xs font-bold text-white shadow-md transition-colors hover:bg-tm-red-hover"
+              >
+                <Plus aria-hidden size={14} />
+                Post a free tuition request
+              </Link>
+              <NotifyMe q={q} city={city} area={area} subjectId={subjectId} />
+            </div>
+          </div>
+        ) : tutors.length === 0 && !error ? (
+          /*
+            A no-results screen with three specific ways forward rather than
+            one "clear filters" button. The filters that most often produce an
+            empty page are area and teaching mode, so those get their own
+            escape hatch: widening to the whole city, and including tutors who
+            teach online, are usually the two changes that would have found
+            somebody. The third is the honest one -- there may genuinely be
+            nobody, and in that case posting the tuition makes tutors come to
+            them instead.
+          */
+          <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 text-center sm:p-8">
+            <div className="space-y-1.5">
+              <p className="text-sm font-black text-tm-navy">No tutors match that yet</p>
+              <p className="mx-auto max-w-sm text-xs leading-relaxed text-gray-500">
+                {area && city
+                  ? `Nobody in ${area} matches. There may well be someone nearby.`
+                  : 'Try one of these — the last one works even when nobody is listed yet.'}
+              </p>
+            </div>
+
+            <div className="mx-auto flex max-w-sm flex-col gap-2">
+              {area && (
+                <Link
+                  href={widen({ area: undefined })}
+                  className="flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
+                >
+                  Search all of {city || 'the city'}
+                </Link>
+              )}
+              {/* Don't offer "include online tutors" to somebody who has already
+                  filtered to exactly that. `mode` is a title now (migration 77). */}
+              {!isOnlineTitle(mode) && (
+                <Link
+                  href={widen({ mode: undefined, area: undefined })}
+                  className="gap-1.5 flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
+                >
+                  <Globe aria-hidden size={14} />
+                  Include tutors who teach online
+                </Link>
+              )}
+              <Link
+                href={postHref}
+                className="gap-1.5 flex min-h-[44px] items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white shadow-md transition-colors hover:bg-tm-red-hover"
+              >
+                <Plus aria-hidden size={14} />
+                Post a free tuition request
+              </Link>
+              <NotifyMe q={q} city={city} area={area} subjectId={subjectId} />
+              <Link
+                href="/browse/tutors"
+                className="flex min-h-[44px] items-center justify-center text-xs font-bold text-gray-500 hover:text-tm-navy"
+              >
+                Clear every filter
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {tutors.map((t, i) => (
+              <div key={t.id} className="space-y-4">
+                <TutorCard
+                  tutor={t}
+                  viewer={viewer}
+                  initiallySaved={saved.has(t.id)}
+                  showMessage={!viewer.signedIn || viewer.role !== 'tutor'}
+                  headingLevel="h2"
+                  priority={i === 0}
+                />
+                {/* One inline slot after every 8 results, never inside the
+                    ranking itself. */}
+                {(i + 1) % AD_EVERY === 0 && (
+                  guest ? (
+                    <InlineAd audience="parents" index={Math.floor(i / AD_EVERY)} headingLevel="h2" />
+                  ) : (
+                  <AdSlot
+                    slot="browse-inline"
+                    audience="parents"
+                    headingLevel="h2"
+                    index={Math.floor(i / AD_EVERY)}
+                    viewerRole={viewer.role ?? null}
+                    viewerPlan={viewerPlan}
+                  />
+                  )
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* No numbered pagination (CLAUDE.md, 3 Sep 2026). MoreTutors appends
+            from the cursor this window ended on, and renders the Load more
+            button, the scroll trigger and the end-of-results line. */}
+        {tutors.length > 0 && (
+          <MoreTutors
+            params={{ ...tutorFiltersToParams(listFilters), ...(page > 1 ? { page: String(page) } : {}) }}
+            initialCursor={nextCursor}
+            total={total}
+            serverCount={(page - 1) * PAGE_SIZE + tutors.length}
+            viewer={viewer}
+            adEvery={AD_EVERY}
+            serverIds={tutors.map((t) => t.id)}
+          />
+        )}
+
+        {/* Popular searches sit at the END of the page (owner, 5 Oct 2026) —
+            after the full list and the load-more footer. Directly under the
+            search bar there is nothing but the list. Internal links to the
+            city × subject landing pages (PR43 §2), so they are not orphans; only
+            the ones that exist (>= threshold). */}
+        <PopularLandingLinks kind="tutors" />
+        {/* Record a committed search with its real result count (PR99 §2). The
+            term is masked server-side before it is stored. */}
+        {q ? <TrackSearch where="browse tutors" query={q} resultCount={total} /> : null}
+      </div>
+    </main>
+  )
+}

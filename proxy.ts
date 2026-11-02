@@ -16,6 +16,7 @@
 // on every request. The server layouts do that with getSessionUser().
 
 import { queryTwinPath } from '@/lib/queryTwinCore'
+import { hasAuthCookie } from '@/lib/headerSessionCore'
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
@@ -299,7 +300,7 @@ export async function proxy(request: NextRequest) {
   // session cookies, not the copy taken here.
   let forwarded = forwardHeaders(request)
   // A query a cached page cannot read goes to its dynamic twin (lib/queryTwinCore).
-  const twin = queryTwinPath(request.nextUrl.pathname, request.nextUrl.searchParams)
+  const twin = queryTwinPath(request.nextUrl.pathname, request.nextUrl.searchParams, hasAuthCookie(request.headers.get('cookie')))
   const pass = () => {
     if (!twin) return NextResponse.next({ request: forwarded })
     const url = request.nextUrl.clone()

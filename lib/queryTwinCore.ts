@@ -11,9 +11,14 @@ export const QUERY_TWIN_PREFIX = '/qs'
 const HUB = /^\/tuition-jobs\/(?!school\/)[^/]+(?:\/[^/]+)?$/
 const TUTOR = /^\/tutor\/[^/]+$/
 
-/** The twin to rewrite to, or null to serve the cached page. */
-export function queryTwinPath(pathname: string, params: URLSearchParams): string | null {
+const BROWSE = /^\/browse\/(tutors|tuitions)$/
+
+/** The twin to rewrite to, or null to serve the cached page.
+ *  Browse (owner, 2 Nov 2026 — phone speed): only the bare address for a
+ *  signed-out visitor is cached; any query, or a sign-in cookie, goes live. */
+export function queryTwinPath(pathname: string, params: URLSearchParams, signedIn = false): string | null {
   if (pathname.startsWith(QUERY_TWIN_PREFIX + '/')) return null
+  if (BROWSE.test(pathname) && (signedIn || [...params.keys()].length > 0)) return QUERY_TWIN_PREFIX + pathname
   const has = (k: string) => (params.get(k) ?? '') !== ''
   if (pathname === '/blog' && (has('cluster') || has('page'))) return QUERY_TWIN_PREFIX + pathname
   if (HUB.test(pathname) && has('page') && params.get('page') !== '1') return QUERY_TWIN_PREFIX + pathname

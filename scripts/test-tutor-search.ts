@@ -95,7 +95,7 @@ test('choosing a city narrows areas, levels and subjects to that city — and a 
 })
 
 test('zero results never end the page: closest tutors, a free request, and Notify me', () => {
-  const page = readFileSync('app/(site)/browse/tutors/page.tsx', 'utf8')
+  const page = readFileSync('app/(site)/browse/tutors/BrowseTutorsView.tsx', 'utf8')
   assert.ok(page.includes('Closest tutors'), 'the relaxed list has a heading')
   assert.ok(page.includes('fallback.line.en'), 'and says in words what was relaxed')
   assert.equal(page.split('Post a free tuition request').length - 1, 2, 'in both zero-result states')

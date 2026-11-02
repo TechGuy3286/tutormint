@@ -1,7 +1,11 @@
 'use client'
 
-import MessagesDock from '@/components/messages/MessagesDock'
-import ViewAsBanner from '@/components/ViewAsBanner'
+import dynamic from 'next/dynamic'
+
+// Signed-in only, and never needed for the first paint: downloaded after the
+// page is up, only for a visitor who has a session (owner, 2 Nov 2026).
+const MessagesDock = dynamic(() => import('@/components/messages/MessagesDock'), { ssr: false })
+const ViewAsBanner = dynamic(() => import('@/components/ViewAsBanner'), { ssr: false })
 import VisitBeacon from '@/components/VisitBeacon'
 import { useHeaderSession } from '@/components/session/HeaderSessionProvider'
 import { isMemberRole, MESSAGES_BASE_PATH } from '@/lib/headerSessionCore'

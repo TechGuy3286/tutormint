@@ -77,7 +77,7 @@ test('picker matching uses the same words', () => {
 
 test('the nearby / no-results info box on both Browse pages shows only the English line (owner, 9 Oct 2026)', async () => {
   const { readFileSync } = await import('node:fs')
-  for (const f of ['app/(site)/browse/tuitions/page.tsx', 'app/(site)/browse/tutors/page.tsx']) {
+  for (const f of ['app/(site)/browse/tuitions/BrowseTuitionsView.tsx', 'app/(site)/browse/tutors/BrowseTutorsView.tsx']) {
     const src = readFileSync(f, 'utf8')
     assert.match(src, /\{fallback\.line\.en\}/, `${f} renders the English line`)
     assert.doesNotMatch(src, /fallback\.line\.ur/, `${f} renders no Urdu line in the box`)

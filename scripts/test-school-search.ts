@@ -81,7 +81,7 @@ test('the suggestion is its own "school" row, linking only to a page that exists
   // No new page: the row links to the existing school hub route.
   assert.ok(lib.includes("from '@/lib/schoolJobs'"))
   // The Browse tutors results show the row too.
-  const browse = read('app/(site)/browse/tutors/page.tsx')
+  const browse = read('app/(site)/browse/tutors/BrowseTutorsView.tsx')
   assert.ok(browse.includes('schoolSuggestionFor(q)') && browse.includes('{school && <SchoolSuggestionRow school={school} />}'))
   assert.ok(read('components/search/Typeahead.tsx').includes("school: 'Schools'"))
 })

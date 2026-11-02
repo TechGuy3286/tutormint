@@ -1,4 +1,4 @@
-import { VIEW_AS_EXIT_PATH } from '@/lib/viewAsCore'
+import { VIEW_AS_EXIT_PATH } from '@/lib/viewAsPaths'
 
 // The fixed "View as" banner (owner, 26 Oct 2026): shown on every page while the
 // Owner views a member's account. Exit ends it (the exit route puts the Owner's

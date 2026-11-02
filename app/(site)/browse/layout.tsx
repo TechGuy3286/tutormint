@@ -1,8 +1,9 @@
-// Personal / signed-in pages stay dynamic (push 3, owner 1 Nov 2026). They
-// used to be dynamic only because the site header read the sign-in cookie;
-// the header is now in the browser, so this says it on purpose.
-export const dynamic = 'force-dynamic'
-
+// Browse (owner, 2 Nov 2026 — phone speed). The bare /browse/tutors and
+// /browse/tuitions are cached for signed-out visitors (each page says
+// `revalidate`); every filtered or signed-in request is rewritten by proxy.ts
+// to the live twin under app/(site)/qs/browse. The tutor detail page says
+// force-dynamic itself, and /browse only redirects. So this layout sets no
+// route mode of its own.
 export default function Layout({ children }: { children: React.ReactNode }) {
   return children
 }

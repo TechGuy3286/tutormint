@@ -410,8 +410,8 @@ test('BreadcrumbList on every public page type', () => {
     'school hub': 'app/(site)/tuition-jobs/school/[school]/page.tsx',
     'landing hub': 'components/landing/LandingView.tsx',
     'blog post': 'app/(site)/blog/[slug]/page.tsx',
-    'browse tutors': 'app/(site)/browse/tutors/page.tsx',
-    'browse tuitions': 'app/(site)/browse/tuitions/page.tsx',
+    'browse tutors': 'app/(site)/browse/tutors/BrowseTutorsView.tsx',
+    'browse tuitions': 'app/(site)/browse/tuitions/BrowseTuitionsView.tsx',
   }
   for (const [name, file] of Object.entries(pages)) assert.match(read(file), /<Breadcrumbs\b/, `${name} renders the breadcrumb`)
   // Home › Tuition jobs › City › Title, and Home › Tutors › City › Name.

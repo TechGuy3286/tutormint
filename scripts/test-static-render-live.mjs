@@ -108,6 +108,8 @@ async function main() {
     ['/privacy', 200],
     ['/support', 200],
     ['/post-tuition', 200],
+    ['/browse/tutors', 200],
+    ['/browse/tuitions', 200],
     ['/blog', 200],
     ...pick(blog, /^\/blog\/./).map((p) => [p, 200]),
     ...pick(tuitions, /^\/tuitions\//).map((p) => [p, 200]),

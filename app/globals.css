@@ -318,6 +318,17 @@ input:disabled,
       box-shadow: 0 10px 24px -12px rgb(10 10 10 / 0.22);
     }
   }
+  /* Instant tap feedback (owner, 2 Nov 2026, phone speed): every button and
+     button-like link darkens a little the moment it is pressed, before any
+     JavaScript runs — so a tap on a slow phone never feels ignored. filter only
+     (no transform), so nothing moves and the card lift above is untouched. */
+  :where(button, [role='button'], a.inline-flex, a.flex):not(:disabled, [aria-disabled='true']):active {
+    filter: brightness(0.9);
+  }
+  :where(button, [role='button'], a) {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
   @media (prefers-reduced-motion: reduce) {
     :where(.rounded-2xl.border, .rounded-3xl.border) {
       transition: none;
