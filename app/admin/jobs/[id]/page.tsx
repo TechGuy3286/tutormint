@@ -7,6 +7,8 @@ import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
 import TimeAgo from '@/components/TimeAgo'
 import { requireAdminRole, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
+import { backendSupportMayEditTuition } from '@/lib/adminAccessCore'
+import { tuitionPosters } from '@/lib/supervisorScope'
 import { postedAsParent } from '@/lib/convertAccountCore'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { listedTutorIds } from '@/lib/directoryStatus'
@@ -135,7 +137,12 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
   // Team-posted tuitions are editable (owner PR9 §2.1) by the roles that post
   // them; a parent's own job is not (§2.3).
   const isTeamPosted = !!parent?.is_team_account
-  const canEditTeam = isTeamPosted && roleMayWrite(actor.adminRole, SCREEN_ACCESS.jobsPost)
+  // Backend Support sees every tuition but edits only those it posted (owner,
+  // 3 Nov 2026); the routes refuse the rest (refuseBackendSupportTuitions).
+  const ownPostOk =
+    actor.adminRole !== 'backend_support' ||
+    backendSupportMayEditTuition(actor, (await tuitionPosters([job.id as string])).get(job.id as string) ?? null)
+  const canEditTeam = isTeamPosted && ownPostOk && roleMayWrite(actor.adminRole, SCREEN_ACCESS.jobsPost)
   const hired = (apps ?? []).find((a) => a.tutor_id === job.hired_tutor_id)
 
   // Seeded-tuition contact (job_contacts): the real parent behind an
@@ -406,7 +413,7 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
               </div>
             )}
           </dl>
-          {contactMsisdn && <NotifyContact jobId={job.id as string} />}
+          {contactMsisdn && ownPostOk && <NotifyContact jobId={job.id as string} />}
         </section>
       )}
 

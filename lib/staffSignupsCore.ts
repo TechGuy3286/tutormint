@@ -33,7 +33,9 @@ export const CLAIM_WINDOW_MS = CLAIM_WINDOW_DAYS * 86_400_000
 
 /** Roles that take part (owner, 15 Oct 2026). The Owner and the Project
  *  Managers manage the board; they do not carry a join link. */
-export const PARTICIPANT_ROLES = ['tuitions_staff', 'operations', 'supervisor', 'admin'] as const
+// Backend Support joined on 3 Nov 2026 (owner): her job is paid sign-ups, so
+// her credit is tracked like everyone else's (self-referral rules apply).
+export const PARTICIPANT_ROLES = ['tuitions_staff', 'operations', 'supervisor', 'admin', 'backend_support'] as const
 
 export function isParticipantRole(role: string | null | undefined): boolean {
   return !!role && (PARTICIPANT_ROLES as readonly string[]).includes(role)

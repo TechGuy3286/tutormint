@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
-import { refuseSupervisorTuitions } from '@/lib/supervisorScope'
+import { refuseBackendSupportTuitions, refuseSupervisorTuitions } from '@/lib/supervisorScope'
 import { updateTeamJob, type JobInput } from '@/lib/jobs'
 import { parseBody, z, text, rupees } from '@/lib/validate'
 
@@ -96,6 +96,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   // A Supervisor changes only their own tuitions and cities (owner, 24 Oct 2026).
   const scope = await refuseSupervisorTuitions(gate.actor, [id])
   if (scope) return scope
+  // Backend Support edits only the tuitions it posted (owner, 3 Nov 2026).
+  const own = await refuseBackendSupportTuitions(gate.actor, [id])
+  if (own) return own
   const result = await updateTeamJob(
     id,
     parseInput(parsed.data),

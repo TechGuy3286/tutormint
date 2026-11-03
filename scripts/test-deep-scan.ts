@@ -223,8 +223,9 @@ test('every staff WhatsApp builder is declared; parent sends use the situation m
 test('Backend Support: allowed screens and actions', () => {
   assert.equal(ROLE_LABEL[BS], 'Backend Support')
   assert.equal(roleBadge(BS), 'Backend Support')
-  assert.equal(adminHomeFor(BS), '/admin/follow-ups')
-  for (const k of ['unpaidSignups', 'signups', 'applicantForwards', 'paidTutors', 'inbox', 'usersView', 'memberActivity', 'memberContactReveal', 'receiptCheck', 'payments', 'backendSupportKpi'] as const) {
+  // Overview is its home since 3 Nov 2026 (owner) — counts, no money.
+  assert.equal(adminHomeFor(BS), '/admin')
+  for (const k of ['unpaidSignups', 'signups', 'applicantForwards', 'paidTutors', 'inbox', 'usersView', 'memberActivity', 'memberContactReveal', 'receiptCheck', 'payments', 'backendSupportKpi', 'overview', 'jobsPost', 'mySignups'] as const) {
     assert.ok(roleSatisfies(BS, SCREEN_ACCESS[k]), `opens ${k}`)
     assert.ok(roleMayWrite(BS, SCREEN_ACCESS[k]), `works ${k}`)
   }
@@ -232,12 +233,12 @@ test('Backend Support: allowed screens and actions', () => {
   assert.ok(mayOpenFollowUpTab(BS, 'tutors') && mayOpenFollowUpTab(BS, 'parents'))
   const nav = NAV_GROUPS.flatMap((g) => g.items).filter((i) => !i.screen || roleSatisfies(BS, SCREEN_ACCESS[i.screen as keyof typeof SCREEN_ACCESS] ?? []))
   const labels = nav.map((i) => i.label)
-  for (const l of ['Follow-ups', 'Applications', 'Paid tutors', 'Team inbox', 'People', 'Payments']) assert.ok(labels.includes(l), l)
-  for (const l of ['Finance', 'Payment gateways', 'Post a tuition', 'Team', 'Plans', 'Audit', 'Overview', 'Subjects', 'SMS']) assert.ok(!labels.includes(l), `no ${l}`)
+  for (const l of ['Follow-ups', 'Applications', 'Paid tutors', 'Team inbox', 'People', 'Payments', 'Overview', 'Post a tuition', 'Tuitions', 'My sign-ups']) assert.ok(labels.includes(l), l)
+  for (const l of ['Finance', 'Payment gateways', 'Team', 'Plans', 'Audit', 'Subjects', 'SMS', 'Payment settings', 'Messaging']) assert.ok(!labels.includes(l), `no ${l}`)
 })
 
 test('Backend Support: blocked actions', () => {
-  for (const k of ['finance', 'revenue', 'paymentAmounts', 'paymentGateways', 'paymentsSwitches', 'plans', 'plansMutate', 'jobsPost', 'jobsMutate', 'memberMerge', 'convertAccount', 'contactWithdraw', 'team', 'users', 'tutorEdit', 'cnicRead', 'subjectsCore', 'notificationSettings', 'templateReview', 'supportNumber', 'secondRole', 'orphans', 'overview', 'audit', 'documentUnlock', 'documentRotate', 'cityOwners', 'cleanup'] as const) {
+  for (const k of ['finance', 'revenue', 'paymentAmounts', 'paymentGateways', 'paymentsSwitches', 'plans', 'plansMutate', 'jobsMutate', 'memberMerge', 'convertAccount', 'contactWithdraw', 'team', 'users', 'tutorEdit', 'cnicRead', 'subjectsCore', 'notificationSettings', 'templateReview', 'supportNumber', 'secondRole', 'orphans', 'audit', 'documentUnlock', 'documentRotate', 'cityOwners', 'cleanup'] as const) {
     assert.ok(!roleMayWrite(BS, SCREEN_ACCESS[k]), `cannot change ${k}`)
   }
   for (const k of ['finance', 'revenue', 'paymentAmounts', 'paymentGateways', 'team', 'audit'] as const) assert.ok(!roleSatisfies(BS, SCREEN_ACCESS[k]), `cannot open ${k}`)

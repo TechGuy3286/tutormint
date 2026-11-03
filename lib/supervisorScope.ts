@@ -13,7 +13,7 @@ import 'server-only'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { AdminActor } from '@/lib/adminAuth'
-import { SUPERVISOR_OWN_ONLY, supervisorMayChangeCity, supervisorMayChangeTuition } from '@/lib/adminAccessCore'
+import { BACKEND_SUPPORT_OWN_POSTS, backendSupportMayEditTuition, SUPERVISOR_OWN_ONLY, supervisorMayChangeCity, supervisorMayChangeTuition } from '@/lib/adminAccessCore'
 import { pageAllIn } from '@/lib/pageAll'
 
 const refused = () => NextResponse.json({ error: SUPERVISOR_OWN_ONLY }, { status: 403 })
@@ -60,4 +60,35 @@ async function cityOwnerOf(memberId: string): Promise<string | null> {
 export async function refuseSupervisorMember(actor: AdminActor, memberId: string | null | undefined): Promise<NextResponse | null> {
   if (actor.adminRole !== 'supervisor' || !memberId) return null
   return supervisorMayChangeCity(actor, await cityOwnerOf(memberId)) ? null : refused()
+}
+
+/** Who posted each tuition (tuition_owners.posted_by; null = no staff poster). */
+export async function tuitionPosters(jobIds: (string | null | undefined)[]): Promise<Map<string, string | null>> {
+  const ids = [...new Set(jobIds.filter((j): j is string => !!j))]
+  const out = new Map<string, string | null>()
+  if (ids.length === 0) return out
+  const admin = createAdminClient()
+  if (!admin) return out
+  const rows = await pageAllIn(ids, (part, from, to) =>
+    admin.from('tuition_owners').select('job_id, posted_by').in('job_id', part).order('job_id').range(from, to),
+  )
+  for (const r of rows) out.set(r.job_id as string, (r.posted_by as string | null) ?? null)
+  return out
+}
+
+/**
+ * Backend Support (owner, 3 Nov 2026) edits only the tuitions it posted. 403
+ * unless every one of these tuitions was posted by this actor; every other role
+ * returns null at once. Called by the tuition EDIT routes (edit, contact
+ * number, message parent) — never by Applications, which this role works on
+ * every tuition.
+ */
+export async function refuseBackendSupportTuitions(actor: AdminActor, jobIds: (string | null | undefined)[]): Promise<NextResponse | null> {
+  if (actor.adminRole !== 'backend_support') return null
+  const ids = [...new Set(jobIds.filter((j): j is string => !!j))]
+  if (ids.length === 0) return null
+  const posters = await tuitionPosters(ids)
+  return ids.every((id) => backendSupportMayEditTuition(actor, posters.get(id) ?? null))
+    ? null
+    : NextResponse.json({ error: BACKEND_SUPPORT_OWN_POSTS }, { status: 403 })
 }

@@ -64,8 +64,8 @@ export const OVERVIEW_ITEMS: Record<OverviewItemKey, OverviewItemMeta> = {
   revenue: { title: 'Revenue this month', screen: 'revenue', noun: ['payment', 'payments'] },
   'paid-today': { title: 'Paid today', screen: 'payments', noun: ['tutor', 'tutors'] },
   'signups-today': { title: 'Signed up today, not paid', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
-  tutors: { title: 'Tutors', screen: 'users', noun: ['tutor', 'tutors'] },
-  parents: { title: 'Parents', screen: 'users', noun: ['parent', 'parents'] },
+  tutors: { title: 'Tutors', screen: 'usersView', noun: ['tutor', 'tutors'] },
+  parents: { title: 'Parents', screen: 'usersView', noun: ['parent', 'parents'] },
   'open-tuitions': { title: 'Open tuitions', screen: 'jobs', noun: ['tuition', 'tuitions'] },
   'todo-docs': { title: 'Documents to approve', screen: 'tutors', noun: ['member', 'members'] },
   'todo-uncontacted': { title: 'Tutors not yet contacted', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
@@ -83,13 +83,13 @@ export const OVERVIEW_ITEMS: Record<OverviewItemKey, OverviewItemMeta> = {
   // Every email send is recorded (owner, 16 Oct 2026, migration 183); this is
   // the ones that permanently failed in the last 7 days.
   'todo-email-failed': { title: 'Emails that failed in the last 7 days', screen: 'emailHealth', noun: ['email', 'emails'] },
-  'funnel-signed-up': { title: 'Signed up', screen: 'users', noun: ['tutor', 'tutors'], funnel: true },
-  'funnel-mobile': { title: 'Mobile verified', screen: 'users', noun: ['tutor', 'tutors'], funnel: true },
-  'funnel-onboarded': { title: 'Onboarding done', screen: 'users', noun: ['tutor', 'tutors'], funnel: true },
-  'funnel-paid': { title: 'Paid', screen: 'users', noun: ['tutor', 'tutors'], funnel: true },
-  'lost-mobile': { title: 'Lost before mobile verified', screen: 'users', noun: ['tutor', 'tutors'], funnel: true },
-  'lost-onboarding': { title: 'Lost before onboarding done', screen: 'users', noun: ['tutor', 'tutors'], funnel: true },
-  'lost-payment': { title: 'Lost before paying', screen: 'users', noun: ['tutor', 'tutors'], funnel: true },
+  'funnel-signed-up': { title: 'Signed up', screen: 'usersView', noun: ['tutor', 'tutors'], funnel: true },
+  'funnel-mobile': { title: 'Mobile verified', screen: 'usersView', noun: ['tutor', 'tutors'], funnel: true },
+  'funnel-onboarded': { title: 'Onboarding done', screen: 'usersView', noun: ['tutor', 'tutors'], funnel: true },
+  'funnel-paid': { title: 'Paid', screen: 'usersView', noun: ['tutor', 'tutors'], funnel: true },
+  'lost-mobile': { title: 'Lost before mobile verified', screen: 'usersView', noun: ['tutor', 'tutors'], funnel: true },
+  'lost-onboarding': { title: 'Lost before onboarding done', screen: 'usersView', noun: ['tutor', 'tutors'], funnel: true },
+  'lost-payment': { title: 'Lost before paying', screen: 'usersView', noun: ['tutor', 'tutors'], funnel: true },
 }
 
 export function nounFor(meta: OverviewItemMeta, n: number): string {

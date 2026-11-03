@@ -3,6 +3,8 @@ import { isStaffConsentMethod } from '@/lib/tuitionConsentCore'
 import { notFound, redirect } from 'next/navigation'
 
 import { requireAdminRole, roleMayWrite, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { backendSupportMayEditTuition } from '@/lib/adminAccessCore'
+import { tuitionPosters } from '@/lib/supervisorScope'
 import { ViewOnlyNotice } from '@/components/admin/ReadOnly'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { teamParentId } from '@/lib/teamAccount'
@@ -37,6 +39,11 @@ export default async function AdminJobEditPage({ params }: { params: Promise<{ i
   // §2.3: parent-posted tuitions are not editable by admin.
   if (!teamId || job.parent_id !== teamId) {
     redirect(`/admin/jobs/${job.id}`)
+  }
+  // Backend Support edits only the tuitions it posted (owner, 3 Nov 2026).
+  if (actor.adminRole === 'backend_support') {
+    const posters = await tuitionPosters([job.id as string])
+    if (!backendSupportMayEditTuition(actor, posters.get(job.id as string) ?? null)) redirect(`/admin/jobs/${job.id}`)
   }
 
   const [{ data: subjects }, { data: contact }, { data: consent }] = await Promise.all([

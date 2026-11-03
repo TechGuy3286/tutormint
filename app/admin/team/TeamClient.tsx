@@ -107,7 +107,7 @@ const ROLES = [
   { code: 'supervisor', label: 'Manager', blurb: "Sees every staff member's lists; changes only their own tuitions and cities; approvals are Owner only" },
   { code: 'operations', label: 'Operations', blurb: 'Posting tuitions, assisting, marketing, SEO; can view verification queues; approvals are Owner only' },
   { code: 'tuitions_staff', label: 'Tuitions staff', blurb: 'Tuitions only — the board, posting, and their own activity' },
-  { code: 'backend_support', label: 'Backend Support', blurb: 'Follow-ups, Applications, Paid tutors and Team inbox; views People; approves a receipt only when a matching bank credit is in Finance; no Finance, settings or posting' },
+  { code: 'backend_support', label: 'Backend Support', blurb: 'paid sign-ups, follow-ups and member support; can post tuitions; no finance or approvals' },
   // Shown as "Project Manager" (owner, 13 Oct 2026); the internal role is 'partner'.
   { code: 'partner', label: 'Project Manager', blurb: 'edits tutors, parents and tuitions; approvals are Owner only; everything else view only; two-factor required' },
 ] as const

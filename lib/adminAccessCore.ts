@@ -23,15 +23,21 @@
 //                   outreach lists, plus their own Two-factor page and sign
 //                   out. Everything else is refused on
 //                   the server, not just hidden.
-//   backend_support (owner, 31 Oct 2026) works Follow-ups (Tutors and Parents),
-//                   Applications and Paid tutors, replies in the Team inbox,
-//                   views People and member pages, logs calls and notes, marks a
-//                   receipt "checked", and approves a receipt ONLY when it is
-//                   matched to a real bank credit (lib/staffReceiptCore). Never
-//                   Finance, revenue, bank details, gateways, posting tuitions,
-//                   merge/convert/erase/suspend/ban, settings, roles, staff,
-//                   templates or CNIC numbers. Its write lists are explicit; a
-//                   new screen is closed to it by default.
+//   backend_support (owner, 31 Oct 2026; widened 3 Nov 2026) works Follow-ups
+//                   (Tutors and Parents), Applications and Paid tutors, replies
+//                   in the Team inbox, views People and member pages, logs calls
+//                   and notes, marks a receipt "checked", and approves a receipt
+//                   ONLY when it is matched to a real bank credit
+//                   (lib/staffReceiptCore). Since 3 Nov 2026 it also opens the
+//                   Overview WITHOUT money (counts only — revenue, amounts,
+//                   Finance and the bank reader stay hidden; Team overview too),
+//                   posts tuitions like Tuitions staff, sees every tuition read
+//                   only and edits only the tuitions it posted
+//                   (backendSupportMayEditTuition), and carries a staff link
+//                   (My sign-ups). Never Finance, revenue, bank details,
+//                   gateways, merge/convert/erase/suspend/ban, settings, roles,
+//                   staff, templates or CNIC numbers. Its write lists are
+//                   explicit; a new screen is closed to it by default.
 //   partner         EDITS TUTORS, PARENTS AND TUITIONS; EVERYTHING ELSE VIEW
 //                   ONLY (owner, 13 Oct 2026, later the same day — this replaces
 //                   the "full management" of migration 165). A Partner may OPEN
@@ -222,7 +228,6 @@ export function roleBadge(role: string | null | undefined, viewer?: AdminRole | 
  * cannot open (which would loop).
  */
 export function adminHomeFor(role: AdminRole): string {
-  if (role === 'backend_support') return '/admin/follow-ups'
   return role === 'tuitions_staff' ? '/admin/jobs' : '/admin'
 }
 
@@ -240,10 +245,10 @@ export const SCREEN_ACCESS = withSupervisor({
   // The Overview landing and its figures. Every full role sees it; the
   // restricted tuitions_staff does NOT (its figures are refused), so this key
   // keeps it out of that role's nav and redirects it away from /admin.
-  overview: ['admin', 'operations'] as AdminRole[],
+  overview: ['admin', 'operations', 'backend_support'] as AdminRole[],
   // Refresh the pre-calculated Overview figures and badges (owner, 1 Nov 2026):
   // not a change to any data, so the Partner may press it too.
-  summaryRefresh: ['admin', 'operations', 'partner'] as AdminRole[],
+  summaryRefresh: ['admin', 'operations', 'partner', 'backend_support'] as AdminRole[],
   // The tutor and parent verification queues: open to these roles; the
   // approve / reject decisions themselves are the Owner's alone (canApprove).
   tutors: ['admin', 'operations', 'partner'] as AdminRole[],
@@ -318,9 +323,13 @@ export const SCREEN_ACCESS = withSupervisor({
   // day-to-day. MUTATE is close / pause / resume / unfeature — nothing is
   // deleted (PR49 §4), so it is safe for tuitions_staff too (the role's whole
   // job is managing tuitions, which the owner's spec grants close/reopen).
-  jobs: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
+  // Backend Support (owner, 3 Nov 2026) sees every tuition read only and posts
+  // like Tuitions staff; it edits only the tuitions it posted
+  // (backendSupportMayEditTuition, lib/supervisorScope) and is NOT in
+  // jobsMutate, so it never closes, pauses or resumes anyone's tuition.
+  jobs: ['admin', 'operations', 'tuitions_staff', 'partner', 'backend_support'] as AdminRole[],
   jobsMutate: ['admin', 'tuitions_staff', 'partner'] as AdminRole[],
-  jobsPost: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
+  jobsPost: ['admin', 'operations', 'tuitions_staff', 'partner', 'backend_support'] as AdminRole[],
   // Marketplace → Paused tuitions (owner, 8 Oct 2026): every role that can post
   // tuitions sees the auto-paused list and may Resume (one or many).
   pausedTuitions: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
@@ -376,7 +385,7 @@ export const SCREEN_ACCESS = withSupervisor({
   // Tuitions → My sign-ups (owner, 16 Oct 2026): every staff member with a join
   // link sees ONLY the people credited to them (lib/mySignups). The Owner and
   // the Project Managers pass this list but carry no link; the page says so.
-  mySignups: ['admin', 'operations', 'tuitions_staff'] as AdminRole[],
+  mySignups: ['admin', 'operations', 'tuitions_staff', 'backend_support'] as AdminRole[],
   // Claims to review: the Owner and Admin approve or reject; the Project
   // Managers view (roleMayWrite refuses their POST).
   staffClaimsReview: ['admin'] as AdminRole[],
@@ -385,9 +394,10 @@ export const SCREEN_ACCESS = withSupervisor({
   // staff, Operations, Admin, the Project Managers. Opens the page and the
   // "Paid sign-ups" and "Tuitions posted" tabs; the third tab is staffActivity.
   tuitionPosting: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
-  // The daily sign-up funnel on Overview (owner, 15 Oct 2026): the Owner and
-  // the Project Managers. `[]` = owner + Partner.
-  signupFunnel: [] as AdminRole[],
+  // The daily sign-up funnel and "Where sign-ups came from" on Overview (owner,
+  // 15 Oct 2026): the Owner and the Project Managers; Backend Support too
+  // (owner, 3 Nov 2026 — counts only, no money).
+  signupFunnel: ['backend_support'] as AdminRole[],
   // Staff outreach under People (owner, 8 Oct 2026): Unpaid signups (call /
   // WhatsApp new tutors who have not paid) and Featured WhatsApp (send Featured
   // tutors their new matches). Owner, admin, Operations AND Tuitions staff — the
@@ -485,6 +495,19 @@ export function supervisorMayChangeTuition(actor: { id: string; adminRole: Admin
 export function supervisorMayChangeCity(actor: { id: string; adminRole: AdminRole | null | undefined }, cityOwnerId: string | null | undefined): boolean {
   if (actor.adminRole !== 'supervisor') return true
   return !!cityOwnerId && cityOwnerId === actor.id
+}
+
+// ---------------------------------------------------------------------------
+// BACKEND SUPPORT POSTS (owner, 3 Nov 2026). Backend Support posts tuitions
+// and sees every tuition, but edits only a tuition IT posted
+// (tuition_owners.posted_by). Every other role keeps its own rule.
+// ---------------------------------------------------------------------------
+
+export const BACKEND_SUPPORT_OWN_POSTS = 'Backend Support can edit only the tuitions they posted.'
+
+export function backendSupportMayEditTuition(actor: { id: string; adminRole: AdminRole | null | undefined }, postedBy: string | null | undefined): boolean {
+  if (actor.adminRole !== 'backend_support') return true
+  return !!postedBy && postedBy === actor.id
 }
 
 export const SUPERVISOR_OWN_ONLY = 'Managers can change only their own tuitions and the tutors in their own cities.'

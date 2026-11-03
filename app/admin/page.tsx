@@ -24,6 +24,9 @@ import type { SourceRow } from '@/lib/signupSourceCore'
 import { orderOverviewSections } from '@/lib/overviewOrderCore'
 import { loadReaderState } from '@/lib/bankEmailReader'
 import { readerFailingAlert } from '@/lib/bankEmailCore'
+import { loadBackendSupportKpi } from '@/lib/backendSupportKpi'
+import BackendSupportKpiView from '@/components/admin/BackendSupportKpiView'
+import { overviewKeysWithoutMoney } from '@/lib/overviewMoneyCore'
 
 // Each Overview card a distinct colour (PR32 §2), keyed on the item key.
 // Short card titles (owner, 17 Oct 2026). The list pages keep their own titles.
@@ -83,7 +86,11 @@ export default async function AdminHome({
   const funnelDays: 7 | 30 = sp.funnel === '30' ? 30 : 7
 
   const may = (key: OverviewItemKey) => roleSatisfies(actor.adminRole, SCREEN_ACCESS[OVERVIEW_ITEMS[key].screen])
-  const keys = [...CARD_KEYS, ...TODO_KEYS, ...STEP_KEYS, ...(LOST_KEYS.filter(Boolean) as OverviewItemKey[])].filter(may)
+  // Money stays off the Overview for every role that may not see rupees
+  // (owner, 3 Nov 2026 — Backend Support sees counts, never amounts): the
+  // revenue card and the PayPro payout row are dropped here, on the server.
+  const seesMoney = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentAmounts)
+  const keys = overviewKeysWithoutMoney([...CARD_KEYS, ...TODO_KEYS, ...STEP_KEYS, ...(LOST_KEYS.filter(Boolean) as OverviewItemKey[])].filter(may), seesMoney)
   // Pre-calculated (owner, 1 Nov 2026 — lib/adminSummary): the figures are
   // worked out every minute something changes, at least every 10 minutes, and
   // read here as one row each. Each list page (/admin/overview/<key>) is live.
@@ -133,7 +140,9 @@ export default async function AdminHome({
   const seesDelivery = roleSatisfies(actor.adminRole, ['admin'])
   // The bank email reader failing for over an hour (owner, 26 Oct 2026): a red
   // row at the top of Today's to-do, for those who see Finance.
-  const readerState = roleSatisfies(actor.adminRole, SCREEN_ACCESS.finance) ? await loadReaderState() : null
+  const readerState = seesMoney && roleSatisfies(actor.adminRole, SCREEN_ACCESS.finance) ? await loadReaderState() : null
+  // Backend Support's own KPI card (owner, 3 Nov 2026), also on Follow-ups.
+  const kpi = actor.adminRole === 'backend_support' ? await loadBackendSupportKpi(actor.id) : null
   const readerRed = !!readerState && readerFailingAlert(readerState, new Date())
   const smsProvider = seesDelivery ? smsProviderLabel() : null
 
@@ -331,6 +340,7 @@ export default async function AdminHome({
       {sources && sources.length > 0 && <SignupSources rows={sources} ai={aiTotals} />}
       </>
     ) },
+    { key: 'kpi', node: <>{kpi && <BackendSupportKpiView kpi={kpi} />}</> },
     { key: 'myLink', node: (
       <>
       {/* Staff links (owner, 23 Oct 2026): only staff who carry a code see it. */}

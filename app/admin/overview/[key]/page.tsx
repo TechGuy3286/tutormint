@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { ArrowRight } from 'lucide-react'
 
-import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { isMoneyItem } from '@/lib/overviewMoneyCore'
 import { listHeader, loadOverviewList } from '@/lib/overviewItems'
 import { chipHref, OVERVIEW_KEY_CHIP } from '@/lib/tutorFollowUpCore'
 import { overviewPeopleRedirect } from '@/lib/peopleDirectoryCore'
@@ -32,6 +33,10 @@ export default async function OverviewListPage({
   if (!isOverviewItemKey(key)) notFound()
   const meta = OVERVIEW_ITEMS[key]
   const actor = await requireAdminRole(...SCREEN_ACCESS[meta.screen])
+  // Rupees only for the roles that may see payment amounts (owner, 3 Nov 2026):
+  // a money list is refused outright, and any amount on a count list is dropped.
+  const seesMoney = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentAmounts)
+  if (!seesMoney && isMoneyItem(key)) notFound()
   // The three follow-up lists are chips of Follow-ups → Tutors now (owner,
   // 20 Oct 2026); their old addresses open the list on that chip.
   const chip = OVERVIEW_KEY_CHIP[key]
@@ -59,7 +64,7 @@ export default async function OverviewListPage({
     title: r.title,
     detail: r.detail ?? null,
     href: r.href ?? null,
-    amount: r.amount !== undefined ? pkr(r.amount) : null,
+    amount: seesMoney && r.amount !== undefined ? pkr(r.amount) : null,
     badge: r.badge ?? null,
     actions: r.actions ?? [],
     memberId: r.memberId ?? null,
@@ -77,7 +82,7 @@ export default async function OverviewListPage({
           <h1 className="text-lg font-black text-tm-navy">{meta.title}</h1>
           <p className="text-xs font-bold text-slate-700">
             {listHeader(list)}
-            {list.amount !== undefined ? ` · ${pkr(list.amount)}` : ''}
+            {seesMoney && list.amount !== undefined ? ` · ${pkr(list.amount)}` : ''}
           </p>
           {list.note && (
             <p className="text-[11px] leading-relaxed text-gray-600">
