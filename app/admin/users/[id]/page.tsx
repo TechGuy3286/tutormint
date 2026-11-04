@@ -48,7 +48,8 @@ import { canApprove } from '@/lib/adminAccessCore'
 import MemberTabs from '@/components/admin/MemberTabs'
 import SendSocialLinksButton from '@/components/admin/SendSocialLinksButton'
 import { socialLinksAllowed } from '@/lib/socialLinksCore'
-import { memberEditHref } from '@/lib/memberEditCore'
+import { editTabParts, memberEditHref } from '@/lib/memberEditCore'
+
 import ConvertAccountCard from '@/components/admin/ConvertAccountCard'
 import EraseAccountCard from '@/components/admin/EraseAccountCard'
 import MaskedContact from '@/components/admin/MaskedContact'
@@ -409,7 +410,7 @@ export default async function AdminMemberPage({
           </div>
         </div>
       </header>
-      <MemberTabs memberId={id} current="profile" showProfile showEdit={isTutor && roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutors)} />
+      <MemberTabs memberId={id} current="profile" showProfile showEdit={editTabParts(actor.adminRole, profile.role as string | null).show} />
 
       {profile.is_banned && (
         <p className="rounded-2xl border border-tm-red/30 bg-tm-tint-red p-3 text-xs leading-relaxed text-tm-red">

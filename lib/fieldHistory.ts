@@ -31,6 +31,7 @@ export type Step1Field =
   | 'name'
   | 'headline'
   | 'bio'
+  | 'whatsapp'
 
 export type FieldChange = {
   tutorId: string

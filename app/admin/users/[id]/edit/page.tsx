@@ -9,6 +9,9 @@ import { maskCnicHeavy } from '@/lib/cnic'
 import { formatDate } from '@/lib/datetime'
 import { formatName } from '@/lib/formatName'
 import { nameOwnerOnly } from '@/lib/nameEditCore'
+import { editTabParts } from '@/lib/memberEditCore'
+import { maskWhatsapp } from '@/lib/whatsappEditCore'
+import WhatsAppEditForm from '@/components/admin/WhatsAppEditForm'
 import SlugField from './SlugField'
 import TutorFieldEditor from './TutorFieldEditor'
 import TutorFieldHistory from './TutorFieldHistory'
@@ -21,12 +24,14 @@ import TutorFieldHistory from './TutorFieldHistory'
 // the Profile tab's Documents box; this tab EDITS the fields.
 //
 // READ is the tutors screen; each edit tool shows only for a role that may
-// write it, and every save re-checks the role in its route.
+// write it, and every save re-checks the role in its route. The WhatsApp
+// number section (owner, 4 Nov 2026) is also here for parents, and for
+// Backend Support, who see only that section (SCREEN_ACCESS.memberWhatsappEdit).
 
 export const dynamic = 'force-dynamic'
 
 export default async function MemberEditPage({ params }: { params: Promise<{ id: string }> }) {
-  const actor = await requireAdminRole(...SCREEN_ACCESS.tutors)
+  const actor = await requireAdminRole(...SCREEN_ACCESS.tutors, ...SCREEN_ACCESS.memberWhatsappEdit)
   const { id } = await params
 
   const admin = createAdminClient()
@@ -39,11 +44,35 @@ export default async function MemberEditPage({ params }: { params: Promise<{ id:
   }
 
   const [{ data: tutor }, { data: profile }, { data: history }] = await Promise.all([
-    admin.from('tutor_profiles').select('id, slug, full_name, city, headline, bio').eq('id', id).maybeSingle(),
-    admin.from('profiles').select('id, full_name, role, cnic_number, cnic_verified_at').eq('id', id).maybeSingle(),
+    admin.from('tutor_profiles').select('id, slug, full_name, city, headline, bio, whatsapp_number').eq('id', id).maybeSingle(),
+    admin.from('profiles').select('id, full_name, role, cnic_number, cnic_verified_at, whatsapp').eq('id', id).maybeSingle(),
     admin.from('slug_history').select('old_slug, created_at').eq('tutor_id', id).order('created_at', { ascending: false }).limit(20),
   ])
-  if (!tutor || profile?.role !== 'tutor') notFound()
+  const parts = editTabParts(actor.adminRole, (profile?.role as string | null) ?? null)
+  if (!profile || !parts.show) notFound()
+  if (parts.tutorFields && !tutor) notFound()
+  const whatsappMasked = maskWhatsapp((profile.whatsapp as string | null) || ((tutor?.whatsapp_number as string | null) ?? null))
+  const canWhatsapp = parts.whatsapp && roleMayWrite(actor.adminRole, SCREEN_ACCESS.memberWhatsappEdit)
+
+  if (!parts.tutorFields || !tutor) {
+    // A parent, or a role that may set only the WhatsApp number.
+    const plainName = formatName(profile.full_name as string | null) || 'Member'
+    return (
+      <div className="space-y-4">
+        <h1 className="text-lg font-black text-tm-navy">{plainName}</h1>
+        <MemberTabs memberId={id} current="edit" showProfile={roleSatisfies(actor.adminRole, SCREEN_ACCESS.usersView)} showEdit />
+        <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
+          <h2 className="text-xs font-black text-tm-navy">WhatsApp number</h2>
+          <p className="text-[11px] text-gray-500">Staff-only. Every change needs a reason and is kept in the history.</p>
+          {canWhatsapp ? (
+            <WhatsAppEditForm memberId={id} currentMasked={whatsappMasked} />
+          ) : (
+            <p className="text-xs text-slate-700">{whatsappMasked ?? 'None on file'}</p>
+          )}
+        </section>
+      </div>
+    )
+  }
 
   const canSlugEdit = roleMayWrite(actor.adminRole, SCREEN_ACCESS.tutorSlug)
   const canFieldEdit = roleMayWrite(actor.adminRole, SCREEN_ACCESS.tutorEdit)
@@ -71,6 +100,8 @@ export default async function MemberEditPage({ params }: { params: Promise<{ id:
           canSlugEdit={canSlugEdit}
           currentHeadline={(tutor.headline as string | null) ?? ''}
           currentBio={(tutor.bio as string | null) ?? ''}
+          whatsappMasked={whatsappMasked}
+          showWhatsapp={canWhatsapp}
         />
       ) : (
         // A role that may not edit the fields still sees the profile address.

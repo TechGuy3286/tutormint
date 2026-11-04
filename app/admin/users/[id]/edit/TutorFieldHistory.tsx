@@ -26,6 +26,7 @@ const FIELD_LABEL: Record<Step1Field, string> = {
   name: 'Name',
   headline: 'Tagline',
   bio: 'About',
+  whatsapp: 'WhatsApp number',
 }
 
 const IMAGE_FIELDS = new Set<Step1Field>(['cnic_front', 'cnic_back', 'selfie', 'profile_picture'])

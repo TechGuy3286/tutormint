@@ -80,17 +80,26 @@ export type FormerStaffResult =
 /**
  * Make one account former staff. Refuses the Owner and the Project Managers
  * (owner-level access is never changed here) and the actor's own account.
+ * `opts.at` dates the leaving (a backfill of an earlier "Remove from team");
+ * it defaults to now. "Remove from team" on the Team screen calls this too
+ * (owner, 4 Nov 2026), so every removal is a former-staff record.
  */
-export async function makeFormerStaff(actor: AdminActor, userId: string, reason: string): Promise<FormerStaffResult> {
+export async function makeFormerStaff(actor: AdminActor, userId: string, reason: string, opts: { at?: string } = {}): Promise<FormerStaffResult> {
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: 'This is not working right now.' }
   if (userId === actor.id) return { ok: false, status: 400, error: 'You cannot remove your own staff access.' }
   const { data: p } = await admin.from('profiles').select('id, full_name, role, admin_role, former_staff_at').eq('id', userId).maybeSingle()
   if (!p) return { ok: false, status: 404, error: 'That account was not found.' }
-  if (UNTOUCHABLE_ROLES.has((p.admin_role as string | null) ?? '')) return { ok: false, status: 403, error: 'Owner-level access is never changed here.' }
+  // The Owner is never changed. A Project Manager (Partner) may be removed only
+  // by the Owner — the Team screen's "Remove from team" (staffChangeProblem);
+  // the clean-up plan never offers either (planStaffCleanup).
+  const targetRole = (p.admin_role as string | null) ?? ''
+  if (targetRole === 'owner' || (UNTOUCHABLE_ROLES.has(targetRole) && actor.adminRole !== 'owner')) {
+    return { ok: false, status: 403, error: 'Owner-level access is never changed here.' }
+  }
   const name = formatName((p.full_name as string | null) ?? '') || 'Staff member'
   const fromRole = ((p.admin_role as string | null) ?? null) || (await lastStaffRole(admin, userId))
-  const now = new Date().toISOString()
+  const now = opts.at ?? new Date().toISOString()
 
   // 1. Admin access off; the account stays as an ordinary member.
   const patch: Record<string, unknown> = { former_staff_at: (p.former_staff_at as string | null) ?? now, former_staff_role: fromRole, former_staff_by: actor.id }

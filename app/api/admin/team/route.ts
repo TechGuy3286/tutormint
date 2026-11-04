@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { serverError } from '@/lib/errorResponse'
+import { makeFormerStaff } from '@/lib/formerStaff'
 import { checkAdminRole, staffChangeProblem, ROLE_LABEL, SCREEN_ACCESS, type AdminRole } from '@/lib/adminAuth'
 import { OWNER_ONLY_OWNERSHIP } from '@/lib/adminAccessCore'
 import { alertOwner, alertOwnerBlocked } from '@/lib/ownerAlerts'
@@ -7,7 +7,6 @@ import { OWNER_PROTECTED } from '@/lib/adminAccessCore'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createStaff, changeStaffRole, resendStaffInvite, grantStaffToExisting, searchGrantCandidates } from '@/lib/staff'
 import { logAdminAction } from '@/lib/auditLog'
-import { logActivity } from '@/lib/activityLog'
 import { parseBody, z, uuid } from '@/lib/validate'
 import { requireFreshAuth } from '@/lib/reauth'
 
@@ -200,35 +199,15 @@ export async function POST(request: Request) {
     const protectedTarget = staffChangeProblem(actor.adminRole, target.admin_role as string, null)
     if (protectedTarget) return NextResponse.json({ error: protectedTarget }, { status: 403 })
 
-    // Revoke the role; return to an ordinary member. Not suspended — an ex-staff
-    // member keeps ordinary access. role must be a member role for admin_role to
-    // be null under the profiles CHECK constraint.
-    //
-    // VERIFY THE ROW CHANGED before logging (PR29 §3). A .update().eq() that
-    // matches no row returns NO error, so writing staff.remove regardless is how
-    // the audit log can say "removed" while the account is still staff — exactly
-    // the mismatch found on the Aqsa account. Select the row back and refuse to
-    // record a removal that did not happen.
-    const { data: updated, error } = await admin
-      .from('profiles')
-      .update({
-        admin_role: null,
-        role: 'parent',
-        is_suspended: false,
-        suspension_reason: null,
-        suspended_at: null,
-        suspended_by: null,
-      })
-      .eq('id', userId)
-      .select('id')
-
-    if (error) return serverError(error, 'admin/team')
-    if (!updated || updated.length === 0) {
-      return NextResponse.json(
-        { error: 'That did not take effect — the account was not changed. Refresh and try again.' },
-        { status: 409 },
-      )
-    }
+    // Remove from team = make former staff (owner, 4 Nov 2026), exactly the
+    // former-staff flow (lib/formerStaff makeFormerStaff): staff access off and
+    // back to an ordinary member, the left date and reason recorded
+    // (profiles.former_staff_at + the staff.former Audit row), every session
+    // signed out, the join link deactivated (its credit goes to Admin), off
+    // the target list and City owners, their tuitions moved to each city's
+    // owner. History is kept. The account itself is NOT deleted.
+    const result = await makeFormerStaff(actor, userId, reason || 'Removed from team')
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
 
     await logAdminAction({
       actorId: actor.id,
@@ -237,15 +216,7 @@ export async function POST(request: Request) {
       action: 'staff.remove',
       targetType: 'profile',
       targetId: userId,
-      detail: { email: target.email, adminRole: target.admin_role, reason: reason || null },
-    })
-
-    await logActivity({
-      userId,
-      event: 'staff_removed',
-      targetType: 'profile',
-      targetId: userId,
-      meta: { reason: reason || null },
+      detail: { email: target.email, adminRole: target.admin_role, reason: reason || null, former: true },
     })
 
     await tellOwner(((target.full_name as string | null) ?? '').trim() || (target.email as string | null) || 'Staff member', target.admin_role as string | null, null)

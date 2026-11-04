@@ -426,6 +426,10 @@ export const SCREEN_ACCESS = withSupervisor({
   videoVisibility: ['admin', 'partner'] as AdminRole[],
   tutorSlug: ['admin', 'partner'] as AdminRole[],
   tutorEdit: ['admin', 'operations', 'partner'] as AdminRole[],
+  // A tutor's or parent's WhatsApp number on the member page's Edit tab
+  // (owner, 4 Nov 2026): the Edit-tab roles plus Backend Support (and Managers
+  // through withSupervisor). Tuitions staff cannot.
+  memberWhatsappEdit: ['admin', 'operations', 'partner', 'backend_support'] as AdminRole[],
   // Unlock an approved, locked CNIC / selfie for ONE re-upload (owner, 9 Oct
   // 2026). Owner, admin and operations; a Partner is refused by checkAdminRole.
   documentUnlock: ['admin', 'operations', 'partner'] as AdminRole[],

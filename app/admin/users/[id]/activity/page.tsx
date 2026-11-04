@@ -7,6 +7,7 @@ import { formatName } from '@/lib/formatName'
 import { loadJourney } from '@/lib/journey'
 import { JOURNEY_KIND_LABEL } from '@/lib/journeyCore'
 import MemberTabs from '@/components/admin/MemberTabs'
+import { editTabParts } from '@/lib/memberEditCore'
 import { LogNoteButton, WithdrawNoteButton } from './ActivityClient'
 
 // A member's Activity tab (owner, 23 Oct 2026; rules lib/journeyCore, reads
@@ -67,7 +68,7 @@ export default async function MemberActivityPage({ params }: { params: Promise<{
           {profile.city ? ` · ${profile.city}` : ''}
         </p>
       </header>
-      <MemberTabs memberId={id} current="activity" showProfile={roleSatisfies(actor.adminRole, SCREEN_ACCESS.usersView)} showEdit={profile?.role === 'tutor' && roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutors)} />
+      <MemberTabs memberId={id} current="activity" showProfile={roleSatisfies(actor.adminRole, SCREEN_ACCESS.usersView)} showEdit={editTabParts(actor.adminRole, (profile?.role as string | null) ?? null).show} />
 
       <section aria-label="Summary" className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         {strip.map((s) => (

@@ -3,7 +3,7 @@ import { TAGLINE_MAX, BIO_MAX } from '@/lib/ai/taglineBrief'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, IdCard, Image as ImageIcon, MapPin, Smartphone, UserSquare2, BookOpen, User, PenLine } from 'lucide-react'
+import { ChevronDown, IdCard, MessageCircle, Image as ImageIcon, MapPin, Smartphone, UserSquare2, BookOpen, User, PenLine } from 'lucide-react'
 
 import MobileNumberInput from '@/components/auth/MobileNumberInput'
 import CnicCapture, { type CnicCaptureState } from '@/components/identity/CnicCapture'
@@ -20,6 +20,7 @@ import { subjectChangeAllowed, subjectKeysOfNames } from '@/lib/subjectLimitCore
 import SubjectLimitNote from '@/components/tutor/SubjectLimitNote'
 import { compressUnder1MB } from '@/lib/imageCompress'
 import NameEditForm from '@/components/admin/NameEditForm'
+import WhatsAppEditForm from '@/components/admin/WhatsAppEditForm'
 import SlugField from './SlugField'
 
 // PR83 (Part B) — staff edit of a tutor's locked step-1 fields, on
@@ -112,7 +113,13 @@ export default function TutorFieldEditor({
   canSlugEdit = false,
   currentHeadline = '',
   currentBio = '',
+  whatsappMasked = null,
+  showWhatsapp = false,
 }: {
+  /** The WhatsApp number on file, masked (owner, 4 Nov 2026). */
+  whatsappMasked?: string | null
+  /** The actor may set the WhatsApp number (SCREEN_ACCESS.memberWhatsappEdit). */
+  showWhatsapp?: boolean
   /** Tagline & About on file (owner, 2 Nov 2026, Part F). */
   currentHeadline?: string
   currentBio?: string
@@ -293,6 +300,14 @@ export default function TutorFieldEditor({
           {busy === 'set-mobile' ? 'Saving…' : 'Save mobile (verified)'}
         </button>
       </Section>
+
+      {/* WhatsApp number (owner, 4 Nov 2026): reason required, Do not use /
+          On hold refused in the route; the sign-in mobile is not changed. */}
+      {showWhatsapp && (
+        <Section icon={<MessageCircle size={16} />} title="WhatsApp number" open={open === 'whatsapp'} onToggle={() => toggle('whatsapp')}>
+          <WhatsAppEditForm memberId={tutorId} currentMasked={whatsappMasked} />
+        </Section>
+      )}
 
       <>
       {/* CNIC — shared CnicCapture pointed at the admin media route */}

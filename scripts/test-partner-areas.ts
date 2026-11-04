@@ -44,6 +44,8 @@ const EDIT: Key[] = [
   // Refresh the pre-calculated admin summary (owner, 1 Nov 2026): changes no data,
   // so the Partner may press it like admin and operations.
   'summaryRefresh',
+  // A tutor's or parent's WhatsApp number on the Edit tab (owner, 4 Nov 2026).
+  'memberWhatsappEdit',
 ]
 
 test('the Partner may open every screen, and change only the tutor, parent and tuition areas', () => {
@@ -164,6 +166,8 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed' | 'ret
   // Edit name (owner, 27 Oct 2026): tutorEdit / parents, both name the Partner;
   // a verified tutor's name is refused to anyone but the Owner inside the route.
   'members/name': 'edit',
+  // WhatsApp number on the Edit tab (owner, 4 Nov 2026): memberWhatsappEdit names the Partner.
+  'members/whatsapp': 'edit',
   'members/erase': 'owner',
   // Merge, Not a duplicate and View as (owner, 26 Oct 2026): refuseUnlessOwnerApproval.
   'members/merge': 'owner',

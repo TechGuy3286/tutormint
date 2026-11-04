@@ -92,6 +92,7 @@ export const AUDIT_LABELS: Record<string, string> = {
   'cnic.reveal': 'Showed the full CNIC number',
   'member.contact_reveal': 'Showed the phone, WhatsApp or email',
   'member.name_edit': 'Changed the name',
+  'member.whatsapp_edit': 'Changed the WhatsApp number',
   'member.not_duplicate': 'Marked two accounts as not a duplicate',
   'member.merge': 'Merged two accounts of the same person',
   'member.merge_undo': 'Undid a merge of two accounts',

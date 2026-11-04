@@ -215,6 +215,7 @@
     "test:creditpicker": "tsx --test scripts/test-credit-picker.ts",
     "test:feecard": "tsx --test scripts/test-fee-card.ts",
     "test:nameedit": "tsx --test scripts/test-name-edit.ts",
+    "test:whatsappformer": "tsx --test scripts/test-whatsapp-former.ts",
     "test:nosyntheticemail": "tsx --test scripts/test-no-synthetic-email.ts",
     "test:subjectcapall": "tsx --test scripts/test-subject-cap-all.ts",
     "test:addresschip": "tsx --test scripts/test-address-chip.ts",
