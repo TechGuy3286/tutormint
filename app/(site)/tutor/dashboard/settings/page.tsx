@@ -47,9 +47,11 @@ import { reportSilentFailure } from '@/lib/silentFailure'
 import MemberLockBox from '@/components/account/MemberLockBox'
 import { maskEmailDisplay, maskPhoneDisplay } from '@/lib/contactMaskCore'
 import { maskCnic } from '@/lib/cnic'
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import CompletionLine, { type CompletionLineItem } from '@/components/profile/CompletionLine'
+import { cardStepCount } from '@/lib/profileRequired'
 import { formatName } from '@/lib/formatName'
 import { TextLinesSkeleton } from '@/components/Skeletons'
 import { usePhotoCropUpload } from '@/components/photo/usePhotoCropUpload'
@@ -101,6 +103,25 @@ export default function TutorSettingsPage() {
   const [emailVerified, setEmailVerified] = useState(false);
   // Tile mode (once every Step 2 item is done): which card's form is open.
   const [openCard, setOpenCard] = useState<string | null>(null);
+  // The shared completion rule (owner, 4 Nov 2026): the top line and the step
+  // counts read the server's answer, fetched on load, after each save and when
+  // the tab comes back into view.
+  const [completionInfo, setCompletionInfo] = useState<{ percent: number; missing: CompletionLineItem[] } | null>(null);
+  const loadCompletion = useCallback(() => {
+    fetch('/api/profile/completion', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (j && typeof j.percent === 'number') setCompletionInfo({ percent: j.percent, missing: j.missing ?? [] }); })
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    loadCompletion();
+    // ?open=<card> (a "what's missing" button elsewhere) opens that card.
+    const k = new URLSearchParams(window.location.search).get('open');
+    if (k) setOpenCard(k);
+    const onFocus = () => loadCompletion();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [loadCompletion]);
   // PR77: scroll the tile that just expanded into view.
   const openTileRef = useRef<HTMLLIElement | null>(null);
   useEffect(() => {
@@ -528,6 +549,8 @@ export default function TutorSettingsPage() {
     // PR76 §D.1: Settings is always a tile grid — a card's form opens in place
     // (openCard) and Save shrinks it back to its square tile.
     setOpenCard((o) => (o === key ? null : o));
+    // A save may have finished an item — read the shared numbers again.
+    loadCompletion();
   };
 
   const short = (parts: string[], keep = 2): string => {
@@ -1025,8 +1048,15 @@ export default function TutorSettingsPage() {
     },
   ];
 
-  const step1Done = step1Cards.filter((c) => c.status === 'completed').length;
-  const step2Done = step2Cards.filter((c) => c.status === 'completed').length;
+  // Step counts from the shared rule once it has loaded: only cards that hold a
+  // required item count (email and certifications are optional).
+  const missingKeys = completionInfo ? completionInfo.missing.map((m) => m.key) : null;
+  const step1Count = missingKeys
+    ? cardStepCount(step1Cards.map((c) => c.key), missingKeys)
+    : { done: step1Cards.filter((c) => c.status === 'completed').length, total: step1Cards.length };
+  const step2Count = missingKeys
+    ? cardStepCount(step2Cards.map((c) => c.key), missingKeys)
+    : { done: step2Cards.filter((c) => c.status === 'completed').length, total: step2Cards.length };
 
   // forceOpen: the expanded tile always shows its form (never the collapsed
   // summary). onClose renders the × that collapses it without saving (PR77).
@@ -1101,18 +1131,23 @@ export default function TutorSettingsPage() {
       </Link>
       <h1 className="text-lg font-black text-tm-navy">Edit Profile</h1>
 
+      {/* The one completion line (owner, 4 Nov 2026): each button opens its card here. */}
+      {completionInfo && (
+        <CompletionLine percent={completionInfo.percent} missing={completionInfo.missing} onOpen={(card) => setOpenCard(card)} />
+      )}
+
       {/* PR76 §D.1: every section is a two-column grid of equal square tiles.
           Tapping a tile expands it in place to its full-width form; Save (or
           tapping the tile again) shrinks it back. */}
       {/* Step 1 — required. */}
       <section className="space-y-3">
-        <StepHeader section="step1" done={step1Done} total={step1Cards.length} />
+        <StepHeader section="step1" done={step1Count.done} total={step1Count.total} />
         {renderTiles(step1Cards)}
       </section>
 
       {/* Step 2 — optional. */}
       <section className="space-y-3">
-        <StepHeader section="step2" done={step2Done} total={step2Cards.length} />
+        <StepHeader section="step2" done={step2Count.done} total={step2Count.total} />
         {renderTiles(step2Cards)}
       </section>
 

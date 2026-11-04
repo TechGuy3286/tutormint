@@ -10,7 +10,14 @@
 // separate axis (verification_status / verification_state) and gates badges
 // and listings, not the percentage.
 
-import { COMPLETION_KEY_TO_STEP } from '@/lib/tutorFlow'
+import { COMPLETION_KEY_TO_STEP, type FlowFacts } from '@/lib/tutorFlow'
+import { parentRequiredItems, requiredPercent, tutorItemHref, tutorRequiredItems, type RequiredItem } from '@/lib/profileRequired'
+
+/** A tutor item by key, for links (built from an empty profile — only the
+ *  static parts, card and step, are read). */
+function tutorItemByKey(key: string): RequiredItem | undefined {
+  return tutorRequiredItems(completionInputToFacts({})).find((i) => i.key === key)
+}
 import { isSyntheticEmail } from '@/lib/phone'
 
 /** A real, sendable email is on file — present and not the synthetic
@@ -62,6 +69,8 @@ export function checklistHref(role: 'tutor' | 'parent', item: ChecklistItem): st
     return role === 'tutor' ? '/tutor/dashboard/settings#email' : '/parent/dashboard/settings#email'
   }
   if (role === 'tutor') {
+    const req = tutorItemByKey(item.key)
+    if (req) return tutorItemHref(req)
     const step = COMPLETION_KEY_TO_STEP[item.key] ?? 'city'
     return `/tutor/complete-profile?step=${step}`
   }
@@ -85,6 +94,7 @@ export type TutorCompletionInput = {
     cnic_number?: string | null
     cnic_image_path?: string | null
     phone_verified_at?: string | null
+    whatsapp?: string | null
   } | null
   tutorProfile?: {
     gender?: string | null
@@ -99,6 +109,8 @@ export type TutorCompletionInput = {
     degrees?: string[] | null
     video_youtube_id?: string | null
     video_status?: string | null
+    fee_min_pkr?: number | null
+    no_degree_yet?: boolean | null
   } | null
   /** Count of tutor_subjects rows (taxonomy_master ids). */
   subjectCount?: number
@@ -109,6 +121,12 @@ export type TutorCompletionInput = {
    *  the member's own action, so it counts toward completion like every other
    *  step. */
   feePaid?: boolean
+  /** Time slots on file (tutor_profiles.availability_list). */
+  availabilityCount?: number
+  /** A selfie document is on file. */
+  selfieDone?: boolean
+  /** Both CNIC sides are on file. When left out, profiles.cnic_image_path is read. */
+  cnicPhotosDone?: boolean
 }
 
 export type ParentCompletionInput = {
@@ -124,58 +142,57 @@ export type ParentCompletionInput = {
 }
 
 /**
- * Tutor completion. 15 equally weighted items — the gap-flow steps. (The
- * contact-email item was removed on 5 Oct 2026: email is optional for a tutor
- * and never counts.) The percentage floors so a finished profile is exactly 100
- * and nothing else ever is.
- *
- * The introduction video is NOT a completion item (PR76 §C.6/§D): it is removed
- * from onboarding and from Settings, and is offered only as an optional tile on
- * the dashboard — so it must not hold a tutor below 100%.
+ * Tutor completion — THE shared rule (owner, 4 Nov 2026; lib/profileRequired):
+ * the 17 things the onboarding flow asks for. Email and the intro video never
+ * count. The percentage floors, so a finished profile is exactly 100 and
+ * nothing else ever is.
  */
 export function calculateTutorCompletion(input: TutorCompletionInput): Completion {
+  return tutorCompletionFromFacts(completionInputToFacts(input))
+}
+
+/** The completion input as the flow's facts (what the shared rule reads). */
+export function completionInputToFacts(input: TutorCompletionInput): FlowFacts {
   const p = input.profile ?? {}
   const t = input.tutorProfile ?? {}
+  const degrees = Array.isArray(t.degrees) ? (t.degrees as unknown[]) : []
+  return {
+    fullName: p.full_name ?? null,
+    gender: t.gender ?? null,
+    city: p.city ?? null,
+    area: t.area ?? null,
+    avatarUrl: t.avatar_url ?? null,
+    headline: t.headline ?? null,
+    bio: t.bio ?? null,
+    experienceYears: t.experience_years ?? null,
+    hourlyRate: t.fee_min_pkr ?? t.hourly_rate_pkr ?? null,
+    jobTypes: t.job_types ?? [],
+    degreesCount: degrees.length,
+    degreeDocCount: input.degreeDocCount ?? 0,
+    degrees,
+    cnicNumber: p.cnic_number ?? null,
+    cnicImagePath: input.cnicPhotosDone === undefined ? p.cnic_image_path ?? null : input.cnicPhotosDone ? 'y' : null,
+    subjectCount: input.subjectCount ?? 0,
+    selfieDone: !!input.selfieDone,
+    availabilityCount: input.availabilityCount ?? 0,
+    phoneVerified: has(p.phone_verified_at),
+    whatsapp: p.whatsapp ?? null,
+    feePaid: !!input.feePaid,
+    noDegreeYet: !!t.no_degree_yet,
+    isSeed: false, isTeamAccount: false, isBanned: false, isSuspended: false, underReview: false,
+    verificationStatus: null, imported: false, claimedAt: null,
+  }
+}
 
-  const items: ChecklistItem[] = [
-    // The one-time verification fee — the flow's 'verify' step. A blocker (it is
-    // in the not-listed card), so the dashboard widget hides it from the LIST,
-    // but it still counts toward "X of 15 done".
-    { key: 'verify', label: 'Verification Fee paid', done: !!input.feePaid, step: 6, anchor: 'verify' },
-    { key: 'name', label: 'Your full name', done: has(p.full_name), step: 1, anchor: 'full_name' },
-    { key: 'gender', label: 'Gender', done: has(t.gender), step: 1, anchor: 'gender' },
-    { key: 'city', label: 'City', done: has(p.city), step: 1, anchor: 'city' },
-    { key: 'area', label: 'Area', done: has(t.area), step: 1, anchor: 'area' },
-    { key: 'photo', label: 'Profile photo', done: has(t.avatar_url), step: 2, anchor: 'avatar' },
-    { key: 'tagline', label: 'Professional tagline', done: has(t.headline), step: 2, anchor: 'headline' },
-    { key: 'bio', label: 'About you', done: has(t.bio), step: 2, anchor: 'bio' },
-    { key: 'subjects', label: 'At least one subject', done: (input.subjectCount ?? 0) > 0, step: 3, anchor: 'subjects' },
-    { key: 'experience', label: 'Years of experience', done: has(t.experience_years), step: 4, anchor: 'experience_years' },
-    { key: 'fee', label: 'Expected fee', done: has(t.hourly_rate_pkr), step: 4, anchor: 'hourly_rate_pkr' },
-    { key: 'mode', label: 'Job Type', done: (t.job_types?.length ?? 0) > 0, step: 4, anchor: 'teaching_mode' },
-    {
-      key: 'degrees',
-      label: 'Education added',
-      // PR106-A §4: the typed degree is enough — a certificate is optional, so the
-      // Education item is done once at least one degree is listed.
-      done: has(t.degrees),
-      step: 5,
-      anchor: 'degrees',
-    },
-    {
-      key: 'cnic',
-      label: 'CNIC number and image',
-      done: has(p.cnic_number) && has(p.cnic_image_path),
-      step: 5,
-      anchor: 'cnic',
-    },
-    { key: 'phone', label: 'Mobile number verified', done: has(p.phone_verified_at), step: 6, anchor: 'phone' },
-    // NO email item for a tutor (owner hotfix, 5 Oct 2026): email is optional in
-    // onboarding and nothing — the completion %, the Verified badge, listing —
-    // requires one. Before this it was the 16th item (PR29 §4), so a mobile-only
-    // tutor could never pass 93%. The parent checklist below still carries it.
-  ]
-
+/** The shared rule over the flow's facts, as a checklist. */
+export function tutorCompletionFromFacts(f: FlowFacts): Completion {
+  const items: ChecklistItem[] = tutorRequiredItems(f).map((i, n) => ({
+    key: i.key,
+    label: i.label,
+    done: i.done,
+    step: n + 1,
+    anchor: i.step,
+  }))
   return summarise(items)
 }
 
@@ -185,28 +202,26 @@ export function calculateTutorCompletion(input: TutorCompletionInput): Completio
  *  suggestions: approved, they earn the green Verified badge. */
 export function calculateParentCompletion(input: ParentCompletionInput): Completion {
   const p = input.profile ?? {}
-
-  const items: ChecklistItem[] = [
-    { key: 'name', label: 'Your full name', done: has(p.full_name), step: 1, anchor: 'full_name' },
-    { key: 'city', label: 'City', done: has(p.city), step: 1, anchor: 'city' },
+  // The required items are the shared rule (lib/profileRequired); email never
+  // counts (owner, 5 Oct and 4 Nov 2026).
+  const required: ChecklistItem[] = parentRequiredItems({
+    fullName: p.full_name ?? null,
+    city: p.city ?? null,
+    phoneVerified: has(p.phone_verified_at),
+  }).map((i, n) => ({ key: i.key, label: i.label, done: i.done, step: n + 1, anchor: i.card }))
+  const optional: ChecklistItem[] = [
     { key: 'address', label: 'Home address (optional)', done: has(p.address), step: 1, anchor: 'address', optional: true },
     { key: 'cnic_number', label: 'CNIC number (optional)', done: has(p.cnic_number), step: 2, anchor: 'cnic_number', optional: true },
     { key: 'cnic_image', label: 'CNIC image (optional)', done: has(p.cnic_image_path), step: 2, anchor: 'cnic_image', optional: true },
-    { key: 'phone', label: 'Mobile number verified', done: has(p.phone_verified_at), step: 3, anchor: 'phone' },
-    // NO email item (owner, 5 Oct 2026, item 7): email is optional for a parent
-    // too — a parent with only a verified mobile reaches 100%. Posting,
-    // messaging, demo requests and the parent Verified badge never read it.
   ]
-
-  return summarise(items)
+  return summarise([...required, ...optional])
 }
 
 function summarise(items: ChecklistItem[]): Completion {
   const required = items.filter((i) => !i.optional)
   const done = required.filter((i) => i.done).length
   // Exactly 100 only when every REQUIRED item is done; never round up early.
-  const raw = required.length ? (done / required.length) * 100 : 100
-  const percent = done === required.length ? 100 : Math.min(99, Math.floor(raw))
+  const percent = requiredPercent(done, required.length)
   return {
     percent,
     items,

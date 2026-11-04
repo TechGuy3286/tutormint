@@ -35,6 +35,7 @@
 import { fillTemplate as fillApp, templateWarnings, type AppTemplateDef } from '@/lib/applicationTemplatesCore'
 import { PAYMENT_NOT_FINISHED_FALLBACK, PAYMENT_NOT_FINISHED_KEY } from '@/lib/startedPaymentCore'
 import type { FollowStep, RejectedDoc, TutorFollowFacts } from '@/lib/tutorFollowUpCore'
+import { missingPhrase } from '@/lib/profileRequired'
 
 export const FOLLOW_REASONS = ['reupload', 'waiting', 'payment', 'fee_due', 'no_mobile', 'no_cnic', 'no_photo', 'paid_unfinished', 'profile'] as const
 export type FollowReason = (typeof FOLLOW_REASONS)[number]
@@ -110,6 +111,7 @@ export const FU_PLACEHOLDERS = [
   'document',
   'reason',
   'support_whatsapp',
+  'missing_items',
 ] as const
 
 export const FU_PLACEHOLDER_HELP: Record<(typeof FU_PLACEHOLDERS)[number], string> = {
@@ -122,7 +124,14 @@ export const FU_PLACEHOLDER_HELP: Record<(typeof FU_PLACEHOLDERS)[number], strin
   document: 'The document to upload again, e.g. "selfie"',
   reason: 'Why it was not approved, as a sentence (left out when staff gave none)',
   support_whatsapp: 'Our support WhatsApp number (from settings)',
+  missing_items: 'Exactly what is left, e.g. "add your availability and write your tagline and bio"',
 }
+
+/** The "profile not finished" templates (owner, 4 Nov 2026): their message
+ *  always names the exact missing items from the shared completion rule —
+ *  through {missing_items}, or, when a stored wording does not use it, a
+ *  "Still to do" line added just above the link. */
+export const MISSING_ITEMS_TEMPLATES: readonly string[] = ['profile_completion_nudge', 'fu_paid_unfinished']
 
 const SUPPORT_LINE = 'Need help? WhatsApp us on {support_whatsapp}.'
 
@@ -206,6 +215,8 @@ export type FuValues = {
   document?: string | null
   reason?: string | null
   supportWhatsapp: string
+  /** The missing items' labels from the shared rule (lib/profileRequired). */
+  missingItems?: string[]
 }
 
 const digitsOf = (s: string) => s.replace(/\D/g, '')
@@ -216,7 +227,8 @@ const digitsOf = (s: string) => s.replace(/\D/g, '')
  * support number when the template neither uses {support_whatsapp} nor already
  * names the number.
  */
-export function fillFollowUp(body: string, v: FuValues, linkKind: 'continue' | 'pay' = 'continue'): string {
+export function fillFollowUp(body: string, v: FuValues, linkKind: 'continue' | 'pay' = 'continue', templateKey?: string): string {
+  const missingPhraseText = missingPhrase(v.missingItems ?? [], 5)
   const values: Record<string, string> = {
     name: v.firstName,
     first_name: v.firstName,
@@ -227,6 +239,12 @@ export function fillFollowUp(body: string, v: FuValues, linkKind: 'continue' | '
     document: v.document ?? '',
     reason: v.reason ?? '',
     support_whatsapp: v.supportWhatsapp,
+    missing_items: missingPhraseText,
+  }
+  // A "profile not finished" wording that does not use {missing_items} still
+  // names them, on a line just above its link.
+  if (templateKey && MISSING_ITEMS_TEMPLATES.includes(templateKey) && missingPhraseText && !/\{missing_items\}/.test(body)) {
+    body = withStillToDo(body, `Still to do: ${missingPhraseText.charAt(0).toUpperCase()}${missingPhraseText.slice(1)}.`)
   }
   const hasLink = /\{(continue_link|pay_link)\}/.test(body)
   const hasSupport = /\{support_whatsapp\}/.test(body)
@@ -249,6 +267,17 @@ export function documentWords(rejected: RejectedDoc[]): string {
 export function reasonSentence(rejected: RejectedDoc[]): string {
   const reasons = [...new Set(rejected.map((r) => (r.reason ?? '').trim().replace(/[.\s]+$/, '')).filter(Boolean))]
   return reasons.length ? `Reason: ${reasons.join('; ')}.` : ''
+}
+
+/** Puts the "Still to do" line on its own line before the link's lead-in
+ *  ("You can finish it here:" + the link), or at the end when there is no link. */
+export function withStillToDo(body: string, line: string): string {
+  const lines = body.split('\n')
+  let at = lines.findIndex((l) => /\{(continue_link|pay_link)\}/.test(l))
+  if (at < 0) return `${body.trimEnd()}\n${line}`
+  if (/^\{(continue_link|pay_link)\}$/.test(lines[at].trim()) && at > 0 && lines[at - 1].trim().endsWith(':')) at -= 1
+  lines.splice(at, 0, line)
+  return lines.join('\n')
 }
 
 export { templateWarnings }

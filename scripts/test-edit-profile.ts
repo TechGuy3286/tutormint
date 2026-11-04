@@ -22,6 +22,7 @@ import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { cardStepCount } from '../lib/profileRequired'
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime'
 
 import MemberHeaderNav from '../components/MemberHeaderNav'
@@ -92,8 +93,10 @@ test('the Verification Fee card is gone and Step 1 counts six cards', () => {
   const keys = step1Keys()
   assert.deepEqual(keys, ['mobile', 'cnic', 'profilePic', 'selfie', 'subjects', 'location'])
   assert.ok(!keys.includes('fee'))
-  // The count reads "N of <step1Cards.length> done" — six.
-  assert.match(src(TUTOR), /<StepHeader section="step1" done=\{step1Done\} total=\{step1Cards\.length\} \/>/)
+  // The count comes from the shared completion rule (owner, 4 Nov 2026): all
+  // six Step 1 cards hold a required item, so the total is six.
+  assert.ok(src(TUTOR).includes('<StepHeader section="step1" done={step1Count.done} total={step1Count.total} />'))
+  assert.deepEqual(cardStepCount(keys, []), { done: 6, total: 6 })
   assert.doesNotMatch(src(TUTOR), /ReadonlyLine kind="fee"/)
 })
 

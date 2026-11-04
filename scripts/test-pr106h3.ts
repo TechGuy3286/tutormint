@@ -85,7 +85,7 @@ test('user_documents gains a status, and the display/count reads ignore paused r
   assert.match(pause, /d2\.created_at > d\.created_at/, 'keeps the latest, pauses the rest')
   // every list/count read of user_documents filters to active
   for (const f of [
-    'lib/badgeFacts.ts', 'lib/completion.ts', 'lib/identity.ts', 'lib/tutorDocuments.ts',
+    'lib/badgeFacts.ts', 'lib/onboardingStop.ts', 'lib/identity.ts', 'lib/tutorDocuments.ts',
     'app/(site)/parent/verify/page.tsx', 'app/(site)/tutor/dashboard/settings/page.tsx',
     'app/(site)/tutor/[slug]/profile.tsx', 'app/admin/users/[id]/page.tsx',
     'app/api/identity/route.ts', 'lib/adminQueues.ts',

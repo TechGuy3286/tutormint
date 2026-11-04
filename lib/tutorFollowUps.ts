@@ -247,8 +247,11 @@ async function buildFollowRows(rows: UnpaidRow[], now: Date): Promise<TutorFollo
             document: documentWords(facts.rejected),
             reason: reasonSentence(facts.rejected),
             supportWhatsapp: support,
+            // The exact missing items, from the shared rule (owner, 4 Nov 2026).
+            missingItems: r.missing,
           },
           why === 'payment' ? 'pay' : 'continue',
+          def.key,
         )
       : null
     // "Fee reply" (owner, 23 Oct 2026): the saved "About the Verification Fee"

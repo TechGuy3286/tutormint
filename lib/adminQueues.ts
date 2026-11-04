@@ -28,7 +28,8 @@ import { sanitizeOrTerm } from '@/lib/pgFilter'
 import { describeUtm } from '@/lib/utm'
 import { describeSource as describeSignupSource } from '@/lib/signupSourceCore'
 import { adminCnicDisplay } from '@/lib/cnicRevealCore'
-import { calculateTutorCompletion } from '@/lib/profileChecklist'
+import { tutorCompletionFromFacts } from '@/lib/profileChecklist'
+import { flowFactsByTutor } from '@/lib/onboardingStop'
 import { directoryBlockers, type ListingBlocker } from '@/lib/tutorListingStatus'
 import { normalisePkMobile } from '@/lib/phone'
 import { maskCnicHeavy } from '@/lib/cnic'
@@ -314,6 +315,8 @@ export async function loadTutorQueue({
   // ONE document-status source (owner, 21 Oct 2026): the same summary the
   // People cards and the member page show (lib/tutorDocSummaries).
   const docSummaries = await loadTutorDocSummaries(ids)
+  // The shared completion rule over the flow's facts (owner, 4 Nov 2026).
+  const flowFacts = admin ? await flowFactsByTutor(admin, ids) : new Map()
 
   const rows: QueueTutorRow[] = page.map((t) => {
     const p = profiles?.find((x) => x.id === t.id)
@@ -323,36 +326,8 @@ export async function loadTutorQueue({
     // percentage use, so the number and the "what's missing" list cannot
     // disagree (owner, 9 Sep). profile.* comes from `profiles` (as computeCompletion
     // reads it), tutor fields from tutor_profiles.
-    const completion = calculateTutorCompletion({
-      profile: {
-        full_name: formatName((p?.full_name as string | null) ?? (t.full_name as string | null)) || null,
-        // One city field for tutors: read tutor_profiles.city (what the listing
-        // check on line ~284 uses), so the completion input and the directory
-        // rule agree on the same value (PR 3b §0.6).
-        city: (t.city as string | null) ?? (p?.city as string | null) ?? null,
-        email: (p?.email as string | null) ?? null,
-        cnic_number: (p?.cnic_number as string) ?? null,
-        cnic_image_path: (p?.cnic_image_path as string) ?? null,
-        phone_verified_at: (p?.phone_verified_at as string) ?? null,
-      },
-      tutorProfile: {
-        gender: (t.gender as string) ?? null,
-        area: (t.area as string) ?? null,
-        avatar_url: (t.avatar_url as string) ?? null,
-        headline: (t.headline as string) ?? null,
-        bio: (t.bio as string) ?? null,
-        experience_years: (t.experience_years as number) ?? null,
-        hourly_rate_pkr: (t.hourly_rate_pkr as number) ?? null,
-        teaching_mode: (t.teaching_mode as string) ?? null,
-        job_types: (t.job_types as string[] | null) ?? null,
-        degrees: ((t.degrees as string[]) ?? []) as string[],
-        video_youtube_id: (t.video_youtube_id as string) ?? null,
-        video_status: (t.video_status as string) ?? null,
-      },
-      subjectCount: subjectCount.get(t.id as string) ?? 0,
-      degreeDocCount: myDocs.filter((d) => d.kind === 'degree').length,
-      feePaid: !!(t.verified_fee_paid_at as string | null),
-    })
+    const facts = flowFacts.get(t.id as string)
+    const completion = facts ? tutorCompletionFromFacts(facts) : { percent: 0, missing: [] as { key: string; label: string }[] }
     // The public-directory rule (migration 94), computed from the same facts as
     // the view so Operations sees WHY a tutor is invisible without a SQL client.
     // The fee is NO LONGER a visibility gate; it is surfaced separately as

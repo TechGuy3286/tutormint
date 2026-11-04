@@ -88,8 +88,10 @@ function preview(info: GroupTemplateInfo, body: string, support: string): string
         document: 'selfie',
         reason: 'Reason: face not clear.',
         supportWhatsapp: support,
+        missingItems: ['Add your availability', 'Write your tagline and bio'],
       },
       info.key === 'payment_not_finished' || info.key === FU_FEE_REPLY_KEY ? 'pay' : 'continue',
+      info.key,
     )
   }
   if (info.key === APPLICANTS_FORWARD_TEMPLATE_KEY) {

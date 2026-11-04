@@ -1,9 +1,10 @@
 /**
  * scripts/test-completion.ts — npm run test:completion
  *
- * Email never counts toward completion for EITHER role (owner, 5 Oct 2026): a
- * tutor (15 items) and a parent (6 items) with only a verified mobile reach
- * 100%. hasRealEmail stays the one predicate for "a real, sendable address".
+ * Email never counts toward completion for EITHER role (owner, 5 Oct 2026; and
+ * 4 Nov 2026 with the intro video): a tutor (17 items — the shared rule,
+ * lib/profileRequired) and a parent (6 items, 3 required) with only a verified
+ * mobile reach 100%. hasRealEmail stays the one predicate for "a real, sendable address".
  */
 
 import { test } from 'node:test'
@@ -24,18 +25,21 @@ test('hasRealEmail: real yes, synthetic no, empty no', () => {
 
 // Everything a tutor can fill, with NO email anywhere.
 const FULL_TUTOR = {
-  profile: { full_name: 'Aqsa', city: 'Lahore', cnic_number: '3520212345671', cnic_image_path: 'set', phone_verified_at: 'set', email: SYNTH },
+  profile: { full_name: 'Aqsa', city: 'Lahore', cnic_number: '3520212345671', cnic_image_path: 'set', phone_verified_at: 'set', email: SYNTH, whatsapp: '923001234567' },
   tutorProfile: {
     gender: 'female', area: 'Gulberg', avatar_url: 'set', headline: 'Tutor', bio: 'About me',
     experience_years: 3, hourly_rate_pkr: 8000, job_types: ['Home Tutor'], degrees: ['BSc'],
   },
   subjectCount: 2,
   feePaid: true,
+  availabilityCount: 2,
+  selfieDone: true,
+  cnicPhotosDone: true,
 }
 
-test('tutor: there is NO email item — 15 items, and email never changes the %', () => {
+test('tutor: there is NO email item — 17 items, and email never changes the %', () => {
   const noEmail = calculateTutorCompletion(FULL_TUTOR)
-  assert.equal(noEmail.items.length, 15)
+  assert.equal(noEmail.items.length, 17)
   assert.equal(noEmail.items.some((i) => i.key === 'email'), false)
   assert.equal(noEmail.percent, 100, 'a complete tutor with only a synthetic email is 100%')
   const withEmail = calculateTutorCompletion({ ...FULL_TUTOR, profile: { ...FULL_TUTOR.profile, email: REAL } })
@@ -43,7 +47,7 @@ test('tutor: there is NO email item — 15 items, and email never changes the %'
   const noBio = calculateTutorCompletion({ ...FULL_TUTOR, tutorProfile: { ...FULL_TUTOR.tutorProfile, bio: '' } })
   const noBioEmail = calculateTutorCompletion({ ...FULL_TUTOR, profile: { ...FULL_TUTOR.profile, email: REAL }, tutorProfile: { ...FULL_TUTOR.tutorProfile, bio: '' } })
   assert.equal(noBio.percent, noBioEmail.percent)
-  assert.equal(noBio.percent, 93)
+  assert.equal(noBio.percent, 94) // 16 of 17
 })
 
 // A parent with ONLY a verified mobile — the synthetic login address, no inbox.

@@ -5,9 +5,11 @@
 // so the stored percentage can never drift from what the checklist says.
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { flowFactsByTutor } from '@/lib/onboardingStop'
 import {
   calculateParentCompletion,
-  calculateTutorCompletion,
+  tutorCompletionFromFacts,
   type Completion,
 } from '@/lib/profileChecklist'
 
@@ -37,33 +39,12 @@ export async function computeCompletion(userId: string): Promise<Completion | nu
   let completion: Completion
 
   if (profile.role === 'tutor') {
-    const { data: tutorProfile } = await supabase
-      .from('tutor_profiles')
-      .select(
-        'gender, area, avatar_url, headline, bio, experience_years, hourly_rate_pkr, teaching_mode, job_types, degrees, video_youtube_id, video_status, verified_fee_paid_at',
-      )
-      .eq('id', userId)
-      .maybeSingle()
-
-    const { count: subjectCount } = await supabase
-      .from('tutor_subjects')
-      .select('master_id', { count: 'exact', head: true })
-      .eq('tutor_id', userId)
-
-    const { count: degreeDocCount } = await supabase
-      .from('user_documents')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('kind', 'degree')
-      .eq('status', 'active') // PR106-H3 §1.4 — paused duplicates don't count
-
-    completion = calculateTutorCompletion({
-      profile,
-      tutorProfile,
-      subjectCount: subjectCount ?? 0,
-      degreeDocCount: degreeDocCount ?? 0,
-      feePaid: !!(tutorProfile as { verified_fee_paid_at?: string | null } | null)?.verified_fee_paid_at,
-    })
+    // THE shared rule over the same facts the onboarding flow, Follow-ups and
+    // admin read (lib/onboardingStop flowFactsByTutor → lib/profileRequired), so
+    // the stored number and every "what's missing" list agree (owner, 4 Nov 2026).
+    const facts = (await flowFactsByTutor(createAdminClient() ?? supabase, [userId])).get(userId)
+    if (!facts) return null
+    completion = tutorCompletionFromFacts(facts)
   } else {
     completion = calculateParentCompletion({ profile })
   }

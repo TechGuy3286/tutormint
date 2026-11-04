@@ -88,6 +88,7 @@
     "test:tuition": "tsx --test scripts/test-tuition-status.ts",
     "test:staffactivity": "tsx --test scripts/test-staffactivity.ts",
     "test:completion": "tsx --test scripts/test-completion.ts",
+    "test:profilerequired": "tsx --test scripts/test-profile-required.ts",
     "test:labels": "tsx --test scripts/test-labels.ts",
     "test:abuse": "tsx --test scripts/test-abuse.ts",
     "test:pklocations": "tsx --test scripts/test-pklocations.ts",

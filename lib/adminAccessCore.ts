@@ -107,6 +107,15 @@ export function alwaysNeedsTwoFactor(role: AdminRole | null | undefined): boolea
   return !!role && STAFF_ROLES.includes(role)
 }
 
+/** The Owner and the Project Managers manage the team boards; they carry no
+ *  join link and are not rows on them. */
+export const TEAM_MANAGER_ROLES: AdminRole[] = ['owner', 'partner']
+
+/** Every staff role that does the work — earns sign-up credit and appears on
+ *  Team activity, Team overview and the staff filters (owner, 4 Nov 2026).
+ *  DERIVED from STAFF_ROLES, so a role added later appears automatically. */
+export const WORKING_STAFF_ROLES: AdminRole[] = STAFF_ROLES.filter((r) => !TEAM_MANAGER_ROLES.includes(r))
+
 // ---------------------------------------------------------------------------
 // OWNER PROTECTION (owner, 13 Oct 2026). Pure rules; the server applies them in
 // lib/ownerGuard and lib/staff. Hiding a button is never the control.
@@ -393,7 +402,7 @@ export const SCREEN_ACCESS = withSupervisor({
   // activity and Staff activity): every role that posts tuitions — Tuitions
   // staff, Operations, Admin, the Project Managers. Opens the page and the
   // "Paid sign-ups" and "Tuitions posted" tabs; the third tab is staffActivity.
-  tuitionPosting: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
+  tuitionPosting: ['admin', 'operations', 'tuitions_staff', 'partner', 'backend_support'] as AdminRole[],
   // The daily sign-up funnel and "Where sign-ups came from" on Overview (owner,
   // 15 Oct 2026): the Owner and the Project Managers; Backend Support too
   // (owner, 3 Nov 2026 — counts only, no money).
@@ -519,3 +528,10 @@ export function roleWord(raw: string | null | undefined): string {
   if (!raw) return '—'
   return ROLE_LABEL[raw as AdminRole] ?? raw
 }
+
+/** Working staff roles that can post tuitions — every one of them is a row on
+ *  Team activity → Tuitions posted, even at zero (owner, 4 Nov 2026). Derived
+ *  from SCREEN_ACCESS.jobsPost, so a new role that may post appears there. */
+export const POSTING_STAFF_ROLES: AdminRole[] = WORKING_STAFF_ROLES.filter((r) =>
+  (SCREEN_ACCESS.jobsPost as readonly AdminRole[]).includes(r),
+)

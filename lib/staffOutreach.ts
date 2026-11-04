@@ -189,7 +189,8 @@ export async function loadUnpaidByScopes(now: Date, scopes: TutorScope[]): Promi
       joinedAt: p.created_at as string,
       stoppedAt,
       missing,
-      completion: (p.profile_completion as number | null) ?? 0,
+      // The shared rule over the live facts; the stored number only as a fallback.
+      completion: stopped.get(p.id as string)?.percent ?? (p.profile_completion as number | null) ?? 0,
       msisdn,
       waHref: msisdn
         ? waLink(

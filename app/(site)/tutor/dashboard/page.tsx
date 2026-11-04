@@ -28,6 +28,8 @@ import EmailConfirmReminder from '@/components/account/EmailConfirmReminder'
 import SubjectCapBanner from '@/components/tutor/SubjectCapBanner'
 import { savedSubjectCount } from '@/lib/subjectLimit'
 import { loadWhatsMissing } from '@/lib/whatsMissing'
+import CompletionLine from '@/components/profile/CompletionLine'
+import { tutorLineItems } from '@/lib/profileRequired'
 import { emailReminderNeeded } from '@/lib/emailConfirmCore'
 import { loadPaymentsHistory } from '@/lib/paymentsHistory'
 import PaymentsRefunds from '@/components/dashboard/PaymentsRefunds'
@@ -146,7 +148,7 @@ export default async function TutorDashboardPage() {
   const appliedJobIds = liveApps.map((a) => a.job_id as string)
   const liveDemos = (demos ?? []).filter((d) => ['requested', 'accepted'].includes(d.status as string)).length
 
-  const percent = completion?.percent ?? session?.profile?.profile_completion ?? 0
+  const percent = whatsMissing?.summary.percent ?? completion?.percent ?? session?.profile?.profile_completion ?? 0
   const publicHref = directoryListed && tutorProfile?.slug ? `/tutor/${tutorProfile.slug}` : null
 
   // "Find tuitions to apply for" bar (PR42 §2, PR71 §2). The count uses the same
@@ -226,12 +228,20 @@ export default async function TutorDashboardPage() {
 
         {/* What is still to do, each with "Fix now", and what makes the profile
             visible on Google — both from the real rules (lib/whatsMissing). */}
+        {/* The one completion line (owner, 4 Nov 2026): the exact missing items,
+            each a button to the card that fixes it — the shared rule. */}
+        {whatsMissing && (
+          <CompletionLine
+            percent={whatsMissing.summary.percent}
+            missing={tutorLineItems(whatsMissing.summary.missing)}
+          />
+        )}
         {whatsMissing && (
           <WhatsMissing
             done={whatsMissing.summary.done}
             total={whatsMissing.summary.total}
             percent={whatsMissing.summary.percent}
-            missing={whatsMissing.summary.missing}
+            missing={[]}
             google={whatsMissing.google}
           />
         )}

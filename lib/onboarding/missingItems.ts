@@ -10,54 +10,16 @@
 // "contact" needs a verified mobile AND a WhatsApp number — is shown as its two
 // parts, so the tutor is told which one is left. (scripts/test-missing-items.ts)
 
-import { NEW_FLOW_ORDER, stepDone, type FlowFacts, type FlowStepKey } from '@/lib/tutorFlow'
+import { NEW_FLOW_ORDER, type FlowFacts, type FlowStepKey } from '@/lib/tutorFlow'
+import { summariseRequired, tutorRequiredItems, type RequiredItem } from '@/lib/profileRequired'
 
-export type OnboardingItem = {
-  key: string
-  /** The onboarding step that fixes it — the "Fix now" link opens this step. */
-  step: FlowStepKey
-  /** Plain English, as an instruction: "Add your subjects". */
-  label: string
-  done: boolean
-}
-
-const nonblank = (v: string | null | undefined) => !!(v && v.trim())
-
-/** What each step asks for, in flow order. `level` and `subjects` are one
- *  choice; `contact` is shown as its parts; tagline and bio are their own step. */
-const LABELS: Partial<Record<FlowStepKey, string>> = {
-  gender: 'Choose your gender',
-  city: 'Choose your city',
-  area: 'Add your teaching areas',
-  subjects: 'Add your subjects',
-  jobtype: 'Choose the work you want',
-  fee: 'Set your monthly fee',
-  experience: 'Add your years of experience',
-  degree: 'Add your education',
-  availability: 'Choose when you can teach',
-  photo: 'Add your profile photo',
-  selfie: 'Take your selfie',
-  cnic_number: 'Enter your CNIC number',
-  cnic_photos: 'Add photos of your CNIC',
-  tagline: 'Write your tagline and bio',
-  verify: 'Pay the Verification Fee',
-}
+// Since 4 Nov 2026 the items ARE the shared completion rule (lib/profileRequired):
+// the percentage, the stored profile_completion and this list cannot disagree.
+export type OnboardingItem = RequiredItem
 
 /** Every onboarding item for this tutor, done or not, in flow order. */
 export function onboardingItems(f: FlowFacts): OnboardingItem[] {
-  const out: OnboardingItem[] = []
-  for (const step of NEW_FLOW_ORDER) {
-    if (step === 'level') continue // one choice with `subjects`
-    if (step === 'contact') {
-      out.push({ key: 'mobile', step, label: 'Verify your mobile number', done: f.phoneVerified })
-      out.push({ key: 'whatsapp', step, label: 'Add your WhatsApp number', done: nonblank(f.whatsapp) })
-      continue
-    }
-    const label = LABELS[step]
-    if (!label) continue
-    out.push({ key: step, step, label, done: stepDone(f, step) })
-  }
-  return out
+  return tutorRequiredItems(f)
 }
 
 export type MissingSummary = {
@@ -65,15 +27,12 @@ export type MissingSummary = {
   missing: OnboardingItem[]
   done: number
   total: number
-  /** 0–100, for the progress bar. */
+  /** 0–100, the shared completion percentage (100 only when nothing is missing). */
   percent: number
 }
 
 export function missingSummary(f: FlowFacts): MissingSummary {
-  const items = onboardingItems(f)
-  const missing = items.filter((i) => !i.done)
-  const done = items.length - missing.length
-  return { items, missing, done, total: items.length, percent: items.length ? Math.round((done / items.length) * 100) : 100 }
+  return summariseRequired(onboardingItems(f))
 }
 
 /** "6 of 16 done". */

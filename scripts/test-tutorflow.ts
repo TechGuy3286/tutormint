@@ -15,6 +15,7 @@ import assert from 'node:assert/strict'
 
 import {
   FLOW_ORDER,
+  NEW_FLOW_ORDER,
   BLOCKER_STEPS,
   COMPLETION_KEY_TO_STEP,
   stepDone,
@@ -172,7 +173,10 @@ test('every completion item maps to a flow step (§1.6 links never dead-end)', (
     // added and confirmed by a link, not filled as a field — so checklistHref
     // routes it to Settings and it is the one item with no flow step.
     if (it.key === 'email') continue
-    assert.ok(COMPLETION_KEY_TO_STEP[it.key], `completion item "${it.key}" has no flow step`)
-    assert.ok(FLOW_ORDER.includes(COMPLETION_KEY_TO_STEP[it.key]), `"${it.key}" maps to an unknown step`)
+    // Since 4 Nov 2026 each item carries its own flow step (lib/profileRequired).
+    const step = it.anchor as never
+    assert.ok(step, `completion item "${it.key}" has no flow step`)
+    assert.ok(NEW_FLOW_ORDER.includes(step) || FLOW_ORDER.includes(step), `"${it.key}" maps to an unknown step`)
+    void COMPLETION_KEY_TO_STEP
   }
 })

@@ -11,6 +11,7 @@ import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { pageAll } from '@/lib/pageAll'
 import { formatName } from '@/lib/formatName'
+import { POSTING_STAFF_ROLES } from '@/lib/adminAccessCore'
 import { recentRepeats } from '@/lib/duplicates'
 import { consentFor } from '@/lib/tuitionConsent'
 import { isRecorded } from '@/lib/tuitionConsentCore'
@@ -34,8 +35,10 @@ export type TuitionPostingBoard = {
   total: PostingRow
 }
 
-/** Roles whose members post tuitions; all of them appear even with zero. */
-const POSTING_ROLES = new Set(['tuitions_staff', 'operations', 'supervisor'])
+/** Roles whose members post tuitions; all of them appear even with zero.
+ *  Derived (owner, 4 Nov 2026): Backend Support was missing from a hand-written
+ *  list, so a new role that may post now appears without a code change. */
+const POSTING_ROLES = new Set<string>(POSTING_STAFF_ROLES)
 
 export async function loadTuitionPosting(nowMs = Date.now()): Promise<TuitionPostingBoard> {
   const empty: TuitionPostingBoard = { rows: [], former: [], formerTotal: null, total: totalRow([]) }

@@ -20,6 +20,8 @@ export type TutorFlowState = {
   stoppedStep: ReturnType<typeof stoppedAtStep>
   /** What is still to do, in plain English (lib/onboarding/missingItems). */
   missing: string[]
+  /** The shared completion percentage over the same facts (lib/profileRequired). */
+  percent: number
 }
 
 export async function stoppedAtByTutor(admin: SupabaseClient, ids: string[]): Promise<Map<string, string>> {
@@ -36,11 +38,13 @@ export async function flowStateByTutor(admin: SupabaseClient, ids: string[]): Pr
   const all = await flowFactsByTutor(admin, ids)
   const unconfirmed = await unconfirmedEmails(admin, new Set(ids))
   for (const [id, facts] of all) {
+    const summary = missingSummary(facts)
     out.set(id, {
+      percent: summary.percent,
       facts,
       stoppedAt: stoppedAtLabel(facts, { emailConfirmed: !unconfirmed.has(id) }),
       stoppedStep: stoppedAtStep(facts, { emailConfirmed: !unconfirmed.has(id) }),
-      missing: missingSummary(facts).missing.map((m) => m.label),
+      missing: summary.missing.map((m) => m.label),
     })
   }
   return out
@@ -66,13 +70,14 @@ export async function flowFactsByTutor(admin: SupabaseClient, ids: string[]): Pr
     pageAllIn(unique, (part, from, to) =>
       admin
         .from('tutor_profiles')
-        .select('id, city, area, gender, avatar_url, headline, bio, experience_years, fee_min_pkr, job_types, degrees, availability_list, verified_fee_paid_at')
+        .select('id, city, area, gender, avatar_url, headline, bio, experience_years, fee_min_pkr, hourly_rate_pkr, job_types, degrees, availability_list, verified_fee_paid_at, no_degree_yet')
         .in('id', part)
         .order('id')
         .range(from, to),
     ),
     pageAllIn(unique, (part, from, to) =>
-      admin.from('user_documents').select('id, user_id, kind, label').in('user_id', part).in('kind', ['selfie', 'cnic']).order('id').range(from, to),
+      // Paused rows (hidden duplicates, refused re-uploads) never count (PR106-H3).
+      admin.from('user_documents').select('id, user_id, kind, label').in('user_id', part).in('kind', ['selfie', 'cnic']).eq('status', 'active').order('id').range(from, to),
     ),
   ])
   // Counted from ONE paged read of the links (owner, 28 Oct 2026 — site speed):
@@ -106,7 +111,7 @@ export async function flowFactsByTutor(admin: SupabaseClient, ids: string[]): Pr
       headline: (tp.headline as string) ?? null,
       bio: (tp.bio as string) ?? null,
       experienceYears: (tp.experience_years as number | null) ?? null,
-      hourlyRate: (tp.fee_min_pkr as number | null) ?? null,
+      hourlyRate: (tp.fee_min_pkr as number | null) ?? (tp.hourly_rate_pkr as number | null) ?? null,
       jobTypes: (tp.job_types as string[] | null) ?? [],
       degreesCount: degrees.filter((x) => x && typeof x === 'object').length || degrees.length,
       degreeDocCount: 0,
@@ -119,7 +124,7 @@ export async function flowFactsByTutor(admin: SupabaseClient, ids: string[]): Pr
       phoneVerified: !!p.phone_verified_at,
       whatsapp: (p.whatsapp as string) ?? null,
       feePaid: !!tp.verified_fee_paid_at,
-      noDegreeYet: false,
+      noDegreeYet: !!tp.no_degree_yet,
       isSeed: false, isTeamAccount: false, isBanned: false, isSuspended: false, underReview: false,
       verificationStatus: null, imported: false, claimedAt: null,
     } satisfies FlowFacts

@@ -22,6 +22,7 @@
 // The I/O half is lib/staffSignups.ts.
 
 import { pktDayStartMs, change, type Change } from './tuitionPostingCore'
+import { WORKING_STAFF_ROLES } from './adminAccessCore'
 import { pkMonthStartMs } from './feePayersCore'
 
 export const STAFF_REF_COOKIE = 'tm_staff_ref'
@@ -35,7 +36,9 @@ export const CLAIM_WINDOW_MS = CLAIM_WINDOW_DAYS * 86_400_000
  *  Managers manage the board; they do not carry a join link. */
 // Backend Support joined on 3 Nov 2026 (owner): her job is paid sign-ups, so
 // her credit is tracked like everyone else's (self-referral rules apply).
-export const PARTICIPANT_ROLES = ['tuitions_staff', 'operations', 'supervisor', 'admin', 'backend_support'] as const
+// Since 4 Nov 2026 the list is DERIVED from the staff roles (every role but the
+// Owner and the Project Managers), so a new staff role takes part automatically.
+export const PARTICIPANT_ROLES: readonly string[] = WORKING_STAFF_ROLES
 
 export function isParticipantRole(role: string | null | undefined): boolean {
   return !!role && (PARTICIPANT_ROLES as readonly string[]).includes(role)

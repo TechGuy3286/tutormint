@@ -26,6 +26,7 @@ import OtpCodeEntry from '@/components/auth/OtpCodeEntry'
 import { SettingsTile, OpenTileHeader } from '@/components/tutor/SettingsPieces'
 import { STATUS_META, type CardStatus } from '@/lib/tutorSettingsCopy'
 import { FormChecklist, ChecklistStatus } from '@/components/forms/FormChecklist'
+import CompletionLine, { type CompletionLineItem } from '@/components/profile/CompletionLine'
 
 
 function mmss(total: number): string {
@@ -85,6 +86,20 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
     const k = new URLSearchParams(window.location.search).get('open')
     if (k) setOpenKey(k)
   }, [])
+  // The shared completion line (owner, 4 Nov 2026), read again whenever a tile
+  // closes (a save) or the tab comes back into view.
+  const [completionInfo, setCompletionInfo] = useState<{ percent: number; missing: CompletionLineItem[] } | null>(null)
+  useEffect(() => {
+    if (openKey !== null) return
+    const load = () =>
+      fetch('/api/profile/completion', { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => { if (j && typeof j.percent === 'number') setCompletionInfo({ percent: j.percent, missing: j.missing ?? [] }) })
+        .catch(() => {})
+    load()
+    window.addEventListener('focus', load)
+    return () => window.removeEventListener('focus', load)
+  }, [openKey])
   const openRef = useRef<HTMLLIElement | null>(null)
   useEffect(() => {
     if (openKey && openRef.current) openRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
@@ -453,6 +468,10 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
         <p role="alert" className="rounded-xl bg-tm-tint-red p-3 text-xs font-bold text-tm-red-hover">
           {error}
         </p>
+      )}
+
+      {completionInfo && (
+        <CompletionLine percent={completionInfo.percent} missing={completionInfo.missing} onOpen={(card) => setOpenKey(card)} />
       )}
 
       {/* PR83 (Part A.2): a two-column grid; the open tile's panel appears

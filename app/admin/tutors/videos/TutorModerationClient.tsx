@@ -161,9 +161,9 @@ export default function TutorModerationClient({
           next[r.id] = {
             ...(next[r.id] ?? {}),
             duplicateMobile: false,
-            missing: r.missing.some((m) => m.key === 'phone')
+            missing: r.missing.some((m) => m.key === 'mobile')
               ? r.missing
-              : [...r.missing, { key: 'phone', label: 'Mobile number verified' }],
+              : [...r.missing, { key: 'mobile', label: 'Verify your mobile number' }],
           }
         } else if (num && last10(r.phone) === num) {
           next[r.id] = { ...(next[r.id] ?? {}), duplicateMobile: false }

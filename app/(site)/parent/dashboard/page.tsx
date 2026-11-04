@@ -3,6 +3,8 @@ import { ArrowRight, Briefcase, FilePlus2, Heart, MessageSquare, Search, UserChe
 
 import Breadcrumbs from '@/components/Breadcrumbs'
 import ParentHeaderCard from '@/components/parent/ParentHeaderCard'
+import CompletionLine from '@/components/profile/CompletionLine'
+import { parentLineItems, parentRequiredItems, summariseRequired } from '@/lib/profileRequired'
 import ChildrenCard, { type ChildRow } from '@/components/parent/ChildrenCard'
 import ShortlistSection from '@/components/parent/ShortlistSection'
 import PaymentsRefunds from '@/components/dashboard/PaymentsRefunds'
@@ -41,13 +43,20 @@ export default async function ParentDashboardPage() {
   const [{ data: profile }, ent] = await Promise.all([
     supabase
       .from('profiles')
-      .select('full_name, avatar_url, city, cnic_verified_at, address_verified_at')
+      .select('full_name, avatar_url, city, cnic_verified_at, address_verified_at, phone_verified_at')
       .eq('id', userId)
       .maybeSingle(),
     getEntitlements(userId),
   ])
 
   const verified = !!profile?.cnic_verified_at && !!profile?.address_verified_at
+  const parentDone = summariseRequired(
+    parentRequiredItems({
+      fullName: (profile?.full_name as string | null) ?? null,
+      city: (profile?.city as string | null) ?? null,
+      phoneVerified: !!profile?.phone_verified_at,
+    }),
+  )
   const featured = ent.plan === 'parent_featured'
   const city = (profile?.city as string | null) ?? null
 
@@ -145,6 +154,9 @@ export default async function ParentDashboardPage() {
           featured={featured}
           publicHref={`/parent/${userId}`}
         />
+
+        {/* The one completion line (owner, 4 Nov 2026) — the shared rule. */}
+        <CompletionLine percent={parentDone.percent} missing={parentLineItems(parentDone.missing)} />
 
         {selfPausedJobs.length > 0 && (
           <section className="space-y-2 rounded-2xl border border-tm-gold/40 bg-tm-tint-gold p-4">
