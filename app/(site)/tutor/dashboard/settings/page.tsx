@@ -24,7 +24,10 @@ import IdentityCard from '@/components/identity/IdentityCard'
 import DocLockNotice, { combinedView } from '@/components/identity/DocLockNotice'
 import { canPick } from '@/lib/docLockCore'
 import { StatusCard, StepHeader, SettingsTile } from '@/components/tutor/SettingsPieces'
-import { READONLY_LINES, type CardStatus } from '@/lib/tutorSettingsCopy'
+import { type CardStatus } from '@/lib/tutorSettingsCopy'
+import ExperienceEditor from '@/components/tutor/ExperienceEditor'
+import { experienceAnswered, experienceSummary } from '@/lib/experienceEditCore'
+import { postProfileSave, experienceSavePayload, jobTypesPayload, feePayload, subjectsPayload, locationPayload } from '@/lib/editProfileSave'
 import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange, feeLabelOf } from '@/lib/fee'
 import { FormChecklist, ChecklistStatus } from '@/components/forms/FormChecklist'
 import { checklistReady, type ChecklistItem } from '@/lib/formChecklist'
@@ -404,18 +407,6 @@ export default function TutorSettingsPage() {
     (await uploadFileToCloud(file)) ?? "";
 
   // ---------------------------------------------------------- card saves ----
-  const postProfileSave = async (payload: Record<string, unknown>) => {
-    const res = await fetch('/api/profile/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      const j = await res.json().catch(() => ({}));
-      throw new Error(j.error || 'Could not save.');
-    }
-  };
-
   const tutorUpdate = async (patch: Record<string, unknown>) => {
     const { error } = await supabase.from('tutor_profiles').update(patch).eq('id', userId);
     if (error) throw new Error(error.message);
@@ -451,7 +442,7 @@ export default function TutorSettingsPage() {
     if (!s.valid) {
       throw new Error('Add at least one area for every city you chose.');
     }
-    await postProfileSave({ profile: { city: s.mainCity }, areasByCity: s.areasByCity });
+    await postProfileSave(locationPayload(s.mainCity, s.areasByCity));
     // Reflect the save locally so the summary/lock update without a reload.
     setFormData((f) => ({ ...f, city: s.mainCity }));
     setAreas(Object.values(s.areasByCity).flat());
@@ -459,10 +450,10 @@ export default function TutorSettingsPage() {
   };
 
   const saveJobTypes = () =>
-    postProfileSave({ tutorProfile: { job_types: formData.jobTypes, teaching_mode: formData.jobTypes[0] ?? null } });
+    postProfileSave(jobTypesPayload(formData.jobTypes));
 
   const saveSubjects = async () => {
-    await postProfileSave({ subjectMasterIds: subjectIds });
+    await postProfileSave(subjectsPayload(subjectIds));
     // The just-saved set becomes the new baseline, so re-opening the editor
     // merges against what is actually stored (PR84).
     setExistingSubjectIds(subjectIds);
@@ -500,7 +491,7 @@ export default function TutorSettingsPage() {
     const max = parseFee(feeMax);
     const err = validateFeeRange(min, max);
     if (err) throw new Error(err.en);
-    await postProfileSave({ tutorProfile: { fee_min_pkr: min, fee_max_pkr: max } });
+    await postProfileSave(feePayload(min, max));
   };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
@@ -611,7 +602,7 @@ export default function TutorSettingsPage() {
   const availabilityStatus: CardStatus = availabilityList.length > 0 ? 'completed' : 'missing';
   const degreesStatus: CardStatus = degrees.length > 0 ? 'completed' : 'missing';
   const certsStatus: CardStatus = certifications.length > 0 ? 'completed' : 'missing';
-  const experienceStatus: CardStatus = experienceYears && experienceYears > 0 ? 'completed' : 'missing';
+  const experienceStatus: CardStatus = experienceAnswered(experienceYears) ? 'completed' : 'missing';
   const feeMonthlyStatus: CardStatus = parseFee(feeMin) && parseFee(feeMax) ? 'completed' : 'missing';
   const emailStatus: CardStatus = realEmail && emailVerified ? 'completed' : 'missing';
 
@@ -897,17 +888,21 @@ export default function TutorSettingsPage() {
     {
       key: 'experience',
       status: experienceStatus,
-      bare: true,
       icon: <Briefcase size={20} aria-hidden />,
-      body:
-        experienceYears && experienceYears > 0 ? (
-          // PR74 §C3: show the value in plain text, e.g. "5 years".
-          <div className="rounded-xl border border-tm-green-deep/30 bg-tm-tint-green p-3 text-xs font-bold text-tm-green-deep">
-            {experienceYears} {experienceYears === 1 ? 'year' : 'years'} of experience
-          </div>
-        ) : (
-          <ReadonlyLine kind="experience" done={false} href="/tutor/complete-profile" />
-        ),
+      // Editable at any time (owner, 4 Nov 2026 hotfix) — the onboarding bands.
+      collapsible: true,
+      summary: experienceSummary(experienceYears),
+      body: (
+        <ExperienceEditor
+          key={String(experienceYears)}
+          initialYears={experienceYears}
+          onSave={(y) => postProfileSave(experienceSavePayload(y))}
+          onSaved={(y) => {
+            setExperienceYears(y);
+            collapse('experience');
+          }}
+        />
+      ),
     },
     {
       key: 'monthlyFee',
@@ -1151,26 +1146,6 @@ type CardDesc = {
   icon: React.ReactNode;
   body: React.ReactNode;
 };
-
-// A read-only status line (verification fee, experience): the item is completed
-// elsewhere, so the card only reports where it stands and links to the right
-// place. It writes nothing.
-function ReadonlyLine({ kind, done, href }: { kind: 'fee' | 'experience'; done: boolean; href: string }) {
-  const l = READONLY_LINES[kind];
-  return (
-    <div className="space-y-2">
-      <p className="text-[11px] font-semibold text-gray-700">{done ? l.done.en : l.todo.en}</p>
-      {!done && l.cta.en && (
-        <Link
-          href={href}
-          className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-tm-navy/30 px-4 text-xs font-bold text-tm-navy transition-colors hover:bg-tm-tint-navy"
-        >
-          {l.cta.en} <ArrowRight aria-hidden size={14} />
-        </Link>
-      )}
-    </div>
-  );
-}
 
 // One Save button per card (PR 3b §2.6): saves that card only, shows "Saved." or
 // the error inline. onSave throws to signal a failure.

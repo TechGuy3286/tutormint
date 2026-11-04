@@ -136,7 +136,7 @@
     "test:tidycard": "tsx --test scripts/test-tidy-card.ts",
     "test:followups": "tsx --test scripts/test-follow-ups.ts",
     "test:memberheader": "tsx --test scripts/test-member-header.ts",
-    "test:editprofile": "tsx --test scripts/test-edit-profile.ts",
+    "test:editprofile": "tsx --test scripts/test-edit-profile.ts scripts/test-edit-profile-cards.ts",
     "test:editprofile:live": "tsx --env-file=.env.local --test scripts/test-edit-profile-live.ts",
     "test:infinitemerge": "tsx --test scripts/test-infinite-merge.ts",
     "test:defaultavatar": "tsx --test scripts/test-default-avatar.ts",

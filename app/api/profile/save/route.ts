@@ -7,6 +7,7 @@ import { detectAbuse } from '@/lib/abuse/filter'
 import { WITHHELD_CONTENT_LINE } from '@/lib/abuse/warnings'
 import { recomputeCompletion } from '@/lib/completion'
 import { logActivity } from '@/lib/activityLog'
+import { PROFILE_FIELDS, TUTOR_FIELDS } from '@/lib/profileSaveFields'
 import { BAD_AVATAR_MESSAGE, isOurStorageUrl } from '@/lib/avatarUrl'
 import { parseBody, z } from '@/lib/validate'
 import { RELOAD_AND_RETRY, subjectIdsSchema } from '@/lib/tutorSubjectCap'
@@ -52,11 +53,8 @@ const TOO_MANY_AREAS =
   'You picked a lot of areas. Please keep only the ones you teach in.'
 const AREA_TOO_LONG = 'That area name is too long. Please shorten it.'
 
-const PROFILE_FIELDS = new Set(['full_name', 'province', 'address', 'cnic_number', 'whatsapp'])
-const TUTOR_FIELDS = new Set([
-  'gender', 'area', 'avatar_url', 'headline', 'bio',
-  'experience_years', 'hourly_rate_pkr', 'fee_min_pkr', 'fee_max_pkr', 'teaching_mode', 'job_types', 'online_platforms', 'degrees',
-])
+// The column allowlists live in lib/profileSaveFields (shared with the Edit
+// Profile test).
 
 function pick(src: Record<string, unknown> | undefined, allowed: Set<string>) {
   const out: Record<string, unknown> = {}
