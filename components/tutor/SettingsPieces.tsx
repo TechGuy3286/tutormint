@@ -83,7 +83,8 @@ export function StepHeader({
 /** The one word a LOCKED card shows (owner, 19 Oct 2026). Only an approved
  *  document locks — CNIC, profile picture, selfie — so a lock always reads as
  *  approved; no other step is ever shown as Locked. */
-export const APPROVED_LOCK_LABEL = 'Approved 🔒'
+// Only the Mobile number, CNIC and Email lock (owner, 4 Nov 2026).
+export const APPROVED_LOCK_LABEL = 'Locked 🔒'
 
 function StatusBadge({ status }: { status: CardStatus }) {
   const meta = STATUS_META[status]
@@ -177,9 +178,10 @@ export function StatusCard({
           )}
         </div>
       </div>
-      <Urdu className="tm-ur-cap text-sm font-bold text-tm-navy">{copy.title.ur}</Urdu>
-      {badge && <Urdu className="text-[10px] font-bold text-gray-600">{badge.ur}</Urdu>}
-      {copy.hint && (
+      {/* A locked box (Mobile, CNIC, Email) is English only (owner, 4 Nov 2026). */}
+      {!locked && <Urdu className="tm-ur-cap text-sm font-bold text-tm-navy">{copy.title.ur}</Urdu>}
+      {!locked && badge && <Urdu className="text-[10px] font-bold text-gray-600">{badge.ur}</Urdu>}
+      {copy.hint && !locked && (
         <>
           <p className="text-[11px] leading-relaxed text-gray-600">{copy.hint.en}</p>
         </>

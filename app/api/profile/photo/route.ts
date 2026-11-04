@@ -2,14 +2,20 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { storeMemberPhoto } from '@/lib/avatarCrop'
 import { validCrop } from '@/lib/photoCropCore'
-import { decidePhotoUpload } from '@/lib/docLocks'
-import { LOCKED_MESSAGE_EN } from '@/lib/docLockCore'
+import { loadLockFacts } from '@/lib/docLocks'
+import { replaceDecision } from '@/lib/memberLocksCore'
+import { logActivity } from '@/lib/activityLog'
 
 // A member's new PROFILE PHOTO (owner, 11 Oct 2026): the photo as chosen and the
 // square they framed in the crop step, stored as two new files. Answers with the
 // square's address; the screen then saves it as the profile photo the way it
-// always did, so the photo-review rules are unchanged. Signed out: 401.
-// The browser shrinks both pictures first, so they fit under the request limit.
+// always did. Signed out: 401.
+//
+// Never refused (owner, 4 Nov 2026 — superseding the 17 Oct photo lock). When an
+// APPROVED photo is on record, the database keeps it public and holds the new
+// one in profiles.avatar_pending_url for the Owner (migration 222); the Verified
+// badge stays. The browser shrinks both pictures first, so they fit under the
+// request limit.
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -27,18 +33,15 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser()
   if (!user) return refuse(401, 'Please sign in first, then try again.')
 
-  // An APPROVED tutor photo is locked (owner, 17 Oct 2026): nothing new is
-  // stored unless the Owner unlocked it. The database refuses the save too
-  // (migration 186), so this is the first of two checks, not the only one.
-  const lock = await decidePhotoUpload(user.id)
-  if (!lock.allow) return NextResponse.json({ error: LOCKED_MESSAGE_EN, locked: true }, { status: lock.status })
-
   const form = await request.formData().catch(() => null)
   const original = form?.get('original')
   const crop = form?.get('crop')
   if (!(original instanceof File) || !(crop instanceof File)) return refuse(400, 'Choose a photo first.')
   if (!original.type.startsWith('image/') || !crop.type.startsWith('image/')) return refuse(400, 'Choose a photo (JPG or PNG).')
   if (original.size > MAX_ORIGINAL || crop.size > MAX_CROP) return refuse(413, 'That photo is too large. Please choose a smaller one.')
+
+  const facts = await loadLockFacts(user.id)
+  const review = facts ? replaceDecision({ approved: facts.photo.approved, onRecord: facts.photo.onRecord }) === 'review' : false
 
   const num = (k: string) => Number(form?.get(k))
   const rect = { x: num('x'), y: num('y'), s: num('s') }
@@ -47,7 +50,17 @@ export async function POST(request: Request) {
     original: Buffer.from(await original.arrayBuffer()),
     crop: Buffer.from(await crop.arrayBuffer()),
     rect: validCrop(rect) ? rect : null,
+    keepRecord: review,
   })
   if (!result.ok) return refuse(result.status, result.error)
-  return NextResponse.json({ success: true, url: result.url, originalUrl: result.originalUrl })
+
+  // On the Activity tab (owner, 4 Nov 2026).
+  await logActivity({
+    userId: user.id,
+    event: 'document_uploaded',
+    targetType: 'profile',
+    targetId: user.id,
+    meta: { kind: 'photo', ...(review ? { review: true } : {}) },
+  })
+  return NextResponse.json({ success: true, url: result.url, originalUrl: result.originalUrl, ...(review ? { review: true } : {}) })
 }

@@ -40,14 +40,10 @@ import { parseCredential, serializeCredential } from '@/lib/degrees'
 import EmailCard from '@/components/account/EmailCard'
 import type { Identity } from '@/lib/identity'
 import { formatPkMobile, isSyntheticEmail, normalisePkMobile } from '@/lib/phone'
-import { whatsappHref, SUPPORT_WHATSAPP_FALLBACK } from '@/lib/supportContacts'
 import { reportSilentFailure } from '@/lib/silentFailure'
-
-// PR17 §3.2 — a verified number is changed through support (client-safe constant).
-const mobileSupportHref = whatsappHref(
-  SUPPORT_WHATSAPP_FALLBACK,
-  'Assalam-o-Alaikum, I need to change the mobile number on my TutorMint account.',
-)
+import MemberLockBox from '@/components/account/MemberLockBox'
+import { maskEmailDisplay, maskPhoneDisplay } from '@/lib/contactMaskCore'
+import { maskCnic } from '@/lib/cnic'
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -83,7 +79,8 @@ export default function TutorSettingsPage() {
   // PR62 — read-only signals for the per-card status badges. None of these are
   // written here; they only decide green / red / waiting on each card.
   const [statuses, setStatuses] = useState<DocumentStatuses | null>(null);
-  const [feePaid, setFeePaid] = useState(false);
+  // A replaced approved photo waiting for the Owner (owner, 4 Nov 2026).
+  const [pendingPhoto, setPendingPhoto] = useState<string | null>(null);
   const [experienceYears, setExperienceYears] = useState<number | null>(null);
   // Tagline & About (owner, 2 Nov 2026, Part F).
   const [headline, setHeadline] = useState('');
@@ -234,7 +231,7 @@ export default function TutorSettingsPage() {
       setTutorEmail(user.email || "");
 
       const [{ data: prof }, { data: tp }, { data: subjRows }] = await Promise.all([
-        supabase.from('profiles').select('phone_number, phone_verified_at, email, email_verified, whatsapp').eq('id', user.id).maybeSingle(),
+        supabase.from('profiles').select('phone_number, phone_verified_at, email, email_verified, whatsapp, avatar_pending_url').eq('id', user.id).maybeSingle(),
         supabase.from('tutor_profiles').select('*').eq('id', user.id).maybeSingle(),
         supabase.from('tutor_subjects').select('master_id').eq('tutor_id', user.id),
       ]);
@@ -249,7 +246,7 @@ export default function TutorSettingsPage() {
       const real = isSyntheticEmail(authEmail) ? "" : authEmail;
       setRealEmail(real);
       setEmailVerified(real !== "");
-      setFeePaid(Boolean(tp?.verified_fee_paid_at));
+      setPendingPhoto((prof?.avatar_pending_url as string | null) ?? null);
       setHeadline((tp?.headline as string | null) ?? '');
       setBio((tp?.bio as string | null) ?? '');
       setExperienceYears(
@@ -366,9 +363,13 @@ export default function TutorSettingsPage() {
     try {
       const publicUrl = await cropAndUpload(file);
       if (publicUrl) {
-        setFormData((prev) => ({ ...prev, profileImage: publicUrl }));
+        const wasApproved = statuses?.profilePic.status === 'approved';
         const { error } = await supabase.from('tutor_profiles').update({ avatar_url: publicUrl }).eq('id', userId);
         if (error) throw new Error(error.message);
+        // An approved photo stays public until the Owner approves the new one
+        // (migration 222 keeps it and holds this one as waiting).
+        if (wasApproved) setPendingPhoto(publicUrl);
+        else setFormData((prev) => ({ ...prev, profileImage: publicUrl }));
         void reloadStatuses();
       }
     } catch (e) {
@@ -590,28 +591,21 @@ export default function TutorSettingsPage() {
   const cnicStatus: CardStatus = docCard(statuses?.cnic, false);
   const profilePicStatus: CardStatus = docCard(statuses?.profilePic, !!formData.profileImage);
   const selfieStatus: CardStatus = docCard(statuses?.selfie, !!selfiePreviewUrl);
-  // Approved CNIC / selfie are LOCKED (owner, 9 Oct 2026) unless staff unlocked
-  // one for re-upload (or a CNIC side was never uploaded). The profile photo is
-  // never locked — a change after approval goes back to photo review.
+  // Only the Mobile number, the CNIC and the Email are locked (owner, 4 Nov
+  // 2026; lib/memberLocksCore). The approved CNIC stays locked unless staff
+  // unlocked it (or a side was never uploaded). The profile photo and the
+  // selfie can always be replaced: the new one waits for review while the
+  // approved one stays on record (and, for the photo, public).
   const lockViews = statuses?.locks ?? null;
   const cnicViews = [lockViews?.cnicFront ?? 'open', lockViews?.cnicBack ?? 'open'] as const;
   const cnicReupload = cnicStatus === 'completed' && cnicViews.some((v) => canPick(v));
   const selfieView = lockViews?.selfie ?? 'open';
-  // The approved profile photo is locked too (owner, 17 Oct 2026).
-  const photoView = lockViews?.photo ?? 'open';
+  const photoView = pendingPhoto ? 'waiting' : lockViews?.photo ?? 'open';
   const subjectsStatus: CardStatus = subjectIds.length > 0 ? 'completed' : 'missing';
   const locationStatus: CardStatus =
     formData.city.trim() && areas.length > 0 ? 'completed' : 'missing';
-  const feeStatus: CardStatus = feePaid ? 'completed' : 'missing';
-
-  // Only documents lock (owner, 19 Oct 2026): the CNIC, the profile picture and
-  // the selfie, once approved (the server enforces it: /api/documents/upload,
-  // /api/profile/photo, migrations 157/158/186). Subjects, where you teach, job
-  // type and every other step stay editable at any time — the old "lock after
-  // Step 1" rule (PR72 §E, migration 116) is gone (migration 187). A verified
-  // mobile is changed through support (its card says so) and is not shown as a
-  // locked step.
-  const photoLocked = photoView === 'locked';
+  // The Verification Fee card is gone from Edit Profile (owner, 4 Nov 2026):
+  // paying it stays on the dashboard and /pay/choose.
 
   const jobTypeStatus: CardStatus = formData.jobTypes.length > 0 ? 'completed' : 'missing';
   const availabilityStatus: CardStatus = availabilityList.length > 0 ? 'completed' : 'missing';
@@ -625,32 +619,14 @@ export default function TutorSettingsPage() {
     {
       key: 'mobile',
       status: mobileStatus,
+      // Locked once verified (owner, 4 Nov 2026).
+      locked: phoneVerified,
+      lockedNote: <MemberLockBox field="mobile" value={maskPhoneDisplay(phoneNumber)} />,
       icon: <Smartphone size={20} aria-hidden />,
       body: (
         <div className="space-y-1">
           {phoneVerified ? (
-            <>
-              <div className="flex items-center gap-2 rounded-xl border border-tm-green-deep/30 bg-tm-tint-green p-3 text-xs font-bold text-tm-green-deep">
-                <BadgeCheck aria-hidden size={15} />
-                <span>{phoneNumber ? formatPkMobile(phoneNumber) : 'Verified'}</span>
-                <span className="ml-auto text-[11px] font-black uppercase tracking-wider">Verified</span>
-              </div>
-              <p className="text-[11px] leading-relaxed text-gray-500">
-                Need to change it?{' '}
-                {mobileSupportHref ? (
-                  <a
-                    href={mobileSupportHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-bold text-tm-green-deep hover:underline"
-                  >
-                    Contact support on WhatsApp
-                  </a>
-                ) : (
-                  'Contact support.'
-                )}
-              </p>
-            </>
+            <MemberLockBox field="mobile" value={maskPhoneDisplay(phoneNumber)} />
           ) : (
             <Link
               href="/tutor/complete-profile?step=mobile"
@@ -668,8 +644,7 @@ export default function TutorSettingsPage() {
       key: 'cnic',
       status: cnicStatus,
       locked: cnicStatus === 'completed' && !cnicReupload,
-      lockedValue: 'Verified',
-      lockedNote: lockViews ? <DocLockNotice view={combinedView([...cnicViews])} /> : undefined,
+      lockedNote: <MemberLockBox field="cnic" value={maskCnic(identity?.cnicNumber ?? null)} />,
       reason: statuses?.cnic.reason,
       bare: true,
       icon: <CreditCard size={20} aria-hidden />,
@@ -682,31 +657,15 @@ export default function TutorSettingsPage() {
     {
       key: 'profilePic',
       status: profilePicStatus,
-      // Approved and locked, but its card stays open: the "Hide my photo from
-      // parents" toggle is always usable (owner, 19 Oct 2026).
-      approvedLock: photoLocked,
       reason: statuses?.profilePic.reason,
       icon: <ImageIcon size={20} aria-hidden />,
       body: (
         <div className="space-y-3">
           {photoCropDialog}
-          {/* An APPROVED profile photo is locked (owner, 17 Oct 2026; superseding
-              9 Oct): "Approved 🔒" with the support WhatsApp. The Owner can unlock
-              ONE change, which goes back for review. The server refuses a change
-              without an unlock (/api/profile/photo, migration 186). */}
+          {/* Always replaceable (owner, 4 Nov 2026). A replacement of an approved
+              photo waits for the Owner; parents see the approved one until then. */}
           {photoView !== 'open' && <DocLockNotice view={photoView} doc="photo" />}
-          {!canPick(photoView) ? (
-            <div className="h-32 w-32 overflow-hidden rounded-2xl border border-gray-200">
-              <Avatar
-                name={formData.fullName}
-                src={formData.profileImage || null}
-                gender={gender}
-                decorative
-                ring=""
-                className="h-full w-full rounded-none text-2xl"
-              />
-            </div>
-          ) : (
+          {(
             <FileUpload
               label="Profile photo"
               acceptLabel="JPG or PNG"
@@ -719,7 +678,7 @@ export default function TutorSettingsPage() {
               currentPreview={
                 <Avatar
                   name={formData.fullName}
-                  src={formData.profileImage || null}
+                  src={pendingPhoto || formData.profileImage || null}
                   gender={gender}
                   decorative
                   ring=""
@@ -733,8 +692,8 @@ export default function TutorSettingsPage() {
             <p className="text-[11px] leading-relaxed text-tm-navy">{L.pictureNote.en}</p>
           </div>
           {/* "Hide my photo from parents" (owner, 17 Oct 2026; PR70's show_avatar,
-              inverted). Off by default; works even when the photo is approved and
-              locked — it only hides the photo, never changes it. */}
+              inverted). Off by default; always usable — it only hides the photo,
+              never changes it. */}
           <div className="space-y-2">
             <HidePhotoToggle hidden={!showAvatar} onChange={(h) => void saveShowAvatar(!h)} />
             {!showAvatar && (
@@ -749,9 +708,6 @@ export default function TutorSettingsPage() {
     {
       key: 'selfie',
       status: selfieStatus,
-      locked: selfieStatus === 'completed' && !canPick(selfieView),
-      lockedValue: 'Approved',
-      lockedNote: lockViews ? <DocLockNotice view={selfieView} doc="selfie" /> : undefined,
       reason: statuses?.selfie.reason,
       icon: <Camera size={20} aria-hidden />,
       body: (
@@ -761,7 +717,7 @@ export default function TutorSettingsPage() {
           <p className="text-[11px] leading-relaxed text-gray-600">
             Only TutorMint’s verification team sees your selfie.
           </p>
-          {selfieView === 'unlocked' && <DocLockNotice view="unlocked" doc="selfie" />}
+          {selfieView !== 'open' && <DocLockNotice view={selfieView} doc="selfie" />}
           <div className="max-w-xs">
             <LiveSelfieCapture
               busy={selfieBusy}
@@ -816,13 +772,6 @@ export default function TutorSettingsPage() {
             ]} />
         </div>
       ),
-    },
-    {
-      key: 'fee',
-      status: feeStatus,
-      bare: true,
-      icon: <ShieldCheck size={20} aria-hidden />,
-      body: <ReadonlyLine kind="fee" done={feePaid} href="/tutor/verify" />,
     },
   ];
 
@@ -1003,6 +952,9 @@ export default function TutorSettingsPage() {
     {
       key: 'email',
       status: emailStatus,
+      // Locked once a real email is on the account (owner, 4 Nov 2026).
+      locked: !!realEmail,
+      lockedNote: <MemberLockBox field="email" value={maskEmailDisplay(realEmail)} />,
       bare: true,
       icon: <Mail size={20} aria-hidden />,
       body: <EmailCard />,
@@ -1152,6 +1104,7 @@ export default function TutorSettingsPage() {
       >
         <ArrowLeft aria-hidden size={14} /> Back to Tutor dashboard
       </Link>
+      <h1 className="text-lg font-black text-tm-navy">Edit Profile</h1>
 
       {/* PR76 §D.1: every section is a two-column grid of equal square tiles.
           Tapping a tile expands it in place to its full-width form; Save (or

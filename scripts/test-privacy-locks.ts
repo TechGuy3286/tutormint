@@ -157,45 +157,29 @@ test('the toggle is on the onboarding photo step and in Settings, and is never l
 
 // --------------------------------------------------------------- Part C ----
 
-test('approved documents are refused on the server without an unlock', () => {
-  // CNIC side and selfie.
-  for (const kind of ['cnic', 'selfie'] as const) {
-    const part = kind === 'cnic' ? 'front' : 'selfie'
-    assert.deepEqual(uploadDecision({ kind, part, approved: true, partOnRecord: true, unlock: null }), { allow: false, status: 403, error: LOCKED_ERROR })
-    assert.equal(uploadDecision({ kind, part, approved: true, partOnRecord: true, unlock: { id: 'u', usedSides: [] } }).allow, true)
-    assert.equal(uploadDecision({ kind, part, approved: false, partOnRecord: true, unlock: null }).allow, true, 'rejected / not approved stays editable')
-  }
-  // Profile photo.
-  assert.deepEqual(photoUploadDecision({ approved: true, onRecord: true, unlockOpen: false }), { allow: false, status: 403, error: LOCKED_ERROR })
-  assert.equal(photoUploadDecision({ approved: true, onRecord: true, unlockOpen: true }).allow, true)
-  assert.equal(photoUploadDecision({ approved: false, onRecord: true, unlockOpen: false }).allow, true)
-  assert.equal(photoLockView({ approved: true, onRecord: true, rereviewPending: false, unlockOpen: false }), 'locked')
-  assert.equal(photoLockView({ approved: true, onRecord: true, rereviewPending: false, unlockOpen: true }), 'unlocked')
+// Superseded on 4 Nov 2026 (lib/memberLocksCore, migration 222): only the
+// CNIC stays locked; an approved photo or selfie is replaced into review, and
+// the database holds a replaced photo instead of refusing it.
+test('an approved CNIC is refused without an unlock; the photo and selfie are not', () => {
+  assert.deepEqual(uploadDecision({ kind: 'cnic', part: 'front', approved: true, partOnRecord: true, unlock: null }), { allow: false, status: 403, error: LOCKED_ERROR })
+  assert.equal(uploadDecision({ kind: 'cnic', part: 'front', approved: true, partOnRecord: true, unlock: { id: 'u', usedSides: [] } }).allow, true)
+  assert.equal(uploadDecision({ kind: 'cnic', part: 'front', approved: false, partOnRecord: true, unlock: null }).allow, true)
+  assert.deepEqual(uploadDecision({ kind: 'selfie', part: 'selfie', approved: true, partOnRecord: true, unlock: null }), { allow: true, mode: 'review', consumeUnlock: false })
+  assert.deepEqual(photoUploadDecision({ approved: true, onRecord: true, unlockOpen: false }), { allow: true })
+  assert.equal(photoLockView({ approved: true, onRecord: true, rereviewPending: false, unlockOpen: false }), 'open')
   assert.equal(photoLockView({ approved: true, onRecord: true, rereviewPending: true, unlockOpen: false }), 'waiting')
-  assert.equal(photoLockView({ approved: false, onRecord: true, rereviewPending: false, unlockOpen: false }), 'open')
-
-  // The upload route checks before storing anything.
   const route = read('app/api/profile/photo/route.ts')
-  assert.ok(route.indexOf('decidePhotoUpload(user.id)') > 0 && route.indexOf('decidePhotoUpload(user.id)') < route.indexOf('storeMemberPhoto({'))
-  // The database refuses any member change of an approved photo without an unlock.
-  const m = read('supabase/migrations/186_photo_lock.sql')
-  assert.match(m, /check \(item in \('cnic', 'selfie', 'photo'\)\)/)
-  assert.match(m, /function public\.tm_photo_change_refused/)
-  assert.equal((m.match(/tm_photo_change_refused\(old\.id\)/gi) ?? []).length, 2, 'both tables')
-  // The CNIC number follows the CNIC (116, kept in 186).
+  assert.doesNotMatch(route, /decidePhotoUpload/)
+  const m = read('supabase/migrations/222_member_edit_rules.sql')
   assert.match(m, /AND NEW\.cnic_number IS DISTINCT FROM OLD\.cnic_number THEN/)
-  // The Owner's unlock covers the photo, one document at a time.
-  assert.match(read('app/api/admin/documents/unlock/route.ts'), /z\.enum\(\['cnic', 'selfie', 'photo'\]\)/)
+  assert.match(m, /create trigger tutor_profiles_hold_member_photo/)
   assert.match(read('app/api/admin/documents/unlock/route.ts'), /refuseUnlessOwnerApproval/)
 })
 
-test('the locked notice names the document in the WhatsApp message', () => {
-  assert.equal(LOCKED_TITLE, 'Approved 🔒')
-  assert.equal(LOCKED_LINE, 'To change this, contact support on WhatsApp 0321 5872222.')
-  assert.equal(lockedWhatsappHref('photo'), `https://api.whatsapp.com/send?phone=923215872222&text=${encodeURIComponent('Hi TutorMint, I want to update my profile picture.')}`)
+test('the locked notice is the CNIC support line, English only', () => {
+  assert.equal(LOCKED_TITLE, 'Approved')
+  assert.equal(LOCKED_LINE, 'To change your CNIC, please contact our support.')
   assert.match(decodeURIComponent(lockedWhatsappHref('cnic')), /update my CNIC\.$/)
-  assert.match(decodeURIComponent(lockedWhatsappHref('selfie')), /update my selfie\.$/)
-  assert.match(decodeURIComponent(lockedWhatsappHref('cnic_number')), /update my CNIC number\.$/)
 })
 
 // --------------------------------------------------------------- Part D ----

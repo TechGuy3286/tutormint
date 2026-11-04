@@ -1,3 +1,4 @@
+import { MEMBER_LOCK_LINE } from '@/lib/memberLocksCore'
 import { NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
@@ -95,7 +96,7 @@ export async function POST(request: Request) {
       .maybeSingle()
     if (me?.phone_verified_at && normalisePkMobile(me.phone_number as string) !== phone) {
       return NextResponse.json(
-        { error: 'Your number is already verified. To change it, please contact support.' },
+        { error: MEMBER_LOCK_LINE.mobile, locked: true },
         { status: 403 },
       )
     }

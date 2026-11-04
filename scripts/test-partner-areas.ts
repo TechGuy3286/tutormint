@@ -250,6 +250,7 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed' | 'ret
   'tutors/clear-mobile': 'edit',
   'tutors/cnic-reveal': 'edit',
   'tutors/document-review': 'edit',
+  'tutors/name-checked': 'edit',
   'tutors/edit': 'edit',
   'tutors/media': 'edit',
   'tutors/moderate': 'edit',

@@ -81,11 +81,11 @@ export const SECTIONS = {
 // the form body of each; this owns the words around it.
 export const CARDS: Record<string, { title: Bilingual; hint?: Bilingual }> = {
   mobile: {
-    title: { en: 'Mobile number', ur: 'موبائل نمبر' },
+    title: { en: 'Mobile number', ur: '' },
     hint: { en: 'Verified by a code we send you.', ur: 'ایک کوڈ کے ذریعے تصدیق شدہ۔' },
   },
   cnic: {
-    title: { en: 'CNIC (number and pictures)', ur: 'شناختی کارڈ (نمبر اور تصویریں)' },
+    title: { en: 'CNIC (number and pictures)', ur: '' },
     hint: { en: 'Kept private and checked by our team.', ur: 'نجی رکھا جاتا ہے اور ہماری ٹیم جانچتی ہے۔' },
   },
   profilePic: {
@@ -141,7 +141,7 @@ export const CARDS: Record<string, { title: Bilingual; hint?: Bilingual }> = {
     },
   },
   email: {
-    title: { en: 'Email', ur: 'ای میل' },
+    title: { en: 'Email', ur: '' },
     hint: { en: 'For receipts and reminders.', ur: 'رسیدوں اور یاد دہانیوں کے لیے۔' },
   },
   video: {

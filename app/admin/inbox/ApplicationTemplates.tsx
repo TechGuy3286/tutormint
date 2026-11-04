@@ -16,7 +16,8 @@ import { RotateCcw } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import type { AdminTemplate } from '@/lib/adminMessaging'
-import { APPLICATIONS_GROUP, CONSENT_GROUP, FOLLOW_UPS_GROUP, PARENTS_GROUP, SHARE_GROUP, SOCIAL_GROUP, STATUS_GROUP, warningsFor, type GroupTemplateInfo } from '@/lib/templateRules'
+import { APPLICATIONS_GROUP, CONSENT_GROUP, FOLLOW_UPS_GROUP, PARENTS_GROUP, REREVIEW_GROUP, SHARE_GROUP, SOCIAL_GROUP, STATUS_GROUP, warningsFor, type GroupTemplateInfo } from '@/lib/templateRules'
+import { fillRereviewRejected } from '@/lib/rereviewTemplateCore'
 import { fillSocialLinks } from '@/lib/socialLinksCore'
 import { fillConsentAsk } from '@/lib/tuitionConsentCore'
 import { fillParentFollowUp, PARENT_PLACEHOLDER_HELP } from '@/lib/parentFollowUpCore'
@@ -33,7 +34,7 @@ import {
 } from '@/lib/applicationTemplatesCore'
 import { buildForwardMessage, APPLICANTS_FORWARD_TEMPLATE_KEY } from '@/lib/applicantForwardCore'
 
-const GROUP_TITLE = { applications: 'Applications', follow_ups: 'Follow-ups', parents: 'Parents', status: 'Status image', consent: 'Consent', share: 'Share profile', social: 'Social links' } as const
+const GROUP_TITLE = { applications: 'Applications', follow_ups: 'Follow-ups', parents: 'Parents', status: 'Status image', consent: 'Consent', share: 'Share profile', social: 'Social links', rereview: 'New photo or selfie' } as const
 const GROUP_INTRO = {
   applications: 'The messages Tuitions → Applications pre-fills. ',
   follow_ups: 'The messages Follow-ups → Tutors pre-fills, one per reason a tutor is stuck. Some were already in use and are shared here as they are. ',
@@ -42,6 +43,7 @@ const GROUP_INTRO = {
   share: 'The WhatsApp message “Share on WhatsApp” opens on a tutor’s admin card, for staff to send to any contact. “verified” is left out for a tutor without the Verified badge. ',
   status: 'The WhatsApp message sent with the "I’m a Verified Tutor" status image. It must never contain a link. ',
   social: 'The WhatsApp message “Send social links” sends to a paid tutor: {social_links} is one line per TutorMint social page that is set. Plain English, no emoji. ',
+  rereview: 'The WhatsApp message sent when a tutor’s new profile picture or selfie is not approved. Their earlier approved one stays on the profile. English only. ',
 } as const
 
 const RECIPIENT_CHIP = {
@@ -54,6 +56,9 @@ function preview(info: GroupTemplateInfo, body: string, support: string): string
     return fillConsentAsk(body, { parentName: SAMPLE_VALUES.parent_name, tuitionTitle: SAMPLE_VALUES.tuition_title, tmNumber: SAMPLE_VALUES.tm_number })
   }
   if (STATUS_GROUP.some((t) => t.key === info.key)) return fillStatusMessage(body, SAMPLE_VALUES.tutor_first_name)
+  if (REREVIEW_GROUP.some((t) => t.key === info.key)) {
+    return fillRereviewRejected(body, { firstName: SAMPLE_VALUES.tutor_first_name, document: 'profile picture', reason: 'Reason: face not clear.', link: 'https://www.tutormint.org/tutor/dashboard/settings', supportWhatsapp: support })
+  }
   if (SOCIAL_GROUP.some((t) => t.key === info.key)) {
     return fillSocialLinks(body, { firstName: SAMPLE_VALUES.tutor_first_name, socialLinks: ['Facebook: https://www.facebook.com/tutormint?ref=SAMPLE', 'TikTok: https://www.tiktok.com/@tutormint.official?ref=SAMPLE'].join('\n'), supportWhatsapp: support })
   }
@@ -112,10 +117,10 @@ export default function ApplicationTemplates({
   defaultOpen?: boolean
   /** Follow-ups (owner, 23 Oct 2026): the messages Follow-ups → Tutors pre-fills.
    *  Parents and the status image message (owner, 26 Oct 2026). */
-  group?: 'applications' | 'follow_ups' | 'parents' | 'status' | 'consent' | 'share' | 'social'
+  group?: 'applications' | 'follow_ups' | 'parents' | 'status' | 'consent' | 'share' | 'social' | 'rereview'
 }) {
   const byKey = useMemo(() => new Map(templates.map((t) => [t.key, t])), [templates])
-  const list = group === 'follow_ups' ? FOLLOW_UPS_GROUP : group === 'parents' ? PARENTS_GROUP : group === 'status' ? STATUS_GROUP : group === 'share' ? SHARE_GROUP : group === 'social' ? SOCIAL_GROUP : group === 'consent' ? CONSENT_GROUP : APPLICATIONS_GROUP
+  const list = group === 'follow_ups' ? FOLLOW_UPS_GROUP : group === 'parents' ? PARENTS_GROUP : group === 'status' ? STATUS_GROUP : group === 'share' ? SHARE_GROUP : group === 'social' ? SOCIAL_GROUP : group === 'rereview' ? REREVIEW_GROUP : group === 'consent' ? CONSENT_GROUP : APPLICATIONS_GROUP
   const items = list.map((info) => ({ info, t: byKey.get(info.key) })).filter(
     (x): x is { info: GroupTemplateInfo; t: AdminTemplate } => !!x.t,
   )

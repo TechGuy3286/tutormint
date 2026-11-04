@@ -180,7 +180,7 @@ export type MemberPhotoResult = { ok: true; url: string; originalUrl: string } |
  * rules are unchanged. The record of which original the square came from is what
  * lets staff see both and crop again.
  */
-export async function storeMemberPhoto(args: { userId: string; original: Buffer; crop: Buffer; rect: CropRect | null }): Promise<MemberPhotoResult> {
+export async function storeMemberPhoto(args: { userId: string; original: Buffer; crop: Buffer; rect: CropRect | null; keepRecord?: boolean }): Promise<MemberPhotoResult> {
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: NOT_NOW }
   let files: { original: Buffer; crop: Buffer }
@@ -199,6 +199,9 @@ export async function storeMemberPhoto(args: { userId: string; original: Buffer;
   const originalUrl = bucket.getPublicUrl(paths.original).data.publicUrl
   const url = bucket.getPublicUrl(paths.crop).data.publicUrl
 
+  // A replacement of an APPROVED photo waits for the Owner (owner, 4 Nov 2026):
+  // the approved photo's record (its original, rotation, crop) stays as it is.
+  if (args.keepRecord) return { ok: true, url, originalUrl }
   // Best effort: without this row the photo still works; staff just see one picture.
   await admin.from('avatar_rotations').upsert(
     {

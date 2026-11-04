@@ -1,16 +1,23 @@
 'use client'
 
-import { Clock, Lock, MessageCircle, Unlock } from 'lucide-react'
-import { LOCKED_LINE, LOCKED_TITLE, lockedWhatsappHref, type LockedDoc, type LockView } from '@/lib/docLockCore'
+import { Clock, Unlock } from 'lucide-react'
+import MemberLockBox from '@/components/account/MemberLockBox'
+import { type LockedDoc, type LockView } from '@/lib/docLockCore'
 
-// What a member sees where the upload button was, once a document is approved
-// (owner, 9 Oct 2026). English only (owner, 2 Nov 2026).
-//   locked   — Approved ✓ Locked, contact support on WhatsApp.
-//   waiting  — a new upload was sent and waits for our team.
-//   unlocked — staff unlocked it: one new upload allowed (a small note above
-//              the upload control, which stays).
+// What a member sees about a document (owner, 4 Nov 2026 — superseding the
+// "Approved 🔒" notice of 9 and 17 Oct). English only.
+//   locked   — the CNIC only (number and pictures): the support box.
+//   waiting  — a new upload was sent and waits for our team; the approved one
+//              stays on record (and, for the photo, public) until then.
+//   unlocked — staff unlocked the CNIC: one new upload allowed.
+// The profile photo and the selfie are never locked.
 
-const WAITING_EN = 'New upload sent. Our team will check it. Your approved document stays on record until then.'
+const WAITING_EN: Record<LockedDoc, string> = {
+  cnic: 'New upload sent. Our team will check it. Your approved CNIC stays on record until then.',
+  cnic_number: 'New upload sent. Our team will check it. Your approved CNIC stays on record until then.',
+  selfie: 'New selfie sent. Our team will check it. Your approved selfie stays on record until then.',
+  photo: 'New photo sent. Our team will check it. Parents see your approved photo until then.',
+}
 const UNLOCKED_EN = 'Unlocked by our team: you can upload one new photo.'
 
 export default function DocLockNotice({
@@ -19,7 +26,7 @@ export default function DocLockNotice({
   className = '',
 }: {
   view: LockView
-  /** Which document this is — named in the prefilled WhatsApp message (owner, 17 Oct 2026). */
+  /** Which document this is. */
   doc?: LockedDoc
   className?: string
 }) {
@@ -39,37 +46,13 @@ export default function DocLockNotice({
       <div className={`rounded-xl bg-tm-tint-gold p-2.5 ${className}`}>
         <p className="flex items-start gap-1.5 text-[11px] font-semibold text-tm-gold-ink">
           <Clock aria-hidden size={13} className="mt-px shrink-0" />
-          {WAITING_EN}
+          {WAITING_EN[doc]}
         </p>
       </div>
     )
   }
-  return (
-    <div className={`space-y-1.5 rounded-xl bg-tm-tint-green p-2.5 ${className}`}>
-      {/* "Approved 🔒" + "To change this, contact support on WhatsApp 0321
-          5872222." with the number linked to WhatsApp, the message naming the
-          document (owner, 17 Oct 2026). */}
-      <p className="flex items-start gap-1.5 text-[11px] font-black text-tm-green-deep">
-        <Lock aria-hidden size={13} className="mt-px shrink-0" />
-        {LOCKED_TITLE}
-      </p>
-      <p className="text-[11px] font-semibold text-tm-green-deep">
-        {LOCKED_LINE.replace(' 0321 5872222.', ' ')}
-        <a href={lockedWhatsappHref(doc)} target="_blank" rel="noopener noreferrer" className="font-black underline underline-offset-2">
-          0321 5872222
-        </a>
-        .
-      </p>
-      <a
-        href={lockedWhatsappHref(doc)}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-tm-green-deep/30 bg-white px-3 text-[11px] font-bold text-tm-green-deep"
-      >
-        <MessageCircle aria-hidden size={13} /> WhatsApp 0321 5872222
-      </a>
-    </div>
-  )
+  // Only the CNIC is ever locked.
+  return <MemberLockBox field="cnic" className={className} />
 }
 
 /** The most restrictive of several part views — one notice for a CNIC's two sides. */

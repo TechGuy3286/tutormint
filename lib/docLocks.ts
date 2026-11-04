@@ -315,8 +315,10 @@ export async function loadAdminLockInfo(userId: string): Promise<AdminLockInfo> 
     unlockOpen: { cnic: !!facts.unlocks.cnic, selfie: !!facts.unlocks.selfie, photo: !!facts.unlocks.photo },
     lockable: {
       cnic: facts.cnicApproved && (facts.onRecord.front || facts.onRecord.back),
-      selfie: facts.selfieApproved && facts.onRecord.selfie,
-      photo: facts.photo.approved && facts.photo.onRecord,
+      // The selfie and the photo are never locked (owner, 4 Nov 2026), so
+      // there is nothing to unlock.
+      selfie: false,
+      photo: false,
     },
   }
 }

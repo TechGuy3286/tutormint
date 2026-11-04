@@ -158,7 +158,7 @@ export default async function TutorDashboardPage() {
       ? `${boardCount} tuition${boardCount === 1 ? '' : 's'} in your areas`
       : tutorScope
         ? 'No tuitions in your areas yet — new ones are posted daily'
-        : 'Add your area in Settings to see tuitions near you'
+        : 'Add your area in Edit Profile to see tuitions near you'
   const findTuitionsHref = '/browse/tuitions'
 
   // The shared-pool applications quota (PR106-D §9): shown on the My-applications
@@ -187,7 +187,7 @@ export default async function TutorDashboardPage() {
     // only while it is above 0. At 0 the tile reads 0 with no dot.
     { key: 'messages', icon: <MessageSquare aria-hidden size={22} />, value: unread, label: 'Messages', note: 'unread', href: '/tutor/dashboard/messages', tone: 'navy', badge: unread, tip: 'Unread messages from parents' },
     { key: 'demos', icon: <Video aria-hidden size={22} />, value: liveDemos, label: 'Demo requests', href: '/tutor/dashboard/demos', tone: 'red', highlight: liveDemos > 0, tip: 'Demo lessons parents have asked you for' },
-    { key: 'tuitions', icon: <Briefcase aria-hidden size={22} />, value: boardCount, label: 'Tuitions for you', href: '/browse/tuitions', tone: 'gold', tip: tutorScope ? 'Open tuitions in your city and areas' : 'Open tuitions — add your area in Settings to narrow this' },
+    { key: 'tuitions', icon: <Briefcase aria-hidden size={22} />, value: boardCount, label: 'Tuitions for you', href: '/browse/tuitions', tone: 'gold', tip: tutorScope ? 'Open tuitions in your city and areas' : 'Open tuitions — add your area in Edit Profile to narrow this' },
     { key: 'hired', icon: <Trophy aria-hidden size={22} />, value: hiredCount, label: 'Hired', href: '#my-applications', tone: 'green', tip: 'Tuitions you got through TutorMint' },
     { key: 'views', icon: <Eye aria-hidden size={22} />, value: views.thisWeek, label: 'Profile views', note: 'this week', href: '/tutor/dashboard/views', tone: 'teal', tip: 'Parents who viewed your profile this week' },
     { key: 'saved', icon: <Heart aria-hidden size={22} />, value: savedJobs.length, label: 'Saved tuitions', href: '#saved-tuitions', tone: 'violet', tip: 'Tuitions you saved to look at later' },

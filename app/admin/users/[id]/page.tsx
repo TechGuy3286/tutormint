@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { avatarOriginalUrl } from '@/lib/avatarCrop'
+import NameChangeCheck from '@/components/admin/NameChangeCheck'
 import SecondRoleCard from './SecondRoleCard'
 import { secondRoleState } from '@/lib/secondRole'
 import { notFound } from 'next/navigation'
@@ -103,7 +104,7 @@ export default async function AdminMemberPage({
   const { data: profile } = await admin
     .from('profiles')
     .select(
-      'id, full_name, email, phone_number, whatsapp, avatar_url, role, admin_role, city, profile_completion, cnic_verified_at, address_verified_at, verification_state, is_suspended, suspension_reason, suspended_at, suspended_by, is_banned, banned_reason, paused_by_user_at, phone_verified_via, phone_verified_at, created_at, utm_source, utm_medium, utm_campaign, utm_content, linked_account_id, former_staff_at, former_staff_role, merged_into, merged_at, erased_at',
+      'id, full_name, email, phone_number, whatsapp, avatar_url, role, admin_role, city, profile_completion, cnic_verified_at, address_verified_at, verification_state, is_suspended, suspension_reason, suspended_at, suspended_by, is_banned, banned_reason, paused_by_user_at, phone_verified_via, phone_verified_at, created_at, utm_source, utm_medium, utm_campaign, utm_content, linked_account_id, former_staff_at, former_staff_role, merged_into, merged_at, erased_at, avatar_pending_url, name_rereview_at, name_rereview_from',
     )
     .eq('id', id)
     .maybeSingle()
@@ -505,11 +506,20 @@ export default async function AdminMemberPage({
               canUnlock={canUnlock}
             />
           )}
+          {tutorDocs && (profile.name_rereview_at as string | null) && (
+            <NameChangeCheck
+              tutorId={id}
+              from={(profile.name_rereview_from as string | null) ?? null}
+              to={formatName(profile.full_name as string | null)}
+              since={profile.name_rereview_at as string}
+            />
+          )}
           {tutorDocs && (
             <TutorDocumentReview
               tutorId={id}
               canReview={canReviewTutor}
               avatarUrl={(profile.avatar_url as string | null) ?? null}
+              pendingAvatarUrl={(profile.avatar_pending_url as string | null) ?? null}
               avatarOriginalUrl={await avatarOriginalUrl(id, (profile.avatar_url as string | null) ?? null)}
               cnicFrontId={tutorDocs.cnicFrontId}
               cnicBackId={tutorDocs.cnicBackId}

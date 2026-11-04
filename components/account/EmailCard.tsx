@@ -7,6 +7,8 @@ import { createClient } from '@/lib/supabase/client'
 import { isSyntheticEmail, looksLikeEmail } from '@/lib/phone'
 import { useToast } from '@/components/ui/Toast'
 import { TextLinesSkeleton } from '@/components/Skeletons'
+import MemberLockBox from '@/components/account/MemberLockBox'
+import { maskEmailDisplay } from '@/lib/contactMaskCore'
 
 // Add or change the account email (PR29 §4), for tutor and parent Settings.
 //
@@ -17,6 +19,10 @@ import { TextLinesSkeleton } from '@/components/Skeletons'
 // confirmed" until the link is clicked. Self-contained — reads the auth user
 // itself and posts to /api/account/email — so it drops into either settings
 // page with one line.
+//
+// LOCKED once the account has a real email (owner, 4 Nov 2026): the masked
+// address, one English line and the support WhatsApp. /api/account/email
+// refuses a change on the server too. A mobile sign-up can still add one.
 
 export default function EmailCard() {
   const supabase = createClient()
@@ -93,11 +99,13 @@ export default function EmailCard() {
       <div className="flex items-center gap-1.5">
         <AtSign aria-hidden size={16} className="text-tm-navy" />
         {/* Optional for every member (owner, 5 Oct 2026): nothing requires it. */}
-        <h2 className="text-sm font-black text-tm-navy">Email (optional)</h2>
+        <h2 className="text-sm font-black text-tm-navy">{current ? 'Email' : 'Email (optional)'}</h2>
       </div>
 
       {loading ? (
         <TextLinesSkeleton lines={2} />
+      ) : current ? (
+        <MemberLockBox field="email" value={maskEmailDisplay(current)} />
       ) : (
         <>
           {current && (

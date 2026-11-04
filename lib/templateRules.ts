@@ -30,6 +30,7 @@ import { CONSENT_ASK_DEFAULT, CONSENT_ASK_KEY, CONSENT_ASK_PLACEHOLDERS } from '
 import { STATUS_IMAGE_DEFAULT, STATUS_IMAGE_TEMPLATE_KEY, STATUS_PLACEHOLDERS, statusSaveProblem } from '@/lib/social/statusImageCore'
 import { PROFILE_SHARE_DEFAULT, PROFILE_SHARE_PLACEHOLDERS, PROFILE_SHARE_TEMPLATE_KEY } from '@/lib/profileShareCore'
 import { SOCIAL_LINKS_DEFAULT, SOCIAL_LINKS_PLACEHOLDERS, SOCIAL_LINKS_TEMPLATE_KEY } from '@/lib/socialLinksCore'
+import { REREVIEW_DEFAULT, REREVIEW_PLACEHOLDERS, REREVIEW_TEMPLATE_KEY } from '@/lib/rereviewTemplateCore'
 
 export type GroupTemplateInfo = {
   key: string
@@ -92,6 +93,11 @@ export const SOCIAL_GROUP: readonly GroupTemplateInfo[] = [
   { key: SOCIAL_LINKS_TEMPLATE_KEY, recipient: 'tutor', placeholders: SOCIAL_LINKS_PLACEHOLDERS, defaultBody: SOCIAL_LINKS_DEFAULT },
 ]
 
+/** "Send on WhatsApp" after a replaced photo or selfie is not approved (owner, 4 Nov 2026). */
+export const REREVIEW_GROUP: readonly GroupTemplateInfo[] = [
+  { key: REREVIEW_TEMPLATE_KEY, recipient: 'tutor', placeholders: REREVIEW_PLACEHOLDERS, defaultBody: REREVIEW_DEFAULT },
+]
+
 /** "Ask parent" on a "Consent not recorded" chip (owner, 27 Oct 2026). */
 export const CONSENT_GROUP: readonly GroupTemplateInfo[] = [
   { key: CONSENT_ASK_KEY, recipient: 'parent', placeholders: CONSENT_ASK_PLACEHOLDERS, defaultBody: CONSENT_ASK_DEFAULT },
@@ -106,6 +112,7 @@ export function groupTemplateInfo(key: string): GroupTemplateInfo | null {
     STATUS_GROUP.find((t) => t.key === key) ??
     SHARE_GROUP.find((t) => t.key === key) ??
     SOCIAL_GROUP.find((t) => t.key === key) ??
+    REREVIEW_GROUP.find((t) => t.key === key) ??
     null
   )
 }

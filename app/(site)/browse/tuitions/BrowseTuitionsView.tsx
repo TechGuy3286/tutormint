@@ -394,7 +394,7 @@ export async function BrowseTuitionsView({ sp, guest = false }: { sp: Record<str
         {isTutor && !resolved && !filtered && (
           <p className="rounded-xl border border-tm-navy/15 bg-tm-tint-navy px-3 py-2.5 text-xs text-tm-navy">
             Add your city and areas in{' '}
-            <Link href="/tutor/dashboard/settings" className="font-bold underline">Settings</Link>{' '}
+            <Link href="/tutor/dashboard/settings" className="font-bold underline">Edit Profile</Link>{' '}
             to see tuitions near you.
           </p>
         )}

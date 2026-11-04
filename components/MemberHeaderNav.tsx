@@ -1,13 +1,14 @@
 'use client'
 
-import { LogOut, Settings } from 'lucide-react'
+import { LogOut, UserPen } from 'lucide-react'
+import { EDIT_PROFILE_LABEL } from '@/lib/memberNav'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import { getBrowserClient } from '@/lib/supabase/clientLazy'
 
-// Settings and Logout in the signed-in member header, ALWAYS VISIBLE (owner,
+// Edit Profile (was "Settings", renamed 4 Nov 2026) and Logout in the signed-in member header, ALWAYS VISIBLE (owner,
 // 9 Oct 2026). They used to sit in a dropdown under the avatar ("Ali ⌄"), and
 // non-technical tutors could not find Settings. Tutors and parents only — the
 // admin bar and an admin's site header keep their own controls (UserMenu).
@@ -27,8 +28,8 @@ export function HeaderSettingsLink({ href }: { href: string }) {
       prefetch={false}
       className={`${BOX} border-gray-200 text-tm-navy hover:border-tm-navy`}
     >
-      <Settings aria-hidden size={16} className="shrink-0" />
-      <span>Settings</span>
+      <UserPen aria-hidden size={16} className="shrink-0" />
+      <span className="whitespace-nowrap">{EDIT_PROFILE_LABEL}</span>
     </Link>
   )
 }
@@ -65,7 +66,7 @@ export function HeaderLogoutButton() {
   )
 }
 
-/** Settings then Logout, in header order (after Messages and Notifications). */
+/** Edit Profile then Logout, in header order (after Messages and Notifications). */
 export default function MemberHeaderNav({ settingsHref }: { settingsHref: string }) {
   return (
     <>

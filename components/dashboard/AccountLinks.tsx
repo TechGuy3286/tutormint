@@ -1,4 +1,4 @@
-import { LifeBuoy, Settings } from 'lucide-react'
+import { LifeBuoy, UserPen } from 'lucide-react'
 import Link from 'next/link'
 
 // Two small outlined buttons on the dashboard profile card (owner, 9 Oct 2026):
@@ -12,8 +12,8 @@ export default function AccountLinks({ settingsHref }: { settingsHref: string })
   return (
     <div className="flex flex-wrap gap-2 pt-0.5">
       <Link href={settingsHref} className={BTN}>
-        <Settings aria-hidden size={14} className="shrink-0" />
-        Settings
+        <UserPen aria-hidden size={14} className="shrink-0" />
+        Edit Profile
       </Link>
       <Link href="/support" className={BTN}>
         <LifeBuoy aria-hidden size={14} className="shrink-0" />

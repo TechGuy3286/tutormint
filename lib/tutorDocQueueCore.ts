@@ -21,6 +21,7 @@
 // PURE — unit-tested by scripts/test-approvalqueue.ts.
 
 import { deriveCnicStatus } from '@/lib/cnicStatus'
+import { NAME_CHANGED_LABEL } from '@/lib/memberLocksCore'
 
 export type CardDocStatus = 'none' | 'pending' | 'approved' | 'rejected'
 export type CardDocState = {
@@ -57,6 +58,9 @@ export type TutorDocFacts = {
   hasSelfieReview?: boolean
   /** profiles.profile_pic_rereview_at — the photo changed after approval. */
   profile_pic_rereview_at?: string | null
+  /** profiles.name_rereview_at — a tutor with an approved CNIC changed their
+   *  name (owner, 4 Nov 2026): the Owner checks it against the CNIC. */
+  name_rereview_at?: string | null
 }
 
 function norm(v: unknown): CardDocStatus {
@@ -101,6 +105,7 @@ export function tutorWaiting(f: TutorDocFacts): string[] {
   if (s.profilePic.status === 'pending' && s.profilePic.hasUpload) out.push('Photo')
   if (s.selfie.status === 'pending' && s.selfie.hasUpload) out.push('Selfie')
   if ((f.video_status ?? '') === 'uploaded') out.push('Video')
+  if (filled(f.name_rereview_at)) out.push(NAME_CHANGED_LABEL)
   return out
 }
 

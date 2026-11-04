@@ -45,7 +45,7 @@ async function build(): Promise<ApprovalRow[]> {
   const profiles = await pageAll((from, to) =>
     admin
       .from('profiles')
-      .select('id, full_name, created_at, is_seed, is_banned, is_suspended, is_team_account, verification_state, cnic_verified_at, cnic_number, cnic_image_path, avatar_url, profile_pic_status, profile_pic_rereview_at, selfie_status')
+      .select('id, full_name, created_at, is_seed, is_banned, is_suspended, is_team_account, verification_state, cnic_verified_at, cnic_number, cnic_image_path, avatar_url, profile_pic_status, profile_pic_rereview_at, selfie_status, name_rereview_at')
       .eq('role', 'tutor')
       .order('id')
       .range(from, to),
@@ -84,6 +84,7 @@ async function build(): Promise<ApprovalRow[]> {
       hasCnicReview: cnicReview.has(p.id as string),
       hasSelfieReview: selfieReview.has(p.id as string),
       profile_pic_rereview_at: (p.profile_pic_rereview_at as string | null) ?? null,
+      name_rereview_at: (p.name_rereview_at as string | null) ?? null,
       video_status: (t?.video_status as string | null) ?? null,
     })
     if (waiting.length === 0) continue

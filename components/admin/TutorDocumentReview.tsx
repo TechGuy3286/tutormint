@@ -48,6 +48,7 @@ export default function TutorDocumentReview({
   tutorId,
   canReview,
   avatarUrl,
+  pendingAvatarUrl = null,
   avatarOriginalUrl = null,
   cnicFrontId,
   cnicBackId,
@@ -63,6 +64,8 @@ export default function TutorDocumentReview({
   tutorId: string
   canReview: boolean
   avatarUrl: string | null
+  /** A replacement photo waiting for the Owner while avatarUrl stays public (owner, 4 Nov 2026). */
+  pendingAvatarUrl?: string | null
   /** The photo as the member uploaded it, when the one in use is a cropped or
    *  turned copy (lib/avatarCrop avatarOriginalUrl). */
   avatarOriginalUrl?: string | null
@@ -100,6 +103,7 @@ export default function TutorDocumentReview({
   // The expand icon opens the ORIGINAL upload (owner, 20 Oct 2026) — the
   // picture as uploaded, turned by any saved rotation, never the crop.
   if (avatarUrl) { at.pic = images.length; images.push({ src: avatarOriginalUrl ? `/api/admin/profile-photo/source?memberId=${tutorId}` : avatarUrl, alt: 'Profile picture', profileId: tutorId }) }
+  if (pendingAvatarUrl) { at.newPic = images.length; images.push({ src: pendingAvatarUrl, alt: 'New profile picture' }) }
   if (selfieDocId) { at.selfie = images.length; images.push({ src: `/api/documents/${selfieDocId}/preview`, alt: 'Selfie', documentId: selfieDocId }) }
   if (rv?.cnicFrontId) { at.newFront = images.length; images.push({ src: `/api/documents/${rv.cnicFrontId}/preview`, alt: 'New CNIC front', documentId: rv.cnicFrontId }) }
   if (rv?.cnicBackId) { at.newBack = images.length; images.push({ src: `/api/documents/${rv.cnicBackId}/preview`, alt: 'New CNIC back', documentId: rv.cnicBackId }) }
@@ -184,6 +188,14 @@ export default function TutorDocumentReview({
             </Zoomable>
           ) : (
             <NoImage label="No picture" />
+          )}
+          {pendingAvatarUrl && (
+            <NewUpload>
+              <Zoomable onOpen={() => setLbIndex(at.newPic)}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- admin-only review thumbnail */}
+                <img src={pendingAvatarUrl} alt="New profile picture" loading="lazy" decoding="async" className="h-32 w-32 rounded-xl object-cover" />
+              </Zoomable>
+            </NewUpload>
           )}
         </ReviewItem>
 
@@ -310,6 +322,12 @@ function ReviewItem({
   const waMsisdn = normalisePkMobile(memberWhatsapp)
   const whatsappHref = (() => {
     if (!waMsisdn) return null
+    // A replaced photo or selfie (owner, 4 Nov 2026): the editable English
+    // template "rereview_rejected", built on the server.
+    if (state.rereview && item !== 'cnic') {
+      const q = new URLSearchParams({ tutorId, item, reason })
+      return `/api/admin/tutors/rereview-whatsapp?${q.toString()}`
+    }
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.tutormint.org'
     const link = `${origin}/tutor/dashboard/settings#identity`
     const text = rejectionWhatsAppText({ what: whatName, reason, link, audience: 'tutor' })

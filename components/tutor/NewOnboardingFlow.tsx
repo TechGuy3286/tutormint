@@ -9,7 +9,7 @@ import { Camera, Check, CreditCard, Image as ImageIcon, Loader2, Paperclip, Plus
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
 import { useDocLocks, refreshDocLocks } from '@/lib/useDocLocks'
-import { canPick } from '@/lib/docLockCore'
+import { canPick, canReplace } from '@/lib/docLockCore'
 import DocLockNotice from '@/components/identity/DocLockNotice'
 import { compressUnder1MB } from '@/lib/imageCompress'
 import { usePhotoCropUpload } from '@/components/photo/usePhotoCropUpload'
@@ -1223,7 +1223,7 @@ function PhotoStep({ seed, current, shell, onSave, onError }: { seed: string; cu
   const { dialog, cropAndUpload } = usePhotoCropUpload()
   const [preview, setPreview] = useState<string | null>(current)
   const [uploading, setUploading] = useState(false)
-  // An approved photo is LOCKED (owner, 17 Oct 2026); the Owner can unlock one change.
+  // The photo can always be replaced (owner, 4 Nov 2026); a new one waits for review.
   const photoView = useDocLocks()?.photo ?? 'open'
   async function upload(file: File) {
     setUploading(true)
@@ -1241,7 +1241,7 @@ function PhotoStep({ seed, current, shell, onSave, onError }: { seed: string; cu
         {dialog}
         <div className="space-y-2 lg:order-2">
         {photoView !== 'open' && <DocLockNotice view={photoView} doc="photo" />}
-        {canPick(photoView) ? (
+        {canReplace(photoView) ? (
           <CaptureButtons facingMode="environment" busy={uploading} done={!!preview}
             preview={preview ? (<img src={preview} alt="Your photo" className="h-full w-full object-cover" />) : null} onPick={(f) => void upload(f)} />
         ) : preview ? (
@@ -1265,7 +1265,7 @@ function SelfieStep({ done, initialPreview, shell, onDone, onError }: { done: bo
   const [preview, setPreview] = useState<string | null>(initialPreview)
   const [uploading, setUploading] = useState(false)
   const uploaded = done || !!preview
-  // An approved selfie is LOCKED (owner, 9 Oct 2026).
+  // The selfie can always be replaced (owner, 4 Nov 2026); a new one waits for review.
   const selfieView = useDocLocks()?.selfie ?? 'open'
   async function upload(file: File) {
     setUploading(true)
@@ -1285,7 +1285,7 @@ function SelfieStep({ done, initialPreview, shell, onDone, onError }: { done: bo
     children: (
       <div className="space-y-2 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:space-y-0" data-two-col="">
         <div className="space-y-2 lg:order-2">
-        {canPick(selfieView) && (
+        {canReplace(selfieView) && (
         <LiveSelfieCapture busy={uploading} done={uploaded}
           preview={preview ? (<img src={preview} alt="Your selfie" className="h-full w-full object-cover" />) : null} onCapture={(f) => void upload(f)} />
         )}

@@ -164,7 +164,7 @@ export default function CvClient({
         <p className="flex flex-wrap items-center gap-x-2 text-[11px] text-gray-500">
           Your CV is built from your profile — nothing here is edited on this page.
           <Link href="/tutor/dashboard/settings" className="inline-flex items-center gap-1 font-bold text-tm-red hover:underline">
-            <Pencil aria-hidden size={12} /> Edit in Settings
+            <Pencil aria-hidden size={12} /> Edit Profile
           </Link>
         </p>
 
@@ -172,7 +172,7 @@ export default function CvClient({
           <p className="rounded-xl bg-tm-tint-gold p-2.5 text-[11px] font-semibold text-tm-gold-ink">
             Complete your profile for a fuller CV.{' '}
             <Link href="/tutor/dashboard/settings" className="font-bold underline">
-              Settings
+              Edit Profile
             </Link>
           </p>
         )}

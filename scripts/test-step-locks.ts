@@ -42,7 +42,7 @@ test('subjects and areas save for a verified tutor with approved CNIC, photo and
   const src = read(SETTINGS)
   assert.doesNotMatch(src, /step1Complete/)
   const cards = cardBlocks(src)
-  for (const key of ['subjects', 'location', 'jobType', 'availability', 'degrees', 'certifications', 'experience', 'monthlyFee', 'fee', 'email', 'details', 'mobile']) {
+  for (const key of ['subjects', 'location', 'jobType', 'availability', 'degrees', 'certifications', 'experience', 'monthlyFee', 'details']) {
     const block = cards.get(key)
     assert.ok(block, `${key} card exists`)
     assert.doesNotMatch(block!, /\n\s+locked:/, `${key} card must not lock`)
@@ -50,17 +50,18 @@ test('subjects and areas save for a verified tutor with approved CNIC, photo and
   assert.ok(cards.has('subjects') && cards.has('location'))
 })
 
-test('a CNIC, photo or selfie save is refused without an unlock', () => {
+// Superseded on 4 Nov 2026 (migration 222, lib/memberLocksCore): only the
+// CNIC stays locked; an approved photo or selfie is replaced into review.
+test('an approved CNIC is refused without an unlock; a photo or selfie goes to review', () => {
   assert.deepEqual(uploadDecision({ kind: 'cnic', part: 'front', approved: true, partOnRecord: true, unlock: null }), { allow: false, status: 403, error: LOCKED_ERROR })
   assert.deepEqual(uploadDecision({ kind: 'cnic', part: 'back', approved: true, partOnRecord: true, unlock: null }), { allow: false, status: 403, error: LOCKED_ERROR })
-  assert.deepEqual(uploadDecision({ kind: 'selfie', part: 'selfie', approved: true, partOnRecord: true, unlock: null }), { allow: false, status: 403, error: LOCKED_ERROR })
-  assert.deepEqual(photoUploadDecision({ approved: true, onRecord: true, unlockOpen: false }), { allow: false, status: 403, error: LOCKED_ERROR })
-  const m = read('supabase/migrations/187_unlock_city_areas.sql')
-  // The CNIC number and the approved photo are still refused by the database.
+  assert.deepEqual(uploadDecision({ kind: 'selfie', part: 'selfie', approved: true, partOnRecord: true, unlock: null }), { allow: true, mode: 'review', consumeUnlock: false })
+  assert.deepEqual(photoUploadDecision({ approved: true, onRecord: true, unlockOpen: false }), { allow: true })
+  const m = read('supabase/migrations/222_member_edit_rules.sql')
+  // The CNIC number and the verified mobile are still refused by the database; the photo is not.
   assert.match(m, /AND NEW\.cnic_number IS DISTINCT FROM OLD\.cnic_number THEN/)
-  assert.equal((m.match(/tm_photo_change_refused\((OLD|old)\.id\)/g) ?? []).length, 2)
-  // The mobile (once OTP-verified) is unchanged: changed through support.
   assert.match(m, /OLD\.phone_verified_at IS NOT NULL AND NEW\.phone_number IS DISTINCT FROM OLD\.phone_number/)
+  assert.doesNotMatch(m.replace(/^--.*$/gm, ''), /tm_photo_change_refused\(/)
 })
 
 test('an old non-list subject does not block a save; a new one is refused', () => {
@@ -75,18 +76,13 @@ test('an old non-list subject does not block a save; a new one is refused', () =
   assert.match(read('app/api/admin/tutors/edit/route.ts'), /unknownNewMasterIds\(admin, ids, oldIds\)/)
 })
 
-test('the dashboard shows a lock only on document cards, as "Approved 🔒"', () => {
+test('Edit Profile shows a lock only on Mobile, CNIC and Email (owner, 4 Nov 2026)', () => {
   const cards = cardBlocks(read(SETTINGS))
   const locked = [...cards.entries()].filter(([, b]) => /\n\s+locked:/.test(b)).map(([k]) => k).sort()
-  assert.deepEqual(locked, ['cnic', 'selfie'])
-  // The approved photo keeps its card open (the Hide my photo toggle) with the label.
-  assert.match(cards.get('profilePic') ?? '', /approvedLock: photoLocked,/)
-  assert.match(read(SETTINGS), /const photoLocked = photoView === 'locked';/)
-  // A locked tile reads "Approved 🔒" — the word "Locked" is gone from the tiles.
-  const tile = renderToStaticMarkup(createElement(SettingsTile, { cardKey: 'selfie', status: 'completed', icon: null, open: false, onClick: () => {}, locked: true }))
+  assert.deepEqual(locked, ['cnic', 'email', 'mobile'])
+  assert.doesNotMatch(cards.get('profilePic') ?? '', /approvedLock/)
+  const tile = renderToStaticMarkup(createElement(SettingsTile, { cardKey: 'mobile', status: 'completed', icon: null, open: false, onClick: () => {}, locked: true }))
   assert.match(tile, new RegExp(APPROVED_LOCK_LABEL))
-  assert.doesNotMatch(tile, />Locked</)
   const open = renderToStaticMarkup(createElement(SettingsTile, { cardKey: 'subjects', status: 'completed', icon: null, open: false, onClick: () => {} }))
   assert.doesNotMatch(open, /Approved 🔒|Locked/)
-  assert.doesNotMatch(read('components/tutor/SettingsPieces.tsx'), /'Locked'/)
 })

@@ -51,7 +51,7 @@ export default function IdentityStatusLine({
         {label}
       </span>
       <span className="flex items-center gap-1 text-tm-red">
-        Complete in Settings
+        Complete in Edit Profile
         <ArrowRight aria-hidden size={13} />
       </span>
     </Link>

@@ -184,6 +184,7 @@ const WA_REGISTRY: Record<string, 'parent-situation' | 'parent-specific' | 'not-
   'app/admin/overview/todo-unmet/UnmetSearchesClient.tsx': 'not-parent', // hiring post share
   'app/api/admin/follow-ups/status-image/route.ts': 'not-parent',
   'app/api/admin/follow-ups/social-links/route.ts': 'not-parent',
+  'app/api/admin/tutors/rereview-whatsapp/route.ts': 'not-parent',
   'lib/documentsApproved.ts': 'not-parent',
   'lib/documentsApprovedCore.ts': 'not-parent',
   'lib/staffOutreachCore.ts': 'not-parent',
@@ -192,6 +193,7 @@ const WA_REGISTRY: Record<string, 'parent-situation' | 'parent-specific' | 'not-
   'lib/unmetSearchCore.ts': 'not-parent',
   'lib/dailyReportCore.ts': 'not-parent',
   'lib/docLockCore.ts': 'not-parent',
+  'lib/memberLocksCore.ts': 'not-parent',
   'lib/errorMessages.ts': 'not-parent',
   'lib/payments/receiptCore.ts': 'not-parent',
 }

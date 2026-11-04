@@ -71,6 +71,8 @@ export const AUDIT_LABELS: Record<string, string> = {
   // Documents and verification
   'tutor.approve': 'Approved the tutor',
   'tutor.hold': 'Put the introduction video on hold',
+  'tutor.name_checked': 'Checked the changed name against the CNIC',
+  'tutor.rereview_whatsapp': 'Opened WhatsApp: new photo or selfie not approved',
   'tutor.suspend': 'Suspended the tutor',
   'tutor.unsuspend': 'Reinstated the tutor',
   'tutor.edit': 'Edited the tutor record',

@@ -18,14 +18,14 @@
 //     reject hides it (kept for history) and the old file stays on record.
 //   • Rejected or never-uploaded documents upload exactly as before ('normal').
 //
-// The approved PROFILE PHOTO is locked too (owner, 17 Oct 2026; supersedes
-// "the profile photo is NOT locked", 9 Oct). Its lock is enforced by the
-// database (migration 186, tm_photo_change_refused) on every member write of
-// avatar_url, and by /api/profile/photo before a new file is stored. An Owner
-// unlock (item 'photo') allows ONE change; the new photo goes back for review
-// as before (profile_pic_rereview_at). Hiding the photo is never locked.
+// SUPERSEDED for the selfie and the profile photo (owner, 4 Nov 2026;
+// lib/memberLocksCore): only the CNIC stays locked. A member may replace an
+// approved selfie or photo at any time; the new one waits for the Owner
+// ('review' upload / profiles.avatar_pending_url, migration 222) while the
+// approved one stays on record and public. Neither is ever 'locked'.
 
 import { waSendHref } from './waLinkCore'
+import { MEMBER_LOCK_LINE } from './memberLocksCore'
 
 export type LockItem = 'cnic' | 'selfie'
 /** Everything the Owner can unlock: the two document kinds and the photo. */
@@ -62,11 +62,11 @@ export type UploadDecision =
   | { allow: false; status: 403; error: string }
 
 /** The short status on a locked document (owner, 17 Oct 2026). */
-export const LOCKED_TITLE = 'Approved 🔒'
+export const LOCKED_TITLE = 'Approved'
 /** The line under it; the number is linked to WhatsApp (lockedWhatsappHref). */
-export const LOCKED_LINE = 'To change this, contact support on WhatsApp 0321 5872222.'
-export const LOCKED_MESSAGE_EN = `${LOCKED_TITLE}. ${LOCKED_LINE}`
-export const LOCKED_ERROR = LOCKED_MESSAGE_EN
+export const LOCKED_LINE = MEMBER_LOCK_LINE.cnic
+export const LOCKED_MESSAGE_EN = LOCKED_LINE
+export const LOCKED_ERROR = LOCKED_LINE
 export const USED_ERROR =
   'You have already sent your new upload. Our team will check it. To change it again, contact support on WhatsApp 0321 5872222.'
 
@@ -109,15 +109,15 @@ export type DocLockViews = { cnicFront: LockView; cnicBack: LockView; selfie: Lo
  * waiting for review (profile_pic_rereview_at) → waiting.
  */
 export function photoLockView(f: { approved: boolean; onRecord: boolean; rereviewPending: boolean; unlockOpen: boolean }): LockView {
-  if (!f.approved || !f.onRecord) return 'open'
-  if (f.unlockOpen) return 'unlocked'
-  if (f.rereviewPending) return 'waiting'
-  return 'locked'
+  // Never locked (owner, 4 Nov 2026): 'waiting' while a new one is with the Owner.
+  if (f.approved && f.onRecord && f.rereviewPending) return 'waiting'
+  return 'open'
 }
 
 /** May a new profile photo be stored? Refused while approved and locked. */
-export function photoUploadDecision(f: { approved: boolean; onRecord: boolean; unlockOpen: boolean }): { allow: true } | { allow: false; status: 403; error: string } {
-  if (f.approved && f.onRecord && !f.unlockOpen) return { allow: false, status: 403, error: LOCKED_ERROR }
+export function photoUploadDecision(_f: { approved: boolean; onRecord: boolean; unlockOpen: boolean }): { allow: true } | { allow: false; status: 403; error: string } {
+  // A new photo is always stored (owner, 4 Nov 2026); an approved one is kept
+  // public until the Owner approves the new one (migration 222).
   return { allow: true }
 }
 
@@ -129,6 +129,8 @@ export function lockView(f: {
   unlock: OpenUnlock
 }): LockView {
   if (!f.approved) return 'open'
+  // The selfie is never locked (owner, 4 Nov 2026).
+  if (f.part === 'selfie') return f.reviewPending ? 'waiting' : 'open'
   const unlockLeft = !!f.unlock && !f.unlock.usedSides.includes(f.part)
   if (f.reviewPending && !unlockLeft) return 'waiting'
   if (!f.partOnRecord) return 'open'
@@ -141,9 +143,21 @@ export function canPick(v: LockView): boolean {
   return v === 'open' || v === 'unlocked'
 }
 
+/** The profile photo and the selfie can always be replaced (owner, 4 Nov
+ *  2026) — even while a new one waits for the Owner. */
+export function canReplace(v: LockView): boolean {
+  return v !== 'locked'
+}
+
 /** What happens to an upload. */
 export function uploadDecision(f: UploadFacts): UploadDecision {
   if (!f.approved) return { allow: true, mode: 'normal' }
+  // An approved selfie can always be replaced; the new one waits for review
+  // (owner, 4 Nov 2026). An open staff unlock is spent if there is one.
+  if (f.kind === 'selfie') {
+    const unlockLeft = !!f.unlock && !f.unlock.usedSides.includes(f.part)
+    return { allow: true, mode: 'review', consumeUnlock: unlockLeft }
+  }
   // Approved, but this part was never on record (a one-sided CNIC): uploadable,
   // waits for review.
   if (!f.partOnRecord) return { allow: true, mode: 'review', consumeUnlock: false }

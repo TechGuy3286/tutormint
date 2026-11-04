@@ -15,23 +15,18 @@ import { createClient } from '@/lib/supabase/client'
 import { usePhotoCropUpload } from '@/components/photo/usePhotoCropUpload'
 import { useToast } from '@/components/ui/Toast'
 import EmailCard from '@/components/account/EmailCard'
+import MemberLockBox from '@/components/account/MemberLockBox'
+import { maskPhoneDisplay } from '@/lib/contactMaskCore'
 import PauseAccountCard from '@/components/account/PauseAccountCard'
 import DeleteAccountCard from '@/components/account/DeleteAccountCard'
 import ChangePasswordCard from '@/components/account/ChangePasswordCard'
 import { Lock, PauseCircle, Trash2 } from 'lucide-react'
 import MobileNumberInput from '@/components/auth/MobileNumberInput'
 import OtpCodeEntry from '@/components/auth/OtpCodeEntry'
-import { whatsappHref, SUPPORT_WHATSAPP_FALLBACK } from '@/lib/supportContacts'
 import { SettingsTile, OpenTileHeader } from '@/components/tutor/SettingsPieces'
 import { STATUS_META, type CardStatus } from '@/lib/tutorSettingsCopy'
 import { FormChecklist, ChecklistStatus } from '@/components/forms/FormChecklist'
 
-// PR17 §3.2 — a verified number is changed through support. The number is the one
-// client-safe constant; a client component cannot read the app_settings override.
-const mobileSupportHref = whatsappHref(
-  SUPPORT_WHATSAPP_FALLBACK,
-  'Assalam-o-Alaikum, I need to change the mobile number on my TutorMint account.',
-)
 
 function mmss(total: number): string {
   const m = Math.floor(total / 60)
@@ -361,33 +356,14 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
       key: 'mobile',
       icon: <Smartphone aria-hidden size={20} />,
       title: 'Mobile number',
-      titleUr: 'موبائل نمبر',
+      titleUr: '',
       status: mobileStatus,
       hint: initial.phoneVerified
         ? 'Your verified number.'
         : 'We send a 6-digit code to check the number reaches you. You can change the number before verifying.',
+      // Locked once verified (owner, 4 Nov 2026): masked, one English line, WhatsApp.
       body: initial.phoneVerified ? (
-        <>
-          <p className="inline-flex items-center gap-1.5 rounded-xl bg-tm-tint-green px-3 py-2 text-xs font-bold text-tm-green-deep">
-            <Check aria-hidden size={14} />
-            {initial.phone} — verified
-          </p>
-          <p className="text-[11px] leading-relaxed text-gray-500">
-            Need to change it?{' '}
-            {mobileSupportHref ? (
-              <a
-                href={mobileSupportHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-bold text-tm-green-deep hover:underline"
-              >
-                Contact support on WhatsApp
-              </a>
-            ) : (
-              'Contact support.'
-            )}
-          </p>
-        </>
+        <MemberLockBox field="mobile" value={maskPhoneDisplay(initial.phone)} />
       ) : (
         <>
           <label className="block space-y-1">
@@ -434,7 +410,7 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
       key: 'email',
       icon: <Mail aria-hidden size={20} />,
       title: 'Email',
-      titleUr: 'ای میل',
+      titleUr: '',
       status: 'neutral',
       body: <EmailCard />,
     },

@@ -85,7 +85,7 @@ const GROUPS: FaqGroup[] = [
     items: [
       {
         q: 'Why can I not post a tuition yet?',
-        a: 'Posting needs a verified mobile number, and nothing else. Verify it from Settings with a one-time code. Your CNIC and home address are optional: send them from your dashboard and, once our team approves them, you get the green Verified badge tutors look for.',
+        a: 'Posting needs a verified mobile number, and nothing else. Verify it from Edit Profile with a one-time code. Your CNIC and home address are optional: send them from your dashboard and, once our team approves them, you get the green Verified badge tutors look for.',
       },
       {
         q: 'Why can I not hire the tutor I chose?',

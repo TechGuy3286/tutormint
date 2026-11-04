@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { MEMBER_LOCK_LINE } from '@/lib/memberLocksCore'
 
 // Self-service mobile-number change — RETIRED (PR16 §3.2).
 //
@@ -11,7 +12,7 @@ import { NextResponse } from 'next/server'
 
 export async function POST() {
   return NextResponse.json(
-    { error: 'To change your mobile number, please contact support.' },
+    { error: MEMBER_LOCK_LINE.mobile, locked: true },
     { status: 403 },
   )
 }

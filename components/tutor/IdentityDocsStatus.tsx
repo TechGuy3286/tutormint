@@ -5,7 +5,7 @@ import { CheckCircle2, Clock, AlertCircle, CircleDashed } from 'lucide-react'
 import { compressImage } from '@/lib/imageCompress'
 import { useToast } from '@/components/ui/Toast'
 import type { DocumentStatuses, DocState } from '@/lib/tutorDocuments'
-import { canPick } from '@/lib/docLockCore'
+import { canReplace } from '@/lib/docLockCore'
 import LiveSelfieCapture from '@/components/tutor/LiveSelfieCapture'
 import DocLockNotice from '@/components/identity/DocLockNotice'
 
@@ -121,12 +121,10 @@ export default function IdentityDocsStatus() {
         <StatusRow title="Selfie" titleUr="سیلفی" state={statuses.selfie} />
       </div>
 
-      {/* Approved selfie is LOCKED (owner, 9 Oct 2026). */}
-      {!canPick(statuses.locks?.selfie ?? 'open') ? (
-        <DocLockNotice view={statuses.locks?.selfie ?? 'locked'} doc="selfie" />
-      ) : (
+      {/* The selfie can always be replaced (owner, 4 Nov 2026). */}
+      {!canReplace(statuses.locks?.selfie ?? 'open') ? null : (
       <>
-      {statuses.locks?.selfie === 'unlocked' && <DocLockNotice view="unlocked" doc="selfie" />}
+      {statuses.locks?.selfie && statuses.locks.selfie !== 'open' && <DocLockNotice view={statuses.locks.selfie} doc="selfie" />}
       <LiveSelfieCapture busy={busy} done={statuses.selfie.hasUpload} onCapture={(f) => void onFile(f)} />
       </>
       )}

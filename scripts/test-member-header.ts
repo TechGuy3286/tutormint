@@ -37,10 +37,10 @@ function render(el: ReturnType<typeof createElement>): string {
 
 const src = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 
-test('member header renders Settings and Logout as visible controls (no menu)', () => {
+test('member header renders Edit Profile and Logout as visible controls (no menu)', () => {
   for (const role of ['tutor', 'parent'] as const) {
     const html = render(createElement(MemberHeaderNav, { settingsHref: MEMBER_SETTINGS_HREF[role] }))
-    assert.match(html, new RegExp(`<a[^>]*href="${MEMBER_SETTINGS_HREF[role]}"[^>]*>.*Settings</span></a>`))
+    assert.match(html, new RegExp(`<a[^>]*href="${MEMBER_SETTINGS_HREF[role]}"[^>]*>.*Edit Profile</span></a>`))
     assert.match(html, /<button[^>]*type="button"[^>]*>.*Logout<\/span><\/button>/)
     assert.match(html, /text-tm-red/, 'Logout keeps the red used for Logout')
     assert.doesNotMatch(html, /aria-haspopup|role="menu"|aria-expanded/)
@@ -163,9 +163,9 @@ test('admin header is unchanged: admin layout does not use the member header', (
   assert.equal(items[0].href, '/admin')
 })
 
-test('dashboard profile cards carry Settings and Help & Support', () => {
+test('dashboard profile cards carry Edit Profile and Help & Support', () => {
   const html = renderToStaticMarkup(createElement(AccountLinks, { settingsHref: '/tutor/dashboard/settings' }))
-  assert.match(html, /href="\/tutor\/dashboard\/settings"[^>]*>.*Settings<\/a>/)
+  assert.match(html, /href="\/tutor\/dashboard\/settings"[^>]*>.*Edit Profile<\/a>/)
   assert.match(html, /href="\/support"[^>]*>.*Help &amp; Support<\/a>/)
   assert.match(src('components/tutor/TutorHeaderCard.tsx'), /<AccountLinks settingsHref="\/tutor\/dashboard\/settings" \/>/)
   assert.match(src('components/parent/ParentHeaderCard.tsx'), /<AccountLinks settingsHref="\/parent\/dashboard\/settings" \/>/)

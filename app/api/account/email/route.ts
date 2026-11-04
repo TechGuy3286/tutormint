@@ -8,6 +8,7 @@ import { parseBody, z } from '@/lib/validate'
 import { looksLikeEmail, isSyntheticEmail } from '@/lib/phone'
 import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 import { RELOAD_AND_RETRY } from '@/lib/tutorSubjectCap'
+import { emailLocked, memberLockRefusal } from '@/lib/memberLocksCore'
 
 // Add or change the member's email (PR29 §4).
 //
@@ -41,6 +42,13 @@ export async function POST(request: Request) {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Please sign in first, then try again.' }, { status: 401 })
+
+  // The email is LOCKED for the member once the account has a real one (owner,
+  // 4 Nov 2026). Staff change it from admin. A mobile sign-up may still add one.
+  if (emailLocked({ authEmail: user.email ?? null })) {
+    const r = memberLockRefusal('email')
+    return NextResponse.json({ error: r.error, locked: true }, { status: r.status })
+  }
 
   const parsed = await parseBody(request, Body)
   if (!parsed.ok) return parsed.response

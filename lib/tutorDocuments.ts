@@ -13,6 +13,7 @@
 // reviewer field (the profiles column lock); this is the only writer, called
 // from the staff review route.
 
+import { photoRereviewOutcome } from '@/lib/memberLocksCore'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import type { AdminRole } from '@/lib/adminAuth'
@@ -282,8 +283,11 @@ export async function reviewTutorDocument(params: {
  * 2026). Approve: the new file becomes the one on record and the document is
  * locked again. Reject: the new file is hidden (kept for history) and the
  * previous approved file stays on record — the approval, badge and
- * indexability are untouched either way. For a changed profile photo, a
- * reject is the ordinary photo rejection (no earlier photo is kept).
+ * indexability are untouched either way. A replaced profile photo (owner,
+ * 4 Nov 2026) waits in profiles.avatar_pending_url while the approved one stays
+ * public (migration 222): approve makes the new one the photo, reject keeps the
+ * approved one. An older change with no waiting copy (made before migration
+ * 222, when the new photo went live at once) is still rejected as a photo.
  */
 async function decideRereview(params: {
   actor: { id: string; adminRole: AdminRole; email: string | null }
@@ -299,11 +303,27 @@ async function decideRereview(params: {
   const now = new Date().toISOString()
   const patch: Record<string, unknown> = {}
 
+  let photoKept = false
+  const filledS = (v: unknown) => typeof v === 'string' && v.trim().length > 0
   if (item === 'profile_pic') {
+    const { data: cur } = await admin.from('profiles').select('avatar_pending_url').eq('id', tutorId).maybeSingle()
+    const outcome = photoRereviewOutcome({ approve: approved, pendingUrl: filledS(cur?.avatar_pending_url) ? (cur!.avatar_pending_url as string) : null })
+    const pending = outcome.newAvatarUrl
     patch.profile_pic_rereview_at = null
     patch.profile_pic_reviewed_by = actor.id
     patch.profile_pic_reviewed_at = now
-    if (!approved) {
+    patch.avatar_pending_url = null
+    patch.avatar_pending_at = null
+    if (pending) {
+      patch.avatar_url = pending
+      // The approved photo's record now describes the new one (lib/avatarCrop).
+      await admin.from('avatar_rotations').upsert(
+        { user_id: tutorId, rotation: 0, original_url: pending, rotated_url: pending, crop: null, source: 'member', updated_by: actor.id, updated_at: now },
+        { onConflict: 'user_id' },
+      )
+    } else if (outcome.keepOld) {
+      photoKept = true
+    } else if (outcome.rejectPhoto) {
       patch.profile_pic_status = 'rejected'
       patch.profile_pic_reason = reason
     }
@@ -347,7 +367,7 @@ async function decideRereview(params: {
     targetId: tutorId,
     detail: { item, decision, rereview: true, reason: approved ? null : reason },
   })
-  const keepsOld = !approved && item !== 'profile_pic'
+  const keepsOld = !approved && (item !== 'profile_pic' || photoKept)
   await notify({
     userId: tutorId,
     kind: approved ? 'verification_approved' : 'verification_rejected',

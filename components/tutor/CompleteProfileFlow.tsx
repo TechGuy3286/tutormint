@@ -9,8 +9,9 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
 import { useDocLocks, refreshDocLocks } from '@/lib/useDocLocks'
-import { canPick } from '@/lib/docLockCore'
+import { canReplace } from '@/lib/docLockCore'
 import DocLockNotice from '@/components/identity/DocLockNotice'
+import MemberLockBox from '@/components/account/MemberLockBox'
 import { compressUnder1MB } from '@/lib/imageCompress'
 import { usePhotoCropUpload } from '@/components/photo/usePhotoCropUpload'
 import { useJobTitles } from '@/lib/jobTitles'
@@ -1361,7 +1362,7 @@ function SelfieStep({ done, onDone }: { done: boolean; onDone: () => void }) {
   const [busy, setBusy] = useState(false)
   const [preview, setPreview] = useState<string | null>(null)
   const uploaded = done || !!preview
-  // An approved selfie is LOCKED (owner, 9 Oct 2026).
+  // The selfie can always be replaced (owner, 4 Nov 2026); a new one waits for review.
   const selfieView = useDocLocks()?.selfie ?? 'open'
 
   async function upload(file: File) {
@@ -1391,7 +1392,7 @@ function SelfieStep({ done, onDone }: { done: boolean; onDone: () => void }) {
   return (
     <div className="space-y-4">
       {selfieView !== 'open' && <DocLockNotice view={selfieView} doc="selfie" />}
-      {canPick(selfieView) && (
+      {canReplace(selfieView) && (
       <div className="mx-auto max-w-xs">
         <LiveSelfieCapture
           busy={busy}
@@ -1674,16 +1675,8 @@ function CnicApprovedBox({ support, onContinue, children }: { support: SupportIn
         </div>
       </div>
       {children}
-      <div className="rounded-xl border border-gray-200 bg-white p-3">
-        <p className="text-xs font-semibold text-gray-600">Approved. To change this, contact support.</p>
-        <p lang="ur" dir="rtl" className="mt-0.5 text-[11px] font-semibold text-gray-500">منظور شدہ۔ تبدیلی کے لیے سپورٹ سے رابطہ کریں۔</p>
-        {support.waHref && (
-          <a href={support.waHref} target="_blank" rel="noopener noreferrer"
-            className="mt-2 inline-flex min-h-[40px] items-center gap-1.5 rounded-lg bg-tm-green-deep px-3 text-xs font-bold text-white hover:bg-tm-green-deep-hover">
-            <MessageCircle size={15} aria-hidden /> WhatsApp support{support.waDisplay ? ` ${support.waDisplay}` : ''}
-          </a>
-        )}
-      </div>
+      {/* Locked (owner, 4 Nov 2026): one English line + WhatsApp. */}
+      <MemberLockBox field="cnic" />
       <button type="button" onClick={onContinue}
         className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white sticky bottom-[calc(0.75rem_+_env(safe-area-inset-bottom))] z-20 shadow-lg">
         Continue

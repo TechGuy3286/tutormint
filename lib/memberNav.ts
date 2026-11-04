@@ -3,6 +3,10 @@
 // file is only a client reference on the server — reading a property of it
 // gave `undefined`, and <Link href={undefined}> crashed every signed-in member
 // page ("Cannot destructure property 'auth'", 9 Oct 2026).
+/** The member's own page for changing their profile (owner, 4 Nov 2026: was
+ *  "Settings"). The address is unchanged. Admin Settings keep their name. */
+export const EDIT_PROFILE_LABEL = 'Edit Profile'
+
 export const MEMBER_SETTINGS_HREF = {
   tutor: '/tutor/dashboard/settings',
   parent: '/parent/dashboard/settings',

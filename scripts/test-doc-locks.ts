@@ -59,10 +59,11 @@ const row = (id: string, user: string, kind: string, label: string | null, at: s
 test('a locked document rejects an upload — API decision is 403 with the plain message', () => {
   const d = uploadDecision({ kind: 'cnic', part: 'front', approved: true, partOnRecord: true, unlock: null })
   assert.deepEqual(d, { allow: false, status: 403, error: LOCKED_ERROR })
-  // "Approved 🔒" + the support line (owner, 17 Oct 2026); English only since 2 Nov 2026.
-  assert.match(LOCKED_ERROR, /Approved 🔒\. To change this, contact support on WhatsApp 0321 5872222\./)
+  // The CNIC line (owner, 4 Nov 2026): only Mobile, CNIC and Email lock.
+  assert.equal(LOCKED_ERROR, 'To change your CNIC, please contact our support.')
+  // An approved selfie is never locked: it is replaced into review.
   const s = uploadDecision({ kind: 'selfie', part: 'selfie', approved: true, partOnRecord: true, unlock: null })
-  assert.equal(s.allow, false)
+  assert.deepEqual(s, { allow: true, mode: 'review', consumeUnlock: false })
 })
 
 test('a locked document rejects an upload — UI offers no picker', () => {
@@ -73,9 +74,10 @@ test('a locked document rejects an upload — UI offers no picker', () => {
   assert.match(read('components/tutor/CnicCameraField.tsx'), /if \(!canPick\(lockView\)\)/)
   assert.match(read('components/identity/CnicCapture.tsx'), /useDocLocks\(memberUpload\)/)
   assert.match(read('components/tutor/NewOnboardingFlow.tsx'), /if \(!canPick\(view\)\)/)
-  assert.match(read('components/tutor/NewOnboardingFlow.tsx'), /canPick\(selfieView\)/)
-  assert.match(read('components/tutor/CompleteProfileFlow.tsx'), /canPick\(selfieView\)/)
-  assert.match(read('components/tutor/IdentityDocsStatus.tsx'), /canPick\(statuses\.locks\?\.selfie/)
+  // The selfie and photo controls are always offered (canReplace, 4 Nov 2026).
+  assert.match(read('components/tutor/NewOnboardingFlow.tsx'), /canReplace\(selfieView\)/)
+  assert.match(read('components/tutor/CompleteProfileFlow.tsx'), /canReplace\(selfieView\)/)
+  assert.match(read('components/tutor/IdentityDocsStatus.tsx'), /canReplace\(statuses\.locks\?\.selfie/)
   // No "Request a change" for an approved CNIC — the lock notice instead.
   assert.match(read('components/identity/IdentityCard.tsx'), /approvedLocked \? \(/)
 })
@@ -100,17 +102,17 @@ test('rejected or never-uploaded documents stay uploadable exactly as today', ()
 
 // ---------------------------------------------------------------- unlock ----
 
-test('an unlock allows exactly one upload', () => {
+test('an unlock allows exactly one upload (CNIC); a selfie needs none', () => {
   const unlock = { id: 'u1', usedSides: [] as string[] }
+  // A selfie never needs an unlock (4 Nov 2026); an old open one is spent.
   const first = uploadDecision({ kind: 'selfie', part: 'selfie', approved: true, partOnRecord: true, unlock })
   assert.deepEqual(first, { allow: true, mode: 'review', consumeUnlock: true })
   const spent = spendSide(unlock.usedSides, 'selfie', unlockParts('selfie', []))
   assert.equal(spent.spent, true)
-  // The unlock is closed once spent → no open unlock → locked again.
   const second = uploadDecision({ kind: 'selfie', part: 'selfie', approved: true, partOnRecord: true, unlock: null })
-  assert.equal(second.allow, false)
-  // Even if read before closing, the same part twice is refused.
-  const again = uploadDecision({ kind: 'selfie', part: 'selfie', approved: true, partOnRecord: true, unlock: { id: 'u1', usedSides: spent.usedSides } })
+  assert.equal(second.allow, true)
+  // CNIC: the same side twice on one unlock is refused.
+  const again = uploadDecision({ kind: 'cnic', part: 'front', approved: true, partOnRecord: true, unlock: { id: 'u3', usedSides: ['front'] } })
   assert.deepEqual(again, { allow: false, status: 403, error: USED_ERROR })
   // CNIC: one front and one back, never the same side twice.
   const cnicParts = unlockParts('cnic', ['front', 'back'])
