@@ -59,6 +59,18 @@ import { resolveBody } from '@/lib/applicationTemplatesCore'
 import { fuBadgeCount, progressKey, tabState, type ContactRecord, type TabState } from '@/lib/tutorFollowUpTabsCore'
 import { loadSupportWhatsApp } from '@/lib/applicationTemplates'
 import { siteLink } from '@/lib/waLinkCore'
+import {
+  closestMessage,
+  closestMissing,
+  closestStage,
+  closestTemplateKey,
+  sortClosest,
+  type ClosestFacts,
+  type ClosestStage,
+  type DocState,
+} from '@/lib/closestToPayCore'
+import { itemState } from '@/lib/tutorDocSummaryCore'
+import type { CardDocState } from '@/lib/tutorDocQueueCore'
 
 export type TutorFollowRow = UnpaidRow & {
   chips: FollowChip[]
@@ -90,6 +102,24 @@ export type TutorFollowRow = UnpaidRow & {
   state: TabState
   /** The title of the template last sent, for the Sent line. */
   lastTemplateTitle: string | null
+  /** "Closest to paying" (owner, 5 Nov 2026): the one stage, or null. */
+  closest: ClosestStage | null
+  /** "Pay fee", "Selfie missing", "CNIC waiting approval". */
+  closestMissing: string | null
+  /** The stage's own WhatsApp text as a link, and the key stored with the tap. */
+  closestWaHref: string | null
+  closestTemplateKey: string | null
+  /** The newest contact of any kind, and when they were last on the site. */
+  lastContactAt: string | null
+  lastSeenAt: string | null
+}
+
+/** A card status as the closest rule reads it: an approved item with a new
+ *  upload waiting still counts as approved (the approval stands). */
+function docState(s: CardDocState | undefined): DocState {
+  if (!s) return 'none'
+  if (s.status === 'pending' && s.rereview) return 'approved'
+  return itemState(s)
 }
 
 /** Every contact with each tutor, newest first: Follow-ups taps (with their
@@ -275,8 +305,21 @@ async function buildFollowRows(rows: UnpaidRow[], now: Date): Promise<TutorFollo
       { joinedAt: r.joinedAt, progress, waitingOnUs: why === 'waiting', contacts: cs, reviewHref: `/admin/users/${r.id}#documents` },
       nowMs,
     )
+    const cf: ClosestFacts = {
+      feePaid: r.feePaid,
+      cnic: docState(d?.statuses.cnic),
+      photo: docState(d?.statuses.profilePic),
+      selfie: docState(d?.statuses.selfie),
+    }
+    const stage = closestStage(cf)
     out.push({
       ...r,
+      closest: stage,
+      closestMissing: stage ? closestMissing(cf) : null,
+      closestWaHref: stage && r.msisdn ? waLink(r.msisdn, closestMessage(stage, cf, firstNameOf(r.name), support)) : null,
+      closestTemplateKey: stage ? closestTemplateKey(stage) : null,
+      lastContactAt: contact?.at ?? null,
+      lastSeenAt: seen.get(r.id) ?? null,
       // Waiting on us is not a message; the card offers the review instead.
       waHref: r.msisdn && fuText ? waLink(r.msisdn, fuText) : r.msisdn ? waLink(r.msisdn, msg.text) : null,
       feeReplyHref: r.msisdn && feeText ? waLink(r.msisdn, feeText) : null,
@@ -299,6 +342,22 @@ async function buildFollowRows(rows: UnpaidRow[], now: Date): Promise<TutorFollo
     })
   }
   return out
+}
+
+/**
+ * "Closest to paying" (owner, 5 Nov 2026): every unpaid tutor not yet finished
+ * (any join date, not marked Not interested) who is in one of the four stages,
+ * in the list's order. ONE loader for the Follow-ups / People chips and the
+ * Overview "Ready to pay" row, so the number and the list agree.
+ */
+export async function loadClosestToPay(now = new Date()): Promise<(TutorFollowRow & { closest: ClosestStage })[]> {
+  const rows = (await loadTutorFollowUps('open')).filter(
+    (r): r is TutorFollowRow & { closest: ClosestStage } => !r.feePaid && !r.notInterested && r.closest !== null,
+  )
+  return sortClosest(
+    rows.map((r) => ({ ...r, stage: r.closest, lastActiveAt: r.lastSeenAt ?? r.joinedAt })),
+    now.getTime(),
+  )
 }
 
 /** The rows of one chip from the default group — the Overview rows' source. */

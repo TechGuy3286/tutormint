@@ -22,6 +22,9 @@ export const OVERVIEW_ITEM_KEYS = [
   'open-tuitions',
   // today's to-do
   'todo-docs',
+  // "Ready to pay" (owner, 5 Nov 2026) — the Closest to paying chip of
+  // Follow-ups → Tutors; right after Documents to approve.
+  'todo-ready-to-pay',
   'todo-uncontacted',
   'todo-stuck',
   // The "Follow-up sent" tab beside Stuck in onboarding (owner, 9 Oct 2026) —
@@ -68,6 +71,7 @@ export const OVERVIEW_ITEMS: Record<OverviewItemKey, OverviewItemMeta> = {
   parents: { title: 'Parents', screen: 'usersView', noun: ['parent', 'parents'] },
   'open-tuitions': { title: 'Open tuitions', screen: 'jobs', noun: ['tuition', 'tuitions'] },
   'todo-docs': { title: 'Documents to approve', screen: 'tutors', noun: ['member', 'members'] },
+  'todo-ready-to-pay': { title: 'Ready to pay', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
   'todo-uncontacted': { title: 'Tutors not yet contacted', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
   'todo-stuck': { title: 'Stuck in onboarding', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
   'todo-stuck-sent': { title: 'Follow-up sent', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },

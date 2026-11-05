@@ -127,6 +127,8 @@ export type PeopleListRole = 'tutor' | 'parent'
 export const peopleList = (r: PeopleListRole) => `people:${r}`
 export const tutorFuList = (scope: string) => `fu_tutor:${scope}`
 export const PARENT_FU_LIST = 'fu_parent'
+/** "Closest to paying" (owner, 5 Nov 2026): unpaid tutors by stage, in the list's own order (pos). */
+export const CLOSEST_LIST = 'fu_tutor:closest'
 
 /** Lower-case search haystack: every field on its own line, so a search never
  *  matches across two fields. */

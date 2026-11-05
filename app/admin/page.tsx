@@ -14,6 +14,7 @@ import SummaryUpdated from '@/components/admin/SummaryUpdated'
 import TeamOverviewView from '@/components/admin/TeamOverviewView'
 import { OVERVIEW_ITEMS, SIGNUPS_TODAY_HREF, type OverviewItemKey } from '@/lib/overviewItemsCore'
 import { chipHref, OVERVIEW_KEY_CHIP } from '@/lib/tutorFollowUpCore'
+import { closestHref, READY_TO_PAY_KEY } from '@/lib/closestToPayCore'
 import { funnelSteps } from '@/lib/staffOutreachCore'
 import { TILE_TONE, type TileTone } from '@/lib/tileTones'
 import { smsProviderLabel } from '@/lib/sms'
@@ -51,6 +52,7 @@ function bigNumberSize(text: string): string {
 const CARD_KEYS: OverviewItemKey[] = ['revenue', 'paid-today', 'tutors', 'parents', 'open-tuitions', 'signups-today']
 const TODO_KEYS: OverviewItemKey[] = [
   'todo-docs',
+  'todo-ready-to-pay',
   'todo-uncontacted',
   'todo-stuck',
   'todo-payments',
@@ -103,7 +105,7 @@ export default async function AdminHome({
   // Today filter (the same rows), not a second list.
   // The follow-up rows open Follow-ups → Tutors on their chip (owner, 20 Oct 2026).
   const href = (k: OverviewItemKey) =>
-    k === 'signups-today' ? SIGNUPS_TODAY_HREF : OVERVIEW_KEY_PEOPLE[k] ? OVERVIEW_KEY_PEOPLE[k] : OVERVIEW_KEY_CHIP[k] ? chipHref(OVERVIEW_KEY_CHIP[k]) : `/admin/overview/${k}${OVERVIEW_ITEMS[k].funnel ? `?days=${funnelDays}` : ''}`
+    k === 'signups-today' ? SIGNUPS_TODAY_HREF : k === READY_TO_PAY_KEY ? closestHref('ready') : OVERVIEW_KEY_PEOPLE[k] ? OVERVIEW_KEY_PEOPLE[k] : OVERVIEW_KEY_CHIP[k] ? chipHref(OVERVIEW_KEY_CHIP[k]) : `/admin/overview/${k}${OVERVIEW_ITEMS[k].funnel ? `?days=${funnelDays}` : ''}`
 
   const tiles = CARD_KEYS.filter((k) => lists.has(k)).map((k) => {
     const l = lists.get(k)!

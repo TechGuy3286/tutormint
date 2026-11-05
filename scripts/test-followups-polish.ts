@@ -237,7 +237,8 @@ test('D: a fee reply is recorded like any message and counts toward the 3', () =
   // The route accepts it even for a tutor waiting on us, and stores the key.
   const route = read('app/api/admin/follow-ups/tutor/route.ts')
   assert.match(route, /const feeReply = b\.channel === 'whatsapp' && b\.templateKey === FU_FEE_REPLY_KEY/)
-  assert.match(route, /if \(b\.reason === 'waiting' && !feeReply\)/)
+  // A "Closest to paying" stage message is the one other exception (owner, 5 Nov 2026).
+  assert.match(route, /if \(b\.reason === 'waiting' && !feeReply && !closest\)/)
   // The row's link is the stored template (or its default), pay link /pay/choose.
   const rows = read('lib/tutorFollowUps.ts')
   assert.match(rows, /resolveBody\(fuTemplates\.get\(FU_FEE_REPLY_KEY\)\?\.body, asAppDef\(feeReplyDef\)\)/)

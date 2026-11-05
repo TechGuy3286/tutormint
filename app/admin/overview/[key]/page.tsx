@@ -6,6 +6,7 @@ import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { isMoneyItem } from '@/lib/overviewMoneyCore'
 import { listHeader, loadOverviewList } from '@/lib/overviewItems'
 import { chipHref, OVERVIEW_KEY_CHIP } from '@/lib/tutorFollowUpCore'
+import { closestHref, READY_TO_PAY_KEY } from '@/lib/closestToPayCore'
 import { overviewPeopleRedirect } from '@/lib/peopleDirectoryCore'
 import { OVERVIEW_ITEMS, PAYER_PERIODS, isOverviewItemKey, paidListHref, parseFunnelDays, parsePayerPeriod } from '@/lib/overviewItemsCore'
 import { pkr } from '@/lib/reconciliationCore'
@@ -41,6 +42,8 @@ export default async function OverviewListPage({
   // 20 Oct 2026); their old addresses open the list on that chip.
   const chip = OVERVIEW_KEY_CHIP[key]
   if (chip) redirect(chipHref(chip))
+  // "Ready to pay" opens its Closest to paying chip (owner, 5 Nov 2026).
+  if (key === READY_TO_PAY_KEY) redirect(closestHref('ready'))
   const sp = await searchParams
   // Tutors, Parents and Documents to approve moved to People (owner, 21 Oct
   // 2026): the old addresses open the matching tab and chip.

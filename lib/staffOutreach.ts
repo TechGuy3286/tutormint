@@ -65,6 +65,8 @@ export type UnpaidRow = {
   feePaid: boolean
   /** Marked "Not interested" by staff (owner, 21 Oct 2026), or null. */
   notInterested: NotInterestedMark | null
+  /** The member paused their own account (profiles.paused_by_user_at) — listed, sorted last. */
+  paused: boolean
 }
 
 /** A checkout started and not finished: which payment, which package, where. */
@@ -114,7 +116,7 @@ export async function loadUnpaidByScopes(now: Date, scopes: TutorScope[]): Promi
   }
   const [directory, dismissed] = await Promise.all([loadDirectory(), loadNotInterested()])
   const excluded = new Set(directory.people.filter((p) => p.excluded !== null).map((p) => p.id))
-  const cols = 'id, full_name, city, created_at, profile_completion, phone_number, whatsapp, is_suspended, is_banned, is_seed, is_team_account, admin_role'
+  const cols = 'id, full_name, city, created_at, profile_completion, phone_number, whatsapp, is_suspended, is_banned, is_seed, is_team_account, admin_role, paused_by_user_at'
   const profiles =
     onlyStarted
       ? (
@@ -206,6 +208,7 @@ export async function loadUnpaidByScopes(now: Date, scopes: TutorScope[]): Promi
       stoppedStep: stopped.get(p.id as string)?.stoppedStep ?? null,
       feePaid: !!t.verified_fee_paid_at,
       notInterested: dismissed.get(p.id as string) ?? null,
+      paused: !!p.paused_by_user_at,
     }
     for (const sc of inScopes) result.get(sc)!.push(row)
   }

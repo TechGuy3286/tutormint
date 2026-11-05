@@ -29,6 +29,7 @@ import {
   last10,
   parentVerification,
   staffLinkKeys,
+  sortPeople,
   waitingBadge,
   type DupLink,
   type ExcludeReason,
@@ -47,6 +48,10 @@ export type DirectoryPerson = {
   excluded: ExcludeReason | null
   suspended: boolean
   banned: boolean
+  /** The member paused their own account (profiles.paused_by_user_at). */
+  selfPaused: boolean
+  /** Erased on request (account_erasures 'done'). */
+  deleted: boolean
   /** Lower-case email + mobile digits, for the page's search box only. */
   searchText: string
   /** Tutors. */
@@ -77,7 +82,7 @@ export type Directory = {
 }
 
 const PROFILE_COLS =
-  'id, role, admin_role, full_name, email, phone_number, whatsapp, city, created_at, is_seed, is_team_account, is_test_name, hidden_from_public, is_suspended, is_banned, linked_account_id, cnic_number, phone_verified_at, verification_state, cnic_verified_at, address, address_status, address_verified_at, merged_into'
+  'id, role, admin_role, full_name, email, phone_number, whatsapp, city, created_at, is_seed, is_team_account, is_test_name, hidden_from_public, is_suspended, is_banned, linked_account_id, cnic_number, phone_verified_at, verification_state, cnic_verified_at, address, address_status, address_verified_at, merged_into, paused_by_user_at'
 
 type Row = Record<string, unknown>
 
@@ -110,7 +115,7 @@ async function loadDirectoryFresh(): Promise<Directory> {
   const tutorIds = members.filter((p) => p.role === 'tutor').map((p) => p.id as string)
   const parentIds = members.filter((p) => isParentRole(p.role as string)).map((p) => p.id as string)
 
-  const [tps, audits, jobs, parentPays, parentSubs, parentDocs] = await Promise.all([
+  const [tps, audits, jobs, parentPays, parentSubs, parentDocs, erasures] = await Promise.all([
     pageAllIn(tutorIds, (part, from, to) =>
       admin.from('tutor_profiles').select('id, verified_fee_paid_at, onboarded_at, video_status').in('id', part).order('id').range(from, to),
     ),
@@ -132,7 +137,10 @@ async function loadDirectoryFresh(): Promise<Directory> {
     pageAllIn(parentIds, (part, from, to) =>
       admin.from('user_documents').select('id, user_id, label, status').eq('kind', 'cnic').in('status', ['active', 'review']).in('user_id', part).order('id').range(from, to),
     ),
+    // Accounts erased on request (owner, 5 Nov 2026) — out of every work list.
+    pageAll<Row>((a, b) => admin.from('account_erasures').select('id, member_id').eq('status', 'done').order('id').range(a, b)),
   ])
+  const erased = new Set(erasures.map((e) => String(e.member_id)))
 
   const tp = new Map(tps.map((t) => [t.id as string, t]))
   const formerStaff = new Set(audits.map((r) => String(r.target_id)))
@@ -226,16 +234,19 @@ async function loadDirectoryFresh(): Promise<Directory> {
         staffLinked: isStaffLinked(p),
         activity,
         mergedInto: (p.merged_into as string | null) ?? null,
+        erased: erased.has(id),
       }),
       suspended: !!p.is_suspended,
       banned: !!p.is_banned,
+      selfPaused: !!p.paused_by_user_at,
+      deleted: erased.has(id),
       searchText: [String(p.email ?? '').toLowerCase(), ...digits].join(' '),
       feePaidAt: (t?.verified_fee_paid_at as string | null) ?? null,
       videoWaiting: t?.video_status === 'uploaded',
       parent,
     }
   })
-  people.sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id))
+  const sorted = sortPeople(people)
 
   const staff: StaffPerson[] = staffRows
     .map((s) => ({
@@ -247,7 +258,7 @@ async function loadDirectoryFresh(): Promise<Directory> {
     }))
     .sort((a, b) => a.name.localeCompare(b.name))
 
-  return { people, staff }
+  return { people: sorted, staff }
 }
 
 /** The duplicate tags for a set of people (the ones the view shows). */

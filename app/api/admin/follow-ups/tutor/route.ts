@@ -5,6 +5,7 @@ import { refuseSupervisorMember } from '@/lib/supervisorScope'
 import { recordFollowUp, undoTutorFollowUp } from '@/lib/followUps'
 import { FU_FEE_REPLY_KEY, isFollowReason } from '@/lib/followUpTemplatesCore'
 import { parseBody, z, uuid } from '@/lib/validate'
+import { isClosestTemplateKey } from '@/lib/closestToPayCore'
 
 // POST /api/admin/follow-ups/tutor (owner, 23 Oct 2026) — Follow-ups → Tutors.
 //
@@ -53,8 +54,11 @@ export async function POST(request: Request) {
   const scope = await refuseSupervisorMember(gate.actor, b.memberId)
   if (scope) return scope
   const feeReply = b.channel === 'whatsapp' && b.templateKey === FU_FEE_REPLY_KEY
+  // A "Closest to paying" stage message (owner, 5 Nov 2026) is sent whatever
+  // the reason — "All uploaded, awaiting approval" invites the fee while we check.
+  const closest = b.channel === 'whatsapp' && isClosestTemplateKey(b.templateKey)
   if (!isFollowReason(b.reason)) return NextResponse.json({ error: 'That follow-up reason is not known.' }, { status: 400 })
-  if (b.reason === 'waiting' && !feeReply) {
+  if (b.reason === 'waiting' && !feeReply && !closest) {
     return NextResponse.json({ error: 'That tutor is waiting on us — there is nothing to send.' }, { status: 400 })
   }
   const res = await recordFollowUp({

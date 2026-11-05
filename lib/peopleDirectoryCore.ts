@@ -35,7 +35,7 @@ export function pickPeopleTab(v: string | null | undefined): PeopleTab {
 // Who counts
 // ---------------------------------------------------------------------------
 
-export type ExcludeReason = 'staff' | 'seed' | 'team' | 'test' | 'merged'
+export type ExcludeReason = 'deleted' | 'staff' | 'seed' | 'team' | 'test' | 'merged'
 
 export type PersonFacts = {
   role: string | null
@@ -51,9 +51,13 @@ export type PersonFacts = {
   activity?: boolean
   /** profiles.merged_into — "Merged into <name>" (owner, 26 Oct 2026). */
   mergedInto?: string | null
+  /** The account was erased on request (account_erasures status 'done') —
+   *  owner, 5 Nov 2026: in no work list or count; only under People → Deleted. */
+  erased?: boolean
 }
 
 export function excludedReason(f: PersonFacts): ExcludeReason | null {
+  if (f.erased) return 'deleted'
   if (f.role === 'admin') return 'staff'
   if (f.mergedInto) return 'merged'
   if (f.isSeed) return 'seed'
@@ -64,6 +68,7 @@ export function excludedReason(f: PersonFacts): ExcludeReason | null {
 }
 
 export const EXCLUDE_WORDS: Record<ExcludeReason, string> = {
+  deleted: 'Deleted account',
   staff: 'Staff account',
   seed: 'Seed account',
   team: 'Team account',
@@ -106,6 +111,20 @@ export function staffLinkKeys(staff: { email?: string | null; phone?: string | n
 export function last10(v: string | null | undefined): string | null {
   const d = (v ?? '').replace(/\D/g, '')
   return d.length >= 10 ? d.slice(-10) : null
+}
+
+/** Paused (suspended, banned, or paused by the member) accounts stay listed and
+ *  always sort last (owner, 5 Nov 2026); otherwise newest account first. */
+export function sortPeople<T extends { createdAt: string; id: string; suspended: boolean; banned: boolean; selfPaused?: boolean }>(people: T[]): T[] {
+  const paused = (p: T) => (p.suspended || p.banned || p.selfPaused ? 1 : 0)
+  return [...people].sort((a, b) => paused(a) - paused(b) || b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id))
+}
+
+/** Every people-list query outside the "Deleted" chip leaves deleted accounts out. */
+export function peopleFixed(view: 'real' | 'all' | 'deleted'): Record<string, boolean> {
+  if (view === 'deleted') return { deleted: true }
+  if (view === 'all') return { deleted: false }
+  return { excluded: false }
 }
 
 // ---------------------------------------------------------------------------

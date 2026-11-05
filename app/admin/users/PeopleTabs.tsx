@@ -6,11 +6,13 @@ import { formatDate } from '@/lib/datetime'
 import { loadMemberCards } from '@/lib/overviewCards'
 import { loadProfileShares } from '@/lib/profileShare'
 import { listPage, readSummary, summaryUpdatedLabel, type PeopleCardRow, type PeoplePayload } from '@/lib/adminSummary'
-import { chipCountsFromList, peopleList, poolCount, sliceFromList, splitCounts } from '@/lib/adminSummaryCore'
+import { CLOSEST_LIST, chipCountsFromList, peopleList, poolCount, sliceFromList, splitCounts } from '@/lib/adminSummaryCore'
+import { CLOSEST_LABEL, CLOSEST_STAGES, closestHref } from '@/lib/closestToPayCore'
 import { DOC_FILTERS } from '@/lib/tutorDocSummaryCore'
 import {
   PARENT_CHIPS,
   PEOPLE_TABS,
+  peopleFixed,
   peopleHref,
   type PeopleTab,
 } from '@/lib/peopleDirectoryCore'
@@ -33,11 +35,14 @@ import { pickChips, pickDocFilter } from '@/lib/cardGridPagingCore'
 export default async function PeopleTabs({
   tab,
   showAll,
+  showDeleted = false,
   role,
   sp = {},
 }: {
   tab: PeopleTab
   showAll: boolean
+  /** The grey "Deleted" chip (owner, 5 Nov 2026): erased accounts, for the record only. */
+  showDeleted?: boolean
   role: AdminRole
   /** The address: ?q, the chips (?paid, ?posted, ?pv, ?docs) and ?n. */
   sp?: Record<string, string | string[] | undefined>
@@ -55,6 +60,7 @@ export default async function PeopleTabs({
     staff: staffList.length,
   }
   const hiddenCount = (tab === 'parents' ? d?.hidden.parent : d?.hidden.tutor) ?? 0
+  const deletedCount = (tab === 'parents' ? d?.deleted?.parent : d?.deleted?.tutor) ?? 0
   const isOwner = role === 'owner'
 
   const tabHref = (t: PeopleTab) => peopleHref(t, { all: showAll && t !== 'staff' ? '1' : null })
@@ -110,6 +116,17 @@ export default async function PeopleTabs({
             <Download aria-hidden size={14} />
             Export CSV
           </a>
+        )}
+        {tab !== 'staff' && (
+          <Link
+            href={showDeleted ? peopleHref(tab) : peopleHref(tab, { deleted: '1' })}
+            aria-current={showDeleted ? 'page' : undefined}
+            className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-4 text-xs font-bold ${
+              showDeleted ? 'border-gray-500 bg-gray-500 text-white' : 'border-gray-200 bg-gray-100 text-gray-600 hover:border-gray-500'
+            }`}
+          >
+            Deleted <span className={showDeleted ? 'text-white' : 'text-gray-600'}>{deletedCount}</span>
+          </Link>
         )}
       </div>
     </div>
@@ -196,7 +213,7 @@ export default async function PeopleTabs({
   const docFilter = tab === 'tutors' ? pickDocFilter(sp.docs) : null
   const shown = shownCount(sp.n)
   const res = await listPage<PeopleCardRow>(peopleList(tab === 'tutors' ? 'tutor' : 'parent'), {
-    fixed: showAll ? {} : { excluded: false },
+    fixed: peopleFixed(showDeleted ? 'deleted' : showAll ? 'all' : 'real'),
     q,
     rows: rows.map((r) => ({ param: r.param, value: sel[r.param] ?? 'all' })),
     split: tab === 'tutors' ? 'docs' : null,
@@ -212,6 +229,14 @@ export default async function PeopleTabs({
     docCounts: docFilter ? splitCounts(res.split, DOC_FILTERS, pool) : null,
     page: sliceFromList(res.rows, res.total, shown),
   }
+
+  // "Closest to paying" on People → Unpaid (owner, 5 Nov 2026): the same stored
+  // list as Follow-ups, counted in SQL; each chip opens that list there.
+  const seesFollowUps = roleSatisfies(role, SCREEN_ACCESS.unpaidSignups)
+  const closestCounts =
+    tab === 'tutors' && sel.paid === 'unpaid' && !showDeleted && seesFollowUps
+      ? (await listPage(CLOSEST_LIST, { rows: [{ param: 'closest', value: 'all' }], limit: 1 })).rowCounts.closest ?? {}
+      : null
 
   // Card facts (photo, completion, share link) for the shown cards only.
   const ids = view.page.rows.map((x) => x.id)
@@ -266,6 +291,23 @@ export default async function PeopleTabs({
           )}
         </div>
       )}
+      {showDeleted && (
+        <p className="text-[11px] text-gray-500">Accounts erased at the member&rsquo;s request, kept for the record. They are in no work list or count.</p>
+      )}
+      {closestCounts && (
+        <nav aria-label="Closest to paying" className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-bold text-gray-600">Closest to paying:</span>
+          {CLOSEST_STAGES.map((st) => (
+            <Link
+              key={st}
+              href={closestHref(st)}
+              className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full border border-tm-green-deep/30 bg-tm-tint-green px-4 text-xs font-bold text-tm-green-deep hover:border-tm-green-deep"
+            >
+              {CLOSEST_LABEL[st]} <span className="text-slate-700">{closestCounts[st] ?? 0}</span>
+            </Link>
+          ))}
+        </nav>
+      )}
       {tab === 'tutors' && (
         <p className="text-[11px] text-gray-500">
           Intro videos are reviewed on{' '}
@@ -276,14 +318,14 @@ export default async function PeopleTabs({
         </p>
       )}
       <OverviewCardGrid
-        key={`${tab}:${showAll ? 'all' : 'real'}`}
+        key={`${tab}:${showDeleted ? 'deleted' : showAll ? 'all' : 'real'}`}
         items={items}
         docFilters={tab === 'tutors'}
         isOwner={isOwner}
         filterRows={rows}
         paged={{
           basePath: '/admin/users',
-          keep: { tab, all: showAll ? '1' : undefined },
+          keep: { tab, all: showAll ? '1' : undefined, deleted: showDeleted ? '1' : undefined },
           q,
           sel,
           rowCounts: view.rowCounts,

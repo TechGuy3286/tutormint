@@ -16,6 +16,7 @@ import {
   needsRebuild,
   updatedLabel,
   PARENT_FU_LIST,
+  CLOSEST_LIST,
   peopleList,
   searchHaystack,
   tally,
@@ -33,7 +34,7 @@ import { duplicateTags, inTab, loadDirectory, loadDirectoryDocs, type DirectoryP
 import { openTags } from '@/lib/memberDuplicates'
 import { DUP_WORDS, EXCLUDE_WORDS, PARENT_VERIFICATION_WORDS, paidTag, postedTag, waitingBadge, type DupLink } from '@/lib/peopleDirectoryCore'
 import type { CardDocs } from '@/lib/tutorDocSummaries'
-import { loadTutorFollowUps, type TutorFollowRow } from '@/lib/tutorFollowUps'
+import { loadClosestToPay, loadTutorFollowUps, type TutorFollowRow } from '@/lib/tutorFollowUps'
 import { loadParentFollowUps } from '@/lib/parentFollowUps'
 import { chipRank } from '@/lib/tutorFollowUpCore'
 import { fuBadgeCount } from '@/lib/tutorFollowUpTabsCore'
@@ -86,6 +87,8 @@ export type PeopleCardRow = {
 export type PeoplePayload = {
   counts: { tutors: number; parents: number; staff: number }
   hidden: { tutor: number; parent: number }
+  /** Erased accounts — only under the "Deleted" chip (owner, 5 Nov 2026). */
+  deleted?: { tutor: number; parent: number }
   videosWaiting: number
   parentsWaiting: number
   staff: StaffPerson[]
@@ -203,7 +206,9 @@ function dupeWords(links: DupLink[] | undefined) {
 
 function peopleRows(list: DirectoryPerson[], docs: Map<string, CardDocs>, dupes: Map<string, DupLink[]>, dupesAll: Map<string, DupLink[]>, role: 'tutor' | 'parent'): ListRowIn[] {
   return list.map((p, pos) => {
-    const badge = p.banned ? 'Banned' : p.suspended ? 'Paused' : p.excluded ? EXCLUDE_WORDS[p.excluded] : null
+    const badge = p.deleted ? EXCLUDE_WORDS.deleted : p.banned ? 'Banned' : p.suspended ? 'Paused' : p.selfPaused ? 'Paused by user' : p.excluded ? EXCLUDE_WORDS[p.excluded] : null
+    // Paused accounts always sort last (owner, 5 Nov 2026), in the oldest-waiting order too.
+    const paused = p.suspended || p.banned || p.selfPaused
     const d = role === 'tutor' ? (docs.get(p.id) ?? null) : null
     const tags: Record<string, string> =
       role === 'tutor' ? { paid: paidTag(p.feePaidAt) } : { posted: postedTag(p.parent?.tuitionsTotal ?? 0), pv: p.parent?.verification ?? 'none' }
@@ -233,27 +238,41 @@ function peopleRows(list: DirectoryPerson[], docs: Map<string, CardDocs>, dupes:
       pos,
       search: searchHaystack([p.name, p.city, badge, p.searchText]),
       digits: p.searchText,
-      tags: { ...tags, ...(d ? { docs: d.kind } : {}), excluded: p.excluded !== null },
-      sort_at: d?.oldestUploadAt ?? null,
+      tags: { ...tags, ...(d ? { docs: d.kind } : {}), excluded: p.excluded !== null, deleted: p.deleted },
+      sort_at: paused ? null : (d?.oldestUploadAt ?? null),
       row,
     }
   })
 }
 
 function tutorFuRows(rows: TutorFollowRow[]): ListRowIn[] {
-  return rows.map((r, pos) => ({
+  // A paused account (the member paused it) stays listed and always sorts last
+  // (owner, 5 Nov 2026): never overdue, the last rank, no due date, last position.
+  const ordered = [...rows.filter((r) => !r.paused), ...rows.filter((r) => r.paused)]
+  return ordered.map((r, pos) => ({
     member_id: r.id,
     pos,
     search: searchHaystack([r.name, r.city]),
     tags: {
       chips: r.chips,
-      rank: chipRank(r.primary),
-      overdue: r.state.overdue,
+      rank: r.paused ? 99 : chipRank(r.primary),
+      overdue: r.paused ? false : r.state.overdue,
       tabsec: tutorTabSection(r.state),
       joined_at: r.joinedAt,
       feePaid: r.feePaid,
     },
-    sort_at: r.state.dueAt,
+    sort_at: r.paused ? null : r.state.dueAt,
+    row: r,
+  }))
+}
+
+function closestRows(rows: TutorFollowRow[]): ListRowIn[] {
+  return rows.map((r, pos) => ({
+    member_id: r.id,
+    pos,
+    search: searchHaystack([r.name, r.city]),
+    tags: { closest: r.closest, joined_at: r.joinedAt },
+    sort_at: null,
     row: r,
   }))
 }
@@ -300,7 +319,7 @@ async function rebuildOnce(opts: { force?: boolean }): Promise<{ ran: boolean; m
     filter: l.filter,
   })
 
-  const [ov7, ov30, sections, dir, docs, tutorScopes, openFu, parentFu, apps, paid, reports, receipts] = await Promise.all([
+  const [ov7, ov30, sections, dir, docs, tutorScopes, openFu, closest, parentFu, apps, paid, reports, receipts] = await Promise.all([
     safe('overview', async () => {
       const out: OverviewPayload = {}
       await Promise.all(keys.map(async (k) => (out[k] = toItem(await loadOverviewList(k, { days: 7 })))))
@@ -324,6 +343,7 @@ async function rebuildOnce(opts: { force?: boolean }): Promise<{ ran: boolean; m
     safe('documents', () => loadDirectoryDocs()),
     safe('follow-ups', async () => Promise.all(TUTOR_SCOPES.map(async (s) => [s, await loadTutorFollowUps(s)] as const))),
     safe('follow-ups badge', () => loadTutorFollowUps('open')),
+    safe('closest to paying', () => loadClosestToPay()),
     safe('parent follow-ups', () => loadParentFollowUps()),
     safe('applications', () => overdueApplicationsItems()),
     safe('paid tutors', () => loadPaidTutors()),
@@ -343,11 +363,12 @@ async function rebuildOnce(opts: { force?: boolean }): Promise<{ ran: boolean; m
     const real = dir.people.filter((p) => p.excluded === null)
     const [dupes, dupesAll] = await Promise.all([
       safe('duplicates', async () => openTags(await duplicateTags(real))),
-      safe('duplicates (all)', async () => openTags(await duplicateTags(dir.people))),
+      safe('duplicates (all)', async () => openTags(await duplicateTags(dir.people.filter((p) => !p.deleted)))),
     ])
     const people: PeoplePayload = {
       counts: { tutors: tutors.filter((p) => p.excluded === null).length, parents: parents.filter((p) => p.excluded === null).length, staff: dir.staff.length },
-      hidden: { tutor: tutors.filter((p) => p.excluded !== null).length, parent: parents.filter((p) => p.excluded !== null).length },
+      hidden: { tutor: tutors.filter((p) => p.excluded !== null && !p.deleted).length, parent: parents.filter((p) => p.excluded !== null && !p.deleted).length },
+      deleted: { tutor: tutors.filter((p) => p.deleted).length, parent: parents.filter((p) => p.deleted).length },
       videosWaiting: tutors.filter((p) => p.excluded === null && p.videoWaiting).length,
       parentsWaiting: parents.filter((p) => p.excluded === null && p.parent?.verification === 'waiting').length,
       staff: dir.staff,
@@ -359,6 +380,7 @@ async function rebuildOnce(opts: { force?: boolean }): Promise<{ ran: boolean; m
 
   // Follow-ups.
   if (tutorScopes) for (const [s, rows] of tutorScopes) await safe(`write follow-ups ${s}`, () => replaceList(admin, tutorFuList(s), tutorFuRows(rows), at))
+  if (closest) await safe('write closest to paying', () => replaceList(admin, CLOSEST_LIST, closestRows(closest), at))
   if (parentFu) {
     const rows: ListRowIn[] = parentFu.rows.map((r, pos) => ({
       member_id: r.id,

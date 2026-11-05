@@ -39,11 +39,13 @@ import { FU_TAB_LABEL, parseFuTab, type FuTab } from '@/lib/tutorFollowUpTabsCor
 import { legacyApplicationsHref } from '@/lib/applicationStageCore'
 
 import UnpaidSignupRow from './UnpaidSignupRow'
+import ClosestRow from './ClosestRow'
+import { CLOSEST_LABEL, CLOSEST_STAGES, parseClosest, type ClosestFilter, type ClosestStage } from '@/lib/closestToPayCore'
 import ParentFollowUpsBoard, { type ParentCard } from './ParentFollowUpsBoard'
 import { PARENT_CHIP_LABEL, parseParentChip, type ParentChip } from '@/lib/parentFollowUpCore'
 import OrphansSection from './OrphansSection'
 import { listPage, readSummary, summaryUpdatedLabel } from '@/lib/adminSummary'
-import { PARENT_FU_LIST, sliceFromList, tutorFuList, windowRange } from '@/lib/adminSummaryCore'
+import { CLOSEST_LIST, PARENT_FU_LIST, sliceFromList, tutorFuList, windowRange } from '@/lib/adminSummaryCore'
 import type { TutorFollowRow } from '@/lib/tutorFollowUps'
 import type { ParentFollowRow as ParentRow } from '@/lib/parentFollowUps'
 
@@ -72,7 +74,7 @@ const SIGNED_UP: { key: SignupWindow; label: string }[] = [
   { key: 'week', label: 'Last 7 days' },
 ]
 
-type SP = { tab?: string; filter?: string; scope?: string; chip?: string; q?: string; view?: string; fwd?: string; show?: string; fu?: string; n?: string; nr?: string }
+type SP = { closest?: string; tab?: string; filter?: string; scope?: string; chip?: string; q?: string; view?: string; fwd?: string; show?: string; fu?: string; n?: string; nr?: string }
 
 export default async function FollowUpsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams
@@ -115,6 +117,7 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
         <TutorsTab
           scope={parseTutorScope(sp.scope)}
           chip={parseFollowChip(sp.chip)}
+          closest={parseClosest(sp.closest)}
           window={isSignupWindow(sp.filter) ? sp.filter : null}
           q={(sp.q ?? '').trim()}
           fuTab={parseFuTab(sp.fu)}
@@ -139,6 +142,7 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
 async function TutorsTab({
   scope,
   chip,
+  closest,
   window,
   q,
   fuTab,
@@ -150,6 +154,8 @@ async function TutorsTab({
 }: {
   scope: TutorScope
   chip: ChipFilter
+  /** "Closest to paying" (owner, 5 Nov 2026): a stage shows that list instead. */
+  closest: ClosestFilter
   window: SignupWindow | null
   q: string
   fuTab: FuTab
@@ -162,6 +168,62 @@ async function TutorsTab({
   shownNoReply: number
 }) {
   const now = nowMs()
+  // "Closest to paying" (owner, 5 Nov 2026): counted and paged in SQL from the
+  // stored list (lib/adminSummary CLOSEST_LIST), already in its own order.
+  const closestRes = await listPage<TutorFollowRow & { closest: ClosestStage }>(CLOSEST_LIST, {
+    q,
+    rows: [{ param: 'closest', value: closest === 'none' ? 'all' : closest }],
+    limit: closest === 'none' ? 1 : shown,
+  })
+  const closestCount = (s: ClosestStage) => closestRes.rowCounts.closest?.[s] ?? 0
+  const closestNav = (
+    <nav aria-label="Closest to paying" className="flex flex-wrap items-center gap-2">
+      <span className="text-[11px] font-bold text-gray-600">Closest to paying:</span>
+      {CLOSEST_STAGES.map((s) => {
+        const on = s === closest
+        return (
+          <Link
+            key={s}
+            href={on ? followUpsHref('tutors', { q: q || undefined }) : followUpsHref('tutors', { closest: s, q: q || undefined })}
+            aria-current={on ? 'page' : undefined}
+            className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-4 text-xs font-bold ${
+              on ? 'border-tm-green-deep bg-tm-green-deep text-white' : 'border-tm-green-deep/30 bg-tm-tint-green text-tm-green-deep hover:border-tm-green-deep'
+            }`}
+          >
+            {CLOSEST_LABEL[s]} <span className={on ? 'text-white' : 'text-slate-700'}>{closestCount(s)}</span>
+          </Link>
+        )
+      })}
+    </nav>
+  )
+  if (closest !== 'none') {
+    const cPage = sliceFromList(closestRes.rows.map((x) => x.row), closestRes.total, shown)
+    const cRows = refCode ? cPage.rows.map((r) => ({ ...r, closestWaHref: waHrefWithRef(r.closestWaHref, refCode) })) : cPage.rows
+    const cShares = await loadProfileShares(cRows.map((r) => r.id))
+    return (
+      <div className="space-y-4">
+        <header className="space-y-1">
+          <h2 className="text-lg font-black text-tm-navy">{CLOSEST_LABEL[closest]}</h2>
+          <p className="text-xs text-gray-500">
+            Unpaid tutors, hottest first. Each tutor is in one chip only. Most recently active first; anyone contacted in the last 3 days, and
+            paused accounts, are at the bottom.
+          </p>
+        </header>
+        {closestNav}
+        <QueueSearch basePath="/admin/follow-ups" initialQuery={q} filter="" keep={{ closest }} placeholder="Search by name or city" ariaLabel="Search tutors" />
+        {cRows.length === 0 ? (
+          <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">Nobody in this group right now.</p>
+        ) : (
+          <ul className="space-y-3">
+            {cRows.map((r) => (
+              <ClosestRow key={r.id} row={r} share={cShares.get(r.id) ?? null} nowMs={now} />
+            ))}
+          </ul>
+        )}
+        {cPage.total > 0 && <LoadMoreLink shown={cPage.shown} total={cPage.total} noun="tutors" />}
+      </div>
+    )
+  }
   // Pre-calculated (owner, 1 Nov 2026 — lib/adminSummary): this group's rows are
   // worked out every minute something changes; the search, chip, sign-up day,
   // To do / Followed up split, counts and 25 rows come from SQL (admin_list_page).
@@ -226,6 +288,8 @@ async function TutorsTab({
           Paused, test and staff accounts are left out.
         </p>
       </header>
+
+      {closestNav}
 
       <nav aria-label="Which tutors" className="flex flex-wrap gap-2">
         {TUTOR_SCOPES.map((s) => (

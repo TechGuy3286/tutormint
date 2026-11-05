@@ -37,7 +37,7 @@ const PAGE_SIZE = 100
 export default async function AdminUsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; role?: string; status?: string; filter?: string; tip?: string; tab?: string; all?: string; n?: string; paid?: string; posted?: string; pv?: string; docs?: string }>
+  searchParams: Promise<{ q?: string; role?: string; status?: string; filter?: string; tip?: string; tab?: string; all?: string; n?: string; paid?: string; posted?: string; pv?: string; docs?: string; deleted?: string }>
 }) {
   const actor = await requireAdminRole(...SCREEN_ACCESS.usersView)
   const sp = await searchParams
@@ -60,7 +60,7 @@ export default async function AdminUsersPage({
   if (!tip || !isTipKey(tip)) {
     const legacy = role === 'parent' ? 'parents' : role === 'admin' ? 'staff' : role === 'tutor' ? 'tutors' : null
     // Every chip, the search and 'Load more' are worked out on the server (owner, 28 Oct 2026).
-    return <PeopleTabs tab={legacy ?? pickPeopleTab(tab)} showAll={all === '1'} role={actor.adminRole} sp={sp} />
+    return <PeopleTabs tab={legacy ?? pickPeopleTab(tab)} showAll={all === '1'} showDeleted={sp.deleted === '1'} role={actor.adminRole} sp={sp} />
   }
 
   const admin = createAdminClient()

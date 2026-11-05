@@ -25,7 +25,8 @@ import { OVERVIEW_KEY_PEOPLE } from '@/lib/peopleDirectoryCore'
 import { loadUnpaidSignups } from '@/lib/staffOutreach'
 import { isTestName, stuckBreakdown } from '@/lib/staffOutreachCore'
 import type { FollowUpSource } from '@/lib/followUpCore'
-import { tutorsWithChip } from '@/lib/tutorFollowUps'
+import { loadClosestToPay, tutorsWithChip } from '@/lib/tutorFollowUps'
+import { closestHref } from '@/lib/closestToPayCore'
 import { chipHref, type FollowChip } from '@/lib/tutorFollowUpCore'
 import { pauseDueAtMs } from '@/lib/tuitionStatus'
 import { settleByDate } from '@/lib/settlementCore'
@@ -395,6 +396,18 @@ export async function loadOverviewList(
         })),
         filter: 'with a document waiting for a decision',
         workHref: OVERVIEW_KEY_PEOPLE['todo-docs'],
+      }
+    }
+
+    case 'todo-ready-to-pay': {
+      // The Ready to pay chip of Closest to paying (owner, 5 Nov 2026) — the
+      // same loader the chip reads, so the number equals the chip.
+      const list = (await loadClosestToPay()).filter((r) => r.closest === 'ready')
+      return {
+        key,
+        rows: list.map((r) => ({ id: r.id, title: r.name, detail: r.closestMissing, href: `/admin/users/${r.id}`, memberId: r.id })),
+        filter: 'with CNIC, profile photo and selfie approved and the Verification Fee not paid',
+        workHref: closestHref('ready'),
       }
     }
 
