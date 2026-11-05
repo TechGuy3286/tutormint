@@ -245,7 +245,8 @@
     "test:staticrender:live": "node scripts/test-static-render-live.mjs",
     "test:nov2push1": "tsx --test scripts/test-nov2-push1.ts",
     "test:phonebudget": "tsx --test scripts/test-phone-budget.ts",
-    "test:backendsupport": "tsx --test scripts/test-backend-support-overview.ts"
+    "test:backendsupport": "tsx --test scripts/test-backend-support-overview.ts",
+    "test:staffdocsnames": "tsx --test scripts/test-staff-docs-names.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

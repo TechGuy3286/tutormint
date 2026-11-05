@@ -44,7 +44,7 @@ export default async function ParentSettingsPage() {
     supabase
       .from('profiles')
       .select(
-        'full_name, avatar_url, phone_number, phone_verified_at, city, area, address, email, email_opt_out, cnic_verified_at, address_verified_at, cnic_number, verification_state',
+        'full_name, cnic_name, display_name, avatar_url, phone_number, phone_verified_at, city, area, address, email, email_opt_out, cnic_verified_at, address_verified_at, cnic_number, verification_state',
       )
       .eq('id', userId)
       .maybeSingle(),
@@ -62,7 +62,10 @@ export default async function ParentSettingsPage() {
 
   const initial: ParentSettings = {
     userId,
-    fullName: formatName(profile?.full_name as string | null),
+    // Two names (owner, 5 Nov 2026): fullName is the Name on CNIC here.
+    fullName: formatName(((profile?.cnic_name ?? profile?.full_name) as string | null) ?? null),
+    displayName: formatName((profile?.display_name as string | null) ?? null),
+    cnicNameLocked: !!profile?.cnic_verified_at || String(profile?.verification_state ?? '').toLowerCase() === 'approved',
     avatarUrl: (profile?.avatar_url as string) ?? null,
     // Shown as 0321 1045245 (owner PR8 §4.1); storage stays 92XXXXXXXXXX and the
     // server re-normalises on save. Change-detection compares national digits, so

@@ -41,6 +41,8 @@ import {
 
 export type GridMember = {
   name: string
+  /** The Name on CNIC when it differs (owner, 5 Nov 2026). */
+  cnicName?: string | null
   avatarUrl: string | null
   gender?: string | null
   role: 'tutor' | 'parent' | 'other'
@@ -426,6 +428,7 @@ function MemberBody({
             <span className="min-w-0 truncate text-sm font-black text-tm-navy">{m.name}</span>
             {m.badges.length > 0 && <BadgeRow badges={m.badges} size="sm" showUrdu={false} className="shrink-0" nowrap />}
           </p>
+          {m.cnicName && <p className="truncate text-[11px] font-semibold text-gray-600">CNIC: {m.cnicName}</p>}
           <p className="text-[11px] text-gray-600">
             {ROLE_WORD[m.role]}
             {m.city ? ` · ${m.city}` : ''}

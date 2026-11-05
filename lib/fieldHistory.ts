@@ -29,6 +29,9 @@ export type Step1Field =
   | 'city'
   | 'areas'
   | 'name'
+  // Two names (owner, 5 Nov 2026).
+  | 'cnic_name'
+  | 'display_name'
   | 'headline'
   | 'bio'
   | 'whatsapp'

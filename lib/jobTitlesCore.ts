@@ -28,6 +28,23 @@ export function isOnlineTitle(value: string | null | undefined): boolean {
   return norm(value) === norm(ONLINE_JOB_TITLE)
 }
 
+/**
+ * A job title without its trailing bracket, for titles and headings (owner,
+ * 5 Nov 2026): "Intermediate Teacher (FA / FSc / ICS / I.Com)" reads
+ * "Intermediate Teacher" in a tuition's title; the full name stays the stored
+ * value and the label in pickers and filters.
+ */
+export function shortJobTitle(value: string | null | undefined): string {
+  return (value ?? '').replace(/\s*\([^)]*\)\s*$/, '').trim()
+}
+
+/** Job types that are usually part-time teaching (owner, 5 Nov 2026), besides
+ *  the home and online tuition titles. */
+export const PART_TIME_JOB_TITLES: readonly string[] = [
+  'Intermediate Teacher (FA / FSc / ICS / I.Com)',
+  'Graduation Level Teacher (BA / BSc / BS)',
+]
+
 export type JobTitleRow = { name: string; sort_order: number }
 
 /**

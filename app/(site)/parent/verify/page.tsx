@@ -97,12 +97,12 @@ export default function ParentVerifyPage() {
 
     const [{ data: p }, { data: dl }] = await Promise.all([
       supabase.from('profiles')
-        .select('full_name, city, address, cnic_number, cnic_image_path, phone_number, phone_verified_at, verification_state, verification_rejection_reason, cnic_verified_at, address_verified_at, address_status, address_reason')
+        .select('full_name, cnic_name, city, address, cnic_number, cnic_image_path, phone_number, phone_verified_at, verification_state, verification_rejection_reason, cnic_verified_at, address_verified_at, address_status, address_reason')
         .eq('id', user.id).maybeSingle(),
       supabase.from('user_documents').select('id, kind, label').eq('user_id', user.id).eq('kind', 'cnic').eq('status', 'active'),
     ])
 
-    setFullName(p?.full_name ?? '')
+    setFullName(p?.cnic_name ?? p?.full_name ?? '')
     setCity(p?.city ?? '')
     setAddress(p?.address ?? '')
     setCnic(p?.cnic_number ?? '')
@@ -180,7 +180,7 @@ export default function ParentVerifyPage() {
     // network and the setSaving(false) after it never ran, so Save sat on
     // "Saving…" and the verification could not be submitted at all.
     const { ok, error: failed } = await submitJson('/api/profile/save', {
-      profile: { full_name: formatName(fullName), city, address, cnic_number: cnic },
+      profile: { cnic_name: formatName(fullName), city, address, cnic_number: cnic },
     })
     setSaving(false)
     if (!ok) { setErr(failed ?? 'Could not save.'); return false }
@@ -277,7 +277,7 @@ export default function ParentVerifyPage() {
             <span className="text-xs font-black text-tm-navy">{completion.percent}%</span>
           </div>
 
-          <F id="full_name" label="Full name" value={fullName} onChange={setFullName} />
+          <F id="full_name" label="Name on CNIC" value={fullName} onChange={setFullName} />
           <F id="city" label="City" value={city} onChange={setCity} />
           <div className="space-y-1" id="address">
             <label htmlFor="address-input" className="text-xs font-bold text-tm-navy">Home address</label>

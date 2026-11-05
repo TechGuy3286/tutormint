@@ -48,6 +48,7 @@ export type AdminScreen =
   | 'plans'
   | 'reports'
   | 'reviews'
+  | 'staffDocDecisions'
   | 'inbox'
   | 'audit'
   | 'ads'
@@ -161,6 +162,9 @@ export const NAV_GROUPS: NavGroup[] = [
       // ONE page, tabs Reports | Flagged messages (owner, 15 Oct 2026).
       { href: '/admin/reports', label: 'Reports & flags', icon: 'flag', screen: 'reports' },
       { href: '/admin/reviews', label: 'Reviews', icon: 'star', screen: 'reviews' },
+      // CNIC / photo / selfie decisions Backend Support made, with the Owner's
+      // Undo (owner, 5 Nov 2026). The daily bell line links here.
+      { href: '/admin/documents/staff-decisions', label: 'Documents by staff', icon: 'userCheck', screen: 'staffDocDecisions' },
       { href: '/admin/inbox', label: 'Team inbox', icon: 'mail', screen: 'inbox' },
       { href: '/admin/audit', label: 'Audit', icon: 'scroll', screen: 'audit' },
       // Owner only (owner, 27 Oct 2026): remove a phone number used without consent.
@@ -196,6 +200,8 @@ export const SECTION_LABELS: Record<string, string> = {
   settings: 'Settings',
   payers: 'Paid today',
   'staff-approved': 'Approved by staff',
+  documents: 'Documents',
+  'staff-decisions': 'Approved by staff',
   review: 'Review new wording',
   inbox: 'Team inbox',
   ads: 'Advertisements',

@@ -32,6 +32,10 @@ const ApproveContext = createContext(false)
 // to every tutormint.org link they copy or send. Null for staff with no code
 // (the site Owner, a Project Manager).
 const StaffRefContext = createContext<string | null>(null)
+// Document decisions (owner, 5 Nov 2026): 'owner', 'staff' (Backend Support,
+// within lib/docDecisionCore) or null. Presentation only — the review routes
+// apply the same rule (lib/docDecisionGate).
+const DocDeciderContext = createContext<'owner' | 'staff' | null>(null)
 
 export const PARTNER_VIEW_ONLY_TEXT = 'View only. Your account cannot change this.'
 
@@ -39,6 +43,7 @@ export function AdminReadOnlyProvider({
   readOnly,
   canApprove = false,
   refCode = null,
+  docDecider = null,
   children,
 }: {
   readOnly: boolean
@@ -46,15 +51,24 @@ export function AdminReadOnlyProvider({
   canApprove?: boolean
   /** The signed-in staff member's code, or null. */
   refCode?: string | null
+  /** Who may decide identity documents in this session. */
+  docDecider?: 'owner' | 'staff' | null
   children: React.ReactNode
 }) {
   return (
     <PartnerContext.Provider value={readOnly}>
       <ApproveContext.Provider value={canApprove}>
-        <StaffRefContext.Provider value={refCode}>{children}</StaffRefContext.Provider>
+        <StaffRefContext.Provider value={refCode}>
+          <DocDeciderContext.Provider value={docDecider}>{children}</DocDeciderContext.Provider>
+        </StaffRefContext.Provider>
       </ApproveContext.Provider>
     </PartnerContext.Provider>
   )
+}
+
+/** 'owner', 'staff' (Backend Support) or null: who may decide a document here. */
+export function useDocDecider(): 'owner' | 'staff' | null {
+  return useContext(DocDeciderContext)
 }
 
 /** The signed-in staff member's code (for ?ref on copied and sent links), or null. */

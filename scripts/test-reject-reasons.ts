@@ -120,6 +120,9 @@ test('wiring: both review cards use the shared picker and builders; servers use 
   assert.match(parentLib, /finalRejectReason\(params\.reason\)/)
   assert.match(parentLib, /rejectionNoticeBody\(/)
   // Approvals stay Owner-only — the route guard is untouched.
-  assert.match(read('app/api/admin/tutors/document-review/route.ts'), /refuseUnlessOwnerApproval\(/)
-  assert.match(read('app/api/admin/parents/document-review/route.ts'), /refuseUnlessOwnerApproval\(/)
+  // The Owner and Backend Support decide through the shared gate (owner, 5 Nov
+  // 2026); anyone else gets the Owner-only 403 there.
+  assert.match(read('app/api/admin/tutors/document-review/route.ts'), /beginDocDecision\(/)
+  assert.match(read('app/api/admin/parents/document-review/route.ts'), /beginDocDecision\(/)
+  assert.match(read('lib/docDecisionGate.ts'), /refuseUnlessOwnerApproval\(/)
 })

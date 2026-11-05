@@ -145,7 +145,10 @@ test('roles: owner/admin/operations review; Partner view-only; Tuitions staff ne
     false,
   )
   const route = read('app/api/admin/parents/document-review/route.ts')
-  assert.match(route, /checkAdminRole\(\.\.\.SCREEN_ACCESS\.parents\)/, 'Partner writes are refused by checkAdminRole')
+  // Backend Support joins the gate (owner, 5 Nov 2026); a Partner passes it and is
+  // then refused by lib/docDecisionGate (not a document decider).
+  assert.match(route, /checkAdminRole\(\.\.\.SCREEN_ACCESS\.parents, \.\.\.SCREEN_ACCESS\.documentDecide\)/)
+  assert.match(route, /beginDocDecision\(/)
   assert.match(read('app/api/documents/[id]/preview/route.ts'), /isDocumentStaff\(me\)/)
 })
 

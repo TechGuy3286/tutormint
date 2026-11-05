@@ -10,6 +10,7 @@
 //   their employment type is derived from the Job Type when they leave it empty.
 
 import { isTuitionTitle } from '@/lib/jobPostingCore'
+import { PART_TIME_JOB_TITLES } from '@/lib/jobTitlesCore'
 
 export type EmploymentTypeValue = 'part_time' | 'full_time' | 'contract'
 
@@ -26,7 +27,8 @@ export function isEmploymentType(v: unknown): v is EmploymentTypeValue {
 /** The default employment type for a Job Type: a home or online tuition is
  *  part-time, any other title (a school or academy post) is full-time. */
 export function defaultEmploymentType(jobTitle: string | null | undefined): EmploymentTypeValue {
-  return isTuitionTitle(jobTitle) ? 'part_time' : 'full_time'
+  if (isTuitionTitle(jobTitle) || PART_TIME_JOB_TITLES.includes((jobTitle ?? '').trim())) return 'part_time'
+  return 'full_time'
 }
 
 /** The employment type to store: the one given, else the default. */

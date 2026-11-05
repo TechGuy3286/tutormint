@@ -18,9 +18,13 @@ import { stoppedAtByTutor } from '@/lib/onboardingStop'
 import { badgesForPlan, type BadgeName } from '@/lib/planBadges'
 import { formatName } from '@/lib/formatName'
 import { normalisePkMobile } from '@/lib/phone'
+import { cnicNameDiffers } from '@/lib/memberNamesCore'
 
 export type MemberCardFacts = {
   name: string
+  /** The Name on CNIC when it differs from the shown name (owner, 5 Nov 2026) —
+   *  admin shows both; never sent to a member. */
+  cnicName?: string | null
   avatarUrl: string | null
   /** Tutors only — picks the default avatar when there is no photo. */
   gender: string | null
@@ -56,7 +60,7 @@ export async function loadMemberCards(ids: string[]): Promise<Map<string, Member
     pageAllIn(unique, (part, from, to) =>
       admin
         .from('profiles')
-        .select('id, full_name, avatar_url, role, city, created_at, profile_completion, whatsapp, phone_number')
+        .select('id, full_name, cnic_name, avatar_url, role, city, created_at, profile_completion, whatsapp, phone_number')
         .in('id', part)
         .order('id')
         .range(from, to),
@@ -101,6 +105,7 @@ export async function loadMemberCards(ids: string[]): Promise<Map<string, Member
     const planCode = plan.get(id) ?? (ok ? (role === 'tutor' ? 'basic' : 'parent_verified') : null)
     out.set(id, {
       name: formatName(p.full_name as string | null) || '—',
+      cnicName: cnicNameDiffers(p.full_name as string | null, p.cnic_name as string | null) ? formatName(p.cnic_name as string | null) : null,
       avatarUrl: ((t?.avatar_url as string | null) || (p.avatar_url as string | null)) ?? null,
       gender: (t?.gender as string | null) ?? null,
       role,

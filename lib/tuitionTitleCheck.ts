@@ -74,6 +74,10 @@ const FITS: Record<string, Group[]> = {
   'IB MYP Teacher': ['ib'],
   'IB Diploma Teacher': ['ib'],
   'College Lecturer': ['college', 'a'],
+  // Owner, 5 Nov 2026.
+  'Montessori Expert': ['early'],
+  'Intermediate Teacher (FA / FSc / ICS / I.Com)': ['college'],
+  'Graduation Level Teacher (BA / BSc / BS)': ['college'],
 }
 
 export function levelMismatch(jobType: string | null | undefined, levels: (string | null | undefined)[]): string | null {

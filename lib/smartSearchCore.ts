@@ -38,7 +38,7 @@ export type Parsed = {
   /** Everyday words read as filters (owner, 28 Oct 2026): "online" → the Online
    *  Tutor job type, "home" → Home Tutor; "uae", "overseas", "abroad"… → online
    *  for a student abroad. Null when the query named no way of teaching. */
-  mode?: 'Online Tutor' | 'Home Tutor' | null
+  mode?: SearchJobMode | null
   /** "morning" / "afternoon" / "evening" — the time of day the lessons are at. */
   timing?: 'morning' | 'afternoon' | 'evening' | null
   /** "jobs", "job", "vacancy" — the person is looking for tuition jobs. */
@@ -99,9 +99,17 @@ const STOP = new Set([
   'female', 'male', 'lady', 'all', 'any', 'time', 'timing', 'timings', 'classes', 'based',
 ])
 
+/** The job types a search can name (owner, 28 Oct 2026; three added 5 Nov 2026). */
+export type SearchJobMode =
+  | 'Online Tutor'
+  | 'Home Tutor'
+  | 'Montessori Expert'
+  | 'Intermediate Teacher (FA / FSc / ICS / I.Com)'
+  | 'Graduation Level Teacher (BA / BSc / BS)'
+
 /** Everyday words read as filters, not unknown words (owner, 28 Oct 2026). */
 type Intent =
-  | { kind: 'mode'; mode: 'Online Tutor' | 'Home Tutor'; abroad?: boolean }
+  | { kind: 'mode'; mode: SearchJobMode; abroad?: boolean }
   | { kind: 'timing'; timing: 'morning' | 'afternoon' | 'evening' }
   | { kind: 'jobs' }
 export const INTENT_WORDS: Record<string, Intent> = {
@@ -115,6 +123,16 @@ export const INTENT_WORDS: Record<string, Intent> = {
   'home tuition': { kind: 'mode', mode: 'Home Tutor' },
   'at home': { kind: 'mode', mode: 'Home Tutor' },
   ghar: { kind: 'mode', mode: 'Home Tutor' },
+  // The three job types of 5 Nov 2026. Only phrases that name the JOB — a bare
+  // "fsc" or "bs" stays a level.
+  montessori: { kind: 'mode', mode: 'Montessori Expert' },
+  'montessori teacher': { kind: 'mode', mode: 'Montessori Expert' },
+  'montessori expert': { kind: 'mode', mode: 'Montessori Expert' },
+  'intermediate teacher': { kind: 'mode', mode: 'Intermediate Teacher (FA / FSc / ICS / I.Com)' },
+  'inter teacher': { kind: 'mode', mode: 'Intermediate Teacher (FA / FSc / ICS / I.Com)' },
+  'graduation teacher': { kind: 'mode', mode: 'Graduation Level Teacher (BA / BSc / BS)' },
+  'graduation level': { kind: 'mode', mode: 'Graduation Level Teacher (BA / BSc / BS)' },
+  'university teacher': { kind: 'mode', mode: 'Graduation Level Teacher (BA / BSc / BS)' },
   overseas: { kind: 'mode', mode: 'Online Tutor', abroad: true },
   abroad: { kind: 'mode', mode: 'Online Tutor', abroad: true },
   uae: { kind: 'mode', mode: 'Online Tutor', abroad: true },
@@ -153,11 +171,17 @@ export const INTENT_WORDS: Record<string, Intent> = {
   naukri: { kind: 'jobs' },
 }
 
-const MODE_LABEL = { 'Online Tutor': 'Online', 'Home Tutor': 'Home tutor' } as const
+const MODE_LABEL: Record<SearchJobMode, string> = {
+  'Online Tutor': 'Online',
+  'Home Tutor': 'Home tutor',
+  'Montessori Expert': 'Montessori',
+  'Intermediate Teacher (FA / FSc / ICS / I.Com)': 'Intermediate teacher',
+  'Graduation Level Teacher (BA / BSc / BS)': 'Graduation level teacher',
+}
 const TIMING_LABEL = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' } as const
 
 /** The intent filters a parsed query carries (none → all null / false). */
-export function intentFilters(p: Parsed): { mode: 'Online Tutor' | 'Home Tutor' | null; timing: 'morning' | 'afternoon' | 'evening' | null; jobs: boolean; abroad: boolean } {
+export function intentFilters(p: Parsed): { mode: SearchJobMode | null; timing: 'morning' | 'afternoon' | 'evening' | null; jobs: boolean; abroad: boolean } {
   return { mode: p.mode ?? null, timing: p.timing ?? null, jobs: !!p.jobs, abroad: !!p.abroad }
 }
 

@@ -9,7 +9,17 @@
 //     because that name has been checked against the CNIC. Everyone else with
 //     the edit screen may change an unverified tutor's or a parent's name.
 
+//
+// TWO NAMES (owner, 5 Nov 2026): staff edit the Name on CNIC and the Display
+// name separately. The Owner-only rule applies to the Name on CNIC of any member
+// whose CNIC is approved; the Display name is never Owner-only, may be empty
+// (then the Name on CNIC shows) and must pass lib/memberNamesCore
+// displayNameProblem (the server adds the staff names to that check).
+
 import { formatName } from '@/lib/formatName'
+import { displayNameProblem } from '@/lib/memberNamesCore'
+
+export type NameField = 'cnic' | 'display'
 
 export const NAME_REASON_MIN = 3
 export const NAME_MIN = 2
@@ -33,9 +43,11 @@ export function nameProblem(raw: string | null | undefined): string | null {
   return null
 }
 
-/** Is this tutor's name locked to the Owner? (A parent's never is.) */
-export function nameOwnerOnly(target: { role: string | null | undefined; cnicVerifiedAt: string | null | undefined }): boolean {
-  return target.role === 'tutor' && !!target.cnicVerifiedAt
+/** Is this Name on CNIC the Owner's to change? A tutor's, once the CNIC is
+ *  approved (unchanged since 27 Oct 2026); a parent's stays with staff. The
+ *  member's own change is locked for both after approval (migration 224). */
+export function nameOwnerOnly(target: { role: string | null | undefined; cnicVerifiedAt: string | null | undefined }, field: NameField = 'cnic'): boolean {
+  return field === 'cnic' && target.role === 'tutor' && !!target.cnicVerifiedAt
 }
 
 export type NameEditDecision =
@@ -47,12 +59,23 @@ export function nameEditDecision(input: {
   target: { role: string | null | undefined; cnicVerifiedAt: string | null | undefined; fullName: string | null | undefined }
   name: string | null | undefined
   reason: string | null | undefined
+  /** Which name (default: the Name on CNIC). */
+  field?: NameField
+  /** Names of active staff accounts — a Display name may not copy one. */
+  staffNames?: string[]
 }): NameEditDecision {
+  const field = input.field ?? 'cnic'
   if (!['tutor', 'parent', 'academy'].includes(String(input.target.role ?? ''))) {
     return { ok: false, status: 404, error: 'This is not a tutor or parent account.' }
   }
   if ((input.reason ?? '').trim().length < NAME_REASON_MIN) return { ok: false, status: 400, error: NAME_REASON_NEEDED }
-  if (nameOwnerOnly(input.target) && input.actorRole !== 'owner') return { ok: false, status: 403, error: OWNER_ONLY_NAME }
+  if (nameOwnerOnly(input.target, field) && input.actorRole !== 'owner') return { ok: false, status: 403, error: OWNER_ONLY_NAME }
+  if (field === 'display') {
+    const raw = (input.name ?? '').replace(/\s+/g, ' ').trim()
+    if (raw === '') return { ok: true, name: '', unchanged: !cleanName(input.target.fullName) }
+    const dp = displayNameProblem(raw, { staffNames: input.staffNames })
+    if (dp) return { ok: false, status: 400, error: dp }
+  }
   const problem = nameProblem(input.name)
   if (problem) return { ok: false, status: 400, error: problem }
   const name = cleanName(input.name)

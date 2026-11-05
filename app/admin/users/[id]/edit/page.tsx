@@ -45,7 +45,7 @@ export default async function MemberEditPage({ params }: { params: Promise<{ id:
 
   const [{ data: tutor }, { data: profile }, { data: history }] = await Promise.all([
     admin.from('tutor_profiles').select('id, slug, full_name, city, headline, bio, whatsapp_number').eq('id', id).maybeSingle(),
-    admin.from('profiles').select('id, full_name, role, cnic_number, cnic_verified_at, whatsapp').eq('id', id).maybeSingle(),
+    admin.from('profiles').select('id, full_name, cnic_name, display_name, role, cnic_number, cnic_verified_at, whatsapp').eq('id', id).maybeSingle(),
     admin.from('slug_history').select('old_slug, created_at').eq('tutor_id', id).order('created_at', { ascending: false }).limit(20),
   ])
   const parts = editTabParts(actor.adminRole, (profile?.role as string | null) ?? null)
@@ -94,7 +94,8 @@ export default async function MemberEditPage({ params }: { params: Promise<{ id:
           tutorId={id}
           currentCity={(tutor.city as string | null) ?? null}
           cnicNumberMasked={maskCnicHeavy(profile.cnic_number as string | null)}
-          currentName={name}
+          currentName={formatName((profile.cnic_name as string | null) ?? null) || name}
+          currentDisplayName={formatName((profile.display_name as string | null) ?? null)}
           nameOwnerOnly={nameOwnerOnly({ role: 'tutor', cnicVerifiedAt: profile.cnic_verified_at as string | null })}
           slug={slug}
           canSlugEdit={canSlugEdit}

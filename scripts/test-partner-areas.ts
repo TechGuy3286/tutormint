@@ -63,6 +63,9 @@ test('every view-only area refuses a Partner write; the Owner is unaffected', ()
     'staffSignupsAll', 'staffSignupClaim', 'staffClaimsReview', 'mySignups', 'cityOwners', 'supportNumber',
     // Convert account type (owner, 23 Oct 2026): the site Owner only.
     'convertAccount',
+    // Backend Support decides documents; the Owner's "Documents by staff" list
+    // (owner, 5 Nov 2026). Neither names the Partner.
+    'documentDecide', 'staffDocDecisions',
     // Team overview (owner, 24 Oct 2026): a read-only card.
     'teamOverview',
     // Merge duplicates / Not a duplicate / View as (owner, 26 Oct 2026): the site Owner only.
@@ -144,6 +147,11 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed' | 'ret
   'documents/read-cnic': 'edit',
   'documents/rotate': 'edit',
   'documents/unlock': 'edit',
+  // Name doesn't match (owner, 5 Nov 2026): the view gate admits the Partner;
+  // lib/docDecisionCore then refuses anyone but the Owner and Backend Support.
+  'documents/name-mismatch': 'edit',
+  // Documents by staff, Undo (owner, 5 Nov 2026): the Owner only.
+  'documents/staff-decisions': 'owner',
   'flags': 'edit',
   'follow-ups': 'edit',
   // Check payment status on a Started payment card (owner, 20 Oct 2026):

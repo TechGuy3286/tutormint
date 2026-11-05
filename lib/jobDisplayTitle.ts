@@ -1,4 +1,5 @@
 import { placeLabel } from '@/lib/place'
+import { shortJobTitle } from '@/lib/jobTitlesCore'
 // lib/jobDisplayTitle.ts
 //
 // The composed display title for a tuition (owner, 13 Sep 2026) — a natural
@@ -49,7 +50,8 @@ export function jobDisplayTitle(parts: JobTitleParts): string {
   const clean = (s: string | null | undefined) => (s ?? '').trim()
 
   const gender = capitaliseWord(clean(parts.gender))
-  const jobType = clean(parts.jobType)
+  // The bracketed level list of a job type stays out of a title (owner, 5 Nov 2026).
+  const jobType = shortJobTitle(parts.jobType)
   const level = clean(parts.level)
   // Never repeat the city (owner, 5 Oct 2026): "Bahria Town Lahore" + "Lahore"
   // → "Bahria Town, Lahore" — one builder, lib/place.ts.

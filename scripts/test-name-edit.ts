@@ -69,15 +69,16 @@ test('route: reason, owner-only, history, audit, timeline', () => {
   const r = read('app/api/admin/members/name/route.ts')
   assert.match(r, /nameEditDecision/)
   assert.match(r, /refuseOwnerTarget/)
-  assert.match(r, /recordFieldChanges\([\s\S]*field: 'name'/)
-  assert.match(r, /action: 'member\.name_edit'/)
+  // Two names (owner, 5 Nov 2026): history and Audit name which one changed.
+  assert.match(r, /recordFieldChanges\([\s\S]*field: field === 'cnic' \? 'cnic_name' : 'display_name'/)
+  assert.match(r, /action: field === 'cnic' \? 'member\.cnic_name_edit' : 'member\.display_name_edit'/)
   assert.match(r, /logActivity\(/)
   assert.match(r, /alertOwnerBlocked/)
 })
 
 test('UI: Name section on the tutor editor, Edit name on the parent page, the hint, the address prompt', () => {
   const editor = read('app/admin/users/[id]/edit/TutorFieldEditor.tsx')
-  assert.match(editor, /title="Name"/)
+  assert.match(editor, /title="Names"/)
   assert.match(editor, /<NameEditForm/)
   assert.match(editor, /afterSave=\{<SlugField/)
   assert.match(read('app/admin/users/[id]/page.tsx'), /Edit name[\s\S]*<NameEditForm/)

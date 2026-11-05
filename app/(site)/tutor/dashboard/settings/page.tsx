@@ -27,7 +27,7 @@ import { StatusCard, StepHeader, SettingsTile } from '@/components/tutor/Setting
 import { type CardStatus } from '@/lib/tutorSettingsCopy'
 import ExperienceEditor from '@/components/tutor/ExperienceEditor'
 import { experienceAnswered, experienceSummary } from '@/lib/experienceEditCore'
-import { postProfileSave, experienceSavePayload, jobTypesPayload, feePayload, subjectsPayload, locationPayload } from '@/lib/editProfileSave'
+import { postProfileSave, experienceSavePayload, jobTypesPayload, feePayload, subjectsPayload, locationPayload, namesPayload } from '@/lib/editProfileSave'
 import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange, feeLabelOf } from '@/lib/fee'
 import { FormChecklist, ChecklistStatus } from '@/components/forms/FormChecklist'
 import { checklistReady, type ChecklistItem } from '@/lib/formChecklist'
@@ -149,12 +149,17 @@ export default function TutorSettingsPage() {
 
   const [formData, setFormData] = useState({
     fullName: "",
+    // Two names (owner, 5 Nov 2026): fullName above is the Name on CNIC here;
+    // displayName is the optional name parents and tutors see.
+    displayName: "",
     whatsapp: "",
     city: "",
     areaName: "",
     jobTypes: [] as string[],
     profileImage: "",
   });
+  // The Name on CNIC locks once the CNIC is approved (lib/memberNamesCore).
+  const [cnicNameLocked, setCnicNameLocked] = useState(false);
   const [selfiePreviewUrl, setSelfiePreviewUrl] = useState("");
   const [selfieBusy, setSelfieBusy] = useState(false);
   const [selfieError, setSelfieError] = useState("");
@@ -255,7 +260,7 @@ export default function TutorSettingsPage() {
       setTutorEmail(user.email || "");
 
       const [{ data: prof }, { data: tp }, { data: subjRows }] = await Promise.all([
-        supabase.from('profiles').select('phone_number, phone_verified_at, email, email_verified, whatsapp, avatar_pending_url').eq('id', user.id).maybeSingle(),
+        supabase.from('profiles').select('phone_number, phone_verified_at, email, email_verified, whatsapp, avatar_pending_url, full_name, cnic_name, display_name, cnic_verified_at, verification_state').eq('id', user.id).maybeSingle(),
         supabase.from('tutor_profiles').select('*').eq('id', user.id).maybeSingle(),
         supabase.from('tutor_subjects').select('master_id').eq('tutor_id', user.id),
       ]);
@@ -308,8 +313,10 @@ export default function TutorSettingsPage() {
       }
 
       if (tp) {
+        setCnicNameLocked(!!prof?.cnic_verified_at || String(prof?.verification_state ?? '').toLowerCase() === 'approved');
         setFormData({
-          fullName: tp.full_name || "",
+          fullName: (prof?.cnic_name as string) || (prof?.full_name as string) || tp.full_name || "",
+          displayName: (prof?.display_name as string) || "",
           // PR86: profiles.whatsapp is canonical (onboarding + admin read it);
           // fall back to the legacy tutor_profiles.whatsapp_number.
           whatsapp: (prof?.whatsapp as string) || tp.whatsapp_number || "",
@@ -433,17 +440,14 @@ export default function TutorSettingsPage() {
     if (error) throw new Error(error.message);
   };
 
-  // Name is canonical on profiles.full_name (PR66 §5); write it there AND mirror
-  // to tutor_profiles so admin / public profile / CV match the dashboard.
+  // Two names (owner, 5 Nov 2026): the Name on CNIC and the optional Display
+  // name, saved through /api/profile/save (which checks the Display name). The
+  // shown name (profiles.full_name, tutor_profiles.full_name) follows in the
+  // database. WhatsApp (PR86) is required, stored normalised.
   const saveDetails = async () => {
-    // PR86: WhatsApp is required, validated like the mobile.
     const wa = normalisePkMobile(formData.whatsapp);
     if (!wa) throw new Error('Add a valid WhatsApp number (Pakistani mobile format).');
-    await tutorUpdate({ full_name: formatName(formData.fullName) });
-    // PR86: WhatsApp is canonical on profiles.whatsapp (onboarding + admin read
-    // it), stored normalised; the legacy whatsapp_number column is left as-is.
-    const { error } = await supabase.from('profiles').update({ full_name: formatName(formData.fullName), whatsapp: wa }).eq('id', userId);
-    if (error) throw new Error(error.message);
+    await postProfileSave(namesPayload({ cnicName: formData.fullName, displayName: formData.displayName, whatsapp: wa, cnicNameLocked }));
     setFormData((f) => ({ ...f, whatsapp: wa }));
   };
 
@@ -559,7 +563,7 @@ export default function TutorSettingsPage() {
   };
 
   // Collapsed summaries — plain text shown when a card has a saved value.
-  const detailsSummary = formData.fullName.trim();
+  const detailsSummary = formData.displayName.trim() || formData.fullName.trim();
   // PR85: "Lahore · DHA, Gulberg | Gujranwala · Model Town" (per city).
   const locSource =
     locState && locState.valid
@@ -992,14 +996,32 @@ export default function TutorSettingsPage() {
       body: (
         <div className="space-y-3">
           <label className="block">
-            <span className="sr-only">Full name</span>
+            <span className="text-[11px] font-bold text-tm-navy">Name on CNIC</span>
             <input
               type="text"
               value={formData.fullName}
+              disabled={cnicNameLocked}
               onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-              placeholder="Full name"
-              className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium focus:border-tm-navy focus:outline-none"
+              placeholder="Your name as on your CNIC"
+              className="mt-1 w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium focus:border-tm-navy focus:outline-none disabled:bg-gray-100 disabled:text-gray-600"
             />
+            <span className="mt-1 block text-[11px] text-gray-500">
+              {cnicNameLocked
+                ? 'Approved 🔒 To change your Name on CNIC, please contact our support.'
+                : 'Used only to check your CNIC. Parents and tutors never see it.'}
+            </span>
+          </label>
+          <label className="block">
+            <span className="text-[11px] font-bold text-tm-navy">Display name (shown to parents and tutors)</span>
+            <input
+              type="text"
+              value={formData.displayName}
+              maxLength={60}
+              onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
+              placeholder="Optional"
+              className="mt-1 w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium focus:border-tm-navy focus:outline-none"
+            />
+            <span className="mt-1 block text-[11px] text-gray-500">Leave empty to show your Name on CNIC.</span>
           </label>
           <label className="block">
             <span className="text-[11px] font-bold text-tm-navy">WhatsApp number</span>
@@ -1018,7 +1040,7 @@ export default function TutorSettingsPage() {
           </label>
           <SaveBar onSave={saveDetails} onSaved={() => collapse('details')}
             items={[
-              { en: 'Type your full name', ur: 'اپنا پورا نام لکھیں', done: formData.fullName.trim().length >= 2 },
+              { en: 'Type your name as on your CNIC', ur: 'اپنا پورا نام لکھیں', done: formData.fullName.trim().length >= 2 },
               { en: 'Add your WhatsApp number', ur: 'اپنا واٹس ایپ نمبر شامل کریں', done: !!normalisePkMobile(formData.whatsapp) },
             ]} />
         </div>

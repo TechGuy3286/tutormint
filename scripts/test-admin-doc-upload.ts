@@ -116,7 +116,10 @@ test('a refusal never comes back as 200', () => {
 
 test('approving stays Owner-only; the tutor’s own upload path is unchanged', () => {
   const review = read('app/api/admin/tutors/document-review/route.ts')
-  assert.match(review, /refuseUnlessOwnerApproval\(\s*gate\.actor/)
+  // The Owner and Backend Support decide (owner, 5 Nov 2026); anyone else gets
+  // the Owner-only 403 from lib/docDecisionGate.
+  assert.match(review, /beginDocDecision\(\{ actor: gate\.actor/)
+  assert.ok(read('lib/docDecisionGate.ts').includes('refuseUnlessOwnerApproval(args.actor'))
   const member = read('app/api/documents/upload/route.ts')
   assert.match(member, /decideUpload\(user\.id, kind, labelStr\)/)
   assert.match(member, /status: lockCtx\.decision\.status/)

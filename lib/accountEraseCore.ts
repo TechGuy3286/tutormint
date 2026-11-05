@@ -109,6 +109,10 @@ export function eraseCancellable(e: ErasureState | null): boolean {
 export function profileErasePatch(memberId: string, nowIso: string): Record<string, unknown> {
   return {
     full_name: ERASED_NAME,
+    // Both names (owner, 5 Nov 2026; migration 224) — full_name then reads
+    // "Deleted user".
+    cnic_name: null,
+    display_name: null,
     email: erasedEmail(memberId),
     phone_number: '',
     whatsapp: null,
@@ -133,7 +137,7 @@ export function profileErasePatch(memberId: string, nowIso: string): Record<stri
 }
 
 /** The profile fields the erase empties — for tests and the admin summary. */
-export const PROFILE_FIELDS_CLEARED = ['full_name', 'email', 'phone_number', 'whatsapp', 'secondary_phone', 'cnic_number', 'cnic_image_path', 'address', 'area', 'avatar_url'] as const
+export const PROFILE_FIELDS_CLEARED = ['full_name', 'cnic_name', 'display_name', 'email', 'phone_number', 'whatsapp', 'secondary_phone', 'cnic_number', 'cnic_image_path', 'address', 'area', 'avatar_url'] as const
 
 /** tutor_profiles: the patch. The slug becomes a neutral one (the old one holds
  *  the name), locked so the name trigger does not re-derive it. */

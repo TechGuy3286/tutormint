@@ -44,7 +44,12 @@ function mmss(total: number): string {
 
 export type ParentSettings = {
   userId: string
+  /** The Name on CNIC (owner, 5 Nov 2026). */
   fullName: string
+  /** The optional Display name parents' cards show. */
+  displayName: string
+  /** The CNIC is approved: the Name on CNIC is locked. */
+  cnicNameLocked: boolean
   avatarUrl: string | null
   phone: string
   phoneVerified: boolean
@@ -69,6 +74,7 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
   // rather than saving it pre-confirmed here.
 
   const [fullName, setFullName] = useState(initial.fullName)
+  const [displayName, setDisplayName] = useState(initial.displayName)
   const [city, setCity] = useState(initial.city)
   const [area, setArea] = useState(initial.area)
   const [address, setAddress] = useState(initial.address)
@@ -138,7 +144,7 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
       const res = await fetch('/api/parent/profile', { signal: submitSignal(),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fullName, city, area, address, avatarUrl: avatarUrl ?? '' }),
+        body: JSON.stringify({ fullName, displayName, city, area, address, avatarUrl: avatarUrl ?? '' }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Could not save your details.')
@@ -167,7 +173,7 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
     const res = await fetch('/api/parent/profile', { signal: submitSignal(),
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fullName, city, area, address, avatarUrl: data.publicUrl }),
+      body: JSON.stringify({ fullName, displayName, city, area, address, avatarUrl: data.publicUrl }),
     })
     const json = await res.json()
     if (!res.ok) throw new Error(json.error ?? 'Could not save that picture.')
@@ -259,7 +265,7 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
           hint="A clear photo of your face helps tutors recognise you."
           currentPreview={
             <Avatar
-              name={fullName || 'You'}
+              name={displayName || fullName || 'You'}
               src={avatarUrl}
               decorative
               ring=""
@@ -279,9 +285,18 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
       body: (
         <>
           <label className="block space-y-1">
-            <span className={LABEL}>Full name</span>
-            <FieldUr>پورا نام</FieldUr>
-            <input value={fullName} onChange={(e) => setFullName(e.target.value)} className={FIELD} />
+            <span className={LABEL}>Name on CNIC</span>
+            <input value={fullName} disabled={initial.cnicNameLocked} onChange={(e) => setFullName(e.target.value)} className={`${FIELD} disabled:bg-gray-100 disabled:text-gray-600`} />
+            <span className="block text-[11px] text-gray-500">
+              {initial.cnicNameLocked
+                ? 'Approved 🔒 To change your Name on CNIC, please contact our support.'
+                : 'Used only to check your CNIC. Tutors never see it.'}
+            </span>
+          </label>
+          <label className="block space-y-1">
+            <span className={LABEL}>Display name (shown to parents and tutors)</span>
+            <input value={displayName} maxLength={60} onChange={(e) => setDisplayName(e.target.value)} placeholder="Optional" className={FIELD} />
+            <span className="block text-[11px] text-gray-500">Leave empty to show your Name on CNIC.</span>
           </label>
 
           <div className="grid gap-3 sm:grid-cols-2">

@@ -108,6 +108,7 @@ export default function TutorFieldEditor({
   currentCity,
   cnicNumberMasked = null,
   currentName = '',
+  currentDisplayName = '',
   nameOwnerOnly = false,
   slug = null,
   canSlugEdit = false,
@@ -126,7 +127,10 @@ export default function TutorFieldEditor({
   tutorId: string
   currentCity: string | null
   /** The name on file (formatted). */
+  /** The Name on CNIC (owner, 5 Nov 2026). */
   currentName?: string
+  /** The optional Display name. */
+  currentDisplayName?: string
   /** A verified tutor (CNIC approved): only the Owner may change the name. */
   nameOwnerOnly?: boolean
   slug?: string | null
@@ -250,14 +254,18 @@ export default function TutorFieldEditor({
       </div>
 
       {/* Name (owner, 27 Oct 2026) */}
-      <Section icon={<User size={16} />} title="Name" open={open === 'name'} onToggle={() => toggle('name')}>
-        <NameEditForm
-          memberId={tutorId}
-          currentName={currentName}
-          ownerOnly={nameOwnerOnly}
-          isOwner={ownerApproves}
-          afterSave={<SlugField tutorId={tutorId} initialSlug={slug} canEdit={canSlugEdit} />}
-        />
+      <Section icon={<User size={16} />} title="Names" open={open === 'name'} onToggle={() => toggle('name')}>
+        <NameEditForm memberId={tutorId} currentName={currentName} ownerOnly={nameOwnerOnly} isOwner={ownerApproves} field="cnic" />
+        <div className="border-t border-gray-100 pt-3">
+          <NameEditForm
+            memberId={tutorId}
+            currentName={currentDisplayName}
+            ownerOnly={false}
+            isOwner={ownerApproves}
+            field="display"
+            afterSave={<SlugField tutorId={tutorId} initialSlug={slug} canEdit={canSlugEdit} />}
+          />
+        </div>
       </Section>
 
       {/* Tagline & About (owner, 2 Nov 2026, Part F): reason required, logged

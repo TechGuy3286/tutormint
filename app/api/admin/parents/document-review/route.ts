@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
-import { refuseUnlessOwnerApproval } from '@/lib/ownerGuard'
+import { beginDocDecision, finishDocDecision } from '@/lib/docDecisionGate'
 import { reviewParentDocument } from '@/lib/parentDocuments'
 import { parseBody, z, uuid, text } from '@/lib/validate'
 
@@ -17,19 +17,21 @@ const Body = z.object({
   item: z.enum(['cnic', 'address']),
   decision: z.enum(['approve', 'reject']),
   reason: text({ min: 0, max: 1000, label: 'Reason' }).nullish(),
+  nameChecked: z.boolean().optional(),
 })
 
 export async function POST(request: Request) {
-  const gate = await checkAdminRole(...SCREEN_ACCESS.parents)
+  const gate = await checkAdminRole(...SCREEN_ACCESS.parents, ...SCREEN_ACCESS.documentDecide)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
 
   const parsed = await parseBody(request, Body)
   if (!parsed.ok) return parsed.response
   const { parentId, item, decision } = parsed.data
 
-  // Owner-only approvals (owner, 15 Oct 2026): every other role views only.
-  const notOwner = await refuseUnlessOwnerApproval(gate.actor, `${decision} a parent's ${item === 'cnic' ? 'CNIC' : 'address'}`, parentId)
-  if (notOwner) return notOwner
+  // The Owner decides; Backend Support may decide the CNIC (never the address)
+  // within lib/docDecisionCore (owner, 5 Nov 2026).
+  const begun = await beginDocDecision({ actor: gate.actor, memberId: parentId, item, decision, nameChecked: !!parsed.data.nameChecked, what: `${decision} a parent's ${item === 'cnic' ? 'CNIC' : 'address'}` })
+  if (!begun.ok) return begun.response
 
   const result = await reviewParentDocument({
     actor: gate.actor,
@@ -39,5 +41,6 @@ export async function POST(request: Request) {
     reason: (parsed.data.reason ?? '').trim(),
   })
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
+  await finishDocDecision({ actor: gate.actor, memberId: parentId, item, decision, reason: (parsed.data.reason ?? '').trim() || null, start: begun.start })
   return NextResponse.json({ success: true, verified: result.verified })
 }

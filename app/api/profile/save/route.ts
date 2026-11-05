@@ -22,6 +22,8 @@ import { unknownNewMasterIds } from '@/lib/masterSubjectCheck'
 import { subjectLimitRefusal } from '@/lib/subjectLimit'
 import { NOT_A_MASTER_SUBJECT } from '@/lib/subjectDisplay'
 import { formatName } from '@/lib/formatName'
+import { cnicNameLocked, cnicNameProblem } from '@/lib/memberNamesCore'
+import { displayNameRefusal } from '@/lib/memberNames'
 
 // Per-step save for the profile forms. Writes only the fields the step owns,
 // then recomputes profiles.profile_completion so the stored percentage can
@@ -123,7 +125,23 @@ export async function POST(request: Request) {
   // saved), a flag is raised for staff (counting toward the third-strike
   // suspension), and the member sees one plain line. The rest of the save is
   // rejected with it — nothing here is published if any field breaks the rules.
-  const nameIn = typeof body.profile?.full_name === 'string' ? body.profile.full_name : null
+  // Two names (owner, 5 Nov 2026): the Display name is public; the Name on CNIC
+  // never is but is checked here too. Both go through the abuse check below.
+  const displayIn = typeof body.profile?.display_name === 'string' ? body.profile.display_name : null
+  const cnicNameIn = typeof body.profile?.cnic_name === 'string' ? body.profile.cnic_name : null
+  const nameIn = [typeof body.profile?.full_name === 'string' ? body.profile.full_name : null, displayIn, cnicNameIn].filter((x): x is string => !!x && x.trim() !== '').join(' ') || null
+  if (displayIn !== null) {
+    const dp = await displayNameRefusal(user.id, displayIn)
+    if (dp) return NextResponse.json({ error: dp, fields: { display_name: dp } }, { status: 400 })
+  }
+  if (cnicNameIn !== null) {
+    const cp = cnicNameProblem(cnicNameIn)
+    if (cp) return NextResponse.json({ error: cp, fields: { cnic_name: cp } }, { status: 400 })
+    const { data: lockRow } = await supabase.from('profiles').select('cnic_name, cnic_verified_at, verification_state').eq('id', user.id).maybeSingle()
+    if (lockRow && cnicNameLocked(lockRow) && formatName(cnicNameIn) !== formatName((lockRow.cnic_name as string | null) ?? '')) {
+      return NextResponse.json({ error: 'To change your Name on CNIC, please contact our support.' }, { status: 403 })
+    }
+  }
   const headlineIn = typeof body.tutorProfile?.headline === 'string' ? body.tutorProfile.headline : null
   const bioIn = typeof body.tutorProfile?.bio === 'string' ? body.tutorProfile.bio : null
   // Tagline & About limits (owner, 2 Nov 2026, Part F).
@@ -170,6 +188,9 @@ export async function POST(request: Request) {
   const profilePatch = pick(body.profile, PROFILE_FIELDS)
   // #46 — names are stored capitalised-per-word from now on (one shared rule).
   if (typeof profilePatch.full_name === 'string') profilePatch.full_name = formatName(profilePatch.full_name)
+  if (typeof profilePatch.cnic_name === 'string') profilePatch.cnic_name = formatName(profilePatch.cnic_name)
+  // An empty Display name means "show my Name on CNIC".
+  if (typeof profilePatch.display_name === 'string') profilePatch.display_name = formatName(profilePatch.display_name) || null
   if (role !== 'tutor' && cityWrite !== undefined) profilePatch.city = cityWrite
   // PR86: the WhatsApp number is required and validated like the mobile. When a
   // save carries `whatsapp`, it must be a valid Pakistani mobile — stored

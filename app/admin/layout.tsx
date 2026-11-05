@@ -8,6 +8,7 @@ import BridgeBanner from '@/components/admin/BridgeBanner'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import { getAdminActor, alwaysNeedsTwoFactor, roleBadge, roleSatisfies, SCREEN_ACCESS, type AdminActor } from '@/lib/adminAuth'
 import { canApprove } from '@/lib/adminAccessCore'
+import { docDecider } from '@/lib/docDecisionCore'
 import { AdminReadOnlyProvider, ViewOnlyChip } from '@/components/admin/ReadOnly'
 import { senderRefCode } from '@/lib/staffSignups'
 import { NAV_GROUPS, type NavGroup } from '@/lib/adminNav'
@@ -123,7 +124,7 @@ export default async function AdminLayout({
         </>
       }
     >
-      <AdminReadOnlyProvider readOnly={readOnly} canApprove={canApprove(actor.adminRole)} refCode={refCode}>
+      <AdminReadOnlyProvider readOnly={readOnly} canApprove={canApprove(actor.adminRole)} refCode={refCode} docDecider={docDecider(actor.adminRole)}>
         <ViewOnlyChip />
         {children}
       </AdminReadOnlyProvider>

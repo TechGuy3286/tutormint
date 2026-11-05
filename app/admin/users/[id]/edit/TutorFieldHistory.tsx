@@ -24,6 +24,8 @@ const FIELD_LABEL: Record<Step1Field, string> = {
   city: 'City',
   areas: 'Areas',
   name: 'Name',
+  cnic_name: 'Name on CNIC',
+  display_name: 'Display name',
   headline: 'Tagline',
   bio: 'About',
   whatsapp: 'WhatsApp number',

@@ -261,6 +261,13 @@ export const SCREEN_ACCESS = withSupervisor({
   // The tutor and parent verification queues: open to these roles; the
   // approve / reject decisions themselves are the Owner's alone (canApprove).
   tutors: ['admin', 'operations', 'partner'] as AdminRole[],
+  // Staff who decide identity documents besides the Owner (owner, 5 Nov 2026,
+  // lib/docDecisionCore). The review routes admit these on top of tutors /
+  // parents; what they may decide is lib/docDecisionCore staffDocRefusal.
+  documentDecide: ['backend_support'] as AdminRole[],
+  // The Owner's "Documents approved by staff" list with Undo (Owner; the
+  // Partner views).
+  staffDocDecisions: [] as AdminRole[],
   parents: ['admin', 'operations', 'partner'] as AdminRole[],
   // OWNER AND PARTNER AREAS (owner, 8 Oct 2026, item 3; Partner full rights
   // from 13 Oct): `[]` = the owner and the Partner (roleSatisfies admits both),

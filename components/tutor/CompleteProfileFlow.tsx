@@ -81,7 +81,7 @@ const TITLES: Record<FlowStepKey, string> = {
   availability: 'When can you teach?',
   contact: 'Contact and about you',
   verify: 'Get verified',
-  name: 'Your full name',
+  name: 'Your name',
   photo: 'Add your photo',
   selfie: 'Take a selfie',
   experience: 'Years of experience',
@@ -149,6 +149,9 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
   const { map: cityMap } = useCityAreas()
 
   const [facts, setFacts] = useState<FlowFacts | null>(null)
+  // Two names (owner, 5 Nov 2026): the name step asks for the Name on CNIC and
+  // an optional Display name.
+  const [names, setNames] = useState<{ cnic: string; display: string }>({ cnic: '', display: '' })
   // The tutor's saved fee range prefills the fee step (defaults otherwise, PR67).
   const [feeInit, setFeeInit] = useState<{ min: number; max: number }>({ min: FEE_MIN_DEFAULT, max: FEE_MAX_DEFAULT })
   // The tutor's saved areas prefill the area step (PR68).
@@ -211,7 +214,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
     }
     const [{ data: p }, { data: tp }, subj, deg, self] = await Promise.all([
       supabase.from('profiles')
-        .select('full_name, city, cnic_number, cnic_image_path, phone_verified_at, phone_number, whatsapp, email, verification_state, is_seed, is_team_account, is_banned, is_suspended, hidden_from_public, profile_pic_status, selfie_status')
+        .select('full_name, cnic_name, display_name, city, cnic_number, cnic_image_path, phone_verified_at, phone_number, whatsapp, email, verification_state, is_seed, is_team_account, is_banned, is_suspended, hidden_from_public, profile_pic_status, selfie_status')
         .eq('id', user.id).maybeSingle(),
       supabase.from('tutor_profiles')
         .select('city, area, gender, avatar_url, headline, bio, experience_years, hourly_rate_pkr, fee_min_pkr, fee_max_pkr, job_types, degrees, availability_list, video_youtube_id, video_status, verified_fee_paid_at, under_review, verification_status, imported, claimed_at')
@@ -254,6 +257,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
       noDegreeYet = !!(nd as { no_degree_yet?: boolean } | null)?.no_degree_yet
     } catch { /* pre-migration: no marker yet */ }
 
+    setNames({ cnic: ((p?.cnic_name ?? p?.full_name) as string) ?? '', display: (p?.display_name as string) ?? '' })
     const facts: FlowFacts = {
       fullName: (p?.full_name as string) ?? null,
       gender: (tp?.gender as string) ?? null,
@@ -784,10 +788,11 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
         )}
 
         {stepKey === 'name' && (
-          <TextStep
-            initial={facts.fullName ?? ''} placeholder="Your full name"
-            onNext={(v) => void tapSave({ profile: { full_name: v } }, { fullName: v })}
+          <NamesStep
+            initialCnic={names.cnic}
+            initialDisplay={names.display}
             busy={busy}
+            onNext={(cnic, display) => void tapSave({ profile: { cnic_name: cnic, display_name: display } }, { fullName: display || cnic })}
           />
         )}
         {stepKey === 'fee' && (
@@ -920,6 +925,37 @@ function MultiChipRow({ options, selected, onToggle }: { options: string[]; sele
           <Chip key={name} label={name} selected={on} onClick={() => onToggle(on ? selected.filter((x) => x !== name) : [...selected, name])} />
         )
       })}
+    </div>
+  )
+}
+
+// The name step (owner, 5 Nov 2026): the Name on CNIC (required, used only to
+// check the CNIC) and an optional Display name (what parents and tutors see).
+function NamesStep({ initialCnic, initialDisplay, onNext, busy }: {
+  initialCnic: string; initialDisplay: string; onNext: (cnic: string, display: string) => void; busy: boolean
+}) {
+  const [cnic, setCnic] = useState(initialCnic)
+  const [display, setDisplay] = useState(initialDisplay)
+  return (
+    <div className="space-y-4">
+      <label className="block space-y-1">
+        <span className="text-xs font-bold text-tm-navy">Name on CNIC</span>
+        <input value={cnic} onChange={(e) => setCnic(e.target.value)} placeholder="Your name as on your CNIC"
+          className={`min-h-[48px] w-full rounded-xl border p-3 text-sm outline-none ${fieldStateClasses(fieldState({ value: cnic }))}`} />
+        <span className="block text-[11px] text-gray-500">Used only to check your CNIC. Parents and tutors never see it.</span>
+      </label>
+      <label className="block space-y-1">
+        <span className="text-xs font-bold text-tm-navy">Display name (shown to parents and tutors)</span>
+        <input value={display} maxLength={60} onChange={(e) => setDisplay(e.target.value)} placeholder="Optional"
+          className="min-h-[48px] w-full rounded-xl border border-gray-200 p-3 text-sm outline-none focus:border-tm-navy" />
+        <span className="block text-[11px] text-gray-500">Leave empty to show your Name on CNIC.</span>
+      </label>
+      <button
+        type="button" disabled={busy || !cnic.trim()} onClick={() => onNext(cnic.trim(), display.trim())}
+        className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-30 sticky bottom-[calc(0.75rem_+_env(safe-area-inset-bottom))] z-20 shadow-lg"
+      >
+        {busy ? '…' : 'Save & continue'}
+      </button>
     </div>
   )
 }

@@ -32,8 +32,6 @@ const NON_OWNERS: AdminRole[] = ['partner', 'admin', 'operations', 'tuitions_sta
 
 /** Every approval route and the words the guard is called with. */
 const APPROVAL_ROUTES = [
-  'app/api/admin/tutors/document-review/route.ts',
-  'app/api/admin/parents/document-review/route.ts',
   'app/api/admin/tutors/moderate/route.ts',
   'app/api/admin/documents/unlock/route.ts',
   'app/api/admin/documents/rotate/route.ts',
@@ -98,6 +96,18 @@ test('the database refuses a non-Owner staff token on the approval columns (migr
   assert.ok(sql.includes("caller_role is distinct from 'admin'"), 'members untouched')
   for (const t of ['profiles', 'tutor_profiles', 'payments']) assert.ok(sql.includes(`before update on public.${t}`), t)
   assert.ok(/drop trigger if exists owner_only_approval/.test(sql), 'idempotent')
+  // The two document-review routes (owner, 5 Nov 2026): the Owner and Backend
+  // Support decide through lib/docDecisionGate; anyone else is refused by the
+  // same Owner-only guard, after the gate and before any write.
+  for (const f of ['app/api/admin/tutors/document-review/route.ts', 'app/api/admin/parents/document-review/route.ts']) {
+    const s = read(f)
+    const gate = s.indexOf('checkAdminRole(')
+    const g = s.indexOf('beginDocDecision(')
+    assert.ok(gate > 0 && g > gate && g < s.indexOf('review' + (f.includes('tutors') ? 'Tutor' : 'Parent') + 'Document({'), `${f}: decision gate after the view gate, before the write`)
+    assert.ok(s.includes('if (!begun.ok) return begun.response'), `${f}: returns the refusal`)
+  }
+  const dg = read('lib/docDecisionGate.ts')
+  assert.ok(dg.includes('if (!decider) {') && dg.includes('refuseUnlessOwnerApproval(args.actor'), 'non-deciders get the Owner-only 403')
 })
 
 test('approval controls are hidden for non-Owners on every screen', () => {
@@ -105,8 +115,9 @@ test('approval controls are hidden for non-Owners on every screen', () => {
   assert.ok(ro.includes('export function useCanApprove()'))
   assert.ok(read('app/admin/layout.tsx').includes('canApprove={canApprove(actor.adminRole)}'))
   const gated: [string, string][] = [
-    ['components/admin/TutorDocumentReview.tsx', 'const canReview = canReviewProp && !readOnly && ownerApproves'],
-    ['components/admin/ParentDocumentReview.tsx', 'const canReview = canReviewProp && !readOnly && ownerApproves'],
+    // Backend Support decides documents too (owner, 5 Nov 2026), within lib/docDecisionCore.
+    ['components/admin/TutorDocumentReview.tsx', "const canReview = canReviewProp && !readOnly && (ownerApproves || (decider === 'staff' && !staffBlock))"],
+    ['components/admin/ParentDocumentReview.tsx', "const canReview = canReviewProp && !readOnly && (ownerApproves || (decider === 'staff' && !staffBlock))"],
     ['components/admin/AdminCnicNumberBox.tsx', 'const mayWrite = canEdit && !readOnly && ownerApproves'],
     ['components/admin/UnlockDocButton.tsx', 'if (!canUnlock || readOnly || !ownerApproves) return null'],
     ['components/admin/DocumentViewer.tsx', '&& !readOnly && ownerApproves'],

@@ -7,7 +7,9 @@ import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import DocumentViewer, { ViewerThumb as Zoomable, type ViewerImage } from '@/components/admin/DocumentViewer'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
-import { OwnerOnlyNote, useAdminReadOnly, useCanApprove, useStaffRefCode } from '@/components/admin/ReadOnly'
+import { OwnerOnlyNote, useAdminReadOnly, useCanApprove, useDocDecider, useStaffRefCode } from '@/components/admin/ReadOnly'
+import CnicNameCheck from '@/components/admin/CnicNameCheck'
+import { staffCardBlock } from '@/lib/docDecisionCore'
 import type { DocumentStatuses, DocItem, DocState } from '@/lib/tutorDocuments'
 import { cnicSideNote } from '@/lib/tutorDocQueueCore'
 import { CNIC_NUMBER_MISSING } from '@/lib/docLockCore'
@@ -60,6 +62,9 @@ export default function TutorDocumentReview({
   cnicNumberMasked = null,
   canEditNumber = false,
   selfieLooksLikePhoto = false,
+  cnicName = null,
+  nameFlagged = false,
+  nameMismatch = false,
 }: {
   tutorId: string
   canReview: boolean
@@ -86,6 +91,12 @@ export default function TutorDocumentReview({
   canEditNumber?: boolean
   /** The selfie looks the same as the profile picture (lib/selfieMatch) — a warning only. */
   selfieLooksLikePhoto?: boolean
+  /** The member's Name on CNIC, shown beside the card to compare (owner, 5 Nov 2026). */
+  cnicName?: string | null
+  /** "Name changed — check against CNIC" is open: the CNIC is the Owner's to decide. */
+  nameFlagged?: boolean
+  /** Staff marked the card's name as not matching: the CNIC is the Owner's to decide. */
+  nameMismatch?: boolean
 }) {
   const [numberHighlight, setNumberHighlight] = useState(false)
   // Each item's status as it changes on this card, so "Send WhatsApp" appears
@@ -122,6 +133,7 @@ export default function TutorDocumentReview({
           item="cnic"
           title="CNIC (front & back)"
           canReview={canReview}
+          cnicCheck={{ cnicName, nameFlagged, nameMismatch }}
           memberWhatsapp={memberWhatsapp}
           state={statuses.cnic}
           unlock={lockInfo ? { item: 'cnic', lockable: lockInfo.lockable.cnic && !rv?.cnicFrontId && !rv?.cnicBackId, unlockOpen: lockInfo.unlockOpen.cnic, canUnlock } : null}
@@ -262,8 +274,11 @@ function ReviewItem({
   onNumberMissing,
   onStatus,
   unlock = null,
+  cnicCheck = null,
   children,
 }: {
+  /** CNIC only: the name comparison and the Owner-only flags. */
+  cnicCheck?: { cnicName: string | null; nameFlagged: boolean; nameMismatch: boolean } | null
   /** Unlock for re-upload, offered in the Change menu when the document is approved and locked. */
   unlock?: { item: 'cnic' | 'selfie' | 'photo'; lockable: boolean; unlockOpen: boolean; canUnlock: boolean } | null
   tutorId: string
@@ -284,9 +299,17 @@ function ReviewItem({
   // Approvals are the Owner's alone (owner, 15 Oct 2026); other staff view.
   const ownerApproves = useCanApprove()
   const refCode = useStaffRefCode()
-  const canReview = canReviewProp && !readOnly && ownerApproves
-  const viewOnlyNote = canReviewProp && !ownerApproves && state.hasUpload
+  // Backend Support decides too (owner, 5 Nov 2026) — within lib/docDecisionCore.
+  const decider = useDocDecider()
   const [status, setStatus] = useState(state.status)
+  const staffBlock =
+    decider === 'staff'
+      ? staffCardBlock({ item, status, rereview: !!state.rereview, nameFlagged: !!cnicCheck?.nameFlagged, nameMismatch: !!cnicCheck?.nameMismatch })
+      : null
+  const canReview = canReviewProp && !readOnly && (ownerApproves || (decider === 'staff' && !staffBlock))
+  const [nameChecked, setNameChecked] = useState(false)
+  const viewOnlyNote = canReviewProp && !canReview && state.hasUpload && !ownerApproves
+  const viewOnlyText = decider === 'staff' ? staffBlock : null
   const [shownReason, setShownReason] = useState(state.reason)
   const [chosen, setChosen] = useState<string | null>(null)
   const [note, setNote] = useState('')
@@ -305,9 +328,12 @@ function ReviewItem({
   const unlocker = useUnlockDoc(tutorId, unlock?.item ?? 'cnic', !!unlock?.unlockOpen)
   const s = STATUS_LABEL[status]
   const decided = status === 'approved' || status === 'rejected'
+  // A staff CNIC approval needs the name check first (lib/docDecisionCore).
+  const needsNameTick = item === 'cnic' && !ownerApproves && decider === 'staff' && !nameChecked
   // One Change menu (owner, 20 Oct 2026) — Owner only, lib/docChangeMenuCore.
+  // Changing a decided document stays the Owner's (owner, 5 Nov 2026).
   const menu = changeMenuOptions({
-    canDecide: canReview,
+    canDecide: canReviewProp && !readOnly && ownerApproves,
     status,
     hasUpload: state.hasUpload,
     unlockable: !!unlock?.lockable,
@@ -339,7 +365,7 @@ function ReviewItem({
     const { ok, data } = await adminFetch<{ error?: string }>('/api/admin/tutors/document-review', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tutorId, item, decision, reason: decision === 'reject' ? reason : null }),
+      body: JSON.stringify({ tutorId, item, decision, reason: decision === 'reject' ? reason : null, nameChecked }),
     })
     setBusy(null)
     if (ok) {
@@ -369,7 +395,18 @@ function ReviewItem({
         <p className="text-[11px] text-tm-red">{shownReason}</p>
       )}
 
-      {viewOnlyNote && <OwnerOnlyNote />}
+      {cnicCheck && state.hasUpload && (
+        <CnicNameCheck
+          memberId={tutorId}
+          cnicName={cnicCheck.cnicName}
+          mode={ownerApproves && !readOnly ? 'owner' : canReview && item === 'cnic' && decider === 'staff' && !decided ? 'staff' : 'view'}
+          nameMismatch={cnicCheck.nameMismatch}
+          checked={nameChecked}
+          onChecked={setNameChecked}
+        />
+      )}
+
+      {viewOnlyNote && (viewOnlyText ? <p className="text-[11px] font-bold text-gray-600">{viewOnlyText}</p> : <OwnerOnlyNote />)}
 
       {/* PR106-E §3 — no file, nothing to review: show "Not uploaded", no
           Approve/Reject (the server rejects approving a missing file too). */}
@@ -420,7 +457,8 @@ function ReviewItem({
             <button
               type="button"
               onClick={() => act('approve')}
-              disabled={!!busy}
+              disabled={!!busy || needsNameTick}
+              title={needsNameTick ? 'Tick “The name on the card matches” first' : undefined}
               className="inline-flex min-h-[36px] flex-1 items-center justify-center gap-1 rounded-lg bg-tm-green-deep px-3 text-[11px] font-bold text-white disabled:opacity-50"
             >
               {busy === 'approve' ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}

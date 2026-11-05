@@ -6,7 +6,7 @@
 // against the fields Google requires and recommends. Pure — no imports from the
 // server — so the page, the tests and the audit script read the same rules.
 
-import { ONLINE_JOB_TITLE } from '@/lib/jobTitlesCore'
+import { ONLINE_JOB_TITLE, PART_TIME_JOB_TITLES, shortJobTitle } from '@/lib/jobTitlesCore'
 
 export const HOME_JOB_TITLE = 'Home Tutor'
 
@@ -29,6 +29,7 @@ export type EmploymentType = 'PART_TIME' | 'FULL_TIME' | 'CONTRACTOR'
  */
 export function employmentTypeFor(job: { jobTitle: string | null; title?: string | null; description?: string | null }): EmploymentType | null {
   if (isTuitionTitle(job.jobTitle)) return 'PART_TIME'
+  if (PART_TIME_JOB_TITLES.includes((job.jobTitle ?? '').trim())) return 'PART_TIME'
   const text = `${job.jobTitle ?? ''} ${job.title ?? ''} ${job.description ?? ''}`.toLowerCase()
   if (/\bpart[\s-]?time\b|\bvisiting\b/.test(text)) return 'PART_TIME'
   if (/\bfull[\s-]?time\b/.test(text)) return 'FULL_TIME'
@@ -49,7 +50,8 @@ export function jobPostingEmploymentType(stored: string | null | undefined, jobT
   if (stored === 'part_time') return 'PART_TIME'
   if (stored === 'full_time') return 'FULL_TIME'
   if (stored === 'contract') return 'CONTRACTOR'
-  return isTuitionTitle(jobTitle) ? 'PART_TIME' : 'FULL_TIME'
+  if (isTuitionTitle(jobTitle) || PART_TIME_JOB_TITLES.includes((jobTitle ?? '').trim())) return 'PART_TIME'
+  return 'FULL_TIME'
 }
 
 function list(items: string[]): string {
@@ -79,7 +81,7 @@ export function jobPostingDescription(job: {
 }): string {
   const online = (job.jobTitle ?? '').trim() === ONLINE_JOB_TITLE
   const tuition = isTuitionTitle(job.jobTitle)
-  const role = (job.jobTitle ?? '').trim() || HOME_JOB_TITLE
+  const role = shortJobTitle(job.jobTitle) || HOME_JOB_TITLE
   const subjects = job.subjects.filter(Boolean).slice(0, 8)
   const where = [job.area, job.city].map((s) => (s ?? '').trim()).filter(Boolean)
   const place = where.length ? where.join(', ') : 'Pakistan'

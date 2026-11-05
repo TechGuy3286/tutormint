@@ -10,7 +10,9 @@ import DocumentViewer, { ViewerThumb as Zoomable, type ViewerImage } from '@/com
 import { SavedCnicDuplicate } from '@/components/admin/AdminCnicNumberBox'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
-import { OwnerOnlyNote, useAdminReadOnly, useCanApprove, useStaffRefCode } from '@/components/admin/ReadOnly'
+import { OwnerOnlyNote, useAdminReadOnly, useCanApprove, useDocDecider, useStaffRefCode } from '@/components/admin/ReadOnly'
+import CnicNameCheck from '@/components/admin/CnicNameCheck'
+import { staffCardBlock } from '@/lib/docDecisionCore'
 import { PARENT_REJECT_PRESETS, addressChipLabel, type ParentDocItem, type ParentItemState } from '@/lib/parentDocsCore'
 import { buildRejectReason, rejectionWhatsAppText } from '@/lib/rejectReasonsCore'
 import RejectReasonPicker from '@/components/admin/RejectReasonPicker'
@@ -57,8 +59,14 @@ export default function ParentDocumentReview({
   unlockOpen = false,
   canUnlock = false,
   addressOnly = false,
+  cnicName = null,
+  nameMismatch = false,
 }: {
   docs: ParentDocsView
+  /** The member's Name on CNIC, shown beside the card to compare (owner, 5 Nov 2026). */
+  cnicName?: string | null
+  /** Staff marked the card's name as not matching: the CNIC is the Owner's to decide. */
+  nameMismatch?: boolean
   /** A TUTOR account's home address (owner, 27 Oct 2026): the address card
    *  alone, the same Approve / Reject and status chip. */
   addressOnly?: boolean
@@ -99,7 +107,7 @@ export default function ParentDocumentReview({
         </p>
       )}
       <div className="grid gap-3 sm:grid-cols-2">
-        <ReviewItem parentId={docs.parentId} item="cnic" title="CNIC (front & back)" canReview={canReview} state={docs.cnic} whatsapp={docs.whatsapp} onVerified={setVerified} unlock={{ lockable: lockable && !hasNew, unlockOpen, canUnlock }}>
+        <ReviewItem parentId={docs.parentId} item="cnic" title="CNIC (front & back)" canReview={canReview} state={docs.cnic} whatsapp={docs.whatsapp} onVerified={setVerified} unlock={{ lockable: lockable && !hasNew, unlockOpen, canUnlock }} cnicCheck={{ cnicName, nameMismatch }}>
           <div className="grid grid-cols-2 gap-2">
             {docs.cnicFrontId ? (
               <Zoomable onOpen={() => setLbIndex(at.front)}>
@@ -174,8 +182,11 @@ function ReviewItem({
   onVerified,
   unlock = null,
   audience = 'parent',
+  cnicCheck = null,
   children,
 }: {
+  /** CNIC only: the name comparison (owner, 5 Nov 2026). */
+  cnicCheck?: { cnicName: string | null; nameMismatch: boolean } | null
   /** Who the rejection WhatsApp is for: a tutor's address card says tutor words and links the tutor's settings (owner, 31 Oct 2026). */
   audience?: 'tutor' | 'parent'
   /** Unlock for re-upload (the CNIC), offered in the Change menu. */
@@ -196,9 +207,17 @@ function ReviewItem({
   // Approvals are the Owner's alone (owner, 15 Oct 2026); other staff view.
   const ownerApproves = useCanApprove()
   const refCode = useStaffRefCode()
-  const canReview = canReviewProp && !readOnly && ownerApproves
-  const viewOnlyNote = canReviewProp && !ownerApproves && state.hasUpload
+  // Backend Support decides the CNIC too (owner, 5 Nov 2026) — never the address.
+  const decider = useDocDecider()
   const [status, setStatus] = useState(state.status)
+  const staffBlock =
+    decider === 'staff'
+      ? staffCardBlock({ item, status, rereview: !!state.rereview, nameFlagged: false, nameMismatch: !!cnicCheck?.nameMismatch })
+      : null
+  const canReview = canReviewProp && !readOnly && (ownerApproves || (decider === 'staff' && !staffBlock))
+  const [nameChecked, setNameChecked] = useState(false)
+  const viewOnlyNote = canReviewProp && !canReview && state.hasUpload && !ownerApproves
+  const viewOnlyText = decider === 'staff' ? staffBlock : null
   const [shownReason, setShownReason] = useState(state.reason)
   // The CNIC uses the quick reasons (lib/rejectReasonsCore, owner Part F) and
   // falls back to "This is not the right document."; the typed address keeps
@@ -217,8 +236,10 @@ function ReviewItem({
   const s = item === 'address' ? { ...STATUS_LABEL[status], text: addressChipLabel(state) } : STATUS_LABEL[status]
   const decided = status === 'approved' || status === 'rejected'
   // One Change menu (owner, 20 Oct 2026) — Owner only, lib/docChangeMenuCore.
+  const needsNameTick = item === 'cnic' && !ownerApproves && decider === 'staff' && !nameChecked
+  // Changing a decided item stays the Owner's (owner, 5 Nov 2026).
   const menu = changeMenuOptions({
-    canDecide: canReview,
+    canDecide: canReviewProp && !readOnly && ownerApproves,
     status,
     hasUpload: state.hasUpload,
     unlockable: !!unlock?.lockable,
@@ -247,7 +268,7 @@ function ReviewItem({
     const { ok, data } = await adminFetch<{ error?: string; verified?: boolean }>('/api/admin/parents/document-review', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ parentId, item, decision, reason: decision === 'reject' ? reason || null : null }),
+      body: JSON.stringify({ parentId, item, decision, reason: decision === 'reject' ? reason || null : null, nameChecked }),
     })
     setBusy(null)
     if (ok) {
@@ -280,7 +301,18 @@ function ReviewItem({
       {children}
       {shownReason && status === 'rejected' && <p className="text-[11px] text-tm-red">{shownReason}</p>}
 
-      {viewOnlyNote && <OwnerOnlyNote />}
+      {cnicCheck && state.hasUpload && (
+        <CnicNameCheck
+          memberId={parentId}
+          cnicName={cnicCheck.cnicName}
+          mode={ownerApproves && !readOnly ? 'owner' : canReview && decider === 'staff' && !decided ? 'staff' : 'view'}
+          nameMismatch={cnicCheck.nameMismatch}
+          checked={nameChecked}
+          onChecked={setNameChecked}
+        />
+      )}
+
+      {viewOnlyNote && (viewOnlyText ? <p className="text-[11px] font-bold text-gray-600">{viewOnlyText}</p> : <OwnerOnlyNote />)}
 
       {canReview && !state.hasUpload && (
         <p className="text-[11px] font-semibold text-gray-500">
@@ -366,7 +398,8 @@ function ReviewItem({
             <button
               type="button"
               onClick={() => act('approve')}
-              disabled={!!busy}
+              disabled={!!busy || needsNameTick}
+              title={needsNameTick ? 'Tick “The name on the card matches” first' : undefined}
               className="inline-flex min-h-[36px] flex-1 items-center justify-center gap-1 rounded-lg bg-tm-green-deep px-3 text-[11px] font-bold text-white disabled:opacity-50"
             >
               {busy === 'approve' ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}

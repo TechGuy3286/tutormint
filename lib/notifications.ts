@@ -135,6 +135,10 @@ export type NotificationKind =
   | 'staff_alert'
   // The Owner's daily "Approved by staff" list (owner, 31 Oct 2026).
   | 'staff_approvals_daily'
+  // The Owner's daily 'Documents approved by staff' list, and a document put
+  // back to waiting by the Owner's Undo (owner, 5 Nov 2026).
+  | 'staff_documents_daily'
+  | 'verification_pending'
   // SMS may not be sending (owner, 15 Oct 2026) — the hourly SMS health check.
   | 'sms_alert'
   // My sign-ups (owner, 16 Oct 2026): someone signed up through this staff

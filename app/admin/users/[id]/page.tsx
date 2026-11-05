@@ -25,6 +25,9 @@ import { loadAdminLockInfo, type AdminLockInfo } from '@/lib/docLocks'
 import { maskCnicHeavy } from '@/lib/cnic'
 import ParentDocumentReview from '@/components/admin/ParentDocumentReview'
 import TutorDocumentReview from '@/components/admin/TutorDocumentReview'
+import { docDecider } from '@/lib/docDecisionCore'
+import { cnicNameDiffers } from '@/lib/memberNamesCore'
+import { nameOwnerOnly } from '@/lib/nameEditCore'
 import ProfileShareButtons from '@/components/admin/ProfileShareButtons'
 import { profileShareState } from '@/lib/profileShareCore'
 import { withShareMessages } from '@/lib/profileShare'
@@ -105,7 +108,7 @@ export default async function AdminMemberPage({
   const { data: profile } = await admin
     .from('profiles')
     .select(
-      'id, full_name, email, phone_number, whatsapp, avatar_url, role, admin_role, city, profile_completion, cnic_verified_at, address_verified_at, verification_state, is_suspended, suspension_reason, suspended_at, suspended_by, is_banned, banned_reason, paused_by_user_at, phone_verified_via, phone_verified_at, created_at, utm_source, utm_medium, utm_campaign, utm_content, linked_account_id, former_staff_at, former_staff_role, merged_into, merged_at, erased_at, avatar_pending_url, name_rereview_at, name_rereview_from',
+      'id, full_name, email, phone_number, whatsapp, avatar_url, role, admin_role, city, profile_completion, cnic_verified_at, address_verified_at, verification_state, is_suspended, suspension_reason, suspended_at, suspended_by, is_banned, banned_reason, paused_by_user_at, phone_verified_via, phone_verified_at, created_at, utm_source, utm_medium, utm_campaign, utm_content, linked_account_id, former_staff_at, former_staff_role, merged_into, merged_at, erased_at, avatar_pending_url, name_rereview_at, name_rereview_from, cnic_name, display_name, cnic_name_mismatch_at',
     )
     .eq('id', id)
     .maybeSingle()
@@ -218,8 +221,12 @@ export default async function AdminMemberPage({
   // only through /api/documents/[id]/preview (owner or staff, never public).
   const isParent = profile.role === 'parent' || profile.role === 'academy'
   const secondRole = await secondRoleState(id)
-  const canReviewParent = roleMayWrite(actor.adminRole, SCREEN_ACCESS.parents)
-  const canReviewTutor = roleMayWrite(actor.adminRole, SCREEN_ACCESS.tutors)
+  // Backend Support decides documents too (owner, 5 Nov 2026, lib/docDecisionCore).
+  const decidesDocs = docDecider(actor.adminRole) !== null
+  const canReviewParent = roleMayWrite(actor.adminRole, SCREEN_ACCESS.parents) || decidesDocs
+  const canReviewTutor = roleMayWrite(actor.adminRole, SCREEN_ACCESS.tutors) || decidesDocs
+  const cnicNameShown = formatName((profile.cnic_name as string | null) ?? null) || null
+  const nameMismatch = !!(profile.cnic_name_mismatch_at as string | null)
   const parentDocs = isParent ? await loadParentDocs(id) : null
   // A tutor's home address (owner, 27 Oct 2026): reviewed like a parent's.
   const tutorAddressLoaded = isTutor ? await loadParentDocs(id, { allowTutor: true }) : null
@@ -337,6 +344,9 @@ export default async function AdminMemberPage({
             <h2 className="truncate text-xl font-black text-tm-navy sm:text-2xl">
               {formatName(profile.full_name as string | null)}
             </h2>
+            {cnicNameDiffers(profile.full_name as string | null, profile.cnic_name as string | null) && (
+              <p className="text-xs font-semibold text-gray-600">Name on CNIC: {cnicNameShown}</p>
+            )}
             {share && (
               <div className="mt-1.5 flex flex-wrap items-start gap-1.5">
                 {share.url ? (
@@ -505,6 +515,8 @@ export default async function AdminMemberPage({
               lockable={!!lockInfo?.lockable.cnic}
               unlockOpen={!!lockInfo?.unlockOpen.cnic}
               canUnlock={canUnlock}
+              cnicName={cnicNameShown}
+              nameMismatch={nameMismatch}
             />
           )}
           {tutorDocs && (profile.name_rereview_at as string | null) && (
@@ -532,6 +544,9 @@ export default async function AdminMemberPage({
               cnicNumberMasked={tutorDocs.cnicNumberMasked}
               canEditNumber={roleMayWrite(actor.adminRole, SCREEN_ACCESS.tutorEdit)}
               selfieLooksLikePhoto={(await selfiePhotoMatchUsers([id])).has(id)}
+              cnicName={cnicNameShown}
+              nameFlagged={!!(profile.name_rereview_at as string | null)}
+              nameMismatch={nameMismatch}
             />
           )}
           {tutorAddressDocs && (
@@ -558,9 +573,18 @@ export default async function AdminMemberPage({
       {/* Edit name (owner, 27 Oct 2026) — parents here; tutors on the Edit tab. */}
       {isParent && roleMayWrite(actor.adminRole, SCREEN_ACCESS.parents) && (
         <details className="rounded-2xl border border-gray-200 bg-white p-4">
-          <summary className="cursor-pointer text-xs font-black text-tm-navy">Edit name</summary>
+          <summary className="cursor-pointer text-xs font-black text-tm-navy">Edit names</summary>
           <div className="mt-3">
-            <NameEditForm memberId={id} currentName={formatName(profile.full_name as string | null)} ownerOnly={false} isOwner={actor.adminRole === 'owner'} />
+            <NameEditForm
+              memberId={id}
+              currentName={formatName(((profile.cnic_name as string | null) ?? (profile.full_name as string | null)) ?? null)}
+              ownerOnly={nameOwnerOnly({ role: profile.role as string, cnicVerifiedAt: profile.cnic_verified_at as string | null })}
+              isOwner={actor.adminRole === 'owner'}
+              field="cnic"
+            />
+            <div className="mt-3 border-t border-gray-100 pt-3">
+              <NameEditForm memberId={id} currentName={formatName((profile.display_name as string | null) ?? null)} ownerOnly={false} isOwner={actor.adminRole === 'owner'} field="display" />
+            </div>
           </div>
         </details>
       )}

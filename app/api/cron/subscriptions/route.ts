@@ -14,6 +14,7 @@ import { drainIndexingQueue, INDEXING_DAILY_LIMIT } from '@/lib/googleIndexing'
 import { runDueErasures } from '@/lib/accountErase'
 import { drainEmailQueue } from '@/lib/email/queue'
 import { notifyStaffApprovalsDaily } from '@/lib/staffReceipt'
+import { notifyStaffDocDecisionsDaily } from '@/lib/staffDocDecisions'
 
 // Daily subscription sweep: remind at T-3, expire at zero.
 //
@@ -107,6 +108,8 @@ async function handle(request: Request) {
   const emailQueue = await drainEmailQueue().catch(() => null)
   // The Owner's daily "Approved by staff" list in the bell (owner, 31 Oct 2026).
   const staffApprovals = await notifyStaffApprovalsDaily().catch(() => null)
+  // The Owner's daily 'Documents approved by staff' list (owner, 5 Nov 2026).
+  const staffDocuments = await notifyStaffDocDecisionsDaily().catch(() => null)
 
   // Errors are reported, not swallowed: a sweep that silently half-ran is how
   // a member keeps a plan they stopped paying for.
@@ -134,6 +137,7 @@ async function handle(request: Request) {
       erasures,
       emailQueue,
       staffApprovals,
+      staffDocuments,
     },
     { status },
   )

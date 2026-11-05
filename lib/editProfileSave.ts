@@ -38,3 +38,13 @@ export function subjectsPayload(ids: number[]) {
 export function locationPayload(mainCity: string, areasByCity: Record<string, string[]>) {
   return { profile: { city: mainCity }, areasByCity }
 }
+
+/** Two names (owner, 5 Nov 2026): the Name on CNIC (left out once it is locked
+ *  — the server and the database refuse a change), the optional Display name
+ *  (empty = show the Name on CNIC) and the WhatsApp number of the same card. */
+export function namesPayload(v: { cnicName: string; displayName: string; whatsapp?: string | null; cnicNameLocked: boolean }) {
+  const profile: Record<string, unknown> = { display_name: v.displayName.trim() }
+  if (!v.cnicNameLocked) profile.cnic_name = v.cnicName
+  if (v.whatsapp !== undefined) profile.whatsapp = v.whatsapp
+  return { profile }
+}

@@ -22,6 +22,7 @@
 import { collapseLevels } from './levelDisplay'
 import { areaWithoutCity, areaCarriesCity } from './place'
 import { jobType } from './display'
+import { shortJobTitle } from '@/lib/jobTitlesCore'
 
 export const TUITION_TITLE_MAX = 60
 const BRAND = 'TutorMint'
@@ -49,7 +50,8 @@ function genderAdjective(gender: string | null | undefined): string | null {
  * none chosen it is "Tutor".
  */
 export function postType(mode: string | null | undefined, gender: string | null | undefined): string {
-  const title = clean(jobType(mode)) || 'Tutor'
+  // "Intermediate Teacher (FA / FSc / ICS / I.Com)" → "Intermediate Teacher" (owner, 5 Nov 2026).
+  const title = shortJobTitle(clean(jobType(mode))) || 'Tutor'
   const g = genderAdjective(gender)
   return `${g ? `${g} ` : ''}${title} Required`
 }
