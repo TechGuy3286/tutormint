@@ -120,10 +120,10 @@ test('a hidden photo never reaches the card, profile, OG or JSON-LD output', () 
   const meta = socialMeta({ title: 't', description: 'd', path: '/tutor/s', image: publicPhoto(PHOTO, { hidden: true }), type: 'profile' })
   assert.equal(JSON.stringify(meta).includes(PHOTO), false)
 
-  // The avatar in initials mode draws the initials and never the photo.
-  const html = renderToStaticMarkup(createElement(Avatar, { name: 'Ali Raza', src: PHOTO, initials: true }))
+  // A hidden photo draws the gender default and never the photo (5 Nov 2026).
+  const html = renderToStaticMarkup(createElement(Avatar, { name: 'Ali Raza', src: PHOTO, gender: 'male', photoHidden: true }))
   assert.equal(html.includes(PHOTO), false)
-  assert.match(html, />AR</)
+  assert.match(html, /default-male-/)
 
   // The wiring: card producers, card, profile (body, preview, OG, JSON-LD).
   const browse = read('lib/browseTutors.ts')
@@ -140,7 +140,7 @@ test('a hidden photo never reaches the card, profile, OG or JSON-LD output', () 
   assert.match(read('lib/social/postTutor.ts'), /const photoShown = !!facts && !facts\.photoHidden && \(await avatarShown\(admin, id\)\)/)
   assert.match(read('app/og/tutor/[slug]/route.tsx'), /loadPostTutor\(admin, slug\)/)
   assert.match(page, /avatarUrl: publicPhoto\(tutor\.avatar_url, \{ hidden: photoHidden \}\)/)
-  assert.match(page, /initials=\{photoHidden\}/)
+  assert.match(page, /photoHidden=\{photoHidden\}/)
   assert.match(page, /show_avatar === false \}\),/)
   // The public views have gated the photo on show_avatar since PR70.
   assert.match(read('supabase/migrations/115_show_avatar.sql'), /CASE WHEN COALESCE\(tp\.show_avatar, true\) THEN tp\.avatar_url ELSE NULL END AS avatar_url/)

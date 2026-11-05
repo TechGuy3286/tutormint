@@ -444,12 +444,12 @@ export default function TutorCard({
         <div className="grid grid-cols-[72px_1fr] items-start gap-x-4 gap-y-4 sm:grid-cols-[140px_1fr] sm:gap-x-6">
           {/* Avatar spans the whole card on desktop, one row on mobile. */}
           <div className="col-start-1 row-start-1 row-span-1 sm:row-span-3">
-            {/* Initials rather than a stock photo: a placeholder face on a
-                tutor profile is a small lie about a real person. */}
+            {/* No photo, or "Hide my photo from parents": the gender default
+                (lib/defaultAvatar), never a stock photo of a real person. */}
             <Avatar
               name={tutor.full_name}
               src={tutor.photo_hidden ? null : tutor.avatar_url}
-              initials={!!tutor.photo_hidden}
+              photoHidden={!!tutor.photo_hidden}
               gender={tutor.gender}
               decorative
               className="h-[72px] w-[72px] text-lg sm:h-[140px] sm:w-[140px] sm:text-3xl"

@@ -2,21 +2,24 @@
 //
 // Crop a tutor's photo for a social post (the rule is lib/social/cropCore.ts).
 // Reads the photo (our public storage URL or a data: URI), turns it upright,
-// cuts the square box and returns a JPEG data URI for satori. A silhouette (an
-// SVG data URI) is returned unchanged. Any failure returns the source as it
+// cuts the square box and returns a JPEG data URI for satori. A default picture
+// (the neutral SVG, or the branded male / female PNG) is returned unchanged. Any failure returns the source as it
 // was, so a post still renders — just uncropped.
 //
 // Nothing here writes anywhere: the crop exists only inside the PNG.
 
 import sharp from 'sharp'
 import { cropBox, NO_ADJUST, type CropAdjust } from '@/lib/social/cropCore'
+import { DEFAULT_AVATAR_PNG_DATA_URI } from '@/lib/social/defaultAvatarData'
+
+const DEFAULTS = new Set<string>(Object.values(DEFAULT_AVATAR_PNG_DATA_URI))
 
 const OUT_PX = 720
 const FETCH_MS = 6000
 
 async function readSource(src: string): Promise<Buffer | null> {
   if (src.startsWith('data:')) {
-    if (src.startsWith('data:image/svg')) return null
+    if (src.startsWith('data:image/svg') || DEFAULTS.has(src)) return null
     const comma = src.indexOf(',')
     if (comma < 0) return null
     const meta = src.slice(0, comma)

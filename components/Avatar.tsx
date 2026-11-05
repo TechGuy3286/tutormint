@@ -1,11 +1,11 @@
 // One avatar, everywhere.
 //
-// NO PHOTO -> A GREY, GENDER-BASED DEFAULT (owner, 10 Oct 2026). A member
-// without a picture gets one of three static greyscale silhouettes from
-// public/avatars/ -- male, female, or neutral (Trans, gender not set, or a
-// value we do not recognise). lib/defaultAvatar.ts is the one rule. This
-// replaced the coloured initials disc for members on every surface. It is drawn
-// with the same size, round shape and ring as the photo, so layouts do not move.
+// NO PHOTO -> A GENDER-BASED DEFAULT. Branded male / female avatars (owner,
+// 5 Nov 2026; WebP with a PNG fallback), or the grey neutral silhouette for
+// Trans, gender not set, or a value we do not recognise. lib/defaultAvatar.ts
+// is the one rule. A hidden photo ("Hide my photo from parents") shows the same
+// default. It is drawn with the same size, round shape and ring as the photo,
+// so layouts do not move.
 // The default is NEVER an og:image or structured-data image -- those read
 // avatar_url themselves and fall back to the site default.
 //
@@ -27,9 +27,8 @@
 
 import Image from 'next/image'
 
-import { defaultAvatarSrc } from '@/lib/defaultAvatar'
+import { defaultAvatarImage, defaultAvatarSrc } from '@/lib/defaultAvatar'
 import { isCroppedAvatarUrl } from '@/lib/photoCropCore'
-import { initialsOf } from '@/lib/photoPrivacyCore'
 
 // FACE-FIRST FRAMING (owner, 11 Oct 2026). Members upload full-length and
 // off-centre portraits; cut from the MIDDLE, the round avatar showed a dress and
@@ -60,8 +59,8 @@ const CURRENT_SUPABASE_ORIGIN = (() => {
 
 // Bumped whenever a drawing in public/avatars/ changes, so browsers and the CDN
 // fetch the new file at once instead of a cached old one. v2 (10 Oct 2026): plain
-// male and female silhouettes, no headscarf.
-const DEFAULT_AVATAR_VERSION = 2
+// male and female silhouettes, no headscarf. v3 (5 Nov 2026): branded defaults.
+export const DEFAULT_AVATAR_VERSION = 3
 
 export function normalizeStorageSrc(src: string): string {
   if (!CURRENT_SUPABASE_ORIGIN) return src
@@ -90,7 +89,7 @@ export default function Avatar({
   px = 48,
   sizes,
   priority = false,
-  initials = false,
+  photoHidden = false,
 }: {
   name: string | null | undefined
   src?: string | null
@@ -121,26 +120,13 @@ export default function Avatar({
   /** True for the first visible photo on a page (fetchpriority=high + preload). */
   priority?: boolean
   /**
-   * The tutor chose "Hide my photo from parents" (owner, 17 Oct 2026): draw
-   * their initials on a plain grey disc, never the photo (even if one is
-   * passed) and never the default silhouette.
+   * The tutor chose "Hide my photo from parents": draw the gender default,
+   * never the photo, even if one is passed (owner, 5 Nov 2026; replaced the
+   * initials disc of 17 Oct).
    */
-  initials?: boolean
+  photoHidden?: boolean
 }) {
-  if (initials) {
-    return (
-      <span
-        role={decorative ? undefined : 'img'}
-        aria-label={decorative ? undefined : (name ?? '')}
-        aria-hidden={decorative || undefined}
-        data-initials-avatar=""
-        className={`inline-grid shrink-0 place-items-center rounded-full bg-slate-200 font-black text-slate-700 ${ring} ${className}`}
-      >
-        {initialsOf(name)}
-      </span>
-    )
-  }
-  if (src) {
+  if (src && !photoHidden) {
     const resolved = normalizeStorageSrc(src)
     const alt = decorative ? '' : (name ?? '')
     const cls = `shrink-0 rounded-full bg-tm-bg object-cover ${isCroppedAvatarUrl(resolved) ? '' : AVATAR_FACE_FIRST} ${ring} ${className}`
@@ -174,19 +160,46 @@ export default function Avatar({
     )
   }
 
+  const alt = decorative ? '' : (name ?? '')
+  const cls = `shrink-0 rounded-full bg-tm-bg object-cover ${ring} ${className}`
+  const branded = defaultAvatarImage(gender)
+  if (branded) {
+    const v = `?v=${DEFAULT_AVATAR_VERSION}`
+    const withV = (set: string) => set.replace(/ (\d+w)/g, `${v} $1`)
+    return (
+      // display:contents so the <img> stays the flex item, exactly like a photo.
+      <picture className="contents">
+        <source type="image/webp" srcSet={withV(branded.webpSrcSet)} sizes={sizes ?? `${px}px`} />
+        {/* eslint-disable-next-line @next/next/no-img-element -- a static file under 50 KB in public/ */}
+        <img
+          src={`${branded.png(px)}${v}`}
+          srcSet={withV(branded.pngSrcSet)}
+          sizes={sizes ?? `${px}px`}
+          alt={alt}
+          aria-hidden={decorative || undefined}
+          data-default-avatar=""
+          width={px}
+          height={px}
+          loading={priority ? 'eager' : 'lazy'}
+          decoding="async"
+          className={cls}
+        />
+      </picture>
+    )
+  }
   return (
     // eslint-disable-next-line @next/next/no-img-element -- a static SVG under
-    // 2 KB in public/: nothing for the optimiser to do, and next/image refuses SVG.
+    // 1 KB in public/: nothing for the optimiser to do, and next/image refuses SVG.
     <img
       src={`${defaultAvatarSrc(gender)}?v=${DEFAULT_AVATAR_VERSION}`}
-      alt={decorative ? '' : (name ?? '')}
+      alt={alt}
       aria-hidden={decorative || undefined}
       data-default-avatar=""
       width={px}
       height={px}
       loading={priority ? 'eager' : 'lazy'}
       decoding="async"
-      className={`shrink-0 rounded-full bg-tm-bg object-cover ${ring} ${className}`}
+      className={cls}
     />
   )
 }

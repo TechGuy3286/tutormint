@@ -23,6 +23,7 @@ import { BRAND, NEUTRAL } from '@/lib/brand'
 import { JAKARTA_500_B64, JAKARTA_700_B64, JAKARTA_800_B64 } from '@/lib/social/fonts'
 import { NASKH_400_B64 } from '@/lib/cv/urduFont'
 import { SILHOUETTE_SVG } from '@/lib/social/avatars'
+import { DEFAULT_AVATAR_PNG_DATA_URI } from '@/lib/social/defaultAvatarData'
 import {
   QR_CAPTION,
   cvModernLayout,
@@ -131,6 +132,12 @@ export function buildCvDocument(R: RPdf, args: CvDocArgs) {
           <View style={{ width: size - 6, height: size - 6, borderRadius: (size - 6) / 2, backgroundColor: BRAND.white, padding: 2 }}>
             {model.photo.kind === 'photo' && photoDataUri ? (
               <Image src={photoDataUri} style={{ width: inner, height: inner, borderRadius: inner / 2, objectFit: 'cover' }} />
+            ) : model.photo.kind === 'silhouette' && model.photo.avatar !== 'neutral' ? (
+              // The branded male / female default (owner, 5 Nov 2026).
+              <Image
+                src={DEFAULT_AVATAR_PNG_DATA_URI[model.photo.avatar]}
+                style={{ width: inner, height: inner, borderRadius: inner / 2, objectFit: 'cover' }}
+              />
             ) : (
               <Svg width={inner} height={inner} viewBox="0 0 96 96">
                 <Defs>
@@ -139,7 +146,7 @@ export function buildCvDocument(R: RPdf, args: CvDocArgs) {
                   </ClipPath>
                 </Defs>
                 <G clipPath={`url(#${id})`}>
-                  {silhouetteShapes(SILHOUETTE_SVG[model.photo.kind === 'silhouette' ? model.photo.avatar : 'neutral']).map((s, i) =>
+                  {silhouetteShapes(SILHOUETTE_SVG.neutral).map((s, i) =>
                     s.tag === 'rect' ? (
                       <Rect key={i} x={0} y={0} width={96} height={96} fill={s.a.fill} />
                     ) : s.tag === 'circle' ? (

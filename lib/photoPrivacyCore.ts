@@ -28,4 +28,4 @@ export function initialsOf(name: string | null | undefined): string {
 }
 
 export const HIDE_PHOTO_LABEL = 'Hide my photo from parents'
-export const HIDE_PHOTO_HELP = 'Parents will see your initials instead. We still need your photo for verification.'
+export const HIDE_PHOTO_HELP = 'Parents will see a default picture instead. We still need your photo for verification.'

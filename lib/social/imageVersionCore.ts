@@ -36,12 +36,18 @@ export type ImageDrawFacts = {
 
 const clean = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim()
 
+/** Bumped when the default picture (no photo / hidden photo) is redrawn, so an
+ *  image drawn with the old default gets a new URL. 2 = branded male / female
+ *  defaults (owner, 5 Nov 2026). */
+export const DEFAULT_PICTURE_VERSION = 2
+
 /** The key: a short FNV-1a hash of every fact the image shows. */
 export function imageVersionKey(p: ImageProfileFacts, d: ImageDrawFacts): string {
   const crop = d.crop ?? { zoom: 1, x: 0, y: 0 }
   const facts = [
     clean(p.name),
     p.photoHidden ? 'hidden' : clean(p.photo),
+    p.photoHidden || !clean(p.photo) ? `default-${DEFAULT_PICTURE_VERSION}` : '',
     p.photoHidden,
     [...new Set(p.subjects.map((s) => String(s).trim().toLowerCase()).filter(Boolean))].sort(),
     clean(p.city).toLowerCase(),

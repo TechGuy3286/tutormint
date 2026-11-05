@@ -65,9 +65,10 @@ test('only tutors with the Verified badge get one; a hidden photo is the silhoue
   assert.match(read('app/api/admin/follow-ups/status-image/route.ts'), /if \(!facts\.allowed\) return NextResponse\.json\(\{ error: 'Only verified tutors have a status image\.' \}, \{ status: 403 \}\)/)
   assert.match(read('app/admin/paid-tutors/page.tsx'), /return f\?\.verified \? imageVersionKey\(f, STATUS_DRAW\) : null/)
   assert.match(read('app/(site)/tutor/dashboard/page.tsx'), /statusImg\?\.allowed && statusImg\.key/)
-  // Hidden photo → the grey silhouette, never the real address.
+  // Hidden photo → the gender default (branded PNG, 5 Nov 2026), never the real address.
   const src = socialPortraitSrc('https://example.com/real.jpg', true, 'female')
-  assert.ok(src.startsWith('data:image/svg+xml'))
+  assert.ok(src.startsWith('data:image/png;base64,'))
+  assert.ok(socialPortraitSrc('https://example.com/real.jpg', true, null).startsWith('data:image/svg+xml'))
   assert.ok(!src.includes('real.jpg'))
   // Story size, the existing design.
   assert.deepEqual(STATUS_DRAW, { template: 'verified', format: 'story' })

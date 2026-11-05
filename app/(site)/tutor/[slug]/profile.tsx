@@ -765,7 +765,7 @@ export async function TutorProfileView({ slug, ownerId }: { slug: string; ownerI
             <Avatar
               name={tutor.full_name}
               src={publicPhoto(tutor.avatar_url, { hidden: photoHidden })}
-              initials={photoHidden}
+              photoHidden={photoHidden}
               gender={tutor.gender}
               decorative
               className="h-24 w-24 text-2xl sm:h-36 sm:w-36 sm:text-4xl"

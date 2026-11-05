@@ -199,7 +199,7 @@ test('a hidden photo is never used — the grey silhouette for the gender instea
   for (const t of CV_TEMPLATES) {
     const html = renderToStaticMarkup(createElement(CvPreview, { model: toCvModel(raw({ photoHidden: true, gender: 'male' }), { ...ALL, template: t }), template: t, qrDataUrl: 'data:,' }))
     assert.ok(!html.includes(AVATAR), `${t}: the hidden photo URL is not in the page`)
-    assert.ok(html.includes('/avatars/male.svg'))
+    assert.ok(html.includes('/avatars/default-male-512.png'))
   }
   // No photo on file → silhouette too; "Include photo" off → no picture at all.
   assert.deepEqual(toCvModel(raw({ avatarUrl: null, gender: null }), ALL).photo, { kind: 'silhouette', avatar: 'neutral' })

@@ -8,6 +8,7 @@
 // PURE — the render, the routes and the tests read it.
 
 import { defaultAvatarKind, type DefaultAvatarKind } from '@/lib/defaultAvatar'
+import { DEFAULT_AVATAR_PNG_DATA_URI } from '@/lib/social/defaultAvatarData'
 
 export const SILHOUETTE_SVG: Record<DefaultAvatarKind, string> = {
   male: "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 96 96\"><rect width=\"96\" height=\"96\" fill=\"#E5E7EB\"/><path d=\"M14 96c0-21 14-33 34-33s34 12 34 33z\" fill=\"#9CA3AF\"/><circle cx=\"48\" cy=\"38\" r=\"16\" fill=\"#9CA3AF\"/><path d=\"M32.5 36c-.5-10.5 6-15.5 15.5-15.5S64 25.5 63.5 36c-3-5-8-7.5-15.5-7.5S35.5 31 32.5 36z\" fill=\"#6B7280\"/></svg>",
@@ -15,16 +16,22 @@ export const SILHOUETTE_SVG: Record<DefaultAvatarKind, string> = {
   neutral: "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 96 96\"><rect width=\"96\" height=\"96\" fill=\"#E5E7EB\"/><circle cx=\"48\" cy=\"38\" r=\"16\" fill=\"#9CA3AF\"/><path d=\"M14 96c0-21 14-33 34-33s34 12 34 33z\" fill=\"#9CA3AF\"/></svg>",
 }
 
-/** The grey silhouette for a profile gender — female, male, else the neutral one. */
+/**
+ * The default picture for a profile gender as a data URI: the branded male /
+ * female PNG (owner, 5 Nov 2026), else the grey neutral silhouette (Trans,
+ * unset, unknown).
+ */
 export function silhouetteDataUri(gender: string | null | undefined): string {
-  const svg = SILHOUETTE_SVG[defaultAvatarKind(gender)]
+  const kind = defaultAvatarKind(gender)
+  if (kind !== 'neutral') return DEFAULT_AVATAR_PNG_DATA_URI[kind]
+  const svg = SILHOUETTE_SVG.neutral
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`
 }
 
 /**
  * The picture a social post draws for a tutor: their photo, unless they turned
- * on "Hide my photo from parents" (or have none on file) — then the grey
- * silhouette for their gender. When hidden, the real URL is never returned, so
+ * on "Hide my photo from parents" (or have none on file) — then the default
+ * picture for their gender. When hidden, the real URL is never returned, so
  * it cannot reach the PNG.
  */
 export function socialPortraitSrc(avatarUrl: string | null | undefined, hidden: boolean, gender: string | null | undefined): string {

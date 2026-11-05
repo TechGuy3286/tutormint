@@ -1,3 +1,4 @@
+import { defaultAvatarSrc } from '@/lib/defaultAvatar'
 import { BookOpen, Briefcase, GraduationCap, Mail, MapPin, MessageCircle, Monitor, Phone, Wallet } from 'lucide-react'
 
 import {
@@ -42,12 +43,12 @@ const ACCENT: Record<CvAccent, { bg: string; text: string }> = {
 function RingPhoto({ model, size }: { model: CvModel; size: 'lg' | 'md' }) {
   if (!model.photo) return null
   const box = size === 'lg' ? 'h-28 w-28' : 'h-20 w-20'
-  const src = model.photo.kind === 'photo' ? model.photo.url : `/avatars/${model.photo.avatar}.svg`
+  const src = model.photo.kind === 'photo' ? model.photo.url : defaultAvatarSrc(model.photo.avatar)
   return (
     <div className={`relative shrink-0 ${box}`}>
       <div className="h-full w-full rounded-full bg-tm-green-deep p-[3px]">
         <div className="h-full w-full rounded-full bg-white p-[2px]">
-          {/* eslint-disable-next-line @next/next/no-img-element -- a stored avatar or the grey silhouette, shown as the PDF draws it */}
+          {/* eslint-disable-next-line @next/next/no-img-element -- a stored avatar or the gender default, shown as the PDF draws it */}
           <img src={src} alt="" className="h-full w-full rounded-full object-cover" />
         </div>
       </div>

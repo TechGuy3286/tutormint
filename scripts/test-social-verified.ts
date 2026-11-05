@@ -17,6 +17,7 @@ import QRCode from 'qrcode'
 
 import { socialEligible, socialIneligibleReason, toFacts, type SocialEligibilityFacts } from '../lib/social/eligibilityCore'
 import { SILHOUETTE_SVG, silhouetteDataUri, socialPortraitSrc } from '../lib/social/avatars'
+import { DEFAULT_AVATAR_PNG_DATA_URI } from '../lib/social/defaultAvatarData'
 import {
   SOCIAL_TEMPLATES,
   DEFAULT_SOCIAL_TEMPLATE,
@@ -146,8 +147,9 @@ const decode = (uri: string) => Buffer.from(uri.split(',')[1], 'base64').toStrin
 
 mainTest('a hidden photo gets the gender silhouette, never the real photo', () => {
   const real = 'https://example.supabase.co/storage/v1/object/public/avatars/u/photo.jpg'
-  assert.equal(decode(socialPortraitSrc(real, true, 'female')), SILHOUETTE_SVG.female)
-  assert.equal(decode(socialPortraitSrc(real, true, 'Male')), SILHOUETTE_SVG.male)
+  // Male and female: the branded default PNG (owner, 5 Nov 2026).
+  assert.equal(socialPortraitSrc(real, true, 'female'), DEFAULT_AVATAR_PNG_DATA_URI.female)
+  assert.equal(socialPortraitSrc(real, true, 'Male'), DEFAULT_AVATAR_PNG_DATA_URI.male)
   assert.equal(decode(socialPortraitSrc(real, true, null)), SILHOUETTE_SVG.neutral)
   assert.equal(decode(socialPortraitSrc(real, true, 'trans')), SILHOUETTE_SVG.neutral)
   for (const g of ['female', 'male', null]) assert.ok(!socialPortraitSrc(real, true, g).includes('example.supabase.co'))
