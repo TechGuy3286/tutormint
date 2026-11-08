@@ -151,7 +151,7 @@ test('Copy profile link: disabled with the reason when not public', () => {
   assert.equal(profileShareState({ slug: null, listed: true, blockers: [] }).url, null)
   assert.match(profileShareState({ slug: 'x', listed: false, blockers: [] }).disabledReason ?? '', /^Profile not public yet/)
   // Every tutor-card list renders the buttons.
-  for (const f of ['components/admin/OverviewCardGrid.tsx', 'components/admin/SignupRows.tsx', 'app/admin/follow-ups/UnpaidSignupRow.tsx', 'app/admin/users/[id]/page.tsx']) {
+  for (const f of ['components/admin/OverviewCardGrid.tsx', 'components/admin/SignupRows.tsx', 'app/admin/users/[id]/page.tsx']) {
     assert.match(read(f), /ProfileShareButtons/, f)
   }
 })

@@ -434,7 +434,6 @@ test('Follow-ups → Tutors groups', () => {
   assert.equal(tutorInScope(t(2), 'paid_unfinished', now), false)
   assert.equal(parseTutorScope('older'), 'older')
   assert.equal(parseTutorScope('nonsense'), 'recent')
-  const page = read('app/admin/follow-ups/page.tsx')
-  assert.ok(page.includes('tutorFuList(scope)')) // push 2: the group's stored list
-  assert.ok(read('app/admin/follow-ups/UnpaidSignupRow.tsx').includes('Still to do:'))
+  // The groups' pages moved into People's pipeline (owner, 8 Nov 2026); the
+  // group rule still decides the Overview row "Started payment, didn't finish".
 })

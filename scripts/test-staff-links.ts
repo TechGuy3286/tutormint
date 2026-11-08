@@ -203,7 +203,8 @@ test('every staff WhatsApp builder passes the sender code', () => {
     ['lib/staffOutreach.ts', /sendNow\), await senderRefCode\(actor\.id\)\)/],
     ['lib/adminMessaging.ts', /whatsappHref\(msisdn, body, await senderRefCode\(params\.actor\.id\)\)[\s\S]*whatsappHref\(msisdn, finishWaText\(filled, seededRef\), seededRef\)/],
     ['lib/mySignups.ts', /rowsForAccounts\(mine, await senderRefCode\(staffId\)\)/],
-    ['app/admin/follow-ups/page.tsx', /waHrefWithRef\(r\.waHref, refCode\)[\s\S]*feeReplyHref: waHrefWithRef\(r\.feeReplyHref, refCode\)/],
+    // People → Tutors (owner, 8 Nov 2026): the stage message carries the viewer's code.
+    ['app/admin/users/PeopleTabs.tsx', /waSendHref\(msisdn, pipe\.message, refCode\)/],
     ['app/admin/applications/ForwardToParents.tsx', /forwardWaLink\(card\.parent\.msisdn, message, refCode\)/],
     ['app/admin/overview/todo-unmet/UnmetSearchesClient.tsx', /whatsappShareLink\(post, refCode\)/],
     ['components/admin/FollowUpActions.tsx', /waHrefWithRef\(p\.waHref, refCode\)/],

@@ -85,13 +85,11 @@ test('A. the card number equals the rows of the Today filter, followed up or not
   assert.ok(items.includes("case 'signups-today'") && items.includes("const all = await unpaid()") && items.includes("signedUpIn(r.joinedAt, 'today', nowMs)"))
   assert.ok(items.includes('const unpaid = cache(async () => (await loadUnpaidSignups(new Date())).filter((r) => !r.feePaid))'))
   assert.ok(items.includes('`${counts.yesterday} yesterday · ${counts.week} in the last 7 days`'))
-  // Unpaid signups is the Tutors tab of People → Follow-ups (owner, 15 Oct 2026).
-  const page = read('app', 'admin', 'follow-ups', 'page.tsx')
-  // One merged list (owner, 20 Oct 2026): the sign-up day filter is the same signedUpIn rule.
-  // Push 2 (1 Nov 2026): the same rule in SQL — fee not paid, joined in the window (windowRange = signedUpIn's days).
-  assert.ok(page.includes('tutorFuList(scope)') && page.includes('fixed: window ? { feePaid: false } : {}') && page.includes('windowRange(window, now)'))
-  for (const label of ["label: 'Today'", "label: 'Yesterday'", "label: 'Last 7 days'"]) assert.ok(page.includes(label), label)
-  assert.ok(page.includes('UnpaidSignupRow'), 'the existing WhatsApp / Call / Follow-up sent rows — no new list')
+  // Follow-ups merged into People (owner, 8 Nov 2026): the card opens People →
+  // Tutors on the sign-up day — fee not paid, joined in the window (windowRange
+  // = signedUpIn's days), counted in SQL.
+  const page = read('app', 'admin', 'users', 'PeopleTabs.tsx')
+  assert.ok(page.includes("...(signed ? { paid: 'unpaid' } : {})") && page.includes('windowRange(signed, Date.now())'))
 })
 
 test('A. staff, test, paused, banned and paid accounts are not in the number', () => {
@@ -114,7 +112,7 @@ test('A. the sixth card: its own tone, the same visibility rule, and it opens Un
   assert.ok((OVERVIEW_ITEM_KEYS as readonly string[]).includes('signups-today'))
   assert.equal(OVERVIEW_ITEMS['signups-today'].title, 'Signed up today, not paid')
   assert.equal(OVERVIEW_ITEMS['signups-today'].screen, 'unpaidSignups')
-  assert.equal(SIGNUPS_TODAY_HREF, '/admin/follow-ups?filter=today')
+  assert.equal(SIGNUPS_TODAY_HREF, '/admin/users?tab=tutors&signed=today')
   const page = read('app', 'admin', 'page.tsx')
   assert.ok(page.includes("const CARD_KEYS: OverviewItemKey[] = ['revenue', 'paid-today', 'tutors', 'parents', 'open-tuitions', 'signups-today']"))
   assert.ok(page.includes("k === 'signups-today' ? SIGNUPS_TODAY_HREF"))

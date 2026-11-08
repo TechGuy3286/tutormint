@@ -196,6 +196,10 @@ const WA_REGISTRY: Record<string, 'parent-situation' | 'parent-specific' | 'not-
   'lib/memberLocksCore.ts': 'not-parent',
   'lib/errorMessages.ts': 'not-parent',
   'lib/payments/receiptCore.ts': 'not-parent',
+  // People → Tutors pipeline (owner, 8 Nov 2026): tutors only (lib/tutorPipelineCore pipeMessage).
+  'app/admin/users/PeopleTabs.tsx': 'not-parent',
+  'components/admin/PipelineActions.tsx': 'not-parent',
+  'lib/tutorPipelineCore.ts': 'not-parent',
 }
 
 test('every staff WhatsApp builder is declared; parent sends use the situation message', () => {
@@ -235,7 +239,8 @@ test('Backend Support: allowed screens and actions', () => {
   assert.ok(mayOpenFollowUpTab(BS, 'tutors') && mayOpenFollowUpTab(BS, 'parents'))
   const nav = NAV_GROUPS.flatMap((g) => g.items).filter((i) => !i.screen || roleSatisfies(BS, SCREEN_ACCESS[i.screen as keyof typeof SCREEN_ACCESS] ?? []))
   const labels = nav.map((i) => i.label)
-  for (const l of ['Follow-ups', 'Applications', 'Paid tutors', 'Team inbox', 'People', 'Payments', 'Overview', 'Post a tuition', 'Tuitions', 'My sign-ups']) assert.ok(labels.includes(l), l)
+  // Follow-ups merged into People (owner, 8 Nov 2026).
+  for (const l of ['Applications', 'Paid tutors', 'Team inbox', 'People', 'Payments', 'Overview', 'Post a tuition', 'Tuitions', 'My sign-ups']) assert.ok(labels.includes(l), l)
   for (const l of ['Finance', 'Payment gateways', 'Team', 'Plans', 'Audit', 'Subjects', 'SMS', 'Payment settings', 'Messaging']) assert.ok(!labels.includes(l), `no ${l}`)
 })
 

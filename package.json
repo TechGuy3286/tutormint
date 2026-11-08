@@ -188,6 +188,7 @@
     "test:liveselfie": "tsx --test scripts/test-live-selfie.ts",
     "test:people": "tsx --test scripts/test-people-directory.ts",
     "test:closesttopay": "tsx --test scripts/test-closest-to-pay.ts",
+    "test:pipeline": "tsx --test scripts/test-tutor-pipeline.ts",
     "test:people:live": "tsx --conditions=react-server --env-file-if-exists=.env.local --test scripts/test-people-live.ts",
     "test:financeitems": "tsx --test scripts/test-finance-items.ts",
     "test:followupreasons": "tsx --test scripts/test-follow-ups-reasons.ts",

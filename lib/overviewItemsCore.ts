@@ -22,14 +22,11 @@ export const OVERVIEW_ITEM_KEYS = [
   'open-tuitions',
   // today's to-do
   'todo-docs',
-  // "Ready to pay" (owner, 5 Nov 2026) — the Closest to paying chip of
-  // Follow-ups → Tutors; right after Documents to approve.
-  'todo-ready-to-pay',
-  'todo-uncontacted',
-  'todo-stuck',
-  // The "Follow-up sent" tab beside Stuck in onboarding (owner, 9 Oct 2026) —
-  // a list page only, never an Overview row.
-  'todo-stuck-sent',
+  // People's tutor pipeline (owner, 8 Nov 2026): "Ready to pay" became "Fee
+  // pending, not followed up", and "Rejected, not informed" was added. The old
+  // Follow-ups rows (not yet contacted, stuck, follow-up sent) are its stages now.
+  'todo-fee-pending',
+  'todo-rejected-uninformed',
   'todo-payments',
   'todo-due',
   'todo-flagged',
@@ -71,10 +68,8 @@ export const OVERVIEW_ITEMS: Record<OverviewItemKey, OverviewItemMeta> = {
   parents: { title: 'Parents', screen: 'usersView', noun: ['parent', 'parents'] },
   'open-tuitions': { title: 'Open tuitions', screen: 'jobs', noun: ['tuition', 'tuitions'] },
   'todo-docs': { title: 'Documents to approve', screen: 'tutors', noun: ['member', 'members'] },
-  'todo-ready-to-pay': { title: 'Ready to pay', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
-  'todo-uncontacted': { title: 'Tutors not yet contacted', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
-  'todo-stuck': { title: 'Stuck in onboarding', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
-  'todo-stuck-sent': { title: 'Follow-up sent', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
+  'todo-fee-pending': { title: 'Fee pending, not followed up', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
+  'todo-rejected-uninformed': { title: 'Rejected, not informed', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
   // Checkouts a member opened and never completed (owner, 16 Oct 2026) — not
   // payments to approve. Rules: lib/startedPaymentCore.
   'todo-payments': { title: "Started payment, didn't finish", screen: 'payments', noun: ['checkout', 'checkouts'] },
@@ -268,7 +263,15 @@ export function paidListHref(period: PayerPeriod): string {
 
 /** Where the "Signed up today, not paid" card opens: the Tutors tab of Follow-ups (was Unpaid signups)
  *  list on its Today filter (WhatsApp, Call and Follow-up sent already live there). */
-export const SIGNUPS_TODAY_HREF = '/admin/follow-ups?filter=today'
+export const SIGNUPS_TODAY_HREF = '/admin/users?tab=tutors&signed=today'
+
+/** The Overview addresses of the retired Follow-ups rows → their People view (owner, 8 Nov 2026). */
+export const RETIRED_OVERVIEW_KEYS: Record<string, string> = {
+  'todo-ready-to-pay': '/admin/users?tab=tutors&stage=approved',
+  'todo-uncontacted': '/admin/users?tab=tutors',
+  'todo-stuck': '/admin/users?tab=tutors&stage=missing',
+  'todo-stuck-sent': '/admin/users?tab=tutors',
+}
 
 // ----------------------------------------------- the PayPro file's age ------
 

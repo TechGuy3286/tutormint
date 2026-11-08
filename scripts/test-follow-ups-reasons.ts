@@ -177,12 +177,11 @@ test('Waiting on the tutor / Waiting on us — a split, every card in exactly on
 test('no WhatsApp button on Waiting on us; "Review" for the Owner instead', () => {
   assert.equal(showWhatsApp([...chipsFor({ ...base, docsWaiting: true }, NOW)]), false)
   assert.equal(showWhatsApp([...chipsFor(base, NOW)]), true)
-  const card = readFileSync('app/admin/follow-ups/UnpaidSignupRow.tsx', 'utf8')
-  // The WhatsApp button exists only when chase is true (owner, 23 Oct 2026).
-  assert.match(card, /\{chase \? \(\s*<TutorFollowUpButtons/)
-  assert.match(card, /!chase && isOwner/)
-  assert.match(card, />\s*<ClipboardCheck aria-hidden size=\{13\} \/> Review/)
-  assert.match(card, /\{row\.reason\}/)
+  // People → Tutors (owner, 8 Nov 2026): Waiting for approval has no follow-up;
+  // the card offers Review (lib/tutorDocSummaryCore showReviewButton).
+  const actions = readFileSync('components/admin/PipelineActions.tsx', 'utf8')
+  assert.match(actions, /const followable = isFollowStage\(pipe\.stage\)/)
+  assert.match(readFileSync('components/admin/OverviewCardGrid.tsx', 'utf8'), /showReviewButton\(it\.reviewHref, it\.docs\)/)
 })
 
 // ------------------------------------------------------------ Part C

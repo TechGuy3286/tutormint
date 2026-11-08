@@ -8,7 +8,8 @@ import MoreMembers from './MoreMembers'
 import { memberPage } from '@/lib/memberFeed'
 import { isTipKey, resolveTipMemberIds } from '@/lib/adminTips'
 import { redirect } from 'next/navigation'
-import { peopleHref, pickPeopleTab } from '@/lib/peopleDirectoryCore'
+import { PEOPLE_TAB_SCREENS, peopleHref, pickPeopleTab } from '@/lib/peopleDirectoryCore'
+import { legacyPeopleTutorHref } from '@/lib/tutorPipelineCore'
 import PeopleTabs from './PeopleTabs'
 
 const TIP_LABEL: Record<string, string> = {
@@ -37,9 +38,11 @@ const PAGE_SIZE = 100
 export default async function AdminUsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; role?: string; status?: string; filter?: string; tip?: string; tab?: string; all?: string; n?: string; paid?: string; posted?: string; pv?: string; docs?: string; deleted?: string }>
+  searchParams: Promise<Record<string, string | undefined>>
 }) {
-  const actor = await requireAdminRole(...SCREEN_ACCESS.usersView)
+  // People with Follow-ups merged in (owner, 8 Nov 2026): every role that
+  // opened either page; each tab keeps its own access list.
+  const actor = await requireAdminRole(...SCREEN_ACCESS.people)
   const sp = await searchParams
   const { role = 'all', filter, tip, tab, all } = sp
 
@@ -52,16 +55,27 @@ export default async function AdminUsersPage({
   }
 
   // "Approval needed" became the Tutors tab's Waiting chip (owner, 21 Oct 2026).
-  if (filter === 'approval') redirect(peopleHref('tutors', { docs: 'waiting' }))
+  if (filter === 'approval') redirect(peopleHref('tutors', { stage: 'waiting' }))
 
   // A conversion tip from the Overview keeps its own worklist below. Without
   // one, People is the three tabs (owner, 21 Oct 2026). The old role and
   // status chips (?role=, ?status=) open the matching tab.
   if (!tip || !isTipKey(tip)) {
     const legacy = role === 'parent' ? 'parents' : role === 'admin' ? 'staff' : role === 'tutor' ? 'tutors' : null
+    const want = legacy ?? pickPeopleTab(tab)
+    // Old tutor chips (?docs=, ?paid=) open the matching stage.
+    if (want === 'tutors') {
+      const to = legacyPeopleTutorHref(sp)
+      if (to) redirect(to)
+    }
+    // A tab this role may not open falls back to the first one it may.
+    const may = (t: typeof want) => PEOPLE_TAB_SCREENS[t].some((s) => roleSatisfies(actor.adminRole, SCREEN_ACCESS[s]))
+    const shownTab = may(want) ? want : 'tutors'
     // Every chip, the search and 'Load more' are worked out on the server (owner, 28 Oct 2026).
-    return <PeopleTabs tab={legacy ?? pickPeopleTab(tab)} showAll={all === '1'} showDeleted={sp.deleted === '1'} role={actor.adminRole} sp={sp} />
+    return <PeopleTabs tab={shownTab} showAll={all === '1'} showDeleted={sp.deleted === '1'} role={actor.adminRole} actorId={actor.id} sp={sp} />
   }
+  // The tip worklists are the member directory's.
+  if (!roleSatisfies(actor.adminRole, SCREEN_ACCESS.usersView)) redirect(peopleHref('tutors'))
 
   const admin = createAdminClient()
   if (!admin) {

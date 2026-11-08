@@ -127,7 +127,7 @@ test('People: a chip link keeps the tab, the search and the other chips, and goe
 
 test('People: the page loads card facts for the shown cards only, and the grid filters nothing itself', () => {
   const tabs = read('app/admin/users/PeopleTabs.tsx')
-  assert.ok(tabs.includes('const ids = view.page.rows.map((x) => x.id)'))
+  assert.ok(tabs.includes('const ids = page.rows.map((x) => x.id)'))
   assert.ok(tabs.includes('loadMemberCards(ids)'))
   assert.ok(tabs.includes('paged={{'))
   assert.ok(tabs.includes('staffPage.rows.map((s) =>'))

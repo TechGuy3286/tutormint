@@ -46,6 +46,8 @@ const EDIT: Key[] = [
   'summaryRefresh',
   // A tutor's or parent's WhatsApp number on the Edit tab (owner, 4 Nov 2026).
   'memberWhatsappEdit',
+  // People with Follow-ups merged in (owner, 8 Nov 2026): opening the page; each write keeps its own list.
+  'people',
 ]
 
 test('the Partner may open every screen, and change only the tutor, parent and tuition areas', () => {
@@ -162,6 +164,8 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed' | 'ret
   'follow-ups/not-interested': 'edit',
   // Follow-ups → Tutors taps and the sender-only Undo (owner, 23 Oct 2026).
   'follow-ups/tutor': 'edit',
+  // People → Tutors pipeline follow-ups (owner, 8 Nov 2026): the follow-up list's own access.
+  'people/follow-up': 'edit',
   // Log a call or note / withdraw a note on the Activity tab (owner, 23 Oct 2026).
   'members/notes': 'edit',
   // Follow-ups → Parents taps and Undo; Send status image; the header's Show

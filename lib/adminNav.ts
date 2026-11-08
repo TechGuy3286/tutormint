@@ -23,6 +23,7 @@ export type AdminScreen =
   | 'parents'
   | 'users'
   | 'usersView'
+  | 'people'
   | 'receiptCheck'
   | 'backendSupportKpi'
   | 'staffActivity' // Team activity → Verifications & messages (no nav entry of its own)
@@ -101,11 +102,10 @@ export const NAV_GROUPS: NavGroup[] = [
       // ONE member directory, tabs Tutors | Parents | Staff (owner, 21 Oct 2026).
       // It replaced the Verification group (Tutors, Parents); its badge is the
       // documents waiting for the Owner, tutors and parents together.
-      { href: '/admin/users', label: 'People', icon: 'contact', screen: 'usersView' },
-      // ONE page for follow-ups (owner, 15 Oct 2026): it replaced Unpaid signups
-      // and Abandoned signups (tabs Tutors | Parents & email not confirmed |
-      // Orphaned accounts). Tuitions staff see the Tutors tab only.
-      { href: '/admin/follow-ups', label: 'Follow-ups', icon: 'phone', screen: 'unpaidSignups' },
+      // Follow-ups merged into People (owner, 8 Nov 2026): one tutor pipeline,
+      // plus the Parents & email not confirmed and Orphaned accounts tabs. Its
+      // badge is documents waiting plus follow-ups due now.
+      { href: '/admin/users', label: 'People', icon: 'contact', screen: 'people' },
       { href: '/admin/team', label: 'Team', icon: 'key', screen: 'team' },
     ],
   },

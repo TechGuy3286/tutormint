@@ -40,7 +40,7 @@ test('Overview: Backend Support opens it, with the allowed sections', () => {
   // Square cards for sign-ups and paid counts.
   for (const k of ['paid-today', 'signups-today', 'tutors', 'parents'] as const) assert.ok(keys.includes(k), `card ${k}`)
   // Today's to-do rows it works.
-  for (const k of ['todo-uncontacted', 'todo-stuck', 'todo-payments'] as const) assert.ok(keys.includes(k), `to-do ${k}`)
+  for (const k of ['todo-fee-pending', 'todo-rejected-uninformed', 'todo-payments'] as const) assert.ok(keys.includes(k), `to-do ${k}`)
   // Sign-up to payment: every step and every "lost" figure.
   for (const k of ['funnel-signed-up', 'funnel-mobile', 'funnel-onboarded', 'funnel-paid', 'lost-mobile', 'lost-onboarding', 'lost-payment'] as const) {
     assert.ok(keys.includes(k), `funnel ${k}`)

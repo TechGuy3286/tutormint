@@ -34,7 +34,7 @@ export default function NotInterestedButton({
     if (!marked) {
       const yes = await confirm({
         title: 'Mark as not interested?',
-        body: 'They move to the hidden "Not interested" group and leave this list. You can undo it there.',
+        body: 'They move to the hidden "Not interested" group, leave the lists and get no more follow-ups. You can undo it there.',
         confirmLabel: 'Not interested',
         cancelLabel: 'Cancel',
         destructive: false,
@@ -52,7 +52,7 @@ export default function NotInterestedButton({
       toast.error(data?.error ?? 'That did not save. Please try again.')
       return
     }
-    toast.success(marked ? 'Back on Follow-ups.' : 'Moved to Not interested.')
+    toast.success(marked ? 'Back on the lists.' : 'Moved to Not interested.')
     onDone?.()
     router.refresh()
   }

@@ -51,12 +51,11 @@ test('A: the Follow-ups → Tutors tab reads "Followed up"; Applications keeps "
   // Old links (?fu=sent) still open the same tab.
   assert.equal(parseFuTab('sent'), 'sent')
   assert.equal(parseFuTab(null), 'todo')
-  const page = read('app/admin/follow-ups/page.tsx')
+  // Follow-ups → Parents moved into People (owner, 8 Nov 2026); People → Tutors says "Followed up".
+  const page = read('app/admin/users/FollowUpTabs.tsx')
   assert.match(page, /\{FU_TAB_LABEL\[t\]\} <span/)
   assert.doesNotMatch(page, /'To do' : 'Sent'/, 'the old label is gone')
-  assert.match(page, /Nobody followed up in the last 3 days\./)
-  assert.match(page, /Nobody to message right now\./)
-  assert.doesNotMatch(page, /moves to Sent|Tutors messaged in the last 3 days/)
+  assert.match(read('app/admin/users/PeopleTabs.tsx'), /label: 'Followed up'/)
   const buttons = read('components/admin/TutorFollowUpButtons.tsx')
   assert.match(buttons, /moved to Followed up/)
   assert.doesNotMatch(buttons, /moved to Sent/)
@@ -230,10 +229,6 @@ test('D: a fee reply is recorded like any message and counts toward the 3', () =
   assert.match(buttons, /record\('whatsapp', FU_FEE_REPLY_KEY\)/)
   assert.match(buttons, /Fee reply/)
   assert.match(buttons, /ms: UNDO_MS/)
-  // On every row with a number: the chase buttons AND waiting-on-us cards.
-  const row = read('app/admin/follow-ups/UnpaidSignupRow.tsx')
-  assert.match(row, /feeReplyHref=\{row\.feeReplyHref\}/)
-  assert.match(row, /<FeeReplyButton memberId=\{row\.id\}/)
   // The route accepts it even for a tutor waiting on us, and stores the key.
   const route = read('app/api/admin/follow-ups/tutor/route.ts')
   assert.match(route, /const feeReply = b\.channel === 'whatsapp' && b\.templateKey === FU_FEE_REPLY_KEY/)

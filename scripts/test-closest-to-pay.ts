@@ -113,8 +113,7 @@ test('stage messages: plain English, a TutorMint link, no price, no superlative,
     assert.ok(isClosestTemplateKey(closestTemplateKey(stage)))
   }
   assert.ok(!isClosestTemplateKey('fu_fee_reply'))
-  // The WhatsApp tap is recorded exactly like today's (the same route and recorder).
-  assert.match(read('app/admin/follow-ups/ClosestRow.tsx'), /TutorFollowUpButtons/)
+  // The old chip's WhatsApp tap is still accepted by the Follow-ups route.
   assert.match(read('app/api/admin/follow-ups/tutor/route.ts'), /isClosestTemplateKey\(b\.templateKey\)/)
 })
 
@@ -150,22 +149,10 @@ test('suspended, banned and self-paused accounts stay listed and sort last', () 
     { id: 'ban', createdAt: '2026-10-20', ...base, banned: true },
   ])
   assert.deepEqual(out.map((p) => p.id), ['new', 'old', 'self', 'susp', 'ban'])
-  // Follow-ups: a self-paused tutor is never overdue, gets the last rank and position.
-  assert.match(read('lib/adminSummary.ts'), /rank: r\.paused \? 99/)
+  // People → Tutors (owner, 8 Nov 2026): paused accounts sort last in every stage.
+  assert.match(read('lib/adminSummary.ts'), /paused: p\.suspended \|\| p\.banned \|\| p\.selfPaused/)
 })
 
-test('Backend Support sees the chips and the Ready to pay row, and no money', () => {
-  const BS = 'backend_support' as const
-  assert.ok((OVERVIEW_ITEM_KEYS as readonly string[]).includes('todo-ready-to-pay'))
-  const keys = OVERVIEW_ITEM_KEYS as readonly string[]
-  assert.equal(keys.indexOf('todo-ready-to-pay'), keys.indexOf('todo-docs') + 1, 'right after Documents to approve')
-  assert.ok(roleSatisfies(BS, SCREEN_ACCESS[OVERVIEW_ITEMS['todo-ready-to-pay'].screen]))
-  assert.ok(!isMoneyItem('todo-ready-to-pay'))
-  assert.ok(!roleSatisfies(BS, SCREEN_ACCESS.paymentAmounts))
-  // No amount on the closest card.
-  assert.ok(!/amount|pkr\(/i.test(read('app/admin/follow-ups/ClosestRow.tsx')))
-  const page = read('app/admin/page.tsx')
-  const start = page.indexOf('= [', page.indexOf('const TODO_KEYS'))
-  const todo = page.slice(start, page.indexOf(']', start))
-  assert.ok(todo.indexOf("'todo-ready-to-pay'") > todo.indexOf("'todo-docs'"))
-})
+// The "Closest to paying" chips and the "Ready to pay" row were replaced by
+// People's tutor pipeline (owner, 8 Nov 2026) — scripts/test-tutor-pipeline.ts
+// covers the stages, the "Fee pending, not followed up" row and no money.

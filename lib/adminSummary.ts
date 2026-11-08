@@ -16,11 +16,9 @@ import {
   needsRebuild,
   updatedLabel,
   PARENT_FU_LIST,
-  CLOSEST_LIST,
   peopleList,
   searchHaystack,
   tally,
-  tutorFuList,
   tutorTabSection,
   emptyListPage,
   type BadgesPayload,
@@ -34,11 +32,10 @@ import { duplicateTags, inTab, loadDirectory, loadDirectoryDocs, type DirectoryP
 import { openTags } from '@/lib/memberDuplicates'
 import { DUP_WORDS, EXCLUDE_WORDS, PARENT_VERIFICATION_WORDS, paidTag, postedTag, waitingBadge, type DupLink } from '@/lib/peopleDirectoryCore'
 import type { CardDocs } from '@/lib/tutorDocSummaries'
-import { loadClosestToPay, loadTutorFollowUps, type TutorFollowRow } from '@/lib/tutorFollowUps'
+import { followUpDue, loadTutorPipeline, pipeSortAt, pipeTags, type PipeCard } from '@/lib/tutorPipeline'
+import { pipelineOrder } from '@/lib/tutorPipelineCore'
 import { loadParentFollowUps } from '@/lib/parentFollowUps'
-import { chipRank } from '@/lib/tutorFollowUpCore'
 import { fuBadgeCount } from '@/lib/tutorFollowUpTabsCore'
-import { TUTOR_SCOPES } from '@/lib/staffOutreachCore'
 import { overdueApplicationsItems } from '@/lib/applicationTracking'
 import { loadPaidTutors } from '@/lib/paidTutors'
 import { receiptsWaitingCount } from '@/lib/payments/receipt'
@@ -82,6 +79,8 @@ export type PeopleCardRow = {
   dupes: { id: string; name: string; reason: string; reasonKey: string }[]
   dupesAll: { id: string; name: string; reason: string; reasonKey: string }[]
   tags: Record<string, string>
+  /** Tutors: the pipeline stage and follow-up state (owner, 8 Nov 2026 — lib/tutorPipeline). */
+  pipe?: PipeCard | null
 }
 
 export type PeoplePayload = {
@@ -204,12 +203,33 @@ function dupeWords(links: DupLink[] | undefined) {
   return (links ?? []).map((l) => ({ id: l.id, name: l.name, reason: DUP_WORDS[l.reason], reasonKey: l.reason }))
 }
 
-function peopleRows(list: DirectoryPerson[], docs: Map<string, CardDocs>, dupes: Map<string, DupLink[]>, dupesAll: Map<string, DupLink[]>, role: 'tutor' | 'parent'): ListRowIn[] {
-  return list.map((p, pos) => {
+function pipelineSort(c: PipeCard | undefined, p: DirectoryPerson) {
+  return {
+    stage: c?.stage ?? ('missing' as const),
+    section: c?.section ?? null,
+    paused: p.suspended || p.banned || p.selfPaused,
+    lastActiveAt: c?.lastActiveAt ?? p.createdAt,
+  }
+}
+
+function peopleRows(
+  list: DirectoryPerson[],
+  docs: Map<string, CardDocs>,
+  dupes: Map<string, DupLink[]>,
+  dupesAll: Map<string, DupLink[]>,
+  role: 'tutor' | 'parent',
+  pipeline: Map<string, PipeCard> | null = null,
+): ListRowIn[] {
+  // Tutors are stored in the pipeline's order (owner, 8 Nov 2026): stage, Not
+  // followed up first, paused last, newest active first.
+  const ordered =
+    role === 'tutor' && pipeline ? pipelineOrder(list.map((p) => ({ p, ...pipelineSort(pipeline.get(p.id), p) }))).map((x) => x.p) : list
+  return ordered.map((p, pos) => {
     const badge = p.deleted ? EXCLUDE_WORDS.deleted : p.banned ? 'Banned' : p.suspended ? 'Paused' : p.selfPaused ? 'Paused by user' : p.excluded ? EXCLUDE_WORDS[p.excluded] : null
     // Paused accounts always sort last (owner, 5 Nov 2026), in the oldest-waiting order too.
     const paused = p.suspended || p.banned || p.selfPaused
     const d = role === 'tutor' ? (docs.get(p.id) ?? null) : null
+    const pipe = role === 'tutor' ? (pipeline?.get(p.id) ?? null) : null
     const tags: Record<string, string> =
       role === 'tutor' ? { paid: paidTag(p.feePaidAt) } : { posted: postedTag(p.parent?.tuitionsTotal ?? 0), pv: p.parent?.verification ?? 'none' }
     const row: PeopleCardRow = {
@@ -232,50 +252,27 @@ function peopleRows(list: DirectoryPerson[], docs: Map<string, CardDocs>, dupes:
       dupes: dupeWords(dupes.get(p.id)),
       dupesAll: dupeWords(dupesAll.get(p.id)),
       tags,
+      pipe,
     }
     return {
       member_id: p.id,
       pos,
       search: searchHaystack([p.name, p.city, badge, p.searchText]),
       digits: p.searchText,
-      tags: { ...tags, ...(d ? { docs: d.kind } : {}), excluded: p.excluded !== null, deleted: p.deleted },
-      sort_at: paused ? null : (d?.oldestUploadAt ?? null),
+      tags: {
+        ...tags,
+        ...(d ? { docs: d.kind } : {}),
+        ...(pipe ? pipeTags(pipe) : {}),
+        excluded: p.excluded !== null,
+        deleted: p.deleted,
+        joined_at: p.createdAt,
+      },
+      sort_at: pipe ? pipeSortAt(pipe) : paused ? null : (d?.oldestUploadAt ?? null),
       row,
     }
   })
 }
 
-function tutorFuRows(rows: TutorFollowRow[]): ListRowIn[] {
-  // A paused account (the member paused it) stays listed and always sorts last
-  // (owner, 5 Nov 2026): never overdue, the last rank, no due date, last position.
-  const ordered = [...rows.filter((r) => !r.paused), ...rows.filter((r) => r.paused)]
-  return ordered.map((r, pos) => ({
-    member_id: r.id,
-    pos,
-    search: searchHaystack([r.name, r.city]),
-    tags: {
-      chips: r.chips,
-      rank: r.paused ? 99 : chipRank(r.primary),
-      overdue: r.paused ? false : r.state.overdue,
-      tabsec: tutorTabSection(r.state),
-      joined_at: r.joinedAt,
-      feePaid: r.feePaid,
-    },
-    sort_at: r.paused ? null : r.state.dueAt,
-    row: r,
-  }))
-}
-
-function closestRows(rows: TutorFollowRow[]): ListRowIn[] {
-  return rows.map((r, pos) => ({
-    member_id: r.id,
-    pos,
-    search: searchHaystack([r.name, r.city]),
-    tags: { closest: r.closest, joined_at: r.joinedAt },
-    sort_at: null,
-    row: r,
-  }))
-}
 
 /**
  * Work everything out and store it. Skips (ran: false) when nothing changed
@@ -319,7 +316,7 @@ async function rebuildOnce(opts: { force?: boolean }): Promise<{ ran: boolean; m
     filter: l.filter,
   })
 
-  const [ov7, ov30, sections, dir, docs, tutorScopes, openFu, closest, parentFu, apps, paid, reports, receipts] = await Promise.all([
+  const [ov7, ov30, sections, dir, docs, pipeline, parentFu, apps, paid, reports, receipts] = await Promise.all([
     safe('overview', async () => {
       const out: OverviewPayload = {}
       await Promise.all(keys.map(async (k) => (out[k] = toItem(await loadOverviewList(k, { days: 7 })))))
@@ -341,9 +338,7 @@ async function rebuildOnce(opts: { force?: boolean }): Promise<{ ran: boolean; m
     }),
     safe('people', () => loadDirectory()),
     safe('documents', () => loadDirectoryDocs()),
-    safe('follow-ups', async () => Promise.all(TUTOR_SCOPES.map(async (s) => [s, await loadTutorFollowUps(s)] as const))),
-    safe('follow-ups badge', () => loadTutorFollowUps('open')),
-    safe('closest to paying', () => loadClosestToPay()),
+    safe('tutor pipeline', () => loadTutorPipeline()),
     safe('parent follow-ups', () => loadParentFollowUps()),
     safe('applications', () => overdueApplicationsItems()),
     safe('paid tutors', () => loadPaidTutors()),
@@ -374,13 +369,12 @@ async function rebuildOnce(opts: { force?: boolean }): Promise<{ ran: boolean; m
       staff: dir.staff,
     }
     await safe('write people', () => put(admin, 'people', people, at))
-    await safe('write tutors', () => replaceList(admin, peopleList('tutor'), peopleRows(tutors, docs, dupes ?? new Map(), dupesAll ?? new Map(), 'tutor'), at))
+    await safe('write tutors', () => replaceList(admin, peopleList('tutor'), peopleRows(tutors, docs, dupes ?? new Map(), dupesAll ?? new Map(), 'tutor', pipeline), at))
     await safe('write parents', () => replaceList(admin, peopleList('parent'), peopleRows(parents, docs, dupes ?? new Map(), dupesAll ?? new Map(), 'parent'), at))
   }
 
-  // Follow-ups.
-  if (tutorScopes) for (const [s, rows] of tutorScopes) await safe(`write follow-ups ${s}`, () => replaceList(admin, tutorFuList(s), tutorFuRows(rows), at))
-  if (closest) await safe('write closest to paying', () => replaceList(admin, CLOSEST_LIST, closestRows(closest), at))
+  // Parent follow-ups. (Tutor follow-ups are People's pipeline since 8 Nov 2026;
+  // the old fu_tutor:* lists are no longer written.)
   if (parentFu) {
     const rows: ListRowIn[] = parentFu.rows.map((r, pos) => ({
       member_id: r.id,
@@ -408,7 +402,14 @@ async function rebuildOnce(opts: { force?: boolean }): Promise<{ ran: boolean; m
             parents.map((p) => p.parent?.verification ?? 'none'),
           )
         : (prev?.peopleWaiting ?? 0),
-    followUpsOverdue: openFu ? fuBadgeCount(openFu.map((r) => r.state)) : (prev?.followUpsOverdue ?? 0),
+    // People → Tutors, "Not followed up" across the followed-up stages (owner, 8 Nov 2026).
+    pipelineDue:
+      pipeline && tutors
+        ? tutors.filter((t) => {
+            const c = pipeline.get(t.id)
+            return !!c && followUpDue(c)
+          }).length
+        : (prev?.pipelineDue ?? 0),
     parentOverdue: parentFu ? fuBadgeCount(parentFu.rows.filter((r) => !r.notInterested).map((r) => r.state)) : (prev?.parentOverdue ?? 0),
     appsOverdue: apps ? tally(apps) : (prev?.appsOverdue ?? { total: 0, byOwner: {} }),
     paidRed: paid ? tally(paid.rows.filter((r) => r.red.length > 0).map((r) => ({ ownerId: r.ownerId ?? null }))) : (prev?.paidRed ?? { total: 0, byOwner: {} }),

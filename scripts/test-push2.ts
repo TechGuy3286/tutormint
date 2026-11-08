@@ -110,11 +110,12 @@ test('badges: the Owner sees the whole count, staff their own; the role switches
   assert.equal(viewerCount(t, { id: 'x', adminRole: 'owner' }), 4)
   assert.equal(viewerCount(t, { id: 'a', adminRole: 'operations' }), 2)
   assert.equal(viewerCount(t, { id: 'z', adminRole: 'admin' }), 0)
-  const b = { reports: 1, receipts: 2, peopleWaiting: 3, followUpsOverdue: 4, parentOverdue: 5, appsOverdue: t, paidRed: t }
+  // Follow-ups merged into People (owner, 8 Nov 2026): People = documents waiting + follow-ups due.
+  const b = { reports: 1, receipts: 2, peopleWaiting: 3, pipelineDue: 4, parentOverdue: 5, appsOverdue: t, paidRed: t }
   const staff = navBadgesFrom(b, { id: 'a', adminRole: 'operations' }, { followUps: true, paidTutors: false, parentFollowUps: false })
-  assert.deepEqual(staff, { '/admin/reports': 1, '/admin/payments': 2, '/admin/applications': 2, '/admin/users': 3, '/admin/follow-ups': 4, '/admin/paid-tutors': 0 })
+  assert.deepEqual(staff, { '/admin/reports': 1, '/admin/payments': 2, '/admin/applications': 2, '/admin/users': 7, '/admin/paid-tutors': 0 })
   const owner = navBadgesFrom(b, { id: 'o', adminRole: 'owner' }, { followUps: true, paidTutors: true, parentFollowUps: true })
-  assert.equal(owner['/admin/follow-ups'], 9)
+  assert.equal(owner['/admin/users'], 12)
   assert.equal(owner['/admin/paid-tutors'], 4)
 })
 
@@ -147,9 +148,10 @@ test('fast admin is wired: one badge read, the Overview and lists read the summa
   assert.match(layout, /navBadgesFrom\(/)
   assert.match(read('app/admin/page.tsx'), /readSummary\(/)
   assert.match(read('app/admin/users/PeopleTabs.tsx'), /listPage</)
-  const fu = read('app/admin/follow-ups/page.tsx')
-  assert.ok((fu.match(/listPage</g) ?? []).length >= 4, 'tutors + parents, both tabs')
-  assert.ok(!fu.includes('loadTutorFollowUps('), 'no whole-list load on the page')
+  // Follow-ups merged into People (owner, 8 Nov 2026): the parent tab reads the stored list too.
+  const fu = read('app/admin/users/FollowUpTabs.tsx')
+  assert.ok((fu.match(/listPage</g) ?? []).length >= 2, 'the parent follow-ups tab')
+  assert.ok(!read('app/admin/users/PeopleTabs.tsx').includes('loadTutorFollowUps('), 'no whole-list load on the page')
   assert.match(read('lib/activityLog.ts'), /markSummaryDirty\(/)
   assert.match(read('lib/auditLog.ts'), /markSummaryDirty\(/)
   const crons = JSON.parse(read('vercel.json')).crons as { path: string; schedule: string }[]

@@ -98,7 +98,10 @@ export type BadgesPayload = {
   reports: number
   receipts: number
   peopleWaiting: number
-  followUpsOverdue: number
+  /** People → Tutors "Not followed up" (owner, 8 Nov 2026). Older rows may
+   *  still carry the retired followUpsOverdue instead. */
+  pipelineDue?: number
+  followUpsOverdue?: number
   parentOverdue: number
   appsOverdue: Tally
   paidRed: Tally
@@ -109,14 +112,16 @@ export type BadgesPayload = {
 export function navBadgesFrom(
   b: BadgesPayload,
   actor: { id: string; adminRole: string | null | undefined },
-  may: { followUps: boolean; paidTutors: boolean; parentFollowUps: boolean },
+  may: { followUps: boolean; paidTutors: boolean; parentFollowUps: boolean; users?: boolean },
 ): Record<string, number> {
+  // Follow-ups is part of People (owner, 8 Nov 2026): the People badge is the
+  // documents waiting for approval plus the follow-ups due now.
   return {
     '/admin/reports': b.reports,
     '/admin/payments': b.receipts,
     '/admin/applications': viewerCount(b.appsOverdue, actor),
-    '/admin/users': b.peopleWaiting,
-    '/admin/follow-ups': (may.followUps ? b.followUpsOverdue : 0) + (may.parentFollowUps ? b.parentOverdue : 0),
+    '/admin/users':
+      (may.users === false ? 0 : b.peopleWaiting) + (may.followUps ? (b.pipelineDue ?? 0) : 0) + (may.parentFollowUps ? b.parentOverdue : 0),
     '/admin/paid-tutors': may.paidTutors ? viewerCount(b.paidRed, actor) : 0,
   }
 }

@@ -368,6 +368,10 @@ export const SCREEN_ACCESS = withSupervisor({
   // Support. Every member ACTION route stays on `users`, so Backend Support can
   // open a member and never warn, suspend, ban or change a number.
   usersView: ['admin', 'operations', 'partner', 'backend_support'] as AdminRole[],
+  // People with Follow-ups merged in (owner, 8 Nov 2026): every role that
+  // opened either page. Each tab keeps its own list (lib/peopleTabsCore), so
+  // Tuitions staff see the Tutors tab only, as they saw Follow-ups → Tutors.
+  people: ['admin', 'operations', 'partner', 'backend_support', 'tuitions_staff'] as AdminRole[],
   // The Activity tab on a member's admin page (owner, 23 Oct 2026): every role
   // that works tutors — Tuitions staff too, because Paid tutors opens it — and
   // "Log a call or note" (the Partner may write here).

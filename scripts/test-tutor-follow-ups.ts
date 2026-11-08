@@ -152,15 +152,16 @@ test('the old list URLs redirect to the matching chip', () => {
   assert.equal(legacyFollowUpsRedirect({ chip: 'stuck' }), null)
   assert.equal(legacyFollowUpsRedirect({ filter: 'today' }), null)
 
+  // Follow-ups merged into People (owner, 8 Nov 2026): the old Overview rows
+  // and every Follow-ups address open People (scripts/test-tutor-pipeline.ts).
   const overviewPage = read('app/admin/overview/[key]/page.tsx')
-  assert.ok(overviewPage.includes('if (chip) redirect(chipHref(chip))'))
+  assert.ok(overviewPage.includes('if (RETIRED_OVERVIEW_KEYS[key]) redirect(RETIRED_OVERVIEW_KEYS[key])'))
   const followPage = read('app/admin/follow-ups/page.tsx')
-  assert.ok(followPage.includes('legacyFollowUpsRedirect(') && followPage.includes('if (to) redirect(to)'))
+  assert.ok(followPage.includes('permanentRedirect(followUpsToPeople(sp))'))
   const home = read('app/admin/page.tsx')
-  assert.ok(home.includes('OVERVIEW_KEY_CHIP[k] ? chipHref(OVERVIEW_KEY_CHIP[k])'), 'Overview rows open the chip')
-  // Each Overview number is its chip's count — the same loader as the list.
-  const items = read('lib/overviewItems.ts')
-  for (const c of ['not_contacted', 'stuck', 'contacted', 'started']) assert.ok(items.includes(`chipRows('${c}')`), c)
+  assert.ok(!home.includes('OVERVIEW_KEY_CHIP'), 'no Overview row opens an old chip')
+  // "Started payment, didn't finish" still counts its chip's rows.
+  assert.ok(read('lib/overviewItems.ts').includes(`chipRows('started')`))
   assert.ok(read('lib/tutorFollowUps.ts').includes('loadUnpaidSignups(now, scope)'))
 })
 
@@ -238,11 +239,9 @@ test('message: a rejected document comes first', () => {
 })
 
 test('every WhatsApp tap is a follow-up with its message type', () => {
-  const card = read('app/admin/follow-ups/UnpaidSignupRow.tsx')
-  // Since 23 Oct 2026 the tap stores the REASON, the template and the progress
-  // snapshot (lib/tutorFollowUpTabsCore; scripts/test-tutor-journey.ts).
-  assert.ok(card.includes('templateKey={row.fuTemplateKey}') && card.includes('reason={row.followReason}'), 'the message type is stored with the follow-up')
-  assert.ok(read('lib/tutorFollowUps.ts').includes('waLink(r.msisdn, fuText)'))
+  // People → Tutors (owner, 8 Nov 2026): each tap stores the stage and kind.
+  const route = read('app/api/admin/people/follow-up/route.ts')
+  assert.ok(route.includes('templateKey: pipeTemplateKey(stage, b.kind)') && route.includes('progress: pipeProgress(stage)'))
   // My sign-ups: the same builder for unpaid tutors, and the tap logs the type.
   const my = read('lib/mySignups.ts')
   assert.ok(my.includes('followUpMessage(') && my.includes('detail: { nextStep, messageType, creditedTo: credit.staff_id }'))
@@ -258,13 +257,6 @@ test('no duplicate "Stopped at" line; long text behind See all steps', () => {
   const grid = read('components/admin/OverviewCardGrid.tsx')
   assert.ok(!grid.includes('Stopped at:'), 'the grid says Next: once')
   assert.ok(grid.includes('Next: {m.stoppedAt}'))
-  const card = read('app/admin/follow-ups/UnpaidSignupRow.tsx')
-  assert.ok(!/stopped at/i.test(card), 'the follow-up card never says "stopped at"')
-  assert.equal((card.match(/Next: <span/g) ?? []).length, 1, 'one Next: line')
-  const details = card.slice(card.indexOf('<details'))
-  assert.ok(details.includes('Still to do:'), 'Still to do is inside See all steps')
-  assert.ok(details.includes('Order ID:'), 'the order ID is inside See all steps')
-  assert.ok(!card.slice(0, card.indexOf('<details')).includes('Still to do:'))
   assert.equal(nextLabel({ stoppedStep: 'cnic_photos', feePaid: false }), 'CNIC photos')
   assert.equal(nextLabel({ stoppedStep: null, feePaid: false }), 'Verification Fee')
   assert.equal(nextLabel({ stoppedStep: null, feePaid: true }), null)
@@ -285,7 +277,6 @@ test('the PayPro check activates only through the normal confirmation path', () 
   assert.equal(roleMayWrite('owner', ['partner']), true)
   assert.equal(roleMayWrite('partner', ['partner']), true)
   for (const r of ['admin', 'operations', 'tuitions_staff'] as const) assert.equal(roleMayWrite(r, ['partner']), false, r)
-  assert.ok(read('app/admin/follow-ups/page.tsx').includes("canCheckPayment={roleMayWrite(actor.adminRole, ['partner'])}"))
 
   // The answer in words.
   const t = '20 Oct 2026, 5:00 pm'

@@ -19,7 +19,7 @@ async function main() {
   const { ConfirmProvider } = await import('../components/ui/ConfirmDialog')
   const { AdminReadOnlyProvider } = await import('../components/admin/ReadOnly')
   const { default: PayChoice } = await import('../app/(site)/pay/choose/PayChoice')
-  const { default: ParentFollowUpsBoard } = await import('../app/admin/follow-ups/ParentFollowUpsBoard')
+  const { default: ParentFollowUpsBoard } = await import('../app/admin/users/ParentFollowUpsBoard')
   const { MergePreviewView } = await import('../app/admin/users/merge/MergeClient')
   const { default: ViewAsBanner } = await import('../components/ViewAsBanner')
 

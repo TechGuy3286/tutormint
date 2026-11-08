@@ -124,7 +124,7 @@ test('"Other topics" list tutor-side topics first', () => {
 
 test('every admin list pages 25 at a time with Load more', () => {
   for (const f of [
-    'app/admin/follow-ups/page.tsx',
+    'app/admin/users/FollowUpTabs.tsx',
     'app/admin/paid-tutors/page.tsx',
     'app/admin/overview/todo-unmet/page.tsx',
     'app/admin/finance/settlement/SettlementsBoard.tsx',

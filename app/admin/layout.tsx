@@ -31,6 +31,7 @@ async function navBadges(actor: AdminActor): Promise<Record<string, number>> {
     followUps: roleSatisfies(actor.adminRole, SCREEN_ACCESS.unpaidSignups),
     paidTutors: roleSatisfies(actor.adminRole, SCREEN_ACCESS.paidTutors),
     parentFollowUps: roleSatisfies(actor.adminRole, SCREEN_ACCESS.signups),
+    users: roleSatisfies(actor.adminRole, SCREEN_ACCESS.usersView),
   })
 }
 

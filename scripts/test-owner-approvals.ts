@@ -179,10 +179,8 @@ test('Follow-ups: tabs per role; Tuitions staff see Tutors only', () => {
   assert.equal(onParentsTab({ stage: 'profile_unfinished', role: 'parent' }), true)
   assert.equal(onParentsTab({ stage: 'email_unconfirmed', role: 'tutor' }), false)
   assert.equal(onParentsTab({ stage: 'email_unconfirmed', role: 'parent' }), true)
-  // Overview "Stuck in onboarding" keeps its filtered view.
-  // …now the Stuck chip of the merged list (owner, 20 Oct 2026).
-  assert.ok(read('lib/overviewItems.ts').includes("workHref: chipHref('stuck')"))
-  assert.equal(SIGNUPS_TODAY_HREF, '/admin/follow-ups?filter=today')
+  // Follow-ups merged into People (owner, 8 Nov 2026): the card opens People → Tutors on the day.
+  assert.equal(SIGNUPS_TODAY_HREF, '/admin/users?tab=tutors&signed=today')
 })
 
 test('retired routes redirect to the right tab or period, query kept', () => {
@@ -257,9 +255,11 @@ test('sidebar after the merges; group order kept', () => {
   for (const gone of ['Abandoned signups', 'Unpaid signups', 'Settlement check', 'Flagged messages', 'Reports', 'Staff activity', 'Tuition posting activity']) {
     assert.equal(labels.some((l) => l.endsWith(`:${gone}`)), false, gone)
   }
-  for (const here of ['People:Follow-ups', 'Marketplace:Finance', 'Trust:Reports & flags', 'Tuitions:Team activity']) {
+  // Follow-ups merged into People (owner, 8 Nov 2026): every role that saw Follow-ups opens People.
+  assert.equal(labels.some((l) => l.endsWith(':Follow-ups')), false)
+  for (const here of ['People:People', 'Marketplace:Finance', 'Trust:Reports & flags', 'Tuitions:Team activity']) {
     assert.ok(labels.includes(here), here)
   }
-  const follow = NAV_GROUPS.flatMap((g) => g.items).find((i) => i.label === 'Follow-ups')!
-  for (const r of ROLES) assert.equal(roleSatisfies(r, SCREEN_ACCESS[follow.screen!]), true, `${r} sees Follow-ups`)
+  const people = NAV_GROUPS.flatMap((g) => g.items).find((i) => i.label === 'People')!
+  for (const r of ROLES) assert.equal(roleSatisfies(r, SCREEN_ACCESS[people.screen!]), true, `${r} sees People`)
 })

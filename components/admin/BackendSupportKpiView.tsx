@@ -12,7 +12,7 @@ export default function BackendSupportKpiView({ kpi, name }: { kpi: BackendSuppo
     <section className="space-y-2" data-backend-support-kpi="">
       <h2 className="text-sm font-black text-tm-navy">{name ? `${name} — your numbers` : 'Your numbers'}</h2>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Link href="/admin/follow-ups" className={tile}>
+        <Link href="/admin/users?tab=tutors&fu=not" className={tile}>
           <p className="text-[11px] font-bold text-gray-600">Follow-ups sent</p>
           <p className={big}>{kpi.followUpsToday}</p>
           <p className="text-[11px] text-gray-600">today · {kpi.followUps7} in 7 days</p>

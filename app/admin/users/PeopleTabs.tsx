@@ -6,20 +6,28 @@ import { formatDate } from '@/lib/datetime'
 import { loadMemberCards } from '@/lib/overviewCards'
 import { loadProfileShares } from '@/lib/profileShare'
 import { listPage, readSummary, summaryUpdatedLabel, type PeopleCardRow, type PeoplePayload } from '@/lib/adminSummary'
-import { CLOSEST_LIST, chipCountsFromList, peopleList, poolCount, sliceFromList, splitCounts } from '@/lib/adminSummaryCore'
-import { CLOSEST_LABEL, CLOSEST_STAGES, closestHref } from '@/lib/closestToPayCore'
-import { DOC_FILTERS } from '@/lib/tutorDocSummaryCore'
+import { chipCountsFromList, peopleList, sliceFromList, windowRange } from '@/lib/adminSummaryCore'
 import {
   PARENT_CHIPS,
+  PEOPLE_TAB_SCREENS,
   PEOPLE_TABS,
   peopleFixed,
   peopleHref,
   type PeopleTab,
 } from '@/lib/peopleDirectoryCore'
+import { isFollowStage, PIPE_STAGES, STAGE_LABEL } from '@/lib/tutorPipelineCore'
+import { isSignupWindow, type SignupWindow } from '@/lib/staffOutreachCore'
+import { parseFuTab } from '@/lib/tutorFollowUpTabsCore'
+import { parseParentChip } from '@/lib/parentFollowUpCore'
+import { waChatHref, waSendHref } from '@/lib/waLinkCore'
+import { senderRefCode } from '@/lib/staffSignups'
+import { loadBackendSupportKpi } from '@/lib/backendSupportKpi'
+import BackendSupportKpiView from '@/components/admin/BackendSupportKpiView'
+import { OrphansTab, ParentFollowUpsTab } from './FollowUpTabs'
 import OverviewCardGrid, { type FilterRow, type GridItem } from '@/components/admin/OverviewCardGrid'
 import LoadMoreLink from '@/components/admin/LoadMoreLink'
 import { pageSlice, shownCount } from '@/lib/adminPagingCore'
-import { pickChips, pickDocFilter } from '@/lib/cardGridPagingCore'
+import { pickChips } from '@/lib/cardGridPagingCore'
 
 // People — Tutors | Parents | Staff (owner, 21 Oct 2026). The one member
 // directory: it replaced Verification → Tutors, Verification → Parents,
@@ -32,11 +40,20 @@ import { pickChips, pickDocFilter } from '@/lib/cardGridPagingCore'
 // 25 cards at a time (?n=), and only those 25 have their card facts loaded.
 
 
+// Follow-ups merged in (owner, 8 Nov 2026): the Tutors tab is ONE pipeline —
+// stage chips (lib/tutorPipelineCore), and for Documents missing, Rejected and
+// Approved fee pending a "Not followed up / Followed up" row. The old Paid /
+// Unpaid row, the Documents chips and "Closest to paying" are gone. The
+// "Parents & email not confirmed" and "Orphaned accounts" tabs moved here.
+
+const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)
+
 export default async function PeopleTabs({
   tab,
   showAll,
   showDeleted = false,
   role,
+  actorId,
   sp = {},
 }: {
   tab: PeopleTab
@@ -44,9 +61,13 @@ export default async function PeopleTabs({
   /** The grey "Deleted" chip (owner, 5 Nov 2026): erased accounts, for the record only. */
   showDeleted?: boolean
   role: AdminRole
-  /** The address: ?q, the chips (?paid, ?posted, ?pv, ?docs) and ?n. */
+  /** The viewer: their staff code goes on every WhatsApp link. */
+  actorId?: string
+  /** The address: ?q, the chips (?stage, ?fu, ?posted, ?pv), ?ni, ?signed and ?n. */
   sp?: Record<string, string | string[] | undefined>
 }) {
+  const mayTab = (t: PeopleTab) => PEOPLE_TAB_SCREENS[t].some((s) => roleSatisfies(role, SCREEN_ACCESS[s]))
+  const directory = roleSatisfies(role, SCREEN_ACCESS.usersView)
   // Pre-calculated (owner, 1 Nov 2026 — lib/adminSummary): the tab counts and
   // staff list are one stored row; each tab's search, chips, counts and 25 rows
   // come from admin_list_page in SQL.
@@ -54,7 +75,7 @@ export default async function PeopleTabs({
   const d = (summary.get('people')?.payload ?? null) as PeoplePayload | null
   const builtAt = ((summary.get('state')?.payload ?? {}) as { builtAt?: string | null }).builtAt ?? null
   const staffList = d?.staff ?? []
-  const counts: Record<PeopleTab, number> = {
+  const counts: Record<'tutors' | 'parents' | 'staff', number> = {
     tutors: (d?.counts.tutors ?? 0) + (showAll ? (d?.hidden.tutor ?? 0) : 0),
     parents: (d?.counts.parents ?? 0) + (showAll ? (d?.hidden.parent ?? 0) : 0),
     staff: staffList.length,
@@ -63,12 +84,14 @@ export default async function PeopleTabs({
   const deletedCount = (tab === 'parents' ? d?.deleted?.parent : d?.deleted?.tutor) ?? 0
   const isOwner = role === 'owner'
 
-  const tabHref = (t: PeopleTab) => peopleHref(t, { all: showAll && t !== 'staff' ? '1' : null })
+  const tabHref = (t: PeopleTab) => peopleHref(t, { all: showAll && (t === 'tutors' || t === 'parents') ? '1' : null })
+  const countOf = (t: PeopleTab): number | null => (t === 'tutors' || t === 'parents' || t === 'staff' ? counts[t] : null)
+  const directoryTab = tab === 'tutors' || tab === 'parents' || tab === 'staff'
 
   const header = (
     <div className="space-y-3">
       <nav aria-label="People tabs" className="flex flex-wrap gap-1 border-b border-gray-200">
-        {PEOPLE_TABS.map((t) => (
+        {PEOPLE_TABS.filter((t) => mayTab(t.key)).map((t) => (
           <Link
             key={t.key}
             href={tabHref(t.key)}
@@ -77,11 +100,12 @@ export default async function PeopleTabs({
               tab === t.key ? 'border-tm-red text-tm-navy' : 'border-transparent text-gray-600 hover:text-tm-navy'
             }`}
           >
-            {t.label} <span className="text-gray-500">({counts[t.key]})</span>
+            {t.label} {countOf(t.key) !== null && <span className="text-gray-500">({countOf(t.key)})</span>}
           </Link>
         ))}
       </nav>
       <p className="text-[11px] text-gray-500">{summaryUpdatedLabel(builtAt)}. Counts and lists are worked out every minute something changes.</p>
+      {directoryTab && directory && (
       <div className="flex flex-wrap items-center gap-2">
         {tab !== 'staff' && (
           <Link
@@ -129,8 +153,32 @@ export default async function PeopleTabs({
           </Link>
         )}
       </div>
+      )}
     </div>
   )
+
+  if (tab === 'parent_followups') {
+    return (
+      <div className="space-y-4">
+        {header}
+        <ParentFollowUpsTab
+          showNotInterested={one(sp.scope) === 'not_interested'}
+          fuTab={parseFuTab(one(sp.fu))}
+          chip={parseParentChip(one(sp.chip))}
+          shown={shownCount(sp.n)}
+          shownNoReply={shownCount(sp.nr)}
+        />
+      </div>
+    )
+  }
+  if (tab === 'orphans') {
+    return (
+      <div className="space-y-4">
+        {header}
+        <OrphansTab />
+      </div>
+    )
+  }
 
   if (tab === 'staff') {
     const seesActivity = roleSatisfies(role, SCREEN_ACCESS.staffActivity)
@@ -176,100 +224,143 @@ export default async function PeopleTabs({
     )
   }
 
-  const rows: FilterRow[] =
-    tab === 'tutors'
-      ? [
-          {
-            param: 'paid',
-            label: 'Verification Fee',
-            options: [
-              { key: 'all', label: 'All' },
-              { key: 'paid', label: 'Paid' },
-              { key: 'unpaid', label: 'Unpaid' },
-            ],
-          },
-        ]
-      : [
-          {
-            param: 'posted',
-            label: 'Tuitions',
-            options: [
-              { key: 'all', label: 'All' },
-              { key: 'posted', label: 'Posted a tuition' },
-              { key: 'notposted', label: 'Not posted yet' },
-            ],
-          },
-          {
-            param: 'pv',
-            label: 'Verification',
-            options: [{ key: 'all', label: 'All' }, ...PARENT_CHIPS.map((c) => ({ key: c.key, label: c.label, hideWhenZero: c.key === 'rejected' }))],
-          },
-        ]
+  const isTutors = tab === 'tutors'
+  // Tutors: the stage row, and for a followed-up stage the Not followed up /
+  // Followed up row. Parents: unchanged.
+  const stageSel = (() => {
+    const v = one(sp.stage)
+    return v && (PIPE_STAGES as readonly string[]).includes(v) ? v : 'all'
+  })()
+  const followRow = isTutors && !showDeleted && isFollowStage(stageSel)
+  const rows: FilterRow[] = isTutors
+    ? [
+        {
+          param: 'stage',
+          label: 'Stage',
+          options: [{ key: 'all', label: 'All' }, ...PIPE_STAGES.map((s) => ({ key: s, label: STAGE_LABEL[s] }))],
+        },
+        ...(followRow
+          ? [
+              {
+                param: 'fu',
+                label: 'Follow-up',
+                options: [
+                  { key: 'not', label: 'Not followed up' },
+                  { key: 'done', label: 'Followed up' },
+                ],
+              },
+            ]
+          : []),
+      ]
+    : [
+        {
+          param: 'posted',
+          label: 'Tuitions',
+          options: [
+            { key: 'all', label: 'All' },
+            { key: 'posted', label: 'Posted a tuition' },
+            { key: 'notposted', label: 'Not posted yet' },
+          ],
+        },
+        {
+          param: 'pv',
+          label: 'Verification',
+          options: [{ key: 'all', label: 'All' }, ...PARENT_CHIPS.map((c) => ({ key: c.key, label: c.label, hideWhenZero: c.key === 'rejected' }))],
+        },
+      ]
 
-  // The tab, searched, filtered, counted and paged in SQL (admin_list_page),
-  // in the order lib/cardGridPagingCore always used.
-  const q = (Array.isArray(sp.q) ? sp.q[0] : sp.q) ?? ''
-  const sel = pickChips(rows, sp)
-  const docFilter = tab === 'tutors' ? pickDocFilter(sp.docs) : null
-  const shown = shownCount(sp.n)
-  const res = await listPage<PeopleCardRow>(peopleList(tab === 'tutors' ? 'tutor' : 'parent'), {
-    fixed: peopleFixed(showDeleted ? 'deleted' : showAll ? 'all' : 'real'),
-    q,
-    rows: rows.map((r) => ({ param: r.param, value: sel[r.param] ?? 'all' })),
-    split: tab === 'tutors' ? 'docs' : null,
-    splitValues: docFilter && docFilter !== 'all' ? [docFilter] : null,
-    order: docFilter === 'waiting' ? 'sort_asc' : 'pos',
-    limit: shown,
-  })
-  const pool = poolCount(res, rows, sel)
-  const view = {
-    allCount: res.all,
-    searchedCount: res.searched,
-    rowCounts: chipCountsFromList(res.rowCounts, rows),
-    docCounts: docFilter ? splitCounts(res.split, DOC_FILTERS, pool) : null,
-    page: sliceFromList(res.rows, res.total, shown),
+  // Not interested (tutors): off every list, under its own grey chip with Undo.
+  const showNi = isTutors && one(sp.ni) === '1' && !showDeleted
+  // "Signed up today, not paid" from the Overview: a sign-up day, unpaid only.
+  const signedRaw = one(sp.signed)
+  const signed: SignupWindow | null = isTutors && isSignupWindow(signedRaw) ? signedRaw : null
+  const range = signed ? windowRange(signed, Date.now()) : null
+  const view = showDeleted ? 'deleted' : showAll ? 'all' : 'real'
+  const fixed: Record<string, unknown> = {
+    ...peopleFixed(view),
+    // (The sign-up day view lists every unpaid tutor of that day, Not interested included — the card's count.)
+    ...(isTutors && view === 'real' && !signed ? { ni: showNi } : {}),
+    ...(signed ? { paid: 'unpaid' } : {}),
   }
 
-  // "Closest to paying" on People → Unpaid (owner, 5 Nov 2026): the same stored
-  // list as Follow-ups, counted in SQL; each chip opens that list there.
-  const seesFollowUps = roleSatisfies(role, SCREEN_ACCESS.unpaidSignups)
-  const closestCounts =
-    tab === 'tutors' && sel.paid === 'unpaid' && !showDeleted && seesFollowUps
-      ? (await listPage(CLOSEST_LIST, { rows: [{ param: 'closest', value: 'all' }], limit: 1 })).rowCounts.closest ?? {}
-      : null
+  // The tab, searched, filtered, counted and paged in SQL (admin_list_page).
+  const q = one(sp.q) ?? ''
+  const sel = pickChips(rows, sp)
+  const shown = shownCount(sp.n)
+  const order = isTutors && (sel.fu === 'done' || sel.stage === 'waiting') ? 'sort_asc' : 'pos'
+  const res = await listPage<PeopleCardRow>(peopleList(isTutors ? 'tutor' : 'parent'), {
+    fixed,
+    since: range?.since ?? null,
+    until: range?.until ?? null,
+    q,
+    rows: rows.map((r) => ({ param: r.param, value: sel[r.param] ?? r.options[0].key })),
+    order,
+    limit: shown,
+  })
+  const page = sliceFromList(res.rows, res.total, shown)
 
-  // Card facts (photo, completion, share link) for the shown cards only.
-  const ids = view.page.rows.map((x) => x.id)
-  const [members, shares] = await Promise.all([
-    loadMemberCards(ids),
-    tab === 'tutors' ? loadProfileShares(ids) : Promise.resolve(null),
+  // The Not interested chip's count, the viewer's staff code, and Backend Support's own numbers.
+  const [niRes, kpi, refCode] = await Promise.all([
+    isTutors && view === 'real' ? listPage(peopleList('tutor'), { fixed: { ...peopleFixed('real'), ni: true }, limit: 1 }) : Promise.resolve(null),
+    isTutors && role === 'backend_support' && actorId ? loadBackendSupportKpi(actorId).catch(() => null) : Promise.resolve(null),
+    actorId ? senderRefCode(actorId) : Promise.resolve(null),
   ])
 
-  const items: GridItem[] = view.page.rows.map(({ id, row: p }) => ({
-    id,
-    title: p.name,
-    detail: null,
-    href: `/admin/users/${id}`,
-    amount: null,
-    badge: p.badge,
-    actions: [],
-    memberId: id,
-    reviewHref: tab === 'tutors' || p.parentWaiting ? `/admin/users/${id}#documents` : null,
-    member: members.get(id) ?? null,
-    docs: p.docs,
-    share: shares?.get(id) ?? null,
-    searchText: p.searchText,
-    tags: p.tags,
-    parent: p.parent,
-    dupes: showAll ? p.dupesAll : p.dupes,
-  }))
+  // Card facts (photo, completion, share link) for the shown cards only.
+  const ids = page.rows.map((x) => x.id)
+  const [members, shares] = await Promise.all([loadMemberCards(ids), isTutors ? loadProfileShares(ids) : Promise.resolve(null)])
+  const mayFollow = roleSatisfies(role, SCREEN_ACCESS.unpaidSignups)
 
-  const videos = tab === 'tutors' ? (d?.videosWaiting ?? 0) : 0
-  const parentsWaiting = tab === 'tutors' ? (d?.parentsWaiting ?? 0) : 0
+  const items: GridItem[] = page.rows.map(({ id, row: p }) => {
+    const m = members.get(id) ?? null
+    const msisdn = m?.msisdn ?? null
+    const pipe = isTutors && p.pipe ? p.pipe : null
+    return {
+      id,
+      title: p.name,
+      detail: null,
+      href: `/admin/users/${id}`,
+      amount: null,
+      badge: p.badge,
+      actions: [],
+      memberId: id,
+      reviewHref: isTutors || p.parentWaiting ? `/admin/users/${id}#documents` : null,
+      member: m,
+      docs: p.docs,
+      share: shares?.get(id) ?? null,
+      searchText: p.searchText,
+      tags: p.tags,
+      parent: p.parent,
+      dupes: directory ? (showAll ? p.dupesAll : p.dupes) : [],
+      pipe:
+        pipe && mayFollow
+          ? {
+              card: pipe,
+              links: {
+                waHref: msisdn && pipe.message ? waSendHref(msisdn, pipe.message, refCode) : null,
+                chatHref: waChatHref(msisdn),
+                telHref: msisdn ? `tel:+${msisdn}` : null,
+              },
+            }
+          : null,
+    }
+  })
+
+  const videos = isTutors && directory ? (d?.videosWaiting ?? 0) : 0
+  const parentsWaiting = isTutors && directory ? (d?.parentsWaiting ?? 0) : 0
+  const niCount = niRes?.all ?? 0
+  const keep: Record<string, string | undefined> = {
+    tab,
+    all: showAll ? '1' : undefined,
+    deleted: showDeleted ? '1' : undefined,
+    ni: showNi ? '1' : undefined,
+    signed: signed ?? undefined,
+  }
 
   return (
     <div className="space-y-4">
       {header}
+      {kpi && <BackendSupportKpiView kpi={kpi} />}
       {(videos > 0 || parentsWaiting > 0) && (
         <div className="flex flex-wrap gap-2 text-xs">
           {videos > 0 && (
@@ -294,48 +385,43 @@ export default async function PeopleTabs({
       {showDeleted && (
         <p className="text-[11px] text-gray-500">Accounts erased at the member&rsquo;s request, kept for the record. They are in no work list or count.</p>
       )}
-      {closestCounts && (
-        <nav aria-label="Closest to paying" className="flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-bold text-gray-600">Closest to paying:</span>
-          {CLOSEST_STAGES.map((st) => (
+      {isTutors && !showDeleted && (
+        <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
+          <p className="min-w-0 flex-1">
+            {signed ? 'Tutors who signed up on this day and have not paid. ' : ''}
+            Each tutor is in one stage. Follow-ups: a WhatsApp message, then a voice note 2 days later, then WhatsApp or a call every 3 days, until they pay or are marked Not interested.
+          </p>
+          {view === 'real' && (
             <Link
-              key={st}
-              href={closestHref(st)}
-              className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full border border-tm-green-deep/30 bg-tm-tint-green px-4 text-xs font-bold text-tm-green-deep hover:border-tm-green-deep"
+              href={showNi ? peopleHref('tutors') : peopleHref('tutors', { ni: '1' })}
+              aria-current={showNi ? 'page' : undefined}
+              className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-4 text-xs font-bold ${
+                showNi ? 'border-gray-500 bg-gray-500 text-white' : 'border-gray-200 bg-gray-100 text-gray-600 hover:border-gray-500'
+              }`}
             >
-              {CLOSEST_LABEL[st]} <span className="text-slate-700">{closestCounts[st] ?? 0}</span>
+              Not interested <span className={showNi ? 'text-white' : 'text-gray-600'}>{niCount}</span>
             </Link>
-          ))}
-        </nav>
-      )}
-      {tab === 'tutors' && (
-        <p className="text-[11px] text-gray-500">
-          Intro videos are reviewed on{' '}
-          <Link href="/admin/tutors/videos" className="font-bold text-tm-navy underline-offset-2 hover:underline">
-            Video reviews
-          </Link>
-          .
-        </p>
+          )}
+        </div>
       )}
       <OverviewCardGrid
-        key={`${tab}:${showDeleted ? 'deleted' : showAll ? 'all' : 'real'}`}
+        key={`${tab}:${view}:${showNi ? 'ni' : ''}`}
         items={items}
-        docFilters={tab === 'tutors'}
         isOwner={isOwner}
         filterRows={rows}
         paged={{
           basePath: '/admin/users',
-          keep: { tab, all: showAll ? '1' : undefined, deleted: showDeleted ? '1' : undefined },
+          keep,
           q,
           sel,
-          rowCounts: view.rowCounts,
-          docFilter,
-          docCounts: view.docCounts,
-          shown: view.page.shown,
-          total: view.page.total,
-          searchedCount: view.searchedCount,
-          allCount: view.allCount,
-          noun: tab === 'tutors' ? 'tutors' : 'parents',
+          rowCounts: chipCountsFromList(res.rowCounts, rows),
+          docFilter: null,
+          docCounts: null,
+          shown: page.shown,
+          total: page.total,
+          searchedCount: res.searched,
+          allCount: res.all,
+          noun: isTutors ? 'tutors' : 'parents',
         }}
       />
     </div>

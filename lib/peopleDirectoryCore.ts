@@ -20,15 +20,29 @@
 //
 // PURE — no I/O; unit-tested by scripts/test-people-directory.ts.
 
-export type PeopleTab = 'tutors' | 'parents' | 'staff'
+// Follow-ups merged into People (owner, 8 Nov 2026): its "Parents & email not
+// confirmed" and "Orphaned accounts" tabs moved here as they were.
+export type PeopleTab = 'tutors' | 'parents' | 'parent_followups' | 'orphans' | 'staff'
 export const PEOPLE_TABS: { key: PeopleTab; label: string }[] = [
   { key: 'tutors', label: 'Tutors' },
   { key: 'parents', label: 'Parents' },
+  { key: 'parent_followups', label: 'Parents & email not confirmed' },
+  { key: 'orphans', label: 'Orphaned accounts' },
   { key: 'staff', label: 'Staff' },
 ]
 
+/** The access list of each tab (keys of SCREEN_ACCESS). Tutors is the
+ *  directory (usersView) or the old Follow-ups → Tutors (unpaidSignups). */
+export const PEOPLE_TAB_SCREENS: Record<PeopleTab, readonly ('usersView' | 'unpaidSignups' | 'signups' | 'orphans')[]> = {
+  tutors: ['usersView', 'unpaidSignups'],
+  parents: ['usersView'],
+  parent_followups: ['signups'],
+  orphans: ['orphans'],
+  staff: ['usersView'],
+}
+
 export function pickPeopleTab(v: string | null | undefined): PeopleTab {
-  return v === 'parents' || v === 'staff' ? v : 'tutors'
+  return PEOPLE_TABS.some((t) => t.key === v) ? (v as PeopleTab) : 'tutors'
 }
 
 // ---------------------------------------------------------------------------
@@ -292,7 +306,7 @@ export function peopleHref(tab: PeopleTab, extra: Record<string, string | null |
 
 /** Old Verification → Tutors addresses (?filter=pending|all|suspended&q=). */
 export function tutorsRedirect(sp: { filter?: string; q?: string }): string {
-  return peopleHref('tutors', { docs: sp.filter === 'pending' ? 'waiting' : null, q: sp.q?.trim() || null })
+  return peopleHref('tutors', { stage: sp.filter === 'pending' ? 'waiting' : null, q: sp.q?.trim() || null })
 }
 
 /** Old Verification → Parents addresses (?filter=submitted|approved|all). */
@@ -305,7 +319,7 @@ export function parentsRedirect(sp: { filter?: string }): string {
 export const OVERVIEW_KEY_PEOPLE: Record<string, string> = {
   tutors: peopleHref('tutors'),
   parents: peopleHref('parents'),
-  'todo-docs': peopleHref('tutors', { docs: 'waiting' }),
+  'todo-docs': peopleHref('tutors', { stage: 'waiting' }),
 }
 
 /** /admin/overview/tutors?docs=…&q=… keeps its chip and search. */
@@ -313,7 +327,7 @@ export function overviewPeopleRedirect(key: string, sp: { docs?: string; q?: str
   const base = OVERVIEW_KEY_PEOPLE[key]
   if (!base) return null
   if (key !== 'tutors') return base
-  return peopleHref('tutors', { docs: sp.docs && sp.docs !== 'all' ? sp.docs : null, q: sp.q?.trim() || null })
+  return peopleHref('tutors', { docs: sp.docs && sp.docs !== 'all' ? sp.docs : null, q: sp.q?.trim() || null }) // ?docs= → its stage on People (lib/tutorPipelineCore legacyPeopleTutorHref)
 }
 
 // ---------------------------------------------------------------------------

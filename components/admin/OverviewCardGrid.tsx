@@ -20,6 +20,9 @@ import LoadMoreLink from '@/components/admin/LoadMoreLink'
 import QueueSearch from '@/components/admin/QueueSearch'
 import { gridHref } from '@/lib/cardGridPagingCore'
 import SelfieMatchWarning from '@/components/admin/SelfieMatchWarning'
+import PipelineActions, { type PipeLinks } from '@/components/admin/PipelineActions'
+import type { PipeCard } from '@/lib/tutorPipelineCardCore'
+import { isFollowStage } from '@/lib/tutorPipelineCore'
 import {
   DOC_FILTERS,
   applyDocFilter,
@@ -89,6 +92,8 @@ export type GridItem = {
   parent?: GridParent | null
   /** "Possible duplicate" — the other accounts that look like the same person. */
   dupes?: { id: string; name: string; reason: string; reasonKey?: string }[]
+  /** People → Tutors: the pipeline stage and its follow-up (owner, 8 Nov 2026). */
+  pipe?: { card: PipeCard; links: PipeLinks } | null
 }
 
 export type GridParent = {
@@ -414,6 +419,8 @@ function MemberBody({
 }) {
   const openHref = `/admin/users/${it.memberId}`
   const fu = it.followUp ?? null
+  // A tutor in a followed-up stage gets the stage's own buttons instead.
+  const pipeOwnsContact = !!it.pipe && isFollowStage(it.pipe.card.stage)
   // The details table already shows the joined date (owner, 19 Oct 2026).
   const memberDetail = withoutJoined(it.detail)
   return (
@@ -487,6 +494,7 @@ function MemberBody({
       )}
       {it.docs && <DocsRow docs={it.docs} />}
       {it.docs?.selfieLooksLikePhoto && <SelfieMatchWarning compact />}
+      {it.pipe && it.memberId && <PipelineActions memberId={it.memberId} pipe={it.pipe.card} links={it.pipe.links} />}
       {m.role === 'tutor' && it.share && <ProfileShareButtons share={it.share} />}
 
       {m.stoppedAt && (
@@ -520,14 +528,14 @@ function MemberBody({
             btnClass={BTN}
           />
         )}
-        {!fu && m.msisdn && it.memberId && (
+        {!fu && !pipeOwnsContact && m.msisdn && it.memberId && (
           // Pre-filled from the member's own state, logged (owner, 20 Oct 2026);
           // a parent's send is a recorded follow-up with Undo (27 Oct 2026).
           <AdminWhatsAppLink memberId={it.memberId} from="overview" className={`${BTN} bg-tm-green-deep text-white hover:bg-tm-green-deep-hover`}>
             <MessageCircle aria-hidden size={13} /> WhatsApp
           </AdminWhatsAppLink>
         )}
-        {!fu && m.msisdn && (
+        {!fu && !pipeOwnsContact && m.msisdn && (
           <a href={`tel:+${m.msisdn}`} className={`${BTN} border border-gray-200 text-slate-700 hover:border-tm-navy`}>
             <Phone aria-hidden size={13} /> Call
           </a>

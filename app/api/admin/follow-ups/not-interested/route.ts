@@ -4,6 +4,7 @@ import { checkAdminRole, roleMayWrite, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { refuseSupervisorMember } from '@/lib/supervisorScope'
 import { markNotInterested, undoNotInterested } from '@/lib/followUpDismissals'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { setPipelineNotInterested } from '@/lib/tutorPipeline'
 import { parseBody, uuid, z } from '@/lib/validate'
 
 // "Not interested" on Follow-ups, and its undo (owner, 21 Oct 2026). Whoever
@@ -41,5 +42,7 @@ export async function POST(request: Request) {
   if (scope) return scope
   const res = b.undo ? await undoNotInterested(b.memberId, gate.actor) : await markNotInterested(b.memberId, b.note ?? null, gate.actor)
   if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status })
+  // People → Tutors (owner, 8 Nov 2026): the card leaves (or comes back to) the lists at once.
+  if (member.role === 'tutor') await setPipelineNotInterested(b.memberId, !b.undo)
   return NextResponse.json({ success: true })
 }

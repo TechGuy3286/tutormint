@@ -78,7 +78,8 @@ test('the toggle brings left-out accounts back; the default leaves them out', ()
   assert.ok(tabs.includes('Show staff & test accounts'))
   // Push 2 (1 Nov 2026): every row is stored with its excluded flag; the default view asks for excluded: false.
   // The toggle view still leaves deleted accounts out (owner, 5 Nov 2026 — peopleFixed).
-  assert.ok(tabs.includes("fixed: peopleFixed(showDeleted ? 'deleted' : showAll ? 'all' : 'real')") && read('lib/adminSummary.ts').includes('excluded: p.excluded !== null'))
+  // People's tutor pipeline (owner, 8 Nov 2026) keeps the same three views.
+  assert.ok(tabs.includes("const view = showDeleted ? 'deleted' : showAll ? 'all' : 'real'") && tabs.includes('...peopleFixed(view),') && read('lib/adminSummary.ts').includes('excluded: p.excluded !== null'))
   assert.ok(read('app/admin/users/page.tsx').includes("showAll={all === '1'}"))
 })
 
@@ -168,7 +169,7 @@ test('old addresses redirect to the matching tab and chip', () => {
   assert.equal(pickPeopleTab('parents'), 'parents')
   assert.equal(pickPeopleTab('staff'), 'staff')
   assert.equal(tutorsRedirect({}), '/admin/users?tab=tutors')
-  assert.equal(tutorsRedirect({ filter: 'pending' }), '/admin/users?tab=tutors&docs=waiting')
+  assert.equal(tutorsRedirect({ filter: 'pending' }), '/admin/users?tab=tutors&stage=waiting')
   assert.equal(tutorsRedirect({ filter: 'all', q: ' Ali ' }), '/admin/users?tab=tutors&q=Ali')
   assert.equal(parentsRedirect({}), '/admin/users?tab=parents&pv=waiting')
   assert.equal(parentsRedirect({ filter: 'approved' }), '/admin/users?tab=parents&pv=approved')
@@ -176,16 +177,16 @@ test('old addresses redirect to the matching tab and chip', () => {
   assert.equal(overviewPeopleRedirect('tutors', {}), '/admin/users?tab=tutors')
   assert.equal(overviewPeopleRedirect('tutors', { docs: 'rejected' }), '/admin/users?tab=tutors&docs=rejected')
   assert.equal(overviewPeopleRedirect('parents', {}), '/admin/users?tab=parents')
-  assert.equal(overviewPeopleRedirect('todo-docs', {}), '/admin/users?tab=tutors&docs=waiting')
+  assert.equal(overviewPeopleRedirect('todo-docs', {}), '/admin/users?tab=tutors&stage=waiting')
   assert.equal(overviewPeopleRedirect('revenue', {}), null)
   assert.equal(peopleHref('staff'), '/admin/users?tab=staff')
   assert.ok(read('app/admin/tutors/page.tsx').includes('redirect(tutorsRedirect(await searchParams))'))
   assert.ok(read('app/admin/parents/page.tsx').includes('redirect(parentsRedirect(await searchParams))'))
   assert.ok(read('app/admin/overview/[key]/page.tsx').includes('const people = overviewPeopleRedirect(key, sp)'))
-  assert.ok(read('app/admin/users/page.tsx').includes("if (filter === 'approval') redirect(peopleHref('tutors', { docs: 'waiting' }))"))
+  assert.ok(read('app/admin/users/page.tsx').includes("if (filter === 'approval') redirect(peopleHref('tutors', { stage: 'waiting' }))"))
   // The Overview cards and rows link to the same addresses.
   assert.ok(read('app/admin/page.tsx').includes('OVERVIEW_KEY_PEOPLE[k]'))
-  assert.equal(OVERVIEW_KEY_PEOPLE['todo-docs'], '/admin/users?tab=tutors&docs=waiting')
+  assert.equal(OVERVIEW_KEY_PEOPLE['todo-docs'], '/admin/users?tab=tutors&stage=waiting')
   // The intro-video review tool kept its own address.
   assert.ok(read('app/admin/tutors/videos/page.tsx').includes('<TutorModerationClient'))
 })
@@ -199,7 +200,8 @@ test('the Verification group is gone; People carries the waiting badge', () => {
   // Push 2 (1 Nov 2026): the summary job runs waitingBadge; the layout reads it through navBadgesFrom.
   const core = read('lib/adminSummaryCore.ts')
   assert.ok(read('lib/adminSummary.ts').includes('waitingBadge(') && layout.includes('navBadgesFrom('))
-  assert.ok(core.includes("'/admin/users': b.peopleWaiting"))
+  // Since 8 Nov 2026 the People badge also adds follow-ups due now.
+  assert.ok(core.includes("(may.users === false ? 0 : b.peopleWaiting)"))
   assert.ok(!core.includes("'/admin/tutors':") && !core.includes("'/admin/parents':"))
   // The badge, the Overview "Documents to approve" row and the chips read the
   // same loader and the same Waiting rule.

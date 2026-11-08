@@ -23,11 +23,12 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { inTab, loadDirectory, loadDirectoryDocs } from '@/lib/peopleDirectory'
 import { OVERVIEW_KEY_PEOPLE } from '@/lib/peopleDirectoryCore'
 import { loadUnpaidSignups } from '@/lib/staffOutreach'
-import { isTestName, stuckBreakdown } from '@/lib/staffOutreachCore'
+import { isTestName } from '@/lib/staffOutreachCore'
 import type { FollowUpSource } from '@/lib/followUpCore'
-import { loadClosestToPay, tutorsWithChip } from '@/lib/tutorFollowUps'
-import { closestHref } from '@/lib/closestToPayCore'
-import { chipHref, type FollowChip } from '@/lib/tutorFollowUpCore'
+import { tutorsWithChip } from '@/lib/tutorFollowUps'
+import { pipelineRows } from '@/lib/tutorPipeline'
+import { stageHref } from '@/lib/tutorPipelineCore'
+import type { FollowChip } from '@/lib/tutorFollowUpCore'
 import { pauseDueAtMs } from '@/lib/tuitionStatus'
 import { settleByDate } from '@/lib/settlementCore'
 import type { PayproRow } from '@/lib/reconciliationCore'
@@ -399,37 +400,27 @@ export async function loadOverviewList(
       }
     }
 
-    case 'todo-ready-to-pay': {
-      // The Ready to pay chip of Closest to paying (owner, 5 Nov 2026) — the
-      // same loader the chip reads, so the number equals the chip.
-      const list = (await loadClosestToPay()).filter((r) => r.closest === 'ready')
+    case 'todo-fee-pending': {
+      // People → Tutors, Approved fee pending · Not followed up (owner, 8 Nov
+      // 2026) — the same loader and rule as that view, so the number is its count.
+      const list = await pipelineRows((c) => c.stage === 'approved' && c.section === 'not')
       return {
         key,
-        rows: list.map((r) => ({ id: r.id, title: r.name, detail: r.closestMissing, href: `/admin/users/${r.id}`, memberId: r.id })),
-        filter: 'with CNIC, profile photo and selfie approved and the Verification Fee not paid',
-        workHref: closestHref('ready'),
+        rows: list.map((r) => ({ id: r.id, title: r.name, detail: r.card.follow ? `Follow-up ${r.card.follow.nextNumber} due` : null, href: `/admin/users/${r.id}`, memberId: r.id })),
+        filter: 'with CNIC, profile photo and selfie approved, the Verification Fee not paid, and a follow-up due',
+        workHref: stageHref('approved', 'not'),
       }
     }
 
-    case 'todo-uncontacted': {
-      const { rows } = await chipRows('not_contacted')
-      return { key, rows, filter: 'who joined in the last 30 days, have not paid, and nobody has contacted yet', workHref: chipHref('not_contacted') }
-    }
-
-    case 'todo-stuck': {
-      const { rows, stops } = await chipRows('stuck')
+    case 'todo-rejected-uninformed': {
+      // People → Tutors, Rejected, with no WhatsApp sent in that stage yet.
+      const list = await pipelineRows((c) => c.stage === 'rejected' && !c.informed)
       return {
         key,
-        rows,
-        filter: 'who joined in the last 30 days and stopped before the payment step',
-        extra: stuckBreakdown(stops).detail,
-        workHref: chipHref('stuck'),
+        rows: list.map((r) => ({ id: r.id, title: r.name, detail: r.card.rejected.map((x) => x.name).join(', ') || null, href: `/admin/users/${r.id}`, memberId: r.id })),
+        filter: 'with a document rejected and not re-uploaded, not yet told on WhatsApp',
+        workHref: stageHref('rejected', 'not'),
       }
-    }
-
-    case 'todo-stuck-sent': {
-      const { rows } = await chipRows('contacted')
-      return { key, rows, filter: 'contacted in the last 3 days', workHref: chipHref('contacted') }
     }
 
     case 'todo-payments': {
@@ -441,7 +432,7 @@ export async function loadOverviewList(
         key,
         rows,
         filter: 'checkout opened over an hour ago and not paid; leaves the list 48 hours after it started or when the tutor pays',
-        workHref: chipHref('started'),
+        workHref: null,
       }
     }
 

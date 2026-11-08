@@ -116,8 +116,9 @@ test('paying or finishing onboarding removes the member from both tabs', () => {
 
 test('counts equal the cards', () => {
   const ov = read('lib/overviewItems.ts')
-  // The Overview number and the Stuck chip are the same rows (owner, 20 Oct 2026).
-  assert.match(ov, /case 'todo-stuck': \{\s*const \{ rows, stops \} = await chipRows\('stuck'\)/)
+  // The Overview number and its chip are the same rows (owner, 20 Oct 2026);
+  // since 8 Nov 2026 only "Started payment, didn't finish" still reads a chip.
+  assert.match(ov, /case 'todo-payments': \{[^}]*const \{ rows \} = await chipRows\('started'\)/)
   // Unpaid signups: a followed-up row is in "Follow-up sent" and in no other tab.
   const filters: UnpaidFilter[] = ['all', 'payment', 'onboarding', 'uncontacted']
   const row = { stoppedAt: 'Subjects', lastContactAt: null, followUpSent: true }

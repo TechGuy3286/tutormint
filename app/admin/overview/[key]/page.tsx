@@ -5,10 +5,9 @@ import { ArrowRight } from 'lucide-react'
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { isMoneyItem } from '@/lib/overviewMoneyCore'
 import { listHeader, loadOverviewList } from '@/lib/overviewItems'
-import { chipHref, OVERVIEW_KEY_CHIP } from '@/lib/tutorFollowUpCore'
-import { closestHref, READY_TO_PAY_KEY } from '@/lib/closestToPayCore'
+import { FEE_PENDING_KEY, stageHref } from '@/lib/tutorPipelineCore'
 import { overviewPeopleRedirect } from '@/lib/peopleDirectoryCore'
-import { OVERVIEW_ITEMS, PAYER_PERIODS, isOverviewItemKey, paidListHref, parseFunnelDays, parsePayerPeriod } from '@/lib/overviewItemsCore'
+import { OVERVIEW_ITEMS, PAYER_PERIODS, RETIRED_OVERVIEW_KEYS, isOverviewItemKey, paidListHref, parseFunnelDays, parsePayerPeriod } from '@/lib/overviewItemsCore'
 import { pkr } from '@/lib/reconciliationCore'
 import { loadMemberCards } from '@/lib/overviewCards'
 import { loadTutorDocSummaries } from '@/lib/tutorDocSummaries'
@@ -31,6 +30,8 @@ export default async function OverviewListPage({
   searchParams: Promise<{ days?: string; period?: string; docs?: string; q?: string }>
 }) {
   const { key } = await params
+  // The retired Follow-ups rows open their People view (owner, 8 Nov 2026).
+  if (RETIRED_OVERVIEW_KEYS[key]) redirect(RETIRED_OVERVIEW_KEYS[key])
   if (!isOverviewItemKey(key)) notFound()
   const meta = OVERVIEW_ITEMS[key]
   const actor = await requireAdminRole(...SCREEN_ACCESS[meta.screen])
@@ -38,12 +39,8 @@ export default async function OverviewListPage({
   // a money list is refused outright, and any amount on a count list is dropped.
   const seesMoney = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentAmounts)
   if (!seesMoney && isMoneyItem(key)) notFound()
-  // The three follow-up lists are chips of Follow-ups → Tutors now (owner,
-  // 20 Oct 2026); their old addresses open the list on that chip.
-  const chip = OVERVIEW_KEY_CHIP[key]
-  if (chip) redirect(chipHref(chip))
-  // "Ready to pay" opens its Closest to paying chip (owner, 5 Nov 2026).
-  if (key === READY_TO_PAY_KEY) redirect(closestHref('ready'))
+  // "Fee pending, not followed up" opens its People view (owner, 8 Nov 2026).
+  if (key === FEE_PENDING_KEY) redirect(stageHref('approved', 'not'))
   const sp = await searchParams
   // Tutors, Parents and Documents to approve moved to People (owner, 21 Oct
   // 2026): the old addresses open the matching tab and chip.

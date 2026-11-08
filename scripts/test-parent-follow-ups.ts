@@ -101,7 +101,8 @@ test('no double message: an Applications message in the last 3 days means not du
 test('the badge counts overdue To do only', () => {
   const src = readFileSync('lib/parentFollowUps.ts', 'utf8')
   assert.match(src, /fuBadgeCount\(rows\.filter\(\(r\) => !r\.notInterested\)\.map\(\(r\) => r\.state\)\)/)
-  assert.match(readFileSync('lib/adminSummaryCore.ts', 'utf8'), /'\/admin\/follow-ups': \(may\.followUps \? b\.followUpsOverdue : 0\) \+ \(may\.parentFollowUps \? b\.parentOverdue : 0\)/)
+  // Follow-ups merged into People (owner, 8 Nov 2026): the People badge adds parents' overdue To do.
+  assert.match(readFileSync('lib/adminSummaryCore.ts', 'utf8'), /\(may\.parentFollowUps \? b\.parentOverdue : 0\)/)
 })
 
 test('six short templates, seeded, ending with {support_whatsapp}, no prices', () => {
@@ -139,7 +140,8 @@ test('the existing chips stay', () => {
   assert.equal(parentChipMatch('not_posted', { posted: true, verification: 'not_submitted' }), false)
   assert.equal(parentChipMatch('waiting', { posted: false, verification: 'waiting' }), true)
   assert.equal(parentChipMatch('verified', { posted: false, verification: 'waiting' }), false)
-  const page = readFileSync('app/admin/follow-ups/page.tsx', 'utf8')
+  // The tab moved into People as it was (owner, 8 Nov 2026).
+  const page = readFileSync('app/admin/users/FollowUpTabs.tsx', 'utf8')
   assert.match(page, /PARENT_CHIP_LABEL/)
   assert.match(page, /FU_TAB_LABEL\[t\]/)
 })
