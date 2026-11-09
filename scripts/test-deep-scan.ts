@@ -183,6 +183,7 @@ const WA_REGISTRY: Record<string, 'parent-situation' | 'parent-specific' | 'not-
   'components/admin/TutorDocumentReview.tsx': 'not-parent',
   'app/admin/overview/todo-unmet/UnmetSearchesClient.tsx': 'not-parent', // hiring post share
   'app/api/admin/follow-ups/status-image/route.ts': 'not-parent',
+  'lib/paidWelcome.ts': 'not-parent', // the paid tutor's welcome (owner, 9 Nov 2026)
   'app/api/admin/follow-ups/social-links/route.ts': 'not-parent',
   'app/api/admin/tutors/rereview-whatsapp/route.ts': 'not-parent',
   'lib/documentsApproved.ts': 'not-parent',

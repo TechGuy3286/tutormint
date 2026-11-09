@@ -11,6 +11,7 @@ import { sendBankTransferPending } from '@/lib/payments/paymentAlerts'
 import { loadBankPanel, loadReceiptState } from '@/lib/payments/receipt'
 import { RECEIPT_MESSAGES, RECEIPT_TYPES, receiptFileProblem } from '@/lib/payments/receiptCore'
 import { FEE_LABEL } from '@/lib/display'
+import { upgradeRefusal } from '@/lib/upgradesPausedCore'
 
 // Send a bank-transfer receipt (owner, 11 Oct 2026).
 //
@@ -71,6 +72,10 @@ export async function POST(request: Request) {
   if (!plan || !(plan.price_pkr as number)) {
     return NextResponse.json({ error: 'Choose a package first.' }, { status: 400 })
   }
+
+  // Premium / Featured are paused (owner, 9 Nov 2026): no receipt for them.
+  const paused = upgradeRefusal(plan.code as string, plan.price_pkr as number)
+  if (paused) return NextResponse.json({ error: paused.error, code: paused.code }, { status: paused.status })
 
   const { data: profile } = await supabase
     .from('profiles')

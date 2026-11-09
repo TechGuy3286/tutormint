@@ -5,6 +5,7 @@ import FeaturedTag from '@/components/badges/FeaturedTag'
 import type { BadgeName } from '@/lib/planBadges'
 import BuyButton from '@/components/membership-plans/BuyButton'
 import { formatDate } from '@/lib/datetime'
+import { COMING_SOON_LABEL, upgradeBlocked } from '@/lib/upgradesPausedCore'
 
 // The plan matrix, rendered from the `plans` table (owner PR12/§1.2).
 //
@@ -195,7 +196,8 @@ export default function PackagesTable({
                 )}
               </div>
 
-              <BadgeRow badges={(p.badges ?? []) as BadgeName[]} size="sm" showLabel />
+              {/* No Urdu beside the badge names on this page (owner, 9 Nov 2026). */}
+              <BadgeRow badges={(p.badges ?? []) as BadgeName[]} size="sm" showLabel showUrdu={false} />
 
               {!isFree && free && (
                 <p className="text-[11px] font-black text-tm-navy">Everything in {free.name}, plus:</p>
@@ -235,6 +237,17 @@ export default function PackagesTable({
                     {audience === 'tutor' ? 'Get verified' : 'Verify your mobile (free)'}
                   </Link>
                 ) : null
+              ) : upgradeBlocked(p.code, p.price_pkr) ? (
+                // Premium / Featured are paused (owner, 9 Nov 2026). The card
+                // stays visible; nothing can be bought from it.
+                <button
+                  type="button"
+                  disabled
+                  aria-disabled="true"
+                  className="min-h-[44px] w-full cursor-not-allowed rounded-xl bg-gray-200 px-4 text-xs font-bold text-slate-700"
+                >
+                  {COMING_SOON_LABEL}
+                </button>
               ) : checkoutOpen ? (
                 <BuyButton
                   planCode={p.code}

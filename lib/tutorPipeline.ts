@@ -19,6 +19,7 @@ import { loadNotInterested } from '@/lib/followUpDismissals'
 import { loadSupportWhatsApp } from '@/lib/applicationTemplates'
 import { blankPhotoFlags } from '@/lib/photoBlank'
 import { staffLabel } from '@/lib/followUpCore'
+import { loadWelcomes } from '@/lib/paidWelcome'
 import { kindOfTemplateKey, legacyDocsApproved, stageOfProgress, type PipeContact } from '@/lib/tutorPipelineCore'
 import { pipeCardFrom, pipeSortAt, pipeTags, withContacts, type PipeCard } from '@/lib/tutorPipelineCardCore'
 
@@ -58,7 +59,8 @@ export async function loadPipeContacts(ids: string[]): Promise<Map<string, PipeC
     ).catch(() => []),
   ])
   for (const r of fus) {
-    if (r.source === 'parents') continue
+    // A paid tutor's welcome (owner, 9 Nov 2026) is not a pipeline follow-up.
+    if (r.source === 'parents' || r.source === 'welcome') continue
     const progress = (r.progress as string | null) ?? null
     const kind = kindOfTemplateKey(r.template_key as string | null) ?? (r.channel === 'call' ? 'call' : 'whatsapp')
     push(r.member_id as string, {
@@ -107,7 +109,7 @@ export const loadTutorPipeline = cache(
       const [dir, docs, ni, support, blank] = await Promise.all([loadDirectory(), loadDirectoryDocs(), loadNotInterested(), loadSupportWhatsApp(), blankPhotoFlags(null)])
       const tutors = inTab(dir.people, 'tutor', true)
       const ids = tutors.map((t) => t.id)
-      const [contacts, seen] = await Promise.all([loadPipeContacts(ids), lastSeenFor(ids)])
+      const [contacts, seen, welcomes] = await Promise.all([loadPipeContacts(ids), lastSeenFor(ids), loadWelcomes(ids)])
       const out = new Map<string, PipeCard>()
       for (const t of tutors)
         out.set(
@@ -125,6 +127,8 @@ export const loadTutorPipeline = cache(
             lastActiveAt: seen.get(t.id) ?? t.createdAt,
             support,
             nowMs: now,
+            paidAt: t.feePaidAt,
+            welcome: welcomes.get(t.id) ?? null,
           }),
         )
       return out

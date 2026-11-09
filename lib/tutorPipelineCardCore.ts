@@ -11,6 +11,7 @@
 import { firstNameOf } from '@/lib/staffOutreachCore'
 import { itemState } from '@/lib/tutorDocSummaryCore'
 import type { CardDocState, CardStatuses } from '@/lib/tutorDocQueueCore'
+import type { Welcome } from '@/lib/paidWelcomeCore'
 import {
   docsReadyForReview,
   followState,
@@ -56,6 +57,12 @@ export type PipeCard = {
   paused: boolean
   lastActiveAt: string | null
   oldestUploadAt: string | null
+  /** Paid cards (owner, 9 Nov 2026): when the Verification Fee was paid, whether
+   *  CNIC, photo and selfie are all approved (the status image needs it), and
+   *  the standing welcome. Older stored rows have none until the next run. */
+  paidAt?: string | null
+  badge?: boolean
+  welcome?: Welcome | null
 }
 
 /** The document facts a card is built from (lib/tutorDocSummaries CardDocs). */
@@ -95,6 +102,8 @@ export function pipeCardFrom(a: {
   lastActiveAt: string | null
   support: string | null
   nowMs: number
+  paidAt?: string | null
+  welcome?: Welcome | null
 }): PipeCard {
   const d = pipeDocsOf(a.docs)
   const completion = a.completion ?? 0
@@ -120,6 +129,9 @@ export function pipeCardFrom(a: {
     paused: a.paused,
     lastActiveAt: a.lastActiveAt,
     oldestUploadAt: a.docs?.oldestUploadAt ?? null,
+    paidAt: a.feePaid ? (a.paidAt ?? null) : null,
+    badge: a.feePaid && d.cnic === 'approved' && d.photo === 'approved' && d.selfie === 'approved',
+    welcome: a.feePaid ? (a.welcome ?? null) : null,
   }
 }
 

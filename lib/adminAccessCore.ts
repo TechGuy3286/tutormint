@@ -474,7 +474,15 @@ export const SCREEN_ACCESS = withSupervisor({
   teamOverview: ['supervisor'] as AdminRole[],
   // "Send status image" on a tutor's admin page and Paid tutors row (owner,
   // 26 Oct 2026): every staff role that works tutors, and the Owner.
-  statusImage: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
+  // Backend Support joined on 9 Nov 2026: the "Status image" button on paid
+  // People cards (it works the paid sign-ups target).
+  statusImage: ['admin', 'operations', 'tuitions_staff', 'partner', 'backend_support'] as AdminRole[],
+  // "Send welcome" on a paid tutor's People card and the "Paid, not welcomed"
+  // to-do row (owner, 9 Nov 2026): the roles that work People → Tutors.
+  paidWelcome: ['admin', 'operations', 'tuitions_staff', 'partner', 'backend_support'] as AdminRole[],
+  // The paid sign-ups view behind the Overview "Paid" card (owner, 9 Nov
+  // 2026): counts only, no rupees, so Backend Support sees it.
+  paidSignups: ['admin', 'operations', 'backend_support'] as AdminRole[],
   // Merge duplicates and "Not a duplicate" (owner, 26 Oct 2026): the site Owner
   // ONLY — `[]` lets the Partner view; every route also calls
   // refuseUnlessOwnerApproval.

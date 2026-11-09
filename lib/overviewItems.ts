@@ -30,6 +30,7 @@ import { pipelineRows } from '@/lib/tutorPipeline'
 import { blankPhotoFlags } from '@/lib/photoBlank'
 import { blankLine, readyForReviewFrom } from '@/lib/tutorPipelineCardCore'
 import { stageHref } from '@/lib/tutorPipelineCore'
+import { welcomeDue } from '@/lib/paidWelcomeCore'
 import type { FollowChip } from '@/lib/tutorFollowUpCore'
 import { pauseDueAtMs } from '@/lib/tuitionStatus'
 import { settleByDate } from '@/lib/settlementCore'
@@ -435,6 +436,19 @@ export async function loadOverviewList(
         rows: list.map((r) => ({ id: r.id, title: r.name, detail: r.card.follow ? `Follow-up ${r.card.follow.nextNumber} due` : null, href: `/admin/users/${r.id}`, memberId: r.id })),
         filter: 'with CNIC, profile photo and selfie approved, the Verification Fee not paid, and a follow-up due',
         workHref: stageHref('approved', 'not'),
+      }
+    }
+
+    case 'todo-not-welcomed': {
+      // People → Tutors → Paid: fee paid in the last 30 days, no welcome sent
+      // (owner, 9 Nov 2026 — lib/paidWelcomeCore). The same pipeline cards.
+      const nowMs = now.getTime()
+      const list = await pipelineRows((c) => c.stage === 'paid' && welcomeDue(c.paidAt, c.welcome, nowMs))
+      return {
+        key,
+        rows: list.map((r) => ({ id: r.id, title: r.name, detail: r.card.paidAt ? `Paid ${formatDateTime(r.card.paidAt)}` : null, href: `/admin/users/${r.id}`, memberId: r.id })),
+        filter: `paid the ${FEE_LABEL} in the last 30 days and not welcomed yet`,
+        workHref: stageHref('paid'),
       }
     }
 

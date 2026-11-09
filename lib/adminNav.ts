@@ -59,6 +59,8 @@ export type AdminScreen =
   | 'blog'
   | 'blogQueue'
   | 'unpaidSignups'
+  | 'paidWelcome'
+  | 'paidSignups'
   | 'featuredWhatsapp'
   | 'pausedTuitions'
   | 'applicantForwards'

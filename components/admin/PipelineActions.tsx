@@ -6,6 +6,7 @@ import { AlertTriangle, Check, Mic, MessageCircle, MoreHorizontal, Phone, X } fr
 
 import { adminFetch } from '@/components/admin/adminFetch'
 import NotInterestedButton from '@/components/admin/NotInterestedButton'
+import PaidWelcomeActions from '@/components/admin/PaidWelcomeActions'
 import { useAdminReadOnly, useDocDecider } from '@/components/admin/ReadOnly'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/Toast'
@@ -135,6 +136,7 @@ export default function PipelineActions({ memberId, pipe, links }: { memberId: s
           ))}
         </div>
       )}
+      {pipe.stage === 'paid' && <PaidWelcomeActions memberId={memberId} welcome={pipe.welcome} badge={pipe.badge} />}
       {pipe.noMobile && <p className="font-semibold text-gray-600">{NO_MOBILE_LINE}</p>}
       {pipe.notInterested && <p className="font-semibold text-gray-600">Marked Not interested — no follow-ups.</p>}
 

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { X, Lock, ShieldAlert, BadgeCheck, ArrowRight } from 'lucide-react'
 import type { Gate } from '@/lib/gate'
+import { COMING_SOON_LABEL, upgradeBlocked } from '@/lib/upgradesPausedCore'
 import TutorVerifyGate from '@/components/upgrade/TutorVerifyGate'
 import { DEFAULT_CHECKOUT_METHODS, type CheckoutMethods } from '@/lib/payments/gatewaySettingsCore'
 
@@ -89,6 +90,10 @@ export default function UpgradeSheet({ gate, onClose }: { gate: Gate; onClose: (
       .catch(() => { /* keep the default */ })
     return () => { live = false }
   }, [tutorVerify])
+  // Premium / Featured are paused (owner, 9 Nov 2026): the sheet names the plan
+  // but shows no price and offers a disabled "Coming soon" instead of a link.
+  const paused = !!gate.plan && upgradeBlocked(gate.plan.code, gate.plan.pricePkr)
+  const sellPlan = gate.plan && !paused ? gate.plan : undefined
   const Icon = suspended ? ShieldAlert : tutorVerify ? BadgeCheck : gate.plan ? BadgeCheck : Lock
 
   return (
@@ -160,18 +165,18 @@ export default function UpgradeSheet({ gate, onClose }: { gate: Gate; onClose: (
 
         {/* The plan card. Absent entirely when no purchase is involved, which
             is what keeps a suspension notice from reading as a sales page. */}
-        {gate.plan && (
+        {sellPlan && (
           <div className="mt-4 rounded-2xl border border-tm-navy/15 bg-tm-tint-navy p-4">
             <div className="flex items-baseline justify-between gap-3">
-              <p className="text-sm font-black text-tm-navy">{gate.plan.name}</p>
+              <p className="text-sm font-black text-tm-navy">{sellPlan.name}</p>
               <p className="text-sm font-black text-tm-red">
-                Rs {gate.plan.pricePkr.toLocaleString('en-PK')}
+                Rs {sellPlan.pricePkr.toLocaleString('en-PK')}
                 <span className="text-[11px] font-bold text-slate-700"> / month</span>
               </p>
             </div>
-            {gate.plan.displayedQuota && (
+            {sellPlan.displayedQuota && (
               <p className="mt-1 text-[11px] font-semibold text-tm-navy">
-                {gate.plan.displayedQuota}{' '}
+                {sellPlan.displayedQuota}{' '}
                 {gate.audience === 'parent' ? 'job posts a month' : 'applications a month'}
               </p>
             )}
@@ -186,7 +191,7 @@ export default function UpgradeSheet({ gate, onClose }: { gate: Gate; onClose: (
             at somebody who has just been told their account is closed.
 
             WORDING RULE: visibility, never "we will get you tuitions". */}
-        {gate.plan && (gate.kind === 'upgrade' || gate.kind === 'quota') && (
+        {sellPlan && (gate.kind === 'upgrade' || gate.kind === 'quota') && (
           <p className="mt-3 text-[11px] leading-relaxed text-gray-500">
             {gate.audience === 'parent' ? (
               <>
@@ -204,7 +209,17 @@ export default function UpgradeSheet({ gate, onClose }: { gate: Gate; onClose: (
         )}
 
         <div className="mt-5 flex flex-col gap-2 sm:flex-row-reverse">
-          {gate.actionable && (
+          {paused && gate.actionable && (
+            <button
+              type="button"
+              disabled
+              aria-disabled="true"
+              className="flex min-h-[44px] flex-1 cursor-not-allowed items-center justify-center rounded-xl bg-gray-200 px-4 text-xs font-bold text-slate-700"
+            >
+              {COMING_SOON_LABEL}
+            </button>
+          )}
+          {!paused && gate.actionable && (
             <Link
               href={gate.href}
               onClick={onClose}
@@ -237,7 +252,7 @@ export default function UpgradeSheet({ gate, onClose }: { gate: Gate; onClose: (
 
         {/* No-refunds is stated wherever money is, so nobody meets it first at
             checkout. Only when a price is actually on screen. */}
-        {gate.plan && (
+        {sellPlan && (
           <p className="mt-3 text-center text-[10px] text-gray-500">
             Plans run for 30 days. No refunds — see{' '}
             <Link href="/terms" className="underline">

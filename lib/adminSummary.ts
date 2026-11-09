@@ -10,6 +10,7 @@ import 'server-only'
 // Overview's Refresh button.
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { loadPaidSignups } from '@/lib/paidSignups'
 import { withRunMemo } from '@/lib/runMemo'
 import {
   addRunToTally,
@@ -317,7 +318,7 @@ async function rebuildOnce(opts: { force?: boolean }): Promise<{ ran: boolean; m
     filter: l.filter,
   })
 
-  const [ov7, ov30, sections, dir, docs, pipeline, parentFu, apps, appsNew, paid, reports, receipts] = await Promise.all([
+  const [ov7, ov30, sections, dir, docs, pipeline, parentFu, apps, appsNew, paid, reports, receipts, paidSignups] = await Promise.all([
     safe('overview', async () => {
       const out: OverviewPayload = {}
       await Promise.all(keys.map(async (k) => (out[k] = toItem(await loadOverviewList(k, { days: 7 })))))
@@ -346,12 +347,15 @@ async function rebuildOnce(opts: { force?: boolean }): Promise<{ ran: boolean; m
     safe('paid tutors', () => loadPaidTutors()),
     safe('reports', async () => (await admin.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'open')).count ?? 0),
     safe('receipts', () => receiptsWaitingCount()),
+    // The paid sign-ups view (owner, 9 Nov 2026): counts only, no amounts.
+    safe('paid sign-ups', () => loadPaidSignups()),
   ])
 
   // Overview, sections.
   if (ov7) await safe('write overview', () => put(admin, 'overview:7', ov7, at))
   if (ov7 && ov30) await safe('write overview 30', () => put(admin, 'overview:30', { ...ov7, ...ov30 }, at))
   if (sections) await safe('write sections', () => put(admin, 'sections', sections, at))
+  if (paidSignups) await safe('write paid sign-ups', () => put(admin, 'paidsignups', paidSignups, at))
 
   // People.
   if (dir && docs) {

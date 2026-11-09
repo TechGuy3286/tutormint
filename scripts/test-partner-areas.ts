@@ -39,6 +39,8 @@ const EDIT: Key[] = [
   // Send status image (Paid tutors rows, the member page) and the logged Show on
   // the member page header (owner, 26 Oct 2026).
   'statusImage', 'memberContactReveal',
+  // Send welcome on a paid tutor's People card (owner, 9 Nov 2026).
+  'paidWelcome',
   // Parent consent for listings (owner, 27 Oct 2026).
   'tuitionConsent',
   // Refresh the pre-calculated admin summary (owner, 1 Nov 2026): changes no data,
@@ -82,6 +84,8 @@ test('every view-only area refuses a Partner write; the Owner is unaffected', ()
     'templateReview',
     // Receipt "Checked" and the Backend Support KPI card (owner, 31 Oct 2026).
     'receiptCheck', 'backendSupportKpi',
+    // The paid sign-ups view (owner, 9 Nov 2026): counts to read, nothing to change.
+    'paidSignups',
   ]
   for (const key of VIEW) {
     assert.equal(roleMayWrite('partner', SCREEN_ACCESS[key]), false, key)
@@ -166,6 +170,7 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed' | 'ret
   'follow-ups/tutor': 'edit',
   // People → Tutors pipeline follow-ups (owner, 8 Nov 2026): the follow-up list's own access.
   'people/follow-up': 'edit',
+  'people/welcome': 'edit',
   // Log a call or note / withdraw a note on the Activity tab (owner, 23 Oct 2026).
   'members/notes': 'edit',
   // Follow-ups → Parents taps and Undo; Send status image; the header's Show

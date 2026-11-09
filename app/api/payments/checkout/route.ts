@@ -13,6 +13,7 @@ import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
 import { bankTransferOn, getGatewaySettings, onlineCheckoutOn, PAYPRO_RETIRED, recordGatewayEvent } from '@/lib/payments/gatewaySettings'
 import { PAYPRO_CLOSED_MESSAGE } from '@/lib/payments/payproRetireCore'
 import { RELOAD_AND_RETRY } from '@/lib/tutorSubjectCap'
+import { upgradeRefusal } from '@/lib/upgradesPausedCore'
 
 // node:https (PayPro) needs the Node runtime, not edge.
 export const runtime = 'nodejs'
@@ -72,6 +73,11 @@ export async function POST(request: Request) {
     .maybeSingle()
 
   if (!plan) return NextResponse.json({ error: 'Unknown plan.' }, { status: 400 })
+
+  // Premium / Featured are paused (owner, 9 Nov 2026): only the Verification
+  // Fee can be bought. Refused before any payment row is made.
+  const paused = upgradeRefusal(plan.code as string, plan.price_pkr as number)
+  if (paused) return NextResponse.json({ error: paused.error, code: paused.code }, { status: paused.status })
 
   if (plan.price_pkr === 0) {
     // parent_verified costs nothing and is earned by CNIC + address approval,

@@ -53,6 +53,7 @@ const TODO_KEYS: OverviewItemKey[] = [
   'todo-docs',
   'todo-blank-photos',
   'todo-fee-pending',
+  'todo-not-welcomed',
   'todo-rejected-uninformed',
   'todo-payments',
   'todo-due',
@@ -103,8 +104,10 @@ export default async function AdminHome({
   // "Signed up today, not paid" opens the existing Unpaid signups list on its
   // Today filter (the same rows), not a second list.
   // The follow-up rows open Follow-ups → Tutors on their chip (owner, 20 Oct 2026).
+  // The "Paid" card opens the paid sign-ups view (owner, 9 Nov 2026).
+  const paidView = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paidSignups)
   const href = (k: OverviewItemKey) =>
-    k === 'signups-today' ? SIGNUPS_TODAY_HREF : k === FEE_PENDING_KEY ? stageHref('approved', 'not') : OVERVIEW_KEY_PEOPLE[k] ? OVERVIEW_KEY_PEOPLE[k] : `/admin/overview/${k}${OVERVIEW_ITEMS[k].funnel ? `?days=${funnelDays}` : ''}`
+    k === 'signups-today' ? SIGNUPS_TODAY_HREF : k === 'paid-today' && paidView ? '/admin/paid-signups' : k === FEE_PENDING_KEY ?stageHref('approved', 'not') : OVERVIEW_KEY_PEOPLE[k] ? OVERVIEW_KEY_PEOPLE[k] : `/admin/overview/${k}${OVERVIEW_ITEMS[k].funnel ? `?days=${funnelDays}` : ''}`
 
   const tiles = CARD_KEYS.filter((k) => lists.has(k)).map((k) => {
     const l = lists.get(k)!

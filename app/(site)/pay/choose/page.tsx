@@ -9,6 +9,7 @@ import { priceLine, rupees } from '@/lib/payments/receiptCore'
 import { FEE_LABEL } from '@/lib/display'
 import OrderPageNav from '../manual/[ref]/OrderPageNav'
 import PayChoice from './PayChoice'
+import { upgradeBlocked } from '@/lib/upgradesPausedCore'
 import Link from 'next/link'
 import { safeReturnTo } from '@/lib/returnTo'
 import { payChooseHref } from '@/lib/payChooseDefault'
@@ -145,6 +146,9 @@ export default async function PayChoosePage({
     plan = feeRow
   }
   if (!plan) redirect(plansHref)
+  // Premium / Featured are paused (owner, 9 Nov 2026): the plans page shows
+  // them as "Coming soon"; nothing can be paid here for them.
+  if (upgradeBlocked(plan.code as string, plan.price_pkr as number)) redirect(plansHref)
   const isFee = plan.code === 'verified'
 
   const [bank, receipt] = await Promise.all([

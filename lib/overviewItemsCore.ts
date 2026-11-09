@@ -29,6 +29,8 @@ export const OVERVIEW_ITEM_KEYS = [
   // pending, not followed up", and "Rejected, not informed" was added. The old
   // Follow-ups rows (not yet contacted, stuck, follow-up sent) are its stages now.
   'todo-fee-pending',
+  // Paid in the last 30 days and not welcomed (owner, 9 Nov 2026 — lib/paidWelcomeCore).
+  'todo-not-welcomed',
   'todo-rejected-uninformed',
   'todo-payments',
   'todo-due',
@@ -73,6 +75,7 @@ export const OVERVIEW_ITEMS: Record<OverviewItemKey, OverviewItemMeta> = {
   'todo-docs': { title: 'Documents to approve', screen: 'tutors', noun: ['member', 'members'] },
   'todo-blank-photos': { title: 'Blank photos to check', screen: 'tutors', noun: ['tutor', 'tutors'] },
   'todo-fee-pending': { title: 'Fee pending, not followed up', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
+  'todo-not-welcomed': { title: 'Paid, not welcomed', screen: 'paidWelcome', noun: ['tutor', 'tutors'] },
   'todo-rejected-uninformed': { title: 'Rejected, not informed', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
   // Checkouts a member opened and never completed (owner, 16 Oct 2026) — not
   // payments to approve. Rules: lib/startedPaymentCore.

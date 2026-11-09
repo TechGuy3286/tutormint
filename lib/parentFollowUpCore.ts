@@ -221,8 +221,10 @@ const SUPPORT = 'Need help? WhatsApp us on {support_whatsapp}'
 export const PARENT_DEFAULTS: Record<string, string> = {
   pf_tutors_applied:
     'Assalam o Alaikum {first_name}, tutors have applied to your tuition "{tuition_title}" on TutorMint. Here are their profiles:\n{tutor_links}\n\nReply here and tell us who you would like to talk to.\n\n' + SUPPORT,
+  // The new-parent welcome (owner, 9 Nov 2026 — migration 226): the parent
+  // posts the tuition themselves. Owner's wording; the number comes from settings.
   pf_no_tuition:
-    'Assalam o Alaikum {first_name}, thank you for joining TutorMint. Posting a tuition is free: tell us the class, subjects and area, and verified tutors can apply.\nYou can post it here:\n{post_link}\n\n' + SUPPORT,
+    'Assalam o Alaikum {first_name}, thank you for joining TutorMint. You can post your tuition yourself, for free. Add the class, subjects and area, and verified tutors near you will apply. Post your tuition here: https://www.tutormint.org/post-tuition Or browse tutors and contact one directly: https://www.tutormint.org/browse/tutors Need help? WhatsApp {support_whatsapp}',
   pf_no_applicants:
     'Assalam o Alaikum {first_name}, your tuition "{tuition_title}" is live on TutorMint, but no tutor has applied yet. Adding timings and more detail helps tutors decide.\nYou can see it here:\n{tuition_link}\n\n' + SUPPORT,
   pf_email_unconfirmed:
