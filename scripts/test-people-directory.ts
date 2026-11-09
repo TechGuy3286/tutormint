@@ -174,7 +174,8 @@ test('old addresses redirect to the matching tab and chip', () => {
   assert.equal(parentsRedirect({}), '/admin/users?tab=parents&pv=waiting')
   assert.equal(parentsRedirect({ filter: 'approved' }), '/admin/users?tab=parents&pv=approved')
   assert.equal(parentsRedirect({ filter: 'all' }), '/admin/users?tab=parents')
-  assert.equal(overviewPeopleRedirect('tutors', {}), '/admin/users?tab=tutors')
+  // "All" is written into the address since the staff default view (owner, 9 Nov 2026).
+  assert.equal(overviewPeopleRedirect('tutors', {}), '/admin/users?tab=tutors&stage=all')
   assert.equal(overviewPeopleRedirect('tutors', { docs: 'rejected' }), '/admin/users?tab=tutors&docs=rejected')
   assert.equal(overviewPeopleRedirect('parents', {}), '/admin/users?tab=parents')
   assert.equal(overviewPeopleRedirect('todo-docs', {}), '/admin/users?tab=tutors&stage=waiting')
@@ -206,7 +207,8 @@ test('the Verification group is gone; People carries the waiting badge', () => {
   // The badge, the Overview "Documents to approve" row and the chips read the
   // same loader and the same Waiting rule.
   const loader = read('lib/peopleDirectory.ts')
-  assert.ok(loader.includes("tutors.map((t) => docs.get(t.id)?.kind ?? null)"))
+  // The ready-for-review rule (owner, 9 Nov 2026).
+  assert.ok(loader.includes("tutors.map((t) => (readyForReviewFrom(docs.get(t.id), t.completion) ? 'waiting' : null))"))
   assert.ok(loader.includes("parents.map((p) => p.parent?.verification ?? 'none')"))
 })
 

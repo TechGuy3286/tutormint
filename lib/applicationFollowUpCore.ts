@@ -108,6 +108,21 @@ export function dueState(item: BoardItem, records: FollowUpRecord[], nowMs: numb
   return { tab, dueAt: iso(dueAt), overdue: older ? null : overdue, last, done: false, older }
 }
 
+/**
+ * A NEW, UNSEEN application (owner, 9 Nov 2026 — the Applications sidebar
+ * badge counts only these): still at Applied, with no staff activity on it at
+ * all (no stage change, WhatsApp tap or forward — workedAt empty — and no
+ * follow-up recorded), on a tuition that is not Older and still available.
+ * There is no per-view log of applications, so "unseen" means "nobody has
+ * worked it yet"; the first staff action takes it out of the count.
+ */
+export function isNewUnseenApplication(item: BoardItem, records: FollowUpRecord[], nowMs: number): boolean {
+  if (item.stage !== 'applied' || item.unavailable) return false
+  if (isOlderTuition(item.jobCreatedAt, nowMs)) return false
+  if (item.workedAt) return false
+  return !records.some((r) => r.kind === 'follow_up')
+}
+
 /** The red sidebar badge: overdue To do items (not Older) — the viewer's own,
  *  every one for the site Owner. */
 export function todoBadgeCount(items: (BoardItem & { due: DueState })[], actor: ActorLike): number {

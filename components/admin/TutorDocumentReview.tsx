@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, X, Loader2, MessageCircle } from 'lucide-react'
+import { AlertTriangle, Check, X, Loader2, MessageCircle } from 'lucide-react'
+import { BLANK_REJECT_LABEL, blankRejectReason, type BlankItem } from '@/lib/photoBlankCore'
 import { normalisePkMobile } from '@/lib/phone'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import DocumentViewer, { ViewerThumb as Zoomable, type ViewerImage } from '@/components/admin/DocumentViewer'
@@ -65,6 +66,7 @@ export default function TutorDocumentReview({
   cnicName = null,
   nameFlagged = false,
   nameMismatch = false,
+  blankItems = [],
 }: {
   tutorId: string
   canReview: boolean
@@ -97,6 +99,8 @@ export default function TutorDocumentReview({
   nameFlagged?: boolean
   /** Staff marked the card's name as not matching: the CNIC is the Owner's to decide. */
   nameMismatch?: boolean
+  /** The current profile photo / selfie looks almost entirely black or blank (lib/photoBlank). A flag only. */
+  blankItems?: BlankItem[]
 }) {
   const [numberHighlight, setNumberHighlight] = useState(false)
   // Each item's status as it changes on this card, so "Send WhatsApp" appears
@@ -188,6 +192,7 @@ export default function TutorDocumentReview({
           item="profile_pic"
           title="Profile picture"
           canReview={canReview}
+          blank={blankItems.includes('photo')}
           memberWhatsapp={memberWhatsapp}
           state={statuses.profilePic}
           unlock={lockInfo ? { item: 'photo', lockable: !!lockInfo.lockable.photo, unlockOpen: !!lockInfo.unlockOpen.photo, canUnlock } : null}
@@ -216,6 +221,7 @@ export default function TutorDocumentReview({
           item="selfie"
           title="Selfie"
           canReview={canReview}
+          blank={blankItems.includes('selfie')}
           memberWhatsapp={memberWhatsapp}
           state={statuses.selfie}
           unlock={lockInfo ? { item: 'selfie', lockable: lockInfo.lockable.selfie && !rv?.selfieId, unlockOpen: lockInfo.unlockOpen.selfie, canUnlock } : null}
@@ -275,8 +281,11 @@ function ReviewItem({
   onStatus,
   unlock = null,
   cnicCheck = null,
+  blank = false,
   children,
 }: {
+  /** The picture looks blank: a red flag and a one-tap "Reject — photo unclear" (owner, 9 Nov 2026). */
+  blank?: boolean
   /** CNIC only: the name comparison and the Owner-only flags. */
   cnicCheck?: { cnicName: string | null; nameFlagged: boolean; nameMismatch: boolean } | null
   /** Unlock for re-upload, offered in the Change menu when the document is approved and locked. */
@@ -360,18 +369,19 @@ function ReviewItem({
     return waSendHref(waMsisdn, text, refCode)
   })()
 
-  const act = async (decision: 'approve' | 'reject') => {
+  const act = async (decision: 'approve' | 'reject', reasonOverride?: string) => {
+    const sentReason = reasonOverride ?? reason
     setBusy(decision)
     const { ok, data } = await adminFetch<{ error?: string }>('/api/admin/tutors/document-review', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tutorId, item, decision, reason: decision === 'reject' ? reason : null, nameChecked }),
+      body: JSON.stringify({ tutorId, item, decision, reason: decision === 'reject' ? sentReason : null, nameChecked }),
     })
     setBusy(null)
     if (ok) {
       setStatus(decision === 'approve' ? 'approved' : 'rejected')
       onStatus?.(decision === 'approve' ? 'approved' : 'rejected')
-      setShownReason(decision === 'reject' ? reason : null)
+      setShownReason(decision === 'reject' ? sentReason : null)
       setRejecting(false)
       clearReason()
       setChanging(false)
@@ -391,6 +401,23 @@ function ReviewItem({
         </span>
       </div>
       {children}
+      {blank && status !== 'rejected' && (item === 'profile_pic' || item === 'selfie') && (
+        <div className="space-y-1 rounded-lg border border-tm-red/40 bg-tm-tint-red px-2 py-1.5" data-blank-flag="">
+          <p className="flex items-center gap-1 text-[11px] font-bold text-tm-red">
+            <AlertTriangle aria-hidden size={12} /> Photo looks blank
+          </p>
+          {canReview && state.hasUpload && (!decided || menu.includes('reject')) && (
+            <button
+              type="button"
+              disabled={!!busy}
+              onClick={() => void act('reject', blankRejectReason(item === 'selfie' ? 'selfie' : 'photo'))}
+              className="inline-flex min-h-[36px] w-full items-center justify-center gap-1 rounded-lg border border-tm-red bg-white px-2 text-[11px] font-bold text-tm-red disabled:opacity-50"
+            >
+              <X size={12} aria-hidden /> {BLANK_REJECT_LABEL}
+            </button>
+          )}
+        </div>
+      )}
       {shownReason && status === 'rejected' && (
         <p className="text-[11px] text-tm-red">{shownReason}</p>
       )}

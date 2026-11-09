@@ -33,7 +33,7 @@ import { normalisePkMobile } from '@/lib/phone'
 import { loadFollowUps, parentContacts } from '@/lib/applicationFollowUps'
 import { consentFor } from '@/lib/tuitionConsent'
 import { consentLabel, isRecorded } from '@/lib/tuitionConsentCore'
-import { dueState, todoBadgeCount, type FollowUpRecord } from '@/lib/applicationFollowUpCore'
+import { dueState, isNewUnseenApplication, todoBadgeCount, type FollowUpRecord } from '@/lib/applicationFollowUpCore'
 import {
   ENDED_STAGES,
   isOpenStage,
@@ -159,6 +159,22 @@ export async function overdueApplicationsItems(): Promise<{ ownerId: string | nu
     const due = dueState(item, fus.get(a.id) ?? [], now)
     if (due.tab !== 'todo' || due.older || !due.overdue) continue
     out.push({ ownerId: item.ownerId ?? null })
+  }
+  return out
+}
+
+/** New, unseen applications per tuition owner — the Applications sidebar
+ *  badge (owner, 9 Nov 2026; rule: applicationFollowUpCore isNewUnseenApplication). */
+export async function newApplicationsItems(): Promise<{ ownerId: string | null }[]> {
+  const admin = createAdminClient()
+  if (!admin) return []
+  const { counted, owners, jobCreated, hiddenJobs } = await loadCounted(admin)
+  const fus = await loadFollowUps(admin, counted.map((a) => a.id))
+  const now = Date.now()
+  const out: { ownerId: string | null }[] = []
+  for (const a of counted) {
+    const item = toItem(a, owners, jobCreated, hiddenJobs)
+    if (isNewUnseenApplication(item, fus.get(a.id) ?? [], now)) out.push({ ownerId: item.ownerId ?? null })
   }
   return out
 }

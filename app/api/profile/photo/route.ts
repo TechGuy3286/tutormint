@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server'
+import { after, NextResponse } from 'next/server'
+import { checkPhotoUrl } from '@/lib/photoBlank'
 import { createClient } from '@/lib/supabase/server'
 import { storeMemberPhoto } from '@/lib/avatarCrop'
 import { validCrop } from '@/lib/photoCropCore'
@@ -62,5 +63,8 @@ export async function POST(request: Request) {
     targetId: user.id,
     meta: { kind: 'photo', ...(review ? { review: true } : {}) },
   })
+  // Almost entirely black or blank? A flag for staff only (owner, 9 Nov 2026).
+  const shownUrl = result.url
+  after(() => checkPhotoUrl(user.id, shownUrl))
   return NextResponse.json({ success: true, url: result.url, originalUrl: result.originalUrl, ...(review ? { review: true } : {}) })
 }

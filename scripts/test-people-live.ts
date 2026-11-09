@@ -14,6 +14,7 @@ const live = !!process.env.SUPABASE_SERVICE_ROLE_KEY && !!process.env.NEXT_PUBLI
 test('People counts match the Overview', { skip: !live && 'no service-role key' }, async () => {
   const { directoryCounts, inTab, loadDirectory, loadDirectoryDocs, peopleWaitingCount } = await import('../lib/peopleDirectory')
   const { loadOverviewList } = await import('../lib/overviewItems')
+  const { readyForReviewFrom } = await import('../lib/tutorPipelineCardCore')
   const counts = await directoryCounts()
   const tutors = await loadOverviewList('tutors')
   const parents = await loadOverviewList('parents')
@@ -25,7 +26,7 @@ test('People counts match the Overview', { skip: !live && 'no service-role key' 
   const d = await loadDirectory()
   const dd = await loadDirectoryDocs()
   const chips =
-    inTab(d.people, 'tutor', false).filter((p) => dd.get(p.id)?.kind === 'waiting').length +
+    inTab(d.people, 'tutor', false).filter((p) => readyForReviewFrom(dd.get(p.id), p.completion)).length +
     inTab(d.people, 'parent', false).filter((p) => p.parent?.verification === 'waiting').length
   assert.equal(badge, chips, 'badge = Waiting chips')
   // The toggle only ever adds people.

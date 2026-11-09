@@ -18,7 +18,7 @@
 import { pageSlice, withShown, type PageSlice } from '@/lib/adminPagingCore'
 import { applyDocFilter, docFilterCounts, isDocFilter, type DocFilter, type DocSummaryKind } from '@/lib/tutorDocSummaryCore'
 
-export type ChipRowSpec = { param: string; options: { key: string }[] }
+export type ChipRowSpec = { param: string; options: { key: string }[]; keepFirst?: boolean }
 
 export type GridSearchable = {
   /** The fields the search box matches, in any case. */
@@ -99,7 +99,7 @@ export function gridHref(
   const params: Record<string, string | undefined> = { ...state.keep }
   for (const r of rows) {
     const v = change[r.param] ?? state.sel[r.param] ?? r.options[0].key
-    params[r.param] = v === r.options[0].key ? undefined : v
+    params[r.param] = v === r.options[0].key && !r.keepFirst ? undefined : v
   }
   if (state.docFilter) {
     const d = change.docs ?? state.docFilter

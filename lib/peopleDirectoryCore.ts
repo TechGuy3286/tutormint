@@ -317,7 +317,7 @@ export function parentsRedirect(sp: { filter?: string }): string {
 
 /** The Overview lists that moved to People. */
 export const OVERVIEW_KEY_PEOPLE: Record<string, string> = {
-  tutors: peopleHref('tutors'),
+  tutors: peopleHref('tutors', { stage: 'all' }),
   parents: peopleHref('parents'),
   'todo-docs': peopleHref('tutors', { stage: 'waiting' }),
 }
@@ -327,7 +327,7 @@ export function overviewPeopleRedirect(key: string, sp: { docs?: string; q?: str
   const base = OVERVIEW_KEY_PEOPLE[key]
   if (!base) return null
   if (key !== 'tutors') return base
-  return peopleHref('tutors', { docs: sp.docs && sp.docs !== 'all' ? sp.docs : null, q: sp.q?.trim() || null }) // ?docs= → its stage on People (lib/tutorPipelineCore legacyPeopleTutorHref)
+  return peopleHref('tutors', { docs: sp.docs && sp.docs !== 'all' ? sp.docs : null, stage: sp.docs && sp.docs !== 'all' ? null : 'all', q: sp.q?.trim() || null }) // ?docs= → its stage on People (lib/tutorPipelineCore legacyPeopleTutorHref)
 }
 
 // ---------------------------------------------------------------------------

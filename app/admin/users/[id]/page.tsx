@@ -47,6 +47,7 @@ import LinkBankCredit from '@/components/admin/LinkBankCredit'
 import MarkRefundedButton from '@/components/admin/MarkRefundedButton'
 import { loadRefundDues } from '@/lib/feeMatch'
 import { selfiePhotoMatchUsers } from '@/lib/selfieMatch'
+import { blankPhotoFlags } from '@/lib/photoBlank'
 import { canApprove } from '@/lib/adminAccessCore'
 import MemberTabs from '@/components/admin/MemberTabs'
 import SendSocialLinksButton from '@/components/admin/SendSocialLinksButton'
@@ -544,6 +545,7 @@ export default async function AdminMemberPage({
               cnicNumberMasked={tutorDocs.cnicNumberMasked}
               canEditNumber={roleMayWrite(actor.adminRole, SCREEN_ACCESS.tutorEdit)}
               selfieLooksLikePhoto={(await selfiePhotoMatchUsers([id])).has(id)}
+              blankItems={(await blankPhotoFlags([id])).get(id) ?? []}
               cnicName={cnicNameShown}
               nameFlagged={!!(profile.name_rereview_at as string | null)}
               nameMismatch={nameMismatch}

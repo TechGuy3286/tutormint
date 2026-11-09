@@ -20,8 +20,8 @@ import LoadMoreLink from '@/components/admin/LoadMoreLink'
 import QueueSearch from '@/components/admin/QueueSearch'
 import { gridHref } from '@/lib/cardGridPagingCore'
 import SelfieMatchWarning from '@/components/admin/SelfieMatchWarning'
-import PipelineActions, { type PipeLinks } from '@/components/admin/PipelineActions'
-import type { PipeCard } from '@/lib/tutorPipelineCardCore'
+import PipelineActions, { PipelineMoreMenu, type PipeLinks } from '@/components/admin/PipelineActions'
+import { showProfileShare, type PipeCard } from '@/lib/tutorPipelineCardCore'
 import { isFollowStage } from '@/lib/tutorPipelineCore'
 import {
   DOC_FILTERS,
@@ -114,6 +114,9 @@ export type FilterRow = {
   param: string
   label: string
   options: { key: string; label: string; hideWhenZero?: boolean }[]
+  /** Write the first option into the address too (People → Tutors' "All",
+   *  whose empty address means the default stage — owner, 9 Nov 2026). */
+  keepFirst?: boolean
 }
 
 /** Server-paged mode (owner, 28 Oct 2026): the SERVER searched, filtered and
@@ -173,7 +176,7 @@ function PagedGrid({ items, isOwner = false, filterRows = [], paged }: GridProps
   const searchKeep: Record<string, string | undefined> = { ...paged.keep }
   for (const r of filterRows) {
     const v = paged.sel[r.param]
-    if (v && v !== r.options[0].key) searchKeep[r.param] = v
+    if (v && (r.keepFirst || v !== r.options[0].key)) searchKeep[r.param] = v
   }
   if (paged.docFilter && paged.docFilter !== 'all') searchKeep.docs = paged.docFilter
   return (
@@ -441,6 +444,8 @@ function MemberBody({
             {m.city ? ` · ${m.city}` : ''}
           </p>
         </div>
+        {/* "Not interested" and its Undo, out of the way (owner, 9 Nov 2026). */}
+        {it.pipe && it.memberId && <PipelineMoreMenu memberId={it.memberId} pipe={it.pipe.card} />}
       </div>
 
       <dl className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px]">
@@ -463,8 +468,9 @@ function MemberBody({
             <dt className="text-gray-500">Last active</dt>
             <dd className="text-right font-semibold text-slate-700">{it.parent.lastActive ? formatDate(it.parent.lastActive) : '—'}</dd>
           </>
-        ) : (
+        ) : it.pipe ? null : (
           <>
+            {/* A pipeline card shows the profile % in its one status line. */}
             <dt className="text-gray-500">Profile</dt>
             <dd className="text-right font-semibold text-slate-700">{m.completion}%</dd>
           </>
@@ -492,12 +498,13 @@ function MemberBody({
           ))}
         </p>
       )}
-      {it.docs && <DocsRow docs={it.docs} />}
+      {it.docs && !it.pipe && <DocsRow docs={it.docs} />}
       {it.docs?.selfieLooksLikePhoto && <SelfieMatchWarning compact />}
       {it.pipe && it.memberId && <PipelineActions memberId={it.memberId} pipe={it.pipe.card} links={it.pipe.links} />}
-      {m.role === 'tutor' && it.share && <ProfileShareButtons share={it.share} />}
+      {/* Only a paid tutor's profile is public (owner, 9 Nov 2026). */}
+      {m.role === 'tutor' && it.share && showProfileShare(m.paid) && <ProfileShareButtons share={it.share} />}
 
-      {m.stoppedAt && (
+      {m.stoppedAt && !it.pipe && (
         <p className="rounded-lg bg-tm-tint-gold px-2 py-1 text-[11px] font-semibold text-tm-gold-ink">Next: {m.stoppedAt}</p>
       )}
       {memberDetail && <p className="text-[11px] text-gray-600">{memberDetail}</p>}

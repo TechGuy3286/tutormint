@@ -101,8 +101,10 @@ test('no double message: an Applications message in the last 3 days means not du
 test('the badge counts overdue To do only', () => {
   const src = readFileSync('lib/parentFollowUps.ts', 'utf8')
   assert.match(src, /fuBadgeCount\(rows\.filter\(\(r\) => !r\.notInterested\)\.map\(\(r\) => r\.state\)\)/)
-  // Follow-ups merged into People (owner, 8 Nov 2026): the People badge adds parents' overdue To do.
-  assert.match(readFileSync('lib/adminSummaryCore.ts', 'utf8'), /\(may\.parentFollowUps \? b\.parentOverdue : 0\)/)
+  // The count is still stored, but since 9 Nov 2026 the People badge counts only
+  // documents waiting and Approved fee pending — not parents' follow-ups.
+  assert.match(readFileSync('lib/adminSummary.ts', 'utf8'), /parentOverdue: parentFu \? fuBadgeCount\(/)
+  assert.doesNotMatch(readFileSync('lib/adminSummaryCore.ts', 'utf8'), /\(may\.parentFollowUps \? b\.parentOverdue : 0\)/)
 })
 
 test('six short templates, seeded, ending with {support_whatsapp}, no prices', () => {

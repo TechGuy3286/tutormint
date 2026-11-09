@@ -98,31 +98,47 @@ export type BadgesPayload = {
   reports: number
   receipts: number
   peopleWaiting: number
-  /** People → Tutors "Not followed up" (owner, 8 Nov 2026). Older rows may
+  /** People → Tutors, Approved fee pending · Not followed up, with a mobile
+   *  on file (owner, 9 Nov 2026; was every followed-up stage). Older rows may
    *  still carry the retired followUpsOverdue instead. */
   pipelineDue?: number
   followUpsOverdue?: number
+  /** Stored, no longer in the People badge (owner, 9 Nov 2026). */
   parentOverdue: number
+  /** Stored, no longer a badge (owner, 9 Nov 2026). */
   appsOverdue: Tally
+  /** New, unseen applications (applicationFollowUpCore isNewUnseenApplication). */
+  appsNew?: Tally
+  /** Stored, no longer a badge (owner, 9 Nov 2026). */
   paidRed: Tally
 }
 
-/** The sidebar badges for one viewer, from the stored payload (the layout's
- *  old navBadges, same keys and the same role checks). */
+/** The number a sidebar badge shows: the real count up to 99, then "99+";
+ *  nothing at 0. */
+export function badgeText(n: number): string | null {
+  if (!Number.isFinite(n) || n <= 0) return null
+  return n > 99 ? '99+' : String(Math.floor(n))
+}
+
+/**
+ * The sidebar badges for one viewer, from the stored payload. Only "act now"
+ * counts (owner, 9 Nov 2026):
+ *   People        documents waiting for approval (the ready-for-review rule)
+ *                 + Approved, fee pending · Not followed up
+ *   Applications  new, unseen applications — the viewer's own tuitions, every
+ *                 one for the site Owner
+ *   Paid tutors   no badge
+ */
 export function navBadgesFrom(
   b: BadgesPayload,
   actor: { id: string; adminRole: string | null | undefined },
-  may: { followUps: boolean; paidTutors: boolean; parentFollowUps: boolean; users?: boolean },
+  may: { followUps: boolean; paidTutors?: boolean; parentFollowUps?: boolean; users?: boolean },
 ): Record<string, number> {
-  // Follow-ups is part of People (owner, 8 Nov 2026): the People badge is the
-  // documents waiting for approval plus the follow-ups due now.
   return {
     '/admin/reports': b.reports,
     '/admin/payments': b.receipts,
-    '/admin/applications': viewerCount(b.appsOverdue, actor),
-    '/admin/users':
-      (may.users === false ? 0 : b.peopleWaiting) + (may.followUps ? (b.pipelineDue ?? 0) : 0) + (may.parentFollowUps ? b.parentOverdue : 0),
-    '/admin/paid-tutors': may.paidTutors ? viewerCount(b.paidRed, actor) : 0,
+    '/admin/applications': viewerCount(b.appsNew ?? null, actor),
+    '/admin/users': (may.users === false ? 0 : b.peopleWaiting) + (may.followUps ? (b.pipelineDue ?? 0) : 0),
   }
 }
 

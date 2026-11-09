@@ -58,6 +58,7 @@ function card(a: { cnic?: DocState; photo?: DocState; selfie?: DocState; feePaid
   return pipeCardFrom({
     name: 'Sana Test-Invented',
     feePaid: a.feePaid ?? false,
+    completion: 90,
     docs: docs(a.cnic ?? 'approved', a.photo ?? 'approved', a.selfie ?? 'approved'),
     contacts: a.contacts ?? [],
     notInterested: a.ni ?? false,
@@ -77,22 +78,22 @@ test('every tutor lands in exactly one stage, with the right precedence', () => 
     for (const cnic of STATES)
       for (const photo of STATES)
         for (const selfie of STATES) {
-          const s = pipelineStage({ cnic, photo, selfie, feePaid })
+          const s = pipelineStage({ cnic, photo, selfie, feePaid, completion: 90 })
           assert.ok((PIPE_STAGES as readonly string[]).includes(s))
           seen[s] = (seen[s] ?? 0) + 1
           const all = [cnic, photo, selfie]
-          // Precedence: Paid → Rejected → Waiting → Missing → Approved.
+          // Precedence: Paid → Rejected → Waiting (all three in, one pending) → Missing → Approved.
           if (feePaid) assert.equal(s, 'paid')
           else if (all.includes('rejected')) assert.equal(s, 'rejected')
-          else if (all.includes('waiting')) assert.equal(s, 'waiting')
-          else if (all.includes('none')) assert.equal(s, 'missing')
+          else if (all.includes('waiting') && !all.includes('none')) assert.equal(s, 'waiting')
+          else if (all.includes('none') || all.includes('waiting')) assert.equal(s, 'missing')
           else assert.equal(s, 'approved')
         }
   // 2 × 4³ combinations, each counted once.
   assert.equal(Object.values(seen).reduce((a, b) => a + b, 0), 128)
   for (const s of PIPE_STAGES) assert.ok(seen[s] > 0, s)
-  // Rejected with a re-upload is Waiting (the card shows the new upload pending).
-  assert.equal(pipelineStage({ cnic: 'waiting', photo: 'approved', selfie: 'none', feePaid: false }), 'waiting')
+  // A pending upload with another document not uploaded is Documents missing (owner, 9 Nov 2026).
+  assert.equal(pipelineStage({ cnic: 'waiting', photo: 'approved', selfie: 'none', feePaid: false, completion: 90 }), 'missing')
   // The card says what is missing / rejected.
   const m = card({ cnic: 'none', selfie: 'none' })
   assert.deepEqual(m.missing, ['CNIC', 'Selfie'])
@@ -182,9 +183,10 @@ test('paying or Not interested stops the sequence', () => {
   const w = card({ selfie: 'waiting' })
   assert.equal(w.stage, 'waiting')
   assert.ok(!followUpDue(w))
-  // The badge counts follow-ups due plus documents waiting.
+  // The badge counts documents waiting plus Approved fee pending due (owner, 9 Nov
+  // 2026: parents' follow-ups are no longer in it).
   const b = { reports: 0, receipts: 0, peopleWaiting: 3, pipelineDue: 5, parentOverdue: 2, appsOverdue: { total: 0, byOwner: {} }, paidRed: { total: 0, byOwner: {} } }
-  assert.equal(navBadgesFrom(b, { id: 'o', adminRole: 'owner' }, { followUps: true, paidTutors: true, parentFollowUps: true, users: true })['/admin/users'], 10)
+  assert.equal(navBadgesFrom(b, { id: 'o', adminRole: 'owner' }, { followUps: true, paidTutors: true, parentFollowUps: true, users: true })['/admin/users'], 8)
   assert.equal(navBadgesFrom(b, { id: 't', adminRole: 'tuitions_staff' }, { followUps: true, paidTutors: false, parentFollowUps: false, users: false })['/admin/users'], 5)
   assert.equal(navBadgesFrom(b, { id: 'o', adminRole: 'owner' }, { followUps: true, paidTutors: true, parentFollowUps: true })['/admin/follow-ups'], undefined)
 })

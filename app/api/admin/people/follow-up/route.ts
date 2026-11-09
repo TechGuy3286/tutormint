@@ -67,7 +67,7 @@ export async function POST(request: Request) {
   if (scope) return scope
 
   const [{ data: prof }, { data: tp }, { data: ni }, docs, contacts] = await Promise.all([
-    admin.from('profiles').select('role').eq('id', b.memberId).maybeSingle(),
+    admin.from('profiles').select('role, profile_completion').eq('id', b.memberId).maybeSingle(),
     admin.from('tutor_profiles').select('verified_fee_paid_at').eq('id', b.memberId).maybeSingle(),
     admin.from('follow_up_dismissals').select('id').eq('member_id', b.memberId).is('undone_at', null).limit(1),
     loadTutorDocSummaries([b.memberId]),
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
   ])
   if (prof?.role !== 'tutor') return NextResponse.json({ error: 'That tutor was not found.' }, { status: 404 })
   if ((ni ?? []).length > 0) return NextResponse.json({ error: 'This tutor is marked Not interested. Undo that first.' }, { status: 409 })
-  const stage = pipelineStage({ ...pipeDocsOf(docs.get(b.memberId)), feePaid: !!tp?.verified_fee_paid_at })
+  const stage = pipelineStage({ ...pipeDocsOf(docs.get(b.memberId)), feePaid: !!tp?.verified_fee_paid_at, completion: Number(prof?.profile_completion ?? 0) || 0 })
   if (!isFollowStage(stage)) {
     return NextResponse.json({ error: `This tutor is now in “${STAGE_LABEL[stage]}”, which has no follow-up. Refresh the list.` }, { status: 409 })
   }

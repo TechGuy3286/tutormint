@@ -83,7 +83,8 @@ test('Applications is its own item in the Tuitions group, after Post a tuition, 
   assert.equal(SECTION_LABELS.applications, 'Applications')
   const layout = code('app/admin/layout.tsx')
   // Push 2 (1 Nov 2026): the badge is read from the summary through navBadgesFrom.
-  assert.match(code('lib/adminSummaryCore.ts'), /'\/admin\/applications': viewerCount\(b\.appsOverdue, actor\)/)
+  // New, unseen applications since 9 Nov 2026 (applicationFollowUpCore isNewUnseenApplication).
+  assert.match(code('lib/adminSummaryCore.ts'), /'\/admin\/applications': viewerCount\(b\.appsNew \?\? null, actor\)/)
   // The People badge (Follow-ups merged in, owner 8 Nov 2026) never counts applications.
   const core = code('lib/adminSummaryCore.ts')
   assert.doesNotMatch(core, /'\/admin\/follow-ups':/)

@@ -15,7 +15,7 @@ import {
   peopleHref,
   type PeopleTab,
 } from '@/lib/peopleDirectoryCore'
-import { isFollowStage, PIPE_STAGES, STAGE_LABEL } from '@/lib/tutorPipelineCore'
+import { isFollowStage, PIPE_STAGES, STAGE_LABEL, tutorStageFromAddress } from '@/lib/tutorPipelineCore'
 import { isSignupWindow, type SignupWindow } from '@/lib/staffOutreachCore'
 import { parseFuTab } from '@/lib/tutorFollowUpTabsCore'
 import { parseParentChip } from '@/lib/parentFollowUpCore'
@@ -227,16 +227,16 @@ export default async function PeopleTabs({
   const isTutors = tab === 'tutors'
   // Tutors: the stage row, and for a followed-up stage the Not followed up /
   // Followed up row. Parents: unchanged.
-  const stageSel = (() => {
-    const v = one(sp.stage)
-    return v && (PIPE_STAGES as readonly string[]).includes(v) ? v : 'all'
-  })()
+  // Opened with no filter in the address, staff land on Approved, fee pending ·
+  // Not followed up (owner, 9 Nov 2026); any filter in the address wins.
+  const stageSel = isTutors ? tutorStageFromAddress(sp) : 'all'
   const followRow = isTutors && !showDeleted && isFollowStage(stageSel)
   const rows: FilterRow[] = isTutors
     ? [
         {
           param: 'stage',
           label: 'Stage',
+          keepFirst: true,
           options: [{ key: 'all', label: 'All' }, ...PIPE_STAGES.map((s) => ({ key: s, label: STAGE_LABEL[s] }))],
         },
         ...(followRow
@@ -285,7 +285,7 @@ export default async function PeopleTabs({
 
   // The tab, searched, filtered, counted and paged in SQL (admin_list_page).
   const q = one(sp.q) ?? ''
-  const sel = pickChips(rows, sp)
+  const sel = pickChips(rows, isTutors ? { ...sp, stage: stageSel } : sp)
   const shown = shownCount(sp.n)
   const order = isTutors && (sel.fu === 'done' || sel.stage === 'waiting') ? 'sort_asc' : 'pos'
   const res = await listPage<PeopleCardRow>(peopleList(isTutors ? 'tutor' : 'parent'), {

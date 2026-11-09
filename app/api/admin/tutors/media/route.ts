@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { storeDocument } from '@/lib/documents'
 import { checkSelfieAgainstProfilePhoto } from '@/lib/selfieMatch'
+import { checkPhotosAfterUpload, checkPhotoUrl } from '@/lib/photoBlank'
 import { recomputeCompletion } from '@/lib/completion'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
@@ -126,6 +127,9 @@ export async function POST(request: Request) {
       .eq('id', tutorId)
     field = 'profile_picture'
     newValueRef = url
+    // Almost entirely black or blank? A flag for staff only (owner, 9 Nov 2026).
+    const checkUrl = url
+    after(() => checkPhotoUrl(tutorId, checkUrl))
   } else {
     // CNIC or selfie → private identity-docs bucket via storeDocument.
     const result = await storeDocument(admin, tutorId, kind, file, kind === 'cnic' ? side : undefined, {
@@ -177,6 +181,7 @@ export async function POST(request: Request) {
       const documentId = result.doc.id
       after(async () => {
         await checkSelfieAgainstProfilePhoto(tutorId, documentId, selfieBytes).catch(() => null)
+        await checkPhotosAfterUpload(tutorId)
       })
     }
     // Store the document id as the file reference (the history view renders a

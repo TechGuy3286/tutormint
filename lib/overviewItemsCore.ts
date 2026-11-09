@@ -22,6 +22,9 @@ export const OVERVIEW_ITEM_KEYS = [
   'open-tuitions',
   // today's to-do
   'todo-docs',
+  // "Photo looks blank" (owner, 9 Nov 2026): tutors whose current profile
+  // photo or selfie looks almost entirely black or blank. Hidden at 0.
+  'todo-blank-photos',
   // People's tutor pipeline (owner, 8 Nov 2026): "Ready to pay" became "Fee
   // pending, not followed up", and "Rejected, not informed" was added. The old
   // Follow-ups rows (not yet contacted, stuck, follow-up sent) are its stages now.
@@ -68,6 +71,7 @@ export const OVERVIEW_ITEMS: Record<OverviewItemKey, OverviewItemMeta> = {
   parents: { title: 'Parents', screen: 'usersView', noun: ['parent', 'parents'] },
   'open-tuitions': { title: 'Open tuitions', screen: 'jobs', noun: ['tuition', 'tuitions'] },
   'todo-docs': { title: 'Documents to approve', screen: 'tutors', noun: ['member', 'members'] },
+  'todo-blank-photos': { title: 'Blank photos to check', screen: 'tutors', noun: ['tutor', 'tutors'] },
   'todo-fee-pending': { title: 'Fee pending, not followed up', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
   'todo-rejected-uninformed': { title: 'Rejected, not informed', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
   // Checkouts a member opened and never completed (owner, 16 Oct 2026) — not

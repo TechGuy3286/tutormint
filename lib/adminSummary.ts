@@ -32,11 +32,11 @@ import { duplicateTags, inTab, loadDirectory, loadDirectoryDocs, type DirectoryP
 import { openTags } from '@/lib/memberDuplicates'
 import { DUP_WORDS, EXCLUDE_WORDS, PARENT_VERIFICATION_WORDS, paidTag, postedTag, waitingBadge, type DupLink } from '@/lib/peopleDirectoryCore'
 import type { CardDocs } from '@/lib/tutorDocSummaries'
-import { followUpDue, loadTutorPipeline, pipeSortAt, pipeTags, type PipeCard } from '@/lib/tutorPipeline'
+import { feePendingDue, loadTutorPipeline, pipeSortAt, pipeTags, readyForReviewFrom, type PipeCard } from '@/lib/tutorPipeline'
 import { pipelineOrder } from '@/lib/tutorPipelineCore'
 import { loadParentFollowUps } from '@/lib/parentFollowUps'
 import { fuBadgeCount } from '@/lib/tutorFollowUpTabsCore'
-import { overdueApplicationsItems } from '@/lib/applicationTracking'
+import { newApplicationsItems, overdueApplicationsItems } from '@/lib/applicationTracking'
 import { loadPaidTutors } from '@/lib/paidTutors'
 import { receiptsWaitingCount } from '@/lib/payments/receipt'
 import { loadTeamOverview } from '@/lib/teamOverview'
@@ -208,6 +208,7 @@ function pipelineSort(c: PipeCard | undefined, p: DirectoryPerson) {
     stage: c?.stage ?? ('missing' as const),
     section: c?.section ?? null,
     paused: p.suspended || p.banned || p.selfPaused,
+    noMobile: c?.noMobile ?? !p.mobileOk,
     lastActiveAt: c?.lastActiveAt ?? p.createdAt,
   }
 }
@@ -316,7 +317,7 @@ async function rebuildOnce(opts: { force?: boolean }): Promise<{ ran: boolean; m
     filter: l.filter,
   })
 
-  const [ov7, ov30, sections, dir, docs, pipeline, parentFu, apps, paid, reports, receipts] = await Promise.all([
+  const [ov7, ov30, sections, dir, docs, pipeline, parentFu, apps, appsNew, paid, reports, receipts] = await Promise.all([
     safe('overview', async () => {
       const out: OverviewPayload = {}
       await Promise.all(keys.map(async (k) => (out[k] = toItem(await loadOverviewList(k, { days: 7 })))))
@@ -341,6 +342,7 @@ async function rebuildOnce(opts: { force?: boolean }): Promise<{ ran: boolean; m
     safe('tutor pipeline', () => loadTutorPipeline()),
     safe('parent follow-ups', () => loadParentFollowUps()),
     safe('applications', () => overdueApplicationsItems()),
+    safe('new applications', () => newApplicationsItems()),
     safe('paid tutors', () => loadPaidTutors()),
     safe('reports', async () => (await admin.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'open')).count ?? 0),
     safe('receipts', () => receiptsWaitingCount()),
@@ -398,20 +400,22 @@ async function rebuildOnce(opts: { force?: boolean }): Promise<{ ran: boolean; m
     peopleWaiting:
       tutors && parents && docs
         ? waitingBadge(
-            tutors.map((t) => docs.get(t.id)?.kind ?? null),
+            // The new rule (owner, 9 Nov 2026): all three uploaded, one waiting, none rejected, profile 80%+.
+            tutors.map((t) => (readyForReviewFrom(docs.get(t.id), t.completion) ? 'waiting' : null)),
             parents.map((p) => p.parent?.verification ?? 'none'),
           )
         : (prev?.peopleWaiting ?? 0),
-    // People → Tutors, "Not followed up" across the followed-up stages (owner, 8 Nov 2026).
+    // People → Tutors, Approved fee pending · Not followed up only (owner, 9 Nov 2026).
     pipelineDue:
       pipeline && tutors
         ? tutors.filter((t) => {
             const c = pipeline.get(t.id)
-            return !!c && followUpDue(c)
+            return !!c && feePendingDue(c)
           }).length
         : (prev?.pipelineDue ?? 0),
     parentOverdue: parentFu ? fuBadgeCount(parentFu.rows.filter((r) => !r.notInterested).map((r) => r.state)) : (prev?.parentOverdue ?? 0),
     appsOverdue: apps ? tally(apps) : (prev?.appsOverdue ?? { total: 0, byOwner: {} }),
+    appsNew: appsNew ? tally(appsNew) : (prev?.appsNew ?? { total: 0, byOwner: {} }),
     paidRed: paid ? tally(paid.rows.filter((r) => r.red.length > 0).map((r) => ({ ownerId: r.ownerId ?? null }))) : (prev?.paidRed ?? { total: 0, byOwner: {} }),
   }
   await safe('write badges', () => put(admin, 'badges', badges, at))

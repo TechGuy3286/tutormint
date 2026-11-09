@@ -64,24 +64,50 @@ export function isFollowStage(v: unknown): v is FollowStage {
 }
 
 export type PipeDocs = { cnic: DocState; photo: DocState; selfie: DocState }
-export type PipeFacts = PipeDocs & { feePaid: boolean }
+/** completion = profiles.profile_completion (lib/profileRequired). */
+export type PipeFacts = PipeDocs & { feePaid: boolean; completion: number }
 
 const DOCS = ['cnic', 'photo', 'selfie'] as const
 export const DOC_NAME: Record<(typeof DOCS)[number], string> = { cnic: 'CNIC', photo: 'Profile photo', selfie: 'Selfie' }
 
-/** The ONE stage — precedence Paid → Rejected → Waiting → Missing → Approved. */
+/** A tutor's documents are ready for staff review only from this profile
+ *  completion up (owner, 9 Nov 2026). */
+export const WAITING_MIN_COMPLETION = 80
+
+/**
+ * Ready for review (owner, 9 Nov 2026): all three documents (CNIC, profile
+ * photo, selfie) uploaded, at least one waiting for a decision, none rejected,
+ * and the profile 80% complete or more. This ONE rule decides the "Waiting for
+ * approval" stage, the Overview "Documents to approve" tutor rows and the
+ * People badge's waiting count. (It is the documents' rule, so a paid tutor
+ * with a re-upload waiting is counted for approval too, though their stage is
+ * Paid.)
+ */
+export function docsReadyForReview(d: PipeDocs, completion: number): boolean {
+  const s = DOCS.map((k) => d[k])
+  return !s.includes('none') && !s.includes('rejected') && s.includes('waiting') && completion >= WAITING_MIN_COMPLETION
+}
+
+/** The ONE stage — precedence Paid → Rejected → Waiting → Missing → Approved.
+ *  A tutor with a document waiting who is not ready for review (one not
+ *  uploaded, or the profile under 80%) is in Documents missing. */
 export function pipelineStage(f: PipeFacts): PipeStage {
   if (f.feePaid) return 'paid'
   const s = DOCS.map((k) => f[k])
   if (s.includes('rejected')) return 'rejected'
-  if (s.includes('waiting')) return 'waiting'
-  if (s.includes('none')) return 'missing'
+  if (docsReadyForReview(f, f.completion)) return 'waiting'
+  if (s.includes('none') || s.includes('waiting')) return 'missing'
   return 'approved'
 }
 
 /** "CNIC, Selfie" — the documents not uploaded. */
 export function missingDocs(f: PipeDocs): string[] {
   return DOCS.filter((k) => f[k] === 'none').map((k) => DOC_NAME[k])
+}
+
+/** The documents uploaded and waiting for a decision. */
+export function pendingDocs(f: PipeDocs): string[] {
+  return DOCS.filter((k) => f[k] === 'waiting').map((k) => DOC_NAME[k])
 }
 
 export function rejectedDocs(f: PipeDocs, reasons: Partial<Record<(typeof DOCS)[number], string | null>> = {}): { name: string; reason: string | null }[] {
@@ -217,13 +243,17 @@ export type PipeSortable = {
   stage: PipeStage
   section: 'not' | 'done' | null
   paused: boolean
+  /** No verified mobile number on file — nobody can follow them up
+   *  (owner, 9 Nov 2026): always at the bottom of their stage. */
+  noMobile?: boolean
   /** Last seen on the site, else when they signed up. */
   lastActiveAt: string | null
 }
 
-/** The list order: stage (chip order), then Not followed up before Followed
- *  up, paused accounts last, newest active first. (Followed up is shown
- *  soonest due first and Waiting oldest upload first — by sort_at.) */
+/** The list order: stage (chip order); tutors with no mobile number at the
+ *  bottom of their stage; then Not followed up before Followed up, paused
+ *  accounts last, newest active first. (Followed up is shown soonest due first
+ *  and Waiting oldest upload first — by sort_at.) */
 export function pipelineOrder<T extends PipeSortable>(rows: T[]): T[] {
   const rank = (s: PipeStage) => PIPE_STAGES.indexOf(s)
   const sec = (s: T['section']) => (s === 'done' ? 1 : 0)
@@ -232,6 +262,7 @@ export function pipelineOrder<T extends PipeSortable>(rows: T[]): T[] {
     .sort(
       (a, b) =>
         rank(a.r.stage) - rank(b.r.stage) ||
+        Number(!!a.r.noMobile) - Number(!!b.r.noMobile) ||
         sec(a.r.section) - sec(b.r.section) ||
         Number(a.r.paused) - Number(b.r.paused) ||
         (ts(b.r.lastActiveAt) || 0) - (ts(a.r.lastActiveAt) || 0) ||
@@ -312,9 +343,27 @@ export function followUpsToPeople(sp: Record<string, string | string[] | undefin
 export function stageHref(stage: PipeStage | 'all', fu?: 'not' | 'done' | null): string {
   const q = new URLSearchParams()
   q.set('tab', 'tutors')
-  if (stage !== 'all') q.set('stage', stage)
+  q.set('stage', stage)
   if (fu) q.set('fu', fu)
   return `/admin/users?${q}`
+}
+
+/** The address keys that mean "a filter was chosen" on People → Tutors. */
+const TUTOR_FILTER_KEYS = ['stage', 'fu', 'q', 'ni', 'signed', 'deleted', 'all', 'docs', 'paid']
+
+/**
+ * The stage People → Tutors shows (owner, 9 Nov 2026): opened with no filter
+ * in the address, staff land on "Approved, fee pending → Not followed up" (the
+ * Not followed up chip is that row's first option, so the default stage is
+ * enough). "All" is written into the address as stage=all, so it stays one
+ * click away. Any filter in the address wins.
+ */
+export function tutorStageFromAddress(sp: Record<string, string | string[] | undefined>): PipeStage | 'all' {
+  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? ''
+  const stage = one(sp.stage)
+  if (stage === 'all' || isPipeStage(stage)) return stage
+  const filtered = TUTOR_FILTER_KEYS.some((k) => one(sp[k]).trim() !== '')
+  return filtered ? 'all' : 'approved'
 }
 
 /** The Overview to-do rows that open a stage view. */

@@ -27,6 +27,8 @@ import { isTestName } from '@/lib/staffOutreachCore'
 import type { FollowUpSource } from '@/lib/followUpCore'
 import { tutorsWithChip } from '@/lib/tutorFollowUps'
 import { pipelineRows } from '@/lib/tutorPipeline'
+import { blankPhotoFlags } from '@/lib/photoBlank'
+import { blankLine, readyForReviewFrom } from '@/lib/tutorPipelineCardCore'
 import { stageHref } from '@/lib/tutorPipelineCore'
 import type { FollowChip } from '@/lib/tutorFollowUpCore'
 import { pauseDueAtMs } from '@/lib/tuitionStatus'
@@ -382,7 +384,9 @@ export async function loadOverviewList(
       const d = await loadDirectory()
       const docs = await loadDirectoryDocs()
       const waiting = [
-        ...inTab(d.people, 'tutor', false).filter((p) => docs.get(p.id)?.kind === 'waiting'),
+        // The ready-for-review rule (owner, 9 Nov 2026): all three uploaded,
+        // one waiting, none rejected, profile 80% or more.
+        ...inTab(d.people, 'tutor', false).filter((p) => readyForReviewFrom(docs.get(p.id), p.completion)),
         ...inTab(d.people, 'parent', false).filter((p) => p.parent?.verification === 'waiting'),
       ]
       return {
@@ -397,6 +401,28 @@ export async function loadOverviewList(
         })),
         filter: 'with a document waiting for a decision',
         workHref: OVERVIEW_KEY_PEOPLE['todo-docs'],
+      }
+    }
+
+    case 'todo-blank-photos': {
+      // "Photo looks blank" (owner, 9 Nov 2026): real tutors whose current
+      // profile photo or selfie looks almost entirely black or blank
+      // (lib/photoBlank). Staff decide; nothing is rejected automatically.
+      const d = await loadDirectory()
+      const flags = await blankPhotoFlags(null)
+      const list = inTab(d.people, 'tutor', false).filter((p) => flags.has(p.id))
+      return {
+        key,
+        rows: list.map((p) => ({
+          id: p.id,
+          title: p.name,
+          detail: blankLine({ blank: flags.get(p.id) }),
+          href: `/admin/users/${p.id}#documents`,
+          memberId: p.id,
+          reviewHref: `/admin/users/${p.id}#documents`,
+        })),
+        filter: 'with a profile photo or selfie that looks almost entirely black or blank',
+        workHref: null,
       }
     }
 

@@ -51,6 +51,7 @@ function bigNumberSize(text: string): string {
 const CARD_KEYS: OverviewItemKey[] = ['revenue', 'paid-today', 'tutors', 'parents', 'open-tuitions', 'signups-today']
 const TODO_KEYS: OverviewItemKey[] = [
   'todo-docs',
+  'todo-blank-photos',
   'todo-fee-pending',
   'todo-rejected-uninformed',
   'todo-payments',

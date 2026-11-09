@@ -17,11 +17,12 @@ import { runMemo } from '@/lib/runMemo'
 import { loadDirectory, loadDirectoryDocs, inTab } from '@/lib/peopleDirectory'
 import { loadNotInterested } from '@/lib/followUpDismissals'
 import { loadSupportWhatsApp } from '@/lib/applicationTemplates'
+import { blankPhotoFlags } from '@/lib/photoBlank'
 import { staffLabel } from '@/lib/followUpCore'
 import { kindOfTemplateKey, legacyDocsApproved, stageOfProgress, type PipeContact } from '@/lib/tutorPipelineCore'
 import { pipeCardFrom, pipeSortAt, pipeTags, withContacts, type PipeCard } from '@/lib/tutorPipelineCardCore'
 
-export { pipeCardFrom, pipeDocsOf, pipeSortAt, pipeTags, followUpDue, type PipeCard } from '@/lib/tutorPipelineCardCore'
+export { pipeCardFrom, pipeDocsOf, pipeSortAt, pipeTags, followUpDue, feePendingDue, readyForReviewFrom, type PipeCard } from '@/lib/tutorPipelineCardCore'
 
 const LIST = 'people:tutor'
 
@@ -103,7 +104,7 @@ export const loadTutorPipeline = cache(
   (): Promise<Map<string, PipeCard>> =>
     runMemo('tutor-pipeline', async () => {
       const now = Date.now()
-      const [dir, docs, ni, support] = await Promise.all([loadDirectory(), loadDirectoryDocs(), loadNotInterested(), loadSupportWhatsApp()])
+      const [dir, docs, ni, support, blank] = await Promise.all([loadDirectory(), loadDirectoryDocs(), loadNotInterested(), loadSupportWhatsApp(), blankPhotoFlags(null)])
       const tutors = inTab(dir.people, 'tutor', true)
       const ids = tutors.map((t) => t.id)
       const [contacts, seen] = await Promise.all([loadPipeContacts(ids), lastSeenFor(ids)])
@@ -114,6 +115,9 @@ export const loadTutorPipeline = cache(
           pipeCardFrom({
             name: t.name,
             feePaid: !!t.feePaidAt,
+            completion: t.completion,
+            mobileOk: t.mobileOk,
+            blank: blank.get(t.id) ?? [],
             docs: docs.get(t.id),
             contacts: contacts.get(t.id) ?? [],
             notInterested: ni.has(t.id),

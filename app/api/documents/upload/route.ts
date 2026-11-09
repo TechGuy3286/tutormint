@@ -12,6 +12,7 @@ import { decideUpload, spendUnlock } from '@/lib/docLocks'
 import { readCnicFromDocument } from '@/lib/cnicReader'
 import { isValidCnic } from '@/lib/cnic'
 import { checkSelfieAgainstProfilePhoto } from '@/lib/selfieMatch'
+import { checkPhotosAfterUpload } from '@/lib/photoBlank'
 
 // Upload a CNIC scan or a degree certificate.
 //
@@ -123,6 +124,8 @@ export async function POST(request: Request) {
     const documentId = result.doc.id
     after(async () => {
       await checkSelfieAgainstProfilePhoto(user.id, documentId, selfieBytes).catch(() => null)
+      // Almost entirely black or blank? A flag for staff only (owner, 9 Nov 2026).
+      await checkPhotosAfterUpload(user.id)
     })
   }
 

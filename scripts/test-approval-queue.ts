@@ -110,7 +110,8 @@ test('card and queue share one rule; every count reads the one list', () => {
   assert.ok(read('lib/adminSummaryCore.ts').includes("(may.users === false ? 0 : b.peopleWaiting)") && read('lib/adminSummary.ts').includes('waitingBadge('))
   assert.ok(!layout.includes("'/admin/tutors':"))
   assert.match(read('lib/tutorDocSummaries.ts'), /tutorCardStatuses\(/)
-  assert.match(read('lib/overviewItems.ts'), /case 'todo-docs'[^]*docs\.get\(p\.id\)\?\.kind === 'waiting'/)
+  // The ready-for-review rule (owner, 9 Nov 2026) — the same one the People badge uses.
+  assert.match(read('lib/overviewItems.ts'), /case 'todo-docs'[^]*readyForReviewFrom\(docs\.get\(p\.id\), p\.completion\)/)
 })
 
 test('Overview lists render as cards, one card per row the loader returned', () => {

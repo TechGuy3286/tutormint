@@ -1,6 +1,7 @@
 'use client'
 
 import { shownEmail } from '@/lib/actorLabelCore'
+import { badgeText } from '@/lib/adminSummaryCore'
 
 import { Suspense, useEffect, useId, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -280,7 +281,7 @@ export default function AdminShell({
                             />
                           ) : (
                             <span className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-tm-red px-1.5 text-[10px] font-black text-white">
-                              {count > 99 ? '99+' : count}
+                              {badgeText(count)}
                             </span>
                           ))}
                       </Link>

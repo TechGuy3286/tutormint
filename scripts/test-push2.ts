@@ -110,13 +110,15 @@ test('badges: the Owner sees the whole count, staff their own; the role switches
   assert.equal(viewerCount(t, { id: 'x', adminRole: 'owner' }), 4)
   assert.equal(viewerCount(t, { id: 'a', adminRole: 'operations' }), 2)
   assert.equal(viewerCount(t, { id: 'z', adminRole: 'admin' }), 0)
-  // Follow-ups merged into People (owner, 8 Nov 2026): People = documents waiting + follow-ups due.
-  const b = { reports: 1, receipts: 2, peopleWaiting: 3, pipelineDue: 4, parentOverdue: 5, appsOverdue: t, paidRed: t }
+  // Only "act now" counts (owner, 9 Nov 2026): People = documents waiting +
+  // Approved fee pending due; Applications = new, unseen; Paid tutors no badge.
+  const b = { reports: 1, receipts: 2, peopleWaiting: 3, pipelineDue: 4, parentOverdue: 5, appsOverdue: t, appsNew: t, paidRed: t }
   const staff = navBadgesFrom(b, { id: 'a', adminRole: 'operations' }, { followUps: true, paidTutors: false, parentFollowUps: false })
-  assert.deepEqual(staff, { '/admin/reports': 1, '/admin/payments': 2, '/admin/applications': 2, '/admin/users': 7, '/admin/paid-tutors': 0 })
+  assert.deepEqual(staff, { '/admin/reports': 1, '/admin/payments': 2, '/admin/applications': 2, '/admin/users': 7 })
   const owner = navBadgesFrom(b, { id: 'o', adminRole: 'owner' }, { followUps: true, paidTutors: true, parentFollowUps: true })
-  assert.equal(owner['/admin/users'], 12)
-  assert.equal(owner['/admin/paid-tutors'], 4)
+  assert.equal(owner['/admin/users'], 7)
+  assert.equal(owner['/admin/applications'], 4)
+  assert.equal(owner['/admin/paid-tutors'], undefined)
 })
 
 test('lists: search never matches across two fields; sign-up day windows are Pakistan days', () => {

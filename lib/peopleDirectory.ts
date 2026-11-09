@@ -35,6 +35,7 @@ import {
   type ExcludeReason,
   type ParentVerification,
 } from '@/lib/peopleDirectoryCore'
+import { readyForReviewFrom } from '@/lib/tutorPipelineCardCore'
 
 /** The audit actions that mean "this account was (or became) staff". */
 const STAFF_ACTIONS = ['staff.create', 'staff.role_change', 'staff.grant_existing', 'staff.remove', 'staff.suspend', 'staff.reactivate', 'staff.invite_resend']
@@ -57,6 +58,11 @@ export type DirectoryPerson = {
   /** Tutors. */
   feePaidAt: string | null
   videoWaiting: boolean
+  /** profiles.profile_completion (lib/profileRequired), 0–100. */
+  completion: number
+  /** A mobile number on file AND verified (owner, 9 Nov 2026: without one
+   *  nobody can follow the member up). */
+  mobileOk: boolean
   /** Parents. */
   parent: {
     mobileVerified: boolean
@@ -82,7 +88,7 @@ export type Directory = {
 }
 
 const PROFILE_COLS =
-  'id, role, admin_role, full_name, email, phone_number, whatsapp, city, created_at, is_seed, is_team_account, is_test_name, hidden_from_public, is_suspended, is_banned, linked_account_id, cnic_number, phone_verified_at, verification_state, cnic_verified_at, address, address_status, address_verified_at, merged_into, paused_by_user_at'
+  'id, role, admin_role, full_name, email, phone_number, whatsapp, city, created_at, is_seed, is_team_account, is_test_name, hidden_from_public, is_suspended, is_banned, linked_account_id, cnic_number, phone_verified_at, verification_state, cnic_verified_at, address, address_status, address_verified_at, merged_into, paused_by_user_at, profile_completion'
 
 type Row = Record<string, unknown>
 
@@ -243,6 +249,8 @@ async function loadDirectoryFresh(): Promise<Directory> {
       searchText: [String(p.email ?? '').toLowerCase(), ...digits].join(' '),
       feePaidAt: (t?.verified_fee_paid_at as string | null) ?? null,
       videoWaiting: t?.video_status === 'uploaded',
+      completion: Math.max(0, Math.min(100, Number(p.profile_completion ?? 0) || 0)),
+      mobileOk: !!p.phone_verified_at && String(p.phone_number ?? '').replace(/\D/g, '').length >= 10,
       parent,
     }
   })
@@ -315,7 +323,7 @@ export async function peopleWaitingCount(): Promise<number> {
   const tutors = inTab(d.people, 'tutor', false)
   const parents = inTab(d.people, 'parent', false)
   return waitingBadge(
-    tutors.map((t) => docs.get(t.id)?.kind ?? null),
+    tutors.map((t) => (readyForReviewFrom(docs.get(t.id), t.completion) ? 'waiting' : null)),
     parents.map((p) => p.parent?.verification ?? 'none'),
   )
 }
