@@ -14,6 +14,8 @@
 //
 // The caller receives a File and uploads it exactly as before.
 
+import { blobLooksBlank, sourceLooksBlank } from '@/lib/photoBrightness'
+import { CAMERA_WARMUP_MS, PHOTO_TOO_DARK } from '@/lib/photoBlankCore'
 import { Camera, Check, Loader2, RotateCcw } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 
@@ -46,11 +48,13 @@ export default function LiveSelfieCapture({ busy = false, done = false, preview,
     setMode(selfieMode({ phone: isPhoneDevice(navigator.userAgent, coarse), mediaDevices: !!navigator.mediaDevices?.getUserMedia }))
   }, [])
 
-  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
     e.currentTarget.value = ''
     if (!f) return
     if (!isFreshPhoto(f.lastModified)) { setError(OLD_PHOTO_MESSAGE); return }
+    // A dark or blank frame is refused before it is sent (the server's rule).
+    if (await blobLooksBlank(f)) { setError(PHOTO_TOO_DARK); return }
     setError(null)
     onCapture(f)
   }
@@ -76,7 +80,7 @@ export default function LiveSelfieCapture({ busy = false, done = false, preview,
             <Camera size={16} aria-hidden /> {done ? 'Retake selfie' : 'Open camera'}
           </button>
           {/* Camera only: capture="user" opens the front camera; there is no gallery input. */}
-          <input ref={inputRef} type="file" accept="image/*" capture="user" className="hidden" onChange={onFile} />
+          <input ref={inputRef} type="file" accept="image/*" capture="user" className="hidden" onChange={(e) => void onFile(e)} />
         </>
       )}
       {error && <p role="alert" className="text-center text-[11px] font-bold text-tm-red">{error}</p>}
@@ -92,12 +96,32 @@ function WebcamCapture({ busy, done, preview, onCapture, onUnavailable }: {
   const [live, setLive] = useState(false)
   const [starting, setStarting] = useState(false)
   const [shot, setShot] = useState<{ blob: Blob; url: string } | null>(null)
+  // "Take photo" waits until the camera is producing real frames: about a
+  // second after the first frame, and a frame that is not black (owner, 10 Nov 2026).
+  const [ready, setReady] = useState(false)
+  const [dark, setDark] = useState(false)
 
   const stop = () => {
     streamRef.current?.getTracks().forEach((t) => t.stop())
     streamRef.current = null
     setLive(false)
+    setReady(false)
   }
+
+  useEffect(() => {
+    if (!live) return
+    let firstFrameAt = 0
+    const id = window.setInterval(() => {
+      const v = videoRef.current
+      if (!v || !v.videoWidth || v.readyState < 2) return
+      if (!firstFrameAt) firstFrameAt = Date.now()
+      if (Date.now() - firstFrameAt < CAMERA_WARMUP_MS) return
+      if (sourceLooksBlank(v)) return
+      setReady(true)
+      window.clearInterval(id)
+    }, 250)
+    return () => window.clearInterval(id)
+  }, [live])
   useEffect(() => () => stop(), [])
   useEffect(() => () => { if (shot) URL.revokeObjectURL(shot.url) }, [shot])
 
@@ -107,6 +131,7 @@ function WebcamCapture({ busy, done, preview, onCapture, onUnavailable }: {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 } }, audio: false })
       streamRef.current = stream
       setShot(null)
+      setDark(false)
       setLive(true)
       requestAnimationFrame(() => {
         if (videoRef.current) { videoRef.current.srcObject = stream; void videoRef.current.play().catch(() => {}) }
@@ -121,11 +146,14 @@ function WebcamCapture({ busy, done, preview, onCapture, onUnavailable }: {
 
   const take = () => {
     const v = videoRef.current
-    if (!v || !v.videoWidth) return
+    if (!v || !v.videoWidth || !ready) return
     const c = document.createElement('canvas')
     c.width = v.videoWidth
     c.height = v.videoHeight
     c.getContext('2d')?.drawImage(v, 0, 0)
+    // A dark frame stays on the live camera with the message; nothing is kept.
+    if (sourceLooksBlank(c)) { setDark(true); return }
+    setDark(false)
     c.toBlob((b) => {
       if (!b) return
       setShot({ blob: b, url: URL.createObjectURL(b) })
@@ -156,9 +184,10 @@ function WebcamCapture({ busy, done, preview, onCapture, onUnavailable }: {
           )
         )}
       </div>
+      {dark && <p role="alert" className="text-center text-[11px] font-bold text-tm-red">{PHOTO_TOO_DARK}</p>}
       {live ? (
-        <button type="button" onClick={take} className={`${BTN} bg-tm-red text-white hover:bg-tm-red-hover`}>
-          <Camera size={16} aria-hidden /> Take photo
+        <button type="button" onClick={take} disabled={!ready} className={`${BTN} bg-tm-red text-white hover:bg-tm-red-hover`}>
+          {ready ? <Camera size={16} aria-hidden /> : <Loader2 size={16} className="animate-spin" aria-hidden />} {ready ? 'Take photo' : 'Starting camera…'}
         </button>
       ) : shot ? (
         <div className="grid grid-cols-2 gap-2">

@@ -57,8 +57,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ kind: 'house', ad: house })
   }
 
-  return NextResponse.json({
-    kind: 'house',
-    ad: houseAd(audience, Number.isFinite(index) ? index : 0),
-  })
+  const guestAd = houseAd(audience, Number.isFinite(index) ? index : 0)
+  if (!guestAd) return NextResponse.json({ kind: 'none' })
+  return NextResponse.json({ kind: 'house', ad: guestAd })
 }

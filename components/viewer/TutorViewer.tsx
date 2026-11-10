@@ -1,5 +1,6 @@
 'use client'
 
+import { showUpgradePrompts } from '@/lib/upgradesPausedCore'
 import { createContext, Suspense, useContext, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Lock, MessageCircle, Phone } from 'lucide-react'
@@ -105,13 +106,15 @@ export function TutorContactBox({ tutorName }: { tutorName: string }) {
             <Lock size={14} />
             Phone and WhatsApp are hidden
           </p>
-          <UpgradeTrigger
-            reason="parent_contact"
-            intent="message"
-            className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-gold px-4 text-xs font-black text-tm-navy"
-          >
-            See with Featured
-          </UpgradeTrigger>
+          {showUpgradePrompts() && (
+            <UpgradeTrigger
+              reason="parent_contact"
+              intent="message"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-gold px-4 text-xs font-black text-tm-navy"
+            >
+              See with Featured
+            </UpgradeTrigger>
+          )}
         </div>
       )}
     </section>

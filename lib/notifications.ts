@@ -9,6 +9,7 @@
 // the platform, and a forged one ("your tutor has cancelled") is a very cheap
 // way to manipulate somebody.
 
+import { inviteAllowed } from '@/lib/upgradesPausedCore'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 // A live SIGNAL to the recipient's bell — no content crosses the wire, just
@@ -165,6 +166,8 @@ export async function notify(params: {
    */
   meta?: Record<string, unknown> | null
 }): Promise<void> {
+  // No upgrade invitation while upgrades are "Coming soon" (owner, 10 Nov 2026).
+  if (!inviteAllowed(params.kind)) return
   const admin = createAdminClient()
   if (!admin) {
     console.error('[notify] service-role client unavailable; not sent', params.kind)
@@ -192,6 +195,7 @@ export async function notifyMany(
   userIds: string[],
   params: Omit<Parameters<typeof notify>[0], 'userId'>,
 ): Promise<void> {
+  if (!inviteAllowed(params.kind)) return
   const admin = createAdminClient()
   if (!admin || userIds.length === 0) return
 

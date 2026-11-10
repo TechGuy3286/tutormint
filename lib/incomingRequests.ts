@@ -14,6 +14,7 @@
 // reaching a tutor because a counter is not ready. The count is only ever used
 // to REFUSE, so failing to read it can only under-enforce, never over-enforce.
 
+import { showUpgradePrompts } from '@/lib/upgradesPausedCore'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { currentPeriod, getEntitlements } from '@/lib/entitlements'
 import { notify } from '@/lib/notifications'
@@ -140,12 +141,16 @@ export async function refuseIncomingRequest(
     userId: tutorId,
     kind: 'incoming_request_capped',
     title: 'A parent tried to send you a request',
-    body: premium
-      ? 'You have reached this month’s limit of 100 hiring and demo requests. Upgrade to Featured to receive unlimited.'
-      : 'You have reached this month’s free limit of hiring and demo requests. Upgrade to Premium to receive more.',
-    href: premium
-      ? '/membership-plans?for=tutors&plan=featured'
-      : '/membership-plans?for=tutors&plan=premium',
+    body: !showUpgradePrompts()
+      ? 'You have reached this month’s limit of hiring and demo requests. Your limit resets next month.'
+      : premium
+        ? 'You have reached this month’s limit of 100 hiring and demo requests. Upgrade to Featured to receive unlimited.'
+        : 'You have reached this month’s free limit of hiring and demo requests. Upgrade to Premium to receive more.',
+    href: !showUpgradePrompts()
+      ? '/tutor/dashboard'
+      : premium
+        ? '/membership-plans?for=tutors&plan=featured'
+        : '/membership-plans?for=tutors&plan=premium',
   })
   return {
     error: "This tutor can't take more requests right now.",

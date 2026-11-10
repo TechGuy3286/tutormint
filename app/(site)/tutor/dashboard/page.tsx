@@ -1,3 +1,4 @@
+import { showUpgradePrompts } from '@/lib/upgradesPausedCore'
 import { redirect } from 'next/navigation'
 import { Send, MessageSquare, Video, Briefcase, Eye, Heart, Search, Clapperboard, Trophy } from 'lucide-react'
 
@@ -298,7 +299,7 @@ export default async function TutorDashboardPage() {
         <CountGrid tiles={tiles} />
 
         {/* PR106-D §9: "Get more applications" at ~80% used (Basic/Premium only). */}
-        {q.showGetMore && (
+        {q.showGetMore && showUpgradePrompts() && (
           <Link
             href="/membership-plans?for=tutors"
             className="block text-center text-[11px] font-bold text-tm-navy underline-offset-2 hover:underline"

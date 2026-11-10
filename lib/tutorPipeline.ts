@@ -7,6 +7,7 @@
 // Service role; callers check SCREEN_ACCESS first. Never logs a phone, email
 // or CNIC number.
 
+import { pickUpgrade, type UpgradeHeld } from '@/lib/upgradePlanCore'
 import 'server-only'
 
 import { cache } from 'react'
@@ -84,6 +85,33 @@ export async function loadPipeContacts(ids: string[]): Promise<Map<string, PipeC
   return out
 }
 
+/** Each paid tutor's live Premium / Featured upgrade (owner, 10 Nov 2026). */
+async function upgradesFor(ids: string[], nowMs: number): Promise<Map<string, UpgradeHeld>> {
+  const out = new Map<string, UpgradeHeld>()
+  const admin = createAdminClient()
+  if (!admin || ids.length === 0) return out
+  const rows = await pageAllIn(ids, (part, from, to) =>
+    admin
+      .from('subscriptions')
+      .select('id, user_id, plan_code, status, expires_at')
+      .in('user_id', part)
+      .eq('status', 'active')
+      .in('plan_code', ['premium', 'featured'])
+      .order('id')
+      .range(from, to),
+  ).catch(() => [])
+  const by = new Map<string, { plan_code: string | null; status: string | null; expires_at: string | null }[]>()
+  for (const r of rows) {
+    const k = r.user_id as string
+    by.set(k, [...(by.get(k) ?? []), { plan_code: r.plan_code as string, status: r.status as string, expires_at: r.expires_at as string | null }])
+  }
+  for (const [k, subs] of by) {
+    const held = pickUpgrade(subs, nowMs)
+    if (held) out.set(k, held)
+  }
+  return out
+}
+
 /** Each member's newest visit. */
 async function lastSeenFor(ids: string[]): Promise<Map<string, string>> {
   const out = new Map<string, string>()
@@ -109,7 +137,8 @@ export const loadTutorPipeline = cache(
       const [dir, docs, ni, support, blank] = await Promise.all([loadDirectory(), loadDirectoryDocs(), loadNotInterested(), loadSupportWhatsApp(), blankPhotoFlags(null)])
       const tutors = inTab(dir.people, 'tutor', true)
       const ids = tutors.map((t) => t.id)
-      const [contacts, seen, welcomes] = await Promise.all([loadPipeContacts(ids), lastSeenFor(ids), loadWelcomes(ids)])
+      const paidIds = tutors.filter((t) => !!t.feePaidAt).map((t) => t.id)
+      const [contacts, seen, welcomes, upgrades] = await Promise.all([loadPipeContacts(ids), lastSeenFor(ids), loadWelcomes(ids), upgradesFor(paidIds, now)])
       const out = new Map<string, PipeCard>()
       for (const t of tutors)
         out.set(
@@ -129,6 +158,7 @@ export const loadTutorPipeline = cache(
             nowMs: now,
             paidAt: t.feePaidAt,
             welcome: welcomes.get(t.id) ?? null,
+            plan: upgrades.get(t.id) ?? null,
           }),
         )
       return out
@@ -185,4 +215,26 @@ export async function pipelineRows(pick: (p: PipeCard) => boolean): Promise<{ id
   return inTab(dir.people, 'tutor', false)
     .map((t) => ({ id: t.id, name: t.name, card: pipe.get(t.id) }))
     .filter((r): r is { id: string; name: string; card: PipeCard } => !!r.card && !r.card.notInterested && pick(r.card))
+}
+
+/** After "Looks fine" (or its Undo) the stored People card shows the flag as it
+ *  stands now (owner, 10 Nov 2026). Never throws. */
+export async function refreshPipelineBlank(memberId: string): Promise<void> {
+  const admin = createAdminClient()
+  if (!admin) return
+  try {
+    const [{ data }, flags] = await Promise.all([
+      admin.from('admin_list_rows').select('row').eq('list', LIST).eq('member_id', memberId).maybeSingle(),
+      blankPhotoFlags([memberId]),
+    ])
+    const row = (data?.row ?? null) as { pipe?: PipeCard } | null
+    if (!data || !row?.pipe) return
+    await admin
+      .from('admin_list_rows')
+      .update({ row: { ...row, pipe: { ...row.pipe, blank: flags.get(memberId) ?? [] } } })
+      .eq('list', LIST)
+      .eq('member_id', memberId)
+  } catch {
+    /* the next summary run puts it right */
+  }
 }

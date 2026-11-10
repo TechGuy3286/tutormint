@@ -1,5 +1,7 @@
 'use client'
 
+import { planEndsLine } from '@/lib/upgradePlanCore'
+import LooksFineButton from '@/components/admin/LooksFineButton'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle, Check, Mic, MessageCircle, MoreHorizontal, Phone, X } from 'lucide-react'
@@ -134,7 +136,16 @@ export default function PipelineActions({ memberId, pipe, links }: { memberId: s
               {(pipe.blank ?? []).length > 1 ? ` (${BLANK_NAME[item]})` : ''}
             </button>
           ))}
+          {!readOnly &&
+            (pipe.blank ?? []).map((item) => (
+              <LooksFineButton key={`fine-${item}`} memberId={memberId} item={item} label={(pipe.blank ?? []).length > 1 ? `Looks fine (${BLANK_NAME[item]})` : undefined} />
+            ))}
         </div>
+      )}
+      {pipe.stage === 'paid' && planEndsLine(pipe.plan) && (
+        <p data-plan-line="" className="rounded-lg bg-tm-tint-navy px-2 py-1 font-bold text-tm-navy">
+          {planEndsLine(pipe.plan)}
+        </p>
       )}
       {pipe.stage === 'paid' && <PaidWelcomeActions memberId={memberId} welcome={pipe.welcome} badge={pipe.badge} />}
       {pipe.noMobile && <p className="font-semibold text-gray-600">{NO_MOBILE_LINE}</p>}

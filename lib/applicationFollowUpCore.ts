@@ -116,11 +116,27 @@ export function dueState(item: BoardItem, records: FollowUpRecord[], nowMs: numb
  * There is no per-view log of applications, so "unseen" means "nobody has
  * worked it yet"; the first staff action takes it out of the count.
  */
+/** The Applications badge counts applications made in this many days (owner, 10 Nov 2026). */
+export const NEW_APPLICATION_DAYS = 7
+
+/** A staff member has opened it: a recorded view (any staff), staff work on
+ *  it, or a follow-up. Opened rows look dimmer in the list. */
+export function applicationOpened(item: Pick<BoardItem, 'seenAt' | 'workedAt'>, records: FollowUpRecord[]): boolean {
+  return !!item.seenAt || !!item.workedAt || records.some((r) => r.kind === 'follow_up')
+}
+
+/**
+ * The Applications sidebar badge (owner, 10 Nov 2026): applications made in the
+ * last NEW_APPLICATION_DAYS days that no staff member has opened yet, still at
+ * Applied and still available.
+ */
 export function isNewUnseenApplication(item: BoardItem, records: FollowUpRecord[], nowMs: number): boolean {
   if (item.stage !== 'applied' || item.unavailable) return false
+  // A tuition posted 30+ days ago is in Older: never in a badge.
   if (isOlderTuition(item.jobCreatedAt, nowMs)) return false
-  if (item.workedAt) return false
-  return !records.some((r) => r.kind === 'follow_up')
+  const at = Date.parse(item.createdAt)
+  if (!Number.isFinite(at) || at > nowMs + 60_000 || nowMs - at > NEW_APPLICATION_DAYS * 86_400_000) return false
+  return !applicationOpened(item, records)
 }
 
 /** The red sidebar badge: overdue To do items (not Older) — the viewer's own,

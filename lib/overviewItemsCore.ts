@@ -31,6 +31,8 @@ export const OVERVIEW_ITEM_KEYS = [
   'todo-fee-pending',
   // Paid in the last 30 days and not welcomed (owner, 9 Nov 2026 — lib/paidWelcomeCore).
   'todo-not-welcomed',
+  // Premium / Featured upgrades whose end date is within 7 days (owner, 10 Nov 2026). Hidden at 0.
+  'todo-upgrades-ending',
   'todo-rejected-uninformed',
   'todo-payments',
   'todo-due',
@@ -76,6 +78,7 @@ export const OVERVIEW_ITEMS: Record<OverviewItemKey, OverviewItemMeta> = {
   'todo-blank-photos': { title: 'Blank photos to check', screen: 'tutors', noun: ['tutor', 'tutors'] },
   'todo-fee-pending': { title: 'Fee pending, not followed up', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
   'todo-not-welcomed': { title: 'Paid, not welcomed', screen: 'paidWelcome', noun: ['tutor', 'tutors'] },
+  'todo-upgrades-ending': { title: 'Upgrades ending in 7 days', screen: 'paidWelcome', noun: ['tutor', 'tutors'] },
   'todo-rejected-uninformed': { title: 'Rejected, not informed', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
   // Checkouts a member opened and never completed (owner, 16 Oct 2026) — not
   // payments to approve. Rules: lib/startedPaymentCore.

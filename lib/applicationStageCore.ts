@@ -137,6 +137,8 @@ export type BoardItem = {
    *  suspended or banned (owner, 24 Oct 2026): the application reads "Tuition
    *  no longer available", is never overdue and never in To do or a badge. */
   unavailable?: boolean
+  /** The first time any staff member opened it (migration 227), or null. */
+  seenAt?: string | null
 }
 
 export function matchesFilter(item: BoardItem, filter: BoardFilter, actorId: string): boolean {

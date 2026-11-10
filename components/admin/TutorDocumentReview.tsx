@@ -1,5 +1,6 @@
 'use client'
 
+import LooksFineButton from '@/components/admin/LooksFineButton'
 import { useState } from 'react'
 import { AlertTriangle, Check, X, Loader2, MessageCircle } from 'lucide-react'
 import { BLANK_REJECT_LABEL, blankRejectReason, type BlankItem } from '@/lib/photoBlankCore'
@@ -416,6 +417,7 @@ function ReviewItem({
               <X size={12} aria-hidden /> {BLANK_REJECT_LABEL}
             </button>
           )}
+          {!readOnly && <LooksFineButton memberId={tutorId} item={item === 'selfie' ? 'selfie' : 'photo'} />}
         </div>
       )}
       {shownReason && status === 'rejected' && (

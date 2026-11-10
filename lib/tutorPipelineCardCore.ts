@@ -8,6 +8,7 @@
 //
 // Unit-tested by scripts/test-tutor-pipeline.ts.
 
+import { planTag, type PaidPlanTag, type UpgradeHeld } from '@/lib/upgradePlanCore'
 import { firstNameOf } from '@/lib/staffOutreachCore'
 import { itemState } from '@/lib/tutorDocSummaryCore'
 import type { CardDocState, CardStatuses } from '@/lib/tutorDocQueueCore'
@@ -63,6 +64,9 @@ export type PipeCard = {
   paidAt?: string | null
   badge?: boolean
   welcome?: Welcome | null
+  /** A paid tutor's Premium / Featured upgrade and its end date (owner, 10 Nov
+   *  2026); none = Verified. Older stored rows have none until the next run. */
+  plan?: UpgradeHeld | null
 }
 
 /** The document facts a card is built from (lib/tutorDocSummaries CardDocs). */
@@ -104,6 +108,7 @@ export function pipeCardFrom(a: {
   nowMs: number
   paidAt?: string | null
   welcome?: Welcome | null
+  plan?: UpgradeHeld | null
 }): PipeCard {
   const d = pipeDocsOf(a.docs)
   const completion = a.completion ?? 0
@@ -132,6 +137,7 @@ export function pipeCardFrom(a: {
     paidAt: a.feePaid ? (a.paidAt ?? null) : null,
     badge: a.feePaid && d.cnic === 'approved' && d.photo === 'approved' && d.selfie === 'approved',
     welcome: a.feePaid ? (a.welcome ?? null) : null,
+    plan: a.feePaid ? (a.plan ?? null) : null,
   }
 }
 
@@ -227,8 +233,8 @@ export function showProfileShare(feePaid: boolean | null | undefined): boolean {
 export const NO_MOBILE_LINE = "No mobile number — can't follow up"
 
 /** The tags a card is stored with (admin_list_rows). */
-export function pipeTags(p: PipeCard): { stage: PipeStage; fu: 'not' | 'done' | 'na'; ni: boolean; informed: boolean } {
-  return { stage: p.stage, fu: p.section ?? 'na', ni: p.notInterested, informed: p.informed }
+export function pipeTags(p: PipeCard): { stage: PipeStage; fu: 'not' | 'done' | 'na'; ni: boolean; informed: boolean; plan: PaidPlanTag | 'na' } {
+  return { stage: p.stage, fu: p.section ?? 'na', ni: p.notInterested, informed: p.informed, plan: planTag(p.stage, p.plan) }
 }
 
 /** The stored sort time: Waiting oldest upload first, Followed up soonest due

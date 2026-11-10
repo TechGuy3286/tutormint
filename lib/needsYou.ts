@@ -1,3 +1,4 @@
+import { showUpgradePrompts } from '@/lib/upgradesPausedCore'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { planLabel } from '@/lib/display'
@@ -296,11 +297,14 @@ export async function parentNeeds({
     }
   }
 
-  const expiring = expiryRow(ent, '/membership-plans?for=parents')
-  if (expiring) rows.push(expiring)
+  // "Renew" / "Reactivate" invite an upgrade: off while upgrades are "Coming soon".
+  if (showUpgradePrompts()) {
+    const expiring = expiryRow(ent, '/membership-plans?for=parents')
+    if (expiring) rows.push(expiring)
 
-  const lapsed = await lapsedPlanRow(userId, ent, '/membership-plans?for=parents&plan=parent_featured')
-  if (lapsed) rows.push(lapsed)
+    const lapsed = await lapsedPlanRow(userId, ent, '/membership-plans?for=parents&plan=parent_featured')
+    if (lapsed) rows.push(lapsed)
+  }
 
   return rows
 }
@@ -420,11 +424,13 @@ export async function tutorNeeds({
     })
   }
 
-  const expiring = expiryRow(ent, '/membership-plans?for=tutors')
-  if (expiring) rows.push(expiring)
+  if (showUpgradePrompts()) {
+    const expiring = expiryRow(ent, '/membership-plans?for=tutors')
+    if (expiring) rows.push(expiring)
 
-  const lapsed = await lapsedPlanRow(userId, ent, '/membership-plans?for=tutors&plan=verified')
-  if (lapsed) rows.push(lapsed)
+    const lapsed = await lapsedPlanRow(userId, ent, '/membership-plans?for=tutors&plan=verified')
+    if (lapsed) rows.push(lapsed)
+  }
 
   // Quantified, NON-BLOCKING prompts (owner rule 5, 10 Sep 2026). These replace
   // the old blocking "finish your profile first" modal on Apply: applying now

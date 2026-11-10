@@ -91,6 +91,8 @@ export const AUDIT_LABELS: Record<string, string> = {
   'document.owner_replace': 'Replaced an approved document',
   'document.restore_side': 'Restored a hidden CNIC side',
   'document.rotate': 'Turned a document image',
+  'photo.blank_cleared': 'Marked a flagged photo as looks fine',
+  'photo.blank_clear_undo': 'Undid looks fine on a flagged photo',
   'profile_photo.rotate': 'Turned the profile picture',
   'profile_photo.crop': 'Cropped the profile picture',
   'profile_photo.crop_reset': 'Reset the profile picture crop',

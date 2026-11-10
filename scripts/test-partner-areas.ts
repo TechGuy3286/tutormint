@@ -31,6 +31,7 @@ type Key = keyof typeof SCREEN_ACCESS
 // What a Partner may CHANGE, by SCREEN_ACCESS key.
 const EDIT: Key[] = [
   // usersView (owner, 31 Oct 2026): viewing People — the Partner edits People anyway.
+  'blankPhotoClear',
   'tutors', 'parents', 'users', 'usersView', 'signups', 'orphans', 'unpaidSignups', 'featuredWhatsapp',
   'jobs', 'jobsMutate', 'jobsPost', 'pausedTuitions', 'duplicates', 'duplicatesMerge', 'applicantForwards',
   'inbox', 'reports', 'tuitionPosting', 'tutorEdit', 'tutorSlug', 'videoVisibility', 'documentUnlock', 'documentRotate', 'cnicRead',
@@ -87,6 +88,8 @@ test('every view-only area refuses a Partner write; the Owner is unaffected', ()
     // The paid sign-ups view (owner, 9 Nov 2026): counts to read, nothing to change.
     'paidSignups',
   ]
+  // 'Looks fine' on a blank-photo flag (owner, 10 Nov 2026) names the Partner: an edit area.
+  assert.ok(EDIT.includes('blankPhotoClear'))
   for (const key of VIEW) {
     assert.equal(roleMayWrite('partner', SCREEN_ACCESS[key]), false, key)
     assert.equal(roleMayWrite('owner', SCREEN_ACCESS[key]), true, `owner ${key}`)
@@ -130,6 +133,8 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed' | 'ret
   'applications/owner': 'owner',
   // Applications v3 follow-ups (owner, 22 Oct 2026): every role that opens the page.
   'applications/follow-up': 'edit',
+  'applications/seen': 'edit',
+  'photos/looks-fine': 'edit',
   'applications/follow-up/undo': 'edit',
   'applications/tutor-update': 'edit',
   // POST since 27 Oct 2026: a parent's WhatsApp is a recorded follow-up.

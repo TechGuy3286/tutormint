@@ -19,6 +19,7 @@
 // remember, and an empty pool falls back to a house creative rather than a
 // hole in the page.
 
+import { PROMOTE_UPGRADES, pitchesUpgrade } from '@/lib/upgradesPausedCore'
 import { createPublicClient } from '@/lib/supabase/public'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { PlanCode } from '@/lib/entitlements'
@@ -96,9 +97,16 @@ const HOUSE_ADS: Record<AdAudience, HouseAd[]> = {
   ],
 }
 
-export function houseAd(audience: AdAudience, index = 0): HouseAd {
-  const pool = HOUSE_ADS[audience]
-  return pool[index % pool.length]
+/** The house creatives that may show now: while upgrade promotion is off
+ *  (lib/upgradesPausedCore PROMOTE_UPGRADES), none that pitches a paid plan. */
+export function housePool(audience: AdAudience, promote = PROMOTE_UPGRADES): HouseAd[] {
+  return HOUSE_ADS[audience].filter((ad) => promote || !pitchesUpgrade(ad.plan))
+}
+
+/** A house creative for a guest; null when none may show (the slot renders nothing). */
+export function houseAd(audience: AdAudience, index = 0, promote = PROMOTE_UPGRADES): HouseAd | null {
+  const pool = housePool(audience, promote)
+  return pool.length ? pool[index % pool.length] : null
 }
 
 /**
@@ -115,7 +123,7 @@ export function houseUpsellAd(audience: UpsellAudience, plan: string | null): Ho
   // is paid). Parents with no plan are still offered free verification.
   if (audience === 'tutor' && !plan) return null
   const held = planRank(audience, plan)
-  const pool = HOUSE_ADS[audience === 'tutor' ? 'tutors' : 'parents']
+  const pool = housePool(audience === 'tutor' ? 'tutors' : 'parents')
   const above = pool
     .map((ad) => ({ ad, rank: planRank(audience, ad.plan) }))
     .filter((x) => x.rank > held)

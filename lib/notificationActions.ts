@@ -22,6 +22,7 @@
 // promotions, so no card offers one; every button leads to a page that already
 // existed, or to the sheet.
 
+import { showUpgradePrompts } from '@/lib/upgradesPausedCore'
 import type { GateReason } from '@/lib/gate'
 
 export type NotificationCta =
@@ -62,6 +63,8 @@ export function ctaFor(row: { kind: string; href: string | null }): Notification
     case 'plan_revoked':
     case 'plan_cancelled':
     case 'plan_ended':
+      // Buying the plan back is an upgrade: no button while upgrades are "Coming soon".
+      if (!showUpgradePrompts()) return null
       return {
         kind: 'link',
         label: 'Reactivate',

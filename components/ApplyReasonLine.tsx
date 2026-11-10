@@ -1,5 +1,6 @@
 'use client'
 
+import { showUpgradePrompts } from '@/lib/upgradesPausedCore'
 import Link from 'next/link'
 
 import UpgradeTrigger from '@/components/upgrade/UpgradeTrigger'
@@ -29,9 +30,13 @@ export default function ApplyReasonLine({ block, align = 'left' }: { block: Appl
           {block.unlimited
             ? 'You’ve used this month’s applications.'
             : `You’ve used all ${block.quota} for this month.`}{' '}
-          <UpgradeTrigger reason="tutor_apply_quota" className="font-bold text-tm-red hover:underline">
-            Upgrade
-          </UpgradeTrigger>
+          {showUpgradePrompts() ? (
+            <UpgradeTrigger reason="tutor_apply_quota" className="font-bold text-tm-red hover:underline">
+              Upgrade
+            </UpgradeTrigger>
+          ) : (
+            'Your allowance resets next month.'
+          )}
         </p>
       )
     case 'doc':

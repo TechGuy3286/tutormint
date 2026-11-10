@@ -1,3 +1,4 @@
+import { showUpgradePrompts } from '@/lib/upgradesPausedCore'
 import Link from 'next/link'
 import { Eye } from 'lucide-react'
 
@@ -123,7 +124,7 @@ export default function ViewsCard({
               <Eye aria-hidden size={14} />
               See who
             </Link>
-          ) : (
+          ) : !showUpgradePrompts() ? null : (
             <UpgradeTrigger
               reason="tutor_viewer_identity"
               className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-gold px-5 text-xs font-black text-tm-navy transition-opacity hover:opacity-90"

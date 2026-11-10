@@ -28,6 +28,7 @@ import {
   type StaffFilter,
 } from '@/lib/applicationStageCore'
 import {
+  applicationOpened,
   lastTutorUpdate,
   SECTION_LABEL,
   sentLine,
@@ -138,6 +139,24 @@ export default function ApplicationsClient({
   const [olderOpen, setOlderOpen] = useState(olderPaged)
   const [panel, setPanel] = useState<{ jobId: string; title: string } | null>(null)
   const [preview, setPreview] = useState<string | null>(initialPreview)
+  // Opened in this visit (owner, 10 Nov 2026): dimmed at once, recorded on the
+  // server (the first view by any staff member is kept).
+  const [opened, setOpened] = useState<Set<string>>(new Set())
+
+  function isOpened(r: Row): boolean {
+    return opened.has(r.id) || applicationOpened(r, r.followUps)
+  }
+
+  function markOpened(ids: string[]) {
+    const fresh = ids.filter((id) => !opened.has(id))
+    if (fresh.length === 0) return
+    setOpened((prev) => new Set([...prev, ...fresh]))
+    void adminFetch('/api/admin/applications/seen', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: fresh.slice(0, 200) }),
+    }).catch(() => {})
+  }
 
   // Counts, chips, search and groups come from the server, over the whole
   // board; only the shown groups are here.
@@ -165,6 +184,8 @@ export default function ApplicationsClient({
   async function send(url: string, body: object, busyKey: string, done: string) {
     // Opened now, inside the tap, so the browser does not block it.
     const w = window.open('', '_blank')
+    const appId = (body as { applicationId?: unknown }).applicationId
+    if (typeof appId === 'string') markOpened([appId])
     setBusy(busyKey)
     const { ok, data } = await adminFetch<{ error?: string; href?: string; followUpIds?: string[] }>(url, {
       method: 'POST',
@@ -184,6 +205,7 @@ export default function ApplicationsClient({
   }
 
   async function saveStage(row: Row, stage: Stage, alsoNotSelected: string[] = []) {
+    markOpened([row.id])
     setBusy(row.id)
     const { ok, data } = await adminFetch<{ error?: string; changed?: number }>('/api/admin/applications/stage', {
       method: 'POST',
@@ -246,7 +268,14 @@ export default function ApplicationsClient({
 
   function forwardButton(jobId: string, title: string) {
     return (
-      <button type="button" onClick={() => setPanel({ jobId, title })} className={`${SMALL_BTN} ms-auto border border-tm-navy text-tm-navy`}>
+      <button
+        type="button"
+        onClick={() => {
+          markOpened((allByJob.get(jobId) ?? []).map((r) => r.id))
+          setPanel({ jobId, title })
+        }}
+        className={`${SMALL_BTN} ms-auto border border-tm-navy text-tm-navy`}
+      >
         <Send aria-hidden size={12} /> Forward to parents
       </button>
     )
@@ -282,19 +311,32 @@ export default function ApplicationsClient({
       <li
         key={r.id}
         data-section={r.section}
-        className={`flex flex-wrap items-center gap-x-2 gap-y-0.5 px-2 py-0.5 text-[11px] ${hit ? 'bg-tm-tint-gold' : r.section === 'sent' ? 'bg-tm-bg' : ''}`}
+        data-opened={isOpened(r) ? '' : undefined}
+        className={`flex flex-wrap items-center gap-x-2 gap-y-0.5 px-2 py-0.5 text-[11px] ${hit ? 'bg-tm-tint-gold' : r.section === 'sent' ? 'bg-tm-bg' : ''} ${isOpened(r) ? 'opacity-75' : ''}`}
       >
         {context === 'tuition' ? (
           <>
-            <span title={r.tutorName} className="w-40 shrink-0 truncate font-bold text-tm-navy">
-              {r.tutorName}
-            </span>
+            {canOpenMembers || r.tutorSlug ? (
+              <Link
+                href={canOpenMembers ? `/admin/users/${r.tutorId}` : `/tutor/${r.tutorSlug}`}
+                target={canOpenMembers ? undefined : '_blank'}
+                onClick={() => markOpened([r.id])}
+                title={r.tutorName}
+                className="w-40 shrink-0 truncate font-bold text-tm-navy hover:underline"
+              >
+                {r.tutorName}
+              </Link>
+            ) : (
+              <span title={r.tutorName} className="w-40 shrink-0 truncate font-bold text-tm-navy">
+                {r.tutorName}
+              </span>
+            )}
             {r.tutorPhone && <span className="font-mono text-slate-600">{r.tutorPhone}</span>}
           </>
         ) : (
           <span className="flex min-w-0 items-center gap-1" title={r.jobTitle}>
             {r.jobRef && <span className="rounded bg-tm-navy px-1 py-0.5 text-[10px] font-black text-white">{r.jobRef}</span>}
-            <Link href={`/admin/jobs/${r.jobId}`} className="max-w-[16rem] truncate font-bold text-tm-navy hover:underline">
+            <Link href={`/admin/jobs/${r.jobId}`} onClick={() => markOpened([r.id])} className="max-w-[16rem] truncate font-bold text-tm-navy hover:underline">
               {shortTitle(r.jobTitle, 48)}
             </Link>
           </span>
@@ -416,7 +458,10 @@ export default function ApplicationsClient({
             <button
               type="button"
               aria-expanded={preview === key}
-              onClick={() => setPreview(preview === key ? null : key)}
+              onClick={() => {
+                if (preview !== key) markOpened(mine.map((r) => r.id))
+                setPreview(preview === key ? null : key)
+              }}
               className={`${SMALL_BTN} border border-gray-200 bg-white text-slate-700`}
             >
               <Eye aria-hidden size={12} /> Preview

@@ -105,7 +105,13 @@ async function loadCounted(admin: Admin, jobIds?: string[]) {
   // A tuition hidden because its parent is hidden, test, suspended or banned
   // (owner, 24 Oct 2026): its applications stay, marked no longer available.
   const hiddenJobs = new Set(posted.filter((j) => isHiddenTuition(j.status)).map((j) => j.id))
-  return { counted, owners, jobCreated, hiddenJobs }
+  // When any staff member first opened each application (migration 227).
+  const views = await pageAllIn<{ application_id: string; seen_at: string }, string>(
+    counted.map((a) => a.id),
+    (ids, from, to) => admin.from('application_views').select('application_id, seen_at').in('application_id', ids).order('application_id').range(from, to),
+  ).catch(() => [])
+  const seen = new Map(views.map((v) => [v.application_id, v.seen_at]))
+  return { counted, owners, jobCreated, hiddenJobs: Object.assign(hiddenJobs, { seen }) }
 }
 
 async function loadOwners(admin: Admin, jobIds: string[]): Promise<Map<string, string | null>> {
@@ -115,7 +121,7 @@ async function loadOwners(admin: Admin, jobIds: string[]): Promise<Map<string, s
   return new Map(rows.map((r) => [r.job_id, r.staff_id]))
 }
 
-const toItem = (a: AppRow, owners: Map<string, string | null>, jobCreated: Map<string, string>, hiddenJobs?: Set<string>): BoardItem => ({
+const toItem = (a: AppRow, owners: Map<string, string | null>, jobCreated: Map<string, string>, hiddenJobs?: Set<string> & { seen?: Map<string, string> }): BoardItem => ({
   id: a.id,
   stage: a.stage,
   stageChangedAt: a.stage_changed_at,
@@ -124,6 +130,7 @@ const toItem = (a: AppRow, owners: Map<string, string | null>, jobCreated: Map<s
   workedAt: a.worked_at,
   jobCreatedAt: jobCreated.get(a.job_id) ?? null,
   unavailable: hiddenJobs?.has(a.job_id) ?? false,
+  seenAt: hiddenJobs?.seen?.get(a.id) ?? null,
 })
 
 /** Overdue To do applications (not Older, not hidden) per tuition owner — the
@@ -665,3 +672,24 @@ export async function tutorApplicationCards(tutorId: string): Promise<TutorAppli
 }
 
 export { ENDED_STAGES, isOpenStage }
+
+/** Staff opened these applications (owner, 10 Nov 2026): the first view of
+ *  each is kept (seen by any staff counts); a later view changes nothing.
+ *  Returns how many were new. Never throws. */
+export async function markApplicationsSeen(ids: string[], actor: AdminActor): Promise<number> {
+  const admin = createAdminClient()
+  if (!admin || ids.length === 0) return 0
+  try {
+    const name = await actorName(admin, actor)
+    const { data } = await admin
+      .from('application_views')
+      .upsert(
+        ids.map((id) => ({ application_id: id, staff_id: actor.id, staff_name: name, seen_at: new Date().toISOString() })),
+        { onConflict: 'application_id', ignoreDuplicates: true },
+      )
+      .select('application_id')
+    return data?.length ?? 0
+  } catch {
+    return 0
+  }
+}

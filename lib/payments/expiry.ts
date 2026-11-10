@@ -18,6 +18,7 @@
 // Both halves are idempotent: reminders are guarded by reminded_at, expiry by
 // status. Running twice in one day changes nothing the second time.
 
+import { showUpgradePrompts } from '@/lib/upgradesPausedCore'
 import { pageAll } from '@/lib/pageAll'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logActivity } from '@/lib/activityLog'
@@ -94,7 +95,10 @@ export async function runSubscriptionSweep(now = new Date()): Promise<SweepResul
   const reminderCutoff = new Date(now.getTime() + REMINDER_DAYS * 86_400_000)
 
   // Read in full BEFORE the loop changes any row (owner, 8 Oct 2026: paged).
-  const expiringSoon = await pageAll((from, to) =>
+  // The "Renew" reminder invites buying the plan again — off while upgrades are
+  // "Coming soon" (owner, 10 Nov 2026). reminded_at is left empty, so it goes
+  // out if promotion is switched back on before the plan ends.
+  const expiringSoon = !showUpgradePrompts() ? [] : await pageAll((from, to) =>
     admin
       .from('subscriptions')
       .select('id, user_id, plan_code, expires_at')

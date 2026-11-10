@@ -1,3 +1,4 @@
+import { showUpgradePrompts } from '@/lib/upgradesPausedCore'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
@@ -82,8 +83,9 @@ export default async function PostJobPage({ searchParams }: { searchParams?: Pro
             <p className="flex items-start gap-2 text-xs font-semibold leading-relaxed text-tm-gold-ink">
               <AlertTriangle size={16} className="mt-px shrink-0" />
               You have used all {ent.displayedQuota ?? ent.quota} of this month&apos;s job posts. Your allowance resets at
-              the start of next month, or Featured raises it.
+              the start of next month{showUpgradePrompts() ? ', or Featured raises it' : ''}.
             </p>
+            {showUpgradePrompts() && (
             <Link
               href="/membership-plans?for=parents&plan=parent_featured"
               className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white"
@@ -91,6 +93,7 @@ export default async function PostJobPage({ searchParams }: { searchParams?: Pro
               <CreditCard aria-hidden size={14} />
               See packages
             </Link>
+            )}
           </section>
         ) : (
           <JobForm children={children ?? []} draftKey={`post-tuition:parent:${userId}`} initial={prefill} />

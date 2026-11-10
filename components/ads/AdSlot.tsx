@@ -78,5 +78,7 @@ export default async function AdSlot({
     return <AdView ad={{ kind: 'house', ad: house }} headingLevel={headingLevel} />
   }
 
-  return <AdView ad={{ kind: 'house', ad: houseAd(audience, index) }} headingLevel={headingLevel} />
+  const guestAd = houseAd(audience, index)
+  if (!guestAd) return null
+  return <AdView ad={{ kind: 'house', ad: guestAd }} headingLevel={headingLevel} />
 }

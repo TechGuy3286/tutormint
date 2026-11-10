@@ -1,5 +1,7 @@
 'use client'
 
+import { blobLooksBlank } from '@/lib/photoBrightness'
+import { PHOTO_TOO_DARK } from '@/lib/photoBlankCore'
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Loader2, X } from 'lucide-react'
@@ -53,6 +55,9 @@ export function usePhotoCropUpload(): { dialog: ReactNode; cropAndUpload: (file:
   const [open, setOpen] = useState<Open | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<{ en: string } | null>(null)
+  // The chosen photo is almost entirely dark or blank: "Use photo" stays off
+  // until another is chosen (the server's rule — lib/photoBlankCore).
+  const [dark, setDark] = useState(false)
   const rect = useRef<CropRect | null>(null)
   const settle = useRef<((url: string | null) => void) | null>(null)
   const another = useRef<HTMLInputElement>(null)
@@ -60,12 +65,14 @@ export function usePhotoCropUpload(): { dialog: ReactNode; cropAndUpload: (file:
   const show = useCallback(async (file: File) => {
     // Shrunk first: a raw camera photo is 4–8 MB and would not fit the request.
     const small = await compressImage(file)
+    const tooDark = await blobLooksBlank(small)
     setOpen((old) => {
       if (old) URL.revokeObjectURL(old.src)
       return { file: small, src: URL.createObjectURL(small) }
     })
     rect.current = null
-    setError(null)
+    setDark(tooDark)
+    setError(tooDark ? { en: PHOTO_TOO_DARK } : null)
   }, [])
 
   const cropAndUpload = useCallback(
@@ -90,7 +97,7 @@ export function usePhotoCropUpload(): { dialog: ReactNode; cropAndUpload: (file:
   }
 
   const use = async () => {
-    if (!open || busy) return
+    if (!open || busy || dark) return
     if (!rect.current) return
     setBusy(true)
     setError(null)
@@ -165,7 +172,7 @@ export function usePhotoCropUpload(): { dialog: ReactNode; cropAndUpload: (file:
                 </button>
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={busy || dark}
                   onClick={() => void use()}
                   className="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-xl bg-tm-navy px-3 text-sm font-black text-white hover:bg-tm-navy-hover disabled:opacity-60"
                 >

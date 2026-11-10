@@ -15,7 +15,7 @@ import sharp from 'sharp'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { DOCS_BUCKET } from '@/lib/documents'
-import { BLANK_SIZE, currentBlankItems, greyStats, looksBlank, type BlankItem, type BlankStats } from '@/lib/photoBlankCore'
+import { BLANK_SIZE, currentBlankItems, flaggedRefs, greyStats, looksBlank, needsCheck, type BlankCheckRow, type BlankItem, type BlankStats } from '@/lib/photoBlankCore'
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>
 
@@ -120,7 +120,7 @@ export async function checkMemberPhotos(memberIds: string[] | null): Promise<{ c
   const done = await checkedRefs(admin, current.map((c) => c.memberId))
   for (const c of current) {
     for (const url of c.photos) {
-      if (done.has(`photo:${url}`)) continue
+      if (!needsCheck(done, 'photo', url)) continue
       const bytes = await fetchBytes(url)
       const stats = bytes ? await imageBlankStats(bytes) : null
       if (!stats) { out.unreadable++; continue }
@@ -128,7 +128,7 @@ export async function checkMemberPhotos(memberIds: string[] | null): Promise<{ c
       if (await record(admin, c.memberId, 'photo', url, stats)) out.blank++
     }
     for (const s of c.selfies) {
-      if (done.has(`selfie:${s.id}`) || !s.path) continue
+      if (!needsCheck(done, 'selfie', s.id) || !s.path) continue
       const bytes = await selfieBytes(admin, s.path)
       const stats = bytes ? await imageBlankStats(bytes) : null
       if (!stats) { out.unreadable++; continue }
@@ -172,11 +172,14 @@ export async function blankPhotoFlags(memberIds: string[] | null): Promise<Map<s
   const admin = createAdminClient()
   if (!admin) return out
   try {
+    // A flag staff marked "Looks fine" is not a flag (owner, 10 Nov 2026).
     const blanks = memberIds
       ? await pageAllIn(memberIds, (part, from, to) =>
-          admin.from('photo_blank_checks').select('id, member_id, item, ref').eq('blank', true).in('member_id', part).order('id').range(from, to),
+          admin.from('photo_blank_checks').select('id, member_id, item, ref, blank, cleared_at').eq('blank', true).is('cleared_at', null).in('member_id', part).order('id').range(from, to),
         )
-      : await pageAll((from, to) => admin.from('photo_blank_checks').select('id, member_id, item, ref').eq('blank', true).order('id').range(from, to))
+      : await pageAll((from, to) =>
+          admin.from('photo_blank_checks').select('id, member_id, item, ref, blank, cleared_at').eq('blank', true).is('cleared_at', null).order('id').range(from, to),
+        )
     const ids = [...new Set(blanks.map((b) => b.member_id as string))]
     if (ids.length === 0) return out
     const [profiles, selfies] = await Promise.all([
@@ -187,8 +190,9 @@ export async function blankPhotoFlags(memberIds: string[] | null): Promise<Map<s
         admin.from('user_documents').select('id, user_id, status').eq('kind', 'selfie').in('status', ['active', 'review']).in('user_id', part).order('id').range(from, to),
       ),
     ])
-    const photoBlank = new Set(blanks.filter((b) => b.item === 'photo').map((b) => b.ref as string))
-    const selfieBlank = new Set(blanks.filter((b) => b.item === 'selfie').map((b) => b.ref as string))
+    const refs = flaggedRefs(blanks as unknown as BlankCheckRow[])
+    const photoBlank = refs.photo
+    const selfieBlank = refs.selfie
     const selfiesBy = new Map<string, string[]>()
     const rejectedSelfie = new Set(profiles.filter((p) => p.selfie_status === 'rejected').map((p) => p.id as string))
     for (const s of selfies) {
@@ -211,4 +215,46 @@ export async function blankPhotoFlags(memberIds: string[] | null): Promise<Map<s
     /* a failed read shows no flag */
   }
   return out
+}
+
+/**
+ * "Looks fine" (owner, 10 Nov 2026): staff clear the flag of a member's
+ * flagged files of one kind. Only the stamps change; the row stays, and the
+ * file is never checked again. Returns the cleared row ids for the Undo.
+ */
+export async function clearBlankFlags(
+  memberId: string,
+  item: BlankItem,
+  actor: { id: string; name: string },
+): Promise<{ ok: true; ids: string[] } | { ok: false; error: string; status: number }> {
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, error: 'This is not working right now. Please try again in a few minutes.', status: 503 }
+  const { data, error } = await admin
+    .from('photo_blank_checks')
+    .update({ cleared_at: new Date().toISOString(), cleared_by: actor.id, cleared_by_name: actor.name })
+    .eq('member_id', memberId)
+    .eq('item', item)
+    .eq('blank', true)
+    .is('cleared_at', null)
+    .select('id')
+  if (error) return { ok: false, error: 'That did not save. Please try again.', status: 500 }
+  const ids = (data ?? []).map((r) => r.id as string)
+  if (ids.length === 0) return { ok: false, error: 'This photo is not flagged any more.', status: 409 }
+  return { ok: true, ids }
+}
+
+/** The Undo: the stamps are emptied again on rows this staff member cleared. */
+export async function undoBlankClear(memberId: string, ids: string[], actorId: string): Promise<{ ok: true; count: number } | { ok: false; error: string; status: number }> {
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, error: 'This is not working right now. Please try again in a few minutes.', status: 503 }
+  const { data, error } = await admin
+    .from('photo_blank_checks')
+    .update({ cleared_at: null, cleared_by: null, cleared_by_name: null })
+    .eq('member_id', memberId)
+    .in('id', ids)
+    .eq('cleared_by', actorId)
+    .select('id')
+  if (error) return { ok: false, error: 'Could not undo that.', status: 500 }
+  if (!data?.length) return { ok: false, error: 'Nothing to undo.', status: 409 }
+  return { ok: true, count: data.length }
 }

@@ -69,3 +69,60 @@ export const BLANK_REJECT_LABEL = 'Reject — photo unclear'
 export function blankRejectReason(item: BlankItem): string {
   return item === 'selfie' ? 'Selfie not clear — retake in good light' : 'Profile photo must show your face clearly'
 }
+
+// ---------------------------------------- in the browser (owner, 10 Nov 2026) --
+//
+// The selfie camera and the profile-photo step check the picture BEFORE it is
+// sent, with the SAME size and thresholds as the server check above, so a photo
+// the browser lets through is not flagged later for being dark, and the other
+// way round. The server flag stays as the backstop.
+
+/** Shown when the picture is almost entirely dark or blank. */
+export const PHOTO_TOO_DARK = 'Photo is too dark. Please retake it in good light.'
+
+/** Greyscale (one byte a pixel) from RGBA canvas pixels — the sRGB luma weights. */
+export function rgbaToGrey(rgba: ArrayLike<number>): Uint8Array {
+  const n = Math.floor(rgba.length / 4)
+  const out = new Uint8Array(n)
+  for (let i = 0; i < n; i++) {
+    const r = rgba[i * 4]
+    const g = rgba[i * 4 + 1]
+    const b = rgba[i * 4 + 2]
+    out[i] = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b)
+  }
+  return out
+}
+
+/** True when BLANK_SIZE × BLANK_SIZE RGBA pixels look blank (the server rule). */
+export function pixelsLookBlank(rgba: ArrayLike<number>): boolean {
+  return looksBlank(greyStats(rgbaToGrey(rgba)))
+}
+
+/** The selfie camera waits this long after the first frame before "Take photo"
+ *  turns on — and only once a frame is not blank. */
+export const CAMERA_WARMUP_MS = 1000
+
+// ---------------------------------------------- "Looks fine" (owner, 10 Nov 2026) --
+//
+// Staff may clear the flag of a checked file. A cleared row stays (who and
+// when), Undo empties the stamps, and a file is checked once only — so a file
+// staff called fine is never flagged again.
+
+export const LOOKS_FINE_LABEL = 'Looks fine'
+
+export type BlankCheckRow = { item: BlankItem; ref: string; blank: boolean; cleared_at?: string | null }
+
+/** The files still flagged: blank, and not cleared by staff. */
+export function flaggedRefs(rows: BlankCheckRow[]): { photo: Set<string>; selfie: Set<string> } {
+  const out = { photo: new Set<string>(), selfie: new Set<string>() }
+  for (const r of rows) {
+    if (!r.blank || r.cleared_at) continue
+    out[r.item].add(r.ref)
+  }
+  return out
+}
+
+/** A file is checked once: an existing row (cleared or not) is never rewritten. */
+export function needsCheck(alreadyChecked: Set<string>, item: BlankItem, ref: string): boolean {
+  return !alreadyChecked.has(`${item}:${ref}`)
+}

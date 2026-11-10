@@ -200,3 +200,15 @@ export function attributionOf(staffId: string | null | undefined, refusedToAdmin
 export function carriesMoney(payload: unknown): boolean {
   return /"(amount|amount_pkr|price|price_pkr|pkr|revenue)"|\bRs\.?\s?\d/i.test(JSON.stringify(payload ?? null))
 }
+
+/** The Overview "Paid" card (owner, 10 Nov 2026): Today, Yesterday, Last 7 days
+ *  (00:00 Pakistan time six days ago → now) and This month, counted over the
+ *  SAME rows as the paid sign-ups view, so the card and the view always agree. */
+export function paidCardCounts(rows: PaidSignup[], nowMs: number): { today: number; yesterday: number; last7: number; month: number } {
+  return {
+    today: countIn(rows, periodRange('today', nowMs)),
+    yesterday: countIn(rows, periodRange('yesterday', nowMs)),
+    last7: countIn(rows, { start: pkDayStart(nowMs) - 6 * DAY, end: nowMs + 1 }),
+    month: countIn(rows, periodRange('this_month', nowMs)),
+  }
+}

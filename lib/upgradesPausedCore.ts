@@ -41,3 +41,36 @@ export function upgradeRefusal(
 ): { error: string; code: 'upgrades_paused'; status: 409 } | null {
   return upgradeBlocked(code, pricePkr, paused) ? { error: UPGRADES_PAUSED_MESSAGE, code: 'upgrades_paused', status: 409 } : null
 }
+
+// ------------------------------------------------- promotion (owner, 10 Nov 2026) --
+//
+// While upgrades are "Coming soon", nothing invites a member to buy one: no
+// weekly "who viewed your profile" upsell, no quota nudge, no house banner for
+// a paid plan, no dashboard "Upgrade" / "See Premium" / "Renew" prompt. ONE
+// switch; it follows UPGRADES_PAUSED by default, so selling again turns the
+// invitations back on too. Benefits of members who already hold a plan are
+// untouched (entitlements never read this). Templates are not deleted.
+
+/** Flip to true to invite members to upgrade again. */
+export const PROMOTE_UPGRADES = !UPGRADES_PAUSED
+
+/** The plan codes an invitation may pitch (the Verification Fee and the free
+ *  parent tier are not upgrades). */
+export const UPGRADE_PLAN_CODES = ['premium', 'featured', 'parent_featured'] as const
+
+export function pitchesUpgrade(code: string | null | undefined): boolean {
+  return (UPGRADE_PLAN_CODES as readonly string[]).includes((code ?? '').trim())
+}
+
+/** Notifications that exist only to sell an upgrade — never sent while promotion is off. */
+export const UPGRADE_INVITE_KINDS = ['viewer_weekly_teaser', 'quota_nudge'] as const
+
+/** True when a notification of this kind may go out. */
+export function inviteAllowed(kind: string, promote = PROMOTE_UPGRADES): boolean {
+  return promote || !(UPGRADE_INVITE_KINDS as readonly string[]).includes(kind)
+}
+
+/** True when a page may show an "Upgrade" prompt. */
+export function showUpgradePrompts(promote = PROMOTE_UPGRADES): boolean {
+  return promote
+}

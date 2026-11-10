@@ -1,5 +1,6 @@
 'use client'
 
+import { showUpgradePrompts } from '@/lib/upgradesPausedCore'
 import { prepareUploadImage, uploadErrorMessage, uploadFileProblem } from '@/lib/uploadLimitCore'
 import { looksLikeImage } from '@/lib/payments/receiptPrepare'
 import { compressImage } from '@/lib/imageCompress'
@@ -574,10 +575,14 @@ export default function Conversation({
                   sheet on tap rather than linking to a packages page, so the
                   member sees the plan card that unlocks contact, not a raw
                   price in the HTML. */}
-              <UpgradeTrigger reason={contactReason} className="font-bold underline">
-                Upgrade
-              </UpgradeTrigger>{' '}
-              to see contact details once both sides can share them.
+              {showUpgradePrompts() && (
+                <>
+                  <UpgradeTrigger reason={contactReason} className="font-bold underline">
+                    Upgrade
+                  </UpgradeTrigger>{' '}
+                  to see contact details once both sides can share them.
+                </>
+              )}
             </span>
           </p>
         )}
@@ -705,7 +710,7 @@ export default function Conversation({
                   >
                     {uploading ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Paperclip size={16} aria-hidden />}
                   </button>
-                ) : (
+                ) : showUpgradePrompts() ? (
                   <UpgradeTrigger
                     reason={contactReason}
                     className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-300"
@@ -713,7 +718,7 @@ export default function Conversation({
                     <Paperclip size={16} aria-hidden />
                     <span className="sr-only">Upgrade to send photos</span>
                   </UpgradeTrigger>
-                )}
+                ) : null}
 
                 <textarea
                   ref={textareaRef}

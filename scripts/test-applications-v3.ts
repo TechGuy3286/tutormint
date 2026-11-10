@@ -302,7 +302,7 @@ test('the forward panel keeps every old feature and moves the ticked tutors to F
     assert.ok(ui.includes(feature), feature)
   }
   // Opened from each tuition group.
-  assert.ok(code('app/admin/applications/ApplicationsClient.tsx').includes('onClick={() => setPanel({ jobId, title })}'))
+  assert.ok(code('app/admin/applications/ApplicationsClient.tsx').includes('setPanel({ jobId, title })'))
   // Hidden photo → grey silhouette.
   assert.match(code('lib/applicantForwards.ts'), /tp\?\.show_avatar === false \? null/)
   // Mark as forwarded: Applied → Forwarded, then a parent follow-up on each.

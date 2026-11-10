@@ -1,3 +1,4 @@
+import { showUpgradePrompts } from '@/lib/upgradesPausedCore'
 import 'server-only'
 
 // The conversion sweep: two nudges the 199 funnel needs, fired once a day from
@@ -187,6 +188,8 @@ export async function runConversionSweep(): Promise<ConversionSweepResult> {
     return { teasersSent: 0, quotaNudgesSent: 0, errors: ['service-role client unavailable'] }
   }
 
+  // Both exist only to sell an upgrade: off while upgrades are "Coming soon".
+  if (!showUpgradePrompts()) return { teasersSent: 0, quotaNudgesSent: 0, errors: [] }
   const teasers = await deliverViewTeasers(admin)
   const quota = await deliverQuotaNudges(admin)
 

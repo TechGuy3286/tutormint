@@ -91,7 +91,8 @@ test('an upgrade already held keeps every benefit until its end date', () => {
   assert.equal(e.canWhatsapp, true)
   // The pause lives only where a purchase starts — never in what a plan grants.
   assert.doesNotMatch(src('lib/entitlements.ts'), /upgradesPaused/)
-  assert.doesNotMatch(src('lib/payments/expiry.ts'), /upgradesPaused/)
+  // Expiry ends a plan on its date as before; only the 'Renew' reminder reads the promotion switch (owner, 10 Nov 2026).
+  assert.doesNotMatch(src('lib/payments/expiry.ts'), /UPGRADES_PAUSED|upgradeBlocked|upgradeRefusal/)
 })
 
 // ------------------------------------------------------------ 2 paid sign-ups

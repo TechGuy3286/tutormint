@@ -480,6 +480,9 @@ export const SCREEN_ACCESS = withSupervisor({
   // "Send welcome" on a paid tutor's People card and the "Paid, not welcomed"
   // to-do row (owner, 9 Nov 2026): the roles that work People → Tutors.
   paidWelcome: ['admin', 'operations', 'tuitions_staff', 'partner', 'backend_support'] as AdminRole[],
+  // 'Looks fine' on a blank-photo flag, and its Undo (owner, 10 Nov 2026):
+  // the roles that see the flag on People cards and Review.
+  blankPhotoClear: ['admin', 'operations', 'partner', 'backend_support'] as AdminRole[],
   // The paid sign-ups view behind the Overview "Paid" card (owner, 9 Nov
   // 2026): counts only, no rupees, so Backend Support sees it.
   paidSignups: ['admin', 'operations', 'backend_support'] as AdminRole[],

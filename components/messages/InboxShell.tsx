@@ -1,3 +1,4 @@
+import { showUpgradePrompts } from '@/lib/upgradesPausedCore'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, Briefcase, MessagesSquare, ShieldCheck, Zap } from 'lucide-react'
@@ -130,16 +131,18 @@ export default async function InboxShell({
           {ent.verified ? (
             <>
               <p className="text-[11px] leading-relaxed text-slate-700">
-                You can reply to any parent who writes to you, and apply to tuitions. Premium lets you
-                start a conversation yourself.
+                You can reply to any parent who writes to you, and apply to tuitions.
+                {showUpgradePrompts() ? ' Premium lets you start a conversation yourself.' : ''}
               </p>
-              <Link
-                href="/membership-plans?for=tutors&plan=premium"
-                className="gap-1.5 inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
-              >
-                <Zap aria-hidden size={14} />
-                See Premium
-              </Link>
+              {showUpgradePrompts() && (
+                <Link
+                  href="/membership-plans?for=tutors&plan=premium"
+                  className="gap-1.5 inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
+                >
+                  <Zap aria-hidden size={14} />
+                  See Premium
+                </Link>
+              )}
             </>
           ) : (
             <>

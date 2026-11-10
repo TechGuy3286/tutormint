@@ -1,3 +1,4 @@
+import { PLAN_FILTER } from '@/lib/upgradePlanCore'
 import Link from 'next/link'
 import { Download, Film, Trash2 } from 'lucide-react'
 
@@ -239,6 +240,10 @@ export default async function PeopleTabs({
           keepFirst: true,
           options: [{ key: 'all', label: 'All' }, ...PIPE_STAGES.map((s) => ({ key: s, label: STAGE_LABEL[s] }))],
         },
+        // People → Paid (owner, 10 Nov 2026): All paid · Verified · Premium · Featured.
+        ...(stageSel === 'paid' && !showDeleted
+          ? [{ param: 'plan', label: 'Plan', options: PLAN_FILTER.map((p) => ({ key: p.key, label: p.label })) }]
+          : []),
         ...(followRow
           ? [
               {

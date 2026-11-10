@@ -54,6 +54,7 @@ const TODO_KEYS: OverviewItemKey[] = [
   'todo-blank-photos',
   'todo-fee-pending',
   'todo-not-welcomed',
+  'todo-upgrades-ending',
   'todo-rejected-uninformed',
   'todo-payments',
   'todo-due',

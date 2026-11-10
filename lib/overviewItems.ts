@@ -8,6 +8,9 @@
 // Every caller checks the item's SCREEN_ACCESS key first (OVERVIEW_ITEMS[key]
 // .screen) — the same key the Overview filters its cards and rows by.
 
+import { paidCardCounts } from '@/lib/paidSignupsCore'
+import { loadPaidSignupMembers } from '@/lib/paidSignups'
+import { planEndsLine, upgradeEndingSoon } from '@/lib/upgradePlanCore'
 import { signedUpIn, signupCounts } from '@/lib/staffOutreachCore'
 import { SIGNUPS_TODAY_HREF, payproFileNote, waitingOrderLine, type FileNote } from '@/lib/overviewItemsCore'
 import { pkr } from '@/lib/reconciliationCore'
@@ -38,15 +41,13 @@ import type { PayproRow } from '@/lib/reconciliationCore'
 import { loadFinancePayments } from '@/lib/finance'
 import { classify, countedInMonth, monthRangeLabel, pkMonth } from '@/lib/financeCore'
 import { cardFigures, rupees, trendWindows, windowFigures, type CardFigures } from '@/lib/overviewTrendCore'
-import { docOverall, pkMonthStartMs, type DocOverall } from '@/lib/feePayersCore'
+import { docOverall, type DocOverall } from '@/lib/feePayersCore'
 import { tutorDocStatusesFromProfile } from '@/lib/tutorDocStatus'
 import { formatName } from '@/lib/formatName'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { FEE_LABEL } from '@/lib/display'
 import {
   OVERVIEW_ITEMS,
-  feePayersSince,
-  feePayersInRange,
   payerPeriodRange,
   PAYER_PERIODS,
   type PayerPeriod,
@@ -250,20 +251,30 @@ export async function loadOverviewList(
         refundedAt: p.refunded_at as string | null,
         ref: (p.provider_ref as string | null) ?? null,
       }))
-      const { month, week } = feePayersSince(fee, nowMs, pkMonthStartMs(nowMs))
-      // Trend: the same fee rows and rule (not refunded, account kept), each
-      // tutor once per window.
-      const pf = windowFigures(
-        fee.filter((r) => r.userId && r.approvedAt && !((r.refundedAmountPkr ?? 0) > 0 || r.refundedAt)).map((r) => ({ at: r.approvedAt, key: r.userId })),
-        nowMs,
-      )
+      // ONE Paid number (owner, 10 Nov 2026): the card and its list count the
+      // SAME rows as the paid sign-ups view — each tutor once, on their first
+      // approved, not refunded Verification Fee; staff and test accounts left
+      // out; Pakistan time (lib/paidSignups, lib/paidSignupsCore paidCardCounts).
+      const { rows: members } = await loadPaidSignupMembers()
+      const pf = paidCardCounts(members, nowMs)
+      const month = pf.month
+      const week = pf.last7
       const paidCard = cardFigures(pf, { bottom: { label: 'This month', value: pf.month.toLocaleString('en-US') } })
       // The period switch (owner, 15 Oct 2026; it replaced Payments → Recent
-      // payers). The card counts today; the list may show another period,
-      // with the same rule (feePayersInRange).
+      // payers). The card counts today; the list may show another period.
       const period: PayerPeriod = opts.period ?? 'today'
       const range = payerPeriodRange(period, nowMs)
-      const today = feePayersInRange(fee, range.start, range.end)
+      const refBy = new Map<string, string | null>()
+      for (const r of [...fee].sort((x, y) => (x.approvedAt ?? '').localeCompare(y.approvedAt ?? ''))) {
+        if (r.userId && !refBy.has(r.userId) && !((r.refundedAmountPkr ?? 0) > 0 || r.refundedAt)) refBy.set(r.userId, r.ref)
+      }
+      const today = members
+        .filter((m) => {
+          const t = Date.parse(m.at)
+          return t >= range.start && t < range.end
+        })
+        .reverse()
+        .map((m) => ({ userId: m.memberId, at: m.at, ref: refBy.get(m.memberId) ?? null }))
       const periodWords = PAYER_PERIODS.find((x) => x.key === period)?.label.toLowerCase() ?? 'today'
       const ids = today.map((r) => r.userId as string)
       const [{ data: profs }, { data: selfies }] = ids.length
@@ -297,7 +308,7 @@ export async function loadOverviewList(
         filter:
           period === 'today'
             ? `paid the ${FEE_LABEL} today (since 00:00 Pakistan time)`
-            : `paid the ${FEE_LABEL} — ${periodWords} (Pakistan time), not refunded, account not deleted`,
+            : `paid the ${FEE_LABEL} — ${periodWords} (Pakistan time), first payment, not refunded, staff and test accounts left out`,
         extra: `${month} this month · ${week} in the last 7 days`,
         card: paidCard,
       }
@@ -449,6 +460,21 @@ export async function loadOverviewList(
         rows: list.map((r) => ({ id: r.id, title: r.name, detail: r.card.paidAt ? `Paid ${formatDateTime(r.card.paidAt)}` : null, href: `/admin/users/${r.id}`, memberId: r.id })),
         filter: `paid the ${FEE_LABEL} in the last 30 days and not welcomed yet`,
         workHref: stageHref('paid'),
+      }
+    }
+
+    case 'todo-upgrades-ending': {
+      // People → Tutors → Paid: a Premium or Featured upgrade whose end date is
+      // within 7 days (owner, 10 Nov 2026). The same pipeline cards.
+      const nowMs = now.getTime()
+      const list = (await pipelineRows((c) => c.stage === 'paid' && upgradeEndingSoon(c.plan, nowMs))).sort(
+        (x, y) => Date.parse(x.card.plan?.endsAt ?? '') - Date.parse(y.card.plan?.endsAt ?? ''),
+      )
+      return {
+        key,
+        rows: list.map((r) => ({ id: r.id, title: r.name, detail: planEndsLine(r.card.plan), href: `/admin/users/${r.id}`, memberId: r.id })),
+        filter: 'holding a Premium or Featured upgrade that ends in the next 7 days',
+        workHref: `${stageHref('paid')}&plan=all`,
       }
     }
 
