@@ -104,6 +104,8 @@ export function financeItems(
       c.state === 'ignored'
         ? c.ignoreKind === 'refund_due'
           ? 'Duplicate payment — refund due'
+          : c.ignoreKind === 'personal'
+            ? 'Not business (personal) — excluded'
           : c.ignoreKind === 'owner_transfer'
             ? 'Owner / partner transfer (not revenue)'
             : 'Ignored (not a sale)'

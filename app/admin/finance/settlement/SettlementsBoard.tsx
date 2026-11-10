@@ -8,7 +8,9 @@ import { Download, Link2, MoreHorizontal, Plus, Search, Upload } from 'lucide-re
 
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
-import { useAdminReadOnly } from '@/components/admin/ReadOnly'
+import { useAdminReadOnly, useCanApprove } from '@/components/admin/ReadOnly'
+import { usePersonalCredit } from '@/components/admin/usePersonalCredit'
+import { PERSONAL_LABEL } from '@/lib/personalCreditCore'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { pkr } from '@/lib/reconciliationCore'
 import { FEE_CHECK_WORDS, feeNeedsCheck, type CreditView, type OrderView } from '@/lib/settlementMatchCore'
@@ -41,7 +43,7 @@ const CARD = 'space-y-1 rounded-2xl border border-gray-200 bg-white p-3'
 const CHIP = 'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold'
 
 type DetailTab = 'orders' | 'receipts' | 'credits'
-type ConfirmMode = 'unlink' | 'ignore' | 'relabel'
+type ConfirmMode = 'unlink' | 'ignore' | 'relabel' | 'personal'
 type Member = { id: string; name: string; role: string; city: string | null; joined: string }
 
 function monthName(ym: string): string {
@@ -85,6 +87,9 @@ export default function SettlementsBoard({
   const router = useRouter()
   const toast = useToast()
   const readOnly = useAdminReadOnly()
+  // Marking a credit personal is the Owner's alone (the server checks too).
+  const isOwner = useCanApprove()
+  const personal = usePersonalCredit()
   const { view } = data
 
   // A Needs-attention alert dealt with (Owner): marked, never deleted.
@@ -237,7 +242,7 @@ export default function SettlementsBoard({
             )
           ) : c.state === 'ignored' ? (
             <span className={`${CHIP} bg-white text-gray-600`}>
-              {c.ignoreKind === 'refund_due' ? 'Refund due' : c.ignoreKind === 'owner_transfer' ? 'Owner / partner transfer' : 'Ignored (not a sale)'}
+              {c.ignoreKind === 'personal' ? 'Not business (personal)' : c.ignoreKind === 'refund_due' ? 'Refund due' : c.ignoreKind === 'owner_transfer' ? 'Owner / partner transfer' : 'Ignored (not a sale)'}
             </span>
           ) : (
             <span className={`${CHIP} bg-tm-tint-red text-tm-red`}>❓ Not linked</span>
@@ -273,6 +278,7 @@ export default function SettlementsBoard({
         {c.state === 'ignored' && (
           <p className="text-[11px] text-slate-700">
             Not matched, not counted as unmatched, and not in any money total or the CSV.{c.ignoreNote ? ` Note: ${c.ignoreNote}` : ''}
+            {c.personal ? ` Marked personal${c.personal.byName ? ` by ${c.personal.byName}` : ''} on ${formatDateTime(c.personal.at)}.` : ''}
           </p>
         )}
 
@@ -305,9 +311,11 @@ export default function SettlementsBoard({
 
         {!readOnly && linkFor !== c.id && confirmFor?.id !== c.id && (
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            <button type="button" onClick={() => { setLinkFor(c.id); setMenuFor(null); setNote('') }} className={BUTTON}>
-              <Link2 aria-hidden size={14} /> {c.state === 'matched' ? 'Change link' : 'Link'}
-            </button>
+            {c.ignoreKind !== 'personal' && (
+              <button type="button" onClick={() => { setLinkFor(c.id); setMenuFor(null); setNote('') }} className={BUTTON}>
+                <Link2 aria-hidden size={14} /> {c.state === 'matched' ? 'Change link' : 'Link'}
+              </button>
+            )}
             <div className="relative">
               <button
                 type="button"
@@ -320,6 +328,16 @@ export default function SettlementsBoard({
               </button>
               {menuFor === c.id && (
                 <div role="menu" className="absolute left-0 z-10 mt-1 w-56 space-y-1 rounded-xl border border-gray-200 bg-white p-1 shadow-lg">
+                  {isOwner && c.ignoreKind !== 'personal' && (
+                    <button type="button" role="menuitem" data-personal-mark="" onClick={() => { setConfirmFor({ id: c.id, mode: 'personal' }); setMenuFor(null); setNote('') }} className="block min-h-[40px] w-full rounded-lg px-3 text-left text-xs font-bold text-slate-700 hover:bg-tm-bg">
+                      {PERSONAL_LABEL}
+                    </button>
+                  )}
+                  {isOwner && c.ignoreKind === 'personal' && (
+                    <button type="button" role="menuitem" data-personal-undo="" disabled={personal.busy !== null} onClick={() => { setMenuFor(null); void personal.send(c.id, 'undo') }} className="block min-h-[40px] w-full rounded-lg px-3 text-left text-xs font-bold text-slate-700 hover:bg-tm-bg">
+                      Undo personal mark
+                    </button>
+                  )}
                   {c.state !== 'ignored' && (
                     <button type="button" role="menuitem" onClick={() => { setConfirmFor({ id: c.id, mode: 'ignore' }); setMenuFor(null); setNote('') }} className="block min-h-[40px] w-full rounded-lg px-3 text-left text-xs font-bold text-slate-700 hover:bg-tm-bg">
                       Ignore (not a sale)
@@ -343,7 +361,7 @@ export default function SettlementsBoard({
                       Unlink
                     </button>
                   )}
-                  {manual && (
+                  {manual && c.ignoreKind !== 'personal' && (
                     <button type="button" role="menuitem" disabled={busy !== null} onClick={() => { setMenuFor(null); void sendLink(c.id, 'auto') }} className="block min-h-[40px] w-full rounded-lg px-3 text-left text-xs font-bold text-slate-700 hover:bg-tm-bg">
                       Back to automatic
                     </button>
@@ -363,6 +381,36 @@ export default function SettlementsBoard({
             onSave={(orders, receipts) => sendLink(c.id, 'link', orders, receipts)}
             onCancel={() => setLinkFor(null)}
           />
+        )}
+        {!readOnly && isOwner && confirmFor?.id === c.id && confirmFor.mode === 'personal' && (
+          <div className="space-y-2 rounded-xl border border-gray-100 bg-tm-bg p-3" data-personal-panel="">
+            <p className="text-xs font-bold text-tm-navy">
+              Mark this entry as not business (personal)? It is left out of Received in bank, PayPro settlement, Due from PayPro and
+              every total. It stays listed under its month, and Undo puts it back.
+            </p>
+            <label className="block">
+              <span className={LABEL}>Note (required)</span>
+              <input value={note} onChange={(e) => setNote(e.target.value)} className={INPUT} maxLength={500} />
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={personal.busy !== null || note.trim().length < 3}
+                onClick={async () => {
+                  if (await personal.send(c.id, 'mark', note)) {
+                    setConfirmFor(null)
+                    setNote('')
+                  }
+                }}
+                className={BUTTON}
+              >
+                {personal.busy === c.id ? 'Saving…' : 'Mark as personal'}
+              </button>
+              <button type="button" onClick={() => setConfirmFor(null)} className={GHOST}>
+                Cancel
+              </button>
+            </div>
+          </div>
         )}
         {!readOnly && confirmFor?.id === c.id && confirmFor.mode === 'relabel' && (
           <div className="space-y-2 rounded-xl border border-gray-100 bg-tm-bg p-3" data-relabel="">
@@ -398,7 +446,7 @@ export default function SettlementsBoard({
             </div>
           </div>
         )}
-        {!readOnly && confirmFor?.id === c.id && confirmFor.mode !== 'relabel' && (
+        {!readOnly && confirmFor?.id === c.id && (confirmFor.mode === 'unlink' || confirmFor.mode === 'ignore') && (
           <div className="space-y-2 rounded-xl border border-gray-100 bg-tm-bg p-3">
             <p className="text-xs font-bold text-tm-navy">
               {confirmFor.mode === 'unlink'

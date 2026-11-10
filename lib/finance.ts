@@ -18,6 +18,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { loadDeductions } from '@/lib/settlement'
 import { ignoredCreditIds } from '@/lib/ignoredCredits'
 import { withoutIgnored } from '@/lib/settlementMatchCore'
+import { feeFor, typicalFees } from '@/lib/payproSettlementCore'
+import { loadPersonalEntries } from '@/lib/personalCredits'
+import { personalByMonth, type PersonalMonth } from '@/lib/personalCreditCore'
 import { methodLabel, summarise, type FinancePayment, type FinanceSummary, type FinanceTransfer } from '@/lib/financeCore'
 
 type Row = {
@@ -94,11 +97,50 @@ async function loadTransfers(): Promise<FinanceTransfer[]> {
   }))
 }
 
-export async function loadFinance(now = new Date()): Promise<FinanceSummary> {
-  const [payments, transfers, deductions] = await Promise.all([
+/** What PayPro pays us for each PayPro payment whose fee is known — the same
+ *  per-order figure as the PayPro settlement report (export MerchantShare, or
+ *  the usual fee for that amount when the order is not in an export yet). */
+async function loadPayproNet(payments: FinancePayment[]): Promise<Map<string, number>> {
+  const admin = createAdminClient()
+  const out = new Map<string, number>()
+  if (!admin) return out
+  const rows = await pageAll<{ order_number: string; order_amount: number | null; merchant_share: number | null }>((from, to) =>
+    admin.from('reconciliation_rows').select('order_number, order_amount, merchant_share').eq('gateway', 'paypro').eq('is_current', true).order('id').range(from, to),
+  )
+  const exportBy = new Map(rows.map((r) => [r.order_number.trim().toUpperCase(), r]))
+  const typical = typicalFees(rows.map((r) => ({ amount: r.order_amount != null ? num(r.order_amount) : null, share: r.merchant_share != null ? num(r.merchant_share) : null })))
+  for (const p of payments) {
+    if (p.provider !== 'paypro') continue
+    const ex = exportBy.get((p.ref ?? '').trim().toUpperCase())
+    const f = feeFor(
+      {
+        id: p.id,
+        ref: p.ref ?? p.id,
+        paidAt: p.approvedAt,
+        member: '',
+        gross: p.amountPkr,
+        exportAmount: ex?.order_amount != null ? num(ex.order_amount) : null,
+        exportShare: ex?.merchant_share != null ? num(ex.merchant_share) : null,
+        refundedPkr: 0,
+        refundedAt: null,
+      },
+      typical,
+    )
+    if (f.fee != null) out.set(p.id, f.net)
+  }
+  return out
+}
+
+export type FinanceWithPersonal = FinanceSummary & { personal: PersonalMonth[] }
+
+export async function loadFinance(now = new Date()): Promise<FinanceWithPersonal> {
+  const [payments, transfers, deductions, personalEntries] = await Promise.all([
     loadFinancePayments(),
     loadTransfers(),
     loadDeductions('paypro'),
+    loadPersonalEntries(),
   ])
-  return summarise({ payments, transfers, deductions, nowIso: now.toISOString() })
+  const payproNet = await loadPayproNet(payments)
+  const personal = personalByMonth(personalEntries)
+  return { ...summarise({ payments, transfers, deductions, nowIso: now.toISOString(), payproNet, personal }), personal }
 }

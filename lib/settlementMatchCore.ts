@@ -126,6 +126,9 @@ export type Credit = {
   /** 'owner_transfer' = re-labelled "Owner / partner transfer (not revenue)"
    *  (migration 211): never matched, out of every money total. */
   category?: string | null
+  /** The Owner marked it "Not business (personal)" (migration 228): never
+   *  matched, out of every money total. The note is the Owner's reason. */
+  personal?: { at: string; byName: string | null; note: string | null } | null
 }
 
 /** One of OUR PayPro payments (by reference). */
@@ -205,7 +208,7 @@ export type ReceiptView = Receipt & { state: 'matched' | 'waiting'; creditId: st
  *  counted as unmatched. */
 /** Why an ignored credit is set aside: "not a sale", a duplicate whose refund
  *  is due, or an owner / partner transfer (27 Oct 2026). */
-export type IgnoreKind = 'not_a_sale' | 'refund_due' | 'owner_transfer'
+export type IgnoreKind = 'not_a_sale' | 'refund_due' | 'owner_transfer' | 'personal'
 
 export type CreditView = Credit & {
   state: 'matched' | 'unmatched' | 'held' | 'ignored'
@@ -382,6 +385,13 @@ export function buildBoard(input: {
   for (const l of input.links) linksBy.set(l.transferId, [...(linksBy.get(l.transferId) ?? []), l])
   const ignoreKind = new Map<string, IgnoreKind>()
   for (const c of credits) {
+    // Marked "Not business (personal)" by the Owner: never matched, never counted.
+    if (c.personal) {
+      held.add(c.id)
+      ignored.set(c.id, c.personal.note)
+      ignoreKind.set(c.id, 'personal')
+      continue
+    }
     // Re-labelled "Owner / partner transfer (not revenue)": never matched.
     if (c.category === 'owner_transfer') {
       held.add(c.id)

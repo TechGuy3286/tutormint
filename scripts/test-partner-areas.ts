@@ -239,6 +239,7 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed' | 'ret
   'finance/fee-range': 'view',
   'payments/refund-due': 'view',
   'payments/settlement/relabel': 'view',
+  'payments/settlement/personal': 'view',
   'payments/decide': 'view',
   'payments/gateways': 'view',
   'sms/test': 'view',

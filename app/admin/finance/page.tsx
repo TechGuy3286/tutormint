@@ -10,6 +10,8 @@ import { TILE_TONE } from '@/lib/tileTones'
 import { financeHref, isLegacyFinanceQuery } from '@/lib/financeTabsCore'
 
 import SettlementTab from './settlement/SettlementTab'
+import PersonalEntries from './PersonalEntries'
+import { personalMonthLine } from '@/lib/personalCreditCore'
 
 // Admin → Finance (owner, 8 Oct 2026, item 4). OWNER ONLY, plus the view-only
 // Partner: SCREEN_ACCESS.finance is `[]`, so every other role is redirected
@@ -93,7 +95,7 @@ export default async function FinancePage({
           <p className="text-[11px] text-gray-500">
             Collected counts the same payments as the totals. The bank columns follow the money: every approved PayPro payment
             moved through PayPro (refunded and deleted-account ones too), as in the settlement check. A transfer a member made
-            straight to our bank counts as expected and received.
+            straight to our bank counts as expected and received. PayPro deductions are PayPro’s own fee on each order, from the PayPro export.
           </p>
         </div>
         <div className="overflow-x-auto">
@@ -109,8 +111,8 @@ export default async function FinancePage({
               </tr>
             </thead>
             <tbody>
-              {f.months.map((m) => (
-                <tr key={m.month} className="border-b border-gray-100 last:border-0">
+              {f.months.map((m) => [
+                <tr key={m.month} className={`${m.personal ? '' : 'border-b'} border-gray-100 last:border-0`}>
                   <td className={`${td} font-bold text-tm-navy`}>{monthName(m.month)}</td>
                   <td className={`${td} text-right`}>{pkr(m.collected)}</td>
                   <td className={`${td} text-right`}>{pkr(m.payproDeductions)}</td>
@@ -119,12 +121,24 @@ export default async function FinancePage({
                   <td className={`${td} text-right font-bold ${m.dueFromPaypro > 0 ? 'text-tm-red' : 'text-tm-green-deep'}`}>
                     {pkr(m.dueFromPaypro)}
                   </td>
-                </tr>
-              ))}
+                </tr>,
+                m.personal ? (
+                  <tr key={`${m.month}-personal`} className="border-b border-gray-100 last:border-0" data-personal-line="">
+                    <td colSpan={6} className="px-2 pb-2 text-[11px] text-gray-500">
+                      {personalMonthLine(m.personal)} ·{' '}
+                      <a href={`#personal-${m.month}`} className="font-bold underline">
+                        View
+                      </a>
+                    </td>
+                  </tr>
+                ) : null,
+              ])}
             </tbody>
           </table>
         </div>
       </section>
+
+      <PersonalEntries months={f.personal} monthName={Object.fromEntries(f.personal.map((p) => [p.month, monthName(p.month)]))} />
 
       {/* ---------------------------------------------- by type / method */}
       <div className="grid gap-4 lg:grid-cols-2">

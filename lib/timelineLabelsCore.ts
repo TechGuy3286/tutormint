@@ -145,6 +145,8 @@ export const AUDIT_LABELS: Record<string, string> = {
   'settlement.refund_due': 'Marked a duplicate payment as refund due',
   'settlement.refund_done': 'Marked a duplicate payment as refunded',
   'settlement.relabel': 'Re-labelled a bank credit',
+  'settlement.personal': 'Marked a bank credit as not business (personal)',
+  'settlement.personal_undo': 'Undid a not business (personal) mark on a bank credit',
   'settings.fee_match_range': 'Changed the fee match range',
 
   // Staff

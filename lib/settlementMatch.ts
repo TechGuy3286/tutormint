@@ -83,7 +83,7 @@ export async function loadAll(): Promise<Loaded | null> {
     pageAll((from, to) =>
       admin
         .from('bank_transfers')
-        .select('id, transferred_on, transferred_time, amount_pkr, reference, sender_name, sender_bank, note, gateway, source, category')
+        .select('id, transferred_on, transferred_time, amount_pkr, reference, sender_name, sender_bank, note, gateway, source, category, personal_at, personal_by_name, personal_note')
         .order('id')
         .range(from, to),
     ),
@@ -128,6 +128,9 @@ export async function loadAll(): Promise<Loaded | null> {
     isPaypro: String(t.gateway ?? 'paypro') === 'paypro',
     source: t.source === 'email' ? 'email' : 'manual',
     category: (t.category as string | null) ?? null,
+    personal: t.personal_at
+      ? { at: String(t.personal_at), byName: (t.personal_by_name as string | null) ?? null, note: (t.personal_note as string | null) ?? null }
+      : null,
   }))
 
   const ourPaypro: OurPaypro[] = ((payproData ?? []) as Record<string, unknown>[])

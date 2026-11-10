@@ -20,6 +20,18 @@
 // deleted-account ones included — exactly as the settlement check does. A
 // bank transfer a member made straight to our account is already in the bank,
 // so it counts as both expected and received.
+//
+// PAYPRO DEDUCTIONS (10 Nov 2026): PayPro's own fee per order — the export's
+// Order-Amount minus MerchantShare, the same figure the PayPro settlement
+// report uses (lib/payproSettlementCore feeFor) — passed in as `payproNet`.
+// Only a payment with no known fee falls back to the hand-entered deduction
+// lines. Before this, the month table read the deduction lines only, and with
+// none live it subtracted nothing, so Due from PayPro was overstated by
+// PayPro's fees.
+//
+// PERSONAL ENTRIES (migration 228): a bank credit the Owner marked "Not
+// business (personal)" is left out of the transfers before they reach here
+// (lib/ignoredCredits); `personal` only carries the grey line under its month.
 
 import { deductionAmount, deductionsInEffect, pkDay, type Deduction } from './settlementCore'
 
@@ -111,6 +123,8 @@ export type MonthRow = {
   expectedInBank: number
   receivedInBank: number
   dueFromPaypro: number
+  /** Bank credits marked personal that arrived this month (not in any figure). */
+  personal: { count: number; amount: number } | null
 }
 
 export type FinanceTransfer = { gateway: string; transferredOn: string; amountPkr: number }
@@ -143,6 +157,10 @@ export function summarise(input: {
   transfers: FinanceTransfer[]
   deductions: Deduction[]
   nowIso: string
+  /** What PayPro pays us for a payment (by payment id), when its fee is known. */
+  payproNet?: ReadonlyMap<string, number>
+  /** Personal entries by month (YYYY-MM). */
+  personal?: ReadonlyArray<{ month: string; count: number; amount: number }>
 }): FinanceSummary {
   const thisMonth = pkMonth(input.nowIso)
   const lastMonth = previousMonth(thisMonth)
@@ -160,6 +178,7 @@ export function summarise(input: {
   const firstCandidates = [
     ...input.payments.map((p) => pkMonth(p.approvedAt)),
     ...input.transfers.map((t) => t.transferredOn.slice(0, 7)),
+    ...(input.personal ?? []).map((p) => p.month),
   ].filter(Boolean)
   const first = firstCandidates.length ? firstCandidates.sort()[0] : thisMonth
   const months = monthsBetween(first, thisMonth)
@@ -168,6 +187,11 @@ export function summarise(input: {
       const paypro = input.payments.filter((p) => p.provider === 'paypro' && inMonth(p, ym))
       let deductions = 0
       for (const p of paypro) {
+        const net = input.payproNet?.get(p.id)
+        if (net !== undefined) {
+          deductions += p.amountPkr - net
+          continue
+        }
         for (const l of deductionsInEffect(pkDay(p.approvedAt), input.deductions)) deductions += deductionAmount(l, p.amountPkr)
       }
       deductions = round2(deductions)
@@ -186,6 +210,10 @@ export function summarise(input: {
         expectedInBank: round2(expectedFromPaypro + direct),
         receivedInBank: round2(payproTransfers + direct),
         dueFromPaypro: round2(expectedFromPaypro - payproTransfers),
+        personal: (() => {
+          const p = input.personal?.find((x) => x.month === ym)
+          return p && p.count > 0 ? { count: p.count, amount: p.amount } : null
+        })(),
       }
     })
     .reverse()
