@@ -13,6 +13,7 @@ import { levelLabel, jobType } from '@/lib/display'
 import { isOnlineType } from '@/lib/matchChip'
 import { withArticle } from '@/lib/article'
 import { addRefToUrl } from '@/lib/waLinkCore'
+import { STATUS_PLAN_HEADLINE_ACCENT } from '@/lib/social/statusPlanCore'
 
 export type SocialTemplate =
   | 'verified'
@@ -89,6 +90,8 @@ export type SocialData = {
   subjectParts?: { level: string; subject: string | null }[]
   /** group only: the city and the 4–6 tutors on the post. */
   group?: { city: string; tutors: { name: string; subject: string | null }[] } | null
+  /** The status image only: the highest active plan (lib/social/statusPlanCore). */
+  statusPlan?: 'verified' | 'premium' | 'featured' | null
 }
 
 // ---- the band -------------------------------------------------------------
@@ -238,7 +241,7 @@ export function headlineFor(template: SocialTemplate, data: SocialData): Headlin
   const city = data.city?.trim() || ''
   switch (template) {
     case 'verified':
-      return { text: VERIFIED_HEADLINE_LEAD + VERIFIED_HEADLINE_ACCENT, accentWords: 2 }
+      return { text: VERIFIED_HEADLINE_LEAD + (data.statusPlan ? STATUS_PLAN_HEADLINE_ACCENT[data.statusPlan] : VERIFIED_HEADLINE_ACCENT), accentWords: 2 }
     case 'spotlight':
       return { text: SPOTLIGHT_HEADLINE, accentWords: 2 }
     case 'bold':

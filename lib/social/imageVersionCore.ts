@@ -25,6 +25,9 @@ export type ImageProfileFacts = {
   city: string | null
   headline: string | null
   verified: boolean
+  /** The highest active plan (lib/social/statusPlanCore) — a plan starting or
+   *  ending is a new image. Unset / 'verified' leaves older keys unchanged. */
+  plan?: 'verified' | 'premium' | 'featured'
 }
 
 export type ImageDrawFacts = {
@@ -57,6 +60,7 @@ export function imageVersionKey(p: ImageProfileFacts, d: ImageDrawFacts): string
     d.format,
     d.variant ?? 0,
     [crop.zoom, crop.x, crop.y],
+    ...(p.plan && p.plan !== 'verified' ? [`plan-${p.plan}`] : []),
   ]
   const key = JSON.stringify(facts)
   let h = 0x811c9dc5

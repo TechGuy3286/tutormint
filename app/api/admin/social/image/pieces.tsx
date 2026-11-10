@@ -4,6 +4,7 @@ import { SOCIAL_MARKS } from '@/lib/social/marks'
 import { CAVEAT_700_B64, JAKARTA_500_B64, JAKARTA_700_B64, JAKARTA_800_B64 } from '@/lib/social/fonts'
 import { GEIST_REGULAR_DATA_URI } from '@/lib/cv/font'
 import { textWidth, type Word } from '@/lib/social/fit'
+import { STATUS_PLAN_GLYPH, type StatusPlan } from '@/lib/social/statusPlanCore'
 import {
   buildCaption,
   HANDLE,
@@ -86,6 +87,9 @@ export type BannerParams = {
   group?: { city: string; tutors: GroupTutor[] } | null
   /** Replace the template's CTA (the tutor link preview: "View profile"). */
   cta?: { label: string; site: string }
+  /** The WhatsApp status image only: the highest active plan — its headline
+   *  words, the ring glyph and one label pill (lib/social/statusPlanCore). */
+  statusPlan?: StatusPlan | null
 }
 
 export type GroupTutor = { slug: string; name: string; subject: string | null; avatar_url: string; gender?: string | null }
@@ -109,6 +113,7 @@ export function toData(p: BannerParams): SocialData {
     headline: p.headline ?? null,
     subhead: p.subhead ?? null,
     subjectParts: p.subjectParts,
+    statusPlan: p.statusPlan ?? null,
     group: p.group ? { city: p.group.city, tutors: p.group.tutors.map((t) => ({ name: t.name, subject: t.subject })) } : null,
   }
 }
@@ -329,7 +334,33 @@ export function runs(line: Word[]): { text: string; accent: boolean }[] {
 }
 
 /** The framed photo: gradient ring, a gap, the photo, a soft shadow, the ✓ badge. */
-export function FramedPhoto({ src, size, theme, verified }: { src: string; size: number; theme: Theme; verified: boolean }) {
+/** Lightning bolt (Premium) — the PremiumBadge path. */
+export function Bolt({ size, color }: { size: number; color: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color} stroke="none">
+      <path d="M13.9 4.6 L7.4 13.4 h3.5 L10.1 19.4 L16.6 10.6 h-3.5 z" />
+    </svg>
+  )
+}
+
+/** Crown (Featured) — the FeaturedBadge path. */
+export function Crown({ size, color }: { size: number; color: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color} stroke="none">
+      <path d="M5.4 8.0 L8.3 11.2 L12 5.9 L15.7 11.2 L18.6 8.0 L17.4 15.0 L6.6 15.0 z" />
+      <rect x="6.6" y="16.1" width="10.8" height="1.9" rx="0.5" />
+    </svg>
+  )
+}
+
+/** The ring badge's disc colour and glyph per plan. */
+const RING_BADGE: Record<StatusPlan, { bg: string }> = {
+  verified: { bg: GREEN },
+  premium: { bg: NAVY },
+  featured: { bg: BRAND.gold },
+}
+
+export function FramedPhoto({ src, size, theme, verified, plan = 'verified' }: { src: string; size: number; theme: Theme; verified: boolean; plan?: StatusPlan }) {
   const ring = Math.max(6, Math.round(size * 0.028))
   const gapPx = Math.max(5, Math.round(size * 0.022))
   const photo = size - 2 * (ring + gapPx)
@@ -363,13 +394,19 @@ export function FramedPhoto({ src, size, theme, verified }: { src: string; size:
             width: badge,
             height: badge,
             borderRadius: badge,
-            background: GREEN,
+            background: RING_BADGE[plan].bg,
             border: `${Math.max(3, Math.round(badge * 0.09))}px solid ${BRAND.white}`,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Tick size={Math.round(badge * 0.58)} color={BRAND.white} stroke={3.6} />
+          {STATUS_PLAN_GLYPH[plan] === 'crown' ? (
+            <Crown size={Math.round(badge * 0.66)} color={BRAND.black} />
+          ) : STATUS_PLAN_GLYPH[plan] === 'bolt' ? (
+            <Bolt size={Math.round(badge * 0.66)} color={BRAND.white} />
+          ) : (
+            <Tick size={Math.round(badge * 0.58)} color={BRAND.white} stroke={3.6} />
+          )}
         </div>
       ) : null}
     </div>

@@ -1,6 +1,7 @@
 import { ImageResponse } from 'next/og'
 import { BRAND, NEUTRAL } from '@/lib/brand'
 import { silhouetteDataUri } from '@/lib/social/avatars'
+import { STATUS_PLAN_LABEL } from '@/lib/social/statusPlanCore'
 import { accentTail, fitWords, plainWords, textWidth, type Word } from '@/lib/social/fit'
 import {
   bandTextLines,
@@ -282,7 +283,13 @@ function planAt(p: BannerParams, k: number) {
   const subjects = subjectLabels(data.subjects)
   const city = data.city?.trim() || null
   const chips = fitChipRow(subjects, city, z.chip, textW)
-  const pills = p.badges.filter((b) => b !== 'Verified')
+  // The status image: one label for the highest active plan ("Featured tutor"),
+  // never the stacked plan pills. Verified draws no pill (the headline says it).
+  const pills: string[] = p.statusPlan
+    ? p.statusPlan === 'verified'
+      ? []
+      : [STATUS_PLAN_LABEL[p.statusPlan]]
+    : p.badges.filter((b) => b !== 'Verified')
   const pillSize = Math.round(z.chip * 0.85)
   const pillsWidth = pills.reduce((acc, b) => acc + textWidth(b, pillSize, 800) + 2 * pillSize * 0.78 + pillSize * 0.4, 0)
   const nameWidth = textWidth(nameFit.lines[0].map((w) => w.text).join(' '), nameFit.size, 800)
@@ -389,8 +396,8 @@ function render(p: BannerParams) {
             fontSize: pillSize,
             fontWeight: 800,
             lineHeight: 1.15,
-            background: b === 'Featured' ? BRAND.gold : theme.dark ? BRAND.white : NAVY,
-            color: b === 'Featured' ? BRAND.black : theme.dark ? NAVY : BRAND.white,
+            background: b.startsWith('Featured') ? BRAND.gold : theme.dark ? BRAND.white : NAVY,
+            color: b.startsWith('Featured') ? BRAND.black : theme.dark ? NAVY : BRAND.white,
           }}
         >
           {b}
@@ -416,7 +423,7 @@ function render(p: BannerParams) {
 
   const cta = <CtaPill label={L.cta.label} site={L.cta.site} size={L.ctaSize} theme={theme} />
   const logo = <Logo size={z.logo} logoDataUri={p.logoDataUri} dark={theme.dark} />
-  const photo = <FramedPhoto src={src} size={L.ring} theme={theme} verified={verified} />
+  const photo = <FramedPhoto src={src} size={L.ring} theme={theme} verified={verified} plan={p.statusPlan ?? 'verified'} />
   const footer = <BrandFooter theme={theme} qrDataUri={p.qrDataUri} s={z.foot} />
 
   const words = (

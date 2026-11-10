@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { formatName } from '@/lib/formatName'
 import { PROFILE_COLS, socialEligible, toFacts, type ProfileRow } from './eligibilityCore'
 import { imageVersionKey, type ImageDrawFacts, type ImageProfileFacts } from './imageVersionCore'
+import { statusPlanFor } from './statusPlanCore'
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>
 
@@ -22,14 +23,22 @@ export async function loadImageProfileFacts(admin: Admin, ids: string[]): Promis
   const out = new Map<string, ImageProfileFacts>()
   const unique = [...new Set(ids.filter(Boolean))]
   for (const part of chunk(unique, 100)) {
-    const [{ data: ps }, { data: tps }, { data: subs }] = await Promise.all([
+    const [{ data: ps }, { data: tps }, { data: subs }, { data: plans }] = await Promise.all([
       admin.from('profiles').select(`${PROFILE_COLS}, full_name, city`).in('id', part),
       admin
         .from('tutor_profiles')
         .select('id, full_name, headline, city, avatar_url, verified_fee_paid_at, gender, show_avatar')
         .in('id', part),
       admin.from('tutor_subjects').select('tutor_id, master_id').in('tutor_id', part),
+      admin.from('subscriptions').select('user_id, plan_code, status, expires_at').in('user_id', part).eq('status', 'active'),
     ])
+    const now = Date.now()
+    type SubRow = { plan_code: string | null; status: string | null; expires_at: string | null }
+    const plansBy = new Map<string, SubRow[]>()
+    for (const s of plans ?? []) {
+      const k = s.user_id as string
+      plansBy.set(k, [...(plansBy.get(k) ?? []), s as SubRow])
+    }
     const tpById = new Map((tps ?? []).map((t) => [t.id as string, t as Record<string, unknown>]))
     const subjectsBy = new Map<string, number[]>()
     for (const s of subs ?? []) {
@@ -48,6 +57,7 @@ export async function loadImageProfileFacts(admin: Admin, ids: string[]): Promis
         city: ((p.city as string | null) || (tp.city as string | null)) ?? null,
         headline: (tp.headline as string | null) ?? null,
         verified: socialEligible(facts),
+        plan: statusPlanFor(plansBy.get(p.id) ?? [], now),
       })
     }
   }

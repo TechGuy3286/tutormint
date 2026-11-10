@@ -66,3 +66,28 @@ export function currentWelcome(rows: { id: string; created_at: string; undone_at
   const live = rows.filter((r) => !r.undone_at).sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
   return live ? { id: live.id, at: live.created_at, by: live.staff_name } : null
 }
+
+// ── The card's buttons (owner, 10 Nov 2026) ─────────────────────────────────
+// Once a welcome is logged the card hides "Send welcome" at once (before the
+// stored row refreshes) and keeps "Welcomed ✓ <date>" with an Undo while the
+// 10-second window is open. Undo brings "Send welcome" back.
+
+/** What this browser did since the card was drawn. */
+export type WelcomeLocal = { kind: 'none' } | { kind: 'sent'; welcome: Welcome } | { kind: 'undone' }
+
+/** The welcome the card shows: this browser's own send or undo wins over the stored row. */
+export function shownWelcome(stored: Welcome | null | undefined, local: WelcomeLocal): Welcome | null {
+  if (local.kind === 'sent') return local.welcome
+  if (local.kind === 'undone') return null
+  return stored ?? null
+}
+
+/** "Send welcome" shows only while no welcome stands (and for staff who may write). */
+export function showSendWelcome(welcome: Welcome | null | undefined, readOnly = false): boolean {
+  return !readOnly && !welcome
+}
+
+/** The inline Undo shows only for this browser's own send, within the window. */
+export function showWelcomeUndo(local: WelcomeLocal, nowMs: number, windowMs: number): boolean {
+  return local.kind === 'sent' && nowMs - Date.parse(local.welcome.at) < windowMs
+}

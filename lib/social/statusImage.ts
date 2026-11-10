@@ -7,6 +7,7 @@ import { loadPostTutor } from '@/lib/social/postTutor'
 import { loadImageProfileFacts } from '@/lib/social/imageVersion'
 import { imageCacheControl, imageVersionKey, STATUS_DRAW, withImageCache } from '@/lib/social/imageVersionCore'
 import { renderSocialBanner } from '@/app/api/admin/social/image/render'
+import { planBadgeNames, statusPlanFor, type StatusPlan } from '@/lib/social/statusPlanCore'
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>
 
@@ -23,10 +24,13 @@ export async function statusImageKey(admin: Admin, tutorId: string): Promise<str
 }
 
 /** Whether this tutor may have a status image (the verified rule), and its URL key. */
-export async function statusImageFacts(admin: Admin, tutorId: string): Promise<{ allowed: boolean; key: string | null; firstName: string }> {
+export async function statusImageFacts(
+  admin: Admin,
+  tutorId: string,
+): Promise<{ allowed: boolean; key: string | null; firstName: string; plan: StatusPlan }> {
   const facts = (await loadImageProfileFacts(admin, [tutorId])).get(tutorId)
-  if (!facts) return { allowed: false, key: null, firstName: '' }
-  return { allowed: facts.verified, key: imageVersionKey(facts, STATUS_DRAW), firstName: facts.name.split(' ')[0] ?? '' }
+  if (!facts) return { allowed: false, key: null, firstName: '', plan: 'verified' }
+  return { allowed: facts.verified, key: imageVersionKey(facts, STATUS_DRAW), firstName: facts.name.split(' ')[0] ?? '', plan: facts.plan ?? 'verified' }
 }
 
 export async function renderStatusImage(admin: Admin, tutorId: string, urlKey: string | null): Promise<StatusImageResult> {
@@ -37,14 +41,18 @@ export async function renderStatusImage(admin: Admin, tutorId: string, urlKey: s
   // Only tutors with the Verified badge (the Social posts verified rule).
   if (!post.eligible) return { ok: false, status: 403, error: 'Only verified tutors have a status image.' }
 
-  const [qrDataUri, logoDataUri, live] = await Promise.all([
+  const [qrDataUri, logoDataUri, live, { data: subs }] = await Promise.all([
     cvQrDataUri(post.profileUrl),
     brandMonogramDataUri(),
     statusImageKey(admin, tutorId),
+    admin.from('subscriptions').select('plan_code, status, expires_at').eq('user_id', tutorId).eq('status', 'active'),
   ])
+  // The highest ACTIVE plan: Featured, then Premium, then Verified (an ended
+  // upgrade falls back to Verified on the next download).
+  const plan = statusPlanFor((subs ?? []) as { plan_code: string | null; status: string | null; expires_at: string | null }[], Date.now())
   const res = renderSocialBanner({
     tutor: post.tutor,
-    badges: post.badges,
+    badges: planBadgeNames(plan),
     subjects: post.subjects,
     subjectParts: post.subjectParts,
     format: STATUS_DRAW.format as 'story',
@@ -54,6 +62,7 @@ export async function renderStatusImage(admin: Admin, tutorId: string, urlKey: s
     headline: '',
     logoDataUri,
     verified: true,
+    statusPlan: plan,
   })
   return { ok: true, response: await withImageCache(res, imageCacheControl(urlKey, live ?? '', 'private')) }
 }

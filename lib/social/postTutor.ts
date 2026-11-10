@@ -10,6 +10,14 @@ import { NO_ADJUST, type CropAdjust } from '@/lib/social/cropCore'
 import { resolveSubjectParts, type SubjectPart } from '@/lib/social/data'
 import { badgesForPlan, type BadgeName } from '@/lib/planBadges'
 import { verifiedBadgeOkOne } from '@/lib/badgeFacts'
+import { statusPlanFor } from '@/lib/social/statusPlanCore'
+
+/** The upgrade held now (Featured first), or null — no subscription drew no
+ *  plan badge before, and still does not. */
+function upgradeCode(subs: { plan_code: string | null; status: string | null; expires_at: string | null }[]): 'premium' | 'featured' | null {
+  const p = statusPlanFor(subs, Date.now())
+  return p === 'verified' ? null : p
+}
 import { absoluteUrl } from '@/lib/siteUrl'
 import { formatName } from '@/lib/formatName'
 import type { BannerTutor } from '@/app/api/admin/social/image/pieces'
@@ -54,14 +62,7 @@ export async function loadPostTutor(admin: Admin, slug: string, crop: CropAdjust
     admin.from('profiles').select('full_name, city, is_seed, is_team_account').eq('id', id).maybeSingle(),
     loadSocialTutorFacts(admin, id),
     admin.from('tutor_directory').select('id').eq('id', id).maybeSingle(),
-    admin
-      .from('subscriptions')
-      .select('plan_code')
-      .eq('user_id', id)
-      .eq('status', 'active')
-      .gt('expires_at', new Date().toISOString())
-      .limit(1)
-      .maybeSingle(),
+    admin.from('subscriptions').select('plan_code, status, expires_at').eq('user_id', id).eq('status', 'active'),
     resolveSubjectParts(admin, id, 3),
   ])
   const isFixture = !!p?.is_seed || !!p?.is_team_account
@@ -91,7 +92,8 @@ export async function loadPostTutor(admin: Admin, slug: string, crop: CropAdjust
     isFixture,
     subjects: parts.map((x) => x.label),
     subjectParts: parts,
-    badges: badgesForPlan((sub?.plan_code as string) ?? null, listed, verifiedOk),
+    // The highest active plan — Featured, then Premium (lib/social/statusPlanCore).
+    badges: badgesForPlan(upgradeCode((sub ?? []) as { plan_code: string | null; status: string | null; expires_at: string | null }[]), listed, verifiedOk),
     profileUrl: absoluteUrl(`/tutor/${tp.slug as string}`),
     photoShown,
   }
