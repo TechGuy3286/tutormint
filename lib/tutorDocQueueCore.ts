@@ -22,6 +22,7 @@
 
 import { deriveCnicStatus } from '@/lib/cnicStatus'
 import { NAME_CHANGED_LABEL } from '@/lib/memberLocksCore'
+import { fileWithoutDecision } from '@/lib/docUploadStatusCore'
 
 export type CardDocStatus = 'none' | 'pending' | 'approved' | 'rejected'
 export type CardDocState = {
@@ -50,6 +51,8 @@ export type TutorDocFacts = {
   selfie_reason?: string | null
   /** An active selfie document is on file. */
   hasSelfieFile: boolean
+  /** An active CNIC image (front or back) is on file (owner, 10 Nov 2026). */
+  hasCnicFile?: boolean
   /** tutor_profiles.video_status. */
   video_status?: string | null
   /** A CNIC upload waiting as user_documents.status='review'. */
@@ -76,9 +79,15 @@ export function tutorCardStatuses(f: TutorDocFacts): CardStatuses {
     cnic_number: f.cnic_number ?? null,
     cnic_image_path: f.cnic_image_path ?? null,
   })
-  const cnic: CardDocStatus = single === 'submitted' ? 'pending' : single
-  const pic = norm(f.profile_pic_status)
-  const selfie = norm(f.selfie_status)
+  // A file on record with no decision is WAITING, never "Not uploaded" (owner,
+  // 10 Nov 2026): some upload paths saved the file without setting a status.
+  const cnicFile = !!f.hasCnicFile || filled(f.cnic_image_path)
+  const cnic: CardDocStatus =
+    single === 'submitted' ? 'pending' : single === 'none' && fileWithoutDecision(f.verification_state, cnicFile) ? 'pending' : single
+  const picRaw = norm(f.profile_pic_status)
+  const pic: CardDocStatus = picRaw === 'none' && fileWithoutDecision(f.profile_pic_status, filled(f.avatar_url)) ? 'pending' : picRaw
+  const selfieRaw = norm(f.selfie_status)
+  const selfie: CardDocStatus = selfieRaw === 'none' && fileWithoutDecision(f.selfie_status, f.hasSelfieFile) ? 'pending' : selfieRaw
   const cnicRe = cnic === 'approved' && !!f.hasCnicReview
   const picRe = pic === 'approved' && filled(f.profile_pic_rereview_at) && filled(f.avatar_url)
   const selfieRe = selfie === 'approved' && !!f.hasSelfieReview
@@ -87,7 +96,7 @@ export function tutorCardStatuses(f: TutorDocFacts): CardStatuses {
     // 'none' means it has been submitted.
     cnic: cnicRe
       ? { status: 'pending', reason: null, hasUpload: true, rereview: true }
-      : { status: cnic, reason: f.verification_rejection_reason ?? null, hasUpload: cnic !== 'none' },
+      : { status: cnic, reason: f.verification_rejection_reason ?? null, hasUpload: cnic !== 'none' || cnicFile },
     profilePic: picRe
       ? { status: 'pending', reason: null, hasUpload: true, rereview: true }
       : { status: pic, reason: f.profile_pic_reason ?? null, hasUpload: filled(f.avatar_url) },

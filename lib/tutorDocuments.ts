@@ -86,6 +86,23 @@ export async function loadDocumentStatuses(userId: string): Promise<DocumentStat
     /* ignore */
   }
 
+  // An active CNIC image (front or back): a file on record with no status reads
+  // as waiting, never "Not uploaded" (owner, 10 Nov 2026).
+  let cnicDoc = false
+  try {
+    const { data } = await db
+      .from('user_documents')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('kind', 'cnic')
+      .eq('status', 'active')
+      .limit(1)
+      .maybeSingle()
+    cnicDoc = !!data
+  } catch {
+    /* ignore */
+  }
+
   // Re-uploads of approved documents waiting for staff (owner, 9 Oct 2026).
   let cnicReview = false
   let selfieReview = false
@@ -107,7 +124,7 @@ export async function loadDocumentStatuses(userId: string): Promise<DocumentStat
   return tutorCardStatuses(
     tutorDocFactsFromRow(
       { ...((base as TutorDocRow | null) ?? {}), ...((newCols as TutorDocRow | null) ?? {}) },
-      { hasSelfieFile: selfieDoc, hasCnicReview: cnicReview, hasSelfieReview: selfieReview },
+      { hasSelfieFile: selfieDoc, hasCnicFile: cnicDoc, hasCnicReview: cnicReview, hasSelfieReview: selfieReview },
     ),
   )
 }

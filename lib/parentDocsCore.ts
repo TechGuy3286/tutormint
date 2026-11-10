@@ -50,7 +50,9 @@ export function parentCnicState(f: ParentDocFacts): ParentItemState {
     status = 'approved'
   }
   else if (vs === 'rejected') status = 'rejected'
-  else if (vs === 'submitted' && hasUpload) status = 'pending'
+  // Images on file with no decision wait too (owner, 10 Nov 2026) — never
+  // "Not uploaded" over a real file.
+  else if (hasUpload && (vs === 'submitted' || vs === '' || vs === 'none')) status = 'pending'
   return { status, reason: status === 'rejected' ? (f.verification_rejection_reason ?? null) : null, hasUpload }
 }
 

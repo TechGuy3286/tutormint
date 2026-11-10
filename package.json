@@ -129,6 +129,7 @@
     "test:pagecap": "tsx --test scripts/test-page-cap.ts",
     "test:pause": "tsx --test scripts/test-tuition-pause.ts",
     "test:approvalqueue": "tsx --test scripts/test-approval-queue.ts",
+    "test:docuploadstatus": "tsx --test scripts/test-doc-upload-status.ts",
     "test:docsummary": "tsx --test scripts/test-doc-summary.ts",
     "test:admincleanup": "tsx --test scripts/test-admin-cleanup.ts",
     "test:headertimeline": "tsx --test scripts/test-header-timeline.ts",

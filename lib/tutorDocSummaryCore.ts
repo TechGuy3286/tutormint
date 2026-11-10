@@ -160,7 +160,7 @@ export type TutorDocRow = {
 
 export function tutorDocFactsFromRow(
   p: TutorDocRow,
-  docs: { hasSelfieFile: boolean; hasCnicReview: boolean; hasSelfieReview: boolean },
+  docs: { hasSelfieFile: boolean; hasCnicReview: boolean; hasSelfieReview: boolean; hasCnicFile?: boolean },
 ): import('@/lib/tutorDocQueueCore').TutorDocFacts {
   return {
     verification_state: p.verification_state ?? null,
@@ -174,6 +174,7 @@ export function tutorDocFactsFromRow(
     selfie_status: p.selfie_status ?? null,
     selfie_reason: p.selfie_reason ?? null,
     hasSelfieFile: docs.hasSelfieFile,
+    hasCnicFile: !!docs.hasCnicFile,
     hasCnicReview: docs.hasCnicReview,
     hasSelfieReview: docs.hasSelfieReview,
     profile_pic_rereview_at: p.profile_pic_rereview_at ?? null,

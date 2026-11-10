@@ -66,6 +66,7 @@ export async function loadTutorDocSummaries(tutorIds: string[]): Promise<Map<str
     const statuses = tutorCardStatuses(
       tutorDocFactsFromRow(p as TutorDocRow, {
         hasSelfieFile: mine.some((d) => d.kind === 'selfie' && d.status === 'active'),
+        hasCnicFile: mine.some((d) => d.kind === 'cnic' && d.status === 'active'),
         hasCnicReview: mine.some((d) => d.kind === 'cnic' && d.status === 'review'),
         hasSelfieReview: mine.some((d) => d.kind === 'selfie' && d.status === 'review'),
       }),

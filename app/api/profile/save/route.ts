@@ -24,6 +24,7 @@ import { NOT_A_MASTER_SUBJECT } from '@/lib/subjectDisplay'
 import { formatName } from '@/lib/formatName'
 import { cnicNameLocked, cnicNameProblem } from '@/lib/memberNamesCore'
 import { displayNameRefusal } from '@/lib/memberNames'
+import { itemStatusAfterUpload } from '@/lib/docUploadStatusCore'
 
 // Per-step save for the profile forms. Writes only the fields the step owns,
 // then recomputes profiles.profile_completion so the stored percentage can
@@ -404,13 +405,18 @@ export async function POST(request: Request) {
     // profile_pic_status otherwise, so without this a rejected photo could never
     // return to the Approval-needed queue. profile_pic_status is a locked column
     // → service role. Staff approval clears the reason and restores the badge.
-    if (avatarProvided) {
+    // A FIRST photo waits too (owner, 10 Nov 2026): before this a new photo
+    // with no status stayed unreviewed and read "Not uploaded" in admin. An
+    // approved photo is held for re-review by migration 222 and never changed
+    // here (itemStatusAfterUpload returns null for it).
+    if (avatarProvided && typeof tutorPatch.avatar_url === 'string' && tutorPatch.avatar_url.trim() !== '') {
       const admin = createAdminClient()
       if (admin) {
         const { data: cur } = await admin.from('profiles').select('profile_pic_status').eq('id', user.id).maybeSingle()
-        if (cur?.profile_pic_status === 'rejected') {
-          await admin.from('profiles').update({ profile_pic_status: 'pending' }).eq('id', user.id)
-          await alertIfReupload(user.id, 'photo')
+        const next = itemStatusAfterUpload(cur?.profile_pic_status as string | null)
+        if (next) {
+          await admin.from('profiles').update({ profile_pic_status: next }).eq('id', user.id)
+          if (cur?.profile_pic_status === 'rejected') await alertIfReupload(user.id, 'photo')
         }
       }
     }

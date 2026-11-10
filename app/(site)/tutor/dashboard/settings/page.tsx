@@ -395,8 +395,9 @@ export default function TutorSettingsPage() {
       const publicUrl = await cropAndUpload(file);
       if (publicUrl) {
         const wasApproved = statuses?.profilePic.status === 'approved';
-        const { error } = await supabase.from('tutor_profiles').update({ avatar_url: publicUrl }).eq('id', userId);
-        if (error) throw new Error(error.message);
+        // Through the save route (owner, 10 Nov 2026), so a new photo is set to
+        // waiting for review — a direct table write left it with no status.
+        await postProfileSave({ tutorProfile: { avatar_url: publicUrl } });
         // An approved photo stays public until the Owner approves the new one
         // (migration 222 keeps it and holds this one as waiting).
         if (wasApproved) setPendingPhoto(publicUrl);

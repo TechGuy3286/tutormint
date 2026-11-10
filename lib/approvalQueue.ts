@@ -58,10 +58,12 @@ async function build(): Promise<ApprovalRow[]> {
   )
   const tp = new Map(tps.map((t) => [t.id as string, t]))
   // Active selfie documents (the card's "a selfie is on file").
-  const selfies = await pageAllIn(ids, (part, from, to) =>
-    admin.from('user_documents').select('id, user_id').eq('kind', 'selfie').eq('status', 'active').in('user_id', part).order('id').range(from, to),
+  const activeDocs = await pageAllIn(ids, (part, from, to) =>
+    admin.from('user_documents').select('id, user_id, kind').in('kind', ['selfie', 'cnic']).eq('status', 'active').in('user_id', part).order('id').range(from, to),
   )
-  const hasSelfie = new Set(selfies.map((d) => d.user_id as string))
+  const hasSelfie = new Set(activeDocs.filter((d) => d.kind === 'selfie').map((d) => d.user_id as string))
+  // An active CNIC image — a file on record waits even with no status (owner, 10 Nov 2026).
+  const hasCnic = new Set(activeDocs.filter((d) => d.kind === 'cnic').map((d) => d.user_id as string))
   // Re-uploads of approved documents waiting for staff (status 'review').
   const reviews = await pageAllIn(ids, (part, from, to) =>
     admin.from('user_documents').select('id, user_id, kind').eq('status', 'review').in('kind', ['cnic', 'selfie']).in('user_id', part).order('id').range(from, to),
@@ -81,6 +83,7 @@ async function build(): Promise<ApprovalRow[]> {
       profile_pic_status: p.profile_pic_status as string | null,
       selfie_status: p.selfie_status as string | null,
       hasSelfieFile: hasSelfie.has(p.id as string),
+      hasCnicFile: hasCnic.has(p.id as string),
       hasCnicReview: cnicReview.has(p.id as string),
       hasSelfieReview: selfieReview.has(p.id as string),
       profile_pic_rereview_at: (p.profile_pic_rereview_at as string | null) ?? null,

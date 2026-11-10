@@ -275,8 +275,9 @@ test('a member upload stores the original AND the cropped square; the profile us
     assert.ok(src.includes('usePhotoCropUpload()') && src.includes('cropAndUpload(file)'), f.join('/'))
     assert.ok(!src.includes(".from('avatars').upload(") && !src.includes("from('avatars')\n      .upload("), `${f.join('/')} no longer uploads the uncropped file itself`)
   }
-  // Review rules unchanged: the tutor screens still save avatar_url through their own member-side path.
-  assert.ok(read('app', '(site)', 'tutor', 'dashboard', 'settings', 'page.tsx').includes("from('tutor_profiles').update({ avatar_url: publicUrl })"))
+  // Edit Profile saves avatar_url through the member save route (owner, 10 Nov
+  // 2026), which sets a new photo to waiting for review.
+  assert.ok(read('app', '(site)', 'tutor', 'dashboard', 'settings', 'page.tsx').includes('postProfileSave({ tutorProfile: { avatar_url: publicUrl } })'))
   // Staff review shows the crop; the expand icon opens the uploaded original
   // (owner, 20 Oct 2026 — the separate 'View original' link is gone).
   const review = read('components', 'admin', 'TutorDocumentReview.tsx')

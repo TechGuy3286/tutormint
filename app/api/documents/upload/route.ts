@@ -13,6 +13,7 @@ import { readCnicFromDocument } from '@/lib/cnicReader'
 import { isValidCnic } from '@/lib/cnic'
 import { checkSelfieAgainstProfilePhoto } from '@/lib/selfieMatch'
 import { checkPhotosAfterUpload } from '@/lib/photoBlank'
+import { cnicPatchAfterUpload, itemStatusAfterUpload } from '@/lib/docUploadStatusCore'
 
 // Upload a CNIC scan or a degree certificate.
 //
@@ -89,6 +90,17 @@ export async function POST(request: Request) {
       .from('profiles')
       .update({ cnic_image_path: result.doc.originalPath })
       .eq('id', user.id)
+    // A new CNIC side WAITS for review (owner, 10 Nov 2026). Before this only
+    // the separate "Submit" step set the status, so a CNIC uploaded from a path
+    // that never called it (the apply gate, an unfinished onboarding) read
+    // "Not uploaded" in admin. verification_state is a locked column → service
+    // role. An approved CNIC is never touched; a rejection reason is kept.
+    const admin = createAdminClient()
+    if (admin) {
+      const { data: cur } = await admin.from('profiles').select('verification_state, cnic_verified_at').eq('id', user.id).maybeSingle()
+      const patch = cnicPatchAfterUpload(cur ?? {}, new Date().toISOString())
+      if (patch) await admin.from('profiles').update(patch).eq('id', user.id)
+    }
   }
 
   // A new selfie sets it back to WAITING for approval (PR60). selfie_status is a
@@ -104,7 +116,9 @@ export async function POST(request: Request) {
     const admin = createAdminClient()
     if (admin) {
       try {
-        await admin.from('profiles').update({ selfie_status: 'pending' }).eq('id', user.id)
+        const { data: cur } = await admin.from('profiles').select('selfie_status').eq('id', user.id).maybeSingle()
+        const next = itemStatusAfterUpload(cur?.selfie_status as string | null)
+        if (next) await admin.from('profiles').update({ selfie_status: next }).eq('id', user.id)
       } catch {
         /* column not there yet — fine */
       }

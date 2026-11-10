@@ -116,7 +116,9 @@ test('a re-upload returns the member to the queue (the statuses it writes are th
     ['CNIC', 'Selfie'],
   )
   const upload = read('app/api/documents/upload/route.ts')
-  assert.match(upload, /selfie_status: 'pending'/, 'a selfie re-upload sets it back to pending')
+  // The rule now lives in lib/docUploadStatusCore (owner, 10 Nov 2026):
+  // rejected → pending on a new upload.
+  assert.match(upload, /itemStatusAfterUpload\(cur\?\.selfie_status/, 'a selfie re-upload sets it back to pending')
 })
 
 // --------------------------------------------- STEP 5: view as tutor --------
