@@ -17,6 +17,7 @@
 // not a member action, and `subscriptions` is deliberately not member-writable.
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { returnFromNotInterested } from '@/lib/followUpDismissals'
 import { markOnboardedIfComplete } from '@/lib/onboardingDone'
 import { afterFeeReturnPath } from '@/lib/returnTo'
 import { isTutorListable } from '@/lib/payments/listable'
@@ -180,6 +181,7 @@ export async function activatePayment(params: {
 
     // Paid: any other open checkout for the fee is closed "Paid by another method".
     await closeOtherCheckouts(admin, { userId, paymentId: payment.id as string, planCode, actorId: params.actor?.id ?? null })
+    await returnFromNotInterested(userId, 'payment_approved')
 
     // Defensive: if the tutor had bought Premium/Featured BEFORE paying the fee,
     // that plan is paused waiting to be listable. The fee is what lists them, so
@@ -324,6 +326,7 @@ export async function activatePayment(params: {
 
   // Paid: any other open checkout for this plan is closed "Paid by another method".
   await closeOtherCheckouts(admin, { userId, paymentId: payment.id as string, planCode, actorId: params.actor?.id ?? null })
+  await returnFromNotInterested(userId, 'payment_approved')
 
   // Featured flags are a cache of a RUNNING plan. A paused plan is not running,
   // so it is not tagged until go-live (goLive.ts calls applyPlanFlags then).

@@ -17,6 +17,7 @@
 //
 // Bodies are stored verbatim and masked on the way out -- see lib/masking.ts.
 
+import { GET_VERIFIED_TO_MESSAGE } from '@/lib/tutorMessagingCore'
 import { PARENT_MOBILE_GATE_MESSAGE, PARENT_MOBILE_HREF } from '@/lib/parentGate'
 import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { memberUnavailable } from '@/lib/selfPause'
@@ -194,7 +195,7 @@ export async function canStartThread(
       return {
         ok: false,
         status: 403,
-        error: 'Verify your account to message parents.',
+        error: GET_VERIFIED_TO_MESSAGE,
         gate: await buildGate('tutor_verify', ent),
       }
     }
@@ -387,7 +388,11 @@ export async function sendMessage(params: {
         .eq('id', me)
         .maybeSingle()
       if (!tp?.verified_fee_paid_at) {
-        return { ok: false, status: 403, error: 'Verify your account to reply to parents.' }
+        // "Get verified to message parents" with the Verify button (owner, 11
+        // Nov 2026). The TutorMint Team channel is a different store and stays
+        // open to everyone (/api/account/messages).
+        const vEnt = await getEntitlements(me)
+        return { ok: false, status: 403, error: GET_VERIFIED_TO_MESSAGE, gate: (await buildGate('tutor_verify', vEnt)) ?? undefined }
       }
       // A rejected document pauses sending too (PR106-H4 §2).
       const sEnt = await getEntitlements(me)

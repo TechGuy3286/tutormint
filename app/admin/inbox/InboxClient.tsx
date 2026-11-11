@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Send, Pencil, ShieldCheck, MessageCircle } from 'lucide-react'
+import { ArrowLeft, Send, Pencil, ShieldCheck, MessageCircle } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
@@ -92,6 +92,12 @@ export default function InboxClient({
   )
   const [busy, setBusy] = useState(false)
   const [showTemplates, setShowTemplates] = useState(initialShowTemplates)
+  // Newest message at the bottom, in view (owner, 11 Nov 2026).
+  const historyRef = useRef<HTMLOListElement>(null)
+  useEffect(() => {
+    const el = historyRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [selectedId, conversation.length])
 
   const chosen = templates.find((t) => t.key === templateKey) ?? null
   const needsJob = !!chosen && chosen.body.includes('{job_title}')
@@ -144,8 +150,8 @@ export default function InboxClient({
   }
 
   return (
-    <div className="space-y-4">
-      <header className="flex flex-wrap items-center justify-between gap-2">
+    <div data-inbox="" className="min-w-0 space-y-4">
+      <header className={`flex flex-wrap items-center justify-between gap-2 ${selectedId ? 'max-lg:hidden' : ''}`}>
         <div>
           <h1 className="text-lg font-black text-tm-navy">Team inbox</h1>
           <p className="text-xs text-gray-500">Official messages to members, and their replies.</p>
@@ -163,7 +169,7 @@ export default function InboxClient({
       </header>
 
       {showTemplates && (
-        <div className="space-y-3">
+        <div className="min-w-0 space-y-3 [overflow-wrap:anywhere]">
           {isOwner && (
             <Link
               href="/admin/inbox/review"
@@ -186,9 +192,9 @@ export default function InboxClient({
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-[280px_1fr]">
         {/* --------------------------------------------------- thread list --- */}
-        <nav className="space-y-1.5" aria-label="Conversations">
+        <nav className={`min-w-0 space-y-1.5 ${selectedId ? 'max-lg:hidden' : ''}`} aria-label="Conversations">
           {threads.length === 0 ? (
             <p className="rounded-2xl border border-gray-200 bg-white p-4 text-xs text-gray-500">
               No conversations yet. Open a member and send the first message.
@@ -198,14 +204,14 @@ export default function InboxClient({
               <Link
                 key={t.memberId}
                 href={`/admin/inbox?to=${t.memberId}`}
-                className={`block rounded-2xl border p-3 transition-colors ${
+                className={`block min-w-0 rounded-2xl border p-3 transition-colors ${
                   t.memberId === selectedId
                     ? 'border-tm-navy bg-white'
                     : 'border-gray-200 bg-white hover:border-tm-navy'
                 }`}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="truncate text-xs font-black text-tm-navy">{t.memberName}</span>
+                <div className="flex min-w-0 items-center justify-between gap-2">
+                  <span className="min-w-0 truncate text-xs font-black text-tm-navy">{t.memberName}</span>
                   {t.unreadFromMember > 0 && (
                     <span className="shrink-0 rounded-full bg-tm-red px-1.5 text-[10px] font-black text-white">
                       {t.unreadFromMember}
@@ -223,16 +229,30 @@ export default function InboxClient({
         </nav>
 
         {/* --------------------------------------------------- conversation --- */}
-        <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
+        <section
+          data-inbox-chat=""
+          className={`min-w-0 rounded-2xl border border-gray-200 bg-white lg:space-y-3 lg:p-4 ${
+            selectedId
+              ? 'max-lg:fixed max-lg:inset-0 max-lg:z-40 max-lg:flex max-lg:flex-col max-lg:rounded-none max-lg:border-0'
+              : 'p-4 max-lg:hidden'
+          }`}
+        >
           {!selectedId ? (
             <p className="text-xs text-gray-500">Pick a conversation, or open a member to start one.</p>
           ) : (
             <>
-              <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-tm-navy text-white">
+              <div className="flex min-w-0 shrink-0 items-center gap-2 border-b border-gray-100 pb-2 max-lg:px-3 max-lg:pt-2">
+                <Link
+                  href="/admin/inbox"
+                  aria-label="Back to conversations"
+                  className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-tm-navy hover:bg-tm-tint-navy lg:hidden"
+                >
+                  <ArrowLeft aria-hidden size={18} />
+                </Link>
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tm-navy text-white max-lg:hidden">
                   <ShieldCheck aria-hidden size={14} />
                 </span>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <Link
                     href={`/admin/users/${selectedId}`}
                     className="block truncate text-sm font-black text-tm-navy hover:underline"
@@ -243,11 +263,15 @@ export default function InboxClient({
                     const tag = threads.find((t) => t.memberId === selectedId)?.tag
                     return tag ? <StatusPill tag={tag} /> : null
                   })()}
-                  <p className="text-[10px] text-gray-500">You reply as {TEAM}.</p>
+                  <p className="text-[10px] text-gray-500 max-lg:hidden">You reply as {TEAM}.</p>
                 </div>
               </div>
 
-              <ol className="max-h-[46vh] space-y-2 overflow-y-auto">
+              <ol
+                ref={historyRef}
+                data-inbox-history=""
+                className="min-w-0 space-y-2 overflow-y-auto overscroll-contain lg:max-h-[46vh] max-lg:min-h-0 max-lg:flex-1 max-lg:px-3 max-lg:py-3"
+              >
                 {conversation.length === 0 ? (
                   <li className="text-[11px] text-gray-500">No messages yet.</li>
                 ) : (
@@ -256,14 +280,14 @@ export default function InboxClient({
                     return (
                       <li key={m.id} className={`flex ${fromTeam ? 'justify-end' : 'justify-start'}`}>
                         <div
-                          className={`max-w-[85%] space-y-1 rounded-2xl px-3 py-2 ${
+                          className={`min-w-0 max-w-[85%] space-y-1 rounded-2xl px-3 py-2 ${
                             fromTeam ? 'rounded-tr-sm bg-tm-tint-navy' : 'rounded-tl-sm border border-gray-200 bg-tm-bg'
                           }`}
                         >
                           <p className="text-[10px] font-black uppercase tracking-wide text-slate-600">
                             {fromTeam ? TEAM : selectedName}
                           </p>
-                          <p className="whitespace-pre-wrap text-xs leading-relaxed text-slate-700">{m.body}</p>
+                          <p className="whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-700 [overflow-wrap:anywhere]">{m.body}</p>
                           <p className="text-[10px] text-slate-600">{formatDateTime(m.createdAt)}</p>
                         </div>
                       </li>
@@ -273,11 +297,11 @@ export default function InboxClient({
               </ol>
 
               {/* ----------------------------------------------- compose --- */}
-              {!readOnly && <div className="space-y-2 border-t border-gray-100 pt-3">
+              {!readOnly && <div data-inbox-compose="" className="min-w-0 shrink-0 space-y-2 border-t border-gray-100 pt-3 max-lg:bg-white max-lg:px-3 max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                 <select
                   value={templateKey}
                   onChange={(e) => applyTemplate(e.target.value)}
-                  className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold"
+                  className="min-h-[44px] w-full min-w-0 max-w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold"
                 >
                   <option value="">Start from a template…</option>
                   {templates.filter((t) => composeOffers(t) && !isAppTemplateKey(t.key)).map((t) => (
@@ -311,18 +335,19 @@ export default function InboxClient({
                 )}
 
                 <textarea
-                  rows={4}
+                  rows={3}
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
                   placeholder={`Write to ${selectedName || 'this member'} — edit the template freely before sending.`}
-                  className="w-full rounded-xl border border-gray-200 bg-tm-bg px-3 py-2 text-sm outline-none focus:border-tm-navy focus:bg-white"
+                  className="block w-full min-w-0 rounded-xl border border-gray-200 bg-tm-bg px-3 py-2 text-sm outline-none focus:border-tm-navy focus:bg-white lg:min-h-[104px]"
                 />
-                <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => send('inapp')}
                     disabled={busy || body.trim().length < 2}
-                    className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-tm-red px-5 text-xs font-bold text-white hover:bg-tm-red-hover disabled:opacity-50"
+                    data-inapp-send=""
+                    className="inline-flex min-h-[44px] min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl bg-tm-navy px-3 text-center text-xs font-bold text-white hover:bg-tm-navy-hover disabled:opacity-50 lg:px-5"
                   >
                     <Send aria-hidden size={14} />
                     {busy ? 'Sending…' : 'In-app + email'}
@@ -336,14 +361,14 @@ export default function InboxClient({
                       type="button"
                       onClick={() => send('whatsapp')}
                       disabled={busy || body.trim().length < 2}
-                      className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-tm-green-deep px-5 text-xs font-bold text-white hover:bg-tm-green-deep-hover disabled:opacity-50"
+                      className="inline-flex min-h-[44px] min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl bg-tm-green-deep px-3 text-center text-xs font-bold text-white hover:bg-tm-green-deep-hover disabled:opacity-50 lg:px-5"
                     >
                       <MessageCircle aria-hidden size={14} />
                       Send on WhatsApp
                     </button>
                   )}
                 </div>
-                <p className="text-[10px] text-gray-500">
+                <p className="text-[10px] text-gray-500 max-lg:hidden">
                   Sent as {TEAM}. WhatsApp opens a pre-filled chat you send yourself; every send is
                   recorded in this thread and the audit log.
                 </p>

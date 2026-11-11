@@ -13,6 +13,7 @@ import { useAdminReadOnly, useDocDecider } from '@/components/admin/ReadOnly'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/Toast'
 import { formatDate } from '@/lib/datetime'
+import { niChip, type NiMark } from '@/lib/notInterestedCore'
 import { UNDO_MS } from '@/lib/tutorFollowUpTabsCore'
 import { dueLine, isFollowStage, KIND_LABEL, sentLine, type PipeKind } from '@/lib/tutorPipelineCore'
 import { blankLine, NO_MOBILE_LINE, pipeStatusLine, type PipeCard } from '@/lib/tutorPipelineCardCore'
@@ -149,7 +150,7 @@ export default function PipelineActions({ memberId, pipe, links }: { memberId: s
       )}
       {pipe.stage === 'paid' && <PaidWelcomeActions memberId={memberId} welcome={pipe.welcome} badge={pipe.badge} />}
       {pipe.noMobile && <p className="font-semibold text-gray-600">{NO_MOBILE_LINE}</p>}
-      {pipe.notInterested && <p className="font-semibold text-gray-600">Marked Not interested — no follow-ups.</p>}
+      {pipe.notInterested && <NotInterestedChip mark={pipe.niMark ?? null} />}
 
       {followable && follow && !pipe.noMobile && (
         <p className={`font-semibold ${due ? 'text-tm-red' : 'text-tm-green-deep'}`}>
@@ -206,6 +207,8 @@ export function PipelineMoreMenu({ memberId, pipe }: { memberId: string; pipe: P
   useEffect(() => {
     if (!open) return
     const onDown = (e: MouseEvent) => {
+      // The Not interested form is portalled to <body>; a click in it keeps the menu.
+      if ((e.target as Element | null)?.closest?.('[data-ni-overlay]')) return
       if (!ref.current?.contains(e.target as Node)) setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => {
@@ -236,6 +239,20 @@ export function PipelineMoreMenu({ memberId, pipe }: { memberId: string; pipe: P
           <NotInterestedButton memberId={memberId} marked={pipe.notInterested} onDone={() => setOpen(false)} />
         </div>
       )}
+    </div>
+  )
+}
+
+/** The grey chip on a marked card (owner, 11 Nov 2026): reason and date, then
+ *  the note and who marked it. */
+export function NotInterestedChip({ mark }: { mark: NiMark | null }) {
+  return (
+    <div data-ni-chip="" className="space-y-0.5">
+      <span className="inline-block rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-bold text-slate-800">
+        {mark ? niChip(mark, formatDate) : 'Not interested'}
+      </span>
+      {mark?.note && <p className="break-words text-[11px] text-slate-700 [overflow-wrap:anywhere]">Note: {mark.note}</p>}
+      {mark?.by && <p className="text-[11px] text-gray-600">Marked by {mark.by}</p>}
     </div>
   )
 }

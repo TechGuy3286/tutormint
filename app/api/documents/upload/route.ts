@@ -1,5 +1,6 @@
 import { NextResponse, after } from 'next/server'
 import { markOnboardedIfComplete } from '@/lib/onboardingDone'
+import { returnFromNotInterested } from '@/lib/followUpDismissals'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { storeDocument } from '@/lib/documents'
@@ -175,6 +176,8 @@ export async function POST(request: Request) {
   const completion = await recomputeCompletion(user.id)
 
   // Only the id and the route that serves the watermarked preview.
+  // A member marked Not interested who uploads comes back on their own (owner, 11 Nov 2026).
+  await returnFromNotInterested(user.id, 'document_uploaded')
   return NextResponse.json({
     success: true,
     documentId: result.doc.id,

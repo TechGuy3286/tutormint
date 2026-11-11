@@ -46,6 +46,8 @@ export type ParentFollowRow = {
   hasNumber: boolean
   hasEmail: boolean
   notInterested: boolean
+  /** The live mark — reason, note, who, when (owner, 11 Nov 2026). */
+  niMark?: import('@/lib/notInterestedCore').NiMark | null
 }
 
 const VERIFICATION_WORD = { approved: 'verified', waiting: 'waiting', none: 'not_submitted', rejected: 'rejected' } as const
@@ -190,6 +192,10 @@ export const loadParentFollowUps = cache(async (): Promise<Loaded> => {
       hasNumber: !!c.phone,
       hasEmail: !!c.email,
       notInterested: dismissed.has(p.id),
+      niMark: (() => {
+        const m = dismissed.get(p.id)
+        return m ? { reason: m.reason, note: m.note, by: m.by, at: m.at } : null
+      })(),
     })
   }
   return { rows, facts: factsBy, all }

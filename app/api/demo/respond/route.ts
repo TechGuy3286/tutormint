@@ -6,6 +6,9 @@ import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
 import { parseBody, z, uuid } from '@/lib/validate'
 import { formatDateTime } from '@/lib/datetime'
+import { detectAbuse } from '@/lib/abuse/filter'
+import { flagIfAbusive } from '@/lib/abuse/flag'
+import { tutorTextToParent, DEMO_DECLINE_FIXED } from '@/lib/tutorMessagingCore'
 
 // The tutor answers a demo request: accept with a proposed time, or decline
 // with a reason.
@@ -66,9 +69,26 @@ export async function POST(request: Request) {
       )
     }
 
+    // What the parent is told (owner, 11 Nov 2026). An UNVERIFIED tutor's typed
+    // reason is never delivered — a free-text decline is a message to a parent,
+    // and messaging parents needs the Verification Fee. A reason with a banned
+    // word is never delivered either: it is flagged and withheld. In both cases
+    // the parent gets one fixed, neutral line.
+    const entD = await getEntitlements(user.id)
+    const abusive = detectAbuse(reason).length > 0
+    const delivered = tutorTextToParent({ verified: entD.verified, abusive })
+    if (abusive) {
+      try {
+        await flagIfAbusive({ source: 'message', subjectId: user.id, recipientId: demo.parent_id as string, content: reason, context: { demoId, field: 'decline_reason' }, withheld: true })
+      } catch {
+        /* the reason is withheld whatever the flag write does */
+      }
+    }
+    const shown = delivered ? reason : DEMO_DECLINE_FIXED
+
     const { error } = await supabase
       .from('demo_requests')
-      .update({ status: 'declined', responded_at: now, decline_reason: reason })
+      .update({ status: 'declined', responded_at: now, decline_reason: shown })
       .eq('id', demoId)
     if (error) return serverError(error, 'demo/respond')
 
@@ -76,7 +96,7 @@ export async function POST(request: Request) {
       userId: demo.parent_id as string,
       kind: 'demo_declined',
       title: 'A demo request was declined',
-      body: reason,
+      body: shown,
       href: '/parent/dashboard/demos',
     })
     await logActivity({
@@ -86,7 +106,7 @@ export async function POST(request: Request) {
       targetId: demoId,
     })
 
-    return NextResponse.json({ success: true, status: 'declined' })
+    return NextResponse.json({ success: true, status: 'declined', reasonSent: delivered })
   }
 
   // ACCEPTING (and seeing the demo's details) requires the verification fee

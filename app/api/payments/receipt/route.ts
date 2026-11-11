@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/errorResponse'
+import { returnFromNotInterested } from '@/lib/followUpDismissals'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { paymentReturnTo } from '@/lib/returnTo'
@@ -215,6 +216,7 @@ export async function POST(request: Request) {
     amountPkr: (plan.price_pkr as number) ?? 0,
   })
 
+  await returnFromNotInterested(user.id, 'receipt_sent')
   return NextResponse.json({
     success: true,
     underReview: true,

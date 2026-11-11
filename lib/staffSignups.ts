@@ -77,6 +77,7 @@ type StaffRow = {
   whatsapp: string | null
   admin_role: string | null
   is_suspended: boolean | null
+  staff_paused_at?: string | null
 }
 
 /** Does this new account match the staff member (phone, CNIC, or name +
@@ -106,7 +107,7 @@ async function selfReferralFor(admin: Admin, memberId: string, staffId: string) 
 async function loadStaff(admin: Admin): Promise<StaffRow[]> {
   const { data } = await admin
     .from('profiles')
-    .select('id, full_name, email, phone_number, whatsapp, admin_role, is_suspended')
+    .select('id, full_name, email, phone_number, whatsapp, admin_role, is_suspended, staff_paused_at')
     .eq('role', 'admin')
   return (data ?? []) as StaffRow[]
 }
@@ -176,10 +177,10 @@ async function activeParticipantBy(admin: Admin, field: 'slug' | 'code', value: 
   if (!link || link.deactivated_at) return null
   const { data: p } = await admin
     .from('profiles')
-    .select('role, admin_role, is_suspended')
+    .select('role, admin_role, is_suspended, staff_paused_at')
     .eq('id', link.staff_id as string)
     .maybeSingle()
-  if (!p || !isActiveParticipant({ role: p.role as string, adminRole: p.admin_role as string | null, suspended: p.is_suspended as boolean | null })) return null
+  if (!p || !isActiveParticipant({ role: p.role as string, adminRole: p.admin_role as string | null, suspended: (p.is_suspended as boolean | null) || !!p.staff_paused_at })) return null
   return link.staff_id as string
 }
 
@@ -262,8 +263,8 @@ export const senderRefCode = cache(async (staffId: string | null | undefined): P
   if (!staffId) return null
   const admin = createAdminClient()
   if (!admin) return null
-  const { data: p } = await admin.from('profiles').select('role, admin_role, is_suspended').eq('id', staffId).maybeSingle()
-  if (!p || !isActiveParticipant({ role: p.role as string, adminRole: p.admin_role as string | null, suspended: p.is_suspended as boolean | null })) return null
+  const { data: p } = await admin.from('profiles').select('role, admin_role, is_suspended, staff_paused_at').eq('id', staffId).maybeSingle()
+  if (!p || !isActiveParticipant({ role: p.role as string, adminRole: p.admin_role as string | null, suspended: (p.is_suspended as boolean | null) || !!p.staff_paused_at })) return null
   const link = await joinLinkFor(staffId)
   return link?.code ?? null
 })
@@ -335,7 +336,7 @@ export async function creditNewAccount(
     const staff = await loadStaff(admin)
     const referrer = staff.find((s) => s.id === visit.staffId)
     const { data: link } = await admin.from('staff_join_links').select('deactivated_at').eq('staff_id', visit.staffId).maybeSingle()
-    if (!referrer || link?.deactivated_at || !isActiveParticipant({ adminRole: referrer.admin_role, suspended: referrer.is_suspended })) {
+    if (!referrer || link?.deactivated_at || !isActiveParticipant({ adminRole: referrer.admin_role, suspended: referrer.is_suspended || !!referrer.staff_paused_at })) {
       return creditDirect(admin, memberId, 'staff_inactive')
     }
     const facts = await accountFacts(admin, memberId)
@@ -472,7 +473,7 @@ export async function submitClaim(
   if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes.' }
   const staff = await loadStaff(admin)
   const me = staff.find((s) => s.id === actor.id)
-  if (!me || !isActiveParticipant({ adminRole: me.admin_role, suspended: me.is_suspended })) {
+  if (!me || !isActiveParticipant({ adminRole: me.admin_role, suspended: me.is_suspended || !!me.staff_paused_at })) {
     return { ok: false, status: 403, error: 'Only staff with a join link can claim a sign-up.' }
   }
   const cleanNote = note.trim()
@@ -753,7 +754,7 @@ export async function loadSignupBoard(
     if (!everyone && s.id !== viewer.id) continue
     const mine = byStaff.get(s.id) ?? []
     const row = boardRow(s.id, formatName(s.full_name ?? '') || s.email || '—', mine, period, nowMs)
-    const active = isActiveParticipant({ adminRole: s.admin_role, suspended: s.is_suspended })
+    const active = isActiveParticipant({ adminRole: s.admin_role, suspended: s.is_suspended || !!s.staff_paused_at })
     const anything = Object.values(row.tutor).some((n) => n > 0) || Object.values(row.parent).some((n) => n > 0)
     // A former participant appears only while they have numbers in the period.
     if (active || anything) rows.push(row)
@@ -883,7 +884,7 @@ export async function loadSourceTable(viewer: { id: string; adminRole: string | 
   const seen = new Set<string>()
   for (const s of staff) {
     if (!everyone && s.id !== viewer.id) continue
-    const active = isActiveParticipant({ adminRole: s.admin_role, suspended: s.is_suspended })
+    const active = isActiveParticipant({ adminRole: s.admin_role, suspended: s.is_suspended || !!s.staff_paused_at })
     if (!active && !credited.has(s.id)) continue
     seen.add(s.id)
     rows.push(sourceRow(s.id, formatName(s.full_name ?? '') || '—', accounts, nowMs))

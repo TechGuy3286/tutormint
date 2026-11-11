@@ -1103,6 +1103,8 @@ export type QueueSubscriptionRow = {
   expiresAt: string | null
   source: string
   note: string | null
+  /** The member (owner, 11 Nov 2026: the name links to their admin page). */
+  userId?: string | null
 }
 
 /** gateway / manual transfer / admin grant, derived not stored. */
@@ -1173,6 +1175,7 @@ export async function loadSubscriptionLedger({
 
   const rows: QueueSubscriptionRow[] = page.map((s) => ({
     id: s.id as string,
+    userId: (s.user_id as string | null) ?? null,
     name: who.get(s.user_id as string)?.name ?? '—',
     email: who.get(s.user_id as string)?.email ?? '—',
     role: who.get(s.user_id as string)?.role ?? '—',

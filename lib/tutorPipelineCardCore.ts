@@ -13,6 +13,7 @@ import { firstNameOf } from '@/lib/staffOutreachCore'
 import { itemState } from '@/lib/tutorDocSummaryCore'
 import type { CardDocState, CardStatuses } from '@/lib/tutorDocQueueCore'
 import type { Welcome } from '@/lib/paidWelcomeCore'
+import type { NiMark } from '@/lib/notInterestedCore'
 import {
   docsReadyForReview,
   followState,
@@ -55,6 +56,8 @@ export type PipeCard = {
   /** The stage's WhatsApp text (no number in it). */
   message: string | null
   notInterested: boolean
+  /** The live Not interested mark — reason, note, who, when (owner, 11 Nov 2026). */
+  niMark?: NiMark | null
   paused: boolean
   lastActiveAt: string | null
   oldestUploadAt: string | null
@@ -102,6 +105,7 @@ export function pipeCardFrom(a: {
   docs: PipeDocFacts | null | undefined
   contacts: PipeContact[]
   notInterested: boolean
+  niMark?: NiMark | null
   paused: boolean
   lastActiveAt: string | null
   support: string | null
@@ -131,6 +135,7 @@ export function pipeCardFrom(a: {
     lastContact: lc ? { at: lc.at, kind: lc.kind, by: lc.staffName } : null,
     message: isFollowStage(stage) ? pipeMessage(stage, { firstName: firstNameOf(a.name), missing, rejected, supportWhatsapp: a.support }) : null,
     notInterested: a.notInterested,
+    niMark: a.notInterested ? (a.niMark ?? null) : null,
     paused: a.paused,
     lastActiveAt: a.lastActiveAt,
     oldestUploadAt: a.docs?.oldestUploadAt ?? null,

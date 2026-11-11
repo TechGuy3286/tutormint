@@ -32,6 +32,9 @@ import { needsOnboarding } from '@/lib/onboardingGate'
 import { notify } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
 import { formatName } from '@/lib/formatName'
+import { detectAbuse } from '@/lib/abuse/filter'
+import { flagIfAbusive } from '@/lib/abuse/flag'
+import { WITHHELD_CONTENT_LINE } from '@/lib/abuse/warnings'
 
 type Fail = { ok: false; status: number; error: string; upgrade?: string; gate?: Gate; completeProfile?: boolean }
 
@@ -118,6 +121,19 @@ export async function applyToJob(params: {
       error: 'Verify your account to apply for tuitions.',
       gate: await buildGate('tutor_verify', ent),
     }
+  }
+
+  // 1b. The note to the parent (owner, 11 Nov 2026): a banned word is never
+  //     delivered. The application is refused before any quota is spent, the
+  //     note is flagged (withheld), and the tutor sees the plain line.
+  const note = params.message?.trim() ?? ''
+  if (note && detectAbuse(note).length > 0) {
+    try {
+      await flagIfAbusive({ source: 'message', subjectId: params.tutorId, content: note, context: { jobId: params.jobId, field: 'application_message' }, withheld: true })
+    } catch {
+      /* withheld whatever the flag write does */
+    }
+    return { ok: false, status: 400, error: WITHHELD_CONTENT_LINE }
   }
 
   // 2. Blocked either way?

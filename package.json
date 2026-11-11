@@ -193,6 +193,8 @@
     "test:pipeline": "tsx --test scripts/test-tutor-pipeline.ts",
     "test:peoplecleanup": "tsx --test scripts/test-people-cleanup.ts",
     "test:pr2nov10": "tsx --test scripts/test-pr2-nov10.ts",
+    "test:staffpause": "tsx --test scripts/test-staff-pause.ts",
+    "test:inboxmobile": "tsx scripts/test-inbox-mobile.tsx",
     "test:paidwelcome": "tsx --conditions=react-server --test scripts/test-paid-signups-welcome.ts",
     "test:people:live": "tsx --conditions=react-server --env-file-if-exists=.env.local --test scripts/test-people-live.ts",
     "test:financeitems": "tsx --test scripts/test-finance-items.ts",

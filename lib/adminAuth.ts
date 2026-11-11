@@ -69,7 +69,7 @@ export async function getAdminActor(): Promise<AdminActor | null> {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, admin_role, email, is_suspended')
+    .select('role, admin_role, email, is_suspended, staff_paused_at')
     .eq('id', user.id)
     .maybeSingle()
 
@@ -79,6 +79,9 @@ export async function getAdminActor(): Promise<AdminActor | null> {
   // mean re-deciding what they were -- but stops being an admin actor here, so
   // the same check covers every screen and every mutation route at once.
   if (profile.is_suspended) return null
+  // A PAUSED staff member (owner, 11 Nov 2026, migration 229) keeps their role
+  // for Resume but is no admin actor until then.
+  if (profile.staff_paused_at) return null
 
   return {
     id: user.id,

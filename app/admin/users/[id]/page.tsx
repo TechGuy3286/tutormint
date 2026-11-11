@@ -57,6 +57,8 @@ import { editTabParts, memberEditHref } from '@/lib/memberEditCore'
 import ConvertAccountCard from '@/components/admin/ConvertAccountCard'
 import EraseAccountCard from '@/components/admin/EraseAccountCard'
 import MaskedContact from '@/components/admin/MaskedContact'
+import { NotInterestedChip } from '@/components/admin/PipelineActions'
+import { liveMark } from '@/lib/followUpDismissals'
 import UndoMergeButton from '@/components/admin/UndoMergeButton'
 import ViewAsButton from '@/components/admin/ViewAsButton'
 import { liveMergeFor } from '@/lib/memberMerge'
@@ -204,6 +206,8 @@ export default async function AdminMemberPage({
   // action about them (with who did it) and — for the roles that saw the old
   // Activity box — their visits. lib/memberTimeline.
   const withVisits = roleSatisfies(actor.adminRole, ['admin'])
+  // The live "Not interested" mark — reason, note, who, when (owner, 11 Nov 2026).
+  const niMark = await liveMark(id).catch(() => null)
   const [timeline, activity] = await Promise.all([
     loadUnifiedTimeline({ userId: id, group, withVisits }),
     withVisits ? loadActivitySummary(id) : Promise.resolve(null),
@@ -422,6 +426,12 @@ export default async function AdminMemberPage({
         </div>
       </header>
       <MemberTabs memberId={id} current="profile" showProfile showEdit={editTabParts(actor.adminRole, profile.role as string | null).show} />
+
+      {niMark && (
+        <div className="rounded-2xl border border-gray-200 bg-tm-bg p-3">
+          <NotInterestedChip mark={niMark} />
+        </div>
+      )}
 
       {profile.is_banned && (
         <p className="rounded-2xl border border-tm-red/30 bg-tm-tint-red p-3 text-xs leading-relaxed text-tm-red">

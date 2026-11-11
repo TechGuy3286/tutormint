@@ -37,6 +37,9 @@ export type FinanceItem = {
   detail?: string | null
   /** A refund due (refund_dues): its id. */
   refundDueId?: string
+  /** The member the row is about (owner, 11 Nov 2026: the name links to
+   *  their admin page). Display name only. */
+  member?: { id: string; name: string }
 }
 
 /** Per-credit hints (lib/feeMatch creditHints): a one-tap suggestion, a
@@ -47,7 +50,9 @@ export type CreditHintInput =
   | { kind: 'rounding'; rounding: number }
 
 /** An open refund due (refund_dues). */
-export type RefundDueInput = { id: string; memberName: string | null; paymentRef: string | null; amountPkr: number; createdAt: string }
+export type RefundDueInput = { id: string; memberName: string | null; memberId?: string | null; paymentRef: string | null; amountPkr: number; createdAt: string }
+
+const memberOf = (id: string | null | undefined, name: string | null | undefined) => (id && name ? { id, name } : undefined)
 
 const rsWords = (n: number) => `Rs ${n.toLocaleString('en-PK', { maximumFractionDigits: 2 })}`
 
@@ -76,6 +81,7 @@ export function financeItems(
       day: r.createdAt.slice(0, 10),
       red: true,
       refundDueId: r.id,
+      member: memberOf(r.memberId, r.memberName),
       detail: r.paymentRef ? `Duplicate of ${r.paymentRef}` : null,
     })
   }
@@ -120,7 +126,8 @@ export function financeItems(
             : c.state === 'held'
               ? 'Money in the bank, unlinked by hand'
               : 'Money in the bank, not linked yet'
-    out.push({ key: `credit:${c.id}`, kind: 'credit', group, label, amount: c.amountPkr, day: c.date, red: group === 'attention', creditId: c.id, source: c.source === 'email' ? 'Email' : 'Manual' })
+    const hintMember = hint && (hint.kind === 'suggest' || hint.kind === 'partial') && c.state !== 'matched' ? memberOf(hint.memberId, hint.memberName) : undefined
+    out.push({ key: `credit:${c.id}`, kind: 'credit', group, label, amount: c.amountPkr, day: c.date, red: group === 'attention', creditId: c.id, source: c.source === 'email' ? 'Email' : 'Manual', member: hintMember })
   }
 
   for (const o of view.orders) {
@@ -157,6 +164,7 @@ export function financeItems(
       red: waiting && r.overdue,
       receiptId: r.id,
       ref: r.ref,
+      member: memberOf(r.memberId, r.payerName),
     })
   }
 

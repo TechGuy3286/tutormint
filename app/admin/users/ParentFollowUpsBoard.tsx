@@ -8,6 +8,8 @@ import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import NotInterestedButton from '@/components/admin/NotInterestedButton'
+import { NotInterestedChip } from '@/components/admin/PipelineActions'
+import type { NiMark } from '@/lib/notInterestedCore'
 import { PARENT_REASON_LABEL, type ParentReason } from '@/lib/parentFollowUpCore'
 import { UNDO_MS, type TabState } from '@/lib/tutorFollowUpTabsCore'
 import { formatDate } from '@/lib/datetime'
@@ -29,6 +31,7 @@ export type ParentCard = {
   hasNumber: boolean
   hasEmail: boolean
   notInterested: boolean
+  niMark?: NiMark | null
 }
 
 export default function ParentFollowUpsBoard({ cards, noReply }: { cards: ParentCard[]; noReply: ParentCard[] }) {
@@ -157,6 +160,7 @@ function ParentRow({ c }: { c: ParentCard }) {
         )}
         <NotInterestedButton memberId={c.id} marked={c.notInterested} />
       </div>
+      {c.notInterested && <NotInterestedChip mark={c.niMark ?? null} />}
     </li>
   )
 }

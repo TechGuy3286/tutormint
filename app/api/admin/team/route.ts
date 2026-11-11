@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { makeFormerStaff } from '@/lib/formerStaff'
+import { pauseStaff, resumeStaff } from '@/lib/staffPause'
 import { checkAdminRole, staffChangeProblem, ROLE_LABEL, SCREEN_ACCESS, type AdminRole } from '@/lib/adminAuth'
 import { OWNER_ONLY_OWNERSHIP } from '@/lib/adminAccessCore'
 import { alertOwner, alertOwnerBlocked } from '@/lib/ownerAlerts'
@@ -30,7 +31,7 @@ import { requireFreshAuth } from '@/lib/reauth'
 // recoverable only with a SQL session.
 
 const TeamBody = z.object({
-  action: z.enum(['create', 'role', 'remove', 'resend', 'grant'], { message: 'Unknown action.' }),
+  action: z.enum(['create', 'role', 'remove', 'resend', 'grant', 'pause', 'resume'], { message: 'Unknown action.' }),
   userId: uuid.optional(),
   email: z.string().email('Enter a valid email address.').max(320).optional(),
   fullName: z.string().max(200).optional(),
@@ -164,6 +165,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true })
   }
 
+  // -------------------------------------------------------- pause/resume ---
+  // Pause (owner, 11 Nov 2026): admin access stops at once, every device is
+  // signed out, the staff link credits Admin, their cities and tuitions go to
+  // the Owner. Resume restores it in one click (lib/staffPause). The Owner
+  // alone — the team gate above already refuses everyone else, and the rule
+  // refuses again inside (pauseProblem).
+  if (body.action === 'pause' || body.action === 'resume') {
+    const userId = body.userId ?? ''
+    const result = body.action === 'pause' ? await pauseStaff(actor, userId, body.reason ?? '') : await resumeStaff(actor, userId)
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
+    return NextResponse.json({ success: true, sessionsRevoked: result.sessionsRevoked, cities: result.cities, tuitions: result.tuitions })
+  }
+
   // ------------------------------------------------------------- remove ---
   // Removing a staff member REVOKES the staff role and returns them to an
   // ordinary member (owner, 14 Sep 2026), so they leave the Team list. There is
@@ -221,7 +235,7 @@ export async function POST(request: Request) {
 
     await tellOwner(((target.full_name as string | null) ?? '').trim() || (target.email as string | null) || 'Staff member', target.admin_role as string | null, null)
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, sessionsRevoked: result.sessionsRevoked, cities: result.citiesReleased.length, tuitions: result.moved.length })
   }
 
   return NextResponse.json({ error: 'Unknown action.' }, { status: 400 })

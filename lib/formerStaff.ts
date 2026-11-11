@@ -13,7 +13,7 @@ import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import type { AdminActor } from '@/lib/adminAuth'
 import { formatName } from '@/lib/formatName'
-import { cityKey, cityOwnerFor } from '@/lib/cityOwnersCore'
+import { handOverToOwner } from '@/lib/staffHandover'
 import { canRestore, restoreRoleFor, UNTOUCHABLE_ROLES, type StaffAccount } from '@/lib/formerStaffCore'
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>
@@ -46,11 +46,6 @@ export async function loadStaffAccounts(): Promise<StaffAccount[]> {
     hasStaffTies: ties.has(r.id as string),
     formerAt: (r.former_staff_at as string | null) ?? null,
   }))
-}
-
-async function siteOwnerId(admin: Admin): Promise<string | null> {
-  const { data } = await admin.from('profiles').select('id').eq('role', 'admin').eq('admin_role', 'owner').limit(1).maybeSingle()
-  return (data?.id as string | undefined) ?? null
 }
 
 /** The role a removed staff member last held (the latest staff.remove /
@@ -104,6 +99,8 @@ export async function makeFormerStaff(actor: AdminActor, userId: string, reason:
   // 1. Admin access off; the account stays as an ordinary member.
   const patch: Record<string, unknown> = { former_staff_at: (p.former_staff_at as string | null) ?? now, former_staff_role: fromRole, former_staff_by: actor.id }
   if (p.role === 'admin') Object.assign(patch, { role: 'parent', admin_role: null, is_suspended: false, suspension_reason: null, suspended_at: null, suspended_by: null })
+  // A paused member who is then removed is simply former staff (owner, 11 Nov 2026).
+  Object.assign(patch, { staff_paused_at: null, staff_paused_by: null, staff_paused_reason: null, staff_pause_handover: null })
   const { error: upErr } = await admin.from('profiles').update(patch).eq('id', userId)
   if (upErr) return { ok: false, status: 400, error: 'That did not save. Please try again.' }
 
@@ -113,52 +110,15 @@ export async function makeFormerStaff(actor: AdminActor, userId: string, reason:
   // 3. Staff link deactivated (it still opens the site; credit goes to Admin).
   await admin.from('staff_join_links').update({ deactivated_at: now }).eq('staff_id', userId).is('deactivated_at', null)
 
-  // 4. Off the target list; out of City owners.
+  // 4. Off the target list.
   await admin.from('staff_target_list').update({ on_list: false }).eq('staff_id', userId)
-  const { data: owned } = await admin.from('city_owners').select('city').eq('staff_id', userId)
-  const citiesReleased = (owned ?? []).map((c) => c.city as string)
-  const { data: me } = await admin.from('profiles').select('full_name').eq('id', actor.id).maybeSingle()
-  const actorName = formatName((me?.full_name as string | null) ?? '') || 'Owner'
-  if (citiesReleased.length) {
-    await admin.from('city_owners').update({ staff_id: null, updated_by: actor.id, updated_by_name: actorName, updated_at: now }).eq('staff_id', userId)
-    for (const city of citiesReleased) {
-      await logAdminAction({ actorId: actor.id, actorRole: actor.adminRole, actorEmail: actor.email, action: 'city_owner.set', targetType: 'city', targetId: city, detail: { from: userId, to: null, reason: 'former staff' } })
-    }
-  }
 
-  // 5. Their tuitions move to each tuition's city owner, else the site Owner.
-  const moved: MovedTuition[] = []
-  const ownerId = await siteOwnerId(admin)
-  const rows = await pageAll<{ job_id: string }>((f, t) => admin.from('tuition_owners').select('job_id').eq('staff_id', userId).order('job_id').range(f, t))
-  if (rows.length && ownerId) {
-    const { data: cityRows } = await admin.from('city_owners').select('city, staff_id')
-    const map = new Map<string, string>()
-    for (const r of cityRows ?? []) if (r.staff_id) map.set(cityKey(r.city as string), r.staff_id as string)
-    const jobs = await pageAllIn(rows.map((r) => r.job_id), (part, f, t) => admin.from('jobs').select('id, ref_id, city').in('id', part).order('id').range(f, t))
-    for (const j of jobs) {
-      const to = cityOwnerFor(j.city as string | null, map, ownerId)
-      const { error } = await admin
-        .from('tuition_owners')
-        .update({ staff_id: to, source: 'city', assigned_by: actor.id, assigned_by_name: actorName, assigned_at: now })
-        .eq('job_id', j.id as string)
-        .eq('staff_id', userId)
-      if (error) continue
-      moved.push({ jobId: j.id as string, ref: (j.ref_id as string | null) ?? null, city: (j.city as string | null) ?? null, toId: to })
-    }
-    if (moved.length) {
-      await admin.from('admin_audit_log').insert(
-        moved.map((m) => ({
-          actor_id: actor.id,
-          actor_role: actor.adminRole,
-          actor_email: actor.email,
-          action: 'job.owner_assign',
-          target_type: 'job',
-          target_id: m.jobId,
-          detail: { from: userId, to: m.toId, city: m.city, reason: 'former staff' },
-        })),
-      )
-    }
-  }
+  // 5. Their cities and tuitions go to the Owner (owner, 11 Nov 2026 — "if
+  //    staff leave, the Owner handles everything himself"), so no Applications
+  //    follow-up and no Paid-tutors city is dropped.
+  const handover = await handOverToOwner(admin, actor, userId, now, 'former staff')
+  const citiesReleased = handover?.cities ?? []
+  const moved: MovedTuition[] = (handover?.jobs ?? []).map((j) => ({ jobId: j.jobId, ref: null, city: null, toId: handover!.ownerId }))
 
   await logAdminAction({
     actorId: actor.id,

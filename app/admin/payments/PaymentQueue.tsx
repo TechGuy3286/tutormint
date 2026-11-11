@@ -1,5 +1,6 @@
 'use client'
 
+import MemberNameLink from '@/components/admin/MemberNameLink'
 import { shownEmail } from '@/lib/actorLabelCore'
 import { useState } from 'react'
 import { Receipt } from 'lucide-react'
@@ -163,7 +164,7 @@ export default function PaymentQueue({
               <li key={p.id} className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-black text-tm-navy">{p.name}</p>
+                    <p className="truncate text-sm font-black text-tm-navy"><MemberNameLink id={p.userId} name={p.name} /></p>
                     <p className="truncate text-[11px] text-gray-500">{shownEmail(p.email)}</p>
                     {p.note && p.userId && (
                       <p className="truncate text-[11px] font-semibold text-tm-gold-ink">{p.note}</p>
@@ -332,7 +333,7 @@ export default function PaymentQueue({
               {allSubs.map((s) => (
                 <li key={s.id} className="space-y-1 rounded-2xl border border-gray-200 bg-white p-3">
                   <div className="flex items-baseline justify-between gap-2">
-                    <p className="truncate text-xs font-black text-tm-navy">{s.name}</p>
+                    <p className="truncate text-xs font-black text-tm-navy"><MemberNameLink id={s.userId} name={s.name} /></p>
                     <StatusChip status={s.status} />
                   </div>
                   <p className="truncate text-[11px] text-gray-500">{shownEmail(s.email)}</p>
@@ -359,7 +360,7 @@ export default function PaymentQueue({
                   {allSubs.map((s) => (
                     <tr key={s.id} className="border-b border-gray-100 last:border-0">
                       <td className="p-3">
-                        <span className="block font-bold text-tm-navy">{s.name}</span>
+                        <MemberNameLink id={s.userId} name={s.name} className="block font-bold text-tm-navy" />
                         <span className="block text-[11px] text-gray-500">{shownEmail(s.email)}</span>
                       </td>
                       <td className="p-3 font-semibold">{s.planName}</td>

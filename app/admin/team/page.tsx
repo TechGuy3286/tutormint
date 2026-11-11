@@ -29,7 +29,7 @@ export default async function AdminTeamPage() {
   const { data: staff } = await admin
     .from('profiles')
     .select(
-      'id, full_name, email, admin_role, is_suspended, suspension_reason, must_change_password, created_at',
+      'id, full_name, email, admin_role, is_suspended, suspension_reason, must_change_password, created_at, staff_paused_at, staff_paused_reason',
     )
     .eq('role', 'admin')
     .not('admin_role', 'is', null)
@@ -87,6 +87,8 @@ export default async function AdminTeamPage() {
     adminRole: s.admin_role as StaffRow['adminRole'],
     suspended: !!s.is_suspended,
     suspensionReason: (s.suspension_reason as string) ?? null,
+    pausedAt: (s.staff_paused_at as string | null) ?? null,
+    pausedReason: (s.staff_paused_reason as string | null) ?? null,
     mustChangePassword: !!s.must_change_password,
     hasSignedIn: signedIn.has(s.id as string),
     twoFactorOn: twoFactorOn.has(s.id as string),

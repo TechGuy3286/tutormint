@@ -18,6 +18,7 @@ import { financeCards, financeCounts, type FinanceGroup, type FinanceItem } from
 import type { SettlementsBoard as BoardData } from '@/lib/settlementMatch'
 
 import AddBankCredits from './AddBankCredits'
+import MemberNameLink from '@/components/admin/MemberNameLink'
 import LinkBankCredit from '@/components/admin/LinkBankCredit'
 import { autoReceiptMatch } from '@/lib/bankPaymentLinkCore'
 import { CREDIT_LABELS, creditLabelOf, type CreditLabel } from '@/lib/feeMatchCore'
@@ -522,6 +523,7 @@ export default function SettlementsBoard({
             <p className="text-xs font-bold text-tm-red">{it.label}</p>
             {it.amount !== null && <p className="text-xs font-black text-tm-navy">{pkr(it.amount)}</p>}
           </div>
+          {it.member && <MemberLine m={it.member} />}
           {it.detail && <p className="text-[11px] text-slate-700">{it.detail}</p>}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-[11px] text-gray-600">{it.day ? `Marked ${formatDate(it.day)}` : ''}</p>
@@ -536,7 +538,15 @@ export default function SettlementsBoard({
     }
     if (it.kind === 'credit' && it.creditId) {
       const c = creditById.get(it.creditId)
-      if (c) return creditCard(c, it.label)
+      if (c)
+        return it.member ? (
+          <li key={c.id} className={c.state === 'ignored' ? CARD.replace('bg-white', 'bg-tm-bg') : CARD}>
+            {creditBody(c, it.label)}
+            <MemberLine m={it.member} />
+          </li>
+        ) : (
+          creditCard(c, it.label)
+        )
     }
     if (it.kind === 'order' && it.orderNumber) {
       const o = orderByNumber.get(it.orderNumber)
@@ -552,9 +562,10 @@ export default function SettlementsBoard({
         <p className={`text-xs font-bold ${it.red ? 'text-tm-red' : it.group === 'attention' ? 'text-tm-gold-ink' : 'text-tm-green-deep'}`}>{it.label}</p>
         <p className="text-[11px] text-slate-700">
           {it.day ? (it.kind === 'receipt' ? `Approved ${formatDate(it.day)}` : formatDate(it.day)) : ''}
-          {r?.payerName ? ` · ${r.payerName}` : ''}
+          {r?.payerName && !it.member ? ` · ${r.payerName}` : ''}
           {r?.transactionId ? ` · transaction ID ${r.transactionId}` : ''}
         </p>
+        {it.member && <MemberLine m={it.member} />}
       </li>
     )
   }
@@ -953,5 +964,14 @@ function LinkPanel({
         </button>
       </div>
     </div>
+  )
+}
+
+/** "Member: <name>" — the name opens their admin page (owner, 11 Nov 2026). */
+function MemberLine({ m }: { m: { id: string; name: string } }) {
+  return (
+    <p className="text-[11px] text-slate-700">
+      Member: <MemberNameLink id={m.id} name={m.name} className="font-bold text-tm-navy" />
+    </p>
   )
 }

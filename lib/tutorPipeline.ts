@@ -7,6 +7,7 @@
 // Service role; callers check SCREEN_ACCESS first. Never logs a phone, email
 // or CNIC number.
 
+import type { NiMark } from '@/lib/notInterestedCore'
 import { pickUpgrade, type UpgradeHeld } from '@/lib/upgradePlanCore'
 import 'server-only'
 
@@ -152,6 +153,10 @@ export const loadTutorPipeline = cache(
             docs: docs.get(t.id),
             contacts: contacts.get(t.id) ?? [],
             notInterested: ni.has(t.id),
+            niMark: (() => {
+              const m = ni.get(t.id)
+              return m ? { reason: m.reason, note: m.note, by: m.by, at: m.at } : null
+            })(),
             paused: t.suspended || t.banned || t.selfPaused,
             lastActiveAt: seen.get(t.id) ?? t.createdAt,
             support,
@@ -191,7 +196,7 @@ export async function refreshPipelineRow(memberId: string): Promise<void> {
 }
 
 /** "Not interested" (and its Undo) moves the stored People row at once. Never throws. */
-export async function setPipelineNotInterested(memberId: string, ni: boolean): Promise<void> {
+export async function setPipelineNotInterested(memberId: string, ni: boolean, mark: NiMark | null = null): Promise<void> {
   const admin = createAdminClient()
   if (!admin) return
   try {
@@ -200,7 +205,7 @@ export async function setPipelineNotInterested(memberId: string, ni: boolean): P
     const row = (data.row ?? {}) as { pipe?: PipeCard }
     await admin
       .from('admin_list_rows')
-      .update({ tags: { ...(data.tags as Record<string, unknown>), ni }, row: row.pipe ? { ...row, pipe: { ...row.pipe, notInterested: ni } } : row })
+      .update({ tags: { ...(data.tags as Record<string, unknown>), ni }, row: row.pipe ? { ...row, pipe: { ...row.pipe, notInterested: ni, niMark: ni ? mark : null } } : row })
       .eq('list', LIST)
       .eq('member_id', memberId)
   } catch {

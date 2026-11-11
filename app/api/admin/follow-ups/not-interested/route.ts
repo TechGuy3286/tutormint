@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { checkAdminRole, roleMayWrite, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { refuseSupervisorMember } from '@/lib/supervisorScope'
-import { markNotInterested, undoNotInterested } from '@/lib/followUpDismissals'
+import { markNotInterested, undoNotInterested, liveMark } from '@/lib/followUpDismissals'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { setPipelineNotInterested } from '@/lib/tutorPipeline'
 import { parseBody, uuid, z } from '@/lib/validate'
@@ -18,6 +18,8 @@ const Body = z.object({
   memberId: uuid,
   undo: z.boolean().optional(),
   note: z.string().max(500).nullish(),
+  /** Required for a new mark (owner, 11 Nov 2026) — checked in markNotInterested. */
+  reason: z.string().max(40).nullish(),
 })
 
 export async function POST(request: Request) {
@@ -40,9 +42,9 @@ export async function POST(request: Request) {
   // A Supervisor changes only their own tuitions and cities (owner, 24 Oct 2026).
   const scope = await refuseSupervisorMember(gate.actor, b.memberId)
   if (scope) return scope
-  const res = b.undo ? await undoNotInterested(b.memberId, gate.actor) : await markNotInterested(b.memberId, b.note ?? null, gate.actor)
+  const res = b.undo ? await undoNotInterested(b.memberId, gate.actor) : await markNotInterested(b.memberId, b.reason ?? null, b.note ?? null, gate.actor)
   if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status })
   // People → Tutors (owner, 8 Nov 2026): the card leaves (or comes back to) the lists at once.
-  if (member.role === 'tutor') await setPipelineNotInterested(b.memberId, !b.undo)
+  if (member.role === 'tutor') await setPipelineNotInterested(b.memberId, !b.undo, b.undo ? null : await liveMark(b.memberId))
   return NextResponse.json({ success: true })
 }

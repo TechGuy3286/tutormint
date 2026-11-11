@@ -5,7 +5,8 @@ import { shownEmail } from '@/lib/actorLabelCore'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Copy, KeyRound, Mail, Send, ShieldAlert, ShieldCheck, ShieldOff, Undo2 } from 'lucide-react'
+import { Copy, KeyRound, Mail, Pause, Play, Send, ShieldAlert, ShieldCheck, ShieldOff, Undo2 } from 'lucide-react'
+import { formatDate } from '@/lib/datetime'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
@@ -31,6 +32,9 @@ export type StaffRow = {
   adminRole: 'owner' | 'admin' | 'supervisor' | 'operations' | 'tuitions_staff' | 'partner' | 'backend_support'
   suspended: boolean
   suspensionReason: string | null
+  /** Paused by the Owner (owner, 11 Nov 2026): no admin access until Resume. */
+  pausedAt?: string | null
+  pausedReason?: string | null
   mustChangePassword: boolean
   /** Has ever signed in (auth.users.last_sign_in_at). A must-change account that
    *  HAS signed in clicked its link but never finished — a broken invite. */
@@ -164,6 +168,7 @@ export default function TeamClient({ staff, former = [], viewerRole }: { staff: 
     resent?: boolean
   } | null>(null)
   const [suspendingId, setSuspendingId] = useState<string | null>(null)
+  const [pausingId, setPausingId] = useState<string | null>(null)
   const [reason, setReason] = useState('')
   const toast = useToast()
   const confirm = useConfirm()
@@ -692,6 +697,11 @@ export default function TeamClient({ staff, former = [], viewerRole }: { staff: 
                     <ShieldOff size={11} aria-hidden /> no 2FA
                   </span>
                 )}
+                {s.pausedAt && (
+                  <span data-paused-chip="" className="rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-bold text-slate-800">
+                    Paused · {formatDate(s.pausedAt)}
+                  </span>
+                )}
                 {state === 'invited' && (
                   <span className="rounded-full bg-tm-tint-navy px-2 py-0.5 text-[10px] font-bold text-tm-navy">
                     invited
@@ -781,6 +791,79 @@ export default function TeamClient({ staff, former = [], viewerRole }: { staff: 
                   </button>
                 )}
 
+                {s.pausedAt ? (
+                  <div className="space-y-2 rounded-xl bg-tm-bg p-3">
+                    <p className="text-[11px] leading-relaxed text-slate-700">
+                      Paused — no admin access and signed out everywhere. Their staff link credits Admin; their cities and tuitions are with you.
+                      {s.pausedReason ? ` Reason: ${s.pausedReason}` : ''}
+                    </p>
+                    <button
+                      type="button"
+                      disabled={busy === s.id}
+                      onClick={async () => {
+                        const json = await call({ action: 'resume', userId: s.id }, s.id)
+                        if (json) toast.success(`${s.name} can use the admin area again.`)
+                      }}
+                      className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl bg-tm-navy px-4 text-xs font-bold text-white hover:bg-tm-navy-hover disabled:opacity-50"
+                    >
+                      <Play aria-hidden size={13} />
+                      {busy === s.id ? 'Resuming…' : 'Resume'}
+                    </button>
+                  </div>
+                ) : pausingId === s.id ? (
+                  <div className="space-y-2">
+                    <input
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                      placeholder="Reason for the record (required)"
+                      aria-label="Reason for pausing"
+                      className="min-h-[44px] w-full rounded-xl border border-gray-200 px-3 text-xs font-semibold"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        disabled={busy === s.id || reason.trim().length < 3}
+                        onClick={async () => {
+                          const json = await call({ action: 'pause', userId: s.id, reason }, s.id)
+                          if (json) toast.success(`${s.name} is paused and signed out of every device.`)
+                          setPausingId(null)
+                          setReason('')
+                        }}
+                        className="min-h-[44px] rounded-xl bg-tm-navy px-4 text-xs font-bold text-white disabled:bg-gray-300"
+                      >
+                        Pause
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPausingId(null)
+                          setReason('')
+                        }}
+                        className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-gray-500">
+                      Blocks admin access now and signs them out everywhere. Resume restores it in one click.
+                    </p>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={busy === s.id}
+                    onClick={() => {
+                      setSuspendingId(null)
+                      setReason('')
+                      setPausingId(s.id)
+                    }}
+                    className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700 hover:border-tm-navy"
+                  >
+                    <Pause aria-hidden size={13} />
+                    Pause
+                  </button>
+                )}
+
                 {suspendingId === s.id ? (
                   <div className="space-y-2">
                     <input
@@ -796,7 +879,7 @@ export default function TeamClient({ staff, former = [], viewerRole }: { staff: 
                         disabled={busy === s.id}
                         onClick={async () => {
                           const json = await call({ action: 'remove', userId: s.id, reason }, s.id)
-                          if (json) toast.success(`${s.name} removed from the team.`)
+                          if (json) toast.success(`${s.name} removed from the team and signed out of every device.`)
                           setSuspendingId(null)
                           setReason('')
                         }}
@@ -819,14 +902,18 @@ export default function TeamClient({ staff, former = [], viewerRole }: { staff: 
                         ordinary member — they leave this list. Re-adding is done
                         through "Add a staff member". The account is not deleted. */}
                     <p className="text-[11px] text-gray-500">
-                      This revokes their staff role and returns them to an ordinary member.
+                      This revokes their staff role, signs them out of every device and hands their cities and tuitions to you.
                     </p>
                   </div>
                 ) : (
                   <button
                     type="button"
                     disabled={s.isMe}
-                    onClick={() => setSuspendingId(s.id)}
+                    onClick={() => {
+                      setPausingId(null)
+                      setReason('')
+                      setSuspendingId(s.id)
+                    }}
                     className="min-h-[44px] w-full rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700 disabled:opacity-40"
                   >
                     {s.isMe ? 'You cannot remove yourself' : 'Remove from team'}

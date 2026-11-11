@@ -56,6 +56,7 @@ export async function ParentFollowUpsTab({
     hasNumber: r.hasNumber,
     hasEmail: r.hasEmail,
     notInterested: r.notInterested,
+    niMark: r.niMark ?? null,
   })
   const todoCount = res.split.todo ?? 0
   const sentCount = res.split.sent ?? 0
