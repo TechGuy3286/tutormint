@@ -213,6 +213,7 @@ function pipelineSort(c: PipeCard | undefined, p: DirectoryPerson) {
     lastActiveAt: c?.lastActiveAt ?? p.createdAt,
     reuploaded: !!c?.reuploaded,
     approvedAt: c?.approvedAt ?? null,
+    lastContactAt: c?.lastContact?.at ?? null,
   }
 }
 

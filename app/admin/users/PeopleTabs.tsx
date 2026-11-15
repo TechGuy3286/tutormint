@@ -303,7 +303,10 @@ export default async function PeopleTabs({
   const sel = pickChips(rows, isTutors ? { ...sp, stage: stageSel } : sp)
   const shown = shownCount(sp.n)
   // A numbered follow-up chip lists soonest due first; Waiting oldest upload first.
-  const order = isTutors && ((followRow && sel.fu !== 'not') || sel.stage === 'waiting') ? 'sort_asc' : 'pos'
+  // Approved, fee pending keeps the stored order in every chip: newest approval
+  // first, contacted in the last 3 days at the bottom (owner, 15 Nov 2026).
+  const order =
+    isTutors && ((followRow && sel.fu !== 'not' && sel.stage !== 'approved') || sel.stage === 'waiting') ? 'sort_asc' : 'pos'
   const res = await listPage<PeopleCardRow>(peopleList(isTutors ? 'tutor' : 'parent'), {
     fixed,
     since: range?.since ?? null,

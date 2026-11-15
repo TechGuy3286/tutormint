@@ -271,12 +271,12 @@ test('the compact card: one meta line, a detail line, a last-outcome line; appro
   assert.equal(lastOutcomeLine(c, day, T0), 'Never contacted · Follow-up 1 due')
   const sent = withContacts(c, [contact(Date.parse('2026-11-11T07:00:00Z'), 'whatsapp', 'approved', { staffName: 'Alee' })], Date.parse('2026-11-12T07:00:00Z'))
   assert.equal(lastOutcomeLine(sent, day, Date.parse('2026-11-12T07:00:00Z')), '11 Nov · WhatsApp by Alee · Follow-up 2 due 13 Nov')
-  // Not followed up in Approved, fee pending: oldest approval first.
+  // Approved, fee pending: newest approval first (owner, 15 Nov 2026).
   const order = pipelineOrder([
-    { stage: 'approved' as const, section: 'not' as const, paused: false, lastActiveAt: iso(T0), approvedAt: iso(T0 - DAY), id: 'new' },
     { stage: 'approved' as const, section: 'not' as const, paused: false, lastActiveAt: iso(T0 - 5 * DAY), approvedAt: iso(T0 - 9 * DAY), id: 'old' },
-  ])
-  assert.deepEqual(order.map((r) => r.id), ['old', 'new'])
+    { stage: 'approved' as const, section: 'not' as const, paused: false, lastActiveAt: iso(T0), approvedAt: iso(T0 - DAY), id: 'new' },
+  ], T0)
+  assert.deepEqual(order.map((r) => r.id), ['new', 'old'])
   // The layout rules in the source.
   const pa = read('components/admin/PipelineActions.tsx')
   assert.ok(!/>\s*Joined\s*</.test(pa) && !/>\s*Fee\s*</.test(pa), 'no Joined or Fee rows')
@@ -286,4 +286,41 @@ test('the compact card: one meta line, a detail line, a last-outcome line; appro
   assert.match(grid, /data-chip-row=""/)
   assert.match(grid, /flex-nowrap gap-2 overflow-x-auto/)
   assert.match(grid, /sticky top-\[61px\]/)
+})
+
+test('Approved, fee pending: newest approval first in every chip; bottom rules still apply', () => {
+  const row = (id: string, approvedDaysAgo: number, extra: Record<string, unknown> = {}) => ({
+    id,
+    stage: 'approved' as const,
+    section: 'done' as const,
+    paused: false,
+    lastActiveAt: iso(T0 - 2 * DAY),
+    approvedAt: iso(T0 - approvedDaysAgo * DAY),
+    ...extra,
+  })
+  const order = pipelineOrder(
+    [
+      row('old', 40),
+      row('noMobile', 1, { noMobile: true }),
+      row('mid', 10, { lastActiveAt: iso(T0 - 9 * DAY) }),
+      row('pausedNew', 0, { paused: true }),
+      row('newest', 2),
+      row('recent', 1, { lastContactAt: iso(T0 - DAY) }),
+      row('tieActive', 10, { lastActiveAt: iso(T0) }),
+      row('contactedLongAgo', 5, { lastContactAt: iso(T0 - 4 * DAY) }),
+    ],
+    T0,
+  )
+  assert.deepEqual(order.map((r) => r.id), ['newest', 'contactedLongAgo', 'tieActive', 'mid', 'old', 'recent', 'pausedNew', 'noMobile'])
+  // The page keeps the stored order (pos) for every Approved chip.
+  assert.match(read('app/admin/users/PeopleTabs.tsx'), /sel\.stage !== 'approved'/)
+  // Other stages are untouched by the approval date.
+  const missing = pipelineOrder(
+    [
+      { id: 'a', stage: 'missing' as const, section: 'not' as const, paused: false, lastActiveAt: iso(T0 - DAY), approvedAt: iso(T0) },
+      { id: 'b', stage: 'missing' as const, section: 'not' as const, paused: false, lastActiveAt: iso(T0), approvedAt: iso(T0 - 9 * DAY) },
+    ],
+    T0,
+  )
+  assert.deepEqual(missing.map((r) => r.id), ['b', 'a'])
 })

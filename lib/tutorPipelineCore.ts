@@ -361,24 +361,38 @@ export type PipeSortable = {
   lastActiveAt: string | null
   /** Re-uploaded a rejected document (owner, 15 Nov 2026): top of the stage. */
   reuploaded?: boolean
-  /** Approved, fee pending: when the CNIC and photo were approved — Not
-   *  followed up there is oldest approval first (owner, 15 Nov 2026). */
+  /** Approved, fee pending: when the CNIC and photo were approved — every
+   *  follow-up chip there is newest approval first (owner, 15 Nov 2026:
+   *  interest is highest in the first days after approval). */
   approvedAt?: string | null
+  /** When staff last contacted them (any channel). Approved, fee pending: a
+   *  contact in the last 3 days sorts to the bottom of the chip. */
+  lastContactAt?: string | null
 }
 
-/** Approved, fee pending · Not followed up: oldest approval first. */
+/** Approved, fee pending: contacted in the last 3 days goes to the bottom. */
+export const RECENT_CONTACT_MS = 3 * 86_400_000
+
+function recentlyContacted(r: PipeSortable, nowMs: number): boolean {
+  if (r.stage !== 'approved') return false
+  const t = ts(r.lastContactAt)
+  return !!t && nowMs - t < RECENT_CONTACT_MS
+}
+
+/** Approved, fee pending (every follow-up chip): newest approval first; a
+ *  missing approval date sorts after every dated one. */
 function approvalOrder(a: PipeSortable, b: PipeSortable): number {
-  if (a.stage !== 'approved' || b.stage !== 'approved' || a.section !== 'not' || b.section !== 'not') return 0
-  const x = ts(a.approvedAt) || Infinity
-  const y = ts(b.approvedAt) || Infinity
-  return x === y ? 0 : x < y ? -1 : 1
+  if (a.stage !== 'approved' || b.stage !== 'approved') return 0
+  const x = ts(a.approvedAt) || -Infinity
+  const y = ts(b.approvedAt) || -Infinity
+  return x === y ? 0 : x > y ? -1 : 1
 }
 
 /** The list order: stage (chip order); tutors with no mobile number at the
  *  bottom of their stage; then Not followed up before Followed up, paused
  *  accounts last, newest active first. (Followed up is shown soonest due first
  *  and Waiting oldest upload first — by sort_at.) */
-export function pipelineOrder<T extends PipeSortable>(rows: T[]): T[] {
+export function pipelineOrder<T extends PipeSortable>(rows: T[], nowMs: number = Date.now()): T[] {
   const rank = (s: PipeStage) => PIPE_STAGES.indexOf(s)
   const sec = (s: T['section']) => (s === 'done' ? 1 : 0)
   return rows
@@ -390,6 +404,7 @@ export function pipelineOrder<T extends PipeSortable>(rows: T[]): T[] {
         Number(!!a.r.noMobile) - Number(!!b.r.noMobile) ||
         sec(a.r.section) - sec(b.r.section) ||
         Number(a.r.paused) - Number(b.r.paused) ||
+        Number(recentlyContacted(a.r, nowMs)) - Number(recentlyContacted(b.r, nowMs)) ||
         approvalOrder(a.r, b.r) ||
         (ts(b.r.lastActiveAt) || 0) - (ts(a.r.lastActiveAt) || 0) ||
         a.i - b.i,
