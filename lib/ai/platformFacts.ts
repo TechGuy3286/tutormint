@@ -101,7 +101,7 @@ function rulesFor(facts: PlatformFacts): FactRule[] {
     },
     {
       kind: 'badge_rule',
-      why: `The Verified badge comes from the ${fee} plus a CNIC, a profile photo and a selfie. A degree, certificates and an intro video are optional and not needed for any badge.`,
+      why: `The Verified badge comes from the ${fee} plus a CNIC and a profile photo. A selfie, a degree, certificates and an intro video are optional and not needed for any badge.`,
       find: (s) => {
         if (!BADGE_WORD.test(s) || !BADGE_ITEM.test(s) || OPTIONAL_WORD.test(s)) return null
         const m = REQUIRE_WORD.exec(s)

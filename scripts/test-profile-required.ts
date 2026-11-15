@@ -156,7 +156,9 @@ test('the line renders buttons under 100% and a tick at 100%', () => {
 })
 
 test('Edit Profile step counts come from the rule; optional cards are left out', () => {
-  assert.deepEqual(cardStepCount(['mobile', 'cnic', 'profilePic', 'selfie', 'subjects', 'location'], []), { done: 6, total: 6 })
+  // The selfie card is optional (owner, 12 Nov 2026) and not a step.
+  assert.deepEqual(cardStepCount(['mobile', 'cnic', 'profilePic', 'selfie', 'subjects', 'location'], []), { done: 5, total: 5 })
+  assert.equal(TUTOR_CARD_ITEMS.selfie, undefined)
   assert.deepEqual(cardStepCount(['about', 'availability', 'certifications', 'email'], ['availability']), { done: 1, total: 2 })
   assert.equal(TUTOR_CARD_ITEMS.email, undefined)
   assert.equal(TUTOR_CARD_ITEMS.certifications, undefined)

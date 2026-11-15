@@ -98,8 +98,8 @@ const SECTIONS: LegalSection[] = [
     body: (
       <>
         <p>
-          <strong>Tutors</strong> earn the Verified badge by paying the one-time Verification Fee and sending their CNIC, a profile photo and a selfie, which a person on our team
-          checks. A degree, certificates and an introduction video are optional and are not needed
+          <strong>Tutors</strong> earn the Verified badge by paying the one-time Verification Fee and sending their CNIC and a profile photo, which a person on our team
+          checks. A selfie, a degree, certificates and an introduction video are optional and are not needed
           for any badge. A tutor appears in the public directory once their mobile number is
           verified, their city, area, subjects and gender are set, and their account is in good
           standing.
@@ -269,8 +269,8 @@ const SECTIONS: LegalSection[] = [
         <p>
           <strong>A tutor may pay before their profile is complete.</strong> A Premium or Featured
           month starts the day the tutor is verified and their profile is complete. The Verified
-          badge appears once the Verification Fee is paid and the CNIC, profile photo and
-          selfie are sent. Paying does not shorten, replace or guarantee verification.
+          badge appears once the Verification Fee is paid and the CNIC and profile photo
+          are sent. Paying does not shorten, replace or guarantee verification.
         </p>
       </>
     ),

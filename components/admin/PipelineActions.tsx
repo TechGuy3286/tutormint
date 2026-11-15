@@ -16,6 +16,7 @@ import { formatDate } from '@/lib/datetime'
 import { niChip, type NiMark } from '@/lib/notInterestedCore'
 import { UNDO_MS } from '@/lib/tutorFollowUpTabsCore'
 import { dueLine, isFollowStage, KIND_LABEL, sentLine, type PipeKind } from '@/lib/tutorPipelineCore'
+import { SELFIE_CHECKED_LABEL } from '@/lib/selfieOptionalCore'
 import { blankLine, NO_MOBILE_LINE, pipeStatusLine, type PipeCard } from '@/lib/tutorPipelineCardCore'
 import { BLANK_REJECT_LABEL, blankRejectReason, type BlankItem } from '@/lib/photoBlankCore'
 
@@ -120,6 +121,9 @@ export default function PipelineActions({ memberId, pipe, links }: { memberId: s
       <p data-status-line="" className={`rounded-lg px-2 py-1 font-semibold ${tone}`}>
         {pipeStatusLine(pipe)}
       </p>
+      {pipe.selfieChecked && (
+        <p data-selfie-checked="" className="font-bold text-tm-green-deep">{SELFIE_CHECKED_LABEL}</p>
+      )}
       {blank && (
         <div className="space-y-1 rounded-lg border border-tm-red/40 bg-tm-tint-red px-2 py-1.5" data-blank-flag="">
           <p className="flex items-center gap-1 font-bold text-tm-red">

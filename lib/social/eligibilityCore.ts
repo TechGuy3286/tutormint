@@ -8,7 +8,7 @@
 //   - the Verification Fee is paid (tutor_profiles.verified_fee_paid_at is set —
 //     an approved payment and an Owner-granted badge both stamp it);
 //   - staff have APPROVED the CNIC (lib/cnicStatus 'approved': marker + number +
-//     image), the profile photo and the selfie;
+//     image) and the profile photo (the selfie is optional, owner 12 Nov 2026);
 //   - the account is not suspended, banned or paused by the member;
 //   - it is not a fixture or a test account (seed, the team account, a hidden or
 //     test-named account) — those were never promotable and still are not.
@@ -21,7 +21,8 @@ export type SocialEligibilityFacts = {
   feePaid: boolean
   cnicApproved: boolean
   photoApproved: boolean
-  selfieApproved: boolean
+  /** Read for display; NOT part of the rule (the selfie is optional). */
+  selfieApproved?: boolean
   suspended?: boolean | null
   banned?: boolean | null
   selfPaused?: boolean | null
@@ -39,7 +40,6 @@ export type SocialIneligibleReason =
   | 'fee_unpaid'
   | 'cnic_not_approved'
   | 'photo_not_approved'
-  | 'selfie_not_approved'
 
 /** The first reason this tutor may not be posted, or null when they may. */
 export function socialIneligibleReason(f: SocialEligibilityFacts): SocialIneligibleReason | null {
@@ -51,7 +51,6 @@ export function socialIneligibleReason(f: SocialEligibilityFacts): SocialIneligi
   if (!f.feePaid) return 'fee_unpaid'
   if (!f.cnicApproved) return 'cnic_not_approved'
   if (!f.photoApproved) return 'photo_not_approved'
-  if (!f.selfieApproved) return 'selfie_not_approved'
   return null
 }
 

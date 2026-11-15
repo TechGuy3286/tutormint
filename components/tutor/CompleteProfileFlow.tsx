@@ -56,6 +56,9 @@ import { safeReturnTo } from '@/lib/returnTo'
 import SubjectLimitNote from '@/components/tutor/SubjectLimitNote'
 import { canAddSubject, subjectKeysOfNames } from '@/lib/subjectLimitCore'
 import LiveSelfieCapture from '@/components/tutor/LiveSelfieCapture'
+import HidePhotoToggle from '@/components/tutor/HidePhotoToggle'
+import { PHOTO_STEP_EXPLAIN } from '@/lib/photoPrivacyCore'
+import { ADD_LATER_LABEL, SELFIE_OPTIONAL_LINE } from '@/lib/selfieOptionalCore'
 import CityPicker from '@/components/forms/CityPicker'
 
 // One tap-tap flow for every tutor (PR 4 §1). It replaces the long step-tab form
@@ -775,8 +778,9 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
               currentUrl={facts.avatarUrl}
               onUploaded={(url) => void tapSave({ tutorProfile: { avatar_url: url } }, { avatarUrl: url })}
             />
+            <p className="text-sm text-gray-700">{PHOTO_STEP_EXPLAIN}</p>
             <PictureNote />
-            <ShowAvatarToggle value={showAvatar} onChange={(v) => void saveShowAvatar(v)} />
+            <HidePhotoToggle hidden={!showAvatar} onChange={(h) => void saveShowAvatar(!h)} />
           </div>
         )}
 
@@ -1361,38 +1365,10 @@ function PictureNote() {
   )
 }
 
-// "Show my picture to parents" (PR70 §2). Default on; off shows a "Hidden from
-// parents" note. English label with Urdu beneath.
-function ShowAvatarToggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-3">
-      <button
-        type="button"
-        role="switch"
-        aria-checked={value}
-        onClick={() => onChange(!value)}
-        className="flex w-full items-center justify-between gap-3 text-left"
-      >
-        <span className="min-w-0">
-          <span className="block text-sm font-bold text-tm-navy">{L.showAvatar.en}</span>
-          <span className="block text-[11px] text-gray-500" lang="ur" dir="rtl">{L.showAvatar.ur}</span>
-        </span>
-        <span className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ${value ? 'bg-tm-green-deep' : 'bg-gray-300'}`}>
-          <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${value ? 'translate-x-5' : 'translate-x-0.5'}`} />
-        </span>
-      </button>
-      {!value && (
-        <p className="mt-2 text-[11px] font-bold text-tm-gold-ink">
-          {L.hiddenFromParents.en} — <span lang="ur" dir="rtl">{L.hiddenFromParents.ur}</span>
-        </p>
-      )}
-    </div>
-  )
-}
 
 // The onboarding selfie step (PR70 §5): the same front-camera upload as Settings
 // (private bucket, sets the selfie status to pending), plus the shared note.
-// PR78 §D: no "Later" — the selfie is uploaded to continue.
+// Optional since 12 Nov 2026: "Add later" continues without one.
 function SelfieStep({ done, onDone }: { done: boolean; onDone: () => void }) {
   const toast = useToast()
   const [busy, setBusy] = useState(false)
@@ -1476,6 +1452,16 @@ function SelfieStep({ done, onDone }: { done: boolean; onDone: () => void }) {
       >
         {busy ? '…' : 'Save & continue'}
       </button>
+      {/* The selfie is optional (owner, 12 Nov 2026) — the ONLY skippable step. */}
+      {!uploaded && (
+        <div className="text-center">
+          <p className="text-[11px] text-gray-600">{SELFIE_OPTIONAL_LINE}</p>
+          <button type="button" disabled={busy} onClick={onDone}
+            className="mt-2 inline-flex min-h-11 items-center justify-center rounded-full border border-gray-300 bg-white px-5 text-sm font-bold text-tm-navy">
+            {ADD_LATER_LABEL}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

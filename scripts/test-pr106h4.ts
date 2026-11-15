@@ -29,8 +29,10 @@ const docs = (over: Partial<Record<'cnic' | 'photo' | 'selfie', Partial<TutorDoc
 test('badge is on the moment fee is paid and docs submitted — no staff approval', () => {
   assert.equal(tutorVerifiedBadgeOk(true, docs()), true) // all submitted (pending), none rejected
   assert.equal(tutorVerifiedBadgeOk(false, docs()), false) // fee not paid
-  // a doc not yet submitted
-  assert.equal(tutorVerifiedBadgeOk(true, docs({ selfie: { present: false, rawStatus: 'none' } })), false)
+  // a required doc not yet submitted
+  assert.equal(tutorVerifiedBadgeOk(true, docs({ photo: { present: false, rawStatus: 'none' } })), false)
+  // the selfie is optional (owner, 12 Nov 2026)
+  assert.equal(tutorVerifiedBadgeOk(true, docs({ selfie: { present: false, rawStatus: 'none' } })), true)
   // approved also counts (an already-approved tutor stays verified)
   assert.equal(tutorVerifiedBadgeOk(true, docs({ cnic: { rawStatus: 'approved' } })), true)
 })
@@ -61,7 +63,13 @@ test('the mapper maps a lingering rejection reason to blocked even at pending', 
     true,
   )
   assert.equal(d.selfie.reasonPresent, true)
-  assert.equal(tutorDocRejected(d), true)
+  // A lingering selfie reason no longer blocks (the selfie is optional); a photo one does.
+  assert.equal(tutorDocRejected(d), false)
+  const p = tutorDocStatusesFromProfile(
+    { profile_pic_status: 'pending', profile_pic_reason: 'blurry', avatar_url: 'x', verification_state: 'approved', cnic_verified_at: '2026-01-01', cnic_number: '12345-1234567-1', cnic_image_path: 'p' },
+    false,
+  )
+  assert.equal(tutorDocRejected(p), true)
 })
 
 // ----------------------------------------------- server gates (scans) -------

@@ -81,7 +81,10 @@ test('every required step answered = onboarding done, paid or not', () => {
   assert.equal(onboardingStepsComplete({ ...complete, feePaid: true }), true)
   // The fee is its own funnel step, after "Onboarding done".
   assert.ok(!ONBOARDING_DONE_STEPS.includes('verify'))
-  assert.deepEqual(ONBOARDING_DONE_STEPS, NEW_FLOW_ORDER.filter((k) => k !== 'verify'))
+  // The selfie is optional (owner, 12 Nov 2026): not needed to be done.
+  assert.ok(!ONBOARDING_DONE_STEPS.includes('selfie'))
+  assert.deepEqual(ONBOARDING_DONE_STEPS, NEW_FLOW_ORDER.filter((k) => k !== 'verify' && k !== 'selfie'))
+  assert.equal(onboardingStepsComplete({ ...complete, selfieDone: false }), true)
 })
 
 test('no tutor is done with a required step missing (each step, one at a time)', () => {

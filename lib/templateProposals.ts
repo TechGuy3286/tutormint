@@ -210,7 +210,7 @@ export const WHATSAPP_PROPOSALS: readonly Proposal[] = [
   // ------------------------------------------------ My sign-ups
   wa('my_signup_upload_documents', 'My sign-ups — upload documents', 'tutor', [
     hi('first_name'),
-    'Please upload your CNIC, profile photo and selfie so we can check your profile.',
+    'Please upload your CNIC and profile photo so we can check your profile.',
     'You can upload them here:',
   ], 'link', MY),
   wa('my_signup_pay_fee', 'My sign-ups — pay the Verification Fee', 'tutor', [

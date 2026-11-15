@@ -29,3 +29,13 @@ export function initialsOf(name: string | null | undefined): string {
 
 export const HIDE_PHOTO_LABEL = 'Hide my photo from parents'
 export const HIDE_PHOTO_HELP = 'Parents will see a default picture instead. We still need your photo for verification.'
+
+// The photo step's choice (owner, 12 Nov 2026). The upload is required — staff
+// match it to the CNIC — and the tutor chooses what parents see. Both choices
+// are the same stored setting (tutor_profiles.show_avatar): "default picture"
+// = hidden, so the public sees the branded male / female default (neutral for
+// a missing gender or Trans) and staff still see and review the real photo.
+export const PHOTO_STEP_EXPLAIN = 'Upload a clear photo of your face. Our team uses it to match your CNIC.'
+export const SHOW_MY_PHOTO_LABEL = 'Show my photo to parents'
+export const SHOW_DEFAULT_PICTURE_LABEL = 'Show a default picture instead'
+export const SHOW_DEFAULT_PICTURE_HELP = 'Parents see a default picture. Our team still sees your photo.'

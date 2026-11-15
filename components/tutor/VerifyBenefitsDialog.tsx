@@ -24,10 +24,10 @@ import type { FeeBenefitKey, FeeCardState } from '@/lib/tutorDashboard'
 
 export const FEE_BENEFIT_LINES: Record<FeeBenefitKey, { en: string }> = {
   badge: {
-    en: 'Green Verified badge — once the fee is paid and you send your CNIC, photo and selfie',
+    en: 'Green Verified badge — once the fee is paid and you send your CNIC and photo',
   },
   google: {
-    en: 'Your TutorMint page can be found on Google — once our team approves your CNIC, photo and selfie',
+    en: 'Your TutorMint page can be found on Google — once our team approves your CNIC and photo',
   },
   basic: {
     en: 'On the Basic plan: apply to 10 tuitions a month, see 10 parents’ phone and email, and message parents in the app',

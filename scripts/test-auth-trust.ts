@@ -403,9 +403,10 @@ test('entitlements: a fee-paid tutor is on Basic — Verified badge, listed, 10 
 })
 
 test('entitlements: a fee-paid tutor whose docs are NOT yet staff-approved has verificationPending and no Verified badge (PR105-B §3)', () => {
-  // Fee paid, on Basic, but selfie not yet approved → no Verified badge, and the
-  // dashboard shows "Verification pending".
-  const e = computeEntitlements(inputs({ profile: { ...baseTutor, selfie_status: 'submitted' } }))
+  // Fee paid, on Basic, but no profile photo yet → no Verified badge, and the
+  // dashboard shows "Verification pending". (The selfie is optional since 12 Nov
+  // 2026, so a missing selfie no longer withholds the badge.)
+  const e = computeEntitlements(inputs({ profile: { ...baseTutor, avatar_url: null } }))
   assert.equal(e.plan, 'basic', 'the fee still puts them on Basic')
   assert.equal(e.verified, true, 'verified (the fee) is unchanged')
   assert.equal(e.verificationPending, true)
@@ -566,7 +567,7 @@ test('tutorProfileNoindex: fee + staff approvals index; any missing is noindex; 
   assert.equal(tutorProfileNoindex({ ...ok, completion: 0 }), false, '0% is still indexable')
   assert.equal(tutorProfileNoindex({ ...ok, cnicApproved: false }), true, 'CNIC not approved → noindex')
   assert.equal(tutorProfileNoindex({ ...ok, profilePicApproved: false }), true, 'photo not approved → noindex')
-  assert.equal(tutorProfileNoindex({ ...ok, selfieApproved: false }), true, 'selfie not approved → noindex')
+  assert.equal(tutorProfileNoindex({ ...ok, selfieApproved: false }), false, 'the selfie is optional (12 Nov 2026)')
   assert.equal(tutorProfileNoindex({ ...ok, underReview: true }), true)
   assert.equal(tutorProfileNoindex({ ...ok, isSeed: true }), true, 'seed → still noindex')
 })
@@ -576,7 +577,7 @@ test('tutorSitemapEligible: listed AND fee AND all approvals AND not seed — co
   assert.equal(tutorSitemapEligible({ listed: true, ...ok }), true, 'a listed, approved, fee-paid tutor is in the sitemap')
   assert.equal(tutorSitemapEligible({ listed: true, ...ok, verified: false }), false, 'no fee → out')
   assert.equal(tutorSitemapEligible({ listed: true, ...ok, completion: 80 }), true, 'below 100% is still in (paid + approved)')
-  assert.equal(tutorSitemapEligible({ listed: true, ...ok, selfieApproved: false }), false, 'selfie not approved → out')
+  assert.equal(tutorSitemapEligible({ listed: true, ...ok, selfieApproved: false }), true, 'the selfie is optional (12 Nov 2026)')
   assert.equal(tutorSitemapEligible({ listed: false, ...ok }), false, 'not listed → out')
   assert.equal(tutorSitemapEligible({ listed: true, ...ok, isSeed: true }), false)
 })
@@ -651,10 +652,10 @@ test('directoryBlockers: an unclaimed import is blocked from the directory, in v
 
 // §5 (owner, 5 Oct 2026, migration 137): a staff-rejected CNIC, profile picture
 // or selfie delists; approval of the re-upload reverses it with no other change.
-test('directoryBlockers: a rejected identity document delists (CNIC, picture or selfie)', () => {
+test('directoryBlockers: a rejected identity document delists (CNIC or picture; not the optional selfie)', () => {
   assert.deepEqual(directoryBlockers({ ...listedFacts, cnicRejected: true }), ['document_rejected'])
   assert.deepEqual(directoryBlockers({ ...listedFacts, photoRejected: true }), ['document_rejected'])
-  assert.deepEqual(directoryBlockers({ ...listedFacts, selfieRejected: true }), ['document_rejected'])
+  assert.deepEqual(directoryBlockers({ ...listedFacts, selfieRejected: true }), [], 'a rejected selfie no longer delists (migration 230)')
   assert.deepEqual(directoryBlockers({ ...listedFacts, cnicRejected: true, selfieRejected: true }), ['document_rejected'], 'one blocker, however many documents')
   // Pending or approved is NOT rejected — nothing blocks.
   assert.deepEqual(directoryBlockers({ ...listedFacts, cnicRejected: false, photoRejected: false, selfieRejected: false }), [])
@@ -739,7 +740,7 @@ test('tutor index rule = paid + approved (owner, 5 Oct 2026): fee + staff-approv
   assert.equal(tutorProfileIndexable({ ...base, feePaid: false, completion: 100 }), false, 'approved, not paid')
   assert.equal(tutorProfileIndexable({ ...base, cnicApproved: false }), false, 'CNIC not approved')
   assert.equal(tutorProfileIndexable({ ...base, profilePicApproved: false }), false, 'photo not approved')
-  assert.equal(tutorProfileIndexable({ ...base, selfieApproved: false }), false, 'selfie not approved')
+  assert.equal(tutorProfileIndexable({ ...base, selfieApproved: false }), true, 'the selfie is optional (12 Nov 2026)')
   assert.equal(tutorProfileIndexable({ ...base, isSeed: true }), false, 'seed never indexable')
   assert.equal(tutorProfileIndexable({ ...base, underReview: true }), false, 'under review')
 })

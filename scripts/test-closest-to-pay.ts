@@ -47,11 +47,10 @@ const STATES: DocState[] = ['approved', 'waiting', 'rejected', 'none']
 function expected(f: ClosestFacts): string | null {
   if (f.feePaid) return null
   const up = (s: DocState) => s === 'approved' || s === 'waiting'
-  const ready = f.cnic === 'approved' && f.photo === 'approved' && f.selfie === 'approved'
-  const mainApproved = f.cnic === 'approved' && f.photo === 'approved' && f.selfie !== 'approved'
-  const allUploaded = up(f.cnic) && up(f.photo) && up(f.selfie) && [f.cnic, f.photo, f.selfie].includes('waiting')
-  const mainUploaded = up(f.cnic) && up(f.photo) && f.selfie === 'none'
-  const matches = [ready && 'ready', mainApproved && 'main_approved', allUploaded && 'all_uploaded', mainUploaded && 'main_uploaded'].filter(Boolean)
+  // The selfie is optional (owner, 12 Nov 2026): CNIC + profile photo decide.
+  const ready = f.cnic === 'approved' && f.photo === 'approved'
+  const allUploaded = up(f.cnic) && up(f.photo) && [f.cnic, f.photo].includes('waiting')
+  const matches = [ready && 'ready', allUploaded && 'all_uploaded'].filter(Boolean)
   return (matches[0] as string) ?? null
 }
 
@@ -63,10 +62,10 @@ test('every tutor lands in exactly one, correct, chip — hottest first', () => 
         assert.equal(closestStage(f), expected(f), JSON.stringify(f))
       }
   assert.equal(closestStage({ feePaid: false, cnic: 'approved', photo: 'approved', selfie: 'approved' }), 'ready')
-  assert.equal(closestStage({ feePaid: false, cnic: 'approved', photo: 'approved', selfie: 'rejected' }), 'main_approved')
-  assert.equal(closestStage({ feePaid: false, cnic: 'approved', photo: 'approved', selfie: 'waiting' }), 'main_approved', 'hotter chip wins')
+  assert.equal(closestStage({ feePaid: false, cnic: 'approved', photo: 'approved', selfie: 'rejected' }), 'ready', 'the selfie is optional')
+  assert.equal(closestStage({ feePaid: false, cnic: 'approved', photo: 'approved', selfie: 'none' }), 'ready', 'the selfie is optional')
   assert.equal(closestStage({ feePaid: false, cnic: 'waiting', photo: 'approved', selfie: 'waiting' }), 'all_uploaded')
-  assert.equal(closestStage({ feePaid: false, cnic: 'waiting', photo: 'waiting', selfie: 'none' }), 'main_uploaded')
+  assert.equal(closestStage({ feePaid: false, cnic: 'waiting', photo: 'waiting', selfie: 'none' }), 'all_uploaded')
   assert.equal(closestStage({ feePaid: false, cnic: 'rejected', photo: 'approved', selfie: 'none' }), null)
   assert.equal(closestStage({ feePaid: false, cnic: 'none', photo: 'none', selfie: 'none' }), null)
   // Counts: each tutor once.
@@ -82,7 +81,7 @@ test('paid tutors never appear in any chip', () => {
 
 test('the missing line is short and plain', () => {
   assert.equal(closestMissing({ feePaid: false, cnic: 'approved', photo: 'approved', selfie: 'approved' }), 'Pay fee')
-  assert.equal(closestMissing({ feePaid: false, cnic: 'approved', photo: 'approved', selfie: 'none' }), 'Selfie missing · Pay fee')
+  assert.equal(closestMissing({ feePaid: false, cnic: 'approved', photo: 'approved', selfie: 'none' }), 'Pay fee', 'a missing optional selfie is not named')
   assert.equal(closestMissing({ feePaid: false, cnic: 'waiting', photo: 'approved', selfie: 'approved' }), 'CNIC waiting approval · Pay fee')
 })
 

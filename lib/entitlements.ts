@@ -75,10 +75,13 @@ export type Entitlements = {
   /** Tutor only: fee paid but documents not all submitted yet (rare — onboarding
    *  requires them before payment). */
   verificationPending?: boolean
-  /** Tutor only: a required document (CNIC/photo/selfie) is currently rejected,
+  /** Tutor only: a required document (CNIC/photo) is currently rejected,
    *  so the Verified badge is paused and new activity (apply/contact/message/
    *  demo) is blocked server-side until re-upload + approval (PR106-H4 §2). */
   docRejected?: boolean
+  /** Tutor only: the optional selfie is approved — "Selfie checked ✓" on the
+   *  tutor's own dashboard (owner, 12 Nov 2026). Never a public badge. */
+  selfieChecked?: boolean
   /** Which document to re-upload, when docRejected (the block screen names it). */
   rejectedDoc?: RejectedDoc | null
   /** Where the member re-uploads it. */
@@ -335,7 +338,6 @@ export function computeEntitlements(input: EntitlementInputs): Entitlements {
           // §5 (5 Oct 2026, migration 137): a staff-rejected document delists.
           cnicRejected: (profile.verification_state ?? '').toLowerCase() === 'rejected',
           photoRejected: (profile.profile_pic_status ?? '').toLowerCase() === 'rejected',
-          selfieRejected: (profile.selfie_status ?? '').toLowerCase() === 'rejected',
         })
       : []
   const visible = role === 'tutor' ? visibilityBlockers.length === 0 : false
@@ -344,8 +346,8 @@ export function computeEntitlements(input: EntitlementInputs): Entitlements {
   const verified = role === 'tutor' ? feePaid : false
 
   // The VERIFIED badge (owner, PR106-H4): the team is too small to approve first,
-  // so a tutor is Verified the moment the fee is paid and CNIC + photo + selfie
-  // are SUBMITTED, with NO document currently rejected — staff approval is not
+  // so a tutor is Verified the moment the fee is paid and CNIC + photo
+  // are SUBMITTED (the selfie is optional, owner 12 Nov 2026), with NO document currently rejected — staff approval is not
   // required. A rejection pauses the badge and blocks activity. ONE shared rule
   // (lib/badgeRule), so lists and the dashboard agree. A parent needs CNIC
   // verified, as before.
@@ -485,6 +487,7 @@ export function computeEntitlements(input: EntitlementInputs): Entitlements {
     ),
     verificationPending,
     docRejected,
+    selfieChecked: audience === 'tutor' && tutorDocs.selfie.rawStatus === 'approved',
     rejectedDoc: rejected,
     reuploadHref: REUPLOAD_HREF,
     tagLabel: (audience === 'tutor' ? verified : profileComplete) ? p.tag_label : null,

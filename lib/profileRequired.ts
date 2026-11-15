@@ -13,6 +13,13 @@
 // nothing left to ask. Completion never waits on a staff decision: a CNIC or
 // selfie counts once it is uploaded, not once it is approved.
 //
+// THE SELFIE IS OPTIONAL (owner, 12 Nov 2026): a missing selfie is never an
+// item — never "missing", never lowers the percentage. An UPLOADED selfie is
+// still counted as one done item (done and total both include it), so no
+// tutor's percentage went down when it became optional: with a selfie the
+// count is exactly what it was; without one the total is one smaller, so the
+// percentage can only go up. (scripts/test-selfie-optional.ts)
+//
 // PURE — no I/O. (scripts/test-profile-required.ts)
 
 import { stepDone, type FlowFacts, type FlowStepKey } from './tutorFlow'
@@ -66,8 +73,11 @@ const TUTOR_DEFS: Def[] = [
 /** Keys that are never completion items, whatever else changes. */
 export const NEVER_COUNTED = ['email', 'video'] as const
 
+/** Optional items: counted only once done, never listed as missing. */
+export const OPTIONAL_ITEM_KEYS: ReadonlySet<string> = new Set(['selfie'])
+
 export function tutorRequiredItems(f: FlowFacts): RequiredItem[] {
-  return TUTOR_DEFS.map(({ done, ...d }) => ({ ...d, done: done(f) }))
+  return TUTOR_DEFS.map(({ done, ...d }) => ({ ...d, done: done(f) })).filter((i) => i.done || !OPTIONAL_ITEM_KEYS.has(i.key))
 }
 
 export type RequiredSummary<T extends { done: boolean } = RequiredItem> = {
@@ -166,7 +176,8 @@ export function parentLineItems(missing: ParentRequiredItem[]): { key: string; l
  *  none of its items is missing. Cards with none (email, certifications) are
  *  optional and left out of the counts. */
 export const TUTOR_CARD_ITEMS: Record<string, string[]> = TUTOR_DEFS.reduce<Record<string, string[]>>((acc, d) => {
-  if (d.card) (acc[d.card] ??= []).push(d.key)
+  // The optional selfie card is not a step (owner, 12 Nov 2026).
+  if (d.card && !OPTIONAL_ITEM_KEYS.has(d.key)) (acc[d.card] ??= []).push(d.key)
   return acc
 }, {})
 

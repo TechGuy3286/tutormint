@@ -218,6 +218,7 @@ export default async function TutorDashboardPage() {
           completion={percent}
           publicHref={publicHref}
           paymentUnderReview={feeUnderReview}
+          selfieChecked={!!ent.selfieChecked}
         />
 
         {/* A gentle reminder while the email waits for its link — it blocks nothing. */}

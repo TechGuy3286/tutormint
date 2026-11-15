@@ -191,6 +191,7 @@
     "test:people": "tsx --test scripts/test-people-directory.ts",
     "test:closesttopay": "tsx --test scripts/test-closest-to-pay.ts",
     "test:pipeline": "tsx --test scripts/test-tutor-pipeline.ts",
+    "test:selfieoptional": "tsx --test scripts/test-selfie-optional.ts",
     "test:peoplecleanup": "tsx --test scripts/test-people-cleanup.ts",
     "test:pr2nov10": "tsx --test scripts/test-pr2-nov10.ts",
     "test:staffpause": "tsx --test scripts/test-staff-pause.ts",

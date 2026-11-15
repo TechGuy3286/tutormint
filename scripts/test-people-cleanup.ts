@@ -78,7 +78,7 @@ function card(a: { cnic?: DocState; photo?: DocState; selfie?: DocState; feePaid
 
 // ---------------------------------------------------- 4. waiting rule ---
 
-test('Waiting for approval needs all three uploaded, one pending, none rejected and 80%+', () => {
+test('Waiting for approval needs CNIC + photo uploaded, one pending, none rejected and 80%+ (selfie optional)', () => {
   assert.equal(WAITING_MIN_COMPLETION, 80)
   const f = { cnic: 'waiting', photo: 'approved', selfie: 'waiting', feePaid: false } as const
   // The 79% vs 80% edge.
@@ -86,8 +86,10 @@ test('Waiting for approval needs all three uploaded, one pending, none rejected 
   assert.equal(pipelineStage({ ...f, completion: 79 }), 'missing')
   assert.equal(docsReadyForReview(f, 80), true)
   assert.equal(docsReadyForReview(f, 79), false)
-  // One document not uploaded → Documents missing, even at 100%.
-  assert.equal(pipelineStage({ cnic: 'waiting', photo: 'waiting', selfie: 'none', feePaid: false, completion: 100 }), 'missing')
+  // A required document not uploaded → Documents missing, even at 100%.
+  assert.equal(pipelineStage({ cnic: 'waiting', photo: 'none', selfie: 'approved', feePaid: false, completion: 100 }), 'missing')
+  // No selfie is fine (owner, 12 Nov 2026).
+  assert.equal(pipelineStage({ cnic: 'waiting', photo: 'waiting', selfie: 'none', feePaid: false, completion: 100 }), 'waiting')
   // Nothing pending → not waiting.
   assert.equal(docsReadyForReview({ cnic: 'approved', photo: 'approved', selfie: 'approved' }, 100), false)
   // A rejected one → Rejected, never Waiting.
@@ -97,11 +99,11 @@ test('Waiting for approval needs all three uploaded, one pending, none rejected 
 test('a tutor moved to Documents missing keeps a status line naming the pending document(s)', () => {
   const c = card({ cnic: 'waiting', photo: 'approved', selfie: 'none', completion: 64 })
   assert.equal(c.stage, 'missing')
-  assert.equal(pipeStatusLine(c), 'CNIC waiting approval · Selfie missing · Profile 64%')
+  assert.equal(pipeStatusLine(c), 'CNIC waiting approval · Profile 64% (80% needed for review)')
   const low = card({ cnic: 'waiting', photo: 'waiting', selfie: 'approved', completion: 79 })
   assert.equal(low.stage, 'missing')
   assert.equal(pipeStatusLine(low), 'CNIC waiting approval · Profile photo waiting approval · Profile 79% (80% needed for review)')
-  assert.equal(pipeStatusLine(card({ cnic: 'none', selfie: 'none', completion: 64 })), 'Missing: CNIC, Selfie · Profile 64%')
+  assert.equal(pipeStatusLine(card({ cnic: 'none', selfie: 'none', completion: 64 })), 'Missing: CNIC · Profile 64%', 'never "Selfie" missing')
   assert.equal(pipeStatusLine(card({ cnic: 'waiting', completion: 85 })), 'Waiting approval: CNIC · Profile 85%')
   assert.equal(pipeStatusLine(card({ completion: 95 })), 'Documents approved · fee pending · Profile 95%')
   // Staff can still open Review: the card's own documents summary still says waiting.

@@ -53,10 +53,11 @@ export function countFeePayers(rows: FeePaymentRow[], nowMs: number): { month: n
 
 export type DocOverall = 'approved' | 'waiting' | 'rejected'
 
-/** One word for a tutor's three documents (CNIC, photo, selfie): rejected if any
- *  is rejected, approved only when all three are, otherwise waiting. */
+/** One word for a tutor's required documents (CNIC, photo — the selfie is
+ *  optional since 12 Nov 2026): rejected if either is rejected, approved only
+ *  when both are, otherwise waiting. */
 export function docOverall(docs: TutorDocs): DocOverall {
-  const states = [docs.cnic.rawStatus, docs.photo.rawStatus, docs.selfie.rawStatus]
+  const states = [docs.cnic.rawStatus, docs.photo.rawStatus]
   if (states.includes('rejected')) return 'rejected'
   if (states.every((s) => s === 'approved')) return 'approved'
   return 'waiting'

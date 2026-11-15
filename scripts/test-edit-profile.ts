@@ -89,14 +89,15 @@ function step1Keys(): string[] {
   const block = s.slice(s.indexOf('const step1Cards'), s.indexOf('const step2Cards'))
   return [...block.matchAll(/\n\s{6}key: '([a-zA-Z]+)',/g)].map((m) => m[1])
 }
-test('the Verification Fee card is gone and Step 1 counts six cards', () => {
+test('the Verification Fee card is gone and Step 1 counts five cards (the selfie is optional)', () => {
   const keys = step1Keys()
   assert.deepEqual(keys, ['mobile', 'cnic', 'profilePic', 'selfie', 'subjects', 'location'])
   assert.ok(!keys.includes('fee'))
   // The count comes from the shared completion rule (owner, 4 Nov 2026): all
   // six Step 1 cards hold a required item, so the total is six.
   assert.ok(src(TUTOR).includes('<StepHeader section="step1" done={step1Count.done} total={step1Count.total} />'))
-  assert.deepEqual(cardStepCount(keys, []), { done: 6, total: 6 })
+  // The selfie card is optional since 12 Nov 2026, so it is not counted.
+  assert.deepEqual(cardStepCount(keys, []), { done: 5, total: 5 })
   assert.doesNotMatch(src(TUTOR), /ReadonlyLine kind="fee"/)
 })
 

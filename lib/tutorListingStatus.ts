@@ -51,9 +51,11 @@ export type ListingFacts = {
   hiddenFromPublic?: boolean | null
   /** profiles.paused_by_user_at (migration 151) — the member paused themselves. */
   pausedByUser?: boolean | null
-  /** §5 (migration 137): staff REJECTED the CNIC / profile picture / selfie. */
+  /** §5 (migration 137): staff REJECTED the CNIC / profile picture. A rejected
+   *  selfie no longer delists (the selfie is optional, migration 230). */
   cnicRejected?: boolean | null
   photoRejected?: boolean | null
+  /** Accepted for older callers; NOT part of the rule (migration 230). */
   selfieRejected?: boolean | null
   // Profile-gap facts (profileGaps only).
   phoneVerified?: boolean | null
@@ -69,7 +71,7 @@ export type ListingFacts = {
  *   role = 'tutor' AND NOT suspended AND NOT banned AND NOT under_review
  *   AND verification_status NOT IN (suspended, rejected) AND (not imported OR claimed)
  *   AND NOT is_seed AND NOT is_team_account AND NOT is_test_name AND NOT hidden_from_public
- *   AND verification_state / profile_pic_status / selfie_status <> 'rejected'
+ *   AND verification_state / profile_pic_status <> 'rejected'   (migration 230)
  */
 export function directoryBlockers(f: ListingFacts): ListingBlocker[] {
   const out: ListingBlocker[] = []
@@ -82,7 +84,7 @@ export function directoryBlockers(f: ListingFacts): ListingBlocker[] {
   if (f.isSeed || f.isTeamAccount || f.isTestName) out.push('fixture')
   if (f.hiddenFromPublic) out.push('hidden')
   if (f.pausedByUser) out.push('paused_by_user')
-  if (f.cnicRejected || f.photoRejected || f.selfieRejected) out.push('document_rejected')
+  if (f.cnicRejected || f.photoRejected) out.push('document_rejected')
   return out
 }
 

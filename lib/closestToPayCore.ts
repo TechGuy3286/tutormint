@@ -4,10 +4,10 @@
 // grouped by how near they are to the Rs 199 Verification Fee, hottest first,
 // so Backend Support works the tutors most likely to pay.
 //
-//   ready          CNIC, profile photo and selfie all approved; fee not paid.
-//   main_approved  CNIC and profile photo approved; selfie missing, waiting or rejected.
-//   all_uploaded   all three uploaded, at least one still waiting (none rejected).
-//   main_uploaded  CNIC and profile photo uploaded (approved or waiting); no selfie yet.
+//   ready          CNIC and profile photo approved; fee not paid.
+//   all_uploaded   CNIC and profile photo uploaded, at least one still waiting.
+//   (main_approved / main_uploaded were selfie stages; since the selfie became
+//   optional on 12 Nov 2026 they are never reached.)
 //
 // Each tutor is in at most ONE stage — the first that matches, in that order.
 // A tutor who paid is in none. Inside a stage: paused accounts last, then
@@ -53,11 +53,11 @@ const uploaded = (s: DocState) => s === 'approved' || s === 'waiting'
 /** The ONE stage this tutor is in, or null. */
 export function closestStage(f: ClosestFacts): ClosestStage | null {
   if (f.feePaid) return null
-  const { cnic, photo, selfie } = f
-  if (cnic === 'approved' && photo === 'approved' && selfie === 'approved') return 'ready'
-  if (cnic === 'approved' && photo === 'approved') return 'main_approved'
-  if (uploaded(cnic) && uploaded(photo) && uploaded(selfie)) return 'all_uploaded'
-  if (uploaded(cnic) && uploaded(photo) && selfie === 'none') return 'main_uploaded'
+  // The selfie is optional (owner, 12 Nov 2026): CNIC + profile photo decide.
+  // 'main_approved' and 'main_uploaded' are no longer reached.
+  const { cnic, photo } = f
+  if (cnic === 'approved' && photo === 'approved') return 'ready'
+  if (uploaded(cnic) && uploaded(photo)) return 'all_uploaded'
   return null
 }
 
@@ -73,6 +73,7 @@ export function closestMissing(f: ClosestFacts): string {
   const parts: string[] = []
   for (const k of ['cnic', 'photo', 'selfie'] as const) {
     const s = f[k]
+    if (s === 'none' && k === 'selfie') continue // optional
     if (s === 'none') parts.push(`${DOC_NAME[k]} missing`)
     else if (s === 'waiting') parts.push(`${DOC_NAME[k]} waiting approval`)
     else if (s === 'rejected') parts.push(`${DOC_NAME[k]} rejected`)
@@ -145,7 +146,7 @@ export function closestMessage(stage: ClosestStage, f: ClosestFacts, firstName: 
   let link: string
   switch (stage) {
     case 'ready':
-      body = `${hi} good news: your CNIC, profile photo and selfie are approved. The last step is the one-time Verification Fee. After that you get the Verified badge and can apply to tuitions.`
+      body = `${hi} good news: your CNIC and profile photo are approved. The last step is the one-time Verification Fee. After that you get the Verified badge and can apply to tuitions.`
       link = siteLink(PAY_PATH)
       break
     case 'main_approved':

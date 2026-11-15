@@ -156,7 +156,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       },
       {
         q: 'How are degrees and videos actually checked?',
-        a: 'Both are optional. A tutor who adds an introduction video uploads it to our own YouTube channel as a private video, and an administrator reviews it before anything is shown to you; a tutor gets three attempts. A tutor who adds degree certificates uploads them as images, and you see watermarked, downscaled previews — never the original file, which stays in private storage. Neither is needed for the Verified badge, which comes from the Verification Fee plus a CNIC, profile photo and selfie.',
+        a: 'Both are optional. A tutor who adds an introduction video uploads it to our own YouTube channel as a private video, and an administrator reviews it before anything is shown to you; a tutor gets three attempts. A tutor who adds degree certificates uploads them as images, and you see watermarked, downscaled previews — never the original file, which stays in private storage. Neither is needed for the Verified badge, which comes from the Verification Fee plus a CNIC and profile photo.',
         links: [
           { label: 'Browse verified tutors', href: '/browse/tutors' },
           { label: 'Privacy Policy', href: '/privacy' },
@@ -234,7 +234,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       },
       {
         q: 'Why is my profile not appearing in search?',
-        a: 'You show in search once your mobile number is verified and your city, area, subjects and gender are set. Paying the Verification Fee and sending your CNIC, profile photo and selfie earns the Verified badge, which puts you above tutors who are not verified. Your dashboard names anything still missing at the top of the page. A fuller profile ranks higher.',
+        a: 'You show in search once your mobile number is verified and your city, area, subjects and gender are set. Paying the Verification Fee and sending your CNIC and profile photo earns the Verified badge, which puts you above tutors who are not verified. Your dashboard names anything still missing at the top of the page. A fuller profile ranks higher.',
         links: [
           { label: 'Your dashboard', href: '/tutor/dashboard' },
           { label: 'Complete your profile', href: '/tutor/complete-profile' },
@@ -289,7 +289,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       },
       {
         q: 'How do I check a tutor’s degree is genuine?',
-        a: 'The Verified badge means the tutor paid the Verification Fee and sent a CNIC, profile photo and selfie that our team checked. A degree is optional: when a tutor adds certificates, you can see watermarked previews on their profile — the originals stay in private storage and are never handed out. We do not contact universities to confirm a degree, and we will not claim otherwise. If something looks wrong, report the profile and a person looks at it.',
+        a: 'The Verified badge means the tutor paid the Verification Fee and sent a CNIC and profile photo that our team checked. A degree is optional: when a tutor adds certificates, you can see watermarked previews on their profile — the originals stay in private storage and are never handed out. We do not contact universities to confirm a degree, and we will not claim otherwise. If something looks wrong, report the profile and a person looks at it.',
         links: [
           { label: 'Verified tutors', href: '/browse/tutors' },
           { label: 'Contact support', href: '/support' },

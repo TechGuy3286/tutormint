@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { getBrowserClient } from '@/lib/supabase/clientLazy'
-import { HIDE_PHOTO_HELP, HIDE_PHOTO_LABEL } from '@/lib/photoPrivacyCore'
+import { SHOW_DEFAULT_PICTURE_HELP, SHOW_DEFAULT_PICTURE_LABEL, SHOW_MY_PHOTO_LABEL } from '@/lib/photoPrivacyCore'
 
 // "Hide my photo from parents" (owner, 17 Oct 2026) — the onboarding photo step
 // and tutor Settings. Off by default. It is stored as tutor_profiles.show_avatar
@@ -64,24 +64,38 @@ export default function HidePhotoToggle({
     }
   }
 
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-3">
+  // Two choices (owner, 12 Nov 2026), one stored setting: "Show my photo to
+  // parents" (default) or "Show a default picture instead" (= hidden).
+  const choose = (wantHidden: boolean) => {
+    if (busy || wantHidden === hidden) return
+    void flip()
+  }
+  const option = (wantHidden: boolean, label: string, help: string | null) => {
+    const on = hidden === wantHidden
+    return (
       <button
         type="button"
-        role="switch"
-        aria-checked={hidden}
+        role="radio"
+        aria-checked={on}
         disabled={busy}
-        onClick={() => void flip()}
-        className="flex w-full items-center justify-between gap-3 text-left"
+        onClick={() => choose(wantHidden)}
+        className={`flex min-h-11 w-full items-start gap-3 rounded-lg border px-3 py-2 text-left transition ${on ? 'border-tm-green-deep bg-tm-tint-green' : 'border-gray-200 bg-white'}`}
       >
-        <span className="min-w-0">
-          <span className="block text-sm font-bold text-tm-navy">{HIDE_PHOTO_LABEL}</span>
-          <span className="block text-[11px] text-gray-500">{HIDE_PHOTO_HELP}</span>
+        <span className={`mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${on ? 'border-tm-green-deep' : 'border-gray-400'}`}>
+          {on && <span className="h-2 w-2 rounded-full bg-tm-green-deep" />}
         </span>
-        <span className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ${hidden ? 'bg-tm-green-deep' : 'bg-gray-300'}`}>
-          <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${hidden ? 'translate-x-5' : 'translate-x-0.5'}`} />
+        <span className="min-w-0">
+          <span className="block text-sm font-bold text-tm-navy">{label}</span>
+          {help && <span className="block text-[11px] text-gray-600">{help}</span>}
         </span>
       </button>
+    )
+  }
+
+  return (
+    <div role="radiogroup" aria-label="What parents see" className="space-y-2 rounded-xl border border-gray-200 bg-white p-3">
+      {option(false, SHOW_MY_PHOTO_LABEL, null)}
+      {option(true, SHOW_DEFAULT_PICTURE_LABEL, SHOW_DEFAULT_PICTURE_HELP)}
     </div>
   )
 }

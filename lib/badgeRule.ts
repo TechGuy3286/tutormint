@@ -10,8 +10,13 @@
 // staff REJECTION pauses the badge and blocks new activity.
 //
 //   Verified badge (tutor) = fee paid
-//                            AND CNIC, profile photo and selfie all submitted
-//                            AND none of them currently blocked by a rejection.
+//                            AND CNIC and profile photo both submitted
+//                            AND neither currently blocked by a rejection.
+//
+// THE SELFIE IS OPTIONAL (owner, 12 Nov 2026): verification rests on staff
+// matching the profile photo to the CNIC. A selfie that is missing, waiting or
+// rejected never blocks the badge or activity; an approved one shows
+// "Selfie checked" to staff and to the tutor (never a public badge).
 //
 // THE RE-REVIEW SUBTLETY (§2.7): once staff reject a document, re-uploading it
 // must NOT auto-restore the badge — it re-queues for staff, who approve before
@@ -33,10 +38,13 @@ export type DocState = {
 export type TutorDocs = {
   cnic: DocState
   photo: DocState
+  /** Optional (owner, 12 Nov 2026) — read for display, never required. */
   selfie: DocState
 }
 
-const REQUIRED = ['cnic', 'photo', 'selfie'] as const
+/** The documents the badge needs. The selfie is optional and not here. */
+export const REQUIRED_DOCS = ['cnic', 'photo'] as const
+const REQUIRED = REQUIRED_DOCS
 
 /** A document blocks the badge/activity when it is rejected, or was rejected and
  *  is awaiting re-review (reason still present and not yet re-approved). */
@@ -65,7 +73,7 @@ export function tutorVerifiedBadgeOk(feePaid: boolean, docs: TutorDocs): boolean
 }
 
 export type RejectedDoc = {
-  key: 'cnic' | 'photo' | 'selfie'
+  key: 'cnic' | 'photo'
   label: string
   /** True once the member re-uploaded it and it is awaiting staff re-review
    *  (status back to pending/submitted but the reason still lingers). Drives
@@ -76,10 +84,9 @@ export type RejectedDoc = {
 const LABELS: Record<RejectedDoc['key'], { label: string }> = {
   cnic: { label: 'CNIC photo' },
   photo: { label: 'profile photo' },
-  selfie: { label: 'selfie' },
 }
 
-/** The FIRST blocked required document (CNIC → photo → selfie), or null. Drives
+/** The FIRST blocked required document (CNIC → photo), or null. Drives
  *  the single block screen. */
 export function firstRejectedDoc(docs: TutorDocs): RejectedDoc | null {
   for (const key of REQUIRED) {

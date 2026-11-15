@@ -16,7 +16,8 @@ import { parentRequiredItems, requiredPercent, tutorItemHref, tutorRequiredItems
 /** A tutor item by key, for links (built from an empty profile — only the
  *  static parts, card and step, are read). */
 function tutorItemByKey(key: string): RequiredItem | undefined {
-  return tutorRequiredItems(completionInputToFacts({})).find((i) => i.key === key)
+  // selfieDone so the optional selfie item is in the list (it is listed only once done).
+  return tutorRequiredItems(completionInputToFacts({ selfieDone: true })).find((i) => i.key === key)
 }
 import { isSyntheticEmail } from '@/lib/phone'
 

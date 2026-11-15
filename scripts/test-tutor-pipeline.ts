@@ -81,8 +81,10 @@ test('every tutor lands in exactly one stage, with the right precedence', () => 
           const s = pipelineStage({ cnic, photo, selfie, feePaid, completion: 90 })
           assert.ok((PIPE_STAGES as readonly string[]).includes(s))
           seen[s] = (seen[s] ?? 0) + 1
-          const all = [cnic, photo, selfie]
-          // Precedence: Paid → Rejected → Waiting (all three in, one pending) → Missing → Approved.
+          // The selfie is optional (owner, 12 Nov 2026): only CNIC + photo decide.
+          void selfie
+          const all = [cnic, photo]
+          // Precedence: Paid → Rejected → Waiting (both in, one pending) → Missing → Approved.
           if (feePaid) assert.equal(s, 'paid')
           else if (all.includes('rejected')) assert.equal(s, 'rejected')
           else if (all.includes('waiting') && !all.includes('none')) assert.equal(s, 'waiting')
@@ -92,11 +94,12 @@ test('every tutor lands in exactly one stage, with the right precedence', () => 
   // 2 × 4³ combinations, each counted once.
   assert.equal(Object.values(seen).reduce((a, b) => a + b, 0), 128)
   for (const s of PIPE_STAGES) assert.ok(seen[s] > 0, s)
-  // A pending upload with another document not uploaded is Documents missing (owner, 9 Nov 2026).
-  assert.equal(pipelineStage({ cnic: 'waiting', photo: 'approved', selfie: 'none', feePaid: false, completion: 90 }), 'missing')
+  // A pending upload with another REQUIRED document not uploaded is Documents missing.
+  assert.equal(pipelineStage({ cnic: 'waiting', photo: 'none', selfie: 'approved', feePaid: false, completion: 90 }), 'missing')
+  assert.equal(pipelineStage({ cnic: 'waiting', photo: 'approved', selfie: 'none', feePaid: false, completion: 90 }), 'waiting', 'no selfie needed')
   // The card says what is missing / rejected.
   const m = card({ cnic: 'none', selfie: 'none' })
-  assert.deepEqual(m.missing, ['CNIC', 'Selfie'])
+  assert.deepEqual(m.missing, ['CNIC'], 'never "Selfie" missing')
   const r = card({ photo: 'rejected' })
   assert.deepEqual(r.rejected, [{ name: 'Profile photo', reason: 'Face not clear' }])
 })
@@ -180,8 +183,10 @@ test('paying or Not interested stops the sequence', () => {
   assert.ok(!followUpDue(ni))
   assert.equal(pipeTags(ni).ni, true)
   // Waiting for approval is a staff action, never a follow-up.
-  const w = card({ selfie: 'waiting' })
+  const w = card({ cnic: 'waiting' })
   assert.equal(w.stage, 'waiting')
+  // A later selfie waiting for review does not move an approved tutor back.
+  assert.equal(card({ selfie: 'waiting' }).stage, 'approved')
   assert.ok(!followUpDue(w))
   // The badge counts documents waiting plus Approved fee pending due (owner, 9 Nov
   // 2026: parents' follow-ups are no longer in it).

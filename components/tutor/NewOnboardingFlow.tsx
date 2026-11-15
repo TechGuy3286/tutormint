@@ -14,6 +14,8 @@ import DocLockNotice from '@/components/identity/DocLockNotice'
 import { compressUnder1MB } from '@/lib/imageCompress'
 import { usePhotoCropUpload } from '@/components/photo/usePhotoCropUpload'
 import HidePhotoToggle from '@/components/tutor/HidePhotoToggle'
+import { PHOTO_STEP_EXPLAIN } from '@/lib/photoPrivacyCore'
+import { ADD_LATER_LABEL, SELFIE_OPTIONAL_LINE } from '@/lib/selfieOptionalCore'
 import { isSyntheticEmail, normalisePkMobile, looksLikeEmail } from '@/lib/phone'
 import { StepShell } from '@/components/onboarding/StepShell'
 import { fieldState, fieldStateClasses } from '@/lib/onboarding/fieldState'
@@ -1250,7 +1252,8 @@ function PhotoStep({ seed, current, shell, onSave, onError }: { seed: string; cu
         ) : null}
         </div>
         <div className="space-y-2 lg:order-1">
-        {/* Hide my photo from parents (owner, 17 Oct 2026): off by default. */}
+        {/* The upload is required; what parents see is a choice (owner, 12 Nov 2026). */}
+        <p className="text-sm text-gray-700">{PHOTO_STEP_EXPLAIN}</p>
         <HidePhotoToggle />
         <div className="text-center lg:text-left"><TermsLink /></div>
         </div>
@@ -1292,6 +1295,16 @@ function SelfieStep({ done, initialPreview, shell, onDone, onError }: { done: bo
         </div>
         <div className="space-y-2 lg:order-1">
         {selfieView !== 'open' && <DocLockNotice view={selfieView} doc="selfie" />}
+        {/* The selfie is optional (owner, 12 Nov 2026) — the ONLY skippable step. */}
+        {!uploaded && (
+          <div className="text-center lg:text-left">
+            <p className="text-[11px] text-gray-600">{SELFIE_OPTIONAL_LINE}</p>
+            <button type="button" onClick={onDone} disabled={uploading}
+              className="mt-2 inline-flex min-h-11 items-center justify-center rounded-full border border-gray-300 bg-white px-5 text-sm font-bold text-tm-navy">
+              {ADD_LATER_LABEL}
+            </button>
+          </div>
+        )}
         <div className="text-center lg:text-left"><TermsLink /></div>
         </div>
       </div>

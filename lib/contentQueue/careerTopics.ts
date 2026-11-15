@@ -78,7 +78,7 @@ export const CAREER_TOPICS: CareerTopic[] = [
   {
     slug: 'what-verification-means-for-tutors',
     title: 'Verification on TutorMint: what the identity check means for a tutor',
-    notes: 'What is checked (identity document, photo, selfie), what the badge tells a parent, what it does not promise, and why a verified tutor is shown to parents first.',
+    notes: 'What is checked (identity document and photo; the selfie is optional), what the badge tells a parent, what it does not promise, and why a verified tutor is shown to parents first.',
   },
   {
     slug: 'degree-certificate-on-profile',

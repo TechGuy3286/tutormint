@@ -91,6 +91,16 @@ export const NEW_FLOW_ORDER: FlowStepKey[] = [
   'verify',
 ]
 
+/**
+ * OPTIONAL steps (owner, 12 Nov 2026): the selfie. It is still shown in its
+ * place when the tutor walks through the flow (nextMissingAfter), with an
+ * "Add later" button — the ONLY skippable step — but it is never where a
+ * returning tutor is sent (firstMissingStep), never a "Stopped at", never a
+ * missing step, and never needed for onboarding to be done.
+ */
+export const OPTIONAL_STEPS: ReadonlySet<FlowStepKey> = new Set<FlowStepKey>(['selfie'])
+export const isOptionalStep = (k: FlowStepKey | 'final' | null | undefined): boolean => !!k && k !== 'final' && OPTIONAL_STEPS.has(k)
+
 /** The listing blockers a tutor fixes in the flow — not skippable. Level is the
  *  first half of choosing subjects (PR69), so it is a blocker like subjects. The
  *  'contact' step is a blocker because a VERIFIED mobile is a listing requirement
@@ -203,7 +213,7 @@ export function stepDone(f: FlowFacts, key: FlowStepKey): boolean {
     case 'photo':
       return nonblank(f.avatarUrl)
     // The verification selfie reads as done once a selfie document is on file
-    // (PR70). PR78 §D removed the "Later" skip — it is uploaded, not skipped.
+    // (PR70). Optional since 12 Nov 2026 (OPTIONAL_STEPS): "Add later" skips it.
     case 'selfie':
       return f.selfieDone
     case 'experience':
@@ -248,18 +258,22 @@ export function stepDoneIn(f: FlowFacts, key: FlowStepKey, order: FlowStepKey[])
   return stepDone(f, key)
 }
 
-/** The missing steps, in flow order. */
+/** The missing steps, in flow order. Optional steps are never missing. */
 export function missingSteps(f: FlowFacts, order: FlowStepKey[] = FLOW_ORDER): FlowStepKey[] {
-  return order.filter((k) => !stepDoneIn(f, k, order))
+  return order.filter((k) => !OPTIONAL_STEPS.has(k) && !stepDoneIn(f, k, order))
 }
 
-/** The first missing step, or null when nothing is missing. */
+/** The first missing step, or null when nothing is missing. Optional steps are
+ *  skipped, so a tutor who tapped "Add later" on the selfie (or was stuck there)
+ *  continues past it on their next visit. */
 export function firstMissingStep(f: FlowFacts, order: FlowStepKey[] = FLOW_ORDER): FlowStepKey | null {
-  return order.find((k) => !stepDoneIn(f, k, order)) ?? null
+  return order.find((k) => !OPTIONAL_STEPS.has(k) && !stepDoneIn(f, k, order)) ?? null
 }
 
 /** The next missing step strictly AFTER `from` in flow order (for "Next"/"Skip"),
- *  or null when there is none. */
+ *  or null when there is none. An optional step not yet done IS offered here,
+ *  in its place, so a tutor walking through the flow sees it once (and can
+ *  tap "Add later"). */
 export function nextMissingAfter(f: FlowFacts, from: FlowStepKey, order: FlowStepKey[] = FLOW_ORDER): FlowStepKey | null {
   const i = order.indexOf(from)
   for (let j = i + 1; j < order.length; j++) {
@@ -301,7 +315,7 @@ export function isListed(f: FlowFacts): boolean {
 /** The steps that make onboarding DONE (owner, 15 Oct 2026): every step of the
  *  live flow except the Verification Fee. Paying is its own funnel step, after
  *  "Onboarding done", and is never required to finish onboarding. */
-export const ONBOARDING_DONE_STEPS: FlowStepKey[] = NEW_FLOW_ORDER.filter((k) => k !== 'verify')
+export const ONBOARDING_DONE_STEPS: FlowStepKey[] = NEW_FLOW_ORDER.filter((k) => k !== 'verify' && !OPTIONAL_STEPS.has(k))
 
 /** Has this tutor answered every required onboarding step? The ONE rule behind
  *  tutor_profiles.onboarded_at — nothing stamps the flag unless this is true. */

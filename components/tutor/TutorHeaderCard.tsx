@@ -1,3 +1,4 @@
+import { SELFIE_CHECKED_LABEL } from '@/lib/selfieOptionalCore'
 import Link from 'next/link'
 
 import Avatar from '@/components/Avatar'
@@ -31,6 +32,7 @@ export default function TutorHeaderCard({
   completion,
   publicHref,
   paymentUnderReview = false,
+  selfieChecked = false,
 }: {
   name: string
   avatarUrl: string | null
@@ -54,6 +56,8 @@ export default function TutorHeaderCard({
   publicHref: string | null
   /** A bank-transfer receipt for the fee is with staff — no pay button meanwhile. */
   paymentUnderReview?: boolean
+  /** The optional selfie is approved (owner, 12 Nov 2026). Own dashboard only. */
+  selfieChecked?: boolean
 }) {
   const incomplete = completion < 100
   const ring = `conic-gradient(var(--color-tm-green-deep) ${completion * 3.6}deg, var(--color-gray-200) 0deg)`
@@ -102,6 +106,9 @@ export default function TutorHeaderCard({
           )}
         </div>
         {city && <p className="text-xs font-semibold text-gray-500">{city}</p>}
+        {selfieChecked && (
+          <p className="text-[11px] font-bold text-tm-green-deep">{SELFIE_CHECKED_LABEL}</p>
+        )}
 
         {publicHref && (
           <Link

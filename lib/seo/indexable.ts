@@ -15,7 +15,8 @@
 // directly; it reads two SECURITY DEFINER functions that are the SQL EXPRESSION
 // of these same predicates and must stay in lockstep with them:
 //   - listed_tutor_slugs()   ⇔ tutorProfileIndexable  (tutor_directory + step 1:
-//                               fee paid + CNIC/picture/selfie approved, not seed)
+//                               fee paid + CNIC/picture approved, not seed;
+//                               the selfie is optional, 12 Nov 2026)
 //   - indexable_job_slugs()  ⇔ tuitionIndexable        (status='open' + not a
 //                               fixture: seed parent / JOB-TRK / SEED-JOB, unless
 //                               a genuine team post)
@@ -31,8 +32,9 @@ export type TutorIndexFacts = {
   cnicApproved: boolean | null | undefined
   /** profiles.profile_pic_status === 'approved' (staff review). */
   profilePicApproved: boolean | null | undefined
-  /** profiles.selfie_status === 'approved' (staff review). */
-  selfieApproved: boolean | null | undefined
+  /** profiles.selfie_status === 'approved'. Accepted for older callers; the
+   *  selfie is OPTIONAL (owner, 12 Nov 2026) and NOT part of the rule. */
+  selfieApproved?: boolean | null | undefined
   /** A seed / example / fixture account — never indexed, whatever its state. */
   isSeed?: boolean | null
   /** A reported profile, temporarily delisted. */
@@ -43,7 +45,8 @@ export type TutorIndexFacts = {
  * A tutor profile is indexable and in the sitemap ONLY when BOTH are true
  * (owner, 5 Oct 2026 — "paid + approved"; supersedes PR100's 100% requirement):
  *   (1) the Rs 199 verification fee is paid, and
- *   (2) staff have APPROVED the CNIC, the profile photo and the selfie.
+ *   (2) staff have APPROVED the CNIC and the profile photo (the selfie is
+ *       optional since 12 Nov 2026 — listed_tutor_slugs(), migration 230).
  * 100% profile completion is NO LONGER required (`completion` is accepted for
  * callers that still pass it and ignored). Otherwise the page is still VISIBLE
  * on TutorMint (browse, search, direct link) but carries noindex and stays out
@@ -66,25 +69,23 @@ export function tutorProfileIndexable(f: TutorIndexFacts): boolean {
   if (!f.feePaid) return false
   if (!f.cnicApproved) return false
   if (!f.profilePicApproved) return false
-  if (!f.selfieApproved) return false
   return true
 }
 
-export type IndexRequirement = { key: 'fee' | 'cnic' | 'photo' | 'selfie'; label: string; met: boolean }
+export type IndexRequirement = { key: 'fee' | 'cnic' | 'photo'; label: string; met: boolean }
 
 /**
  * The SAME rule as tutorProfileIndexable, as the list of what it needs — for
  * the tutor's "what makes my profile visible on Google" line (owner, 13 Oct
  * 2026). Nothing is added to or left out of the rule: for an account that is
  * not a fixture and not under review, the page is indexable exactly when every
- * item here is met (scripts/test-missing-items.ts checks all sixteen cases).
+ * item here is met (scripts/test-missing-items.ts checks all eight cases).
  */
 export function tutorIndexRequirements(f: TutorIndexFacts): IndexRequirement[] {
   return [
     { key: 'fee', label: 'the Verification Fee is paid', met: !!f.feePaid },
     { key: 'cnic', label: 'our team has approved your CNIC', met: !!f.cnicApproved },
     { key: 'photo', label: 'our team has approved your profile photo', met: !!f.profilePicApproved },
-    { key: 'selfie', label: 'our team has approved your selfie', met: !!f.selfieApproved },
   ]
 }
 

@@ -30,9 +30,10 @@ export const DOCUMENTS_APPROVED_FALLBACK: Record<string, string> = {
 /** The three documents a tutor's badge reads, as the review card shows them. */
 export type DocStatuses = { cnic: string; profilePic: string; selfie: string }
 
-/** All three approved — the only time "your documents are approved" is true. */
+/** The CNIC and profile photo approved — the only time "your documents are
+ *  approved" is true. The selfie is optional (owner, 12 Nov 2026). */
 export function allDocumentsApproved(s: DocStatuses): boolean {
-  return s.cnic === 'approved' && s.profilePic === 'approved' && s.selfie === 'approved'
+  return s.cnic === 'approved' && s.profilePic === 'approved'
 }
 
 /** Fill {name}, {pay_link}, {profile_link}. Unknown placeholders are left as written. */

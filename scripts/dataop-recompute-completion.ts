@@ -8,7 +8,7 @@
  * Prints the before/after distribution. Writes only rows whose number changes,
  * only the profile_completion column; deletes nothing.
  *   npx tsx --env-file=.env.local scripts/dataop-recompute-completion.ts           (dry run, writes nothing)
- *   npx tsx --env-file=.env.local scripts/dataop-recompute-completion.ts --apply
+ *   npx tsx --env-file=.env.local scripts/dataop-recompute-completion.ts --apply [--only-up] [--tutors-only]
  * Counts only — no names, numbers or emails are printed.
  */
 import { createClient } from '@supabase/supabase-js'
@@ -28,6 +28,10 @@ function dist(values: number[]): string {
 
 async function main() {
   const apply = process.argv.includes('--apply')
+  // --only-up (owner, 12 Nov 2026 — the selfie became optional): write only rows
+  // whose number goes UP, so no member's stored percentage is ever lowered.
+  const onlyUp = process.argv.includes('--only-up')
+  const tutorsOnly = process.argv.includes('--tutors-only')
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })
   const rows = await pageAll<Row>((from, to) =>
     admin.from('profiles').select('id, role, admin_role, profile_completion, full_name, city, address, cnic_number, cnic_image_path, phone_verified_at').order('id').range(from, to) as never,
@@ -69,6 +73,8 @@ async function main() {
   }
   let written = 0
   for (const c of changes) {
+    if (onlyUp && c.to < c.from) continue
+    if (tutorsOnly && c.role !== 'tutor') continue
     const { error } = await admin.from('profiles').update({ profile_completion: c.to }).eq('id', c.id).eq('profile_completion', c.from)
     if (error) console.error(`update failed: ${error.message}`)
     else written++

@@ -62,10 +62,14 @@ export type PipeCard = {
   lastActiveAt: string | null
   oldestUploadAt: string | null
   /** Paid cards (owner, 9 Nov 2026): when the Verification Fee was paid, whether
-   *  CNIC, photo and selfie are all approved (the status image needs it), and
-   *  the standing welcome. Older stored rows have none until the next run. */
+   *  the CNIC and profile photo are approved (the status image needs it — the
+   *  selfie is optional since 12 Nov 2026), and the standing welcome. Older
+   *  stored rows have none until the next run. */
   paidAt?: string | null
   badge?: boolean
+  /** The optional selfie is approved: "Selfie checked ✓" (staff and the tutor
+   *  only — never a public badge; owner, 12 Nov 2026). */
+  selfieChecked?: boolean
   welcome?: Welcome | null
   /** A paid tutor's Premium / Featured upgrade and its end date (owner, 10 Nov
    *  2026); none = Verified. Older stored rows have none until the next run. */
@@ -140,7 +144,8 @@ export function pipeCardFrom(a: {
     lastActiveAt: a.lastActiveAt,
     oldestUploadAt: a.docs?.oldestUploadAt ?? null,
     paidAt: a.feePaid ? (a.paidAt ?? null) : null,
-    badge: a.feePaid && d.cnic === 'approved' && d.photo === 'approved' && d.selfie === 'approved',
+    badge: a.feePaid && d.cnic === 'approved' && d.photo === 'approved',
+    selfieChecked: d.selfie === 'approved',
     welcome: a.feePaid ? (a.welcome ?? null) : null,
     plan: a.feePaid ? (a.plan ?? null) : null,
   }
@@ -194,11 +199,13 @@ export function blankLine(p: Pick<PipeCard, 'blank'>): string | null {
 /**
  * The card's ONE status line (owner, 9 Nov 2026), built only from the card so
  * it can never disagree with the stage:
- *   missing   "Missing: CNIC, Selfie · Profile 64%"; with an upload waiting
- *             "CNIC waiting approval · Selfie missing · Profile 64%"; all
+ *   missing   "Missing: CNIC, Profile photo · Profile 64%"; with an upload
+ *             waiting "CNIC waiting approval · Profile photo missing · …"; all
  *             uploaded but under 80%: "… · Profile 64% (80% needed for review)"
  *   waiting   "Waiting approval: CNIC, Selfie · Profile 90%"
- *   rejected  "Rejected: Selfie (blurry) · Profile 70% · Informed: no"
+ *   rejected  "Rejected: CNIC (blurry) · Profile 70% · Informed: no"
+ * (The selfie is optional: it is never "missing"; an uploaded one waiting for
+ * review is still named.)
  *   approved  "Documents approved · fee pending · Profile 95%"
  *   paid      "Fee paid · Profile 100%" (plus anything still waiting)
  */

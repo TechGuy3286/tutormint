@@ -74,7 +74,7 @@ export type TutorFollowFacts = {
   /** Profile completion 0–100. */
   completion: number
   stoppedStep: FollowStep | null
-  /** CNIC, profile photo and selfie are all approved. */
+  /** CNIC and profile photo are approved (the selfie is optional, 12 Nov 2026). */
   docsApproved: boolean
   rejected: RejectedDoc[]
   /** A started-not-finished checkout (lib/startedPaymentCore). */
@@ -339,8 +339,9 @@ export function paymentCheckOutcome(
   return { state: 'mismatch', message: `PayPro's record does not match this order (checked ${checkedText}). Look at it on Payments.` }
 }
 
-/** From the card statuses (lib/tutorDocQueueCore): all three approved, and the
- *  rejected ones with their reasons. A Pending re-upload of an approved item
+/** From the card statuses (lib/tutorDocQueueCore): the CNIC and profile photo
+ *  approved (the selfie is optional — owner, 12 Nov 2026 — so it is neither
+ *  needed nor counted as rejected), and the rejected ones with their reasons. A Pending re-upload of an approved item
  *  counts as approved for the fee message — the approval still stands. */
 export function docFactsFrom(
   s: { cnic: DocLike; profilePic: DocLike; selfie: DocLike } | null | undefined,
@@ -349,7 +350,6 @@ export function docFactsFrom(
   const items: [RejectedDoc['doc'], DocLike][] = [
     ['cnic', s.cnic],
     ['photo', s.profilePic],
-    ['selfie', s.selfie],
   ]
   const ok = (d: DocLike) => d.status === 'approved' || (d.status === 'pending' && !!d.rereview)
   return {
@@ -458,7 +458,7 @@ export function followReason(f: TutorFollowFacts, nowMs: number, planName?: stri
   return { kind, text: idle ? `${text} · ${idle}` : text }
 }
 
-/** Done, so off Follow-ups: the Verification Fee paid, CNIC, photo and selfie
+/** Done, so off Follow-ups: the Verification Fee paid, CNIC and photo
  *  approved — and, because a paid tutor whose profile is not finished stays on
  *  the list ("Paid, profile not finished"), every onboarding step done. */
 export function tutorDone(f: Pick<TutorFollowFacts, 'feePaid' | 'docsApproved' | 'stoppedStep' | 'rejected'>): boolean {

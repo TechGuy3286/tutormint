@@ -219,7 +219,8 @@ test('sitemap: only paid + approved tutor profiles are listed', () => {
     { path: '/tutor/seed', ...ok, isSeed: true },
     { path: '/tutor/review', ...ok, underReview: true },
   ])
-  assert.deepEqual(out.map((e) => e.url), [`${BASE}/tutor/ok`])
+  // The selfie is optional (owner, 12 Nov 2026): no-selfie is listed.
+  assert.deepEqual(out.map((e) => e.url), [`${BASE}/tutor/ok`, `${BASE}/tutor/no-selfie`])
 })
 
 test('sitemap: query strings, other hosts, relative addresses and duplicates are dropped', () => {

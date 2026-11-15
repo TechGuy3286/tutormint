@@ -445,7 +445,7 @@ export async function loadOverviewList(
       return {
         key,
         rows: list.map((r) => ({ id: r.id, title: r.name, detail: r.card.follow ? `Follow-up ${r.card.follow.nextNumber} due` : null, href: `/admin/users/${r.id}`, memberId: r.id })),
-        filter: 'with CNIC, profile photo and selfie approved, the Verification Fee not paid, and a follow-up due',
+        filter: 'with CNIC and profile photo approved, the Verification Fee not paid, and a follow-up due',
         workHref: stageHref('approved', 'not'),
       }
     }

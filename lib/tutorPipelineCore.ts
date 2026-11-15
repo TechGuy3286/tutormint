@@ -6,12 +6,15 @@
 // a few stages. Each tutor is in exactly ONE stage, decided in this order:
 //
 //   paid      Verification Fee paid. No follow-up.
-//   rejected  at least one of CNIC / profile photo / selfie rejected and not
-//             re-uploaded.
-//   waiting   at least one uploaded and waiting for a decision. A staff action
-//             (Review), not a follow-up.
+//   rejected  the CNIC or the profile photo rejected and not re-uploaded.
+//   waiting   both uploaded, at least one waiting for a decision. A staff
+//             action (Review), not a follow-up.
 //   missing   at least one not uploaded (nothing waiting or rejected).
-//   approved  all three approved, fee not paid ("Approved, fee pending").
+//   approved  CNIC and profile photo approved, fee not paid ("Approved, fee
+//             pending").
+// THE SELFIE IS OPTIONAL (owner, 12 Nov 2026): it never decides a stage and is
+// never "missing". An uploaded selfie still waits for review, and an approved
+// one shows "Selfie checked" on the card.
 //
 // Erased accounts are not in any stage: they are only under the grey
 // "Deleted" chip (lib/peopleDirectoryCore peopleFixed).
@@ -68,6 +71,8 @@ export type PipeDocs = { cnic: DocState; photo: DocState; selfie: DocState }
 export type PipeFacts = PipeDocs & { feePaid: boolean; completion: number }
 
 const DOCS = ['cnic', 'photo', 'selfie'] as const
+/** The documents a stage needs; the selfie is optional (owner, 12 Nov 2026). */
+const REQUIRED = ['cnic', 'photo'] as const
 export const DOC_NAME: Record<(typeof DOCS)[number], string> = { cnic: 'CNIC', photo: 'Profile photo', selfie: 'Selfie' }
 
 /** A tutor's documents are ready for staff review only from this profile
@@ -75,17 +80,27 @@ export const DOC_NAME: Record<(typeof DOCS)[number], string> = { cnic: 'CNIC', p
 export const WAITING_MIN_COMPLETION = 80
 
 /**
- * Ready for review (owner, 9 Nov 2026): all three documents (CNIC, profile
- * photo, selfie) uploaded, at least one waiting for a decision, none rejected,
- * and the profile 80% complete or more. This ONE rule decides the "Waiting for
- * approval" stage, the Overview "Documents to approve" tutor rows and the
- * People badge's waiting count. (It is the documents' rule, so a paid tutor
- * with a re-upload waiting is counted for approval too, though their stage is
- * Paid.)
+ * The "Waiting for approval" STAGE (owner, 9 Nov 2026; selfie optional 12 Nov):
+ * CNIC and profile photo both uploaded, at least one of them waiting for a
+ * decision, neither rejected, and the profile 80% complete or more.
+ */
+export function requiredReadyForReview(d: PipeDocs, completion: number): boolean {
+  const s = REQUIRED.map((k) => d[k])
+  return !s.includes('none') && !s.includes('rejected') && s.includes('waiting') && completion >= WAITING_MIN_COMPLETION
+}
+
+/**
+ * Ready for review — the documents' rule behind the Overview "Documents to
+ * approve" tutor rows and the People badge's waiting count: CNIC and profile
+ * photo uploaded and neither rejected, the profile 80% or more, and something
+ * waiting — the CNIC, the photo, or an (optional) selfie the tutor added. A
+ * paid tutor with a re-upload waiting is counted too, though their stage is
+ * Paid.
  */
 export function docsReadyForReview(d: PipeDocs, completion: number): boolean {
-  const s = DOCS.map((k) => d[k])
-  return !s.includes('none') && !s.includes('rejected') && s.includes('waiting') && completion >= WAITING_MIN_COMPLETION
+  const req = REQUIRED.map((k) => d[k])
+  if (req.includes('none') || req.includes('rejected') || completion < WAITING_MIN_COMPLETION) return false
+  return req.includes('waiting') || d.selfie === 'waiting'
 }
 
 /** The ONE stage — precedence Paid → Rejected → Waiting → Missing → Approved.
@@ -93,16 +108,17 @@ export function docsReadyForReview(d: PipeDocs, completion: number): boolean {
  *  uploaded, or the profile under 80%) is in Documents missing. */
 export function pipelineStage(f: PipeFacts): PipeStage {
   if (f.feePaid) return 'paid'
-  const s = DOCS.map((k) => f[k])
+  const s = REQUIRED.map((k) => f[k])
   if (s.includes('rejected')) return 'rejected'
-  if (docsReadyForReview(f, f.completion)) return 'waiting'
+  if (requiredReadyForReview(f, f.completion)) return 'waiting'
   if (s.includes('none') || s.includes('waiting')) return 'missing'
   return 'approved'
 }
 
-/** "CNIC, Selfie" — the documents not uploaded. */
+/** "CNIC, Profile photo" — the REQUIRED documents not uploaded (never the
+ *  optional selfie). */
 export function missingDocs(f: PipeDocs): string[] {
-  return DOCS.filter((k) => f[k] === 'none').map((k) => DOC_NAME[k])
+  return REQUIRED.filter((k) => f[k] === 'none').map((k) => DOC_NAME[k])
 }
 
 /** The documents uploaded and waiting for a decision. */
@@ -110,8 +126,10 @@ export function pendingDocs(f: PipeDocs): string[] {
   return DOCS.filter((k) => f[k] === 'waiting').map((k) => DOC_NAME[k])
 }
 
+/** The REQUIRED documents rejected — an optional selfie's rejection is shown on
+ *  its own review card, not in the stage. */
 export function rejectedDocs(f: PipeDocs, reasons: Partial<Record<(typeof DOCS)[number], string | null>> = {}): { name: string; reason: string | null }[] {
-  return DOCS.filter((k) => f[k] === 'rejected').map((k) => ({ name: DOC_NAME[k], reason: reasons[k] ?? null }))
+  return REQUIRED.filter((k) => f[k] === 'rejected').map((k) => ({ name: DOC_NAME[k], reason: reasons[k] ?? null }))
 }
 
 // ------------------------------------------------------------ contacts ---
@@ -293,7 +311,7 @@ export function pipeMessage(
     body = `${hi} we checked your documents and could not approve ${a.rejected.length === 1 ? 'this one' : 'these'}:\n${lines.join('\n')}\n\nPlease upload ${a.rejected.length === 1 ? 'it' : 'them'} again from your profile. Open the link, tap Edit Profile and upload a clear new photo.`
     link = siteLink(DOCS_PATH)
   } else {
-    body = `${hi} good news: your CNIC, profile photo and selfie are approved. The last step is the one-time Verification Fee. After that you get the Verified badge and can apply to tuitions.`
+    body = `${hi} good news: your CNIC and profile photo are approved. The last step is the one-time Verification Fee. After that you get the Verified badge and can apply to tuitions.`
     link = siteLink(PAY_PATH)
   }
   const help = a.supportWhatsapp ? `\n\nNeed help? WhatsApp ${a.supportWhatsapp}` : ''

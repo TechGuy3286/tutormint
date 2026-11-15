@@ -56,6 +56,8 @@ import { formatName } from '@/lib/formatName'
 import { TextLinesSkeleton } from '@/components/Skeletons'
 import { usePhotoCropUpload } from '@/components/photo/usePhotoCropUpload'
 import HidePhotoToggle from '@/components/tutor/HidePhotoToggle'
+import { PHOTO_STEP_EXPLAIN } from '@/lib/photoPrivacyCore'
+import { SELFIE_CHECKED_LABEL, showSelfieChecked } from '@/lib/selfieOptionalCore'
 
 // Tutor settings — ONE SAVE PER CARD (PR 3b §2.6). Each card owns its fields and
 // its own Save button, showing "Saved." or the error inline; there is no
@@ -609,7 +611,9 @@ export default function TutorSettingsPage() {
   const mobileStatus: CardStatus = phoneVerified ? 'completed' : 'missing';
   const cnicStatus: CardStatus = docCard(statuses?.cnic, false);
   const profilePicStatus: CardStatus = docCard(statuses?.profilePic, !!formData.profileImage);
-  const selfieStatus: CardStatus = docCard(statuses?.selfie, !!selfiePreviewUrl);
+  // The selfie is optional (owner, 12 Nov 2026): no selfie is never "Missing".
+  const selfieRaw: CardStatus = docCard(statuses?.selfie, !!selfiePreviewUrl);
+  const selfieStatus: CardStatus = selfieRaw === 'missing' ? 'neutral' : selfieRaw;
   // Only the Mobile number, the CNIC and the Email are locked (owner, 4 Nov
   // 2026; lib/memberLocksCore). The approved CNIC stays locked unless staff
   // unlocked it (or a side was never uploaded). The profile photo and the
@@ -706,6 +710,8 @@ export default function TutorSettingsPage() {
               }
             />
           )}
+          {/* The upload is required; what parents see is a choice (owner, 12 Nov 2026). */}
+          <p className="text-sm text-gray-700">{PHOTO_STEP_EXPLAIN}</p>
           {/* The picture/selfie instruction (PR70 §4). */}
           <div className="rounded-xl bg-tm-tint-navy p-3">
             <p className="text-[11px] leading-relaxed text-tm-navy">{L.pictureNote.en}</p>
@@ -735,6 +741,9 @@ export default function TutorSettingsPage() {
               here, one line only. */}
           <p className="text-[11px] leading-relaxed text-gray-600">
             Only TutorMint’s verification team sees your selfie.
+          </p>
+          <p className="text-[11px] leading-relaxed text-gray-600">
+            {showSelfieChecked(statuses?.selfie.status) ? SELFIE_CHECKED_LABEL : 'Optional. You can add it any time.'}
           </p>
           {selfieView !== 'open' && <DocLockNotice view={selfieView} doc="selfie" />}
           <div className="max-w-xs">

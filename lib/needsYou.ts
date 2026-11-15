@@ -459,8 +459,8 @@ export async function tutorNeeds({
   }
 
   // Paid but not yet staff-approved → searchable on-site, held out of Google
-  // until the CNIC, profile photo and selfie are approved (the index rule, owner
-  // 5 Oct 2026 — 100% completion is no longer part of it). Only for a VERIFIED
+  // until the CNIC and profile photo are approved (the index rule, owner
+  // 5 Oct 2026; the selfie is optional since 12 Nov 2026 — 100% completion is no longer part of it). Only for a VERIFIED
   // tutor: an unverified profile is noindex for the fee first.
   if (ent.verified) {
     const { data: me } = await supabase
@@ -476,13 +476,12 @@ export async function tutorNeeds({
         cnic_number: (me.cnic_number as string | null) ?? null,
         cnic_image_path: (me.cnic_image_path as string | null) ?? null,
       }) === 'approved' &&
-      (me.profile_pic_status as string | null) === 'approved' &&
-      (me.selfie_status as string | null) === 'approved'
+      (me.profile_pic_status as string | null) === 'approved'
     if (!docsApproved) {
       rows.push({
         id: 'not-on-google',
         title: 'Your profile is not on Google yet',
-        why: 'Parents can find you on TutorMint now. Your profile appears in Google search once our team has approved your CNIC, profile photo and selfie.',
+        why: 'Parents can find you on TutorMint now. Your profile appears in Google search once our team has approved your CNIC and profile photo.',
         action: { label: 'Check your documents', href: '/tutor/dashboard/settings#identity' },
         tone: 'warn',
       })
@@ -490,7 +489,7 @@ export async function tutorNeeds({
   }
 
   // No "add a degree to earn your Verified badge" row (owner, 7 Oct 2026): the
-  // badge is the Verification Fee + CNIC, photo and selfie; a degree is
+  // badge is the Verification Fee + CNIC and photo; the selfie and a degree are
   // optional and never needed for any badge.
   void hasDegree
 

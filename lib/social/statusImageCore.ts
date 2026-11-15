@@ -2,8 +2,8 @@
 //
 // The "I'm a Verified Tutor" WhatsApp status image (owner, 26 Oct 2026): the
 // existing design at Story size (1080 × 1920), for tutors who pass the Social
-// posts verified rule only (Verification Fee paid; CNIC, photo and selfie
-// approved — lib/social/eligibilityCore). A hidden photo is the grey silhouette.
+// posts verified rule only (Verification Fee paid; CNIC and photo approved —
+// the selfie is optional since 12 Nov 2026 — lib/social/eligibilityCore). A hidden photo is the grey silhouette.
 //
 // Staff send it from the tutor's admin page and their Paid tutors row: the PNG
 // downloads, WhatsApp opens to the tutor with the message below (NO link in it,

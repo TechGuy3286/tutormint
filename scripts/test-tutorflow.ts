@@ -160,7 +160,9 @@ test('the "You\'re listed" verdict is exactly directoryBlockers empty (the view\
   // Hidden, suspended, banned, under review, rejected: not listed.
   assert.equal(isListed({ ...FULL, hiddenFromPublic: true }), false)
   assert.equal(isListed({ ...FULL, isSuspended: true }), false)
-  assert.equal(isListed({ ...FULL, selfieRejected: true }), false)
+  assert.equal(isListed({ ...FULL, photoRejected: true }), false)
+  // A rejected selfie no longer delists (the selfie is optional, migration 230).
+  assert.equal(isListed({ ...FULL, selfieRejected: true }), true)
   // Missing a city is a profile GAP (a nudge), not a listing reason.
   assert.equal(isListed({ ...listable, city: null }), true)
   assert.deepEqual(profileGaps(toListingFacts({ ...listable, city: null })), ['no_city'])

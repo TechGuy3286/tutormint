@@ -78,7 +78,8 @@ mainTest('an unverified tutor is left out — each missing step on its own', () 
   assert.equal(socialIneligibleReason({ ...verified, feePaid: false }), 'fee_unpaid')
   assert.equal(socialIneligibleReason({ ...verified, cnicApproved: false }), 'cnic_not_approved')
   assert.equal(socialIneligibleReason({ ...verified, photoApproved: false }), 'photo_not_approved')
-  assert.equal(socialIneligibleReason({ ...verified, selfieApproved: false }), 'selfie_not_approved')
+  // The selfie is optional (owner, 12 Nov 2026): it never keeps a tutor out.
+  assert.equal(socialIneligibleReason({ ...verified, selfieApproved: false }), null)
   assert.equal(socialIneligibleReason({ ...verified, suspended: true }), 'suspended')
   assert.equal(socialIneligibleReason({ ...verified, banned: true }), 'banned')
   assert.equal(socialIneligibleReason({ ...verified, isSeed: true }), 'fixture')
@@ -89,9 +90,9 @@ mainTest('an unverified tutor is left out — each missing step on its own', () 
 })
 
 mainTest('a newly verified tutor appears: the last approval flips them in', () => {
-  const before = { ...verified, selfieApproved: false }
+  const before = { ...verified, photoApproved: false }
   assert.equal(socialEligible(before), false)
-  assert.equal(socialEligible({ ...before, selfieApproved: true }), true)
+  assert.equal(socialEligible({ ...before, photoApproved: true }), true)
 })
 
 mainTest('the rows map to facts: an Owner-granted fee counts, an approved CNIC needs number + image', () => {

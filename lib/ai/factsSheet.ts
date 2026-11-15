@@ -102,7 +102,7 @@ export function factsSheetText(facts: PlatformFacts = buildPlatformFacts()): str
     '- Signing up is free for tutors and for parents.',
     '- A tutor appears in Browse once their mobile number is verified and their city, area, subjects and gender are set.',
     `- The one-time fee is ALWAYS called the "${fee}". Never call it a "platform fee", a "registration fee" or any other name. Never write any amount or price anywhere in a post.`,
-    `- The Verified badge comes from the ${fee} plus submitting a CNIC, a profile photo and a selfie. A degree, certificates and an introduction video are OPTIONAL and are not needed for any badge.`,
+    `- The Verified badge comes from the ${fee} plus submitting a CNIC and a profile photo. A selfie, a degree, certificates and an introduction video are OPTIONAL and are not needed for any badge.`,
     "- A tutor's experience, subjects and fee are self-declared. TutorMint does not check them.",
     `- Tutor plans: ${list(planNames)}. Name them, never price them.`,
     `- Who can apply to tuitions: tutors who have paid the ${fee}, on any plan (${list(planNames)}). A tutor who has not paid it cannot apply.`,

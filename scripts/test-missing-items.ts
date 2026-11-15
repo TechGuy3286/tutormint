@@ -55,7 +55,8 @@ const FILL: [string, Partial<FlowFacts>][] = [
 
 test('one item per thing the flow asks for, in flow order, in plain English', () => {
   const items = onboardingItems(empty)
-  assert.deepEqual(items.map((i) => i.key), FILL.map(([k]) => k))
+  // The selfie is optional (owner, 12 Nov 2026): it is an item only once done.
+  assert.deepEqual(items.map((i) => i.key), FILL.map(([k]) => k).filter((k) => k !== 'selfie'))
   assert.ok(items.every((i) => !i.done))
   assert.deepEqual(
     items.slice(0, 4).map((i) => i.label),
@@ -63,7 +64,7 @@ test('one item per thing the flow asks for, in flow order, in plain English', ()
   )
   // Every item points at a real step of the live flow.
   for (const i of items) assert.ok(NEW_FLOW_ORDER.includes(i.step), i.key)
-  assert.equal(progressLine(missingSummary(empty)), '0 of 17 done')
+  assert.equal(progressLine(missingSummary(empty)), '0 of 16 done')
 })
 
 test('each item is done by exactly the fact its step needs', () => {
@@ -79,6 +80,11 @@ test('the list is empty exactly when the real steps have nothing left', () => {
   assert.deepEqual(missingSteps(full, NEW_FLOW_ORDER), [])
   // Take one fact away at a time: the item is missing AND its step is not done.
   for (const [key] of FILL) {
+    if (key === 'selfie') {
+      // Taking the selfie away never makes anything missing.
+      assert.deepEqual(missingSummary({ ...full, selfieDone: false }).missing, [])
+      continue
+    }
     const undo: Partial<FlowFacts> = Object.fromEntries(Object.keys(FILL.find(([k]) => k === key)![1]).map((f) => [f, (empty as Record<string, unknown>)[f]]))
     const f = { ...full, ...undo }
     const s = missingSummary(f)
@@ -109,16 +115,16 @@ test('"Fix now" opens the exact step, and older links still land', () => {
   assert.ok(read('app/(site)/tutor/complete-profile/page.tsx').includes('initialStep={stepFromParam(step)}'))
 })
 
-test('"visible on Google" is the real index rule, all sixteen cases', () => {
+test('"visible on Google" is the real index rule, all eight cases (the selfie is optional)', () => {
   const reqs = tutorIndexRequirements({ feePaid: false, cnicApproved: false, profilePicApproved: false, selfieApproved: false })
-  assert.deepEqual(reqs.map((r) => r.key), ['fee', 'cnic', 'photo', 'selfie'])
+  assert.deepEqual(reqs.map((r) => r.key), ['fee', 'cnic', 'photo'])
   for (let n = 0; n < 16; n++) {
     const f = { feePaid: !!(n & 1), cnicApproved: !!(n & 2), profilePicApproved: !!(n & 4), selfieApproved: !!(n & 8) }
     assert.equal(tutorIndexRequirements(f).every((r) => r.met), tutorProfileIndexable(f), JSON.stringify(f))
   }
   assert.equal(
     googleVisibilityLine(reqs),
-    'Your profile appears on Google once: the Verification Fee is paid, our team has approved your CNIC, our team has approved your profile photo, and our team has approved your selfie.',
+    'Your profile appears on Google once: the Verification Fee is paid, our team has approved your CNIC, and our team has approved your profile photo.',
   )
   // The rule does NOT need onboarding to be complete, so the line does not say so.
   assert.ok(!/onboarding|100%/i.test(googleVisibilityLine(reqs)))

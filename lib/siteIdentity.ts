@@ -45,7 +45,7 @@ export const SITE_LOGO_DARK_PATH = '/brand/tutormint-logo-dark.png'
 
 /** What the platform offers, as short plain phrases. */
 export const SITE_FEATURES: string[] = [
-  'Verified tutors — CNIC and selfie checked by staff',
+  'Verified tutors — CNIC and photo checked by staff',
   'Browse tutors by subject, level, city, area, gender and teaching mode',
   'Parents post a tuition free and tutors apply',
   'Contact tutors directly — no commission',
