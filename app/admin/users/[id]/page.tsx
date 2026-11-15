@@ -36,13 +36,13 @@ import { activitySummaryLine, parseTimelineGroup } from '@/lib/memberTimelineCor
 import { loadActivitySummary } from '@/lib/adminActivity'
 import { docSummary } from '@/lib/tutorDocSummaryCore'
 import { documentsFact, emptySectionsLine, parentDocKind, tutorStatusFact, videoFact, type MemberBox } from '@/lib/memberPageCore'
-import { paymentLabel, paymentNeedsFollowUp, paymentPlanName, type PaymentFacts } from '@/lib/paymentLabelCore'
-import { finishWaText, waSendHref } from '@/lib/waLinkCore'
+import { paymentLabel, paymentPlanName, type PaymentFacts } from '@/lib/paymentLabelCore'
+import { waChatHref, waSendHref } from '@/lib/waLinkCore'
 import { senderRefCode } from '@/lib/staffSignups'
-import { fillPaymentNotFinished, payAgainLink, PAYMENT_NOT_FINISHED_FALLBACK, PAYMENT_NOT_FINISHED_KEY } from '@/lib/startedPaymentCore'
 import { normalisePkMobile } from '@/lib/phone'
 import { ExternalLink } from 'lucide-react'
-import PaymentFollowUp from './PaymentFollowUp'
+import { loadOnePipeCard } from '@/lib/tutorPipeline'
+import { isFollowStage } from '@/lib/tutorPipelineCore'
 import LinkBankCredit from '@/components/admin/LinkBankCredit'
 import MarkRefundedButton from '@/components/admin/MarkRefundedButton'
 import { loadRefundDues } from '@/lib/feeMatch'
@@ -308,14 +308,21 @@ export default async function AdminMemberPage({
   })
   const memberMsisdn = normalisePkMobile((profile.whatsapp as string | null) ?? (profile.phone_number as string | null) ?? null)
   const callMsisdn = normalisePkMobile((profile.phone_number as string | null) ?? (profile.whatsapp as string | null) ?? null)
-  let notFinishedBody = PAYMENT_NOT_FINISHED_FALLBACK
-  if (isTutor && memberMsisdn && paymentRows.some((r) => paymentNeedsFollowUp(r.facts, nowMs))) {
-    const { data: tpl } = await admin.from('admin_message_templates').select('body').eq('key', PAYMENT_NOT_FINISHED_KEY).maybeSingle()
-    if (tpl?.body) notFinishedBody = tpl.body as string
-  }
-  const followUpHref = (planCode: string | null) =>
-    memberMsisdn
-      ? waSendHref(memberMsisdn, finishWaText(fillPaymentNotFinished(notFinishedBody, { name: formatName(profile.full_name as string | null), payLink: payAgainLink(planCode) }), senderCode))
+  // ONE WhatsApp button on this page (owner, 15 Nov 2026): a tutor due a
+  // follow-up gets the stage's ready message from Contact, logged as on the
+  // People card. (The separate "WhatsApp follow-up" on a payment row is gone.)
+  const pipeCard = isTutor && roleMayWrite(actor.adminRole, SCREEN_ACCESS.unpaidSignups) ? await loadOnePipeCard(id).catch(() => null) : null
+  const pipeContact =
+    pipeCard && isFollowStage(pipeCard.stage) && !pipeCard.notInterested && pipeCard.follow && (memberMsisdn || callMsisdn)
+      ? {
+          stage: pipeCard.stage,
+          nextKind: pipeCard.follow.nextKind,
+          links: {
+            waHref: memberMsisdn && pipeCard.message ? waSendHref(memberMsisdn, pipeCard.message, senderCode) : null,
+            chatHref: waChatHref(memberMsisdn),
+            telHref: callMsisdn ? `tel:+${callMsisdn}` : null,
+          },
+        }
       : null
 
   const statusImage = isTutor ? await statusImageFacts(admin, id) : null
@@ -619,6 +626,7 @@ export default async function AdminMemberPage({
         hasMobile={!!profile.phone_number}
         whatsappMsisdn={memberMsisdn}
         callMsisdn={callMsisdn}
+        pipeContact={pipeContact}
         editTutorHref={isTutor && roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutors) ? memberEditHref(id) : null}
         secondRole={
           roleMayWrite(actor.adminRole, SCREEN_ACCESS.secondRole) && profile.role !== 'admin' ? (
@@ -703,13 +711,11 @@ export default async function AdminMemberPage({
             ...paymentRows.map((p) => {
               // Parents get their situation message from Contact → WhatsApp, never a
               // payment template (owner, 31 Oct 2026).
-              const wa = isTutor && paymentNeedsFollowUp(p.facts, nowMs) ? followUpHref(p.facts.planCode) : null
               return (
                 <Row
                   key={p.id}
                   main={paymentLabel(p.facts, nowMs, { showAmount: showAmounts })}
                   sub={`${p.facts.provider === 'manual' ? 'Bank transfer' : p.facts.provider === 'paypro' ? 'PayPro' : (p.facts.provider ?? 'Payment')} · ${formatDate(p.facts.createdAt)}`}
-                  extra={wa ? <PaymentFollowUp memberId={id} href={wa} /> : null}
                 />
               )
             }),

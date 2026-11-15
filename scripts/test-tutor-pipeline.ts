@@ -155,7 +155,8 @@ test('logging a follow-up moves the tutor to Followed up; they return when due (
   assert.equal(followState('missing', cs3, T0 + 8 * DAY).section, 'not')
 
   // The right kind for each number.
-  assert.ok(kindAllowed('whatsapp', 'whatsapp') && !kindAllowed('whatsapp', 'call') && !kindAllowed('whatsapp', 'voice'))
+  // A call that reached them always counts (owner, 15 Nov 2026): Call sits beside every due button.
+  assert.ok(kindAllowed('whatsapp', 'whatsapp') && kindAllowed('whatsapp', 'call') && !kindAllowed('whatsapp', 'voice'))
   assert.ok(kindAllowed('voice', 'voice') && !kindAllowed('voice', 'whatsapp'))
   assert.ok(kindAllowed('either', 'whatsapp') && kindAllowed('either', 'call') && !kindAllowed('either', 'voice'))
   // What a logged follow-up stores, and how it is read back.

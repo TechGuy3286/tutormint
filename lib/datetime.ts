@@ -51,6 +51,12 @@ export function formatDate(value: When): string {
   return d ? d.toLocaleDateString('en-PK', DATE) : ''
 }
 
+/** "3 Sep" — a short day on compact cards (Pakistan time). */
+export function formatDayMonth(value: When): string {
+  const d = toDate(value)
+  return d ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: PK_TIMEZONE }) : ''
+}
+
 /** "3 Sep 2026, 2:05 pm". */
 export function formatDateTime(value: When): string {
   const d = toDate(value)

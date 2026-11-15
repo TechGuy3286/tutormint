@@ -7,6 +7,7 @@ import { logAdminAction } from '@/lib/auditLog'
 import { templateSaveCheck, templateDefault } from '@/lib/templateRules'
 import { recordEditHistory, approvedTemplateBodies } from '@/lib/templateReview'
 import { resetBody } from '@/lib/templateResetCore'
+import { recordInboxFollowUp } from '@/lib/tutorPipelineRecord'
 
 // The admin side of the official TutorMint Team channel.
 //
@@ -50,6 +51,9 @@ export async function POST(request: Request) {
     actor: { id: gate.actor.id, adminRole: gate.actor.adminRole, email: gate.actor.email },
   })
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
+  // A Team inbox message to a tutor who is due a follow-up IS that follow-up
+  // (owner, 15 Nov 2026) — best effort, never blocks the send.
+  await recordInboxFollowUp(body.memberId!, gate.actor, body.channel === 'whatsapp' ? 'whatsapp' : 'inbox')
   // waHref (WhatsApp channel only) is the link the admin clicks to actually send.
   return NextResponse.json({ success: true, waHref: result.waHref ?? null })
 }

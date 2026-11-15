@@ -146,7 +146,8 @@ test('the admin stuck list and the WhatsApp message use the same list', () => {
   // People → Tutors (owner, 8 Nov 2026) shows the missing documents on the card —
   // in its one status line since 9 Nov 2026.
   assert.ok(read('lib/tutorPipelineCardCore.ts').includes("p.missing.join(', ')"))
-  assert.ok(read('components/admin/PipelineActions.tsx').includes('{pipeStatusLine(pipe)}'))
+  // …in its one detail line since 15 Nov 2026.
+  assert.ok(read('components/admin/PipelineActions.tsx').includes('pipeDetailLine(pipe, now)'))
   const left = ['Add your subjects', 'Choose your gender', 'Add your teaching areas']
   assert.equal(missingSentence(left), 'Add your subjects, choose your gender and add your teaching areas.')
   assert.equal(missingSentence(['Add your subjects']), 'Add your subjects.')

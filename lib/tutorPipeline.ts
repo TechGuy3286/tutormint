@@ -22,7 +22,8 @@ import { loadSupportWhatsApp } from '@/lib/applicationTemplates'
 import { blankPhotoFlags } from '@/lib/photoBlank'
 import { staffLabel } from '@/lib/followUpCore'
 import { loadWelcomes } from '@/lib/paidWelcome'
-import { kindOfTemplateKey, legacyDocsApproved, stageOfProgress, type PipeContact } from '@/lib/tutorPipelineCore'
+import { loadTutorDocSummaries } from '@/lib/tutorDocSummaries'
+import { callLogAttempt, kindOfTemplateKey, legacyDocsApproved, stageOfProgress, type PipeContact } from '@/lib/tutorPipelineCore'
 import { pipeCardFrom, pipeSortAt, pipeTags, withContacts, type PipeCard } from '@/lib/tutorPipelineCardCore'
 
 export { pipeCardFrom, pipeDocsOf, pipeSortAt, pipeTags, followUpDue, feePendingDue, readyForReviewFrom, type PipeCard } from '@/lib/tutorPipelineCardCore'
@@ -47,7 +48,7 @@ export async function loadPipeContacts(ids: string[]): Promise<Map<string, PipeC
         .range(from, to),
     ).catch(() => []),
     pageAllIn(ids, (part, from, to) =>
-      admin.from('tutor_contact_logs').select('id, tutor_id, created_at, staff_email').in('tutor_id', part).order('id').range(from, to),
+      admin.from('tutor_contact_logs').select('id, tutor_id, created_at, outcome, staff_email').in('tutor_id', part).order('id').range(from, to),
     ).catch(() => []),
     pageAllIn(ids, (part, from, to) =>
       admin
@@ -64,7 +65,7 @@ export async function loadPipeContacts(ids: string[]): Promise<Map<string, PipeC
     // A paid tutor's welcome (owner, 9 Nov 2026) is not a pipeline follow-up.
     if (r.source === 'parents' || r.source === 'welcome') continue
     const progress = (r.progress as string | null) ?? null
-    const kind = kindOfTemplateKey(r.template_key as string | null) ?? (r.channel === 'call' ? 'call' : 'whatsapp')
+    const kind = kindOfTemplateKey(r.template_key as string | null) ?? (r.channel === 'call' ? 'call' : r.channel === 'email' ? 'inbox' : 'whatsapp')
     push(r.member_id as string, {
       at: r.created_at as string,
       kind,
@@ -74,7 +75,15 @@ export async function loadPipeContacts(ids: string[]): Promise<Map<string, PipeC
     })
   }
   for (const r of calls)
-    push(r.tutor_id as string, { at: r.created_at as string, kind: 'call', stage: null, docsApproved: null, staffName: staffLabel(null, r.staff_email as string | null) })
+    // A call that did not reach them is an attempt, never a follow-up (owner, 15 Nov 2026).
+    push(r.tutor_id as string, {
+      at: r.created_at as string,
+      kind: 'call',
+      stage: null,
+      docsApproved: null,
+      staffName: staffLabel(null, r.staff_email as string | null),
+      attempt: callLogAttempt(r.outcome as string | null, r.created_at as string | null),
+    })
   for (const r of notes)
     push(r.member_id as string, {
       at: r.created_at as string,
@@ -169,6 +178,38 @@ export const loadTutorPipeline = cache(
       return out
     }),
 )
+
+/**
+ * ONE tutor's pipeline card, live (owner, 15 Nov 2026) — the admin member page
+ * shows the stage's own contact buttons from it, so a contact made there is
+ * logged exactly as on the card. null for anyone who is not a tutor.
+ */
+export async function loadOnePipeCard(memberId: string): Promise<PipeCard | null> {
+  const admin = createAdminClient()
+  if (!admin) return null
+  const [{ data: p }, { data: tp }, docs, contacts, ni, support] = await Promise.all([
+    admin.from('profiles').select('role, full_name, profile_completion, phone_number, phone_verified_at, created_at, is_suspended, is_banned, paused_by_user_at').eq('id', memberId).maybeSingle(),
+    admin.from('tutor_profiles').select('verified_fee_paid_at').eq('id', memberId).maybeSingle(),
+    loadTutorDocSummaries([memberId]),
+    loadPipeContacts([memberId]),
+    admin.from('follow_up_dismissals').select('id').eq('member_id', memberId).is('undone_at', null).limit(1),
+    loadSupportWhatsApp(),
+  ])
+  if (p?.role !== 'tutor') return null
+  return pipeCardFrom({
+    name: (p.full_name as string | null) ?? '',
+    feePaid: !!tp?.verified_fee_paid_at,
+    completion: Number(p.profile_completion ?? 0) || 0,
+    mobileOk: !!p.phone_number && !!p.phone_verified_at,
+    docs: docs.get(memberId),
+    contacts: contacts.get(memberId) ?? [],
+    notInterested: (ni.data ?? []).length > 0,
+    paused: !!p.is_suspended || !!p.is_banned || !!p.paused_by_user_at,
+    lastActiveAt: (p.created_at as string | null) ?? null,
+    support,
+    nowMs: Date.now(),
+  })
+}
 
 /**
  * After a follow-up is recorded or undone, the stored People row moves at once

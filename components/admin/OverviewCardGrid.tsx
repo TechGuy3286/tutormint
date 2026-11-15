@@ -20,9 +20,8 @@ import LoadMoreLink from '@/components/admin/LoadMoreLink'
 import QueueSearch from '@/components/admin/QueueSearch'
 import { gridHref } from '@/lib/cardGridPagingCore'
 import SelfieMatchWarning from '@/components/admin/SelfieMatchWarning'
-import PipelineActions, { PipelineMoreMenu, type PipeLinks } from '@/components/admin/PipelineActions'
+import PipelineCardBody, { type PipeLinks } from '@/components/admin/PipelineActions'
 import { showProfileShare, type PipeCard } from '@/lib/tutorPipelineCardCore'
-import { isFollowStage } from '@/lib/tutorPipelineCore'
 import {
   DOC_FILTERS,
   applyDocFilter,
@@ -113,7 +112,10 @@ export type GridParent = {
 export type FilterRow = {
   param: string
   label: string
-  options: { key: string; label: string; hideWhenZero?: boolean }[]
+  options: { key: string; label: string; hideWhenZero?: boolean; hidden?: boolean }[]
+  /** The stored tag the row filters on, when it is not `param` (People →
+   *  Tutors' stage and follow-up rows read array tags — owner, 15 Nov 2026). */
+  sqlParam?: string
   /** Write the first option into the address too (People → Tutors' "All",
    *  whose empty address means the default stage — owner, 9 Nov 2026). */
   keepFirst?: boolean
@@ -181,15 +183,18 @@ function PagedGrid({ items, isOwner = false, filterRows = [], paged }: GridProps
   if (paged.docFilter && paged.docFilter !== 'all') searchKeep.docs = paged.docFilter
   return (
     <div className="space-y-3">
+      {/* On a phone the search and the chips stay pinned under the header,
+          and each chip row scrolls sideways (owner, 15 Nov 2026). */}
+      <div className="sticky top-[61px] z-20 -mx-4 space-y-2 border-b border-gray-200 bg-tm-bg px-4 py-2 sm:static sm:mx-0 sm:space-y-3 sm:border-0 sm:bg-transparent sm:p-0" data-pinned-controls="">
       <QueueSearch basePath={paged.basePath} initialQuery={paged.q} filter="" keep={searchKeep} placeholder="Search this list" ariaLabel="Search this list" />
       {filterRows.map((row) => (
-        <nav key={row.param} aria-label={row.label} className="flex flex-wrap gap-2">
+        <nav key={row.param} aria-label={row.label} className="-mx-4 flex flex-nowrap gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0" data-chip-row="">
           {row.options
-            .filter((o) => !o.hideWhenZero || (paged.rowCounts[row.param]?.[o.key] ?? 0) > 0 || paged.sel[row.param] === o.key)
+            .filter((o) => (!o.hidden && (!o.hideWhenZero || (paged.rowCounts[row.param]?.[o.key] ?? 0) > 0)) || paged.sel[row.param] === o.key)
             .map((o) => {
               const on = (paged.sel[row.param] ?? row.options[0].key) === o.key
               return (
-                <Link key={o.key} href={href({ [row.param]: o.key })} scroll={false} aria-current={on ? 'page' : undefined} className={CHIP(on)}>
+                <Link key={o.key} href={href({ [row.param]: o.key })} scroll={false} aria-current={on ? 'page' : undefined} className={`${CHIP(on)} shrink-0 whitespace-nowrap`}>
                   {o.label} <span className={on ? 'text-white' : 'text-gray-500'}>{paged.rowCounts[row.param]?.[o.key] ?? 0}</span>
                 </Link>
               )
@@ -208,6 +213,7 @@ function PagedGrid({ items, isOwner = false, filterRows = [], paged }: GridProps
           })}
         </nav>
       )}
+      </div>
       {paged.q.trim() && (
         <p className="text-[11px] font-semibold text-gray-600">
           {paged.searchedCount} of {paged.allCount} match “{paged.q.trim()}”
@@ -220,7 +226,7 @@ function PagedGrid({ items, isOwner = false, filterRows = [], paged }: GridProps
       ) : (
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" data-card-count={paged.total}>
           {items.map((it) => (
-            <li key={it.id} className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-4">
+            <li key={it.id} className={`relative flex min-w-0 flex-col gap-3 rounded-2xl border border-gray-200 bg-white ${it.pipe ? 'p-3' : 'p-4'}`}>
               {it.member ? <MemberBody it={it} m={it.member} onMoved={refresh} onRestored={refresh} /> : <PlainBody it={it} />}
             </li>
           ))}
@@ -422,8 +428,19 @@ function MemberBody({
 }) {
   const openHref = `/admin/users/${it.memberId}`
   const fu = it.followUp ?? null
-  // A tutor in a followed-up stage gets the stage's own buttons instead.
-  const pipeOwnsContact = !!it.pipe && isFollowStage(it.pipe.card.stage)
+  // People → Tutors: the compact pipeline card (owner, 15 Nov 2026).
+  if (it.pipe && it.memberId) {
+    return (
+      <PipelineCardBody
+        memberId={it.memberId}
+        pipe={it.pipe.card}
+        links={it.pipe.links}
+        m={{ name: m.name, avatarUrl: m.avatarUrl, gender: m.gender, city: m.city, joinedAt: m.joinedAt, completion: m.completion, badges: m.badges }}
+        reviewHref={it.reviewHref}
+        extra={it.dupes && it.dupes.length > 0 ? <DupesLine it={it} /> : null}
+      />
+    )
+  }
   // The details table already shows the joined date (owner, 19 Oct 2026).
   const memberDetail = withoutJoined(it.detail)
   return (
@@ -444,8 +461,6 @@ function MemberBody({
             {m.city ? ` · ${m.city}` : ''}
           </p>
         </div>
-        {/* "Not interested" and its Undo, out of the way (owner, 9 Nov 2026). */}
-        {it.pipe && it.memberId && <PipelineMoreMenu memberId={it.memberId} pipe={it.pipe.card} />}
       </div>
 
       <dl className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px]">
@@ -468,9 +483,8 @@ function MemberBody({
             <dt className="text-gray-500">Last active</dt>
             <dd className="text-right font-semibold text-slate-700">{it.parent.lastActive ? formatDate(it.parent.lastActive) : '—'}</dd>
           </>
-        ) : it.pipe ? null : (
+        ) : (
           <>
-            {/* A pipeline card shows the profile % in its one status line. */}
             <dt className="text-gray-500">Profile</dt>
             <dd className="text-right font-semibold text-slate-700">{m.completion}%</dd>
           </>
@@ -483,28 +497,13 @@ function MemberBody({
         )}
       </dl>
 
-      {it.dupes && it.dupes.length > 0 && (
-        <p className="rounded-lg bg-tm-tint-red px-2 py-1 text-[11px] font-semibold text-tm-red">
-          Possible duplicate:{' '}
-          {it.dupes.map((d, i) => (
-            <span key={d.id}>
-              {i > 0 ? ', ' : ''}
-              <Link href={`/admin/users/${d.id}`} className="underline underline-offset-2">
-                {d.name}
-              </Link>{' '}
-              ({d.reason})
-              <DuplicateActions aId={it.memberId ?? it.id} bId={d.id} reason={d.reasonKey ?? null} />
-            </span>
-          ))}
-        </p>
-      )}
-      {it.docs && !it.pipe && <DocsRow docs={it.docs} />}
+      {it.dupes && it.dupes.length > 0 && <DupesLine it={it} />}
+      {it.docs && <DocsRow docs={it.docs} />}
       {it.docs?.selfieLooksLikePhoto && <SelfieMatchWarning compact />}
-      {it.pipe && it.memberId && <PipelineActions memberId={it.memberId} pipe={it.pipe.card} links={it.pipe.links} />}
       {/* Only a paid tutor's profile is public (owner, 9 Nov 2026). */}
       {m.role === 'tutor' && it.share && showProfileShare(m.paid) && <ProfileShareButtons share={it.share} />}
 
-      {m.stoppedAt && !it.pipe && (
+      {m.stoppedAt && (
         <p className="rounded-lg bg-tm-tint-gold px-2 py-1 text-[11px] font-semibold text-tm-gold-ink">Next: {m.stoppedAt}</p>
       )}
       {memberDetail && <p className="text-[11px] text-gray-600">{memberDetail}</p>}
@@ -535,14 +534,14 @@ function MemberBody({
             btnClass={BTN}
           />
         )}
-        {!fu && !pipeOwnsContact && m.msisdn && it.memberId && (
+        {!fu && m.msisdn && it.memberId && (
           // Pre-filled from the member's own state, logged (owner, 20 Oct 2026);
           // a parent's send is a recorded follow-up with Undo (27 Oct 2026).
           <AdminWhatsAppLink memberId={it.memberId} from="overview" className={`${BTN} bg-tm-green-deep text-white hover:bg-tm-green-deep-hover`}>
             <MessageCircle aria-hidden size={13} /> WhatsApp
           </AdminWhatsAppLink>
         )}
-        {!fu && !pipeOwnsContact && m.msisdn && (
+        {!fu && m.msisdn && (
           <a href={`tel:+${m.msisdn}`} className={`${BTN} border border-gray-200 text-slate-700 hover:border-tm-navy`}>
             <Phone aria-hidden size={13} /> Call
           </a>
@@ -557,6 +556,25 @@ function MemberBody({
         <MarkFollowedUp memberId={it.memberId} source={fu.source} templateKey={fu.templateKey} tab={fu.tab} onMoved={onMoved} onRestored={onRestored} />
       )}
     </>
+  )
+}
+
+/** "Possible duplicate: <name> (same mobile)" with its actions. */
+function DupesLine({ it }: { it: GridItem }) {
+  return (
+    <p className="rounded-lg bg-tm-tint-red px-2 py-1 text-[11px] font-semibold text-tm-red">
+      Possible duplicate:{' '}
+      {(it.dupes ?? []).map((d, i) => (
+        <span key={d.id}>
+          {i > 0 ? ', ' : ''}
+          <Link href={`/admin/users/${d.id}`} className="underline underline-offset-2">
+            {d.name}
+          </Link>{' '}
+          ({d.reason})
+          <DuplicateActions aId={it.memberId ?? it.id} bId={d.id} reason={d.reasonKey ?? null} />
+        </span>
+      ))}
+    </p>
   )
 }
 

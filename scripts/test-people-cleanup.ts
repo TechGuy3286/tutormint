@@ -151,14 +151,15 @@ test('share buttons only for paid tutors', () => {
 
 test('one status line: no separate "Next:" or Documents row on a pipeline card; Not interested in the ⋯ menu', () => {
   const grid = read('components/admin/OverviewCardGrid.tsx')
-  assert.ok(grid.includes('{m.stoppedAt && !it.pipe && ('))
-  assert.ok(grid.includes('{it.docs && !it.pipe && <DocsRow'))
-  assert.ok(grid.includes('<PipelineMoreMenu memberId={it.memberId} pipe={it.pipe.card} />'))
+  // A pipeline card is its own compact body (owner, 15 Nov 2026): no Joined /
+  // Fee / Documents / "Next:" rows; the ⋯ menu sits beside the name.
+  assert.ok(grid.includes('if (it.pipe && it.memberId) {'))
+  assert.ok(grid.includes('<PipelineCardBody'))
   const pa = read('components/admin/PipelineActions.tsx')
   const body = pa.slice(0, pa.indexOf('export function PipelineMoreMenu'))
   assert.ok(!body.includes('<NotInterestedButton'), 'Not interested is not in the card body')
-  assert.ok(!/Missing: \{/.test(body), 'no separate Missing line')
-  assert.ok(body.includes('{pipeStatusLine(pipe)}'))
+  assert.ok(body.includes('<PipelineMoreMenu memberId={memberId} pipe={pipe} />'))
+  assert.ok(body.includes('pipeDetailLine(pipe, now)'))
 })
 
 // --------------------------------------------------------- 3. default view ---

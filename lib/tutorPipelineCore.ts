@@ -46,6 +46,9 @@ export const LATER_GAP_DAYS = 3
 export type DocState = 'approved' | 'waiting' | 'rejected' | 'none'
 
 export const PIPE_STAGES = ['missing', 'waiting', 'rejected', 'approved', 'paid'] as const
+/** The stage row's "Re-uploaded" chip (owner, 15 Nov 2026): tutors who uploaded
+ *  a new document after a rejection, whatever their stage. */
+export const REUPLOADED = 'reuploaded'
 export type PipeStage = (typeof PIPE_STAGES)[number]
 /** The stages staff follow up. */
 export const FOLLOW_STAGES = ['missing', 'rejected', 'approved'] as const
@@ -134,8 +137,10 @@ export function rejectedDocs(f: PipeDocs, reasons: Partial<Record<(typeof DOCS)[
 
 // ------------------------------------------------------------ contacts ---
 
-export type PipeKind = 'whatsapp' | 'voice' | 'call'
-export const KIND_LABEL: Record<PipeKind, string> = { whatsapp: 'WhatsApp', voice: 'Voice note', call: 'Call' }
+/** 'inbox' = a Team inbox message sent to the tutor (owner, 15 Nov 2026). */
+export type PipeKind = 'whatsapp' | 'voice' | 'call' | 'inbox'
+export const PIPE_KINDS = ['whatsapp', 'voice', 'call', 'inbox'] as const
+export const KIND_LABEL: Record<PipeKind, string> = { whatsapp: 'WhatsApp', voice: 'Voice note', call: 'Call', inbox: 'Team inbox' }
 
 /** The template key stored with a follow-up recorded here. */
 export function pipeTemplateKey(stage: FollowStage, kind: PipeKind): string {
@@ -150,7 +155,7 @@ export function stageOfProgress(progress: string | null | undefined): FollowStag
   return m ? (m[1] as FollowStage) : null
 }
 export function kindOfTemplateKey(key: string | null | undefined): PipeKind | null {
-  const m = /^pipe_(?:missing|rejected|approved)_(whatsapp|voice|call)$/.exec(key ?? '')
+  const m = /^pipe_(?:missing|rejected|approved)_(whatsapp|voice|call|inbox)$/.exec(key ?? '')
   return m ? (m[1] as PipeKind) : null
 }
 
@@ -166,6 +171,27 @@ export type PipeContact = {
    *  approved (`…|…|…|1`); null = no snapshot. */
   docsApproved: boolean | null
   staffName: string | null
+  /** A call that did NOT reach the tutor (owner, 15 Nov 2026): "No answer" or
+   *  "Wrong number". An attempt is logged and shown, but it is never a
+   *  follow-up: it does not count, and the tutor stays in Not followed up. */
+  attempt?: CallAttempt | null
+}
+
+/** The call outcomes that are attempts, not follow-ups. */
+export const CALL_ATTEMPTS = ['no_answer', 'wrong_number'] as const
+export type CallAttempt = (typeof CALL_ATTEMPTS)[number]
+export const ATTEMPT_LABEL: Record<CallAttempt, string> = { no_answer: 'No answer', wrong_number: 'Wrong number' }
+/** Call-log rows from this time on are read as attempts; older "no answer"
+ *  rows from the Unpaid signups log keep counting as calls (the 8 Nov rule). */
+export const CALL_OUTCOMES_FROM = '2026-11-15T00:00:00.000Z'
+/** After "No answer" the tutor is due again the next day. */
+export const RETRY_GAP_DAYS = 1
+
+/** A tutor_contact_logs row as the pipeline reads it: an attempt (a new "no
+ *  answer" / "wrong number"), or null = a call that counts. */
+export function callLogAttempt(outcome: string | null | undefined, at: string | null | undefined): CallAttempt | null {
+  if (outcome !== 'no_answer' && outcome !== 'wrong_number') return null
+  return (at ?? '') >= CALL_OUTCOMES_FROM ? outcome : null
 }
 
 /** Read an older Follow-ups progress snapshot (`step|pct|fee|docsApproved`). */
@@ -185,6 +211,7 @@ export function contactsInStage(contacts: PipeContact[], stage: FollowStage): Pi
   const sorted = contacts.filter((c) => Number.isFinite(ts(c.at))).sort((a, b) => ts(b.at) - ts(a.at))
   const out: PipeContact[] = []
   for (const c of sorted) {
+    if (c.attempt) continue // an attempt is never a follow-up
     if (c.stage !== null && c.stage !== stage) break // an earlier stage — it and everything before it are not this stage's
     if (c.stage === null && c.docsApproved !== null) {
       // An older tap with a snapshot: count it only where it fits.
@@ -209,6 +236,27 @@ export type FollowState = {
   last: PipeContact | null
   /** Rejected: a WhatsApp (message or voice note) was sent in this stage. */
   informed: boolean
+  /** The newest call attempt of this stage after its last follow-up (owner,
+   *  15 Nov 2026), and when the tutor is due again (the next day). */
+  lastAttempt?: { at: string; outcome: CallAttempt; by: string | null } | null
+  retryAt?: string | null
+}
+
+/** The call attempts of the current stage made after its last follow-up,
+ *  newest first. An attempt older than a contact of another stage is that
+ *  stage's, and one older than a follow-up is done with. */
+export function stageAttempts(contacts: PipeContact[], stage: FollowStage): PipeContact[] {
+  const sorted = contacts.filter((c) => Number.isFinite(ts(c.at))).sort((a, b) => ts(b.at) - ts(a.at))
+  const out: PipeContact[] = []
+  for (const c of sorted) {
+    if (!c.attempt) {
+      if (c.stage !== null && c.stage !== stage) break
+      if (contactsInStage([c], stage).length > 0) break
+      continue
+    }
+    out.push(c)
+  }
+  return out
 }
 
 export function nextKindFor(n: number): FollowState['nextKind'] {
@@ -222,7 +270,10 @@ export function followState(stage: FollowStage, contacts: PipeContact[], nowMs: 
   const last = mine[0] ?? null
   const informed = mine.some((c) => c.kind === 'whatsapp' || c.kind === 'voice')
   const nextNumber = sent + 1
-  if (!last) return { sent, nextNumber, nextKind: nextKindFor(nextNumber), dueAt: null, section: 'not', last, informed }
+  const att = stageAttempts(contacts, stage)[0] ?? null
+  const lastAttempt = att?.attempt ? { at: att.at, outcome: att.attempt, by: att.staffName } : null
+  const retryAt = att ? new Date(ts(att.at) + RETRY_GAP_DAYS * DAY).toISOString() : null
+  if (!last) return { sent, nextNumber, nextKind: nextKindFor(nextNumber), dueAt: null, section: 'not', last, informed, lastAttempt, retryAt }
   const gap = (sent === 1 ? FIRST_GAP_DAYS : LATER_GAP_DAYS) * DAY
   const due = ts(last.at) + gap
   return {
@@ -233,14 +284,56 @@ export function followState(stage: FollowStage, contacts: PipeContact[], nowMs: 
     section: nowMs >= due ? 'not' : 'done',
     last,
     informed,
+    lastAttempt,
+    retryAt,
   }
+}
+
+/** "No answer" today: still in Not followed up, but due again tomorrow — not
+ *  an act-now item until then. */
+export function retryPending(state: { section: 'not' | 'done' | null; retryAt?: string | null }, nowMs: number): boolean {
+  return state.section === 'not' && !!state.retryAt && ts(state.retryAt) > nowMs
+}
+
+// ------------------------------------------- follow-up chips (15 Nov) ---
+
+/** The follow-up chips of a followed-up stage (owner, 15 Nov 2026): who is due
+ *  now, and who is waiting after their 1st, 2nd or 3rd+ follow-up in this
+ *  stage. The numbered chips hold people whose next follow-up is not due yet;
+ *  when it is due they are back in "Not followed up". */
+export const FU_BUCKETS = ['not', 'f1', 'f2', 'f3'] as const
+export type FuBucket = (typeof FU_BUCKETS)[number]
+export const FU_BUCKET_LABEL: Record<FuBucket, string> = {
+  not: 'Not followed up (due now)',
+  f1: '1st follow-up',
+  f2: '2nd follow-up',
+  f3: '3rd+ follow-up',
+}
+/** The old "Followed up" chip (?fu=done): every numbered chip together. */
+export const FU_DONE = 'done'
+
+export function followBucket(state: { section: 'not' | 'done' | null; sent: number }): FuBucket | null {
+  if (state.section === null) return null
+  if (state.section === 'not') return 'not'
+  return state.sent <= 1 ? 'f1' : state.sent === 2 ? 'f2' : 'f3'
+}
+
+/** The stored follow-up tag: ['not'], or ['done', 'f1' | 'f2' | 'f3'] so an
+ *  old ?fu=done address still lists everyone followed up. */
+export function followTag(state: { section: 'not' | 'done' | null; sent: number }): string[] {
+  const b = followBucket(state)
+  if (!b) return ['na']
+  return b === 'not' ? ['not'] : [FU_DONE, b]
 }
 
 /** Is a recorded kind allowed for the next follow-up? */
 export function kindAllowed(nextKind: FollowState['nextKind'], kind: PipeKind): boolean {
+  // A call that reached them ("Yes, talked") and a Team inbox message always
+  // count (owner, 15 Nov 2026): Call sits beside every due button.
+  if (kind === 'call' || kind === 'inbox') return true
   if (nextKind === 'whatsapp') return kind === 'whatsapp'
   if (nextKind === 'voice') return kind === 'voice'
-  return kind === 'whatsapp' || kind === 'call'
+  return kind === 'whatsapp'
 }
 
 /** "Follow-up 2 sent · next due 10 Nov". */
@@ -266,6 +359,19 @@ export type PipeSortable = {
   noMobile?: boolean
   /** Last seen on the site, else when they signed up. */
   lastActiveAt: string | null
+  /** Re-uploaded a rejected document (owner, 15 Nov 2026): top of the stage. */
+  reuploaded?: boolean
+  /** Approved, fee pending: when the CNIC and photo were approved — Not
+   *  followed up there is oldest approval first (owner, 15 Nov 2026). */
+  approvedAt?: string | null
+}
+
+/** Approved, fee pending · Not followed up: oldest approval first. */
+function approvalOrder(a: PipeSortable, b: PipeSortable): number {
+  if (a.stage !== 'approved' || b.stage !== 'approved' || a.section !== 'not' || b.section !== 'not') return 0
+  const x = ts(a.approvedAt) || Infinity
+  const y = ts(b.approvedAt) || Infinity
+  return x === y ? 0 : x < y ? -1 : 1
 }
 
 /** The list order: stage (chip order); tutors with no mobile number at the
@@ -280,9 +386,11 @@ export function pipelineOrder<T extends PipeSortable>(rows: T[]): T[] {
     .sort(
       (a, b) =>
         rank(a.r.stage) - rank(b.r.stage) ||
+        Number(!a.r.reuploaded) - Number(!b.r.reuploaded) ||
         Number(!!a.r.noMobile) - Number(!!b.r.noMobile) ||
         sec(a.r.section) - sec(b.r.section) ||
         Number(a.r.paused) - Number(b.r.paused) ||
+        approvalOrder(a.r, b.r) ||
         (ts(b.r.lastActiveAt) || 0) - (ts(a.r.lastActiveAt) || 0) ||
         a.i - b.i,
     )
@@ -357,8 +465,8 @@ export function followUpsToPeople(sp: Record<string, string | string[] | undefin
   return `/admin/users?${q}`
 }
 
-/** A People → Tutors address on a stage (and Followed up split). */
-export function stageHref(stage: PipeStage | 'all', fu?: 'not' | 'done' | null): string {
+/** A People → Tutors address on a stage (and a follow-up chip). */
+export function stageHref(stage: PipeStage | 'all' | typeof REUPLOADED, fu?: FuBucket | typeof FU_DONE | null): string {
   const q = new URLSearchParams()
   q.set('tab', 'tutors')
   q.set('stage', stage)
@@ -376,10 +484,10 @@ const TUTOR_FILTER_KEYS = ['stage', 'fu', 'q', 'ni', 'signed', 'deleted', 'all',
  * enough). "All" is written into the address as stage=all, so it stays one
  * click away. Any filter in the address wins.
  */
-export function tutorStageFromAddress(sp: Record<string, string | string[] | undefined>): PipeStage | 'all' {
+export function tutorStageFromAddress(sp: Record<string, string | string[] | undefined>): PipeStage | 'all' | typeof REUPLOADED {
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? ''
   const stage = one(sp.stage)
-  if (stage === 'all' || isPipeStage(stage)) return stage
+  if (stage === 'all' || stage === REUPLOADED || isPipeStage(stage)) return stage as PipeStage | 'all' | typeof REUPLOADED
   const filtered = TUTOR_FILTER_KEYS.some((k) => one(sp[k]).trim() !== '')
   return filtered ? 'all' : 'approved'
 }

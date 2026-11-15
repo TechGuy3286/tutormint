@@ -24,10 +24,12 @@ export type CardDocs = DocSummary & {
   /** The current or waiting selfie looks the same as the profile picture
    *  (owner, 21 Oct 2026; lib/selfieMatch) — a warning only. */
   selfieLooksLikePhoto: boolean
+  /** CNIC and profile photo both approved: when the later of the two was (owner, 15 Nov 2026). */
+  approvedAt: string | null
 }
 
 const PROFILE_COLS =
-  'id, created_at, verification_state, verification_rejection_reason, cnic_verified_at, cnic_number, cnic_image_path, avatar_url, profile_pic_status, profile_pic_reason, profile_pic_rereview_at, selfie_status, selfie_reason'
+  'id, created_at, verification_state, verification_rejection_reason, cnic_verified_at, cnic_number, cnic_image_path, avatar_url, profile_pic_status, profile_pic_reason, profile_pic_rereview_at, profile_pic_reviewed_at, selfie_status, selfie_reason'
 
 export async function loadTutorDocSummaries(tutorIds: string[]): Promise<Map<string, CardDocs>> {
   const out = new Map<string, CardDocs>()
@@ -84,7 +86,11 @@ export async function loadTutorDocSummaries(tutorIds: string[]): Promise<Map<str
     times.sort()
     const oldest = summary.kind === 'waiting' ? (times[0] ?? (p.created_at as string | null) ?? null) : null
 
-    out.set(id, { ...summary, oldestUploadAt: oldest, statuses, selfieLooksLikePhoto: mine.some((d) => d.kind === 'selfie' && d.same === true) })
+    const cnicAt = (p.cnic_verified_at as string | null) ?? null
+    const picAt = (p.profile_pic_reviewed_at as string | null) ?? null
+    const approvedAt =
+      itemState(statuses.cnic) === 'approved' && itemState(statuses.profilePic) === 'approved' ? ([cnicAt, picAt].filter(Boolean).sort().pop() ?? null) : null
+    out.set(id, { ...summary, oldestUploadAt: oldest, approvedAt, statuses, selfieLooksLikePhoto: mine.some((d) => d.kind === 'selfie' && d.same === true) })
   }
   return out
 }

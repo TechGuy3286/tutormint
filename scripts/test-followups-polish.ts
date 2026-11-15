@@ -55,7 +55,8 @@ test('A: the Follow-ups → Tutors tab reads "Followed up"; Applications keeps "
   const page = read('app/admin/users/FollowUpTabs.tsx')
   assert.match(page, /\{FU_TAB_LABEL\[t\]\} <span/)
   assert.doesNotMatch(page, /'To do' : 'Sent'/, 'the old label is gone')
-  assert.match(read('app/admin/users/PeopleTabs.tsx'), /label: 'Followed up'/)
+  // People → Tutors: numbered follow-up chips since 15 Nov 2026; old ?fu=done is "Followed up (all)".
+  assert.match(read('app/admin/users/PeopleTabs.tsx'), /label: 'Followed up \(all\)'/)
   const buttons = read('components/admin/TutorFollowUpButtons.tsx')
   assert.match(buttons, /moved to Followed up/)
   assert.doesNotMatch(buttons, /moved to Sent/)

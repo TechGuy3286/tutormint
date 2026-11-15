@@ -16,7 +16,8 @@ import {
   peopleHref,
   type PeopleTab,
 } from '@/lib/peopleDirectoryCore'
-import { isFollowStage, PIPE_STAGES, STAGE_LABEL, tutorStageFromAddress } from '@/lib/tutorPipelineCore'
+import { FU_BUCKET_LABEL, FU_BUCKETS, FU_DONE, isFollowStage, PIPE_STAGES, REUPLOADED, STAGE_LABEL, tutorStageFromAddress } from '@/lib/tutorPipelineCore'
+import { REUPLOADED_LABEL } from '@/lib/tutorPipelineCardCore'
 import { isSignupWindow, type SignupWindow } from '@/lib/staffOutreachCore'
 import { parseFuTab } from '@/lib/tutorFollowUpTabsCore'
 import { parseParentChip } from '@/lib/parentFollowUpCore'
@@ -236,9 +237,15 @@ export default async function PeopleTabs({
     ? [
         {
           param: 'stage',
+          // An array tag: the stage, plus 'reuploaded' after a re-upload (owner, 15 Nov 2026).
+          sqlParam: 'stages',
           label: 'Stage',
           keepFirst: true,
-          options: [{ key: 'all', label: 'All' }, ...PIPE_STAGES.map((s) => ({ key: s, label: STAGE_LABEL[s] }))],
+          options: [
+            { key: 'all', label: 'All' },
+            ...PIPE_STAGES.map((s) => ({ key: s, label: STAGE_LABEL[s] })),
+            { key: REUPLOADED, label: REUPLOADED_LABEL },
+          ],
         },
         // People → Paid (owner, 10 Nov 2026): All paid · Verified · Premium · Featured.
         ...(stageSel === 'paid' && !showDeleted
@@ -247,11 +254,14 @@ export default async function PeopleTabs({
         ...(followRow
           ? [
               {
+                // Due now · 1st · 2nd · 3rd+ (owner, 15 Nov 2026); an old
+                // ?fu=done still lists everyone followed up (a hidden chip).
                 param: 'fu',
+                sqlParam: 'fus',
                 label: 'Follow-up',
                 options: [
-                  { key: 'not', label: 'Not followed up' },
-                  { key: 'done', label: 'Followed up' },
+                  ...FU_BUCKETS.map((b) => ({ key: b, label: FU_BUCKET_LABEL[b] })),
+                  { key: FU_DONE, label: 'Followed up (all)', hidden: true },
                 ],
               },
             ]
@@ -292,16 +302,19 @@ export default async function PeopleTabs({
   const q = one(sp.q) ?? ''
   const sel = pickChips(rows, isTutors ? { ...sp, stage: stageSel } : sp)
   const shown = shownCount(sp.n)
-  const order = isTutors && (sel.fu === 'done' || sel.stage === 'waiting') ? 'sort_asc' : 'pos'
+  // A numbered follow-up chip lists soonest due first; Waiting oldest upload first.
+  const order = isTutors && ((followRow && sel.fu !== 'not') || sel.stage === 'waiting') ? 'sort_asc' : 'pos'
   const res = await listPage<PeopleCardRow>(peopleList(isTutors ? 'tutor' : 'parent'), {
     fixed,
     since: range?.since ?? null,
     until: range?.until ?? null,
     q,
-    rows: rows.map((r) => ({ param: r.param, value: sel[r.param] ?? r.options[0].key })),
+    rows: rows.map((r) => ({ param: r.sqlParam ?? r.param, value: sel[r.param] ?? r.options[0].key })),
     order,
     limit: shown,
   })
+  // The counts come back keyed by the stored tag; the chips read them by param.
+  const rowCountsByParam = Object.fromEntries(rows.map((r) => [r.param, res.rowCounts[r.sqlParam ?? r.param] ?? {}]))
   const page = sliceFromList(res.rows, res.total, shown)
 
   // The Not interested chip's count, the viewer's staff code, and Backend Support's own numbers.
@@ -419,7 +432,7 @@ export default async function PeopleTabs({
           keep,
           q,
           sel,
-          rowCounts: chipCountsFromList(res.rowCounts, rows),
+          rowCounts: chipCountsFromList(rowCountsByParam, rows),
           docFilter: null,
           docCounts: null,
           shown: page.shown,

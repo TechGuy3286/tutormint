@@ -8,6 +8,8 @@ import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import AdminWhatsAppLink from '@/components/admin/AdminWhatsAppLink'
+import PipeContactButtons, { type PipeContactLinks } from '@/components/admin/PipeContactButtons'
+import type { FollowStage, FollowState } from '@/lib/tutorPipelineCore'
 
 // Actions on a member page (owner, 20 Oct 2026):
 //
@@ -43,6 +45,7 @@ export default function MemberActions({
   callMsisdn = null,
   editTutorHref = null,
   secondRole = null,
+  pipeContact = null,
 }: {
   userId: string
   name: string
@@ -69,6 +72,9 @@ export default function MemberActions({
   editTutorHref?: string | null
   /** "Create parent account" / "Create tutor account" (SecondRoleCard). */
   secondRole?: React.ReactNode
+  /** A tutor due a follow-up (owner, 15 Nov 2026): the stage's own WhatsApp,
+   *  voice note and Call, each logged as the card logs it. */
+  pipeContact?: { stage: FollowStage; nextKind: FollowState['nextKind']; links: PipeContactLinks } | null
 }) {
   const router = useRouter()
   const toast = useToast()
@@ -325,17 +331,33 @@ export default function MemberActions({
                     Message
                   </Link>
                 )}
-                {whatsappMsisdn && (
-                  <AdminWhatsAppLink memberId={userId} from="member" className={`${BTN} bg-tm-green-deep text-white hover:bg-tm-green-deep-hover`}>
-                    <MessageCircle aria-hidden size={14} />
-                    WhatsApp
-                  </AdminWhatsAppLink>
-                )}
-                {callMsisdn && (
-                  <a href={`tel:+${callMsisdn}`} className={`${BTN} border border-gray-200 text-slate-700 hover:border-tm-navy`}>
-                    <Phone aria-hidden size={14} />
-                    Call
-                  </a>
+                {/* ONE WhatsApp button (owner, 15 Nov 2026). A tutor due a
+                    follow-up gets the stage's ready message, and every
+                    contact here is logged exactly as on the People card. */}
+                {pipeContact ? (
+                  <PipeContactButtons
+                    memberId={userId}
+                    stage={pipeContact.stage}
+                    nextKind={pipeContact.nextKind}
+                    links={pipeContact.links}
+                    from="member"
+                    btnClass={BTN}
+                  />
+                ) : (
+                  <>
+                    {whatsappMsisdn && (
+                      <AdminWhatsAppLink memberId={userId} from="member" className={`${BTN} bg-tm-green-deep text-white hover:bg-tm-green-deep-hover`}>
+                        <MessageCircle aria-hidden size={14} />
+                        WhatsApp
+                      </AdminWhatsAppLink>
+                    )}
+                    {callMsisdn && (
+                      <a href={`tel:+${callMsisdn}`} className={`${BTN} border border-gray-200 text-slate-700 hover:border-tm-navy`}>
+                        <Phone aria-hidden size={14} />
+                        Call
+                      </a>
+                    )}
+                  </>
                 )}
                 {!whatsappMsisdn && !callMsisdn && <span className="self-center text-[11px] text-gray-500">No mobile number on file.</span>}
               </div>

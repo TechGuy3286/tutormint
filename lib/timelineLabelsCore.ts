@@ -29,6 +29,7 @@ export const AUDIT_LABELS: Record<string, string> = {
   'member.hide_public': 'Hid the account from public pages',
   'member.unhide_public': 'Took off the test-account mark',
   'member.not_interested': 'Marked as not interested on Follow-ups',
+  'member.call_attempt': 'Called, did not reach them (no answer or wrong number)',
   'member.not_interested_undo': 'Put back on Follow-ups (not interested undone)',
   'member.not_interested_return': 'Came back on their own after uploading or paying (was not interested)',
   'member.self_pause': 'Paused their own account',

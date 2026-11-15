@@ -2,80 +2,94 @@
 
 import { planEndsLine } from '@/lib/upgradePlanCore'
 import LooksFineButton from '@/components/admin/LooksFineButton'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { AlertTriangle, Check, Mic, MessageCircle, MoreHorizontal, Phone, X } from 'lucide-react'
+import { AlertTriangle, FileCheck2, MoreHorizontal, RotateCcw, X } from 'lucide-react'
 
+import Avatar from '@/components/Avatar'
+import BadgeRow from '@/components/badges/BadgeRow'
 import { adminFetch } from '@/components/admin/adminFetch'
 import NotInterestedButton from '@/components/admin/NotInterestedButton'
 import PaidWelcomeActions from '@/components/admin/PaidWelcomeActions'
+import PipeContactButtons, { type PipeContactLinks } from '@/components/admin/PipeContactButtons'
 import { useAdminReadOnly, useDocDecider } from '@/components/admin/ReadOnly'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/Toast'
-import { formatDate } from '@/lib/datetime'
+import { formatDate, formatDayMonth } from '@/lib/datetime'
+import type { BadgeName } from '@/lib/planBadges'
 import { niChip, type NiMark } from '@/lib/notInterestedCore'
-import { UNDO_MS } from '@/lib/tutorFollowUpTabsCore'
-import { dueLine, isFollowStage, KIND_LABEL, sentLine, type PipeKind } from '@/lib/tutorPipelineCore'
+import { isFollowStage } from '@/lib/tutorPipelineCore'
 import { SELFIE_CHECKED_LABEL } from '@/lib/selfieOptionalCore'
-import { blankLine, NO_MOBILE_LINE, pipeStatusLine, type PipeCard } from '@/lib/tutorPipelineCardCore'
+import {
+  blankLine,
+  lastOutcomeLine,
+  NO_MOBILE_LINE,
+  pipeDetailLine,
+  pipeMetaLine,
+  REUPLOADED_LABEL,
+  type PipeCard,
+} from '@/lib/tutorPipelineCardCore'
 import { BLANK_REJECT_LABEL, blankRejectReason, type BlankItem } from '@/lib/photoBlankCore'
 
-// People → Tutors (owner, 8 Nov 2026; cleaned up 9 Nov 2026): the pipeline
-// block on a tutor card. ONE status line (what is missing, waiting or
-// rejected, and the profile %), then the ONE follow-up that is due:
-//   Follow-up 1   WhatsApp — opens the ready message, logged on tap.
-//   Follow-up 2   voice note — opens the chat; staff record it in WhatsApp,
-//                 then tap "Voice note sent" to log it.
-//   Follow-up 3+  WhatsApp (logged on tap) or a call ("Call done" logs it).
-// Every log has a 10-second Undo; the card moves to Followed up at once.
-// A photo that looks blank shows a red flag and a one-tap "Reject — photo
-// unclear" (the existing rejection flow and reason; never automatic).
-// "Not interested" and its Undo live in the card's "⋯" menu (PipelineMoreMenu).
+// People → Tutors — the COMPACT card (owner, 15 Nov 2026; phone first). The
+// whole card opens the member page; on it:
+//   name + badges, the ⋯ menu ("Not interested");
+//   one meta line   "Multan · joined 8 Nov · 94%";
+//   one detail line what is missing / rejected / waiting, or "Approved 3 days ago"
+//                   (never the stage itself — that is the chip staff picked);
+//   one outcome line "11 Nov · WhatsApp by Alee · Follow-up 2 due";
+//   the ONE due action (WhatsApp, or a voice note) plus Call.
+// Waiting cards get Review; Paid cards the welcome. A photo that looks blank
+// shows a red flag with a one-tap "Reject — photo unclear" (the existing
+// rejection flow; never automatic) and "Looks fine".
 
-export type PipeLinks = {
-  /** The stage's ready message (number and staff ref already in it). */
-  waHref: string | null
-  /** The chat with no message, for the voice note. */
-  chatHref: string | null
-  telHref: string | null
+export type PipeLinks = PipeContactLinks
+
+export type PipeCardMember = {
+  name: string
+  avatarUrl: string | null
+  gender?: string | null
+  city: string | null
+  joinedAt: string | null
+  completion: number
+  badges: BadgeName[]
 }
 
 const BTN = 'inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl px-2 text-[11px] font-bold'
 const BLANK_NAME: Record<BlankItem, string> = { photo: 'Profile photo', selfie: 'Selfie' }
 
-export default function PipelineActions({ memberId, pipe, links }: { memberId: string; pipe: PipeCard; links: PipeLinks }) {
+const TONE: Record<PipeCard['stage'], string> = {
+  rejected: 'text-tm-red',
+  approved: 'text-tm-green-deep',
+  paid: 'text-tm-green-deep',
+  missing: 'text-tm-gold-ink',
+  waiting: 'text-tm-gold-ink',
+}
+
+export default function PipelineCardBody({
+  memberId,
+  pipe,
+  links,
+  m,
+  reviewHref,
+  extra,
+}: {
+  memberId: string
+  pipe: PipeCard
+  links: PipeLinks
+  m: PipeCardMember
+  reviewHref: string | null
+  /** A possible-duplicate line and the like, under the outcome line. */
+  extra?: ReactNode
+}) {
   const router = useRouter()
   const toast = useToast()
   const confirm = useConfirm()
   const readOnly = useAdminReadOnly()
   const decider = useDocDecider()
   const [busy, setBusy] = useState(false)
-
-  const undo = async (id: string) => {
-    const { ok, data } = await adminFetch<{ error?: string }>('/api/admin/people/follow-up', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'undo', id }),
-    })
-    if (!ok) return void toast.error(data?.error ?? 'Could not undo that.')
-    toast.success('Undone — the tutor is back where they were.')
-    router.refresh()
-  }
-
-  const record = async (kind: PipeKind) => {
-    if (busy) return
-    setBusy(true)
-    const { ok, data } = await adminFetch<{ error?: string; id?: string; number?: number }>('/api/admin/people/follow-up', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'record', memberId, stage: pipe.stage, kind }),
-    })
-    setBusy(false)
-    if (!ok || !data?.id) return void toast.error(data?.error ?? 'That did not save. Please try again.')
-    const id = data.id
-    router.refresh()
-    toast.success(`Follow-up ${data.number ?? ''} logged (${KIND_LABEL[kind]}) — moved to Followed up`, { label: 'Undo', onClick: () => void undo(id), ms: UNDO_MS })
-  }
+  const [now] = useState(() => Date.now())
 
   // The one-tap rejection of a blank photo — the SAME route and reasons as the
   // Review card; the server decides who may.
@@ -107,98 +121,109 @@ export default function PipelineActions({ memberId, pipe, links }: { memberId: s
   const blank = blankLine(pipe)
   const pending = pipe.pending ?? []
   // Backend Support may decide only a waiting photo or selfie; the Owner any.
-  const mayReject = (item: BlankItem) =>
-    !readOnly && (decider === 'owner' || (decider === 'staff' && pending.includes(BLANK_NAME[item])))
-  const tone =
-    pipe.stage === 'rejected'
-      ? 'bg-tm-tint-red text-tm-red'
-      : pipe.stage === 'approved' || pipe.stage === 'paid'
-        ? 'bg-tm-tint-green text-tm-green-deep'
-        : 'bg-tm-tint-gold text-tm-gold-ink'
+  const mayReject = (item: BlankItem) => !readOnly && (decider === 'owner' || (decider === 'staff' && pending.includes(BLANK_NAME[item])))
+  const detail = pipeDetailLine(pipe, now)
+  const outcome = followable && !pipe.noMobile ? lastOutcomeLine(pipe, formatDayMonth, now) : null
+  const contact = !readOnly && followable && !pipe.noMobile && follow && isFollowStage(pipe.stage)
 
   return (
-    <div className="space-y-2 text-[11px]" data-pipe-stage={pipe.stage}>
-      <p data-status-line="" className={`rounded-lg px-2 py-1 font-semibold ${tone}`}>
-        {pipeStatusLine(pipe)}
-      </p>
-      {pipe.selfieChecked && (
-        <p data-selfie-checked="" className="font-bold text-tm-green-deep">{SELFIE_CHECKED_LABEL}</p>
-      )}
-      {blank && (
-        <div className="space-y-1 rounded-lg border border-tm-red/40 bg-tm-tint-red px-2 py-1.5" data-blank-flag="">
-          <p className="flex items-center gap-1 font-bold text-tm-red">
-            <AlertTriangle aria-hidden size={12} /> {blank}
+    <div className="relative flex h-full flex-col gap-2 text-[11px]" data-pipe-stage={pipe.stage} data-pipe-card="">
+      {/* The whole card opens the member page; buttons sit above the link. */}
+      <Link href={`/admin/users/${memberId}`} aria-label={`Open ${m.name}`} className="absolute inset-0 z-0 rounded-2xl" data-card-link="" />
+      <div className="pointer-events-none relative z-10 flex flex-col gap-1.5 [&_a]:pointer-events-auto [&_button]:pointer-events-auto">
+        <div className="flex items-start gap-2.5">
+          <Avatar name={m.name} src={m.avatarUrl} gender={m.gender} decorative className="h-10 w-10 shrink-0 text-xs" px={40} />
+          <div className="min-w-0 flex-1">
+            <p className="flex min-h-[20px] min-w-0 items-center gap-1.5" data-name-row="">
+              <span className="min-w-0 truncate text-sm font-black text-tm-navy">{m.name}</span>
+              {m.badges.length > 0 && <BadgeRow badges={m.badges} size="sm" showUrdu={false} className="shrink-0" nowrap />}
+            </p>
+            <p className="truncate text-gray-600" data-meta-line="">
+              {pipeMetaLine({ city: m.city, joinedAt: m.joinedAt, completion: pipe.completion ?? m.completion }, formatDayMonth)}
+            </p>
+          </div>
+          <PipelineMoreMenu memberId={memberId} pipe={pipe} />
+        </div>
+
+        {(pipe.reuploaded || pipe.selfieChecked) && (
+          <p className="flex flex-wrap gap-1">
+            {pipe.reuploaded && (
+              <span data-reuploaded="" className="inline-flex items-center gap-1 rounded-full bg-tm-tint-navy px-2 py-0.5 text-[10px] font-bold text-tm-navy">
+                <RotateCcw aria-hidden size={10} /> {REUPLOADED_LABEL}
+              </span>
+            )}
+            {pipe.selfieChecked && (
+              <span data-selfie-checked="" className="rounded-full bg-tm-tint-green px-2 py-0.5 text-[10px] font-bold text-tm-green-deep">
+                {SELFIE_CHECKED_LABEL}
+              </span>
+            )}
           </p>
-          {(pipe.blank ?? []).filter(mayReject).map((item) => (
-            <button
-              key={item}
-              type="button"
-              disabled={busy}
-              onClick={() => void rejectBlank(item)}
-              className="inline-flex min-h-[36px] w-full items-center justify-center gap-1 rounded-lg border border-tm-red bg-white px-2 font-bold text-tm-red disabled:opacity-50"
-            >
-              <X aria-hidden size={12} /> {BLANK_REJECT_LABEL}
-              {(pipe.blank ?? []).length > 1 ? ` (${BLANK_NAME[item]})` : ''}
-            </button>
-          ))}
-          {!readOnly &&
-            (pipe.blank ?? []).map((item) => (
-              <LooksFineButton key={`fine-${item}`} memberId={memberId} item={item} label={(pipe.blank ?? []).length > 1 ? `Looks fine (${BLANK_NAME[item]})` : undefined} />
+        )}
+        {detail && (
+          <p data-detail-line="" className={`break-words font-semibold ${TONE[pipe.stage]}`}>
+            {detail}
+          </p>
+        )}
+        {outcome && (
+          <p data-outcome-line="" className={`break-words font-semibold ${due ? 'text-tm-red' : 'text-slate-700'}`}>
+            {outcome}
+          </p>
+        )}
+        {pipe.noMobile && <p className="font-semibold text-gray-600">{NO_MOBILE_LINE}</p>}
+        {pipe.notInterested && <NotInterestedChip mark={pipe.niMark ?? null} />}
+        {extra}
+
+        {blank && (
+          <div className="space-y-1 rounded-lg border border-tm-red/40 bg-tm-tint-red px-2 py-1.5" data-blank-flag="">
+            <p className="flex items-center gap-1 font-bold text-tm-red">
+              <AlertTriangle aria-hidden size={12} /> {blank}
+            </p>
+            {(pipe.blank ?? []).filter(mayReject).map((item) => (
+              <button
+                key={item}
+                type="button"
+                disabled={busy}
+                onClick={() => void rejectBlank(item)}
+                className="inline-flex min-h-[36px] w-full items-center justify-center gap-1 rounded-lg border border-tm-red bg-white px-2 font-bold text-tm-red disabled:opacity-50"
+              >
+                <X aria-hidden size={12} /> {BLANK_REJECT_LABEL}
+                {(pipe.blank ?? []).length > 1 ? ` (${BLANK_NAME[item]})` : ''}
+              </button>
             ))}
-        </div>
-      )}
-      {pipe.stage === 'paid' && planEndsLine(pipe.plan) && (
-        <p data-plan-line="" className="rounded-lg bg-tm-tint-navy px-2 py-1 font-bold text-tm-navy">
-          {planEndsLine(pipe.plan)}
-        </p>
-      )}
-      {pipe.stage === 'paid' && <PaidWelcomeActions memberId={memberId} welcome={pipe.welcome} badge={pipe.badge} />}
-      {pipe.noMobile && <p className="font-semibold text-gray-600">{NO_MOBILE_LINE}</p>}
-      {pipe.notInterested && <NotInterestedChip mark={pipe.niMark ?? null} />}
+            {!readOnly &&
+              (pipe.blank ?? []).map((item) => (
+                <LooksFineButton key={`fine-${item}`} memberId={memberId} item={item} label={(pipe.blank ?? []).length > 1 ? `Looks fine (${BLANK_NAME[item]})` : undefined} />
+              ))}
+          </div>
+        )}
+        {pipe.stage === 'paid' && planEndsLine(pipe.plan) && (
+          <p data-plan-line="" className="rounded-lg bg-tm-tint-navy px-2 py-1 font-bold text-tm-navy">
+            {planEndsLine(pipe.plan)}
+          </p>
+        )}
+        {pipe.stage === 'paid' && <PaidWelcomeActions memberId={memberId} welcome={pipe.welcome} badge={pipe.badge} />}
 
-      {followable && follow && !pipe.noMobile && (
-        <p className={`font-semibold ${due ? 'text-tm-red' : 'text-tm-green-deep'}`}>
-          {pipe.section === 'done' ? sentLine(follow, formatDate) : dueLine(follow)}
-          {due && follow.sent > 0 && pipe.lastContact ? ` · last ${formatDate(pipe.lastContact.at)}${pipe.lastContact.by ? ` by ${pipe.lastContact.by}` : ''}` : ''}
-        </p>
-      )}
-
-      {!readOnly && due && follow && !pipe.noMobile && (
-        <div className="flex flex-wrap gap-2">
-          {follow.nextKind !== 'voice' && links.waHref && (
-            <a
-              href={links.waHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => void record('whatsapp')}
-              aria-disabled={busy}
-              className={`${BTN} bg-tm-green-deep text-white hover:bg-tm-green-deep-hover`}
-            >
-              <MessageCircle aria-hidden size={13} /> WhatsApp
-            </a>
-          )}
-          {follow.nextKind === 'voice' && links.chatHref && (
-            <>
-              <a href={links.chatHref} target="_blank" rel="noopener noreferrer" className={`${BTN} border border-tm-green-deep text-tm-green-deep hover:bg-tm-tint-green`}>
-                <Mic aria-hidden size={13} /> Open chat
-              </a>
-              <button type="button" disabled={busy} onClick={() => void record('voice')} className={`${BTN} bg-tm-green-deep text-white hover:bg-tm-green-deep-hover disabled:opacity-50`}>
-                <Check aria-hidden size={13} /> Voice note sent
-              </button>
-            </>
-          )}
-          {follow.nextKind === 'either' && links.telHref && (
-            <>
-              <a href={links.telHref} className={`${BTN} border border-gray-200 text-slate-700 hover:border-tm-navy`}>
-                <Phone aria-hidden size={13} /> Call
-              </a>
-              <button type="button" disabled={busy} onClick={() => void record('call')} className={`${BTN} border border-tm-navy text-tm-navy hover:bg-tm-tint-navy disabled:opacity-50`}>
-                <Check aria-hidden size={13} /> Call done
-              </button>
-            </>
-          )}
-        </div>
-      )}
+        {contact && follow && (
+          <div className="flex flex-wrap gap-2 pt-0.5" data-pipe-actions="">
+            <PipeContactButtons
+              memberId={memberId}
+              stage={pipe.stage as 'missing' | 'rejected' | 'approved'}
+              nextKind={follow.nextKind}
+              links={links}
+              from="card"
+              btnClass={BTN}
+              // Only the ONE due action, plus Call (owner, 15 Nov 2026).
+              showWhatsApp={due}
+              showVoice={due}
+            />
+          </div>
+        )}
+        {pipe.stage === 'waiting' && reviewHref && (
+          <Link href={reviewHref} className={`${BTN} bg-tm-red text-white hover:bg-tm-red-hover`}>
+            <FileCheck2 aria-hidden size={13} /> Review
+          </Link>
+        )}
+      </div>
     </div>
   )
 }

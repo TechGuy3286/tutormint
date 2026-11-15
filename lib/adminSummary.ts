@@ -211,6 +211,8 @@ function pipelineSort(c: PipeCard | undefined, p: DirectoryPerson) {
     paused: p.suspended || p.banned || p.selfPaused,
     noMobile: c?.noMobile ?? !p.mobileOk,
     lastActiveAt: c?.lastActiveAt ?? p.createdAt,
+    reuploaded: !!c?.reuploaded,
+    approvedAt: c?.approvedAt ?? null,
   }
 }
 

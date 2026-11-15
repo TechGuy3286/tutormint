@@ -200,6 +200,8 @@ const WA_REGISTRY: Record<string, 'parent-situation' | 'parent-specific' | 'not-
   // People → Tutors pipeline (owner, 8 Nov 2026): tutors only (lib/tutorPipelineCore pipeMessage).
   'app/admin/users/PeopleTabs.tsx': 'not-parent',
   'components/admin/PipelineActions.tsx': 'not-parent',
+  // Follow-up contact buttons (owner, 15 Nov 2026): tutors only — the card and the member page.
+  'components/admin/PipeContactButtons.tsx': 'not-parent',
   'lib/tutorPipelineCore.ts': 'not-parent',
 }
 
@@ -219,7 +221,8 @@ test('every staff WhatsApp builder is declared; parent sends use the situation m
   assert.match(pw, /senderRefCode\(actor\.id\)/)
   assert.match(read('lib/adminWhatsApp.ts'), /if \(p\.role === 'parent' \|\| p\.role === 'academy'\) return \{ href: null, type: null \}/)
   assert.match(read('lib/mySignupsCore.ts'), /const text = f\.role === 'parent' \? null/)
-  assert.match(read('app/admin/users/[id]/page.tsx'), /const wa = isTutor && paymentNeedsFollowUp/)
+  // The member page's only tutor WhatsApp is the pipeline's (owner, 15 Nov 2026); the payment-row one is gone.
+  assert.ok(!read('app/admin/users/[id]/page.tsx').includes('PaymentFollowUp'))
   // No generic or old parent text anywhere in code.
   for (const f of [...walk('app'), ...walk('lib'), ...walk('components')]) {
     assert.ok(!/Do you need any help finding a tutor|parentHelpMessage|PARENT_HELP_LINK/.test(read(f)), f)

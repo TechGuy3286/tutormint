@@ -240,8 +240,10 @@ test('message: a rejected document comes first', () => {
 
 test('every WhatsApp tap is a follow-up with its message type', () => {
   // People → Tutors (owner, 8 Nov 2026): each tap stores the stage and kind.
-  const route = read('app/api/admin/people/follow-up/route.ts')
-  assert.ok(route.includes('templateKey: pipeTemplateKey(stage, b.kind)') && route.includes('progress: pipeProgress(stage)'))
+  // One writer since 15 Nov 2026 (lib/tutorPipelineRecord), used by the route.
+  const rec = read('lib/tutorPipelineRecord.ts')
+  assert.ok(rec.includes('templateKey: pipeTemplateKey(cur.stage, a.kind)') && rec.includes('progress: pipeProgress(cur.stage)'))
+  assert.ok(read('app/api/admin/people/follow-up/route.ts').includes('recordPipelineFollowUp('))
   // My sign-ups: the same builder for unpaid tutors, and the tap logs the type.
   const my = read('lib/mySignups.ts')
   assert.ok(my.includes('followUpMessage(') && my.includes('detail: { nextStep, messageType, creditedTo: credit.staff_id }'))
