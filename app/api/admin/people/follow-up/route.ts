@@ -5,6 +5,7 @@ import { refuseSupervisorMember } from '@/lib/supervisorScope'
 import { undoTutorFollowUp } from '@/lib/followUps'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { refreshPipelineRow } from '@/lib/tutorPipeline'
+import { movedJson } from '@/lib/pipelineRowUpdateCore'
 import { recordCallAttempt, recordPipelineFollowUp } from '@/lib/tutorPipelineRecord'
 import { CALL_ATTEMPTS, FOLLOW_STAGES, PIPE_KINDS } from '@/lib/tutorPipelineCore'
 import { parseBody, uuid, z } from '@/lib/validate'
@@ -58,8 +59,8 @@ export async function POST(request: Request) {
     const { data: row } = await admin.from('member_follow_ups').select('member_id').eq('id', b.id).maybeSingle()
     const res = await undoTutorFollowUp(b.id, gate.actor)
     if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status })
-    if (row?.member_id) await refreshPipelineRow(row.member_id as string)
-    return NextResponse.json({ success: true })
+    const moved = row?.member_id ? await refreshPipelineRow(row.member_id as string) : null
+    return NextResponse.json({ success: true, ...movedJson(moved) })
   }
 
   const scope = await refuseSupervisorMember(gate.actor, b.memberId)
@@ -68,10 +69,10 @@ export async function POST(request: Request) {
   if (b.action === 'attempt') {
     const res = await recordCallAttempt(b.memberId, b.outcome, gate.actor)
     if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status })
-    return NextResponse.json({ success: true, suggestNotInterested: b.outcome === 'wrong_number' })
+    return NextResponse.json({ success: true, suggestNotInterested: b.outcome === 'wrong_number', ...movedJson(res.moved) })
   }
 
   const res = await recordPipelineFollowUp({ memberId: b.memberId, kind: b.kind, actor: gate.actor, expectStage: b.stage, strict: (b.from ?? 'card') === 'card' })
   if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status })
-  return NextResponse.json({ success: true, id: res.id, number: res.number })
+  return NextResponse.json({ success: true, id: res.id, number: res.number, ...movedJson(res.moved) })
 }

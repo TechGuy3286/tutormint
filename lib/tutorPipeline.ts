@@ -24,7 +24,9 @@ import { staffLabel } from '@/lib/followUpCore'
 import { loadWelcomes } from '@/lib/paidWelcome'
 import { loadTutorDocSummaries } from '@/lib/tutorDocSummaries'
 import { callLogAttempt, kindOfTemplateKey, legacyDocsApproved, stageOfProgress, type PipeContact } from '@/lib/tutorPipelineCore'
-import { pipeCardFrom, pipeSortAt, pipeTags, withContacts, type PipeCard } from '@/lib/tutorPipelineCardCore'
+import { pipeCardFrom, withContacts, type PipeCard } from '@/lib/tutorPipelineCardCore'
+import { applyBadgeDelta, badgeDelta, mergeLiveCard, peopleRowFor, type StoredPeopleRow } from '@/lib/pipelineRowUpdateCore'
+import type { BadgesPayload } from '@/lib/adminSummaryCore'
 
 export { pipeCardFrom, pipeDocsOf, pipeSortAt, pipeTags, followUpDue, feePendingDue, readyForReviewFrom, type PipeCard } from '@/lib/tutorPipelineCardCore'
 
@@ -211,47 +213,74 @@ export async function loadOnePipeCard(memberId: string): Promise<PipeCard | null
   })
 }
 
+/** How a stored People card is recomputed after a change. */
+export type PipelineRowChange =
+  /** A follow-up, call outcome or its Undo: only the contacts changed. */
+  | { kind: 'contacts' }
+  /** A document decision (or its Undo): the stage may have moved — the card is built live. */
+  | { kind: 'live' }
+  /** "Not interested" or its Undo. */
+  | { kind: 'ni'; ni: boolean; mark: NiMark | null }
+
+export type PipelineRowUpdate = { prev: PipeCard; next: PipeCard }
+
 /**
- * After a follow-up is recorded or undone, the stored People row moves at once
- * (the summary job would only catch up within a few minutes). Only the
- * pipeline part of that one row is recomputed, from its stored stage. Never
- * throws.
+ * The card moves at once (owner, 15 Nov 2026): after a follow-up, call
+ * outcome, "Not interested", Undo or document decision, that ONE tutor's stored
+ * People row is rewritten in the same request, and the stored badge numbers
+ * are nudged by the difference (lib/pipelineRowUpdateCore). The chip counts
+ * are counted live in SQL from the row tags, so they are right straight away;
+ * the summary job's rebuild stays the safety net. Returns the card before and
+ * after (the page moves the card out of its chip with it). Never throws.
  */
-export async function refreshPipelineRow(memberId: string): Promise<void> {
+export async function updatePipelineRow(memberId: string, change: PipelineRowChange): Promise<PipelineRowUpdate | null> {
   const admin = createAdminClient()
-  if (!admin) return
+  if (!admin) return null
   try {
     const { data } = await admin.from('admin_list_rows').select('tags, row').eq('list', LIST).eq('member_id', memberId).maybeSingle()
-    const row = (data?.row ?? null) as { pipe?: PipeCard } | null
-    if (!data || !row?.pipe) return
-    const contacts = (await loadPipeContacts([memberId])).get(memberId) ?? []
-    const next = withContacts(row.pipe, contacts, Date.now())
-    await admin
-      .from('admin_list_rows')
-      .update({ tags: { ...(data.tags as Record<string, unknown>), ...pipeTags(next) }, row: { ...row, pipe: next }, sort_at: pipeSortAt(next) })
-      .eq('list', LIST)
-      .eq('member_id', memberId)
+    const stored = data ? ({ tags: (data.tags ?? {}) as Record<string, unknown>, row: (data.row ?? {}) as StoredPeopleRow['row'] } satisfies StoredPeopleRow) : null
+    const prev = stored?.row.pipe
+    if (!stored || !prev) return null
+    const now = Date.now()
+    let next: PipeCard
+    if (change.kind === 'contacts') {
+      next = withContacts(prev, (await loadPipeContacts([memberId])).get(memberId) ?? [], now)
+    } else if (change.kind === 'ni') {
+      next = { ...prev, notInterested: change.ni, niMark: change.ni ? change.mark : null }
+    } else {
+      const live = await loadOnePipeCard(memberId)
+      if (!live) return null
+      next = mergeLiveCard(prev, live)
+    }
+    const write = peopleRowFor(stored, next)
+    const { error } = await admin.from('admin_list_rows').update(write).eq('list', LIST).eq('member_id', memberId)
+    if (error) return null
+    await nudgeBadges(badgeDelta(prev, next, now))
+    return { prev, next }
   } catch {
-    /* the next summary run puts it right */
+    return null /* the next summary run puts it right */
   }
 }
 
-/** "Not interested" (and its Undo) moves the stored People row at once. Never throws. */
-export async function setPipelineNotInterested(memberId: string, ni: boolean, mark: NiMark | null = null): Promise<void> {
+/** The stored sidebar badges, moved by one card's change. Best effort. */
+async function nudgeBadges(delta: ReturnType<typeof badgeDelta>): Promise<void> {
   const admin = createAdminClient()
   if (!admin) return
-  try {
-    const { data } = await admin.from('admin_list_rows').select('tags, row').eq('list', LIST).eq('member_id', memberId).maybeSingle()
-    if (!data) return
-    const row = (data.row ?? {}) as { pipe?: PipeCard }
-    await admin
-      .from('admin_list_rows')
-      .update({ tags: { ...(data.tags as Record<string, unknown>), ni }, row: row.pipe ? { ...row, pipe: { ...row.pipe, notInterested: ni, niMark: ni ? mark : null } } : row })
-      .eq('list', LIST)
-      .eq('member_id', memberId)
-  } catch {
-    /* the next summary run puts it right */
-  }
+  const { data } = await admin.from('admin_summary').select('payload').eq('key', 'badges').maybeSingle()
+  const cur = data?.payload as BadgesPayload | undefined
+  if (!cur) return
+  const next = applyBadgeDelta(cur, delta)
+  if (next) await admin.from('admin_summary').update({ payload: next }).eq('key', 'badges')
+}
+
+/** After a follow-up is recorded or undone. Never throws. */
+export async function refreshPipelineRow(memberId: string): Promise<PipelineRowUpdate | null> {
+  return updatePipelineRow(memberId, { kind: 'contacts' })
+}
+
+/** "Not interested" (and its Undo) moves the stored People row at once. Never throws. */
+export async function setPipelineNotInterested(memberId: string, ni: boolean, mark: NiMark | null = null): Promise<PipelineRowUpdate | null> {
+  return updatePipelineRow(memberId, { kind: 'ni', ni, mark })
 }
 
 /** The real tutors (People's default view, Not interested left out) whose card

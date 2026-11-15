@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { EyeOff, Undo2 } from 'lucide-react'
 
 import { adminFetch } from '@/components/admin/adminFetch'
+import { notInterestedLeaves, usePipelineMove, type Moved } from '@/components/admin/PipelineMoves'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { useToast } from '@/components/ui/Toast'
 import { NI_REASONS, NI_REASON_LABEL, niMarkProblem, type NiReason } from '@/lib/notInterestedCore'
@@ -30,6 +31,7 @@ export default function NotInterestedButton({
   const router = useRouter()
   const toast = useToast()
   const readOnly = useAdminReadOnly()
+  const move = usePipelineMove()
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState<NiReason | null>(null)
@@ -48,16 +50,20 @@ export default function NotInterestedButton({
 
   const post = async (payload: Record<string, unknown>) => {
     setBusy(true)
-    const { ok, data } = await adminFetch<{ error?: string }>('/api/admin/follow-ups/not-interested', {
+    // The card leaves this list at once (owner, 15 Nov 2026); back if the save fails.
+    move.begin(memberId, notInterestedLeaves(move.view))
+    const { ok, data } = await adminFetch<{ error?: string; moved?: Moved }>('/api/admin/follow-ups/not-interested', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ memberId, ...payload }),
     })
     setBusy(false)
     if (!ok) {
+      move.fail(memberId)
       toast.error(data?.error ?? 'That did not save. Please try again.')
       return false
     }
+    move.done(memberId, data?.moved)
     return true
   }
 

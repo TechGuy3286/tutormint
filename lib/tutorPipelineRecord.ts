@@ -18,7 +18,7 @@ import { logAdminAction } from '@/lib/auditLog'
 import { recordFollowUp } from '@/lib/followUps'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { loadTutorDocSummaries } from '@/lib/tutorDocSummaries'
-import { loadPipeContacts, pipeDocsOf, refreshPipelineRow } from '@/lib/tutorPipeline'
+import { loadPipeContacts, pipeDocsOf, refreshPipelineRow, type PipelineRowUpdate } from '@/lib/tutorPipeline'
 import {
   followState,
   isFollowStage,
@@ -71,7 +71,7 @@ export async function recordPipelineFollowUp(a: {
   actor: AdminActor
   expectStage?: FollowStage | null
   strict: boolean
-}): Promise<{ ok: true; id: string; number: number; stage: FollowStage } | Fail> {
+}): Promise<{ ok: true; id: string; number: number; stage: FollowStage; moved: PipelineRowUpdate | null } | Fail> {
   const cur = await currentFollowStage(a.memberId)
   if (!cur.ok) return cur
   if (a.expectStage && a.expectStage !== cur.stage) {
@@ -91,8 +91,8 @@ export async function recordPipelineFollowUp(a: {
     actor: a.actor,
   })
   if (!res.ok) return res
-  await refreshPipelineRow(a.memberId)
-  return { ok: true, id: res.id, number: cur.nextNumber, stage: cur.stage }
+  const moved = await refreshPipelineRow(a.memberId)
+  return { ok: true, id: res.id, number: cur.nextNumber, stage: cur.stage, moved }
 }
 
 /** A Team inbox message to a tutor in a followed-up stage is a follow-up.
@@ -107,7 +107,7 @@ export async function recordInboxFollowUp(memberId: string, actor: AdminActor, k
 }
 
 /** "No answer" or "Wrong number" — logged as an attempt only (owner, 15 Nov 2026). */
-export async function recordCallAttempt(memberId: string, outcome: CallAttempt, actor: AdminActor): Promise<{ ok: true } | Fail> {
+export async function recordCallAttempt(memberId: string, outcome: CallAttempt, actor: AdminActor): Promise<{ ok: true; moved: PipelineRowUpdate | null } | Fail> {
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: BUSY }
   const { data: prof } = await admin.from('profiles').select('role').eq('id', memberId).maybeSingle()
@@ -129,6 +129,6 @@ export async function recordCallAttempt(memberId: string, outcome: CallAttempt, 
     targetId: memberId,
     detail: { outcome },
   })
-  await refreshPipelineRow(memberId)
-  return { ok: true }
+  const moved = await refreshPipelineRow(memberId)
+  return { ok: true, moved }
 }

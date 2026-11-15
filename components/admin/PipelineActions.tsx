@@ -31,6 +31,7 @@ import {
   type PipeCard,
 } from '@/lib/tutorPipelineCardCore'
 import { BLANK_REJECT_LABEL, blankRejectReason, type BlankItem } from '@/lib/photoBlankCore'
+import { usePipelineMove, type Moved } from '@/components/admin/PipelineMoves'
 
 // People → Tutors — the COMPACT card (owner, 15 Nov 2026; phone first). The
 // whole card opens the member page; on it:
@@ -88,6 +89,7 @@ export default function PipelineCardBody({
   const confirm = useConfirm()
   const readOnly = useAdminReadOnly()
   const decider = useDocDecider()
+  const move = usePipelineMove()
   const [busy, setBusy] = useState(false)
   const [now] = useState(() => Date.now())
 
@@ -104,13 +106,18 @@ export default function PipelineCardBody({
     })
     if (!yes) return
     setBusy(true)
-    const { ok, data } = await adminFetch<{ error?: string }>('/api/admin/tutors/document-review', {
+    move.begin(memberId, !!move.view?.stage && move.view.stage !== 'all')
+    const { ok, data } = await adminFetch<{ error?: string; moved?: Moved }>('/api/admin/tutors/document-review', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tutorId: memberId, item: item === 'photo' ? 'profile_pic' : 'selfie', decision: 'reject', reason: blankRejectReason(item), nameChecked: false }),
     })
     setBusy(false)
-    if (!ok) return void toast.error(data?.error ?? 'That did not save. Please try again.')
+    if (!ok) {
+      move.fail(memberId)
+      return void toast.error(data?.error ?? 'That did not save. Please try again.')
+    }
+    move.done(memberId, data?.moved)
     toast.success('Rejected. The tutor was notified.')
     router.refresh()
   }

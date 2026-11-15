@@ -3,6 +3,8 @@ import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { beginDocDecision, finishDocDecision } from '@/lib/docDecisionGate'
 import { reviewTutorDocument, type DocItem } from '@/lib/tutorDocuments'
 import { parseBody, z, uuid, text } from '@/lib/validate'
+import { updatePipelineRow } from '@/lib/tutorPipeline'
+import { movedJson } from '@/lib/pipelineRowUpdateCore'
 
 // Approve or reject ONE of a tutor's identity items — CNIC, profile picture or
 // selfie (PR60). Same roles as the rest of tutor moderation (SCREEN_ACCESS.tutors).
@@ -42,5 +44,7 @@ export async function POST(request: Request) {
   })
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
   await finishDocDecision({ actor: gate.actor, memberId: tutorId, item, decision, reason: (parsed.data.reason ?? '').trim() || null, start: begun.start })
-  return NextResponse.json({ success: true })
+  // The People card moves to its new stage at once (owner, 15 Nov 2026).
+  const moved = await updatePipelineRow(tutorId, { kind: 'live' })
+  return NextResponse.json({ success: true, ...movedJson(moved) })
 }

@@ -134,6 +134,8 @@ test('People: the page loads card facts for the shown cards only, and the grid f
   const grid = read('components/admin/OverviewCardGrid.tsx')
   const paged = grid.slice(grid.indexOf('function PagedGrid'), grid.indexOf('function ClientGrid'))
   assert.doesNotMatch(paged, /\.filter\(\(it\)|applyDocFilter|docFilterCounts|useMemo/)
+  // The one exception (owner, 15 Nov 2026): a card that just moved out of its chip after a follow-up.
+  assert.ok(paged.includes('withoutMoved(items, moves)'))
   assert.ok(paged.includes('<LoadMoreLink'))
 })
 

@@ -4,6 +4,8 @@ import { refuseUnlessOwnerApproval } from '@/lib/ownerGuard'
 import { requireFreshAuth } from '@/lib/reauth'
 import { loadStaffDocDecisions, pkDayRange, undoStaffDocDecision } from '@/lib/staffDocDecisions'
 import { parseBody, text, z, uuid } from '@/lib/validate'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { updatePipelineRow } from '@/lib/tutorPipeline'
 
 // "Documents approved by staff" (owner, 5 Nov 2026): CNIC / photo / selfie
 // decisions Backend Support made.
@@ -33,7 +35,11 @@ export async function POST(request: Request) {
   if (!fresh.ok) return fresh.response
   const parsed = await parseBody(request, Body)
   if (!parsed.ok) return parsed.response
+  const adminDb = createAdminClient()
+  const dec = adminDb ? (await adminDb.from('staff_document_decisions').select('member_id').eq('id', parsed.data.decisionId).maybeSingle()).data : null
   const r = await undoStaffDocDecision(parsed.data.decisionId, parsed.data.reason, { id: gate.actor.id, adminRole: gate.actor.adminRole, email: gate.actor.email })
   if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status })
+  // The People card moves back at once (owner, 15 Nov 2026).
+  if (dec?.member_id) await updatePipelineRow(dec.member_id as string, { kind: 'live' })
   return NextResponse.json({ ok: true })
 }

@@ -21,6 +21,8 @@ import QueueSearch from '@/components/admin/QueueSearch'
 import { gridHref } from '@/lib/cardGridPagingCore'
 import SelfieMatchWarning from '@/components/admin/SelfieMatchWarning'
 import PipelineCardBody, { type PipeLinks } from '@/components/admin/PipelineActions'
+import { PipelineMovesProvider, usePipelineGrid, withoutMoved } from '@/components/admin/PipelineMoves'
+import type { ChipView } from '@/lib/pipelineRowUpdateCore'
 import { showProfileShare, type PipeCard } from '@/lib/tutorPipelineCardCore'
 import {
   DOC_FILTERS,
@@ -141,6 +143,9 @@ export type GridPaging = {
   searchedCount: number
   allCount: number
   noun: string
+  /** People → Tutors (owner, 15 Nov 2026): the chips the view applies — a card
+   *  moves out of them at once after a follow-up (components/admin/PipelineMoves). */
+  pipelineView?: ChipView
 }
 
 const STEP = 48
@@ -160,7 +165,16 @@ type GridProps = {
 }
 
 export default function OverviewCardGrid(props: GridProps) {
-  return props.paged ? <PagedGrid {...props} paged={props.paged} /> : <ClientGrid {...props} />
+  const paged = props.paged
+  if (!paged) return <ClientGrid {...props} />
+  if (!paged.pipelineView) return <PagedGrid {...props} paged={paged} />
+  // New server data (a refresh) resets the local moves — its counts are right.
+  const version = JSON.stringify([paged.rowCounts, paged.total, props.items.map((i) => i.id)])
+  return (
+    <PipelineMovesProvider view={paged.pipelineView} version={version}>
+      <PagedGrid {...props} paged={paged} />
+    </PipelineMovesProvider>
+  )
 }
 
 const CHIP = (on: boolean) =>
@@ -173,6 +187,10 @@ const CHIP = (on: boolean) =>
 function PagedGrid({ items, isOwner = false, filterRows = [], paged }: GridProps & { paged: GridPaging }) {
   const router = useRouter()
   const refresh = () => router.refresh()
+  const moves = usePipelineGrid()
+  const shownItems = withoutMoved(items, moves)
+  const total = Math.max(0, paged.total - (moves ? Math.max(moves.gone, items.length - shownItems.length) : 0))
+  const rowCount = (param: string) => (moves ? moves.counts(param, paged.rowCounts[param]) : paged.rowCounts[param])
   const state = { keep: paged.keep, q: paged.q, sel: paged.sel, docFilter: paged.docFilter }
   const href = (change: Record<string, string>) => gridHref(paged.basePath, state, filterRows, change)
   const searchKeep: Record<string, string | undefined> = { ...paged.keep }
@@ -190,12 +208,12 @@ function PagedGrid({ items, isOwner = false, filterRows = [], paged }: GridProps
       {filterRows.map((row) => (
         <nav key={row.param} aria-label={row.label} className="-mx-4 flex flex-nowrap gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0" data-chip-row="">
           {row.options
-            .filter((o) => (!o.hidden && (!o.hideWhenZero || (paged.rowCounts[row.param]?.[o.key] ?? 0) > 0)) || paged.sel[row.param] === o.key)
+            .filter((o) => (!o.hidden && (!o.hideWhenZero || (rowCount(row.param)?.[o.key] ?? 0) > 0)) || paged.sel[row.param] === o.key)
             .map((o) => {
               const on = (paged.sel[row.param] ?? row.options[0].key) === o.key
               return (
                 <Link key={o.key} href={href({ [row.param]: o.key })} scroll={false} aria-current={on ? 'page' : undefined} className={`${CHIP(on)} shrink-0 whitespace-nowrap`}>
-                  {o.label} <span className={on ? 'text-white' : 'text-gray-500'}>{paged.rowCounts[row.param]?.[o.key] ?? 0}</span>
+                  {o.label} <span className={on ? 'text-white' : 'text-gray-500'}>{rowCount(row.param)?.[o.key] ?? 0}</span>
                 </Link>
               )
             })}
@@ -219,20 +237,20 @@ function PagedGrid({ items, isOwner = false, filterRows = [], paged }: GridProps
           {paged.searchedCount} of {paged.allCount} match “{paged.q.trim()}”
         </p>
       )}
-      {paged.total === 0 ? (
+      {total === 0 ? (
         <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
           {paged.allCount === 0 ? 'Nothing here right now.' : paged.searchedCount > 0 ? 'No card matches that filter.' : 'No card matches that search.'}
         </p>
       ) : (
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" data-card-count={paged.total}>
-          {items.map((it) => (
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" data-card-count={total}>
+          {shownItems.map((it) => (
             <li key={it.id} className={`relative flex min-w-0 flex-col gap-3 rounded-2xl border border-gray-200 bg-white ${it.pipe ? 'p-3' : 'p-4'}`}>
               {it.member ? <MemberBody it={it} m={it.member} onMoved={refresh} onRestored={refresh} /> : <PlainBody it={it} />}
             </li>
           ))}
         </ul>
       )}
-      {paged.total > 0 && <LoadMoreLink shown={paged.shown} total={paged.total} noun={paged.noun} />}
+      {total > 0 && <LoadMoreLink shown={Math.min(paged.shown, total)} total={total} noun={paged.noun} />}
     </div>
   )
 }

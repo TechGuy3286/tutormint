@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Mic, MessageCircle, Phone } from 'lucide-react'
 
 import { adminFetch } from '@/components/admin/adminFetch'
+import { followUpLeaves, notInterestedLeaves, usePipelineMove, type Moved } from '@/components/admin/PipelineMoves'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/Toast'
 import { UNDO_MS } from '@/lib/tutorFollowUpTabsCore'
@@ -56,6 +57,7 @@ export default function PipeContactButtons({
   const router = useRouter()
   const toast = useToast()
   const confirm = useConfirm()
+  const move = usePipelineMove()
   const [busy, setBusy] = useState(false)
   const [ask, setAsk] = useState<Ask>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -71,8 +73,13 @@ export default function PipeContactButtons({
     })
 
   const undo = async (id: string) => {
-    const { ok, data } = await post({ action: 'undo', id })
-    if (!ok) return void toast.error(data?.error ?? 'Could not undo that.')
+    move.begin(memberId, false)
+    const { ok, data } = await post<{ moved?: Moved }>({ action: 'undo', id })
+    if (!ok) {
+      move.fail(memberId)
+      return void toast.error(data?.error ?? 'Could not undo that.')
+    }
+    move.done(memberId, data?.moved)
     toast.success('Undone — the tutor is back where they were.')
     router.refresh()
   }
@@ -80,9 +87,15 @@ export default function PipeContactButtons({
   const record = async (kind: PipeKind) => {
     if (busy) return
     setBusy(true)
-    const { ok, data } = await post<{ id?: string; number?: number }>({ action: 'record', memberId, stage, kind, from })
+    // The card leaves its chip at once (owner, 15 Nov 2026); back if the save fails.
+    move.begin(memberId, followUpLeaves(move.view))
+    const { ok, data } = await post<{ id?: string; number?: number; moved?: Moved }>({ action: 'record', memberId, stage, kind, from })
     setBusy(false)
-    if (!ok || !data?.id) return void toast.error(data?.error ?? 'That did not save. Please try again.')
+    if (!ok || !data?.id) {
+      move.fail(memberId)
+      return void toast.error(data?.error ?? 'That did not save. Please try again.')
+    }
+    move.done(memberId, data.moved)
     const id = data.id
     router.refresh()
     toast.success(`Follow-up ${data.number ?? ''} logged (${KIND_LABEL[kind]})`, { label: 'Undo', onClick: () => void undo(id), ms: UNDO_MS })
@@ -91,9 +104,14 @@ export default function PipeContactButtons({
   const attempt = async (outcome: 'no_answer' | 'wrong_number') => {
     if (busy) return
     setBusy(true)
-    const { ok, data } = await post<{ suggestNotInterested?: boolean }>({ action: 'attempt', memberId, outcome })
+    move.begin(memberId, false)
+    const { ok, data } = await post<{ suggestNotInterested?: boolean; moved?: Moved }>({ action: 'attempt', memberId, outcome })
     setBusy(false)
-    if (!ok) return void toast.error(data?.error ?? 'That did not save. Please try again.')
+    if (!ok) {
+      move.fail(memberId)
+      return void toast.error(data?.error ?? 'That did not save. Please try again.')
+    }
+    move.done(memberId, data?.moved)
     router.refresh()
     if (outcome === 'no_answer') return void toast.success('No answer logged. They stay in Not followed up, due again tomorrow.')
     toast.success('Wrong number logged.')
@@ -104,12 +122,17 @@ export default function PipeContactButtons({
       cancelLabel: 'Not now',
     })
     if (!yes) return
-    const r = await adminFetch<{ error?: string }>('/api/admin/follow-ups/not-interested', {
+    move.begin(memberId, notInterestedLeaves(move.view))
+    const r = await adminFetch<{ error?: string; moved?: Moved }>('/api/admin/follow-ups/not-interested', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ memberId, reason: 'wrong_number' }),
     })
-    if (!r.ok) return void toast.error(r.data?.error ?? 'That did not save. Please try again.')
+    if (!r.ok) {
+      move.fail(memberId)
+      return void toast.error(r.data?.error ?? 'That did not save. Please try again.')
+    }
+    move.done(memberId, r.data?.moved)
     toast.success('Marked Not interested · Wrong number.')
     router.refresh()
   }

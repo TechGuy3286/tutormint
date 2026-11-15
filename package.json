@@ -259,6 +259,7 @@
     "test:staffdocsnames": "tsx --test scripts/test-staff-docs-names.ts",
     "test:statusplan": "tsx --test scripts/test-status-plan.ts",
     "test:followupcleanup": "tsx --test scripts/test-followup-cleanup.ts",
+    "test:pipelinemove": "tsx --test scripts/test-pipeline-move.ts",
     "test:pipelinecards": "tsx scripts/test-pipeline-cards-mobile.tsx"
   },
   "dependencies": {

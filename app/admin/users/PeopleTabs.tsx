@@ -443,6 +443,11 @@ export default async function PeopleTabs({
           searchedCount: res.searched,
           allCount: res.all,
           noun: isTutors ? 'tutors' : 'parents',
+          // A card moves out of these chips at once after a follow-up (owner, 15 Nov 2026).
+          pipelineView:
+            isTutors && !showDeleted
+              ? { stage: sel.stage ?? stageSel, fu: followRow ? (sel.fu ?? 'not') : null, ni: view === 'real' && !signed ? showNi : undefined }
+              : undefined,
         }}
       />
     </div>
