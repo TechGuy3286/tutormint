@@ -19,7 +19,9 @@ export const dynamic = 'force-dynamic'
 const Body = z.object({ memberId: z.string().min(1).optional(), tutorId: z.string().min(1).optional() })
 
 export async function POST(request: Request) {
-  const gate = await checkAdminRole('admin', 'partner') // owner too; the reveal rule then admits the Owner only
+  // Owner too; the reveal rule then admits reviewers only — Owner, Project
+  // Manager, Backend Support (owner, 16 Nov 2026; the Owner only before).
+  const gate = await checkAdminRole('admin', 'partner', 'backend_support')
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
 
   const parsed = await parseBody(request, Body)

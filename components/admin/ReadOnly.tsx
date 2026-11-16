@@ -36,6 +36,10 @@ const StaffRefContext = createContext<string | null>(null)
 // within lib/docDecisionCore) or null. Presentation only — the review routes
 // apply the same rule (lib/docDecisionGate).
 const DocDeciderContext = createContext<'owner' | 'staff' | null>(null)
+// CNIC number Show/Hide (owner, 16 Nov 2026): document reviewers — Owner,
+// Project Manager, Backend Support (lib/cnicRevealCore mayRevealCnic). The
+// reveal route applies the same rule and logs every Show.
+const CnicRevealContext = createContext(false)
 
 export const PARTNER_VIEW_ONLY_TEXT = 'View only. Your account cannot change this.'
 
@@ -44,6 +48,7 @@ export function AdminReadOnlyProvider({
   canApprove = false,
   refCode = null,
   docDecider = null,
+  cnicReveal = false,
   children,
 }: {
   readOnly: boolean
@@ -53,17 +58,26 @@ export function AdminReadOnlyProvider({
   refCode?: string | null
   /** Who may decide identity documents in this session. */
   docDecider?: 'owner' | 'staff' | null
+  /** The session may press Show on a CNIC number (document reviewers). */
+  cnicReveal?: boolean
   children: React.ReactNode
 }) {
   return (
     <PartnerContext.Provider value={readOnly}>
       <ApproveContext.Provider value={canApprove}>
         <StaffRefContext.Provider value={refCode}>
-          <DocDeciderContext.Provider value={docDecider}>{children}</DocDeciderContext.Provider>
+          <DocDeciderContext.Provider value={docDecider}>
+            <CnicRevealContext.Provider value={cnicReveal}>{children}</CnicRevealContext.Provider>
+          </DocDeciderContext.Provider>
         </StaffRefContext.Provider>
       </ApproveContext.Provider>
     </PartnerContext.Provider>
   )
+}
+
+/** True for document reviewers (Owner, Project Manager, Backend Support). */
+export function useCanRevealCnic(): boolean {
+  return useContext(CnicRevealContext)
 }
 
 /** 'owner', 'staff' (Backend Support) or null: who may decide a document here. */

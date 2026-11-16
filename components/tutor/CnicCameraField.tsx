@@ -5,6 +5,7 @@ import { useState, type ReactNode } from 'react'
 import { Lock, Clock } from 'lucide-react'
 import PhotoCaptureTile from '@/components/tutor/PhotoCaptureTile'
 import { compressUnder1MB } from '@/lib/imageCompress'
+import { cnicPhotoProblem } from '@/lib/photoBrightness'
 import { canPick, type LockView } from '@/lib/docLockCore'
 import { refreshDocLocks } from '@/lib/useDocLocks'
 import { readUploadResponse } from '@/lib/adminDocUploadCore'
@@ -71,6 +72,9 @@ export default function CnicCameraField({
     onError?.('')
     try {
       const img = await compressUnder1MB(file)
+      // A dark or blank CNIC photo is refused before it is sent (owner, 16 Nov 2026).
+      const dark = await cnicPhotoProblem(img)
+      if (dark) throw new Error(dark)
       const fd = new FormData()
       fd.append('kind', 'cnic')
       fd.append('label', side)

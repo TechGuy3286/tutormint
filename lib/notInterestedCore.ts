@@ -54,3 +54,21 @@ export function niReturns(mark: { at: string } | null | undefined, event: string
 }
 
 export const NI_RETURNED_BY = 'Returned on their own'
+
+// "Not interested" on every card (owner, 16 Nov 2026): the ⋯ menu shows in
+// every People stage and chip — Documents missing, Waiting for approval,
+// Rejected, Approved fee pending (Re-uploaded, Tried to pay, Not followed up,
+// 1st / 2nd / 3rd+) — and on the member page. Not on a Paid tutor: someone who
+// paid is not "not interested". A mark already on a Paid tutor can still be
+// undone.
+export function niMenuAllowed(stage: string | null | undefined, marked = false): boolean {
+  return marked || stage !== 'paid'
+}
+
+/** The member page offers the button for a tutor who has not paid, or any
+ *  parent; never for staff. */
+export function niMemberPageAllowed(m: { role: string | null | undefined; feePaid: boolean; marked: boolean }): boolean {
+  if (m.marked) return true
+  if (m.role === 'tutor') return !m.feePaid
+  return m.role === 'parent' || m.role === 'academy'
+}

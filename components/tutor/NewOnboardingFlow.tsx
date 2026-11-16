@@ -12,6 +12,7 @@ import { useDocLocks, refreshDocLocks } from '@/lib/useDocLocks'
 import { canPick, canReplace } from '@/lib/docLockCore'
 import DocLockNotice from '@/components/identity/DocLockNotice'
 import { compressUnder1MB } from '@/lib/imageCompress'
+import { cnicPhotoProblem } from '@/lib/photoBrightness'
 import { usePhotoCropUpload } from '@/components/photo/usePhotoCropUpload'
 import HidePhotoToggle from '@/components/tutor/HidePhotoToggle'
 import { PHOTO_STEP_EXPLAIN } from '@/lib/photoPrivacyCore'
@@ -1393,6 +1394,9 @@ function CnicSideCapture({ side, initialPreview, onDone, onError }: { side: 'fro
     setBusy(true)
     try {
       const img = await compressUnder1MB(file)
+      // A dark or blank CNIC photo is refused before it is sent (owner, 16 Nov 2026).
+      const dark = await cnicPhotoProblem(img)
+      if (dark) throw new Error(dark)
       const fd = new FormData(); fd.append('kind', 'cnic'); fd.append('label', side); fd.append('file', img)
       const res = await fetch('/api/documents/upload', { method: 'POST', body: fd })
       const j = await res.json().catch(() => ({}))

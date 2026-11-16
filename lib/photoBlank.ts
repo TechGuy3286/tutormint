@@ -5,7 +5,9 @@
 // any replacement waiting for review — and current selfie(s) — on record and
 // waiting — are each checked once and the figures stored in
 // photo_blank_checks (migration 225), keyed by the file. The image is only
-// read; nothing is changed, moved or rejected. Service role; never logs an
+// read; nothing is changed, moved or rejected. Since 16 Nov 2026 the CNIC
+// front and back images (on record and waiting, ref = the document id) are
+// checked too — item 'cnic', the same thresholds. Service role; never logs an
 // address, image or member detail.
 
 import 'server-only'
@@ -47,7 +49,7 @@ async function fetchBytes(url: string): Promise<Buffer | null> {
   }
 }
 
-async function selfieBytes(admin: Admin, path: string): Promise<Buffer | null> {
+async function docBytes(admin: Admin, path: string): Promise<Buffer | null> {
   try {
     const { data } = await admin.storage.from(DOCS_BUCKET).download(path)
     return data ? Buffer.from(await data.arrayBuffer()) : null
@@ -56,7 +58,8 @@ async function selfieBytes(admin: Admin, path: string): Promise<Buffer | null> {
   }
 }
 
-type Current = { memberId: string; photos: string[]; selfies: { id: string; path: string }[] }
+type Doc = { id: string; path: string }
+type Current = { memberId: string; photos: string[]; selfies: Doc[]; cnics: Doc[] }
 
 /** Each member's current photo address(es) and selfie document(s). */
 async function currentFiles(admin: Admin, memberIds: string[] | null): Promise<Current[]> {
@@ -71,22 +74,25 @@ async function currentFiles(admin: Admin, memberIds: string[] | null): Promise<C
   const docs = await pageAllIn(ids, (part, from, to) =>
     admin
       .from('user_documents')
-      .select('id, user_id, original_path')
-      .eq('kind', 'selfie')
+      .select('id, user_id, kind, original_path')
+      .in('kind', ['selfie', 'cnic'])
       .in('status', ['active', 'review'])
       .in('user_id', part)
       .order('id')
       .range(from, to),
   )
-  const byMember = new Map<string, { id: string; path: string }[]>()
+  const byMember = new Map<string, Doc[]>()
+  const cnicBy = new Map<string, Doc[]>()
   for (const d of docs) {
     const k = d.user_id as string
-    byMember.set(k, [...(byMember.get(k) ?? []), { id: d.id as string, path: d.original_path as string }])
+    const m = d.kind === 'cnic' ? cnicBy : byMember
+    m.set(k, [...(m.get(k) ?? []), { id: d.id as string, path: d.original_path as string }])
   }
   return profiles.map((p) => ({
     memberId: p.id as string,
     photos: [p.avatar_url, p.avatar_pending_url].map((u) => ownPublicStorage(u as string | null)).filter((u): u is string => !!u),
     selfies: byMember.get(p.id as string) ?? [],
+    cnics: cnicBy.get(p.id as string) ?? [],
   }))
 }
 
@@ -109,11 +115,13 @@ async function record(admin: Admin, memberId: string, item: BlankItem, ref: stri
 }
 
 /**
- * Check every current photo and selfie of these members (or of every tutor)
+ * Check every current photo, selfie and CNIC image of these members (or of every tutor)
  * that has not been checked yet. Read-only on the files. Returns counts only.
  */
-export async function checkMemberPhotos(memberIds: string[] | null): Promise<{ checked: number; blank: number; unreadable: number }> {
-  const out = { checked: 0, blank: 0, unreadable: 0 }
+export async function checkMemberPhotos(
+  memberIds: string[] | null,
+): Promise<{ checked: number; blank: number; unreadable: number; cnic: { checked: number; blank: number; unreadable: number } }> {
+  const out = { checked: 0, blank: 0, unreadable: 0, cnic: { checked: 0, blank: 0, unreadable: 0 } }
   const admin = createAdminClient()
   if (!admin) return out
   const current = await currentFiles(admin, memberIds)
@@ -129,11 +137,20 @@ export async function checkMemberPhotos(memberIds: string[] | null): Promise<{ c
     }
     for (const s of c.selfies) {
       if (!needsCheck(done, 'selfie', s.id) || !s.path) continue
-      const bytes = await selfieBytes(admin, s.path)
+      const bytes = await docBytes(admin, s.path)
       const stats = bytes ? await imageBlankStats(bytes) : null
       if (!stats) { out.unreadable++; continue }
       out.checked++
       if (await record(admin, c.memberId, 'selfie', s.id, stats)) out.blank++
+    }
+    for (const d of c.cnics) {
+      if (!needsCheck(done, 'cnic', d.id) || !d.path) continue
+      const bytes = await docBytes(admin, d.path)
+      const stats = bytes ? await imageBlankStats(bytes) : null
+      if (!stats) { out.unreadable++; out.cnic.unreadable++; continue }
+      out.checked++
+      out.cnic.checked++
+      if (await record(admin, c.memberId, 'cnic', d.id, stats)) { out.blank++; out.cnic.blank++ }
     }
   }
   return out
@@ -184,19 +201,28 @@ export async function blankPhotoFlags(memberIds: string[] | null): Promise<Map<s
     if (ids.length === 0) return out
     const [profiles, selfies] = await Promise.all([
       pageAllIn(ids, (part, from, to) =>
-        admin.from('profiles').select('id, avatar_url, avatar_pending_url, profile_pic_status, profile_pic_rereview_at, selfie_status').in('id', part).order('id').range(from, to),
+        admin.from('profiles').select('id, avatar_url, avatar_pending_url, profile_pic_status, profile_pic_rereview_at, selfie_status, verification_state').in('id', part).order('id').range(from, to),
       ),
       pageAllIn(ids, (part, from, to) =>
-        admin.from('user_documents').select('id, user_id, status').eq('kind', 'selfie').in('status', ['active', 'review']).in('user_id', part).order('id').range(from, to),
+        admin.from('user_documents').select('id, user_id, kind, status').in('kind', ['selfie', 'cnic']).in('status', ['active', 'review']).in('user_id', part).order('id').range(from, to),
       ),
     ])
     const refs = flaggedRefs(blanks as unknown as BlankCheckRow[])
     const photoBlank = refs.photo
     const selfieBlank = refs.selfie
     const selfiesBy = new Map<string, string[]>()
+    const cnicsBy = new Map<string, string[]>()
     const rejectedSelfie = new Set(profiles.filter((p) => p.selfie_status === 'rejected').map((p) => p.id as string))
+    const rejectedCnic = new Set(profiles.filter((p) => p.verification_state === 'rejected').map((p) => p.id as string))
     for (const s of selfies) {
       const k = s.user_id as string
+      if (s.kind === 'cnic') {
+        // A rejected CNIC on record is decided; a waiting re-upload is still
+        // flagged. An APPROVED dark CNIC stays flagged for the Owner to recheck.
+        if (rejectedCnic.has(k) && s.status !== 'review') continue
+        cnicsBy.set(k, [...(cnicsBy.get(k) ?? []), s.id as string])
+        continue
+      }
       // A rejected selfie on record is decided; a waiting re-upload is still flagged.
       if (rejectedSelfie.has(k) && s.status !== 'review') continue
       selfiesBy.set(k, [...(selfiesBy.get(k) ?? []), s.id as string])
@@ -206,8 +232,8 @@ export async function blankPhotoFlags(memberIds: string[] | null): Promise<Map<s
       // A rejected photo in use is decided; a waiting replacement is still flagged.
       const inUse = p.profile_pic_status === 'rejected' && !p.profile_pic_rereview_at ? null : (p.avatar_url as string | null)
       const items = currentBlankItems(
-        { photoRefs: [inUse, p.avatar_pending_url as string | null], selfieRefs: selfiesBy.get(id) ?? [] },
-        { photo: photoBlank, selfie: selfieBlank },
+        { photoRefs: [inUse, p.avatar_pending_url as string | null], selfieRefs: selfiesBy.get(id) ?? [], cnicRefs: cnicsBy.get(id) ?? [] },
+        { photo: photoBlank, selfie: selfieBlank, cnic: refs.cnic },
       )
       if (items.length) out.set(id, items)
     }

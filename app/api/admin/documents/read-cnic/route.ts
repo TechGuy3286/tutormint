@@ -5,7 +5,6 @@ import { rateLimit } from '@/lib/rateLimit'
 import { cachedSuggestion, cnicDuplicateFor, readCnicForMember } from '@/lib/cnicReader'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { parseBody, z, uuid } from '@/lib/validate'
-import { mayRevealCnic } from '@/lib/cnicRevealCore'
 
 // The CNIC number box on the review card (owner, 10 Oct 2026):
 //   read   — "Read number from photo": reads the member's CNIC FRONT with the
@@ -55,7 +54,8 @@ export async function POST(request: Request) {
       read: c.read,
       // A number read from the photo IS the member's CNIC number: only the Owner
       // is ever sent it (owner, 17 Oct 2026). Everyone else gets null.
-      number: mayRevealCnic(gate.actor.adminRole) ? c.number : null,
+      // Not a logged Show, so it stays the Owner's; reviewers use Show.
+      number: gate.actor.adminRole === 'owner' ? c.number : null,
       duplicate: c.number ? await cnicDuplicateFor(memberId, c.number) : null,
     })
   }

@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
-import { useCanApprove } from '@/components/admin/ReadOnly'
+import { useCanRevealCnic } from '@/components/admin/ReadOnly'
 
-// The CNIC number on an admin card (owner, 17 Oct 2026): masked, always. The
-// Owner — and only the Owner — gets a "Show" button that fetches the full
+// The CNIC number on an admin card (owner, 17 Oct 2026): masked, always.
+// Document reviewers — the Owner, the Project Manager and Backend Support
+// (owner, 16 Nov 2026) — get a "Show" button that fetches the full
 // number from /api/admin/tutors/cnic-reveal (logged in the audit log) so it
 // can be matched against the card images. It is held only in this component's
 // memory: hidden again by "Hide", when the page is left (unmount) or when the
@@ -23,7 +24,7 @@ export default function CnicShow({
   masked: string
   className?: string
 }) {
-  const isOwner = useCanApprove()
+  const canShow = useCanRevealCnic()
   const [full, setFull] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -59,7 +60,7 @@ export default function CnicShow({
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
       <span className={className}>{full ?? masked}</span>
-      {isOwner && (
+      {canShow && (
         <button
           type="button"
           onClick={() => (full ? setFull(null) : void show())}

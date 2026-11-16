@@ -32,8 +32,8 @@ const FAKE_CNIC = '42101-1234567-1' // the documented example number, never a me
 
 // --------------------------------------------------------------- Part A ----
 
-test('the full CNIC is returned to the Owner only (API level), and every Show is logged first', async () => {
-  for (const role of ['partner', 'admin', 'operations', 'tuitions_staff', null, undefined, '']) {
+test('the full CNIC is returned to document reviewers only (API level), and every Show is logged first', async () => {
+  for (const role of ['admin', 'operations', 'tuitions_staff', 'supervisor', null, undefined, '']) {
     let read = 0
     let logged = 0
     const r = await revealCnic({ adminRole: role }, 'm1', {
@@ -65,7 +65,9 @@ test('the full CNIC is returned to the Owner only (API level), and every Show is
   assert.deepEqual(ok.body, { cnicNumber: FAKE_CNIC })
   assert.deepEqual(order, ['load:m1', 'log:m1'])
   assert.equal(mayRevealCnic('owner'), true)
-  assert.equal(mayRevealCnic('partner'), false)
+  assert.equal(mayRevealCnic('partner'), true)
+  assert.equal(mayRevealCnic('backend_support'), true)
+  assert.equal(mayRevealCnic('admin'), false)
 })
 
 test('every admin loader sends the masked number, never the full one', () => {
@@ -81,12 +83,12 @@ test('every admin loader sends the masked number, never the full one', () => {
   assert.match(read('lib/adminQueues.ts'), /cnicNumber: adminCnicDisplay\(p\.cnic_number/)
   assert.doesNotMatch(read('lib/adminQueues.ts'), /cnicNumber: \(p\.cnic_number as string\) \?\? null/)
   // A number read from the photo is the number: Owner only.
-  assert.match(read('app/api/admin/documents/read-cnic/route.ts'), /number: mayRevealCnic\(gate\.actor\.adminRole\) \? c\.number : null/)
-  // The tutor queue's Show button is the Owner's only.
+  assert.match(read('app/api/admin/documents/read-cnic/route.ts'), /number: gate\.actor\.adminRole === 'owner' \? c\.number : null/)
+  // The tutor queue's Show button follows the reviewer rule.
   assert.match(read('app/admin/tutors/videos/page.tsx'), /canRevealCnic=\{mayRevealCnic\(actor\.adminRole\)\}/)
-  // The Show button: Owner only, hidden again on leave.
+  // The Show button: reviewers only, hidden again on leave.
   const show = read('components/admin/CnicShow.tsx')
-  assert.match(show, /useCanApprove\(\)/)
+  assert.match(show, /useCanRevealCnic\(\)/)
   assert.match(show, /pagehide/)
 })
 

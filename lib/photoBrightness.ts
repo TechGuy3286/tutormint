@@ -6,7 +6,7 @@
 // picture that cannot be read is never refused here (the server check is the
 // backstop).
 
-import { BLANK_SIZE, pixelsLookBlank } from '@/lib/photoBlankCore'
+import { BLANK_SIZE, CNIC_TOO_DARK, pixelsLookBlank } from '@/lib/photoBlankCore'
 
 /** True when the drawn picture looks blank; false when it cannot be read. */
 export function sourceLooksBlank(src: CanvasImageSource): boolean {
@@ -50,4 +50,14 @@ async function decode(blob: Blob): Promise<CanvasImageSource | null> {
 export async function blobLooksBlank(blob: Blob): Promise<boolean> {
   const src = await decode(blob)
   return src ? sourceLooksBlank(src) : false
+}
+
+/**
+ * The CNIC photo check before upload (owner, 16 Nov 2026): the SAME rule and
+ * thresholds as the server flag. Returns the message to show, or null when the
+ * photo may be sent (including when it cannot be read — the server flag is the
+ * backstop).
+ */
+export async function cnicPhotoProblem(blob: Blob): Promise<string | null> {
+  return (await blobLooksBlank(blob)) ? CNIC_TOO_DARK : null
 }

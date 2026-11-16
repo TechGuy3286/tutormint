@@ -165,6 +165,8 @@ export async function POST(request: Request) {
           .eq('id', tutorId)
       }
       field = side === 'back' ? 'cnic_back' : 'cnic_front'
+      // A dark or blank CNIC side is flagged for review (owner, 16 Nov 2026).
+      after(() => checkPhotosAfterUpload(tutorId))
     } else {
       if (!review) await admin.from('tutor_profiles').update({ selfie_url: result.doc.originalPath }).eq('id', tutorId)
       if (approve) {

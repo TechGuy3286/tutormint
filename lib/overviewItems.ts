@@ -418,7 +418,7 @@ export async function loadOverviewList(
 
     case 'todo-blank-photos': {
       // "Photo looks blank" (owner, 9 Nov 2026): real tutors whose current
-      // profile photo or selfie looks almost entirely black or blank
+      // profile photo, selfie or CNIC image (16 Nov 2026) looks almost entirely black or blank
       // (lib/photoBlank). Staff decide; nothing is rejected automatically.
       const d = await loadDirectory()
       const flags = await blankPhotoFlags(null)
@@ -433,7 +433,7 @@ export async function loadOverviewList(
           memberId: p.id,
           reviewHref: `/admin/users/${p.id}#documents`,
         })),
-        filter: 'with a profile photo or selfie that looks almost entirely black or blank',
+        filter: 'with a profile photo, selfie or CNIC image that looks almost entirely black or blank',
         workHref: null,
       }
     }

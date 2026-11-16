@@ -55,7 +55,7 @@ export type PipeCard = {
   noMobile?: boolean
   /** The current profile photo / selfie looks almost entirely black or blank
    *  (lib/photoBlankCore). A flag for staff only — nothing is rejected by it. */
-  blank?: ('photo' | 'selfie')[]
+  blank?: ('photo' | 'selfie' | 'cnic')[]
   rejected: { name: string; reason: string | null }[]
   /** Rejected: a WhatsApp was sent in this stage. */
   informed: boolean
@@ -137,7 +137,7 @@ export function pipeCardFrom(a: {
   completion?: number
   /** A verified mobile number on file (false = can't follow up). */
   mobileOk?: boolean
-  blank?: ('photo' | 'selfie')[]
+  blank?: ('photo' | 'selfie' | 'cnic')[]
   docs: PipeDocFacts | null | undefined
   contacts: PipeContact[]
   notInterested: boolean
@@ -229,11 +229,16 @@ export function readyForReviewFrom(docs: PipeDocFacts | null | undefined, comple
 
 const BLANK_NAME = { photo: 'Profile photo', selfie: 'Selfie' } as const
 
-/** "Photo looks blank: Selfie" — which current photo(s) staff should look at. */
+/** "Photo looks blank: Selfie" — which current photo(s) staff should look at;
+ *  a flagged CNIC side reads "CNIC image looks blank" (owner, 16 Nov 2026). */
 export function blankLine(p: Pick<PipeCard, 'blank'>): string | null {
   const b = p.blank ?? []
   if (b.length === 0) return null
-  return `Photo looks blank: ${b.map((k) => BLANK_NAME[k]).join(', ')}`
+  const photos = b.filter((k): k is 'photo' | 'selfie' => k !== 'cnic')
+  const parts: string[] = []
+  if (photos.length) parts.push(`Photo looks blank: ${photos.map((k) => BLANK_NAME[k]).join(', ')}`)
+  if (b.includes('cnic')) parts.push('CNIC image looks blank')
+  return parts.join(' · ')
 }
 
 /**

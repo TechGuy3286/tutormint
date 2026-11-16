@@ -21,7 +21,7 @@ import { parseBody, uuid, z } from '@/lib/validate'
 
 export const dynamic = 'force-dynamic'
 
-const Item = z.enum(['photo', 'selfie'])
+const Item = z.enum(['photo', 'selfie', 'cnic'])
 const Body = z.union([
   z.object({ action: z.literal('clear'), memberId: uuid, item: Item }),
   z.object({ action: z.literal('undo'), memberId: uuid, item: Item, ids: z.array(uuid).min(1).max(20) }),

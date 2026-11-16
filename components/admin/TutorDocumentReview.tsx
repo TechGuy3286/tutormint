@@ -3,7 +3,7 @@
 import LooksFineButton from '@/components/admin/LooksFineButton'
 import { useState } from 'react'
 import { AlertTriangle, Check, X, Loader2, MessageCircle } from 'lucide-react'
-import { BLANK_REJECT_LABEL, blankRejectReason, type BlankItem } from '@/lib/photoBlankCore'
+import { BLANK_REJECT_LABEL, blankFlagText, blankRejectReason, type BlankItem } from '@/lib/photoBlankCore'
 import { normalisePkMobile } from '@/lib/phone'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import DocumentViewer, { ViewerThumb as Zoomable, type ViewerImage } from '@/components/admin/DocumentViewer'
@@ -101,7 +101,7 @@ export default function TutorDocumentReview({
   nameFlagged?: boolean
   /** Staff marked the card's name as not matching: the CNIC is the Owner's to decide. */
   nameMismatch?: boolean
-  /** The current profile photo / selfie looks almost entirely black or blank (lib/photoBlank). A flag only. */
+  /** The current profile photo / selfie / CNIC image looks almost entirely black or blank (lib/photoBlank). A flag only. */
   blankItems?: BlankItem[]
 }) {
   const [numberHighlight, setNumberHighlight] = useState(false)
@@ -140,6 +140,7 @@ export default function TutorDocumentReview({
           title="CNIC (front & back)"
           canReview={canReview}
           cnicCheck={{ cnicName, nameFlagged, nameMismatch }}
+          blank={blankItems.includes('cnic')}
           memberWhatsapp={memberWhatsapp}
           state={statuses.cnic}
           unlock={lockInfo ? { item: 'cnic', lockable: lockInfo.lockable.cnic && !rv?.cnicFrontId && !rv?.cnicBackId, unlockOpen: lockInfo.unlockOpen.cnic, canUnlock } : null}
@@ -375,6 +376,7 @@ function ReviewItem({
     return waSendHref(waMsisdn, text, refCode)
   })()
 
+  const blankKey: BlankItem = item === 'profile_pic' ? 'photo' : item === 'selfie' ? 'selfie' : 'cnic'
   const act = async (decision: 'approve' | 'reject', reasonOverride?: string) => {
     const sentReason = reasonOverride ?? reason
     setBusy(decision)
@@ -407,22 +409,22 @@ function ReviewItem({
         </span>
       </div>
       {children}
-      {blank && status !== 'rejected' && (item === 'profile_pic' || item === 'selfie') && (
+      {blank && status !== 'rejected' && (item === 'profile_pic' || item === 'selfie' || item === 'cnic') && (
         <div className="space-y-1 rounded-lg border border-tm-red/40 bg-tm-tint-red px-2 py-1.5" data-blank-flag="">
           <p className="flex items-center gap-1 text-[11px] font-bold text-tm-red">
-            <AlertTriangle aria-hidden size={12} /> Photo looks blank
+            <AlertTriangle aria-hidden size={12} /> {blankFlagText(blankKey)}
           </p>
           {canReview && state.hasUpload && (!decided || menu.includes('reject')) && (
             <button
               type="button"
               disabled={!!busy}
-              onClick={() => void act('reject', blankRejectReason(item === 'selfie' ? 'selfie' : 'photo'))}
+              onClick={() => void act('reject', blankRejectReason(blankKey))}
               className="inline-flex min-h-[36px] w-full items-center justify-center gap-1 rounded-lg border border-tm-red bg-white px-2 text-[11px] font-bold text-tm-red disabled:opacity-50"
             >
               <X size={12} aria-hidden /> {BLANK_REJECT_LABEL}
             </button>
           )}
-          {!readOnly && <LooksFineButton memberId={tutorId} item={item === 'selfie' ? 'selfie' : 'photo'} />}
+          {!readOnly && <LooksFineButton memberId={tutorId} item={blankKey} />}
         </div>
       )}
       {shownReason && status === 'rejected' && (

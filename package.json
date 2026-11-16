@@ -193,6 +193,7 @@
     "test:pipeline": "tsx --test scripts/test-tutor-pipeline.ts",
     "test:selfieoptional": "tsx --test scripts/test-selfie-optional.ts",
     "test:peoplecleanup": "tsx --test scripts/test-people-cleanup.ts",
+    "test:reviewercnic": "tsx --test scripts/test-reviewer-cnic.ts",
     "test:pr2nov10": "tsx --test scripts/test-pr2-nov10.ts",
     "test:staffpause": "tsx --test scripts/test-staff-pause.ts",
     "test:inboxmobile": "tsx scripts/test-inbox-mobile.tsx",

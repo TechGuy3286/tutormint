@@ -144,6 +144,10 @@ export async function POST(request: Request) {
     })
   }
 
+  // A dark or blank CNIC side is flagged for staff (owner, 16 Nov 2026) — a
+  // flag only, never a rejection; the browser refuses most dark photos first.
+  if (kind === 'cnic') after(() => checkPhotosAfterUpload(user.id))
+
   // A selfie or CNIC side can be the last onboarding step (owner, 15 Oct 2026).
   if (kind === 'selfie' || kind === 'cnic') after(() => markOnboardedIfComplete(user.id, 'document_upload'))
 

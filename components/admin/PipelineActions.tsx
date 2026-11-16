@@ -18,7 +18,7 @@ import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/Toast'
 import { formatDate, formatDayMonth } from '@/lib/datetime'
 import type { BadgeName } from '@/lib/planBadges'
-import { niChip, type NiMark } from '@/lib/notInterestedCore'
+import { niChip, niMenuAllowed, type NiMark } from '@/lib/notInterestedCore'
 import { isFollowStage } from '@/lib/tutorPipelineCore'
 import { TRIED_TO_PAY_LABEL } from '@/lib/paymentAttemptsCore'
 import {
@@ -58,7 +58,7 @@ export type PipeCardMember = {
 }
 
 const BTN = 'inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl px-2 text-[11px] font-bold'
-const BLANK_NAME: Record<BlankItem, string> = { photo: 'Profile photo', selfie: 'Selfie' }
+const BLANK_NAME: Record<BlankItem, string> = { photo: 'Profile photo', selfie: 'Selfie', cnic: 'CNIC' }
 
 const TONE: Record<PipeCard['stage'], string> = {
   rejected: 'text-tm-red',
@@ -98,7 +98,7 @@ export default function PipelineCardBody({
   const rejectBlank = async (item: BlankItem) => {
     if (busy) return
     const yes = await confirm({
-      title: `Reject the ${BLANK_NAME[item].toLowerCase()}?`,
+      title: `Reject the ${item === 'cnic' ? 'CNIC' : BLANK_NAME[item].toLowerCase()}?`,
       body: `The tutor is told: "${blankRejectReason(item)}" and asked to upload a new one.`,
       confirmLabel: 'Reject',
       cancelLabel: 'Cancel',
@@ -110,7 +110,7 @@ export default function PipelineCardBody({
     const { ok, data } = await adminFetch<{ error?: string; moved?: Moved }>('/api/admin/tutors/document-review', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tutorId: memberId, item: item === 'photo' ? 'profile_pic' : 'selfie', decision: 'reject', reason: blankRejectReason(item), nameChecked: false }),
+      body: JSON.stringify({ tutorId: memberId, item: item === 'photo' ? 'profile_pic' : item, decision: 'reject', reason: blankRejectReason(item), nameChecked: false }),
     })
     setBusy(false)
     if (!ok) {
@@ -237,7 +237,8 @@ export default function PipelineCardBody({
   )
 }
 
-/** The card's small "⋯" menu: "Not interested" and its Undo (owner, 9 Nov 2026). */
+/** The card's small "⋯" menu: "Not interested" and its Undo (owner, 9 Nov 2026;
+ *  every stage but Paid since 16 Nov 2026 — niMenuAllowed). */
 export function PipelineMoreMenu({ memberId, pipe }: { memberId: string; pipe: PipeCard }) {
   const readOnly = useAdminReadOnly()
   const [open, setOpen] = useState(false)
@@ -259,7 +260,7 @@ export function PipelineMoreMenu({ memberId, pipe }: { memberId: string; pipe: P
       document.removeEventListener('keydown', onKey)
     }
   }, [open])
-  if (readOnly || !isFollowStage(pipe.stage)) return null
+  if (readOnly || !niMenuAllowed(pipe.stage, pipe.notInterested)) return null
   return (
     <div ref={ref} className="relative shrink-0">
       <button

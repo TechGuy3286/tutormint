@@ -74,7 +74,7 @@ test('a dark frame is blocked, a normal photo passes — browser and server agre
 test('the browser check uses the server constants and blocks submit with the message', () => {
   assert.equal(PHOTO_TOO_DARK, 'Photo is too dark. Please retake it in good light.')
   const helper = read('lib/photoBrightness.ts')
-  assert.match(helper, /BLANK_SIZE, pixelsLookBlank } from '@\/lib\/photoBlankCore'/)
+  assert.match(helper, /BLANK_SIZE,[^}]*pixelsLookBlank } from '@\/lib\/photoBlankCore'/)
   const selfie = read('components/tutor/LiveSelfieCapture.tsx')
   assert.match(selfie, /blobLooksBlank\(f\)\) \{ setError\(PHOTO_TOO_DARK\); return \}/)
   assert.match(selfie, /disabled=\{!ready\}/, 'Take photo waits for real frames')

@@ -10,11 +10,18 @@
 
 import { formatCnic, maskCnicHeavy, normaliseCnic } from '@/lib/cnic'
 
+// Reviewers (owner, 16 Nov 2026): the staff roles that review documents — the
+// Owner, the Project Manager ('partner') and Backend Support — get the same
+// Show/Hide, so they can match the number to the card images. Every Show is
+// still logged before the number is returned. Every other role keeps the
+// masked number with no Show.
+export const CNIC_REVEAL_ROLES: readonly string[] = ['owner', 'partner', 'backend_support']
+
 export function mayRevealCnic(adminRole: string | null | undefined): boolean {
-  return adminRole === 'owner'
+  return !!adminRole && CNIC_REVEAL_ROLES.includes(adminRole)
 }
 
-export const CNIC_REVEAL_REFUSED = 'Only the Owner can see the full CNIC number.'
+export const CNIC_REVEAL_REFUSED = 'Only document reviewers can see the full CNIC number.'
 
 /** The CNIC number as any admin screen receives it: masked, never the full
  *  number. An incomplete number on file reads as such, never half-shown. */

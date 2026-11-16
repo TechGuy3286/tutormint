@@ -42,8 +42,9 @@ export function looksBlank(s: BlankStats): boolean {
   return s.darkShare >= DARK_SHARE_MIN || s.spread < SPREAD_MIN
 }
 
-/** The two photos the check covers. */
-export type BlankItem = 'photo' | 'selfie'
+/** The images the check covers: the profile photo, the selfie and — since
+ *  16 Nov 2026 — the CNIC front and back images (one item, 'cnic'). */
+export type BlankItem = 'photo' | 'selfie' | 'cnic'
 
 /**
  * Which of a member's CURRENT photos are flagged. A check is stored per file
@@ -51,12 +52,14 @@ export type BlankItem = 'photo' | 'selfie'
  * afresh and an old flag never sticks to a new photo.
  */
 export function currentBlankItems(
-  current: { photoRefs: (string | null | undefined)[]; selfieRefs: (string | null | undefined)[] },
-  blankRefs: { photo: Set<string>; selfie: Set<string> },
+  current: { photoRefs: (string | null | undefined)[]; selfieRefs: (string | null | undefined)[]; cnicRefs?: (string | null | undefined)[] },
+  blankRefs: { photo: Set<string>; selfie: Set<string>; cnic?: Set<string> },
 ): BlankItem[] {
   const out: BlankItem[] = []
   if (current.photoRefs.some((r) => !!r && blankRefs.photo.has(r))) out.push('photo')
   if (current.selfieRefs.some((r) => !!r && blankRefs.selfie.has(r))) out.push('selfie')
+  const cnic = blankRefs.cnic
+  if (cnic && (current.cnicRefs ?? []).some((r) => !!r && cnic.has(r))) out.push('cnic')
   return out
 }
 
@@ -67,7 +70,14 @@ export const BLANK_REJECT_LABEL = 'Reject — photo unclear'
  *  (lib/rejectReasonsCore REJECT_REASONS), so the member gets the same in-app
  *  notice, email and WhatsApp wording as any other rejection. */
 export function blankRejectReason(item: BlankItem): string {
+  if (item === 'cnic') return 'CNIC details not readable'
   return item === 'selfie' ? 'Selfie not clear — retake in good light' : 'Profile photo must show your face clearly'
+}
+
+/** The flag's words per item: "CNIC image looks blank" for a CNIC side,
+ *  "Photo looks blank" for the profile photo and selfie. */
+export function blankFlagText(item: BlankItem): string {
+  return item === 'cnic' ? 'CNIC image looks blank' : 'Photo looks blank'
 }
 
 // ---------------------------------------- in the browser (owner, 10 Nov 2026) --
@@ -79,6 +89,9 @@ export function blankRejectReason(item: BlankItem): string {
 
 /** Shown when the picture is almost entirely dark or blank. */
 export const PHOTO_TOO_DARK = 'Photo is too dark. Please retake it in good light.'
+
+/** The same check on a CNIC front or back photo, before it is sent (owner, 16 Nov 2026). */
+export const CNIC_TOO_DARK = 'CNIC photo is too dark. Please retake it in good light, with the whole card visible.'
 
 /** Greyscale (one byte a pixel) from RGBA canvas pixels — the sRGB luma weights. */
 export function rgbaToGrey(rgba: ArrayLike<number>): Uint8Array {
@@ -113,8 +126,8 @@ export const LOOKS_FINE_LABEL = 'Looks fine'
 export type BlankCheckRow = { item: BlankItem; ref: string; blank: boolean; cleared_at?: string | null }
 
 /** The files still flagged: blank, and not cleared by staff. */
-export function flaggedRefs(rows: BlankCheckRow[]): { photo: Set<string>; selfie: Set<string> } {
-  const out = { photo: new Set<string>(), selfie: new Set<string>() }
+export function flaggedRefs(rows: BlankCheckRow[]): { photo: Set<string>; selfie: Set<string>; cnic: Set<string> } {
+  const out = { photo: new Set<string>(), selfie: new Set<string>(), cnic: new Set<string>() }
   for (const r of rows) {
     if (!r.blank || r.cleared_at) continue
     out[r.item].add(r.ref)

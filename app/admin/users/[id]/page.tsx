@@ -60,6 +60,8 @@ import ConvertAccountCard from '@/components/admin/ConvertAccountCard'
 import EraseAccountCard from '@/components/admin/EraseAccountCard'
 import MaskedContact from '@/components/admin/MaskedContact'
 import { NotInterestedChip } from '@/components/admin/PipelineActions'
+import NotInterestedButton from '@/components/admin/NotInterestedButton'
+import { niMemberPageAllowed } from '@/lib/notInterestedCore'
 import { liveMark } from '@/lib/followUpDismissals'
 import UndoMergeButton from '@/components/admin/UndoMergeButton'
 import ViewAsButton from '@/components/admin/ViewAsButton'
@@ -316,6 +318,9 @@ export default async function AdminMemberPage({
   // follow-up gets the stage's ready message from Contact, logged as on the
   // People card. (The separate "WhatsApp follow-up" on a payment row is gone.)
   const pipeCard = isTutor && roleMayWrite(actor.adminRole, SCREEN_ACCESS.unpaidSignups) ? await loadOnePipeCard(id).catch(() => null) : null
+  const niButton =
+    roleMayWrite(actor.adminRole, isTutor ? SCREEN_ACCESS.unpaidSignups : SCREEN_ACCESS.signups) &&
+    niMemberPageAllowed({ role: profile.role as string | null, feePaid: !!tutor?.verified_fee_paid_at, marked: !!niMark })
   const pipeContact =
     pipeCard && isFollowStage(pipeCard.stage) && !pipeCard.notInterested && pipeCard.follow && (memberMsisdn || callMsisdn)
       ? {
@@ -438,9 +443,12 @@ export default async function AdminMemberPage({
       </header>
       <MemberTabs memberId={id} current="profile" showProfile showEdit={editTabParts(actor.adminRole, profile.role as string | null).show} />
 
-      {niMark && (
-        <div className="rounded-2xl border border-gray-200 bg-tm-bg p-3">
-          <NotInterestedChip mark={niMark} />
+      {(niMark || niButton) && (
+        <div className="space-y-1 rounded-2xl border border-gray-200 bg-tm-bg p-3" data-member-ni="">
+          {niMark && <NotInterestedChip mark={niMark} />}
+          {/* "Not interested" on the member page too (owner, 16 Nov 2026): same
+              form, reason required, Undo — the same route as the People card. */}
+          {niButton && <NotInterestedButton memberId={id} marked={!!niMark} />}
         </div>
       )}
 
