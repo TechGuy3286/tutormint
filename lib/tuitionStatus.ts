@@ -6,10 +6,10 @@
 // 200 while a job with that slug exists; only its state changes. 404 is reserved
 // for a slug that does not exist.
 //
-// Only OPEN emits JobPosting JSON-LD. OPEN is indexable and in the sitemap, and
-// so is a PAUSED tuition for 60 days after it was paused (owner, 16 Oct 2026 —
-// the page keeps its ranking; it shows "no longer accepting applications" and
-// similar open tuitions). After 60 days a paused page, and a closed/hired page
+// Only OPEN emits JobPosting JSON-LD and is in the sitemap. A PAUSED tuition
+// stays indexable for 60 days after it was paused (owner, 16 Oct 2026) but is
+// out of the sitemap at once (owner, 16 Nov 2026); it shows "This tuition is no
+// longer open", similar open tuitions and its city page. After 60 days a paused page, and a closed/hired page
 // always, is 200 + noindex + no JobPosting + not in the sitemap.
 //
 // Vocabulary stays paused/closed/hired to match the DB and admin. The word
@@ -97,7 +97,7 @@ export type TuitionPublicState = {
   indexable: boolean
   /** Emit JobPosting structured data — open only. */
   emitJobPosting: boolean
-  /** Eligible for the sitemap — the same as indexable. */
+  /** Eligible for the sitemap — open only (owner, 16 Nov 2026). */
   inSitemap: boolean
   /** Apply, the contact line and the contact reveal — open only. */
   showContact: boolean
@@ -105,8 +105,8 @@ export type TuitionPublicState = {
   banner: TuitionBanner | null
 }
 
-/** The paused banner (owner, 16 Oct 2026). */
-export const PAUSED_BANNER_TEXT = 'This tuition is no longer accepting applications'
+/** The paused and closed banner (owner, 16 Nov 2026). */
+export const PAUSED_BANNER_TEXT = 'This tuition is no longer open'
 
 export function tuitionPublicState(
   status: string | null | undefined,
@@ -121,7 +121,7 @@ export function tuitionPublicState(
     s === 'paused'
       ? { tone: 'gold', text: PAUSED_BANNER_TEXT }
       : s === 'closed'
-        ? { tone: 'navy', text: 'This tuition is closed.' }
+        ? { tone: 'navy', text: PAUSED_BANNER_TEXT }
         : s === 'hired'
           ? { tone: 'green', text: 'A tutor has been hired for this tuition.' }
           : null
@@ -132,8 +132,16 @@ export function tuitionPublicState(
     acceptsApplications: isOpen,
     indexable,
     emitJobPosting: isOpen,
-    inSitemap: indexable,
+    // The sitemap lists OPEN tuitions only (owner, 16 Nov 2026): a paused page
+    // stays indexable for 60 days but leaves the sitemap the moment it pauses.
+    inSitemap: isOpen,
     showContact: isOpen,
     banner,
   }
+}
+
+/** Paused for longer than PAUSED_INDEXABLE_DAYS — its page is noindex now, so
+ *  Google is told URL_DELETED (owner, 16 Nov 2026). */
+export function pausedPastIndexWindow(status: string | null | undefined, pausedAtIso: string | null | undefined, now = Date.now()): boolean {
+  return (status ?? '').trim() === 'paused' && !pausedStillIndexable(status, pausedAtIso, now)
 }

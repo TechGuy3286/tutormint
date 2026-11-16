@@ -101,7 +101,7 @@ test('JobPosting: a home tuition has every required and recommended field', () =
   assert.equal((j.identifier as { value: string }).value, 'TM-2001')
   const org = j.hiringOrganization as Record<string, unknown>
   // A private household hires, not TutorMint (owner, 13 Oct 2026).
-  assert.equal(org.name, 'Private tutoring client (via TutorMint)')
+  assert.equal(org.name, 'TutorMint')
   assert.ok(org.sameAs && org.url, 'it points at this site')
   assert.equal(org['@id'], undefined, 'it is not the TutorMint Organization node')
   const addr = (j.jobLocation as { address: Record<string, string> }).address

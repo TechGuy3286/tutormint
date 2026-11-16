@@ -48,7 +48,7 @@ test('b) two cards directly below the buttons, from lib/siteIdentity, with real 
 
 test('c) the link block: city links once, up to six tutor pages, and four links', () => {
   const block = read('components/home/HomeLinks.tsx')
-  assert.ok(block.includes('indexableCityPages()') && block.includes('liveLandingPages()'))
+  assert.ok(block.includes('cityPagesCachedForLinks()') && block.includes('liveLandingPages()'), 'every city with an open tuition (16 Nov 2026)')
   assert.ok(block.includes("filter((p) => p.kind === 'tutors')") && block.includes('.sort((a, b) => b.count - a.count'))
   assert.ok(block.includes('HOME_TUTOR_PAGES_MAX = 6') && block.includes('.slice(0, HOME_TUTOR_PAGES_MAX)'))
   assert.deepEqual(HOME_MORE_LINKS.map((l) => l.label), ['Browse tutors', 'Post a tuition', 'Become a tutor', 'Blog'])

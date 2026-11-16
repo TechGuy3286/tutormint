@@ -62,7 +62,7 @@ test('a hidden tuition is never indexable, has no JobPosting and is out of the s
 
 test('a hidden tuition 301-redirects to its city page, else Browse tuitions', () => {
   assert.equal(hiddenTuitionTarget('Hyderabad', true), '/tuition-jobs/hyderabad')
-  assert.equal(hiddenTuitionTarget('Hyderabad', false), '/browse/tuitions')
+  assert.equal(hiddenTuitionTarget('Hyderabad', false), '/tuition-jobs/hyderabad')
   assert.equal(hiddenTuitionTarget(null, true), '/browse/tuitions')
   assert.equal(tuitionSlugOf('/tuitions/hyderabad/early-years-teacher-required-the-spirit-sc-15f0b8'), 'early-years-teacher-required-the-spirit-sc-15f0b8')
   assert.equal(tuitionSlugOf('/tuition-jobs/hyderabad'), null)

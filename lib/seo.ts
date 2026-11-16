@@ -393,7 +393,7 @@ export function aboutPageJsonLd() {
 }
 
 /** The honest name of who is hiring on an ordinary tuition: a private household. */
-export const PRIVATE_CLIENT_NAME = `Private tutoring client (via ${BRAND})`
+export const PRIVATE_CLIENT_NAME = BRAND
 
 /**
  * A posted tuition, as a JobPosting.
@@ -413,12 +413,10 @@ export const PRIVATE_CLIENT_NAME = `Private tutoring client (via ${BRAND})`
  * would understate a band-posted job by up to ten thousand rupees, which is the
  * same reason the card renders a range.
  *
- * `hiringOrganization` is neither the parent by name nor the platform (13 Oct
- * 2026). A parent is a private household — naming them would publish an
- * individual as a business — and TutorMint lists the tuition, it does not
- * employ the tutor. So it is the generic honest form, "Private tutoring client
- * (via TutorMint)", pointing at this site. A post that NAMES its school is the
- * exception (12 Oct 2026): the school is the hiring organisation.
+ * `hiringOrganization` is "TutorMint" with its logo and profiles (owner, 16 Nov
+ * 2026 — supersedes "Private tutoring client (via TutorMint)", 13 Oct). The
+ * parent is never named. A post that NAMES its school is the exception (12 Oct
+ * 2026): the school is the hiring organisation.
  *
  * `employmentType` is PART_TIME for a tuition and, for a school post, only what
  * the post's own words say (lib/jobPostingCore) — left out when it does not say.
@@ -518,16 +516,16 @@ export function jobPostingJsonLd(job: {
     // A post that names its school is that school's vacancy (owner, 12 Oct
     // 2026): the school is the hiring organisation — name only, we hold no site
     // or logo for it. Every other posting is listed by TutorMint.
-    // (13 Oct 2026) An ordinary tuition is hired by a private household, not by
-    // TutorMint: TutorMint is where it is listed. The household is never named,
-    // so it is the honest generic form, pointing at this site.
+    // (16 Nov 2026) Every other tuition names TutorMint, with its logo and
+    // profiles; the household is never named.
     hiringOrganization: job.schoolName
       ? { '@type': 'Organization', name: job.schoolName }
       : {
           '@type': 'Organization',
           name: PRIVATE_CLIENT_NAME,
-          sameAs: SITE_URL,
           url: SITE_URL,
+          logo: absoluteUrl(SITE_LOGO_PATH),
+          ...(socialProfiles().length ? { sameAs: socialProfiles() } : { sameAs: SITE_URL }),
         },
     // Applications are made on this page, not on somebody else's site.
     directApply: true,

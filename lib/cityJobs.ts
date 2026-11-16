@@ -18,19 +18,50 @@ import { ONLINE_JOB_TITLE } from '@/lib/jobTitlesCore'
 import { areaHubSlug, areaHubsFor, resolveAreaHub, schoolFromAreaValue } from '@/lib/areaHubCore'
 import { loadAreaAliases } from '@/lib/areaAliases'
 import { isFemaleJob } from '@/lib/femaleJobsCore'
+import { knownCityForSegment } from '@/lib/crawlLinksCore'
 
-/** A city page or variant is indexable (and in the sitemap) from this many open tuitions. */
+/** A city VARIANT (female / online / area) is indexable (and in the sitemap) from this many open tuitions. */
 export const CITY_PAGE_THRESHOLD = 3
+
+/** The main city page is indexable (and in the sitemap) from ONE open tuition
+ *  (owner, 16 Nov 2026 — "noindex until it has tuitions"); with none it is
+ *  200 + noindex, "No tuitions here yet". */
+export const CITY_MAIN_THRESHOLD = 1
 
 // An AREA variant is built only from an area in the curated Locations list
 // (owner, 13 Oct 2026 — lib/areaHubCore). `areas` is every saved spelling that
 // belongs to the hub ("DHA", "DHA Lahore", "DHA Phase 5"): the list filter
 // reads it, and no tuition's own saved text is changed.
-export type CityVariant = { kind: 'female' | 'online' | 'area'; slug: string; label: string; count: number; area?: string; areas?: string[] }
+export type CityVariant = { kind: 'female' | 'online' | 'area'; slug: string; label: string; count: number; area?: string; areas?: string[]; newestMs?: number }
 
-export type CityPage = { city: string; citySlug: string; count: number; variants: CityVariant[] }
+/** newestMs = the newest real change of any open tuition on the page (posted,
+ *  resumed, refreshed, moved to the top) — the sitemap's lastmod (16 Nov 2026). */
+export type CityPage = { city: string; citySlug: string; count: number; variants: CityVariant[]; newestMs?: number }
 
-type OpenRow = { city: string | null; area: string | null; gender_preference: string | null; teaching_mode: string | null; title: string | null; description: string | null }
+type OpenRow = {
+  city: string | null
+  area: string | null
+  gender_preference: string | null
+  teaching_mode: string | null
+  title: string | null
+  description: string | null
+  created_at?: string | null
+  resumed_at?: string | null
+  refreshed_at?: string | null
+  bumped_at?: string | null
+}
+
+/** The newest real change of a set of open tuitions, as ms (0 when none). */
+function newestChange(rows: OpenRow[]): number {
+  let max = 0
+  for (const r of rows) {
+    for (const t of [r.created_at, r.resumed_at, r.refreshed_at, r.bumped_at]) {
+      const ms = t ? new Date(t).getTime() : NaN
+      if (Number.isFinite(ms) && ms > max) max = ms
+    }
+  }
+  return max
+}
 
 async function openRows(): Promise<OpenRow[]> {
   const db = createPublicClient()
@@ -39,7 +70,7 @@ async function openRows(): Promise<OpenRow[]> {
   for (let from = 0; ; from += 1000) {
     const { data } = await db
       .from('jobs')
-      .select('city, area, gender_preference, teaching_mode, title, description')
+      .select('city, area, gender_preference, teaching_mode, title, description, created_at, resumed_at, refreshed_at, bumped_at')
       .eq('status', 'open')
       .range(from, from + 999)
     const rows = (data ?? []) as OpenRow[]
@@ -102,15 +133,17 @@ export async function cityPages(): Promise<CityPage[]> {
     const city = [...spell.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0]
     const variants: CityVariant[] = []
     // lib/femaleJobsCore: the field, or the whole word "female" when no preference is set.
-    const female = list.filter((r) => isFemaleJob(r)).length
-    if (female > 0) variants.push({ kind: 'female', slug: 'female', label: `Female teaching jobs`, count: female })
-    const online = list.filter((r) => r.teaching_mode === ONLINE_JOB_TITLE).length
-    if (online > 0) variants.push({ kind: 'online', slug: 'online', label: `Online tuitions`, count: online })
+    const femaleRows = list.filter((r) => isFemaleJob(r))
+    if (femaleRows.length > 0) variants.push({ kind: 'female', slug: 'female', label: `Female teaching jobs`, count: femaleRows.length, newestMs: newestChange(femaleRows) })
+    const onlineRows = list.filter((r) => r.teaching_mode === ONLINE_JOB_TITLE)
+    if (onlineRows.length > 0) variants.push({ kind: 'online', slug: 'online', label: `Online tuitions`, count: onlineRows.length, newestMs: newestChange(onlineRows) })
     // Area hubs: curated areas only, every saved spelling of one area in one hub.
     for (const hub of areaHubsFor(city, list.map((r) => r.area), curated.get(city.toLowerCase()) ?? [], aliases[city.toLowerCase()], known)) {
-      variants.push({ kind: 'area', slug: hub.slug, label: hub.label, count: hub.count, area: hub.label, areas: hub.areas })
+      const spellings = new Set((hub.areas ?? [hub.label]).map((a) => a.trim().toLowerCase()))
+      const rows = list.filter((r) => spellings.has((r.area ?? '').trim().toLowerCase()))
+      variants.push({ kind: 'area', slug: hub.slug, label: hub.label, count: hub.count, area: hub.label, areas: hub.areas, newestMs: newestChange(rows) })
     }
-    pages.push({ city, citySlug: citySegment(city), count: list.length, variants })
+    pages.push({ city, citySlug: citySegment(city), count: list.length, variants, newestMs: newestChange(list) })
   }
   return pages.sort((a, b) => b.count - a.count || a.city.localeCompare(b.city))
 }
@@ -139,6 +172,12 @@ const cityPagesCached = memoize(async (): Promise<CityPage[]> => cityPages(), ['
   revalidate: 120,
   tags: [LANDING_TAG],
 })
+
+/** Every city with at least one open tuition, cached — for LINK blocks that
+ *  should reach every city page (owner, 16 Nov 2026: homepage, Browse, nearby). */
+export async function cityPagesCachedForLinks(): Promise<CityPage[]> {
+  return cityPagesCached()
+}
 
 /**
  * Every saved area spelling an AREA FILTER on a city should match (owner, 16 Oct
@@ -190,6 +229,46 @@ export async function retiredAreaValue(city: string, segment: string): Promise<{
 export async function cityPageBySlug(citySlug: string): Promise<CityPage | null> {
   const pages = await cityPages()
   return pages.find((p) => p.citySlug === citySlug) ?? null
+}
+
+/**
+ * Every KNOWN city (owner, 16 Nov 2026): the Locations list plus every city a
+ * tuition was ever saved with, in any status. A known city's page never 404s —
+ * with no open tuition it says "No tuitions here yet" (noindex).
+ */
+export async function knownCities(): Promise<string[]> {
+  const db = createPublicClient()
+  const [{ data: cities }, jobs] = await Promise.all([
+    db.from('location_cities').select('name'),
+    pageAll((from, to) => db.from('jobs').select('id, city').not('city', 'is', null).order('id').range(from, to)) as Promise<{ city: string | null }[]>,
+  ])
+  const out = new Map<string, string>()
+  // A tuition's own spelling first, then Locations (which wins on a clash).
+  for (const j of jobs) {
+    const c = cityName(j.city ?? '')
+    if (c) out.set(citySegment(c), c)
+  }
+  for (const c of cities ?? []) {
+    const n = cityName(String(c.name ?? ''))
+    if (n) out.set(citySegment(n), n)
+  }
+  return [...out.values()]
+}
+
+const knownCitiesCached = memoize(async (): Promise<string[]> => knownCities(), ['known-cities'], { revalidate: 300, tags: [LANDING_TAG] })
+
+/** The known city for a URL segment, or null (a real 404). */
+export async function knownCityBySlug(citySlug: string): Promise<string | null> {
+  return knownCityForSegment(citySlug, await knownCitiesCached(), citySegment)
+}
+
+/** The city page — with no open tuition, an EMPTY page for a known city
+ *  (count 0, no variants); null only for a city nobody ever used. */
+export async function cityPageOrEmpty(citySlug: string): Promise<CityPage | null> {
+  const page = await cityPageBySlug(citySlug)
+  if (page) return page
+  const city = await knownCityBySlug(citySlug)
+  return city ? { city, citySlug: citySegment(city), count: 0, variants: [], newestMs: 0 } : null
 }
 
 /** The display name for a city segment, even when no page exists ("lahore" → "Lahore"). */

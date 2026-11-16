@@ -55,9 +55,12 @@ export function parentHideReason(p: {
 
 /** Where a hidden tuition's address goes: its city's public tuition page when
  *  that city still has an open tuition, else Browse tuitions. */
-export function hiddenTuitionTarget(city: string | null | undefined, cityHasOpen: boolean): string {
+export function hiddenTuitionTarget(city: string | null | undefined, _cityHasOpen?: boolean): string {
+  // Every known city has a page now, even with no open tuition (owner, 16 Nov
+  // 2026 — "No tuitions here yet", noindex): so it is always the city page.
+  void _cityHasOpen
   const c = (city ?? '').trim()
-  if (c && cityHasOpen) return `/tuition-jobs/${citySegment(c)}`
+  if (c) return `/tuition-jobs/${citySegment(c)}`
   return '/browse/tuitions'
 }
 

@@ -70,7 +70,7 @@ test('a redirected or non-canonical URL is never sent', () => {
   assert.equal(pageCheckVerdict(url, { status: 503, canonical: null }), 'transient')
   assert.equal(SKIP_NOTE.old_address, 'Not sent — old address')
   const g = src('lib/googleIndexing.ts')
-  assert.match(g, /current\.get\(slug\) !== r\.url/)
+  assert.match(g, /cur\.url !== r\.url \|\| \(cur\.merged && r\.kind !== 'URL_DELETED'\)/)
   assert.match(g, /verdict === 'old_address'/)
 })
 
@@ -117,7 +117,7 @@ test('"Last 10 errors" are newest first', () => {
   assert.match(src('lib/googleIndexing.ts'), /order\('attempted_at', \{ ascending: false \}\)/)
 })
 
-test('paused 61 days ago: not in the sitemap; 59 days: in it', () => {
+test('paused (59 or 61 days ago): never in the sitemap (owner, 16 Nov 2026)', () => {
   const now = Date.now()
   const cand = (slug: string, pausedDaysAgo: number) => ({
     path: `/tuitions/lahore/${slug}`,
@@ -127,7 +127,7 @@ test('paused 61 days ago: not in the sitemap; 59 days: in it', () => {
     descriptionLength: 80,
   })
   const urls = tuitionSitemapEntries(BASE, [cand('kept-aaaaaa', 59), cand('gone-bbbbbb', 61)]).map((e) => e.url)
-  assert.deepEqual(urls, [`${BASE}/tuitions/lahore/kept-aaaaaa`])
+  assert.deepEqual(urls, [])
   // The SQL the sitemap reads applies the same 60 days.
   assert.match(src('supabase/migrations/178_tuitions_on_google.sql'), /paused_at > now\(\) - interval '60 days'/)
 })

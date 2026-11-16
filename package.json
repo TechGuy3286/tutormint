@@ -261,7 +261,9 @@
     "test:followupcleanup": "tsx --test scripts/test-followup-cleanup.ts",
     "test:pipelinemove": "tsx --test scripts/test-pipeline-move.ts",
     "test:staffrights": "tsx --test scripts/test-staff-rights.ts",
-    "test:pipelinecards": "tsx scripts/test-pipeline-cards-mobile.tsx"
+    "test:pipelinecards": "tsx scripts/test-pipeline-cards-mobile.tsx",
+    "test:seocrawl": "tsx --test scripts/test-seo-crawl.ts",
+    "test:citygaps:live": "tsx --env-file=.env.local scripts/test-city-gaps-live.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

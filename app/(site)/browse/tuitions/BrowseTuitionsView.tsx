@@ -5,6 +5,7 @@ import TrackSearch from '@/components/TrackSearch'
 import { parseMode } from '@/lib/locations'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import PageLinks from '@/components/seo/PageLinks'
 import { createClient } from '@/lib/supabase/server'
 import { createPublicClient } from '@/lib/supabase/public'
 import { getEntitlements } from '@/lib/entitlements'
@@ -468,7 +469,8 @@ export async function BrowseTuitionsView({ sp, guest = false }: { sp: Record<str
           </div>
         )}
 
-        {/* No numbered pagination (CLAUDE.md, 3 Sep 2026). */}
+        {/* "Load more" for people; numbered page links below it for crawlers
+            (owner, 16 Nov 2026 — supersedes "no numbered pagination"). */}
         {jobs.length > 0 && (
           <MoreJobs
             params={{
@@ -488,6 +490,16 @@ export async function BrowseTuitionsView({ sp, guest = false }: { sp: Record<str
             viewerJobTypes={viewerJobTypes}
             saveable={isTutor}
             savedIds={Array.from(savedIds)}
+          />
+        )}
+
+        {jobs.length > 0 && !defaultApplied && (
+          <PageLinks
+            path="/browse/tuitions"
+            page={page}
+            pages={pages}
+            params={{ subject: filterValues.subject, city, mode, budgetMin, budgetMax, q }}
+            label="Pages of open tuitions"
           />
         )}
 

@@ -256,7 +256,7 @@ test('tuition: JobPosting is hired by a private client via TutorMint, applied to
   assert.equal(j['@type'], 'JobPosting')
   const org = j.hiringOrganization as Node
   assert.equal(org.name, PRIVATE_CLIENT_NAME)
-  assert.equal(org.name, 'Private tutoring client (via TutorMint)')
+  assert.equal(org.name, 'TutorMint')
   assert.equal(org.sameAs, 'https://www.tutormint.org')
   assert.equal(j.directApply, true)
   assert.equal(j.validThrough, '2026-10-25T00:00:00Z', 'validThrough is passed through unchanged')

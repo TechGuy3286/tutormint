@@ -10,7 +10,7 @@ import { purgeOldSmsSends } from '@/lib/smsLog'
 import { purgeOldEmailSends } from '@/lib/emailHealth'
 import { sweepAbandonedVideos } from '@/lib/videoCleanup'
 import { pauseStaleTuitions } from '@/lib/tuitionPause'
-import { drainIndexingQueue, INDEXING_DAILY_LIMIT } from '@/lib/googleIndexing'
+import { drainIndexingQueue, queueGoneTuitionNotices, INDEXING_DAILY_LIMIT } from '@/lib/googleIndexing'
 import { runDueErasures } from '@/lib/accountErase'
 import { drainEmailQueue } from '@/lib/email/queue'
 import { notifyStaffApprovalsDaily } from '@/lib/staffReceipt'
@@ -100,6 +100,9 @@ async function handle(request: Request) {
   const tuitions = await pauseStaleTuitions().catch(
     (e) => ({ paused: 0, ids: [] as string[], error: String(e) }),
   )
+  // Tuitions whose page has become noindex since (closed, hidden, paused 60+
+  // days) are told URL_DELETED (owner, 16 Nov 2026); open ones go first.
+  const indexingGone = await queueGoneTuitionNotices().catch(() => -1)
   const indexing = await drainIndexingQueue(INDEXING_DAILY_LIMIT, 60_000).catch(() => ({ sent: 0, failed: 0, left: -1 }))
   // Account erases whose 7-day grace is over (owner, 27 Oct 2026).
   const erasures = await runDueErasures().catch(() => ({ due: 0, done: 0, failed: -1 }))
@@ -134,6 +137,7 @@ async function handle(request: Request) {
       videos,
       tuitions,
       indexing,
+      indexingGone,
       erasures,
       emailQueue,
       staffApprovals,

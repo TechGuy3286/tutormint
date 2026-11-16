@@ -11,7 +11,9 @@ import { liveLandingPages } from '@/lib/landing'
 import { GraduationCap } from 'lucide-react'
 import { tuitionPath } from '@/lib/slugs'
 import { ONLINE_JOB_TITLE } from '@/lib/jobTitlesCore'
-import { CITY_PAGE_THRESHOLD, cityPagePath, indexableCityPagesCached, type CityPage, type CityVariant } from '@/lib/cityJobs'
+import { CITY_MAIN_THRESHOLD, CITY_PAGE_THRESHOLD, cityPagePath, cityPagesCachedForLinks, type CityPage, type CityVariant } from '@/lib/cityJobs'
+import PageLinks from '@/components/seo/PageLinks'
+import { nearbyCities, pageCount } from '@/lib/crawlLinksCore'
 import { distinctWords, hubFaq, hubHeading, hubIntro, type HubFacts, type HubKind } from '@/lib/hubCopy'
 import { femalePageIntro } from '@/lib/femaleJobsCore'
 import { placeLabel } from '@/lib/place'
@@ -106,9 +108,12 @@ export default async function CityJobsView({
   // The female page has its own short intro (owner, 28 Oct 2026).
   const intro = variant?.kind === 'female' ? femalePageIntro(page.city, total) : hubIntro(hub.kind, hub.name, facts)
   // Only a page that clears the threshold carries the FAQ (and its FAQPage data).
-  const indexable = (variant ? variant.count : page.count) >= CITY_PAGE_THRESHOLD
-  // The same hub in other cities — only the ones that exist (3+ open posts).
-  const otherCities = (await indexableCityPagesCached()).filter((p) => p.citySlug !== page.citySlug).slice(0, 8)
+  const indexable = variant ? variant.count >= CITY_PAGE_THRESHOLD : page.count >= CITY_MAIN_THRESHOLD
+  // Nearby cities that have open tuitions, nearest first (owner, 16 Nov 2026).
+  const otherCities = nearbyCities(page.city, (await cityPagesCachedForLinks()).filter((p) => p.citySlug !== page.citySlug), 8)
+  // Numbered pages (owner, 16 Nov 2026): real links to ?page=2, 3 … so a
+  // crawler reaches every open tuition in the city without "Load more".
+  const pages = pageCount(total, CITY_PAGE_SIZE)
 
   // Variant links: the other pages in this city that exist (3+ open tuitions).
   const liveVariants = page.variants.filter((v) => v.count >= CITY_PAGE_THRESHOLD && v.slug !== variant?.slug)
@@ -174,7 +179,12 @@ export default async function CityJobsView({
 
         {jobs.length === 0 ? (
           <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-8 text-center">
-            <p className="text-sm font-black text-tm-navy">No open tuitions on this page yet</p>
+            <p className="text-sm font-black text-tm-navy">{page.count === 0 ? 'No tuitions here yet' : 'No open tuitions on this page yet'}</p>
+            {page.count === 0 && (
+              <p className="mx-auto max-w-sm text-xs leading-relaxed text-gray-500">
+                New tuitions are posted every day. See the nearby cities below, or all open tuitions.
+              </p>
+            )}
             <Link href="/browse/tuitions" className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-navy px-5 text-xs font-bold text-white">
               See all open tuitions
             </Link>
@@ -209,6 +219,7 @@ export default async function CityJobsView({
               savedIds={[]}
             />
             </ViewerJobsProvider>
+            <PageLinks path={path} page={pageNo} pages={pages} label={`Pages of ${heading}`} />
           </>
         )}
 
@@ -239,8 +250,8 @@ export default async function CityJobsView({
         </nav>
 
         {otherCities.length > 0 && (
-          <nav aria-label="Teaching jobs in other cities" className="space-y-1.5 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
-            <p className="text-xs font-black text-tm-navy">Teaching jobs in other cities</p>
+          <nav aria-label="Teaching jobs in nearby cities" className="space-y-1.5 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+            <p className="text-xs font-black text-tm-navy">Teaching jobs in nearby cities</p>
             <ul className="flex flex-wrap gap-2">
               {otherCities.map((p) => (
                 <li key={p.citySlug}>

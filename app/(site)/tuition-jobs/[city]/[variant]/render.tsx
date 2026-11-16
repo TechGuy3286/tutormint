@@ -1,9 +1,9 @@
 import { notFound, permanentRedirect } from 'next/navigation'
 import CityJobsView from '@/components/tuitionJobs/CityJobsView'
-import { cityPageBySlug, cityPagePath, retiredAreaValue } from '@/lib/cityJobs'
+import { cityPageBySlug, cityPagePath, knownCityBySlug, retiredAreaValue } from '@/lib/cityJobs'
 import { indexableSchoolHubsCached } from '@/lib/schoolJobs'
 import { schoolHubPath } from '@/lib/schoolJobsCore'
-import { cityFromSegment, slugify } from '@/lib/slugs'
+import { citySegment, slugify } from '@/lib/slugs'
 
 /** A city hub variant, shared by the cached page and its /qs query twin (push 3). */
 export async function renderVariantPage(city: string, variant: string, pageNo: number) {
@@ -14,19 +14,20 @@ export async function renderVariantPage(city: string, variant: string, pageNo: n
     // area once made — a school's name, a street address, an area that is not in
     // Locations — is sent on, permanently: to the school's hub when it has one,
     // else to the city hub. (A merged AREA is a 301 in proxy.ts before this
-    // runs.) An address nothing ever made is a real 404.
-    const cityName = page?.city ?? cityFromSegment(city)
-    const retired = cityName ? await retiredAreaValue(cityName, variant) : null
-    if (!retired) notFound()
-    if (retired.school) {
+    // runs.) Owner, 16 Nov 2026: any other address under a KNOWN city — a female
+    // or online page with no open tuition today (/tuition-jobs/mianwali/female)
+    // — goes to the city page, which always exists for a known city. Only an
+    // address under a city nobody ever used is a 404.
+    const cityName = page?.city ?? (await knownCityBySlug(city))
+    if (!cityName) notFound()
+    const retired = await retiredAreaValue(cityName, variant)
+    if (retired?.school) {
       const slug = slugify(retired.school)
       const hubs = await indexableSchoolHubsCached().catch(() => [])
       if (hubs.some((h) => h.slug === slug)) permanentRedirect(schoolHubPath(slug))
     }
-    // Any curated-area hub is kept even when it has no open tuition today.
-    permanentRedirect(page ? cityPagePath(page.citySlug) : '/browse/tuitions')
+    permanentRedirect(cityPagePath(page?.citySlug ?? citySegment(cityName)))
   }
   if (!page) notFound()
   return <CityJobsView page={page} variant={v} pageNo={pageNo} />
 }
-

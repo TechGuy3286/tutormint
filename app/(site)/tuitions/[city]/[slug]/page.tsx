@@ -32,7 +32,7 @@ import { tuitionPageTitle } from '@/lib/tuitionTitle'
 import { jobPostingJsonLd, jsonLdScript, pageDescription, pageTitle, seoTitle, seoDescription, tuitionDescription, socialMeta } from '@/lib/seo'
 import { liveOverlapNoindex, overlapKey } from '@/lib/landingOverlap'
 import { repeatOfOlderOpen, tuitionHref } from '@/lib/duplicates'
-import { cityPagePath, areaHubFor, indexableCityPagesCached } from '@/lib/cityJobs'
+import { cityPagePath, areaHubFor, knownCityBySlug } from '@/lib/cityJobs'
 import { schoolOfJob, indexableSchoolHubsCached, schoolHubPath } from '@/lib/schoolJobs'
 import { jobPostingEmploymentType, jobPostingDescription } from '@/lib/jobPostingCore'
 import { genderPrefWord } from '@/lib/genderPref'
@@ -220,6 +220,19 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   }
 }
 
+/**
+ * Owner, 16 Nov 2026: an address under a KNOWN city that serves nothing — a
+ * city × subject page with no listing left (/tuitions/mianwali/pre-nursery-…),
+ * or a tuition address that no longer exists — goes permanently to that city's
+ * tuition-jobs page, which always exists for a known city. Only an address
+ * under a city nobody ever used is a 404.
+ */
+async function goneToCityPage(citySeg: string): Promise<never> {
+  const city = await knownCityBySlug(citySeg)
+  if (!city) notFound()
+  permanentRedirect(cityPagePath(citySegment(city)))
+}
+
 export default async function TuitionPage({ params }: { params: Params }) {
   const { city: citySeg, slug } = await params
 
@@ -227,7 +240,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
   // 404 below the threshold. A tuition slug falls through to the detail page.
   if (await isSubjectSlug(slug)) {
     const combo = await resolveLandingAny('tuitions', citySeg, slug)
-    if (!combo) notFound()
+    if (!combo) return goneToCityPage(citySeg)
     return <LandingView combo={combo} />
   }
 
@@ -238,7 +251,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
   // 404 is ONLY for a slug that does not exist (PR28). A paused/closed/hired
   // tuition renders 200 with a plain status banner — never a 404, so an indexed
   // URL that auto-pauses does not flap 200↔404 and no state is a dead end.
-  if (!job) notFound()
+  if (!job) return goneToCityPage(citySeg)
 
   // A tuition whose parent account is hidden, test, suspended or banned
   // (owner, 24 Oct 2026): proxy.ts answers a 301 to the city's tuition page;
@@ -332,14 +345,13 @@ export default async function TuitionPage({ params }: { params: Params }) {
   // "<School> teacher jobs" page — each linked ONLY when that hub exists (3+
   // open posts), so nothing here points at a noindex page.
   const school = await schoolOfJob({ title: job.headline ?? job.title, description: job.description, city: job.city, jobTitle: job.teaching_mode })
-  const [areaHub, schoolHubs, cityPagesLive] = await Promise.all([
+  const [areaHub, schoolHubs] = await Promise.all([
     areaHubFor(job.city, job.area).catch(() => null),
     school ? indexableSchoolHubsCached().catch(() => []) : Promise.resolve([]),
-    job.city ? indexableCityPagesCached().catch(() => []) : Promise.resolve([]),
   ])
-  // Its city hub, linked only when that page exists (3+ open tuitions) — every
-  // tuition page links to its city hub and its city × subject hub (owner, 16 Oct 2026).
-  const cityHub = job.city ? (cityPagesLive.find((p) => p.citySlug === citySegment(job.city)) ?? null) : null
+  // Its city page — every known city has one now (owner, 16 Nov 2026), so every
+  // tuition page links to it, and to its city × subject hub (owner, 16 Oct 2026).
+  const cityHub = job.city ? { citySlug: citySegment(job.city), city: job.city } : null
   const schoolHub = school && schoolHubs.some((s) => s.slug === school.slug) ? school : null
 
   // The gender-preference sentence, shown plainly to everyone. And, for a
@@ -463,6 +475,13 @@ export default async function TuitionPage({ params }: { params: Params }) {
             }`}
           >
             <p className="text-xs font-bold">{state.banner.text}</p>
+            {/* Owner, 16 Nov 2026: a closed or paused page points straight at its
+                city's open tuitions (the similar list is further down). */}
+            {job.city && (
+              <Link href={cityPagePath(citySegment(job.city))} className="inline-flex min-h-[32px] items-center text-xs font-bold underline">
+                See open tuitions in {job.city}
+              </Link>
+            )}
             {/* The poster's own Resume, inline (§5) — reuses /api/parent/jobs/resume. */}
             {/* An admin manages pause/resume on the admin tuition page (§5). */}
             <PosterBannerActions jobId={job.id} paused={job.status === 'paused'} />

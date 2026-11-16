@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-import { indexableCityPages, cityPagePath } from '@/lib/cityJobs'
+import { cityPagesCachedForLinks, cityPagePath } from '@/lib/cityJobs'
 import { liveLandingPages } from '@/lib/landing'
 import { HOME_MORE_LINKS } from '@/lib/siteIdentity'
 import NewestTuitions from '@/components/seo/NewestTuitions'
@@ -23,7 +23,8 @@ const LINK = 'inline-flex min-h-[32px] items-center font-semibold text-tm-navy h
 
 export default async function HomeLinks() {
   const [cities, landing, newest] = await Promise.all([
-    indexableCityPages().catch(() => []),
+    // Every city that has an open tuition, each once (owner, 16 Nov 2026).
+    cityPagesCachedForLinks().catch(() => []),
     liveLandingPages().catch(() => []),
     // The latest 10 live tuitions (owner, 16 Oct 2026 — inside this approved
     // link block only; nothing else on the homepage changes).
@@ -39,7 +40,7 @@ export default async function HomeLinks() {
       {cities.length > 0 && (
         <nav aria-label="Tuition jobs by city" className={ROW}>
           <span className="font-bold text-tm-navy">Tuition jobs by city:</span>
-          {cities.slice(0, 10).map((p, i) => (
+          {cities.map((p, i) => (
             <span key={p.citySlug} className="inline-flex items-center gap-2">
               {i > 0 && <span aria-hidden>·</span>}
               <Link href={cityPagePath(p.citySlug)} className={LINK}>

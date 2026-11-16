@@ -57,8 +57,8 @@ for (const status of ['paused', 'closed', 'hired'] as const) {
 }
 
 test('banner copy matches the DB vocabulary and never says "expired"', () => {
-  assert.match(tuitionPublicState('paused').banner!.text, /no longer accepting applications/i)
-  assert.match(tuitionPublicState('closed').banner!.text, /closed/i)
+  assert.match(tuitionPublicState('paused').banner!.text, /no longer open/i)
+  assert.match(tuitionPublicState('closed').banner!.text, /no longer open/i)
   assert.match(tuitionPublicState('hired').banner!.text, /hired/i)
   for (const status of ['paused', 'closed', 'hired'] as const) {
     assert.doesNotMatch(tuitionPublicState(status).banner!.text, /expired/i)

@@ -94,7 +94,7 @@ test('the number is removed from stored contact data', () => {
 test('a withdrawn tuition: 301 to its city listing, no JobPosting, out of the sitemap', () => {
   assert.ok(isHiddenTuition('hidden'))
   assert.equal(hiddenTuitionTarget('Lahore', true), '/tuition-jobs/lahore')
-  assert.equal(hiddenTuitionTarget('Lahore', false), '/browse/tuitions')
+  assert.equal(hiddenTuitionTarget('Lahore', false), '/tuition-jobs/lahore')
   const s = tuitionPublicState('hidden')
   assert.equal(s.emitJobPosting, false)
   assert.equal(s.inSitemap, false)

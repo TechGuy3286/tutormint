@@ -11,6 +11,8 @@
 // already has real line breaks unchanged. It never logs or returns the key
 // anywhere else — callers hand it straight to the signer.
 
+import { pausedPastIndexWindow } from '@/lib/tuitionStatus'
+
 const PEM_BLOCK = /-----BEGIN (?:RSA )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA )?PRIVATE KEY-----/
 
 /** Literal "\n" → newline; wrapping quotes and outer whitespace stripped;
@@ -120,7 +122,8 @@ export type IndexingKind = 'URL_UPDATED' | 'URL_DELETED'
  */
 export function indexingKindForStatus(status: string | null | undefined): IndexingKind {
   const s = (status ?? '').trim() || 'open'
-  return s === 'closed' || s === 'hired' ? 'URL_DELETED' : 'URL_UPDATED'
+  // Hidden is gone too (owner, 16 Nov 2026): its page is noindex or redirects.
+  return s === 'closed' || s === 'hired' || s === 'hidden' ? 'URL_DELETED' : 'URL_UPDATED'
 }
 
 /**
@@ -202,16 +205,21 @@ export const SKIP_NOTE: Record<SkipReason, string> = {
   not_tuition: 'Not sent — not a tuition page',
   old_address: 'Not sent — old address',
   superseded: SUPERSEDED_NOTE,
-  not_open: 'Not sent — tuition not open',
+  not_open: 'Not sent — the tuition has changed since',
 }
 
 // ---------------------------------------------------- the daily order ------
 //
-// Owner, 28 Oct 2026: the 200 a day go first to OPEN tuitions posted or updated
-// in the last 7 days (newest first), then other open tuitions (newest first),
-// then anything else. An expired (past its 20-day life, not yet swept), paused,
-// closed, hired, hidden or merged tuition is NEVER sent — its notice is marked
-// 'not_open' (or 'old_address' when the tuition no longer has that address).
+// Owner, 16 Nov 2026 (supersedes 28 Oct "never sent unless open"):
+//   URL_UPDATED — posted, edited, resumed, refreshed, and PAUSED (Google
+//                 re-crawls, sees the JobPosting is gone, drops the listing;
+//                 the page stays indexable for 60 days).
+//   URL_DELETED — only once the page is noindex: closed, hired, hidden, merged,
+//                 and paused for more than 60 days.
+// A notice whose kind no longer matches the tuition (an expired open tuition
+// not yet swept, a URL_DELETED for a tuition that was resumed) is marked
+// 'not_open' and never sent. The 200 a day go to: open tuitions touched in the
+// last 7 days → other open → paused updates → deletions, newest first in each.
 
 export const FRESH_DAYS = 7
 
@@ -222,19 +230,70 @@ export type NoticeFacts = {
   touchedMs: number
   /** Past its live window but not swept yet. */
   expired: boolean
+  /** jobs.paused_at — a paused page is noindex after 60 days. */
+  pausedAt?: string | null
+  /** Merged into another tuition: its address redirects. */
+  merged?: boolean
 }
 
-/** Whether a notice may be sent at all. */
-export function noticeSendable(f: NoticeFacts | null | undefined): 'ok' | 'not_open' {
-  if (!f) return 'not_open'
-  if (f.status !== 'open' || f.expired) return 'not_open'
-  return 'ok'
+/** The notice the tuition calls for NOW, or null when none should be sent. */
+export function desiredNotice(f: NoticeFacts | null | undefined, now = Date.now()): IndexingKind | null {
+  if (!f) return null
+  if (f.merged) return 'URL_DELETED'
+  const s = (f.status ?? '').trim() || 'open'
+  if (s === 'open') return f.expired ? null : 'URL_UPDATED'
+  if (s === 'paused') return pausedPastIndexWindow(s, f.pausedAt ?? null, now) ? 'URL_DELETED' : 'URL_UPDATED'
+  if (s === 'closed' || s === 'hired' || s === 'hidden') return 'URL_DELETED'
+  return null
 }
 
-/** 0 = open and touched in the last 7 days, 1 = other open, 2 = the rest. */
-export function noticeTier(f: NoticeFacts | null | undefined, now = Date.now()): 0 | 1 | 2 {
-  if (!f || noticeSendable(f) !== 'ok') return 2
+/** Whether a notice of this kind may be sent: only when it is what the tuition
+ *  calls for now. */
+export function noticeSendable(f: NoticeFacts | null | undefined, kind: IndexingKind = 'URL_UPDATED', now = Date.now()): 'ok' | 'not_open' {
+  return desiredNotice(f, now) === kind ? 'ok' : 'not_open'
+}
+
+/** 0 = open and touched in the last 7 days, 1 = other open, 2 = a paused page's
+ *  update, 3 = a deletion (and anything not sendable). */
+export function noticeTier(f: NoticeFacts | null | undefined, now = Date.now(), kind: IndexingKind = 'URL_UPDATED'): 0 | 1 | 2 | 3 {
+  if (!f || noticeSendable(f, kind, now) !== 'ok') return 3
+  if (kind === 'URL_DELETED') return 3
+  if ((f.status ?? 'open') === 'paused') return 2
   return now - f.touchedMs <= FRESH_DAYS * 86_400_000 ? 0 : 1
+}
+
+/**
+ * The tuitions Google should now be told are GONE (owner, 16 Nov 2026): every
+ * tuition whose page is noindex (desiredNotice = URL_DELETED) and whose newest
+ * notice actually SENT was a URL_UPDATED, with no URL_DELETED already waiting.
+ * A tuition Google was never told about is left to the sitemap. Pure; the
+ * daily cron queues what it returns.
+ */
+export function goneNoticesNeeded(
+  tuitions: { url: string; facts: NoticeFacts }[],
+  notices: { url: string; kind: IndexingKind; sent_at: string | null; skip_reason: string | null; id: number }[],
+  now = Date.now(),
+): string[] {
+  const lastSent = new Map<string, { kind: IndexingKind; id: number }>()
+  const deleteWaiting = new Set<string>()
+  for (const n of notices) {
+    if (n.skip_reason) continue
+    if (!n.sent_at) {
+      if (n.kind === 'URL_DELETED') deleteWaiting.add(n.url)
+      continue
+    }
+    if (new Date(n.sent_at).getTime() < Date.parse('2000-01-01')) continue
+    const cur = lastSent.get(n.url)
+    if (!cur || n.id > cur.id) lastSent.set(n.url, { kind: n.kind, id: n.id })
+  }
+  const out: string[] = []
+  for (const t of tuitions) {
+    if (desiredNotice(t.facts, now) !== 'URL_DELETED') continue
+    if (deleteWaiting.has(t.url)) continue
+    if (lastSent.get(t.url)?.kind !== 'URL_UPDATED') continue
+    out.push(t.url)
+  }
+  return out
 }
 
 /** When the tuition was last touched: the newest of its dates and, for an
@@ -325,7 +384,7 @@ export function planDrain(
   }
   const ordered = [...latest.values()].sort((a, b) =>
     facts
-      ? noticeTier(facts.get(a.url), now) - noticeTier(facts.get(b.url), now) ||
+      ? noticeTier(facts.get(a.url), now, a.kind) - noticeTier(facts.get(b.url), now, b.kind) ||
         (facts.get(b.url)?.touchedMs ?? 0) - (facts.get(a.url)?.touchedMs ?? 0) ||
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime() ||
         b.id - a.id

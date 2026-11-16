@@ -9,6 +9,7 @@ import { pageAll } from '@/lib/pageAll'
 import { revalidateTuitions } from '@/lib/landingRevalidate'
 import { revalidatePublicTuition } from '@/lib/publicRevalidate'
 import { isPauseDue } from '@/lib/tuitionStatus'
+import { renderPhase } from '@/lib/supabase/fetch'
 import {
   normalisePrivateKey,
   normaliseClientEmail,
@@ -19,6 +20,7 @@ import {
   newestFirst,
   pageCheckVerdict,
   noticeSendable,
+  goneNoticesNeeded,
   touchedAt,
   type NoticeFacts,
   quotaReachedToday,
@@ -226,7 +228,17 @@ async function fetchPageCheck(url: string): Promise<{ status: number; canonical:
   }
 }
 
-type JobFact = { url: string | null; status: string; created_at: string; resumed_at: string | null; refreshed_at: string | null; bumped_at: string | null }
+type JobFact = {
+  /** The tuition's own address (also for a merged repeat). */
+  url: string | null
+  merged: boolean
+  status: string
+  created_at: string
+  resumed_at: string | null
+  refreshed_at: string | null
+  bumped_at: string | null
+  paused_at: string | null
+}
 
 /** The current address, status and dates of each tuition, by public slug
  *  (merged repeats have no address). */
@@ -235,11 +247,13 @@ async function jobFacts(admin: Admin, slugs: string[]): Promise<Map<string, JobF
   for (let i = 0; i < slugs.length; i += 200) {
     const { data } = await admin
       .from('jobs')
-      .select('public_slug, city, merged_into, status, created_at, resumed_at, refreshed_at, bumped_at')
+      .select('public_slug, city, merged_into, status, created_at, resumed_at, refreshed_at, bumped_at, paused_at')
       .in('public_slug', slugs.slice(i, i + 200))
     for (const j of data ?? []) {
       out.set(j.public_slug as string, {
-        url: j.merged_into ? null : tuitionUrl({ public_slug: j.public_slug as string, city: j.city as string | null }),
+        url: tuitionUrl({ public_slug: j.public_slug as string, city: j.city as string | null }),
+        merged: !!j.merged_into,
+        paused_at: (j.paused_at as string | null) ?? null,
         status: (j.status as string) ?? 'open',
         created_at: j.created_at as string,
         resumed_at: (j.resumed_at as string | null) ?? null,
@@ -251,13 +265,14 @@ async function jobFacts(admin: Admin, slugs: string[]): Promise<Map<string, JobF
   return out
 }
 
-/** The current address of each tuition, by public slug (merged repeats have none). */
-async function currentAddresses(admin: Admin, slugs: string[]): Promise<Map<string, string | null>> {
-  const out = new Map<string, string | null>()
+/** The current address of each tuition, by public slug, and whether it was
+ *  merged (a merged repeat keeps its address — it is told URL_DELETED). */
+async function currentAddresses(admin: Admin, slugs: string[]): Promise<Map<string, { url: string | null; merged: boolean }>> {
+  const out = new Map<string, { url: string | null; merged: boolean }>()
   for (let i = 0; i < slugs.length; i += 200) {
     const { data } = await admin.from('jobs').select('public_slug, city, merged_into').in('public_slug', slugs.slice(i, i + 200))
     for (const j of data ?? []) {
-      out.set(j.public_slug as string, j.merged_into ? null : tuitionUrl({ public_slug: j.public_slug as string, city: j.city as string | null }))
+      out.set(j.public_slug as string, { url: tuitionUrl({ public_slug: j.public_slug as string, city: j.city as string | null }), merged: !!j.merged_into })
     }
   }
   return out
@@ -301,8 +316,9 @@ export async function drainIndexingQueue(max = INDEXING_DAILY_LIMIT, budgetMs = 
     return { sent: 0, failed: 0, skipped: notTuition.length, left }
   }
 
-  // The tuition behind every notice (owner, 28 Oct 2026): only OPEN, unexpired
-  // tuitions at their current address are ever sent; the rest are marked.
+  // The tuition behind every notice (owner, 16 Nov 2026): a notice is sent only
+  // when its kind is what the tuition calls for now (lib/googleIndexingCore
+  // desiredNotice) and it is the tuition's current address; the rest are marked.
   const facts = await jobFacts(admin, [...new Set(tuitionRows.map((r) => tuitionSlugOf(r.url, SITE_URL)).filter((x): x is string => !!x))])
   const noticeFacts = new Map<string, NoticeFacts>()
   const oldAddress: number[] = []
@@ -315,8 +331,14 @@ export async function drainIndexingQueue(max = INDEXING_DAILY_LIMIT, budgetMs = 
       oldAddress.push(r.id)
       continue
     }
-    const nf: NoticeFacts = { status: f.status, touchedMs: touchedAt(f, r), expired: f.status === 'open' && isPauseDue(f.resumed_at ?? f.created_at) }
-    if (noticeSendable(nf) !== 'ok') {
+    const nf: NoticeFacts = {
+      status: f.status,
+      touchedMs: touchedAt(f, r),
+      expired: f.status === 'open' && isPauseDue(f.resumed_at ?? f.created_at),
+      pausedAt: f.paused_at,
+      merged: f.merged,
+    }
+    if (noticeSendable(nf, r.kind) !== 'ok') {
       notOpen.push(r.id)
       continue
     }
@@ -343,13 +365,15 @@ export async function drainIndexingQueue(max = INDEXING_DAILY_LIMIT, budgetMs = 
     // Not the tuition's current address (an old city segment, a merged repeat,
     // a slug that no longer exists): marked, never sent.
     const slug = tuitionSlugOf(r.url, SITE_URL)
-    if (!slug || current.get(slug) !== r.url) {
+    const cur = slug ? current.get(slug) : undefined
+    if (!cur || cur.url !== r.url || (cur.merged && r.kind !== 'URL_DELETED')) {
       await markSkipped(admin, [r.id], 'old_address')
       skipped++
       continue
     }
-    // The live page: 200, no redirect, self-canonical.
-    const verdict = pageCheckVerdict(r.url, await fetchPageCheck(r.url))
+    // The live page: 200, no redirect, self-canonical — for URL_UPDATED only. A
+    // deletion is for a page that is noindex or redirects (owner, 16 Nov 2026).
+    const verdict = r.kind === 'URL_DELETED' ? 'send' : pageCheckVerdict(r.url, await fetchPageCheck(r.url))
     if (verdict === 'old_address') {
       await markSkipped(admin, [r.id], 'old_address')
       skipped++
@@ -415,7 +439,14 @@ async function enqueueAndDrain(url: string, kind: 'URL_UPDATED' | 'URL_DELETED',
   await drainIndexingQueue(5)
 }
 
+/** Never queued while a cached page is built (owner, 16 Nov 2026): a notice
+ *  comes from a real change, which only happens in a live request or a job. */
+export function indexingAllowedNow(phase: ReturnType<typeof renderPhase> = renderPhase()): boolean {
+  return phase !== 'static'
+}
+
 function runAfter(fn: () => Promise<void>): void {
+  if (!indexingAllowedNow()) return
   const run = () => fn().catch(() => undefined)
   try {
     after(run)
@@ -467,10 +498,56 @@ export async function enqueueIndexing(
   kind: 'URL_UPDATED' | 'URL_DELETED' = 'URL_UPDATED',
   priority: number = PRIORITY_BATCH,
 ): Promise<void> {
+  if (!indexingAllowedNow()) return
   const admin = createAdminClient()
   const ok = urls.filter((u) => isTuitionPageUrl(u, SITE_URL))
   if (!admin || ok.length === 0 || !indexingConfigured()) return
   await admin.from('indexing_queue').insert(ok.map((url) => ({ url, kind, priority })))
+}
+
+/**
+ * The daily "gone" sweep (owner, 16 Nov 2026): queue URL_DELETED for every
+ * tuition whose page has become noindex — closed, hired, hidden (including by a
+ * SQL trigger when a parent account is hidden), merged, or paused for more than
+ * 60 days — when Google's newest notice for it was a URL_UPDATED. Batch
+ * priority: it waits behind every open tuition. Returns how many were queued.
+ */
+export async function queueGoneTuitionNotices(now = Date.now()): Promise<number> {
+  const admin = createAdminClient()
+  if (!admin || !indexingConfigured() || !indexingAllowedNow()) return 0
+  type Row = {
+    public_slug: string
+    city: string | null
+    status: string
+    merged_into: string | null
+    paused_at: string | null
+    created_at: string
+    resumed_at: string | null
+    refreshed_at: string | null
+    bumped_at: string | null
+  }
+  type Notice = { id: number; url: string; kind: 'URL_UPDATED' | 'URL_DELETED'; sent_at: string | null; skip_reason: string | null }
+  const [jobs, notices] = await Promise.all([
+    pageAll((from, to) =>
+      admin
+        .from('jobs')
+        .select('id, public_slug, city, status, merged_into, paused_at, created_at, resumed_at, refreshed_at, bumped_at')
+        .or('status.in.(closed,hired,hidden,paused),merged_into.not.is.null')
+        .not('public_slug', 'is', null)
+        .order('id')
+        .range(from, to),
+    ) as Promise<Row[]>,
+    pageAll((from, to) => admin.from('indexing_queue').select('id, url, kind, sent_at, skip_reason').order('id').range(from, to)) as Promise<Notice[]>,
+  ])
+  const tuitions: { url: string; facts: NoticeFacts }[] = []
+  for (const j of jobs) {
+    const url = tuitionUrl(j)
+    if (!url) continue
+    tuitions.push({ url, facts: { status: j.status, touchedMs: touchedAt(j), expired: false, pausedAt: j.paused_at, merged: !!j.merged_into } })
+  }
+  const urls = goneNoticesNeeded(tuitions, notices, now)
+  if (urls.length) await enqueueIndexing(urls, 'URL_DELETED', PRIORITY_BATCH)
+  return urls.length
 }
 
 /** Record a request made outside the queue (the health check's ?publish=1), so

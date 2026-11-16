@@ -2,14 +2,15 @@ import type { Metadata } from 'next'
 
 import { variantHub } from '@/components/tuitionJobs/CityJobsView'
 import { hubDescription, hubTitle } from '@/lib/hubCopy'
-import { CITY_PAGE_THRESHOLD, cityPageBySlug, cityPagePath } from '@/lib/cityJobs'
+import { CITY_MAIN_THRESHOLD, cityPageOrEmpty, cityPagePath } from '@/lib/cityJobs'
 import { seoTitle, socialMeta } from '@/lib/seo'
 import { renderCityPage } from './render'
 
 // /tuition-jobs/[city] — "Tuition jobs in [City]" (owner, 6 Oct 2026, item 6).
 // Server-rendered; indexable (and in the sitemap) from 3 open tuitions, noindex
-// follow below that — it becomes indexable by itself once it reaches 3. A city
-// with no open tuition at all is a 404.
+// follow below that — it becomes indexable by itself once it reaches 3. A KNOWN
+// city with no open tuition is 200 + noindex, "No tuitions here yet" with nearby
+// cities (owner, 16 Nov 2026); only a city nobody ever used is a 404.
 
 // Cached for everyone (push 3, owner 1 Nov 2026): rebuilt when one of its
 // tuitions changes (revalidatePath via lib/publicRevalidate) and at most every
@@ -24,8 +25,12 @@ type Params = Promise<{ city: string }>
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { city } = await params
-  const page = await cityPageBySlug(city)
+  const page = await cityPageOrEmpty(city)
   if (!page) return { title: seoTitle('Tuition jobs'), robots: { index: false, follow: true } }
+  if (page.count === 0) {
+    const title = seoTitle(`Tuition jobs in ${page.city}`)
+    return { title, alternates: { canonical: cityPagePath(page.citySlug) }, robots: { index: false, follow: true } }
+  }
   // "Tuition & Teaching Jobs in <City> – <N> Open | TutorMint" (owner, 12 Oct 2026).
   const hub = variantHub(page.city, null)
   const title = hubTitle(hub.kind, hub.name, page.count)
@@ -35,7 +40,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     title,
     description,
     alternates: { canonical: path },
-    ...(page.count >= CITY_PAGE_THRESHOLD ? {} : { robots: { index: false, follow: true } }),
+    ...(page.count >= CITY_MAIN_THRESHOLD ? {} : { robots: { index: false, follow: true } }),
     ...socialMeta({ title, description, path, type: 'website' }),
   }
 }

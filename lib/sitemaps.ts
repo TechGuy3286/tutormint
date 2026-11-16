@@ -12,7 +12,7 @@ import { pageAll } from '@/lib/pageAll'
 import { createPublicClient } from '@/lib/supabase/public'
 import { citySegment } from '@/lib/slugs'
 import { SITE_URL } from '@/lib/siteUrl'
-import { cityPages, cityPagePath, CITY_PAGE_THRESHOLD } from '@/lib/cityJobs'
+import { cityPages, cityPagePath, CITY_MAIN_THRESHOLD, CITY_PAGE_THRESHOLD } from '@/lib/cityJobs'
 import { schoolGroups, schoolHubPath, SCHOOL_HUB_THRESHOLD } from '@/lib/schoolJobs'
 import { liveCombinationsForPages, LANDING_THRESHOLD } from '@/lib/landing'
 import { liveOverlapNoindex, overlapKey } from '@/lib/landingOverlap'
@@ -36,8 +36,9 @@ const BASE = SITE_URL
 // Bump it when that content changes.
 const STATIC_LASTMOD = new Date('2026-10-13T00:00:00.000Z')
 
-/** Open tuitions, and paused ones paused in the last 60 days (owner, 16 Oct
- *  2026); lastmod = the tuition's last change (posted, resumed, refreshed, paused). */
+/** OPEN tuitions only (owner, 16 Nov 2026 — a paused page stays indexable for
+ *  60 days but leaves the sitemap at once); lastmod = the tuition's last real
+ *  change (posted, resumed, refreshed, moved to the top). */
 export async function tuitionSitemap(): Promise<SitemapEntry[]> {
   const db = createPublicClient()
   // indexable_tuitions() (migration 178) = open, or paused within 60 days + a
@@ -68,7 +69,7 @@ export async function tuitionSitemap(): Promise<SitemapEntry[]> {
       pausedAt: r.paused_at,
       isFixture: false,
       descriptionLength: 40,
-      lastmod: newestOf([r.created_at, r.resumed_at, r.refreshed_at, r.bumped_at, r.paused_at])?.toISOString() ?? r.created_at,
+      lastmod: newestOf([r.created_at, r.resumed_at, r.refreshed_at, r.bumped_at])?.toISOString() ?? r.created_at,
     })),
   )
 }
@@ -139,10 +140,12 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
       liveCombinationsForPages(),
       liveOverlapNoindex(),
     ])
+    // A city page's lastmod is its own newest open tuition (owner, 16 Nov 2026).
+    const at = (ms: number | undefined) => (ms && ms > 0 ? new Date(ms) : newestJob)
     for (const c of cities) {
-      hubs.push({ path: cityPagePath(c.citySlug), count: c.count, threshold: CITY_PAGE_THRESHOLD, lastmod: newestJob, priority: 0.8 })
+      hubs.push({ path: cityPagePath(c.citySlug), count: c.count, threshold: CITY_MAIN_THRESHOLD, lastmod: at(c.newestMs), priority: 0.8 })
       for (const v of c.variants) {
-        hubs.push({ path: cityPagePath(c.citySlug, v.slug), count: v.count, threshold: CITY_PAGE_THRESHOLD, lastmod: newestJob })
+        hubs.push({ path: cityPagePath(c.citySlug, v.slug), count: v.count, threshold: CITY_PAGE_THRESHOLD, lastmod: at(v.newestMs) })
       }
     }
     for (const s of schools) {

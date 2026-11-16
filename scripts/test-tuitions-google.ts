@@ -49,16 +49,17 @@ const BASE = 'https://www.tutormint.org'
 
 // --- B1: paused pages ---------------------------------------------------------
 
-test('paused: 200 page, indexable, banner, no JobPosting, no contact — for 60 days', () => {
+test('paused: 200 page, indexable, banner, no JobPosting, no contact — for 60 days; never in the sitemap', () => {
   const recent = new Date(NOW - 10 * DAY).toISOString()
   const s = tuitionPublicState('paused', recent, NOW)
   assert.equal(s.indexable, true)
-  assert.equal(s.inSitemap, true)
+  // Out of the sitemap at once (owner, 16 Nov 2026).
+  assert.equal(s.inSitemap, false)
   assert.equal(s.emitJobPosting, false)
   assert.equal(s.acceptsApplications, false)
   assert.equal(s.showContact, false)
   assert.equal(s.banner?.text, PAUSED_BANNER_TEXT)
-  assert.equal(PAUSED_BANNER_TEXT, 'This tuition is no longer accepting applications')
+  assert.equal(PAUSED_BANNER_TEXT, 'This tuition is no longer open')
   assert.equal(tuitionIndexable({ status: 'paused', isFixture: false, pausedAt: recent, now: NOW }), true)
 })
 
@@ -102,7 +103,7 @@ test('resume: open again → JobPosting, same URL, fresh validThrough', () => {
 
 // --- B2: sitemap --------------------------------------------------------------
 
-test('sitemap: open and recently paused only — never closed, old paused, merged or a fixture', () => {
+test('sitemap: open only (16 Nov 2026) — never paused, closed, merged or a fixture', () => {
   const recent = new Date(Date.now() - 5 * DAY).toISOString()
   const old = new Date(Date.now() - 70 * DAY).toISOString()
   const out = tuitionSitemapEntries(BASE, [
@@ -114,7 +115,7 @@ test('sitemap: open and recently paused only — never closed, old paused, merge
     { path: '/tuitions/lahore/f-6', status: 'open', isFixture: true, descriptionLength: 80 },
     { path: '/tuitions/lahore/g-7?x=1', status: 'open', isFixture: false, descriptionLength: 80 },
   ])
-  assert.deepEqual(out.map((e) => e.url), [`${BASE}/tuitions/lahore/a-1`, `${BASE}/tuitions/lahore/b-2`])
+  assert.deepEqual(out.map((e) => e.url), [`${BASE}/tuitions/lahore/a-1`])
   const src = read('lib/sitemaps.ts')
   assert.match(src, /rpc\('indexable_tuitions'\)/)
   assert.match(src, /!repeats\.has\(r\.public_slug\)/, 'a repeat (canonical elsewhere) is never listed')

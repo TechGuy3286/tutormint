@@ -124,14 +124,21 @@ async function main() {
     ...LOGGED_PATHS.map((p) => [p, 200]),
     ...(process.env.EXTRA_PATHS ?? '').split(',').filter(Boolean).map((p) => [p, 200]),
     ['/tutor/no-such-tutor-xyz', 404],
-    ['/tuitions/lahore/no-such-tuition-abc123', 404],
+    // Owner, 16 Nov 2026: under a KNOWN city a missing tuition goes to the city
+    // page (308); under an unknown city it is still a 404. A known city with no
+    // open tuition is 200 + noindex.
+    ['/tuitions/lahore/no-such-tuition-abc123', 308],
+    ['/tuitions/no-such-city-xyz/no-such-tuition-abc123', 404],
+    ['/tuition-jobs/mianwali', 200],
+    ['/tuition-jobs/mianwali/female', 308],
+    ['/tuitions/mianwali/pre-nursery-play-group-kg-i-english', 308],
   ]
 
   const problems = []
   for (const [path, want] of targets) {
     const first = await get(path)
     // A page that was moved since the sitemap was read may redirect; that is fine.
-    const okFirst = first.status === want || (want === 200 && [301, 307, 308].includes(first.status))
+    const okFirst = first.status === want || (want === 200 && [301, 307, 308].includes(first.status)) || (want === 308 && first.status === 301)
     if (!okFirst) problems.push(`${path}: first load ${first.status} (wanted ${want})`)
     if (first.status === 200) {
       const second = await get(path)
