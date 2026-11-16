@@ -280,7 +280,8 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed' | 'ret
   'taxonomy/core': 'view',
   'team': 'view',
   'team/joined': 'view',
-  'tutors/clear-mobile': 'edit',
+  // Owner only since 16 Nov 2026 (one SMS code for life — clearing can lock a member out).
+  'tutors/clear-mobile': 'owner',
   'tutors/cnic-reveal': 'edit',
   'tutors/document-review': 'edit',
   'tutors/name-checked': 'edit',

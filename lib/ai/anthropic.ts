@@ -40,7 +40,7 @@ const API_VERSION = '2023-06-01'
 const TIMEOUT_MS = 20_000
 
 export type CompletionResult =
-  | { ok: true; text: string }
+  | { ok: true; text: string; stopReason?: string | null }
   | { ok: false; reason: string }
 
 export function isConfigured(): boolean {
@@ -61,11 +61,14 @@ export async function complete({
   prompt,
   maxTokens = 600,
   timeoutMs = TIMEOUT_MS,
+  effort,
 }: {
   system: string
   prompt: string
   maxTokens?: number
   timeoutMs?: number
+  /** output_config.effort — lower effort spends fewer thinking tokens. */
+  effort?: 'low' | 'medium' | 'high'
 }): Promise<CompletionResult> {
   const key = process.env.ANTHROPIC_API_KEY
   if (!key) return { ok: false, reason: 'ANTHROPIC_API_KEY is not set' }
@@ -91,6 +94,7 @@ export async function complete({
         max_tokens: maxTokens,
         system,
         messages: [{ role: 'user', content: prompt }],
+        ...(effort ? { output_config: { effort } } : {}),
       }),
     })
 
@@ -128,7 +132,7 @@ export async function complete({
       // with a shorter prompt (lib/ai/blogCopy.ts).
       return { ok: false, reason: `anthropic returned no text (${shape})` }
     }
-    return { ok: true, text }
+    return { ok: true, text, stopReason: json.stop_reason ?? null }
   } catch (e) {
     const aborted = e instanceof Error && e.name === 'AbortError'
     return { ok: false, reason: aborted ? `timed out after ${timeoutMs}ms` : String(e) }

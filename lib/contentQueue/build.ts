@@ -54,6 +54,7 @@ import {
 import { searchConsoleConfigured, GSC_SITE_URL } from './gsc'
 import { searchTopicCandidate, SEARCH_TOPIC_LIMIT } from './searchTopics'
 import { loadSearchTopics, refreshSearchConsole } from './searchTopicsServer'
+import { blockedTitles, isAutoDismissal, QUEUE_REBUILT_KEY, refreshCandidates, type QueueRowState } from './refreshCore'
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>
 
@@ -353,7 +354,7 @@ export type RebuildResult = {
 /** A dismissal the queue made by itself — it comes back when the topic is chosen again. */
 const AUTO_DISMISS = 'auto: not in the current mix'
 const COVERED_PREFIX = 'already covered'
-const isAutoDismissal = (reason: unknown) => typeof reason === 'string' && (reason.startsWith('auto:') || reason.startsWith(COVERED_PREFIX))
+// (lib/contentQueue/refreshCore — the same test.)
 
 export async function rebuildContentQueue(now = new Date()): Promise<RebuildResult> {
   const errors: string[] = []
@@ -438,32 +439,24 @@ export async function rebuildContentQueue(now = new Date()): Promise<RebuildResu
   )
   const eligible = [...uncovered.filter(isTopic), ...looseKept]
 
-  // A human decision stands: a drafted topic, a topic still snoozed, and a
-  // topic staff dismissed (unless its evidence changed materially) are not
-  // offered again, so they do not take a place in the visible queue.
-  const open = eligible.filter((c) => {
-    const ex = byFp.get(c.fingerprint)
-    if (!ex) return true
-    const status = ex.status as string
-    if (status === 'drafted') return false
-    if (status === 'snoozed') return !!ex.snooze_until && new Date(ex.snooze_until as string) <= now
-    if (status === 'dismissed') return isAutoDismissal(ex.dismiss_reason) || evidenceHash(c.evidenceKey) !== (ex.evidence_hash as string)
-    return true
-  })
+  // A human decision stands (owner, 16 Nov 2026 — lib/contentQueue/refreshCore):
+  // a title already used (drafted or made into a post) or dismissed by staff is
+  // never offered again; nor is a title with the same words as an existing post
+  // or as another candidate. A topic still snoozed waits.
+  const rowState = new Map<string, QueueRowState>(
+    (existingRows ?? []).map((r) => [r.fingerprint as string, r as unknown as QueueRowState]),
+  )
+  const blocked = blockedTitles(
+    postRows.map((p) => p.title),
+    (existingRows ?? []) as unknown as QueueRowState[],
+  )
+  const open = refreshCandidates(eligible, rowState, blocked, now)
 
   // --- the visible queue -------------------------------------------------------
   const live = posts.filter((p) => p.status !== 'unpublished')
   const emptyClusters = ['city-guides', 'urdu'].filter((cl) => !live.some((p) => p.cluster === cl))
   const searchFps = new Set(searchCands.map((c) => c.fingerprint))
-  const searchOpen = searchCands.filter((c) => {
-    const ex = byFp.get(c.fingerprint)
-    if (!ex) return true
-    const status = ex.status as string
-    if (status === 'drafted') return false
-    if (status === 'snoozed') return !!ex.snooze_until && new Date(ex.snooze_until as string) <= now
-    if (status === 'dismissed') return isAutoDismissal(ex.dismiss_reason) || evidenceHash(c.evidenceKey) !== (ex.evidence_hash as string)
-    return true
-  })
+  const searchOpen = refreshCandidates(searchCands, rowState, blocked, now)
   // Search topics first (tutor-side first, then by searches); the other
   // sources fill the rest as before. Old position-based gsc rows are not chosen.
   const visible = [
@@ -518,14 +511,14 @@ export async function rebuildContentQueue(now = new Date()): Promise<RebuildResu
     }
 
     const status = ex.status as string
-    if (status === 'drafted') {
+    if (status === 'drafted' || status === 'done') {
       await admin.from('content_suggestions').update({ last_seen_at: nowIso }).eq('id', ex.id)
       continue
     }
     if (status === 'dismissed') {
-      // Dismissed stays dismissed, unless the evidence changed materially — or
-      // the queue itself set it aside, in which case being chosen brings it back.
-      if (hash !== (ex.evidence_hash as string) || isAutoDismissal(ex.dismiss_reason)) {
+      // Dismissed by staff stays dismissed (owner, 16 Nov 2026). Only a row the
+      // queue itself set aside comes back when chosen again.
+      if (isAutoDismissal(ex.dismiss_reason)) {
         const { error } = await admin
           .from('content_suggestions')
           .update({ ...fields, evidence_hash: hash, status: 'suggested', dismiss_reason: null })
@@ -566,6 +559,9 @@ export async function rebuildContentQueue(now = new Date()): Promise<RebuildResu
     else if (post) covered++
     else setAside++
   }
+
+  // "Queue updated <date>" in the editor's suggestion box reads this stamp.
+  await admin.from('app_settings').upsert({ key: QUEUE_REBUILT_KEY, value: nowIso }, { onConflict: 'key' })
 
   return { candidates: candidates.length, inserted, updated, resurfaced, pruned: 0, covered, setAside, visible: visible.length, errors }
 }

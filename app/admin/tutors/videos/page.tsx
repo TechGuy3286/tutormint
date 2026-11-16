@@ -1,5 +1,6 @@
 import { requireAdminRole, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
 import { mayRevealCnic } from '@/lib/cnicRevealCore'
+import { canClearMobileVerification } from '@/lib/adminAccessCore'
 import { loadTutorQueue } from '@/lib/adminQueues'
 import { createAdminClient } from '@/lib/supabase/admin'
 import TutorModerationClient from './TutorModerationClient'
@@ -48,7 +49,7 @@ export default async function AdminTutorsPage({
       // Owner + Admin may reveal a full CNIC (logged); only the Owner may clear a
       // number's verification (owner PR8 §1.5, §3.3).
       canRevealCnic={mayRevealCnic(actor.adminRole)}
-      canClearMobile={actor.adminRole === 'owner' || actor.adminRole === 'partner'}
+      canClearMobile={canClearMobileVerification(actor.adminRole)}
       initialCursor={nextCursor}
       total={total}
     />

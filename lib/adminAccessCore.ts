@@ -148,6 +148,19 @@ export function canModerateAccounts(role: AdminRole | null | undefined): boolean
   return role === 'owner'
 }
 
+/**
+ * May this role clear a member's mobile verification? The Owner only (owner,
+ * 16 Nov 2026): under the one-SMS-code-for-life rule, clearing can lock a
+ * member out. "Verify mobile manually" is a different action and unchanged.
+ */
+export function canClearMobileVerification(role: AdminRole | null | undefined): boolean {
+  return role === 'owner'
+}
+
+/** Every staff role — used where a route must SEE every caller so it can refuse
+ *  the ones that are not allowed with the Owner's blocked-attempt alert. */
+export const ALL_STAFF_ROLES: AdminRole[] = ['admin', 'supervisor', 'operations', 'tuitions_staff', 'partner', 'backend_support']
+
 /** May this role make an approval decision? The Owner only. */
 export function canApprove(role: AdminRole | null | undefined): boolean {
   return role === 'owner'

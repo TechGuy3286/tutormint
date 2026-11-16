@@ -88,8 +88,9 @@ test('A. the card number equals the rows of the Today filter, followed up or not
   // Follow-ups merged into People (owner, 8 Nov 2026): the card opens People →
   // Tutors on the sign-up day — fee not paid, joined in the window (windowRange
   // = signedUpIn's days), counted in SQL.
-  const page = read('app', 'admin', 'users', 'PeopleTabs.tsx')
-  assert.ok(page.includes("...(signed ? { paid: 'unpaid' } : {})") && page.includes('windowRange(signed, Date.now())'))
+  // (The list query moved to lib/peopleListQuery.ts on 16 Nov 2026 — People and Export CSV share it.)
+  const page = read('lib', 'peopleListQuery.ts')
+  assert.ok(page.includes("...(signed ? { paid: 'unpaid' } : {})") && page.includes('windowRange(signed, opts.nowMs ?? Date.now())'))
 })
 
 test('A. staff, test, paused, banned and paid accounts are not in the number', () => {

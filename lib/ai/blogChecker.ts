@@ -47,6 +47,7 @@ import { staticValidPaths, suggestValidPage } from './blogRoutes'
 import { scaffoldViolations, promptLeakViolations } from './blogBrief'
 import { buildPlatformFacts, type PlatformFacts } from './factsSheet'
 import { superlativeClaims } from '@/lib/brandClaims'
+import { stripDraftHead } from './draftReply'
 
 // ─────────────────────────────────────────────────────────── plain text ──
 //
@@ -366,7 +367,8 @@ export type SanitizeOptions = {
  * The result passes linkRuleViolations by construction.
  */
 export function sanitizeDraft(body: string, opts: SanitizeOptions): string {
-  let out = body
+  // 0. A draft never starts with a title (H1) or metadata lines (16 Nov 2026).
+  let out = stripDraftHead(body)
   const landingPaths = (opts.landingPaths ?? []).map(normHref)
   const tutorSlugs = opts.tutorSlugs ?? []
 

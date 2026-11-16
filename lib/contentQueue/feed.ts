@@ -5,6 +5,7 @@
 // the table is admin-read and the digest runs from the cron with no session.
 
 import 'server-only'
+import { QUEUE_REBUILT_KEY } from './refreshCore'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { subjectMetaByMaster } from '@/lib/landing'
@@ -79,6 +80,17 @@ function cityFromSlug(slug: string): string {
 }
 
 /** The open content queue (suggested + snoozed) for the editor panel. */
+/** When the suggested-title queue was last rebuilt (ISO), or null. */
+export async function queueRebuiltAt(): Promise<string | null> {
+  const admin = createAdminClient()
+  if (!admin) return null
+  const { data } = await admin.from('app_settings').select('value').eq('key', QUEUE_REBUILT_KEY).maybeSingle()
+  if (typeof data?.value === 'string' && data.value) return data.value
+  // Before the first stamped rebuild: the newest time an open row was seen.
+  const { data: row } = await admin.from('content_suggestions').select('last_seen_at').order('last_seen_at', { ascending: false }).limit(1).maybeSingle()
+  return (row?.last_seen_at as string | undefined) ?? null
+}
+
 export async function listEditorSuggestions(): Promise<EditorSuggestion[]> {
   const admin = createAdminClient()
   if (!admin) return []

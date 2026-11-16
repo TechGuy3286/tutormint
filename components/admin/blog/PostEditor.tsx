@@ -43,6 +43,8 @@ import { parseMarkdown } from '@/lib/markdown'
 import { slugify } from '@/lib/slugs'
 import { SITE_URL } from '@/lib/siteUrl'
 import { numberClaims, pakistanLocalToIso, isoToPakistanLocal } from '@/lib/blogApproval'
+import { AI_DRAFT_FAILED_MESSAGE } from '@/lib/ai/draftReply'
+import { queueUpdatedLabel } from '@/lib/contentQueue/refreshCore'
 
 // The blog editor. One card per task, brand tokens only.
 //
@@ -112,6 +114,7 @@ export default function PostEditor({
   canApproveCap: canApproveCapProp = false,
   canGenerate: canGenerateProp,
   suggestionId = null,
+  queueUpdatedAt = null,
   live,
 }: {
   initial: EditorPost
@@ -131,6 +134,8 @@ export default function PostEditor({
   canGenerate: boolean
   /** The content-queue suggestion this editor was opened from, if any. */
   suggestionId?: string | null
+  /** When the suggested-title queue was last rebuilt (ISO), for "Queue updated <date>". */
+  queueUpdatedAt?: string | null
   /** The live facts sheet, noindex pages and city pages (owner, 7 Oct 2026). */
   live?: {
     facts: PlatformFacts
@@ -1123,7 +1128,9 @@ export default function PostEditor({
             <div className="flex items-center gap-1.5">
               <Lightbulb aria-hidden size={15} className="text-tm-navy" />
               <p className="text-xs font-black text-tm-navy">Start from a suggested title</p>
-              <span className="text-[11px] text-gray-500">{openSuggestions.length} in the queue</span>
+              <span className="text-[11px] text-gray-500">
+                {openSuggestions.length} in the queue · {queueUpdatedLabel(queueUpdatedAt)}
+              </span>
             </div>
             <button
               type="button"
@@ -1604,7 +1611,7 @@ export default function PostEditor({
               {genFailed && !generating && (
                 <p className="flex items-start gap-1.5 rounded-xl bg-tm-tint-red p-2.5 text-[11px] font-semibold text-tm-red">
                   <AlertCircle aria-hidden size={13} className="mt-px shrink-0" />
-                  AI draft failed — nothing was written. Your notes are kept. ({genFailed})
+                  {AI_DRAFT_FAILED_MESSAGE}
                 </p>
               )}
               {genNote && !genFailed && (

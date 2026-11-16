@@ -31,6 +31,7 @@ import {
   type BlogBrief,
   type BlogDraft,
 } from './blogBrief'
+import { extractJsonObject, runOutline, stripDraftHead } from './draftReply'
 
 // The intro every prompt opens with. It never uses the RETIRED tagline: "No fee"
 // contradicts the Verification Fee (owner, 7 Oct 2026). The current one,
@@ -306,52 +307,29 @@ export async function generateBlogOutline(brief: BlogBrief): Promise<OutlineResu
   if (!isConfigured()) return { ok: false, reason: 'ANTHROPIC_API_KEY is not set' }
   if (!brief.title.trim()) return { ok: false, reason: 'no title' }
 
-  let result = await complete({
-    system: outlineSystem(brief),
-    prompt: factsBlock(brief),
-    maxTokens: 900,
-    timeoutMs: 30_000,
-  })
-  // §1.2 — if the model returned no text, retry ONCE with a shorter prompt
-  // before giving up. Only for the no-text case; a timeout or a 4xx is a
-  // different failure a shorter prompt would not fix.
-  if (!result.ok && returnedNoText(result.reason)) {
-    console.warn('[blogCopy] outline returned no text — retrying with a shorter prompt')
-    result = await complete({
-      system: outlineSystem(brief, true),
-      prompt: factsBlock(brief),
-      maxTokens: 900,
-      timeoutMs: 30_000,
-    })
-  }
-  if (!result.ok) {
-    console.error('[blogCopy] outline failed:', result.reason)
-    return { ok: false, reason: result.reason }
-  }
-  try {
-    const raw = result.text
-    const start = raw.indexOf('{')
-    const end = raw.lastIndexOf('}')
-    if (start === -1 || end <= start) throw new Error('no JSON object')
-    const p = JSON.parse(raw.slice(start, end + 1)) as {
-      sections?: unknown
-      seoTitle?: unknown
-      seoDescription?: unknown
-    }
-    const sections = Array.isArray(p.sections)
-      ? p.sections.filter((x) => typeof x === 'string' && x.trim()).map((x) => String(x).trim())
-      : []
-    if (sections.length < 3) return { ok: false, reason: 'outline had too few sections' }
-    const seoTitle =
-      (typeof p.seoTitle === 'string' ? p.seoTitle.trim() : '').slice(0, 60) || brief.title.slice(0, 60)
-    const seoDescription = fitSeoDescription(
-      typeof p.seoDescription === 'string' && p.seoDescription.trim() ? p.seoDescription.trim() : brief.title,
-    )
-    return { ok: true, sections: sections.slice(0, 8), seoTitle, seoDescription }
-  } catch (e) {
-    console.error('[blogCopy] unparseable outline:', String(e))
-    return { ok: false, reason: `unparseable outline: ${String(e).slice(0, 120)}` }
-  }
+  // THE CAUSE of "unparseable outline: no JSON object" (16 Nov 2026, and
+  // intermittently since September): claude-sonnet-5 thinks before it answers
+  // unless told otherwise, and its thinking counts against max_tokens. The
+  // outline had 900 tokens; when the thinking ran long the JSON was cut off
+  // before its closing brace (or, on 18 Sep, before any text at all). The
+  // outline now asks for low effort and has room for thinking + the JSON; the
+  // reply is read tolerantly (code fences, text around the JSON); and a failed
+  // try is retried ONCE with the shorter prompt, without the effort setting
+  // and with more room still — never more than one extra paid call.
+  const out = await runOutline(
+    (attempt) =>
+      complete({
+        system: outlineSystem(brief, attempt === 2),
+        prompt: factsBlock(brief),
+        maxTokens: attempt === 1 ? 4000 : 8000,
+        timeoutMs: 30_000,
+        ...(attempt === 1 ? { effort: 'low' as const } : {}),
+      }),
+    brief.title,
+    (attempt, detail) => console.error(`[blogCopy] outline try ${attempt} failed: ${detail}`),
+  )
+  if (!out.ok) return { ok: false, reason: out.reason }
+  return { ok: true, sections: out.sections, seoTitle: out.seoTitle, seoDescription: out.seoDescription }
 }
 
 /** Step 2..N: one section of the outline. One short call each. */
@@ -364,20 +342,23 @@ export async function generateBlogSection(
   if (!Array.isArray(sections) || index < 0 || index >= sections.length) {
     return { ok: false, reason: 'bad section index' }
   }
+  // Thinking shares max_tokens (see generateBlogOutline), so a section has room
+  // for both. Retry ONCE with a shorter section prompt when the model returns no
+  // text or was cut off, before failing. The retry keeps the invent-no-statistics rule.
   let result = await complete({
     system: sectionSystem(brief, sections, index),
     prompt: factsBlock(brief),
-    maxTokens: 1400,
+    maxTokens: 4000,
     timeoutMs: 40_000,
+    effort: 'medium',
   })
-  // §1.2 — retry ONCE with a shorter section prompt when the model returns no
-  // text, before failing. The retry keeps the invent-no-statistics rule.
-  if (!result.ok && returnedNoText(result.reason)) {
-    console.warn(`[blogCopy] section ${index} returned no text — retrying with a shorter prompt`)
+  const cutOff = result.ok && result.stopReason === 'max_tokens'
+  if ((!result.ok && returnedNoText(result.reason)) || cutOff) {
+    console.warn(`[blogCopy] section ${index} ${cutOff ? 'was cut off' : 'returned no text'} — retrying with a shorter prompt`)
     result = await complete({
       system: sectionSystem(brief, sections, index, true),
       prompt: factsBlock(brief),
-      maxTokens: 1400,
+      maxTokens: 6000,
       timeoutMs: 40_000,
     })
   }
@@ -385,7 +366,8 @@ export async function generateBlogSection(
     console.error(`[blogCopy] section ${index} failed:`, result.reason)
     return { ok: false, reason: result.reason }
   }
-  const md = result.text.trim()
+  // A section never opens with a post title (H1) or metadata lines.
+  const md = stripDraftHead(result.text)
   if (!md) return { ok: false, reason: 'section returned no text' }
   return { ok: true, markdown: md }
 }
@@ -439,7 +421,7 @@ export async function generateBlogDraft(brief: BlogBrief): Promise<BlogDraft> {
     // 1800 words of Markdown plus a table and two SEO fields: generously above
     // the ceiling so a good long-form draft is never cut mid-sentence into an
     // unparseable reply.
-    maxTokens: 5200,
+    maxTokens: 12000,
     // A long-form draft takes far longer than a job advert. 55s stays under the
     // route's 60s platform budget, so our own timeout fires first with a clean
     // "timed out" and a composed fallback, rather than a platform 504.
@@ -454,19 +436,13 @@ export async function generateBlogDraft(brief: BlogBrief): Promise<BlogDraft> {
     return { ...fallback, note: 'failed', reason: result.reason }
   }
 
-  let parsed: { body?: unknown; seoTitle?: unknown; seoDescription?: unknown }
-  try {
-    const raw = result.text
-    const start = raw.indexOf('{')
-    const end = raw.lastIndexOf('}')
-    if (start === -1 || end <= start) throw new Error('no JSON object in reply')
-    parsed = JSON.parse(raw.slice(start, end + 1)) as typeof parsed
-  } catch (e) {
-    console.error('[blogCopy] unparseable reply:', String(e))
+  const parsed = extractJsonObject(result.text) as { body?: unknown; seoTitle?: unknown; seoDescription?: unknown } | null
+  if (!parsed) {
+    console.error(`[blogCopy] unparseable reply (stop_reason=${result.stopReason ?? 'unknown'}, ${result.text.length} chars)`)
     return { ...fallback, note: 'failed' }
   }
 
-  const body = typeof parsed.body === 'string' ? parsed.body.trim() : ''
+  const body = typeof parsed.body === 'string' ? stripDraftHead(parsed.body) : ''
   if (!body) return { ...fallback, note: 'failed' }
 
   const words = wordCount(body)
@@ -586,19 +562,11 @@ export async function fixBlogPassages(
     input.body,
   ].join('\n')
 
-  const result = await complete({ system: fixSystem(brief), prompt, maxTokens: 3000, timeoutMs: 50_000 })
+  const result = await complete({ system: fixSystem(brief), prompt, maxTokens: 8000, timeoutMs: 50_000 })
   if (!result.ok) return { ok: false, reason: result.reason }
 
-  let parsed: { edits?: unknown }
-  try {
-    const raw = result.text
-    const start = raw.indexOf('{')
-    const end = raw.lastIndexOf('}')
-    if (start === -1 || end <= start) throw new Error('no JSON object')
-    parsed = JSON.parse(raw.slice(start, end + 1)) as { edits?: unknown }
-  } catch (e) {
-    return { ok: false, reason: `unparseable reply: ${String(e).slice(0, 120)}` }
-  }
+  const parsed = extractJsonObject(result.text) as { edits?: unknown } | null
+  if (!parsed) return { ok: false, reason: `unparseable reply (stop_reason=${result.stopReason ?? 'unknown'})` }
 
   const edits: PassageEdit[] = []
   for (const e of Array.isArray(parsed.edits) ? parsed.edits : []) {

@@ -4,7 +4,7 @@ import PostEditor from '@/components/admin/blog/PostEditor'
 import { editorLiveData } from '@/lib/blogGenerate'
 import { landingOptionsForEditor, tutorProfileOptionsForEditor, emptyEditorPost } from '@/lib/blogEditor'
 import { publishedPostLinks } from '@/lib/blogFeed'
-import { listEditorSuggestions } from '@/lib/contentQueue/feed'
+import { listEditorSuggestions, queueRebuiltAt } from '@/lib/contentQueue/feed'
 import { isClusterSlug, type PostAudience, type PostLanguage } from '@/lib/blog'
 import { slugify } from '@/lib/slugs'
 
@@ -21,13 +21,14 @@ export default async function NewPostPage({
 }: {
   searchParams: Promise<{ suggestion?: string }>
 }) {
-  const [actor, landingOptions, suggestions, publishedPosts, tutorProfiles, { suggestion }] = await Promise.all([
+  const [actor, landingOptions, suggestions, publishedPosts, tutorProfiles, { suggestion }, queueUpdatedAt] = await Promise.all([
     requireAdminRole(...SCREEN_ACCESS.blog),
     landingOptionsForEditor(),
     listEditorSuggestions(),
     publishedPostLinks(),
     tutorProfileOptionsForEditor(),
     searchParams,
+    queueRebuiltAt(),
   ])
   if (!roleMayWrite(actor.adminRole, SCREEN_ACCESS.blog)) return <ViewOnlyNotice what="New post" />
   const live = await editorLiveData(null)
@@ -69,6 +70,7 @@ export default async function NewPostPage({
       canApproveCap={roleMayWrite(actor.adminRole, SCREEN_ACCESS.blogApprove)}
       canGenerate={roleMayWrite(actor.adminRole, SCREEN_ACCESS.blogGenerate)}
       suggestionId={suggestionId}
+      queueUpdatedAt={queueUpdatedAt}
     />
   )
 }

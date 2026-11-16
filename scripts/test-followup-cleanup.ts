@@ -125,7 +125,7 @@ test('opening a card or the member page logs nothing', () => {
   // A card's state is built from recorded contacts only; nothing is written on render.
   const page = read('app/admin/users/[id]/page.tsx')
   assert.ok(!/recordPipelineFollowUp|recordFollowUp|recordCallAttempt|\/api\/admin\/people\/follow-up/.test(page), 'the member page records nothing while rendering')
-  assert.ok(!/recordPipelineFollowUp|recordFollowUp/.test(read('app/admin/users/PeopleTabs.tsx')), 'the People list records nothing')
+  assert.ok(!/recordPipelineFollowUp|recordFollowUp/.test((read('app/admin/users/PeopleTabs.tsx') + read('lib/peopleListQuery.ts'))), 'the People list records nothing')
   // The card's whole-card link is a plain navigation, never a POST.
   const pa = read('components/admin/PipelineActions.tsx')
   assert.match(pa, /<Link href=\{`\/admin\/users\/\$\{memberId\}`\} aria-label=\{`Open \$\{m\.name\}`\}/)
@@ -165,7 +165,7 @@ test('chip counts for due now, 1st, 2nd and 3rd+; each returns to due when its f
   assert.equal(followBucket(followState('approved', three, T0 + 3 * DAY - 1)), 'f3')
   assert.equal(followBucket(followState('approved', three, T0 + 3 * DAY)), 'not')
   // The chips read the array tag; the old ?fu= addresses still resolve.
-  const tabs = read('app/admin/users/PeopleTabs.tsx')
+  const tabs = (read('app/admin/users/PeopleTabs.tsx') + read('lib/peopleListQuery.ts'))
   assert.match(tabs, /sqlParam: 'fus'/)
   assert.match(tabs, /\{ key: FU_DONE, label: 'Followed up \(all\)', hidden: true \}/)
   assert.ok(FU_BUCKETS[0] === 'not', '?fu=not is the first chip')
@@ -241,7 +241,7 @@ test('a re-upload after a rejection is tagged, sorted first, and clears on the d
   assert.ok(!card({ d: docs(cs('rejected', 'Blurry'), cs('approved')) }).reuploaded)
   // The stage row offers "Re-uploaded".
   assert.equal(tutorStageFromAddress({ tab: 'tutors', stage: 'reuploaded' }), 'reuploaded')
-  assert.match(read('app/admin/users/PeopleTabs.tsx'), /\{ key: REUPLOADED, label: REUPLOADED_LABEL \}/)
+  assert.match((read('app/admin/users/PeopleTabs.tsx') + read('lib/peopleListQuery.ts')), /\{ key: REUPLOADED, label: REUPLOADED_LABEL \}/)
 })
 
 // ------------------------------------------- 5. member page + compact card ---
@@ -313,7 +313,7 @@ test('Approved, fee pending: newest approval first in every chip; bottom rules s
   )
   assert.deepEqual(order.map((r) => r.id), ['newest', 'contactedLongAgo', 'tieActive', 'mid', 'old', 'recent', 'pausedNew', 'noMobile'])
   // The page keeps the stored order (pos) for every Approved chip.
-  assert.match(read('app/admin/users/PeopleTabs.tsx'), /sel\.stage !== 'approved'/)
+  assert.match((read('app/admin/users/PeopleTabs.tsx') + read('lib/peopleListQuery.ts')), /sel\.stage !== 'approved'/)
   // Other stages are untouched by the approval date.
   const missing = pipelineOrder(
     [

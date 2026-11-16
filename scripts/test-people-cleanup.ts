@@ -178,7 +178,7 @@ test('staff default view, and a URL filter overriding it', () => {
   assert.match(href, /stage=all/)
   assert.equal(tutorStageFromAddress(Object.fromEntries(new URL(href, 'https://x').searchParams)), 'all')
   assert.equal(stageHref('all'), '/admin/users?tab=tutors&stage=all')
-  assert.ok(read('app/admin/users/PeopleTabs.tsx').includes('tutorStageFromAddress(sp)'))
+  assert.ok((read('app/admin/users/PeopleTabs.tsx') + read('lib/peopleListQuery.ts')).includes('tutorStageFromAddress(sp)'))
 })
 
 // ------------------------------------------------------- 5. no mobile ---

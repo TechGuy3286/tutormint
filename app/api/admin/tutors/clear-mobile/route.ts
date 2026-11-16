@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/errorResponse'
 
 import { checkAdminRole } from '@/lib/adminAuth'
-import { refuseOwnerTarget } from '@/lib/ownerGuard'
+import { refuseOwnerTarget, refuseUnlessOwnerModeration } from '@/lib/ownerGuard'
+import { ALL_STAFF_ROLES, canClearMobileVerification } from '@/lib/adminAccessCore'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
 import { recomputeCompletion } from '@/lib/completion'
@@ -11,7 +12,10 @@ import { parseBody, z } from '@/lib/validate'
 // Clear a mobile number's verification from ONE chosen account (owner PR8 §1.5).
 // This is how the owner resolves a number verified on more than one account
 // (§1.4): pick the losing account and clear it here, then the held unique index
-// (migration 90) can be applied. Owner ONLY, and audit-logged.
+// (migration 90) can be applied. Owner ONLY (owner, 16 Nov 2026 — the Project
+// Manager no longer may: under the one-SMS-code-for-life rule clearing can lock
+// a member out), refused on the server for every other staff role with the
+// Owner's blocked-attempt alert, and audit-logged.
 //
 // It clears only the verification fields — the number itself, and everything
 // else, is left as-is, so the account can re-verify a (different) number later.
@@ -21,12 +25,17 @@ export const runtime = 'nodejs'
 const Body = z.object({ tutorId: z.string().min(1) })
 
 export async function POST(request: Request) {
-  // owner-only: roleSatisfies(['owner']) admits the owner and nobody else.
-  const gate = await checkAdminRole('owner', 'partner')
+  // Every staff role passes the gate so a non-Owner is refused WITH the alert.
+  const gate = await checkAdminRole(...ALL_STAFF_ROLES)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
 
   const parsed = await parseBody(request, Body)
   if (!parsed.ok) return parsed.response
+
+  if (!canClearMobileVerification(gate.actor.adminRole)) {
+    const refused = await refuseUnlessOwnerModeration(gate.actor, "clear a member's mobile verification", parsed.data.tutorId)
+    if (refused) return refused
+  }
 
   const ownerRefusal = await refuseOwnerTarget(gate.actor, parsed.data.tutorId, "clear the Owner account's mobile number")
   if (ownerRefusal) return ownerRefusal

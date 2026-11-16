@@ -246,7 +246,7 @@ test('stage messages: plain English, a TutorMint link, no price, no superlative'
   }
   assert.match(pipeMessage('approved', { firstName: 'S', missing: [], rejected: [], supportWhatsapp: null }), /\/pay\/choose\?plan=verified/)
   // WhatsApp links are built by lib/waLinkCore only.
-  const people = read('app/admin/users/PeopleTabs.tsx')
+  const people = (read('app/admin/users/PeopleTabs.tsx') + read('lib/peopleListQuery.ts'))
   assert.match(people, /waSendHref\(msisdn, pipe\.message, refCode\)/)
   assert.ok(!/wa\.me\//.test(people + read('components/admin/PipelineActions.tsx')))
 })
@@ -293,7 +293,7 @@ test('Backend Support sees the pipeline and the to-do rows, and no money', () =>
     assert.ok(!isMoneyItem(k))
   }
   // No amount on a pipeline card, the People page or a message.
-  const tabs = read('app/admin/users/PeopleTabs.tsx')
+  const tabs = (read('app/admin/users/PeopleTabs.tsx') + read('lib/peopleListQuery.ts'))
   assert.match(tabs, /amount: null/)
   assert.ok(!/pkr\(/.test(tabs + read('components/admin/PipelineActions.tsx') + read('lib/tutorPipelineCardCore.ts')))
   // Tuitions staff keep the tutor follow-ups they had, and no other People tab.
@@ -323,7 +323,7 @@ test('deleted accounts appear only under Deleted', () => {
   assert.deepEqual(view({ ...peopleFixed('real'), ni: true }), ['ni'])
   assert.deepEqual(view(peopleFixed('all')), ['real', 'ni', 'test'])
   assert.deepEqual(view(peopleFixed('deleted')), ['gone'])
-  const tabs = read('app/admin/users/PeopleTabs.tsx')
+  const tabs = (read('app/admin/users/PeopleTabs.tsx') + read('lib/peopleListQuery.ts'))
   assert.match(tabs, /\.\.\.peopleFixed\(view\),/)
   assert.match(tabs, /isTutors && view === 'real' && !signed \? \{ ni: showNi \}/)
   // The badge and the Overview rows use the real tutors only (inTab(…, false)).

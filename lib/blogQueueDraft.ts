@@ -22,6 +22,7 @@ import type { AdminRole } from '@/lib/adminAuth'
 import { clusterLabel, isClusterSlug } from '@/lib/blog'
 import { buildBlogBrief, liveCheckerData } from '@/lib/blogGenerate'
 import { generateBlogOutline, generateBlogSection, fixBlogPassages, BLOG_MODEL } from '@/lib/ai/blogCopy'
+import { AI_DRAFT_FAILED_MESSAGE } from '@/lib/ai/draftReply'
 import { selfCorrect } from '@/lib/ai/selfCheck'
 import { collectBlogProblems, sanitizeDraft } from '@/lib/ai/blogChecker'
 import { wordCount } from '@/lib/ai/blogBrief'
@@ -59,12 +60,15 @@ export async function draftFromSuggestion(suggestionId: string, actor: Actor): P
   const t0 = Date.now()
   const brief = await buildBlogBrief({ title, clusterLabel: clusterLabel(cluster), audience, language: 'en', notes, city, subject })
   const outline = await generateBlogOutline(brief)
-  if (!outline.ok) return { ok: false, status: 502, error: `Claude could not plan this post: ${outline.reason}` }
+  if (!outline.ok) {
+    console.error(`[blogQueueDraft] outline failed: ${outline.reason.slice(0, 200)}`)
+    return { ok: false, status: 502, error: AI_DRAFT_FAILED_MESSAGE }
+  }
   // Sections in parallel: each is written from the same outline.
   const parts = await Promise.all(outline.sections.map((_, i) => generateBlogSection(brief, outline.sections, i)))
   const failed = parts.filter((p) => !p.ok).length
   const written = parts.flatMap((p) => (p.ok ? [p.markdown] : []))
-  if (written.length === 0) return { ok: false, status: 502, error: 'Claude could not write this post. Please try again.' }
+  if (written.length === 0) return { ok: false, status: 502, error: AI_DRAFT_FAILED_MESSAGE }
 
   const live = await liveCheckerData(null, { city, subject, title })
   const ctx = live.ctx

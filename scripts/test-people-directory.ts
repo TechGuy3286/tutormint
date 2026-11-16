@@ -74,7 +74,7 @@ test('the toggle brings left-out accounts back; the default leaves them out', ()
   const src = read('lib/peopleDirectory.ts')
   assert.match(src, /export function inTab\(people: DirectoryPerson\[\], role: 'tutor' \| 'parent', showAll: boolean\)/)
   assert.match(src, /p\.role === role && \(showAll \|\| p\.excluded === null\)/)
-  const tabs = read('app/admin/users/PeopleTabs.tsx')
+  const tabs = (read('app/admin/users/PeopleTabs.tsx') + read('lib/peopleListQuery.ts'))
   assert.ok(tabs.includes('Show staff & test accounts'))
   // Push 2 (1 Nov 2026): every row is stored with its excluded flag; the default view asks for excluded: false.
   // The toggle view still leaves deleted accounts out (owner, 5 Nov 2026 — peopleFixed).
