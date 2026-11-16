@@ -292,20 +292,20 @@ test('payment labels', () => {
   const now = Date.parse('2026-10-19T12:00:00Z')
   const base: PaymentFacts = { planCode: 'verified', amountPkr: 199, status: 'pending', provider: 'paypro', createdAt: '2026-10-19T09:00:00Z', hasReceipt: false }
   const show = { showAmount: true }
-  assert.equal(paymentLabel(base, now, show), 'Verification Fee Rs 199 — started, not paid')
+  assert.equal(paymentLabel(base, now, show), 'Verification Fee Rs 199 — started, not completed')
   assert.ok(paymentNeedsFollowUp(base, now))
   assert.equal(paymentLabel({ ...base, status: 'approved' }, now, show), 'Verification Fee Rs 199 — paid')
   assert.equal(paymentLabel({ ...base, provider: 'manual', hasReceipt: true }, now, show), 'Verification Fee Rs 199 — receipt waiting')
   assert.equal(paymentLabel({ ...base, status: 'approved', refundedAmountPkr: 199 }, now, show), 'Verification Fee Rs 199 — refunded')
   assert.equal(paymentLabel({ ...base, checkoutClosedAt: '2026-10-19T10:00:00Z', checkoutCloseReason: 'cancelled_by_member' }, now, show), 'Verification Fee Rs 199 — cancelled')
-  assert.equal(paymentLabel({ ...base, checkoutClosedAt: '2026-10-19T10:00:00Z', checkoutCloseReason: 'expired' }, now, show), 'Verification Fee Rs 199 — expired')
+  assert.equal(paymentLabel({ ...base, checkoutClosedAt: '2026-10-19T10:00:00Z', checkoutCloseReason: 'expired' }, now, show), 'Verification Fee Rs 199 — started, not completed')
   assert.equal(paymentLabel({ ...base, planCode: 'premium', amountPkr: 499, status: 'approved' }, now, show), 'Premium Rs 499 — paid')
   assert.equal(paymentLabel({ ...base, planCode: 'parent_featured', amountPkr: 999, status: 'approved' }, now, show), 'Parent Featured Rs 999 — paid')
   // Under an hour old: not yet "not paid", no follow-up.
   const fresh = { ...base, createdAt: '2026-10-19T11:30:00Z' }
   assert.equal(paymentNeedsFollowUp(fresh, now), false)
   // Viewers who may not see amounts get none.
-  assert.equal(paymentLabel(base, now, { showAmount: false }), 'Verification Fee — started, not paid')
+  assert.equal(paymentLabel(base, now, { showAmount: false }), 'Verification Fee — started, not completed')
   assert.doesNotMatch(paymentLabel({ ...base, status: 'pending' }, now, show), /^Verified/)
 })
 

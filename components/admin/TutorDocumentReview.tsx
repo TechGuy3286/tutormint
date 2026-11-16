@@ -23,6 +23,7 @@ import DocumentsApprovedWhatsApp from '@/components/admin/DocumentsApprovedWhats
 import { allDocumentsApproved } from '@/lib/documentsApprovedCore'
 import RejectReasonPicker from '@/components/admin/RejectReasonPicker'
 import SelfieMatchWarning from '@/components/admin/SelfieMatchWarning'
+import { SELFIE_CHECKED_LABEL, showSelfieChecked } from '@/lib/selfieOptionalCore'
 import { buildRejectReason, rejectionWhatsAppText, type RejectTarget } from '@/lib/rejectReasonsCore'
 import { waSendHref } from '@/lib/waLinkCore'
 
@@ -229,6 +230,10 @@ export default function TutorDocumentReview({
           onStatus={(st) => setLive((l) => ({ ...l, selfie: st }))}
         >
           {selfieLooksLikePhoto && <SelfieMatchWarning />}
+          {/* On the member page, not on People cards (owner, 15 Nov 2026). */}
+          {showSelfieChecked(live.selfie) && (
+            <p data-selfie-checked="" className="text-[11px] font-bold text-tm-green-deep">{SELFIE_CHECKED_LABEL}</p>
+          )}
           {selfieDocId ? (
             <Zoomable onOpen={() => setLbIndex(at.selfie)}>
               <SecureDocumentPreview documentId={selfieDocId} alt="Selfie" />

@@ -12,7 +12,7 @@ import 'server-only'
 import { NextResponse } from 'next/server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { canApprove, OWNER_ONLY_APPROVAL, ownerProtection, type AdminRole } from '@/lib/adminAccessCore'
+import { canApprove, canModerateAccounts, OWNER_ONLY_APPROVAL, OWNER_ONLY_MODERATION, ownerProtection, type AdminRole } from '@/lib/adminAccessCore'
 import { alertOwnerBlocked } from '@/lib/ownerAlerts'
 import { mayManageTargets, OWNER_ONLY_TARGETS } from '@/lib/staffTargetsCore'
 
@@ -35,6 +35,27 @@ export async function refuseUnlessOwnerApproval(
     targetId,
   })
   return NextResponse.json({ error: OWNER_ONLY_APPROVAL }, { status: 403 })
+}
+
+/**
+ * OWNER-ONLY MODERATION (owner, 15 Nov 2026): suspend, reinstate, ban, lift a
+ * ban, change a member's mobile. A 403 for anyone but the Owner, and the Owner
+ * is told of the attempt (bell + email + Audit). Every route that does one of
+ * these calls it before it writes.
+ */
+export async function refuseUnlessOwnerModeration(
+  actor: { id: string; adminRole: AdminRole; email?: string | null },
+  what: string,
+  targetId?: string | null,
+): Promise<NextResponse | null> {
+  if (canModerateAccounts(actor.adminRole)) return null
+  await alertOwnerBlocked({
+    actor: { id: actor.id, adminRole: actor.adminRole, email: actor.email ?? null },
+    problem: OWNER_ONLY_MODERATION,
+    what,
+    targetId,
+  })
+  return NextResponse.json({ error: OWNER_ONLY_MODERATION }, { status: 403 })
 }
 
 /**

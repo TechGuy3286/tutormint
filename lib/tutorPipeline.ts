@@ -25,6 +25,8 @@ import { loadWelcomes } from '@/lib/paidWelcome'
 import { loadTutorDocSummaries } from '@/lib/tutorDocSummaries'
 import { callLogAttempt, kindOfTemplateKey, legacyDocsApproved, stageOfProgress, type PipeContact } from '@/lib/tutorPipelineCore'
 import { pipeCardFrom, withContacts, type PipeCard } from '@/lib/tutorPipelineCardCore'
+import { triedToPay } from '@/lib/paymentAttemptsCore'
+import type { PaymentFacts } from '@/lib/paymentLabelCore'
 import { applyBadgeDelta, badgeDelta, mergeLiveCard, peopleRowFor, type StoredPeopleRow } from '@/lib/pipelineRowUpdateCore'
 import type { BadgesPayload } from '@/lib/adminSummaryCore'
 
@@ -124,6 +126,44 @@ async function upgradesFor(ids: string[], nowMs: number): Promise<Map<string, Up
   return out
 }
 
+/** The tutors who started a Verification Fee payment that never completed and
+ *  have not paid since (owner, 15 Nov 2026 — lib/paymentAttemptsCore). */
+export async function triedToPayFor(ids: string[], nowMs: number): Promise<Set<string>> {
+  const out = new Set<string>()
+  const admin = createAdminClient()
+  if (!admin || ids.length === 0) return out
+  const rows = await pageAllIn(ids, (part, from, to) =>
+    admin
+      .from('payments')
+      .select('id, user_id, plan_code, amount_pkr, status, provider, created_at, screenshot_path, reference, refunded_amount_pkr, refunded_at, checkout_closed_at, checkout_close_reason')
+      .in('user_id', part)
+      .eq('plan_code', 'verified')
+      .order('id')
+      .range(from, to),
+  ).catch(() => [])
+  const by = new Map<string, PaymentFacts[]>()
+  for (const r of rows) {
+    const k = r.user_id as string
+    by.set(k, [
+      ...(by.get(k) ?? []),
+      {
+        planCode: (r.plan_code as string | null) ?? null,
+        amountPkr: (r.amount_pkr as number | null) ?? null,
+        status: String(r.status ?? ''),
+        provider: (r.provider as string | null) ?? null,
+        createdAt: String(r.created_at ?? ''),
+        hasReceipt: !!r.screenshot_path || !!String(r.reference ?? '').trim(),
+        refundedAmountPkr: (r.refunded_amount_pkr as number | null) ?? null,
+        refundedAt: (r.refunded_at as string | null) ?? null,
+        checkoutClosedAt: (r.checkout_closed_at as string | null) ?? null,
+        checkoutCloseReason: (r.checkout_close_reason as string | null) ?? null,
+      },
+    ])
+  }
+  for (const [k, ps] of by) if (triedToPay(ps, nowMs)) out.add(k)
+  return out
+}
+
 /** Each member's newest visit. */
 async function lastSeenFor(ids: string[]): Promise<Map<string, string>> {
   const out = new Map<string, string>()
@@ -150,7 +190,8 @@ export const loadTutorPipeline = cache(
       const tutors = inTab(dir.people, 'tutor', true)
       const ids = tutors.map((t) => t.id)
       const paidIds = tutors.filter((t) => !!t.feePaidAt).map((t) => t.id)
-      const [contacts, seen, welcomes, upgrades] = await Promise.all([loadPipeContacts(ids), lastSeenFor(ids), loadWelcomes(ids), upgradesFor(paidIds, now)])
+      const unpaidIds = tutors.filter((t) => !t.feePaidAt).map((t) => t.id)
+      const [contacts, seen, welcomes, upgrades, tried] = await Promise.all([loadPipeContacts(ids), lastSeenFor(ids), loadWelcomes(ids), upgradesFor(paidIds, now), triedToPayFor(unpaidIds, now)])
       const out = new Map<string, PipeCard>()
       for (const t of tutors)
         out.set(
@@ -175,6 +216,7 @@ export const loadTutorPipeline = cache(
             paidAt: t.feePaidAt,
             welcome: welcomes.get(t.id) ?? null,
             plan: upgrades.get(t.id) ?? null,
+            triedToPay: tried.has(t.id),
           }),
         )
       return out
@@ -189,13 +231,15 @@ export const loadTutorPipeline = cache(
 export async function loadOnePipeCard(memberId: string): Promise<PipeCard | null> {
   const admin = createAdminClient()
   if (!admin) return null
-  const [{ data: p }, { data: tp }, docs, contacts, ni, support] = await Promise.all([
+  const nowMs = Date.now()
+  const [{ data: p }, { data: tp }, docs, contacts, ni, support, tried] = await Promise.all([
     admin.from('profiles').select('role, full_name, profile_completion, phone_number, phone_verified_at, created_at, is_suspended, is_banned, paused_by_user_at').eq('id', memberId).maybeSingle(),
     admin.from('tutor_profiles').select('verified_fee_paid_at').eq('id', memberId).maybeSingle(),
     loadTutorDocSummaries([memberId]),
     loadPipeContacts([memberId]),
     admin.from('follow_up_dismissals').select('id').eq('member_id', memberId).is('undone_at', null).limit(1),
     loadSupportWhatsApp(),
+    triedToPayFor([memberId], nowMs),
   ])
   if (p?.role !== 'tutor') return null
   return pipeCardFrom({
@@ -209,7 +253,8 @@ export async function loadOnePipeCard(memberId: string): Promise<PipeCard | null
     paused: !!p.is_suspended || !!p.is_banned || !!p.paused_by_user_at,
     lastActiveAt: (p.created_at as string | null) ?? null,
     support,
-    nowMs: Date.now(),
+    nowMs,
+    triedToPay: tried.has(memberId),
   })
 }
 

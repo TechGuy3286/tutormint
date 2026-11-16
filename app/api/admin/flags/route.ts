@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { refuseUnlessOwnerModeration } from '@/lib/ownerGuard'
 import { serverError } from '@/lib/errorResponse'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
@@ -52,6 +53,12 @@ export async function POST(request: Request) {
   }
 
   if (!body.userId) return NextResponse.json({ error: 'Which member?' }, { status: 400 })
+
+  // Suspend and reinstate are the Owner's alone (owner, 15 Nov 2026).
+  {
+    const refused = await refuseUnlessOwnerModeration(actor, body.action === 'suspend' ? 'suspend a flagged member' : 'reinstate a suspended member', body.userId)
+    if (refused) return refused
+  }
 
   if (body.action === 'suspend') {
     const r = await suspendMember({

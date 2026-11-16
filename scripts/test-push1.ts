@@ -259,9 +259,9 @@ test('the member page Edit tab holds the tutor tools, with no duplicate left', (
   const edit = read('app/admin/users/[id]/edit/page.tsx')
   for (const s of ['TutorFieldEditor', 'TutorFieldHistory', 'Retired addresses', 'SlugField']) assert.ok(edit.includes(s), s)
   // The tutors screen, plus the WhatsApp-number roles for that one section (owner, 4 Nov 2026).
-  assert.match(edit, /requireAdminRole\(\.\.\.SCREEN_ACCESS\.tutors, \.\.\.SCREEN_ACCESS\.memberWhatsappEdit\)/)
+  assert.match(edit, /requireAdminRole\(\.\.\.SCREEN_ACCESS\.tutors, \.\.\.SCREEN_ACCESS\.tutorEdit, \.\.\.SCREEN_ACCESS\.memberWhatsappEdit\)/)
   // The Profile tab's "Change mobile" is not offered for a tutor (the Edit tab changes it).
-  assert.match(read('app/admin/users/[id]/MemberActions.tsx'), /canVerifyMobile && !isTutor &&/)
+  assert.match(read('app/admin/users/[id]/MemberActions.tsx'), /canChangeMobile && !isTutor &&/)
   assert.equal(existsSync('app/admin/tutors/[id]/TutorFieldEditor.tsx'), false)
   assert.equal(existsSync('app/admin/users/[id]/edit/TutorFieldEditor.tsx'), true)
 })

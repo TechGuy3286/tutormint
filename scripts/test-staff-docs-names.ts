@@ -50,7 +50,9 @@ const base = { decision: 'approve' as const, status: 'pending' as const, rerevie
 test('Backend Support decides documents; other staff roles do not', () => {
   assert.equal(docDecider('owner'), 'owner')
   assert.equal(docDecider('backend_support'), 'staff')
-  for (const r of ['admin', 'operations', 'partner', 'tuitions_staff', 'supervisor'] as AdminRole[]) assert.equal(docDecider(r), null, r)
+  // The Project Managers decide like Backend Support since 15 Nov 2026.
+  assert.equal(docDecider('partner'), 'staff')
+  for (const r of ['admin', 'operations', 'tuitions_staff', 'supervisor'] as AdminRole[]) assert.equal(docDecider(r), null, r)
   assert.equal(docDecider(null), null)
 })
 
@@ -105,7 +107,7 @@ test('both review routes go through the shared gate and record staff decisions',
   const gate = read('lib/docDecisionGate.ts')
   assert.ok(gate.includes('refuseUnlessOwnerApproval') && gate.includes('staffDocRefusal') && gate.includes('recordStaffDecision'))
   assert.ok(gate.includes('alertOwnerBlocked'))
-  assert.deepEqual(SCREEN_ACCESS.documentDecide, ['backend_support'])
+  assert.deepEqual(SCREEN_ACCESS.documentDecide, ['backend_support', 'partner'])
 })
 
 const st = (profile: Record<string, unknown>, docs: Record<string, string> = {}): DecisionState => ({ profile, docs })

@@ -105,15 +105,16 @@ function TenureLines({ tenure, canSet, staffId }: { tenure: TenureView; canSet: 
 }
 
 const ROLES = [
-  // Approvals are the Owner's alone (owner, 15 Oct 2026): documents, CNIC
-  // numbers, bank-transfer receipts and staff sign-up claims.
-  { code: 'admin', label: 'Admin', blurb: 'Day-to-day management; no Team, Finance, Plans or payment settings; approvals are Owner only' },
-  { code: 'supervisor', label: 'Manager', blurb: "Sees every staff member's lists; changes only their own tuitions and cities; approvals are Owner only" },
-  { code: 'operations', label: 'Operations', blurb: 'Posting tuitions, assisting, marketing, SEO; can view verification queues; approvals are Owner only' },
+  // What each role can really do (owner, 15 Nov 2026 — lib/adminAccessCore,
+  // lib/memberActionsCore). Suspend, ban, lift a ban, changing a member's
+  // mobile or CNIC number, plans, roles and Finance changes are the Owner's alone.
+  { code: 'admin', label: 'Admin', blurb: 'Day-to-day management; can warn members and verify a mobile manually; no Team, Finance, Plans or payment settings; approvals are Owner only' },
+  { code: 'supervisor', label: 'Manager', blurb: "Sees every staff member's lists; changes only their own tuitions and cities; can warn and verify a mobile manually; approvals are Owner only" },
+  { code: 'operations', label: 'Operations', blurb: 'Posting tuitions, assisting, marketing, SEO; can warn and verify a mobile manually; views the verification queues; approvals are Owner only' },
   { code: 'tuitions_staff', label: 'Tuitions staff', blurb: 'Tuitions only — the board, posting, and their own activity' },
-  { code: 'backend_support', label: 'Backend Support', blurb: 'paid sign-ups, follow-ups and member support; can post tuitions; no finance or approvals' },
+  { code: 'backend_support', label: 'Backend Support', blurb: 'paid sign-ups, follow-ups and member support; can post tuitions; can approve documents and bank-matched receipts; no finance' },
   // Shown as "Project Manager" (owner, 13 Oct 2026); the internal role is 'partner'.
-  { code: 'partner', label: 'Project Manager', blurb: 'edits tutors, parents and tuitions; approvals are Owner only; everything else view only; two-factor required' },
+  { code: 'partner', label: 'Project Manager', blurb: 'edits tutors, parents and tuitions; can approve documents and bank-matched receipts; finance view only; two-factor required' },
 ] as const
 
 // The badge pill is uppercased by CSS, so a raw 'tuitions_staff' would read

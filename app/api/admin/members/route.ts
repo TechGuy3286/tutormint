@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/errorResponse'
-import { checkAdminRole, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
-import { refuseOwnerTarget } from '@/lib/ownerGuard'
+import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { refuseOwnerTarget, refuseUnlessOwnerModeration } from '@/lib/ownerGuard'
+import { memberActionAllowed, OWNER_ONLY_MEMBER_ACTIONS, type MemberAction } from '@/lib/memberActionsCore'
 import { warnMember, suspendMember, unsuspendMember, banMember, unbanMember } from '@/lib/moderation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
@@ -14,6 +15,12 @@ import { requireFreshAuth } from '@/lib/reauth'
 import { doNotUseRefusal } from '@/lib/contactWithdraw'
 
 // Moderation from the member page, without a report in front of you.
+//
+// WHO (owner, 15 Nov 2026 — lib/memberActionsCore): warn is every role that
+// works members, Backend Support included; verify a mobile manually is the
+// Project Managers, Managers, Admin, Operations and Backend Support; suspend,
+// reinstate, ban, lift a ban and change a mobile are the OWNER's alone — anyone
+// else is refused with 403 and the Owner hears of the attempt.
 //
 // warn/suspend/unsuspend are the same implementation the reports queue uses, so
 // the outcome does not depend on which screen the admin happened to be on. ban
@@ -31,7 +38,7 @@ const MemberActionBody = z.object({
 })
 
 export async function POST(request: Request) {
-  const gate = await checkAdminRole(...SCREEN_ACCESS.users)
+  const gate = await checkAdminRole(...SCREEN_ACCESS.users, ...SCREEN_ACCESS.memberWarn, ...SCREEN_ACCESS.memberVerifyMobile)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
 
   const actor = { id: gate.actor.id, adminRole: gate.actor.adminRole, email: gate.actor.email }
@@ -65,14 +72,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Write a reason for the record.' }, { status: 400 })
   }
 
+  // Owner-only actions first (owner, 15 Nov 2026): refused before any write,
+  // and the Owner is told of the attempt.
+  if ((OWNER_ONLY_MEMBER_ACTIONS as readonly string[]).includes(action)) {
+    const refused = await refuseUnlessOwnerModeration(actor, `${action.replace('-', ' ')} a member`, userId)
+    if (refused) return refused
+  }
+  if (!memberActionAllowed(actor.adminRole, action as MemberAction)) {
+    return NextResponse.json({ error: 'Your admin role cannot perform this action.' }, { status: 403 })
+  }
+
   // PR17 §3.2 — change a member's mobile from the drawer. Owner/admin only, reason
   // required, logged. The change CLEARS verification, so the member re-verifies
   // the new number (in settings/onboarding). Duplicate check applies; a
   // synthetic (mobile-first) login address moves with the number.
   if (action === 'change-mobile') {
-    if (!roleMayWrite(actor.adminRole, ['admin', 'partner'])) {
-      return NextResponse.json({ error: 'Only an owner or admin can change a number.' }, { status: 403 })
-    }
     const admin = createAdminClient()
     if (!admin) return NextResponse.json({ error: 'Temporarily unavailable.' }, { status: 503 })
     const newMobile = normalisePkMobile(body.newMobile ?? '')
@@ -129,23 +143,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, action })
   }
 
-  // Ban is owner/admin/Partner; lifting a ban is the Owner and the Partner
-  // (owner, 14 Oct 2026). roleMayWrite always admits the Owner.
-  if (action === 'ban' && !roleMayWrite(actor.adminRole, ['admin', 'partner'])) {
-    return NextResponse.json({ error: 'Only an owner or manager can ban an account.' }, { status: 403 })
-  }
-  if (action === 'unban' && !roleMayWrite(actor.adminRole, ['partner'])) {
-    return NextResponse.json({ error: 'Only a Project Manager can lift a ban.' }, { status: 403 })
-  }
 
   // PR16 §3.5 — verify a member's mobile MANUALLY when the SMS could not reach
   // them (or their code is locked). Owner/admin only, reason required, logged.
   // Sets phone_verified_via='admin' so it is distinguishable from 'otp'/'bridge'
   // in admin and the CSV, and starts any paused paid plan.
   if (action === 'verify-mobile') {
-    if (!roleMayWrite(actor.adminRole, ['admin', 'partner'])) {
-      return NextResponse.json({ error: 'Only an owner or admin can verify a number manually.' }, { status: 403 })
-    }
     const admin = createAdminClient()
     if (!admin) return NextResponse.json({ error: 'Temporarily unavailable.' }, { status: 503 })
 

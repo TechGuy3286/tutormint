@@ -5,6 +5,7 @@ import { permanentRedirect } from 'next/navigation'
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
 import { loadPaymentQueue, loadSubscriptionLedger, withoutAmounts } from '@/lib/adminQueues'
 import { canApprove as canApproveRole } from '@/lib/adminAccessCore'
+import { isStaffReceiptApprover } from '@/lib/staffReceiptCore'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { legacyPaymentFilter } from '@/lib/paymentFiltersCore'
 import PaymentQueue from './PaymentQueue'
@@ -122,7 +123,7 @@ export default async function AdminPaymentsPage({
         search={search}
         canApprove={canApprove}
         canCheck={roleMayWrite(actor.adminRole, SCREEN_ACCESS.receiptCheck)}
-        staffMayApprove={actor.adminRole === 'backend_support'}
+        staffMayApprove={isStaffReceiptApprover(actor.adminRole)}
         paymentsCursor={payments.nextCursor}
         paymentsTotal={payments.total}
         subscriptionsCursor={subscriptions.nextCursor}

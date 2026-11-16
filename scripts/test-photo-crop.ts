@@ -225,9 +225,11 @@ test('owner, Partner, admin and operations can crop — the same access as rotat
   for (const r of ['owner', 'admin', 'operations'] as const) assert.equal(roleSatisfies(r, SCREEN_ACCESS.documentRotate), true, r)
   assert.equal(roleSatisfies('tuitions_staff', SCREEN_ACCESS.documentRotate), false)
   assert.equal(isReadOnlyRole('partner'), false) // full management since 13 Oct 2026 (was view-only)
-  for (const route of ['crop', 'source', 'rotate']) {
+  for (const route of ['crop', 'rotate']) {
     assert.ok(read('app', 'api', 'admin', 'profile-photo', route, 'route.ts').includes('checkAdminRole(...SCREEN_ACCESS.documentRotate)'), route)
   }
+  // The uploaded original is also the full-size view for every reviewer (owner, 15 Nov 2026).
+  assert.ok(read('app', 'api', 'admin', 'profile-photo', 'source', 'route.ts').includes('checkAdminRole(...SCREEN_ACCESS.documentView)'), 'source')
   // checkAdminRole refuses a Partner's POST (403) and a signed-out one (401).
   const auth = read('lib', 'adminAuth.ts')
   assert.ok(auth.includes('!roleMayWrite(actor.adminRole, allowed)) && !opts.self'))

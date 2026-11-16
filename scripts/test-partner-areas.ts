@@ -51,6 +51,10 @@ const EDIT: Key[] = [
   'memberWhatsappEdit',
   // People with Follow-ups merged in (owner, 8 Nov 2026): opening the page; each write keeps its own list.
   'people',
+  // Staff rights clean-up (owner, 15 Nov 2026): the Project Manager decides
+  // documents, approves bank-matched receipts, warns, verifies a mobile
+  // manually and opens the full-size photo.
+  'documentDecide', 'receiptStaffApprove', 'memberWarn', 'memberVerifyMobile', 'documentView',
 ]
 
 test('the Partner may open every screen, and change only the tutor, parent and tuition areas', () => {
@@ -68,9 +72,10 @@ test('every view-only area refuses a Partner write; the Owner is unaffected', ()
     'staffSignupsAll', 'staffSignupClaim', 'staffClaimsReview', 'mySignups', 'cityOwners', 'supportNumber',
     // Convert account type (owner, 23 Oct 2026): the site Owner only.
     'convertAccount',
-    // Backend Support decides documents; the Owner's "Documents by staff" list
-    // (owner, 5 Nov 2026). Neither names the Partner.
-    'documentDecide', 'staffDocDecisions',
+    // The Owner's "Documents by staff" list (owner, 5 Nov 2026).
+    'staffDocDecisions',
+    // Suspend, ban, lift a ban and change a mobile: the Owner only (owner, 15 Nov 2026).
+    'memberSuspendBan', 'memberMobileChange',
     // Team overview (owner, 24 Oct 2026): a read-only card.
     'teamOverview',
     // Merge duplicates / Not a duplicate / View as (owner, 26 Oct 2026): the site Owner only.
@@ -240,7 +245,8 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed' | 'ret
   'payments/refund-due': 'view',
   'payments/settlement/relabel': 'view',
   'payments/settlement/personal': 'view',
-  'payments/decide': 'view',
+  // The Project Manager approves bank-matched receipts (owner, 15 Nov 2026).
+  'payments/decide': 'edit',
   'payments/gateways': 'view',
   'sms/test': 'view',
   // The support WhatsApp number (Applications v3.1): Owner only.
@@ -340,20 +346,19 @@ test('the mixed routes refuse their view-only half inside the route', () => {
   assert.ok(area.includes('refuseUnlessOwnerApproval('), 'merges are Owner-only')
   assert.equal(roleMayWrite('partner', SCREEN_ACCESS.seo), false)
   assert.equal(roleMayWrite('partner', SCREEN_ACCESS.jobsPost), true)
-  // A Partner may ban AND lift a ban (owner, 14 Oct 2026), verify or change a
-  // mobile. An admin may ban but not lift one; operations may do neither.
+  // Suspend, ban, lift a ban and change a mobile are the Owner's alone (owner,
+  // 15 Nov 2026); a Partner warns and verifies a mobile manually.
   const members = read('app', 'api', 'admin', 'members', 'route.ts')
-  assert.ok(members.includes("action === 'unban' && !roleMayWrite(actor.adminRole, ['partner'])"))
-  assert.equal(roleMayWrite('partner', ['partner']), true)
-  assert.equal(roleMayWrite('partner', ['admin', 'partner']), true)
-  assert.equal(roleMayWrite('owner', ['partner']), true)
-  assert.equal(roleMayWrite('admin', ['partner']), false)
-  assert.equal(roleMayWrite('operations', ['partner']), false)
-  // The member page shows "Lift ban" by the same rule, and both are audited.
-  assert.ok(read('app', 'admin', 'users', '[id]', 'page.tsx').includes("canUnban={roleMayWrite(actor.adminRole, ['partner'])}"))
+  assert.ok(members.includes('refuseUnlessOwnerModeration(actor'))
+  assert.ok(members.includes('memberActionAllowed(actor.adminRole'))
+  assert.equal(roleMayWrite('partner', SCREEN_ACCESS.memberSuspendBan), false)
+  assert.equal(roleMayWrite('owner', SCREEN_ACCESS.memberSuspendBan), true)
+  assert.equal(roleMayWrite('partner', SCREEN_ACCESS.memberWarn), true)
+  assert.equal(roleMayWrite('partner', SCREEN_ACCESS.memberVerifyMobile), true)
+  // The member page reads the same rule, and both are audited.
+  assert.ok(read('app', 'admin', 'users', '[id]', 'page.tsx').includes('canSuspendBan={pageActs.suspendBan}'))
   const moderation = read('lib', 'moderation.ts')
   assert.ok(moderation.includes("action: 'member.unban'") && moderation.includes("action: 'member.ban'"))
-  assert.ok(members.includes("action === 'ban' && !roleMayWrite(actor.adminRole, ['admin', 'partner'])"))
   assert.equal(roleMayWrite('partner', []), false)
   // Owner protection is still applied to every member change.
   assert.ok(members.includes('refuseOwnerTarget('))
@@ -380,9 +385,9 @@ test('"Project Manager" is a label only: Owner and Partner both read it; roles a
   assert.equal(roleWord('system'), 'system')
   for (const r of ['admin', 'operations', 'tuitions_staff']) assert.equal(roleBadge(r), 'Admin')
   // Approvals are the Owner's alone (owner, 15 Oct 2026).
-  assert.equal(PARTNER_ROLE_OPTION, 'Project Manager — edits tutors, parents and tuitions; approvals are Owner only; everything else view only; two-factor required')
+  assert.equal(PARTNER_ROLE_OPTION, 'Project Manager — edits tutors, parents and tuitions; can approve documents and bank-matched receipts; finance view only; two-factor required')
   const team = read('app', 'admin', 'team', 'TeamClient.tsx')
-  assert.ok(team.includes("label: 'Project Manager', blurb: 'edits tutors, parents and tuitions; approvals are Owner only; everything else view only; two-factor required'"))
+  assert.ok(team.includes("label: 'Project Manager', blurb: 'edits tutors, parents and tuitions; can approve documents and bank-matched receipts; finance view only; two-factor required'"))
   // Only the Owner, on their own card, sees "(account owner)".
   assert.ok(team.includes("s.isMe && s.adminRole === 'owner' && viewerRole === 'owner'"))
   assert.ok(team.includes('(account owner)'))

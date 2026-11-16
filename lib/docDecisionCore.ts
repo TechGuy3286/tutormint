@@ -25,7 +25,9 @@ export type DocItemKind = 'cnic' | 'profile_pic' | 'selfie' | 'address'
 export type DocDecider = 'owner' | 'staff'
 
 /** The staff roles (besides the Owner) who may decide documents. */
-export const STAFF_DOC_DECIDER_ROLES: readonly AdminRole[] = ['backend_support']
+// The Project Managers joined on 15 Nov 2026 — the same rules, the same record
+// and the Owner's Undo as Backend Support.
+export const STAFF_DOC_DECIDER_ROLES: readonly AdminRole[] = ['backend_support', 'partner']
 
 export function docDecider(role: AdminRole | null | undefined): DocDecider | null {
   if (role === 'owner') return 'owner'

@@ -140,8 +140,8 @@ test('Claims to review: Owner decides; Admin and Project Managers view', () => {
 
 test('Team page role descriptions', () => {
   const t = read('app/admin/team/TeamClient.tsx')
-  assert.ok(t.includes("blurb: 'Posting tuitions, assisting, marketing, SEO; can view verification queues; approvals are Owner only'"))
-  assert.ok(t.includes("blurb: 'edits tutors, parents and tuitions; approvals are Owner only; everything else view only; two-factor required'"))
+  assert.ok(t.includes("blurb: 'Posting tuitions, assisting, marketing, SEO; can warn and verify a mobile manually; views the verification queues; approvals are Owner only'"))
+  assert.ok(t.includes("blurb: 'edits tutors, parents and tuitions; can approve documents and bank-matched receipts; finance view only; two-factor required'"))
   assert.equal(t.includes("'Posting tuitions, verifying,"), false)
 })
 

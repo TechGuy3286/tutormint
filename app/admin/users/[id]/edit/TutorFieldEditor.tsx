@@ -116,7 +116,11 @@ export default function TutorFieldEditor({
   currentBio = '',
   whatsappMasked = null,
   showWhatsapp = false,
+  canEditMobileAndCnic = false,
 }: {
+  /** The mobile and the CNIC number are Owner-only (owner, 15 Nov 2026): for
+   *  everyone else the mobile is not editable here and the number is read only. */
+  canEditMobileAndCnic?: boolean
   /** The WhatsApp number on file, masked (owner, 4 Nov 2026). */
   whatsappMasked?: string | null
   /** The actor may set the WhatsApp number (SCREEN_ACCESS.memberWhatsappEdit). */
@@ -292,7 +296,8 @@ export default function TutorFieldEditor({
         </button>
       </Section>
 
-      {/* Mobile */}
+      {/* Mobile — the Owner only (owner, 15 Nov 2026). */}
+      {canEditMobileAndCnic && (
       <Section icon={<Smartphone size={16} />} title="Mobile number" titleUr="موبائل نمبر" open={open === 'mobile'} onToggle={() => toggle('mobile')}>
         <label className="block space-y-1">
           <span className="block text-[11px] font-bold text-tm-navy">New mobile number</span>
@@ -308,6 +313,7 @@ export default function TutorFieldEditor({
           {busy === 'set-mobile' ? 'Saving…' : 'Save mobile (verified)'}
         </button>
       </Section>
+      )}
 
       {/* WhatsApp number (owner, 4 Nov 2026): reason required, Do not use /
           On hold refused in the route; the sign-in mobile is not changed. */}
@@ -329,6 +335,7 @@ export default function TutorFieldEditor({
         <CnicCapture
           onState={setCap}
           numberOnFile={cnicNumberMasked}
+          numberReadOnly={!canEditMobileAndCnic}
           onUploaded={() => router.refresh()}
           uploadUrl="/api/admin/tutors/media"
           uploadExtra={{ tutorId, reason: cnicReason.trim() }}

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/errorResponse'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
-import { refuseUnlessOwnerApproval } from '@/lib/ownerGuard'
+import { refuseUnlessOwnerApproval, refuseUnlessOwnerModeration } from '@/lib/ownerGuard'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
@@ -66,6 +66,11 @@ export async function POST(request: Request) {
   }
   if (reason.length < 3) {
     return NextResponse.json({ error: 'A written reason is required.' }, { status: 400 })
+  }
+  // Suspend and unsuspend are the Owner's alone too (owner, 15 Nov 2026).
+  if (action === 'suspend' || action === 'unsuspend') {
+    const refused = await refuseUnlessOwnerModeration(gate.actor, action === 'suspend' ? 'suspend a tutor' : 'reinstate a tutor', tutorId)
+    if (refused) return refused
   }
   // Owner-only approvals (owner, 15 Oct 2026): approving or holding (asking
   // for a re-record of) a tutor's video is the Owner's alone. Suspend and

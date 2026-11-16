@@ -6,7 +6,7 @@ import { AlertTriangle, ExternalLink } from 'lucide-react'
 
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
-import { useAdminReadOnly } from '@/components/admin/ReadOnly'
+import { useAdminReadOnly, useCanApprove } from '@/components/admin/ReadOnly'
 import { formatDateTime } from '@/lib/datetime'
 import { flagSourceLabel, type FlagRow } from '@/lib/adminFlagsShared'
 import { flagStageLabel } from '@/lib/abuse/warnings'
@@ -22,6 +22,7 @@ export default function FlagQueue({ initial }: { initial: FlagRow[] }) {
   const toast = useToast()
   const confirm = useConfirm()
   const readOnly = useAdminReadOnly()
+  const ownerOnly = useCanApprove()
 
   async function act(
     action: 'clear' | 'suspend' | 'reinstate',
@@ -142,7 +143,8 @@ export default function FlagQueue({ initial }: { initial: FlagRow[] }) {
             >
               Clear flag
             </button>
-            {f.subject.suspended ? (
+            {/* Suspend and reinstate are the Owner's alone (owner, 15 Nov 2026). */}
+            {!ownerOnly ? null : f.subject.suspended ? (
               <button
                 type="button"
                 onClick={() => act('reinstate', f)}

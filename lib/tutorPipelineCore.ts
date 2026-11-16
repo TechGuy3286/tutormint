@@ -312,6 +312,12 @@ export const FU_BUCKET_LABEL: Record<FuBucket, string> = {
 /** The old "Followed up" chip (?fu=done): every numbered chip together. */
 export const FU_DONE = 'done'
 
+/** Approved, fee pending: started a Verification Fee payment that never
+ *  completed (owner, 15 Nov 2026 — lib/paymentAttemptsCore). Its own chip in
+ *  that stage's follow-up row, and first within Not followed up. */
+export const FU_TRIED = 'tried'
+export const FU_TRIED_LABEL = 'Tried to pay'
+
 export function followBucket(state: { section: 'not' | 'done' | null; sent: number }): FuBucket | null {
   if (state.section === null) return null
   if (state.section === 'not') return 'not'
@@ -368,6 +374,13 @@ export type PipeSortable = {
   /** When staff last contacted them (any channel). Approved, fee pending: a
    *  contact in the last 3 days sorts to the bottom of the chip. */
   lastContactAt?: string | null
+  /** Approved, fee pending: started a fee payment that never completed (owner,
+   *  15 Nov 2026) — first within Not followed up, before the approval order. */
+  triedToPay?: boolean
+}
+
+function triedFirst(r: PipeSortable): boolean {
+  return r.stage === 'approved' && r.section === 'not' && !!r.triedToPay
 }
 
 /** Approved, fee pending: contacted in the last 3 days goes to the bottom. */
@@ -404,6 +417,7 @@ export function pipelineOrder<T extends PipeSortable>(rows: T[], nowMs: number =
         Number(!!a.r.noMobile) - Number(!!b.r.noMobile) ||
         sec(a.r.section) - sec(b.r.section) ||
         Number(a.r.paused) - Number(b.r.paused) ||
+        Number(!triedFirst(a.r)) - Number(!triedFirst(b.r)) ||
         Number(recentlyContacted(a.r, nowMs)) - Number(recentlyContacted(b.r, nowMs)) ||
         approvalOrder(a.r, b.r) ||
         (ts(b.r.lastActiveAt) || 0) - (ts(a.r.lastActiveAt) || 0) ||

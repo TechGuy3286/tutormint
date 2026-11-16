@@ -47,7 +47,9 @@
 //                   (roleMayWrite). checkAdminRole refuses any other write with
 //                   403, whatever the route. Never the Owner account
 //                   (ownerProtection / staffChangeProblem below, lib/ownerGuard).
-//                   Two-factor is always required of a Partner.
+//                   Two-factor is always required of a Partner. Since 15 Nov
+//                   2026 a Partner also approves and rejects documents and
+//                   approves bank-matched receipts (like Backend Support).
 //
 // 'owner' satisfies every check, so callers list the OTHER roles that qualify
 // and never have to remember to add owner.
@@ -137,6 +139,15 @@ export const WORKING_STAFF_ROLES: AdminRole[] = STAFF_ROLES.filter((r) => !TEAM_
 
 export const OWNER_ONLY_APPROVAL = 'Only the Owner can approve or reject. Your account can view this.'
 
+/** Suspend, reinstate, ban, lift a ban, change a member's mobile: the Owner
+ *  only (owner, 15 Nov 2026). The words every other role is refused with. */
+export const OWNER_ONLY_MODERATION = 'Only the Owner can do this. Ask the Owner if it is needed.'
+
+/** May this role suspend, reinstate, ban, lift a ban or change a mobile? */
+export function canModerateAccounts(role: AdminRole | null | undefined): boolean {
+  return role === 'owner'
+}
+
 /** May this role make an approval decision? The Owner only. */
 export function canApprove(role: AdminRole | null | undefined): boolean {
   return role === 'owner'
@@ -198,7 +209,7 @@ export function seesRealRoles(viewer: AdminRole | null | undefined): boolean {
 export const PROJECT_MANAGER = 'Project Manager'
 
 /** The Partner's line in the Team role dropdown. */
-export const PARTNER_ROLE_OPTION = 'Project Manager — edits tutors, parents and tuitions; approvals are Owner only; everything else view only; two-factor required'
+export const PARTNER_ROLE_OPTION = 'Project Manager — edits tutors, parents and tuitions; can approve documents and bank-matched receipts; finance view only; two-factor required'
 
 /** The real role, in words — for the owner and the Partner (Team page). */
 export const ROLE_LABEL: Record<AdminRole, string> = {
@@ -264,7 +275,12 @@ export const SCREEN_ACCESS = withSupervisor({
   // Staff who decide identity documents besides the Owner (owner, 5 Nov 2026,
   // lib/docDecisionCore). The review routes admit these on top of tutors /
   // parents; what they may decide is lib/docDecisionCore staffDocRefusal.
-  documentDecide: ['backend_support'] as AdminRole[],
+  documentDecide: ['backend_support', 'partner'] as AdminRole[],
+  // OPENING a member's identity images full size (owner, 15 Nov 2026): every
+  // staff role that reviews documents — the Owner, the Project Managers and
+  // Backend Support — plus Admin, Manager and Operations, who already opened
+  // the review cards. The images stay staff-only, private and unsigned.
+  documentView: ['admin', 'operations', 'partner', 'backend_support'] as AdminRole[],
   // The Owner's "Documents approved by staff" list with Undo (Owner; the
   // Partner views).
   staffDocDecisions: [] as AdminRole[],
@@ -292,6 +308,11 @@ export const SCREEN_ACCESS = withSupervisor({
   // Approving or rejecting a bank-transfer receipt: owner, admin and operations
   // (owner, 11 Oct 2026). The Partner views; the server refuses their POST.
   paymentsApprove: ['admin', 'operations'] as AdminRole[],
+  // Approving a receipt MATCHED to a bank credit (lib/staffReceiptCore):
+  // Backend Support (31 Oct 2026) and the Project Managers (owner, 15 Nov
+  // 2026). Logged, in the Owner's daily list, with the Owner's Undo. Rejecting
+  // any receipt, and approving one with no matching credit, stay Owner-only.
+  receiptStaffApprove: ['backend_support', 'partner'] as AdminRole[],
   // Marking a payment refunded is money in rupees: owner only.
   paymentsRefund: [] as AdminRole[],
   paymentsSettings: ['admin'] as AdminRole[],
@@ -326,7 +347,9 @@ export const SCREEN_ACCESS = withSupervisor({
   subjectsCore: ['admin'] as AdminRole[],
   // A second-role account for a member, created by support (owner, 8 Oct 2026):
   // owner and Admin only.
-  secondRole: ['admin'] as AdminRole[],
+  // Backend Support may create a PARENT account for a tutor (owner, 15 Nov
+  // 2026; the route refuses it any other kind).
+  secondRole: ['admin', 'backend_support'] as AdminRole[],
   // Staff management is the ONE thing an Admin does not get. `[]` = owner only.
   team: [] as AdminRole[],
   reports: ['admin', 'operations', 'partner'] as AdminRole[],
@@ -436,7 +459,20 @@ export const SCREEN_ACCESS = withSupervisor({
   unmetSearches: ['admin', 'operations'] as AdminRole[],
   videoVisibility: ['admin', 'partner'] as AdminRole[],
   tutorSlug: ['admin', 'partner'] as AdminRole[],
-  tutorEdit: ['admin', 'operations', 'partner'] as AdminRole[],
+  // Backend Support edits a member's name, documents and subjects too (owner,
+  // 15 Nov 2026); the mobile and the CNIC number stay Owner-only in the route.
+  tutorEdit: ['admin', 'operations', 'partner', 'backend_support'] as AdminRole[],
+  // MEMBER-PAGE MODERATION (owner, 15 Nov 2026). Warn: every role that works
+  // members, Backend Support included. Verify a mobile manually (the SMS code
+  // failed — it only marks the number on file as verified, never changes it):
+  // Project Manager, Manager, Admin, Operations and Backend Support. Suspend,
+  // reinstate, ban, lift a ban and change a member's mobile: the Owner ONLY,
+  // refused on the server with the blocked-attempt alert (lib/ownerGuard
+  // refuseUnlessOwnerModeration).
+  memberWarn: ['admin', 'operations', 'partner', 'backend_support'] as AdminRole[],
+  memberVerifyMobile: ['admin', 'operations', 'partner', 'backend_support'] as AdminRole[],
+  memberSuspendBan: [] as AdminRole[],
+  memberMobileChange: [] as AdminRole[],
   // A tutor's or parent's WhatsApp number on the member page's Edit tab
   // (owner, 4 Nov 2026): the Edit-tab roles plus Backend Support (and Managers
   // through withSupervisor). Tuitions staff cannot.

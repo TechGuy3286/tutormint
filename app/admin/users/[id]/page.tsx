@@ -37,6 +37,7 @@ import { loadActivitySummary } from '@/lib/adminActivity'
 import { docSummary } from '@/lib/tutorDocSummaryCore'
 import { documentsFact, emptySectionsLine, parentDocKind, tutorStatusFact, videoFact, type MemberBox } from '@/lib/memberPageCore'
 import { paymentLabel, paymentPlanName, type PaymentFacts } from '@/lib/paymentLabelCore'
+import { attemptsLine, groupPaymentLines } from '@/lib/paymentAttemptsCore'
 import { waChatHref, waSendHref } from '@/lib/waLinkCore'
 import { senderRefCode } from '@/lib/staffSignups'
 import { normalisePkMobile } from '@/lib/phone'
@@ -49,6 +50,7 @@ import { loadRefundDues } from '@/lib/feeMatch'
 import { selfiePhotoMatchUsers } from '@/lib/selfieMatch'
 import { blankPhotoFlags } from '@/lib/photoBlank'
 import { canApprove } from '@/lib/adminAccessCore'
+import { memberPageActions } from '@/lib/memberActionsCore'
 import MemberTabs from '@/components/admin/MemberTabs'
 import SendSocialLinksButton from '@/components/admin/SendSocialLinksButton'
 import { socialLinksAllowed } from '@/lib/socialLinksCore'
@@ -226,6 +228,8 @@ export default async function AdminMemberPage({
   // only through /api/documents/[id]/preview (owner or staff, never public).
   const isParent = profile.role === 'parent' || profile.role === 'academy'
   const secondRole = await secondRoleState(id)
+  // Which member-page actions this role gets (owner, 15 Nov 2026 — lib/memberActionsCore).
+  const pageActs = memberPageActions(actor.adminRole, profile.role as string | null)
   // Backend Support decides documents too (owner, 5 Nov 2026, lib/docDecisionCore).
   const decidesDocs = docDecider(actor.adminRole) !== null
   const canReviewParent = roleMayWrite(actor.adminRole, SCREEN_ACCESS.parents) || decidesDocs
@@ -560,7 +564,7 @@ export default async function AdminMemberPage({
               lockInfo={lockInfo ?? undefined}
               canUnlock={canUnlock}
               cnicNumberMasked={tutorDocs.cnicNumberMasked}
-              canEditNumber={roleMayWrite(actor.adminRole, SCREEN_ACCESS.tutorEdit)}
+              canEditNumber={pageActs.editMobileAndCnic}
               selfieLooksLikePhoto={(await selfiePhotoMatchUsers([id])).has(id)}
               blankItems={(await blankPhotoFlags([id])).get(id) ?? []}
               cnicName={cnicNameShown}
@@ -590,7 +594,7 @@ export default async function AdminMemberPage({
       )}
 
       {/* Edit name (owner, 27 Oct 2026) — parents here; tutors on the Edit tab. */}
-      {isParent && roleMayWrite(actor.adminRole, SCREEN_ACCESS.parents) && (
+      {isParent && pageActs.editProfile && (
         <details className="rounded-2xl border border-gray-200 bg-white p-4">
           <summary className="cursor-pointer text-xs font-black text-tm-navy">Edit names</summary>
           <div className="mt-3">
@@ -613,23 +617,24 @@ export default async function AdminMemberPage({
         name={formatName(profile.full_name as string | null)}
         suspended={!!profile.is_suspended}
         banned={!!profile.is_banned}
-        canBan={roleMayWrite(actor.adminRole, ['admin', 'partner'])}
-        canModerate={roleMayWrite(actor.adminRole, SCREEN_ACCESS.users)}
-        canGrantPlans={roleSatisfies(actor.adminRole, SCREEN_ACCESS.plans)}
-        canUnban={roleMayWrite(actor.adminRole, ['partner'])}
+        canWarn={pageActs.warn}
+        canSuspendBan={pageActs.suspendBan}
+        canChangeMobile={pageActs.changeMobile}
+        canGrantPlans={pageActs.grantPlans}
+        editLabel={pageActs.editLabel}
         isSelf={id === actor.id}
         isStaff={profile.role === 'admin'}
         isOwner={profile.admin_role === 'owner'}
         isTutor={isTutor}
-        canVerifyMobile={roleMayWrite(actor.adminRole, ['admin', 'partner'])}
+        canVerifyMobile={pageActs.verifyMobile}
         mobileVerified={!!profile.phone_verified_at}
         hasMobile={!!profile.phone_number}
         whatsappMsisdn={memberMsisdn}
         callMsisdn={callMsisdn}
         pipeContact={pipeContact}
-        editTutorHref={isTutor && roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutors) ? memberEditHref(id) : null}
+        editTutorHref={isTutor && pageActs.editProfile ? memberEditHref(id) : null}
         secondRole={
-          roleMayWrite(actor.adminRole, SCREEN_ACCESS.secondRole) && profile.role !== 'admin' ? (
+          profile.role !== 'admin' && pageActs.createSecondRole(profile.role === 'tutor' ? 'parent' : profile.role === 'parent' || profile.role === 'academy' ? 'tutor' : null) ? (
             <SecondRoleCard
               memberId={id}
               role={secondRole.canCreate ? secondRole.role : null}
@@ -708,14 +713,17 @@ export default async function AdminMemberPage({
 
         <Panel title={`Payments (${paymentRows.length})${refundDues.length ? ` · ${refundDues.length} refund due` : ""}`}>
           {[
-            ...paymentRows.map((p) => {
-              // Parents get their situation message from Contact → WhatsApp, never a
-              // payment template (owner, 31 Oct 2026).
+            // Repeated unfinished attempts on one day are ONE line (owner, 15 Nov 2026).
+            ...groupPaymentLines(paymentRows, nowMs).map((line) => {
+              const via = (provider: string | null) => (provider === 'manual' ? 'Bank transfer' : provider === 'paypro' ? 'PayPro' : (provider ?? 'Payment'))
+              if (line.kind === 'attempts') {
+                return <Row key={line.key} main={attemptsLine(line)} sub={`${via(line.provider)} · ${formatDate(line.createdAt)}`} />
+              }
               return (
                 <Row
-                  key={p.id}
-                  main={paymentLabel(p.facts, nowMs, { showAmount: showAmounts })}
-                  sub={`${p.facts.provider === 'manual' ? 'Bank transfer' : p.facts.provider === 'paypro' ? 'PayPro' : (p.facts.provider ?? 'Payment')} · ${formatDate(p.facts.createdAt)}`}
+                  key={line.id}
+                  main={paymentLabel(line.facts, nowMs, { showAmount: showAmounts })}
+                  sub={`${via(line.facts.provider)} · ${formatDate(line.facts.createdAt)}`}
                 />
               )
             }),

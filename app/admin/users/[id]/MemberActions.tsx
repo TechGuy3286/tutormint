@@ -30,10 +30,11 @@ export default function MemberActions({
   name,
   suspended,
   banned,
-  canBan,
-  canModerate = true,
-  canGrantPlans = true,
-  canUnban,
+  canWarn = true,
+  canSuspendBan = false,
+  canChangeMobile = false,
+  canGrantPlans = false,
+  editLabel = 'Edit name, documents and subjects',
   isSelf,
   isStaff,
   isOwner,
@@ -51,12 +52,16 @@ export default function MemberActions({
   name: string
   suspended: boolean
   banned: boolean
-  canBan: boolean
-  /** Warn / suspend / ban / mobile tools — false for Backend Support (owner, 31 Oct 2026). */
-  canModerate?: boolean
-  /** The Plans screen opens for this role (Owner and Partner). */
+  /** Warn (owner, 15 Nov 2026 — lib/memberActionsCore): every role that works members. */
+  canWarn?: boolean
+  /** Suspend, reinstate, ban, lift a ban: the Owner only. */
+  canSuspendBan?: boolean
+  /** Change a parent's mobile: the Owner only. */
+  canChangeMobile?: boolean
+  /** Grant or revoke a plan: the Owner only. */
   canGrantPlans?: boolean
-  canUnban: boolean
+  /** The edit button's words (the mobile is named only for the Owner). */
+  editLabel?: string
   isSelf: boolean
   isStaff: boolean
   isOwner: boolean
@@ -251,10 +256,10 @@ export default function MemberActions({
         </div>
       ) : (
         <>
-          {moderable && canModerate && (
+          {moderable && (canWarn || canSuspendBan) && (
             <div className="flex flex-wrap gap-2">
               {banned ? (
-                canUnban && (
+                canSuspendBan && (
                   <button type="button" onClick={() => setOpen('unban')} className={`${BTN} bg-tm-green-deep text-white`}>
                     <RotateCcw aria-hidden size={13} />
                     Lift ban
@@ -262,12 +267,15 @@ export default function MemberActions({
                 )
               ) : (
                 <>
-                  <button type="button" onClick={() => setOpen('warn')} className={`${BTN} bg-tm-gold text-tm-navy`}>
-                    <AlertTriangle aria-hidden size={13} />
-                    Warn
-                  </button>
+                  {canWarn && (
+                    <button type="button" onClick={() => setOpen('warn')} className={`${BTN} bg-tm-gold text-tm-navy`}>
+                      <AlertTriangle aria-hidden size={13} />
+                      Warn
+                    </button>
+                  )}
                   {/* Suspend and ban in one menu (owner, 20 Oct 2026): the same
                       confirm steps and permissions as the two buttons had. */}
+                  {canSuspendBan && (
                   <div ref={menuRef} className="relative">
                     <button
                       type="button"
@@ -296,7 +304,7 @@ export default function MemberActions({
                             {suspended ? 'Reinstate' : 'Suspend'}
                           </button>
                         </li>
-                        {canBan && (
+                        {canSuspendBan && (
                           <li role="none">
                             <button
                               type="button"
@@ -315,6 +323,7 @@ export default function MemberActions({
                       </ul>
                     )}
                   </div>
+                  )}
                 </>
               )}
             </div>
@@ -365,14 +374,14 @@ export default function MemberActions({
           )}
 
           <div className="flex flex-wrap gap-2">
-            {moderable && canModerate && !banned && canVerifyMobile && hasMobile && !mobileVerified && (
+            {moderable && !banned && canVerifyMobile && hasMobile && !mobileVerified && (
               <button type="button" onClick={() => setOpen('verify-mobile')} className={`${BTN} bg-tm-navy text-white`}>
                 <PhoneCall aria-hidden size={13} />
                 Verify mobile manually
               </button>
             )}
             {/* A tutor's mobile is changed on the Edit tab (owner, 31 Oct 2026) — one tool, not two. */}
-            {moderable && canModerate && !banned && canVerifyMobile && !isTutor && (
+            {moderable && !banned && canChangeMobile && !isTutor && (
               <button
                 type="button"
                 onClick={() => setOpen('change-mobile')}
@@ -391,7 +400,7 @@ export default function MemberActions({
             {editTutorHref && (
               <Link href={editTutorHref} className={`${BTN} border border-gray-200 text-slate-700 hover:border-tm-navy`}>
                 <Pencil aria-hidden size={14} />
-                Edit name, mobile, documents and subjects
+                {editLabel}
               </Link>
             )}
           </div>

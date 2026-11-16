@@ -10,6 +10,7 @@ import { formatDate } from '@/lib/datetime'
 import { formatName } from '@/lib/formatName'
 import { nameOwnerOnly } from '@/lib/nameEditCore'
 import { editTabParts } from '@/lib/memberEditCore'
+import { memberPageActions } from '@/lib/memberActionsCore'
 import { maskWhatsapp } from '@/lib/whatsappEditCore'
 import WhatsAppEditForm from '@/components/admin/WhatsAppEditForm'
 import SlugField from './SlugField'
@@ -31,7 +32,7 @@ import TutorFieldHistory from './TutorFieldHistory'
 export const dynamic = 'force-dynamic'
 
 export default async function MemberEditPage({ params }: { params: Promise<{ id: string }> }) {
-  const actor = await requireAdminRole(...SCREEN_ACCESS.tutors, ...SCREEN_ACCESS.memberWhatsappEdit)
+  const actor = await requireAdminRole(...SCREEN_ACCESS.tutors, ...SCREEN_ACCESS.tutorEdit, ...SCREEN_ACCESS.memberWhatsappEdit)
   const { id } = await params
 
   const admin = createAdminClient()
@@ -103,6 +104,7 @@ export default async function MemberEditPage({ params }: { params: Promise<{ id:
           currentBio={(tutor.bio as string | null) ?? ''}
           whatsappMasked={whatsappMasked}
           showWhatsapp={canWhatsapp}
+          canEditMobileAndCnic={memberPageActions(actor.adminRole, 'tutor').editMobileAndCnic}
         />
       ) : (
         // A role that may not edit the fields still sees the profile address.

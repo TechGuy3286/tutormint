@@ -4,11 +4,11 @@
 // read "Verified — Rs. 199 · pending · paypro", which looked as if the tutor
 // were verified. Now:
 //
-//   Verification Fee Rs 199 — started, not paid    a checkout over 1 hour old
+//   Verification Fee Rs 199 — started, not completed   a checkout over 1 hour old, or one closed as expired (owner, 15 Nov 2026)
 //   Verification Fee Rs 199 — paid                  approved
 //   Verification Fee Rs 199 — receipt waiting       a bank receipt to check
 //   Verification Fee Rs 199 — refunded              any refund recorded
-//   Verification Fee Rs 199 — cancelled / expired   a checkout marked closed
+//   Verification Fee Rs 199 — cancelled             a checkout the member cancelled
 //
 // Plan names are the same everywhere: Verification Fee, Premium, Featured,
 // Parent Verified, Parent Featured. The amount is left out for a viewer who may
@@ -46,8 +46,10 @@ export const PAYMENT_STATE_WORDS: Record<PaymentState, string> = {
   receipt_waiting: 'receipt waiting',
   cancelled: 'cancelled',
   paid_another_way: 'cancelled, paid by another method',
-  expired: 'expired',
-  started_not_paid: 'started, not paid',
+  // "Tried to pay" (owner, 15 Nov 2026): an attempt that was started and never
+  // finished, whether or not the checkout was later closed as expired.
+  expired: 'started, not completed',
+  started_not_paid: 'started, not completed',
   in_progress: 'started just now',
   not_approved: 'not approved',
 }

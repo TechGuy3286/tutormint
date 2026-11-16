@@ -24,7 +24,8 @@ export function memberDocumentsHref(id: string): string {
 export function editTabParts(actorRole: AdminRole | null | undefined, memberRole: string | null | undefined): { tutorFields: boolean; whatsapp: boolean; show: boolean } {
   const isTutor = memberRole === 'tutor'
   const isMember = isTutor || memberRole === 'parent' || memberRole === 'academy'
-  const tutorFields = isTutor && !!actorRole && roleSatisfies(actorRole, SCREEN_ACCESS.tutors)
+  // The tutor-edit roles, Backend Support included (owner, 15 Nov 2026).
+  const tutorFields = isTutor && !!actorRole && roleSatisfies(actorRole, SCREEN_ACCESS.tutorEdit)
   const whatsapp = isMember && !!actorRole && roleSatisfies(actorRole, SCREEN_ACCESS.memberWhatsappEdit)
   return { tutorFields, whatsapp, show: tutorFields || whatsapp }
 }

@@ -66,8 +66,13 @@ export default function CnicCapture({
   show = 'all',
   hideChecklist = false,
   numberOnFile = null,
+  numberReadOnly = false,
   split = false,
 }: {
+  /** Staff editor for a non-Owner (owner, 15 Nov 2026): the CNIC number is
+   *  Owner-only, so the box is replaced by the masked number on file and the
+   *  photos upload without it. */
+  numberReadOnly?: boolean
   /** Laptop (≥1024 px): the number on the left, the photos on the right
    *  (owner, 2 Nov 2026 — the CNIC window). Phones are unchanged. */
   split?: boolean
@@ -109,7 +114,7 @@ export default function CnicCapture({
 
   // Left empty with a number on file = keep the stored number.
   const keepsStored = !!numberOnFile && normaliseCnic(number).length === 0
-  const valid = isValidCnic(number) || keepsStored
+  const valid = isValidCnic(number) || keepsStored || numberReadOnly
   // The last number saved from this screen — not saved again before each side.
   const savedRef = useRef<string | null>(null)
   const ready = valid && front && back
@@ -149,7 +154,7 @@ export default function CnicCapture({
   // cannot be actioned by the admin without a number to compare against. Shared
   // /api/identity save-number endpoint — this route is identical on every surface.
   const ensureNumber = useCallback(async (): Promise<boolean> => {
-    if (keepsStored) {
+    if (keepsStored || numberReadOnly) {
       setError(null)
       return true
     }
@@ -184,7 +189,7 @@ export default function CnicCapture({
     }
     setError(null)
     return true
-  }, [number, saveNumber, keepsStored])
+  }, [number, saveNumber, keepsStored, numberReadOnly])
 
   const items = cnicChecklistItems({ valid, front, back })
   const shownItems =
@@ -193,7 +198,12 @@ export default function CnicCapture({
   return (
     <div className={split ? 'space-y-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:space-y-0' : 'space-y-4'} data-cnic-split={split ? '' : undefined}>
       {!hideChecklist && <FormChecklist items={shownItems} />}
-      {show !== 'photos' && (
+      {show !== 'photos' && numberReadOnly && (
+        <p className="rounded-xl border border-gray-200 bg-tm-bg p-3 text-[11px] font-semibold text-slate-700" data-cnic-number-readonly="">
+          CNIC number: <Ltr>{numberOnFile ?? 'not entered'}</Ltr>. Only the Owner can enter or change the CNIC number.
+        </p>
+      )}
+      {show !== 'photos' && !numberReadOnly && (
         <div className="space-y-4">
           <input
             value={number}

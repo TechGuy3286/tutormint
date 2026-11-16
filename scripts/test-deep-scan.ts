@@ -249,14 +249,15 @@ test('Backend Support: allowed screens and actions', () => {
 })
 
 test('Backend Support: blocked actions', () => {
-  for (const k of ['finance', 'revenue', 'paymentAmounts', 'paymentGateways', 'paymentsSwitches', 'plans', 'plansMutate', 'jobsMutate', 'memberMerge', 'convertAccount', 'contactWithdraw', 'team', 'users', 'tutorEdit', 'cnicRead', 'subjectsCore', 'notificationSettings', 'templateReview', 'supportNumber', 'secondRole', 'orphans', 'audit', 'documentUnlock', 'documentRotate', 'cityOwners', 'cleanup'] as const) {
+  for (const k of ['finance', 'revenue', 'paymentAmounts', 'paymentGateways', 'paymentsSwitches', 'plans', 'plansMutate', 'jobsMutate', 'memberMerge', 'convertAccount', 'contactWithdraw', 'team', 'users', 'cnicRead', 'subjectsCore', 'notificationSettings', 'templateReview', 'supportNumber', 'orphans', 'memberSuspendBan', 'memberMobileChange', 'audit', 'documentUnlock', 'documentRotate', 'cityOwners', 'cleanup'] as const) {
     assert.ok(!roleMayWrite(BS, SCREEN_ACCESS[k]), `cannot change ${k}`)
   }
   for (const k of ['finance', 'revenue', 'paymentAmounts', 'paymentGateways', 'team', 'audit'] as const) assert.ok(!roleSatisfies(BS, SCREEN_ACCESS[k]), `cannot open ${k}`)
   assert.ok(!mayOpenFollowUpTab(BS, 'orphans'))
-  // Member actions (warn, suspend, ban, mobile) stay on `users`, which Backend Support cannot write.
-  assert.match(read('app/api/admin/members/route.ts'), /checkAdminRole\(\.\.\.SCREEN_ACCESS\.users\)/)
-  assert.match(read('app/admin/users/[id]/page.tsx'), /canModerate=\{roleMayWrite\(actor\.adminRole, SCREEN_ACCESS\.users\)\}/)
+  // Member actions (owner, 15 Nov 2026 — lib/memberActionsCore): Backend Support
+  // may warn and verify a mobile; suspend, ban and mobile changes are the Owner's.
+  assert.match(read('app/api/admin/members/route.ts'), /memberActionAllowed\(actor\.adminRole/)
+  assert.match(read('app/admin/users/[id]/page.tsx'), /canSuspendBan=\{pageActs\.suspendBan\}/)
   // Templates are edited by owner/admin only; CNIC reveal is the Owner's.
   assert.match(read('app/api/admin/inbox/route.ts'), /roleMayWrite\(gate\.actor\.adminRole, \['admin'\]\)/)
   // A Backend Support token reads no finance rows (migration 215, restrictive policy).
@@ -302,7 +303,7 @@ test('receipt rule: every other case stays with the Owner', () => {
 
 test('receipt rule is applied on the server and logged', () => {
   const route = read('app/api/admin/payments/decide/route.ts')
-  assert.match(route, /if \(gate\.actor\.adminRole === 'backend_support'\)/)
+  assert.match(route, /if \(isStaffReceiptApprover\(gate\.actor\.adminRole\)\)/)
   assert.match(route, /Only the Owner can reject a receipt\./)
   assert.match(route, /refuseUnlessOwnerApproval\(gate\.actor, 'approve or reject a bank-transfer receipt'/)
   const lib = read('lib/staffReceipt.ts')

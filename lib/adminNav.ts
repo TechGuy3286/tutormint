@@ -20,6 +20,7 @@
 export type AdminScreen =
   | 'overview'
   | 'tutors'
+  | 'documentView'
   | 'parents'
   | 'users'
   | 'usersView'

@@ -23,7 +23,8 @@ test('allowed roles: Backend Support and Managers may edit; Tuitions staff may n
 })
 
 test('the Edit tab shows the WhatsApp section for tutors and parents', () => {
-  assert.deepEqual(editTabParts('backend_support', 'tutor'), { tutorFields: false, whatsapp: true, show: true })
+  // Backend Support edits name, documents and subjects too (owner, 15 Nov 2026).
+  assert.deepEqual(editTabParts('backend_support', 'tutor'), { tutorFields: true, whatsapp: true, show: true })
   assert.deepEqual(editTabParts('backend_support', 'parent'), { tutorFields: false, whatsapp: true, show: true })
   assert.deepEqual(editTabParts('admin', 'tutor'), { tutorFields: true, whatsapp: true, show: true })
   assert.deepEqual(editTabParts('admin', 'parent'), { tutorFields: false, whatsapp: true, show: true })

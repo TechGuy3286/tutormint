@@ -14,6 +14,16 @@
 // shows the answer.
 
 import { AUTO_LINK_WINDOW_MS, gapMs, inFeeRange, namesMatch, type FeeRange, type FreeCredit } from '@/lib/feeMatchCore'
+import type { AdminRole } from '@/lib/adminAccessCore'
+
+/** The staff roles (besides the Owner) who may approve a receipt matched to a
+ *  bank credit: Backend Support (31 Oct 2026) and the Project Managers (owner,
+ *  15 Nov 2026). Same rule, same record, same Owner's Undo. */
+export const STAFF_RECEIPT_APPROVER_ROLES: readonly AdminRole[] = ['backend_support', 'partner']
+
+export function isStaffReceiptApprover(role: AdminRole | null | undefined): boolean {
+  return !!role && STAFF_RECEIPT_APPROVER_ROLES.includes(role)
+}
 
 export type StaffReceiptInput = {
   payment: {

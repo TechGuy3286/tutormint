@@ -4,6 +4,7 @@ import { checkAdminRole, roleMayWrite, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { OWNER_ONLY_APPROVAL } from '@/lib/adminAccessCore'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { refuseOwnerTarget } from '@/lib/ownerGuard'
+import { nameEditScreen } from '@/lib/memberActionsCore'
 import { alertOwnerBlocked } from '@/lib/ownerAlerts'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
@@ -29,7 +30,7 @@ export const dynamic = 'force-dynamic'
 const Body = z.object({ memberId: uuid, name: z.string().max(200), reason: z.string().max(500), field: z.enum(['cnic', 'display']).optional() })
 
 export async function POST(request: Request) {
-  const gate = await checkAdminRole(...SCREEN_ACCESS.tutorEdit, ...SCREEN_ACCESS.parents)
+  const gate = await checkAdminRole(...SCREEN_ACCESS.tutorEdit, ...nameEditScreen('parent'))
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
   const parsed = await parseBody(request, Body)
   if (!parsed.ok) return parsed.response
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
   if (!p) return NextResponse.json({ error: 'That member was not found.' }, { status: 404 })
 
   // The screen this edit belongs to must be writable by the actor.
-  const screen = p.role === 'tutor' ? SCREEN_ACCESS.tutorEdit : SCREEN_ACCESS.parents
+  const screen = nameEditScreen(p.role as string)
   if (!roleMayWrite(gate.actor.adminRole, screen)) {
     return NextResponse.json({ error: 'View only. Your account cannot change this.' }, { status: 403 })
   }

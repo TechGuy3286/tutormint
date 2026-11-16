@@ -214,6 +214,7 @@ function pipelineSort(c: PipeCard | undefined, p: DirectoryPerson) {
     reuploaded: !!c?.reuploaded,
     approvedAt: c?.approvedAt ?? null,
     lastContactAt: c?.lastContact?.at ?? null,
+    triedToPay: !!c?.triedToPay,
   }
 }
 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
+import { refuseUnlessOwnerModeration } from '@/lib/ownerGuard'
 import { serverError } from '@/lib/errorResponse'
-import { checkAdminRole, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
+import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
@@ -47,9 +48,11 @@ export async function POST(request: Request) {
   if (!['dismiss', 'warn', 'suspend', 'unsuspend', 'ban'].includes(action)) {
     return NextResponse.json({ error: 'Unknown action.' }, { status: 400 })
   }
-  // Ban from the queue is owner/manager only (support can dismiss/warn/suspend).
-  if (action === 'ban' && !roleMayWrite(actor.adminRole, ['admin', 'partner'])) {
-    return NextResponse.json({ error: 'Only an owner or manager can ban an account.' }, { status: 403 })
+  // Suspend, reinstate and ban are the Owner's alone (owner, 15 Nov 2026);
+  // dismiss and warn stay with the queue's roles.
+  if (action === 'suspend' || action === 'unsuspend' || action === 'ban') {
+    const refused = await refuseUnlessOwnerModeration(actor, `${action} a member from the reports queue`, null)
+    if (refused) return refused
   }
   if (reason.length < 5) {
     return NextResponse.json(

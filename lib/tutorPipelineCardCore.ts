@@ -35,6 +35,7 @@ import {
   type PipeContact,
   type PipeDocs,
   type PipeStage,
+  FU_TRIED,
 } from '@/lib/tutorPipelineCore'
 
 /** What a People → Tutors card carries about the pipeline. */
@@ -68,6 +69,9 @@ export type PipeCard = {
   reuploaded?: boolean
   /** Approved, fee pending: when the CNIC and photo were approved. */
   approvedAt?: string | null
+  /** Started a Verification Fee payment that never completed and has not paid
+   *  since (owner, 15 Nov 2026): the "Tried to pay" chip in Approved, fee pending. */
+  triedToPay?: boolean
   /** The stage's WhatsApp text (no number in it). */
   message: string | null
   notInterested: boolean
@@ -145,6 +149,8 @@ export function pipeCardFrom(a: {
   paidAt?: string | null
   welcome?: Welcome | null
   plan?: UpgradeHeld | null
+  /** lib/paymentAttemptsCore triedToPay. */
+  triedToPay?: boolean
 }): PipeCard {
   const d = pipeDocsOf(a.docs)
   const completion = a.completion ?? 0
@@ -168,6 +174,7 @@ export function pipeCardFrom(a: {
     lastAttempt: follow?.lastAttempt ?? null,
     reuploaded: reuploadedAfterRejection(a.docs?.statuses),
     approvedAt: stage === 'approved' ? (a.docs?.approvedAt ?? null) : null,
+    triedToPay: stage === 'approved' && !!a.triedToPay,
     message: isFollowStage(stage) ? pipeMessage(stage, { firstName: firstNameOf(a.name), missing, rejected, supportWhatsapp: a.support }) : null,
     notInterested: a.notInterested,
     niMark: a.notInterested ? (a.niMark ?? null) : null,
@@ -295,7 +302,7 @@ export function pipeTags(p: PipeCard): {
     stage: p.stage,
     stages: p.reuploaded ? [p.stage, REUPLOADED] : [p.stage],
     fu: p.section ?? 'na',
-    fus: followTag({ section: p.section, sent: p.follow?.sent ?? 0 }),
+    fus: [...followTag({ section: p.section, sent: p.follow?.sent ?? 0 }), ...(p.stage === 'approved' && p.triedToPay ? [FU_TRIED] : [])],
     reup: !!p.reuploaded,
     ni: p.notInterested,
     informed: p.informed,

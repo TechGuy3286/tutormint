@@ -6,6 +6,7 @@ import { activatePayment, rejectPayment } from '@/lib/payments/activate'
 import { attachCreditOnApproval } from '@/lib/feeMatch'
 import { requireFreshAuth } from '@/lib/reauth'
 import { staffApproveReceipt } from '@/lib/staffReceipt'
+import { isStaffReceiptApprover } from '@/lib/staffReceiptCore'
 import { parseBody, z, uuid } from '@/lib/validate'
 
 // Approve or reject a manual bank/wallet transfer (PR98 §4).
@@ -30,14 +31,15 @@ const DecideBody = z.object({
 })
 
 export async function POST(request: Request) {
-  const gate = await checkAdminRole(...SCREEN_ACCESS.paymentsApprove, 'backend_support')
+  const gate = await checkAdminRole(...SCREEN_ACCESS.paymentsApprove, ...SCREEN_ACCESS.receiptStaffApprove)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
 
-  // BACKEND SUPPORT (owner, 31 Oct 2026): may APPROVE a receipt only when it is
-  // matched to a real bank credit (lib/staffReceiptCore — fee range, 48 hours,
-  // sender name, credit unlinked, not their own referral). Everything else —
-  // and every rejection — stays with the Owner.
-  if (gate.actor.adminRole === 'backend_support') {
+  // BACKEND SUPPORT (owner, 31 Oct 2026) and the PROJECT MANAGERS (owner, 15 Nov
+  // 2026): may APPROVE a receipt only when it is matched to a real bank credit
+  // (lib/staffReceiptCore — fee range, 48 hours, sender name, credit unlinked,
+  // not their own referral). Everything else — and every rejection — stays
+  // with the Owner.
+  if (isStaffReceiptApprover(gate.actor.adminRole)) {
     const freshBs = await requireFreshAuth(gate.actor.id)
     if (!freshBs.ok) return freshBs.response
     const body = await parseBody(request, DecideBody)

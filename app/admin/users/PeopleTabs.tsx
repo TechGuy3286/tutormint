@@ -16,7 +16,7 @@ import {
   peopleHref,
   type PeopleTab,
 } from '@/lib/peopleDirectoryCore'
-import { FU_BUCKET_LABEL, FU_BUCKETS, FU_DONE, isFollowStage, PIPE_STAGES, REUPLOADED, STAGE_LABEL, tutorStageFromAddress } from '@/lib/tutorPipelineCore'
+import { FU_BUCKET_LABEL, FU_BUCKETS, FU_DONE, FU_TRIED, FU_TRIED_LABEL, isFollowStage, PIPE_STAGES, REUPLOADED, STAGE_LABEL, tutorStageFromAddress } from '@/lib/tutorPipelineCore'
 import { REUPLOADED_LABEL } from '@/lib/tutorPipelineCardCore'
 import { isSignupWindow, type SignupWindow } from '@/lib/staffOutreachCore'
 import { parseFuTab } from '@/lib/tutorFollowUpTabsCore'
@@ -261,6 +261,8 @@ export default async function PeopleTabs({
                 label: 'Follow-up',
                 options: [
                   ...FU_BUCKETS.map((b) => ({ key: b, label: FU_BUCKET_LABEL[b] })),
+                  // Approved, fee pending: "Tried to pay (N)" (owner, 15 Nov 2026).
+                  ...(stageSel === 'approved' ? [{ key: FU_TRIED, label: FU_TRIED_LABEL }] : []),
                   { key: FU_DONE, label: 'Followed up (all)', hidden: true },
                 ],
               },

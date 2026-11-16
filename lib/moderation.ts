@@ -25,9 +25,18 @@ import { applyPlanFlags } from '@/lib/payments/activate'
 import { addToBlocklist, removeFromBlocklistBySource } from '@/lib/blocklist'
 import { normalisePkMobile } from '@/lib/phone'
 import type { AdminRole } from '@/lib/adminAuth'
+import { canModerateAccounts, OWNER_ONLY_MODERATION } from '@/lib/adminAccessCore'
 import { formatName } from '@/lib/formatName'
 
 export type Actor = { id: string; adminRole: AdminRole; email: string | null }
+
+/** Suspend, reinstate, ban and lift a ban are the Owner's alone (owner, 15 Nov
+ *  2026). Every calling route refuses first and alerts the Owner
+ *  (lib/ownerGuard refuseUnlessOwnerModeration); this is the backstop, so a
+ *  route written later cannot do it either. */
+function notOwner(actor: Actor): ModerationResult | null {
+  return canModerateAccounts(actor.adminRole) ? null : { ok: false, status: 403, error: OWNER_ONLY_MODERATION }
+}
 
 export type ModerationResult =
   | { ok: true; alreadyInState?: boolean }
@@ -114,6 +123,8 @@ export async function suspendMember(params: {
   actor: Actor
   reportId?: string | null
 }): Promise<ModerationResult> {
+  const refused = notOwner(params.actor)
+  if (refused) return refused
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
 
@@ -201,6 +212,8 @@ export async function unsuspendMember(params: {
   reason: string
   actor: Actor
 }): Promise<ModerationResult> {
+  const refused = notOwner(params.actor)
+  if (refused) return refused
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
 
@@ -301,6 +314,8 @@ export async function banMember(params: {
   reason: string
   actor: Actor
 }): Promise<ModerationResult> {
+  const refused = notOwner(params.actor)
+  if (refused) return refused
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
 
@@ -390,6 +405,8 @@ export async function unbanMember(params: {
   reason: string
   actor: Actor
 }): Promise<ModerationResult> {
+  const refused = notOwner(params.actor)
+  if (refused) return refused
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
 

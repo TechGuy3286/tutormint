@@ -314,6 +314,7 @@ export default function ReportQueue({
                           <AlertTriangle aria-hidden size={13} />
                           Warn
                         </button>
+                        {canBan && (
                         <button
                           type="button"
                           onClick={() =>
@@ -328,6 +329,7 @@ export default function ReportQueue({
                         >
                           {r.reportedSuspended ? 'Unsuspend' : 'Suspend'}
                         </button>
+                        )}
                         {/* Ban: operations working the queue does not have to
                             leave it, but only owner/admin see this (the route
                             enforces it too). Distinct from Suspend — permanent,

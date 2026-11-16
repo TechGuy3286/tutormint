@@ -1,7 +1,8 @@
 import { Users } from 'lucide-react'
+import { canModerateAccounts } from '@/lib/adminAccessCore'
 import Link from 'next/link'
 
-import { requireAdminRole, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
+import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadBlockList, loadReportQueue } from '@/lib/adminQueues'
 import { createAdminClient } from '@/lib/supabase/admin'
 import ReportQueue from './ReportQueue'
@@ -47,7 +48,8 @@ export default async function AdminReportsPage({
   }
   // Ban from the queue is owner/manager only (the route enforces it too); a
   // support admin working the queue never sees the button.
-  const canBan = roleMayWrite(actor.adminRole, ['admin', 'partner'])
+  // Suspend, reinstate and ban are the Owner's alone (owner, 15 Nov 2026).
+  const canBan = canModerateAccounts(actor.adminRole)
   const { filter = 'open' } = sp
 
   const admin = createAdminClient()

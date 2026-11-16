@@ -170,7 +170,9 @@ test('a later selfie gets "Selfie checked ✓" after approval', () => {
   assert.equal(showSelfieChecked('pending'), false)
   assert.equal(SELFIE_CHECKED_LABEL, 'Selfie checked ✓')
   assert.ok(readFileSync('components/tutor/TutorHeaderCard.tsx', 'utf8').includes('{SELFIE_CHECKED_LABEL}'), 'own dashboard')
-  assert.ok(readFileSync('components/admin/PipelineActions.tsx', 'utf8').includes('{SELFIE_CHECKED_LABEL}'), 'admin card')
+  // Off People cards since 15 Nov 2026; on the member page's selfie review instead.
+  assert.ok(!readFileSync('components/admin/PipelineActions.tsx', 'utf8').includes('SELFIE_CHECKED_LABEL'), 'not on People cards')
+  assert.ok(readFileSync('components/admin/TutorDocumentReview.tsx', 'utf8').includes('{SELFIE_CHECKED_LABEL}'), 'member page')
 })
 
 // ------------------------------------------------------- completion ---

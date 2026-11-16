@@ -624,7 +624,8 @@ export default function TutorModerationClient({
                 Hold
               </button>
               </>}
-              {open.verificationStatus === 'suspended' ? (
+              {/* Suspend and unsuspend are the Owner's alone (owner, 15 Nov 2026). */}
+              {!ownerApproves ? null : open.verificationStatus === 'suspended' ? (
                 <button onClick={() => act('unsuspend')} disabled={busy} className="inline-flex items-center justify-center gap-1.5 min-h-[44px] py-3 bg-tm-black text-white text-xs font-bold rounded-xl disabled:opacity-50">
                   <RotateCcw aria-hidden size={13} />
                   Unsuspend

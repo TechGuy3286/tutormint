@@ -157,17 +157,17 @@ test('My sign-ups: her own link and her own data only', () => {
 test('Previously blocked actions are still refused', () => {
   for (const k of [
     'finance', 'revenue', 'paymentAmounts', 'paymentGateways', 'paymentsSwitches', 'paymentsSettings', 'paymentsApprove', 'paymentsRefund',
-    'plans', 'plansMutate', 'jobsMutate', 'memberMerge', 'convertAccount', 'contactWithdraw', 'team', 'users', 'tutorEdit',
-    'cnicRead', 'subjectsCore', 'notificationSettings', 'templateReview', 'supportNumber', 'secondRole', 'orphans', 'audit',
+    'plans', 'plansMutate', 'jobsMutate', 'memberMerge', 'convertAccount', 'contactWithdraw', 'team', 'users',
+    'cnicRead', 'subjectsCore', 'notificationSettings', 'templateReview', 'supportNumber', 'orphans', 'audit', 'memberSuspendBan', 'memberMobileChange',
     'documentUnlock', 'documentRotate', 'cityOwners', 'cleanup', 'messaging', 'emailHealth', 'smsHealth', 'teamOverview',
   ] as const) {
     assert.ok(!roleMayWrite(BS, SCREEN_ACCESS[k]), `cannot change ${k}`)
   }
   assert.equal(canApprove(BS), false)
-  // Suspend / ban / warn / mobile stay on `users`; erase and merge are Owner-only routes.
-  assert.match(read('app/api/admin/members/route.ts'), /checkAdminRole\(\.\.\.SCREEN_ACCESS\.users\)/)
+  // Suspend / ban / mobile are the Owner's (owner, 15 Nov 2026); erase and merge are Owner-only routes.
+  assert.match(read('app/api/admin/members/route.ts'), /refuseUnlessOwnerModeration\(actor/)
   // Receipts: only the bank-matched path, nothing else.
-  assert.match(read('app/api/admin/payments/decide/route.ts'), /checkAdminRole\(\.\.\.SCREEN_ACCESS\.paymentsApprove, 'backend_support'\)/)
+  assert.match(read('app/api/admin/payments/decide/route.ts'), /checkAdminRole\(\.\.\.SCREEN_ACCESS\.paymentsApprove, \.\.\.SCREEN_ACCESS\.receiptStaffApprove\)/)
   // The Team page description.
-  assert.match(read('app/admin/team/TeamClient.tsx'), /label: 'Backend Support', blurb: 'paid sign-ups, follow-ups and member support; can post tuitions; no finance or approvals'/)
+  assert.match(read('app/admin/team/TeamClient.tsx'), /label: 'Backend Support', blurb: 'paid sign-ups, follow-ups and member support; can post tuitions; can approve documents and bank-matched receipts; no finance'/)
 })

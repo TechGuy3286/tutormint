@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
-import { refuseOwnerTarget } from '@/lib/ownerGuard'
+import { refuseOwnerTarget, refuseUnlessOwnerModeration } from '@/lib/ownerGuard'
 import { cnicNumberDecision } from '@/lib/adminDocUploadCore'
 import { cnicApprovedMarker } from '@/lib/docLocks'
 import { logAdminAction } from '@/lib/auditLog'
@@ -99,6 +99,9 @@ export async function POST(request: Request) {
 
   // ---------------------------------------------------------------- mobile ---
   if (action === 'set-mobile') {
+    // Changing a member's mobile is the Owner's alone (owner, 15 Nov 2026).
+    const refused = await refuseUnlessOwnerModeration(gate.actor, "change a tutor's mobile number", tutorId)
+    if (refused) return refused
     const newMobile = normalisePkMobile(body.mobile ?? '')
     if (!newMobile) return NextResponse.json({ error: 'Enter a valid Pakistani mobile number.' }, { status: 400 })
     {
@@ -141,6 +144,9 @@ export async function POST(request: Request) {
 
   // ----------------------------------------------------------- cnic number ---
   if (action === 'set-cnic-number') {
+    // Editing a member's CNIC number is the Owner's alone (owner, 15 Nov 2026).
+    const refusedNumber = await refuseUnlessOwnerModeration(gate.actor, "edit a tutor's CNIC number", tutorId)
+    if (refusedNumber) return refusedNumber
     // (owner, 19 Oct 2026; lib/adminDocUploadCore cnicNumberDecision) A masked
     // or empty value never overwrites the stored number — it is kept as it is.
     // The Owner may always save a real number; another staff role only while

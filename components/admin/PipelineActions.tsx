@@ -20,7 +20,7 @@ import { formatDate, formatDayMonth } from '@/lib/datetime'
 import type { BadgeName } from '@/lib/planBadges'
 import { niChip, type NiMark } from '@/lib/notInterestedCore'
 import { isFollowStage } from '@/lib/tutorPipelineCore'
-import { SELFIE_CHECKED_LABEL } from '@/lib/selfieOptionalCore'
+import { TRIED_TO_PAY_LABEL } from '@/lib/paymentAttemptsCore'
 import {
   blankLine,
   lastOutcomeLine,
@@ -152,16 +152,18 @@ export default function PipelineCardBody({
           <PipelineMoreMenu memberId={memberId} pipe={pipe} />
         </div>
 
-        {(pipe.reuploaded || pipe.selfieChecked) && (
+        {/* "Selfie checked" is not on People cards (owner, 15 Nov 2026) — it
+            stays on the member page and the tutor's own dashboard. */}
+        {(pipe.reuploaded || (pipe.stage === 'approved' && pipe.triedToPay)) && (
           <p className="flex flex-wrap gap-1">
             {pipe.reuploaded && (
               <span data-reuploaded="" className="inline-flex items-center gap-1 rounded-full bg-tm-tint-navy px-2 py-0.5 text-[10px] font-bold text-tm-navy">
                 <RotateCcw aria-hidden size={10} /> {REUPLOADED_LABEL}
               </span>
             )}
-            {pipe.selfieChecked && (
-              <span data-selfie-checked="" className="rounded-full bg-tm-tint-green px-2 py-0.5 text-[10px] font-bold text-tm-green-deep">
-                {SELFIE_CHECKED_LABEL}
+            {pipe.stage === 'approved' && pipe.triedToPay && (
+              <span data-tried-to-pay="" className="rounded-full bg-tm-tint-gold px-2 py-0.5 text-[10px] font-bold text-tm-gold-ink">
+                {TRIED_TO_PAY_LABEL}
               </span>
             )}
           </p>
