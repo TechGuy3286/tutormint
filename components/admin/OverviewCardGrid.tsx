@@ -114,7 +114,8 @@ export type GridParent = {
 export type FilterRow = {
   param: string
   label: string
-  options: { key: string; label: string; hideWhenZero?: boolean; hidden?: boolean }[]
+  /** `hint` = the chip's rule in one plain line, shown as its tooltip (PR-02). */
+  options: { key: string; label: string; hideWhenZero?: boolean; hidden?: boolean; hint?: string }[]
   /** The stored tag the row filters on, when it is not `param` (People →
    *  Tutors' stage and follow-up rows read array tags — owner, 15 Nov 2026). */
   sqlParam?: string
@@ -212,7 +213,7 @@ function PagedGrid({ items, isOwner = false, filterRows = [], paged }: GridProps
             .map((o) => {
               const on = (paged.sel[row.param] ?? row.options[0].key) === o.key
               return (
-                <Link key={o.key} href={href({ [row.param]: o.key })} scroll={false} aria-current={on ? 'page' : undefined} className={`${CHIP(on)} shrink-0 whitespace-nowrap`}>
+                <Link key={o.key} href={href({ [row.param]: o.key })} scroll={false} aria-current={on ? 'page' : undefined} title={o.hint} className={`${CHIP(on)} shrink-0 whitespace-nowrap`}>
                   {o.label} <span className={on ? 'text-white' : 'text-gray-500'}>{rowCount(row.param)?.[o.key] ?? 0}</span>
                 </Link>
               )
@@ -445,13 +446,15 @@ function MemberBody({
   onRestored: (id: string) => void
 }) {
   const openHref = `/admin/users/${it.memberId}`
+  // The card as just saved (PR-02) — null outside People.
+  const moves = usePipelineGrid()
   const fu = it.followUp ?? null
   // People → Tutors: the compact pipeline card (owner, 15 Nov 2026).
   if (it.pipe && it.memberId) {
     return (
       <PipelineCardBody
         memberId={it.memberId}
-        pipe={it.pipe.card}
+        pipe={moves ? moves.cardFor(it.memberId, it.pipe.card) : it.pipe.card}
         links={it.pipe.links}
         m={{ name: m.name, avatarUrl: m.avatarUrl, gender: m.gender, city: m.city, joinedAt: m.joinedAt, completion: m.completion, badges: m.badges }}
         reviewHref={it.reviewHref}

@@ -26,10 +26,13 @@ export type CardDocs = DocSummary & {
   selfieLooksLikePhoto: boolean
   /** CNIC and profile photo both approved: when the later of the two was (owner, 15 Nov 2026). */
   approvedAt: string | null
+  /** The CNIC or profile photo is rejected: when the (first) rejection was made
+   *  (PR-02 — the Rejected stage's follow-ups count from here). */
+  rejectedAt: string | null
 }
 
 const PROFILE_COLS =
-  'id, created_at, verification_state, verification_rejection_reason, cnic_verified_at, cnic_number, cnic_image_path, avatar_url, profile_pic_status, profile_pic_reason, profile_pic_rereview_at, profile_pic_reviewed_at, selfie_status, selfie_reason'
+  'id, created_at, verification_state, verification_rejection_reason, cnic_verified_at, cnic_reviewed_at, cnic_number, cnic_image_path, avatar_url, profile_pic_status, profile_pic_reason, profile_pic_rereview_at, profile_pic_reviewed_at, selfie_status, selfie_reason'
 
 export async function loadTutorDocSummaries(tutorIds: string[]): Promise<Map<string, CardDocs>> {
   const out = new Map<string, CardDocs>()
@@ -90,7 +93,14 @@ export async function loadTutorDocSummaries(tutorIds: string[]): Promise<Map<str
     const picAt = (p.profile_pic_reviewed_at as string | null) ?? null
     const approvedAt =
       itemState(statuses.cnic) === 'approved' && itemState(statuses.profilePic) === 'approved' ? ([cnicAt, picAt].filter(Boolean).sort().pop() ?? null) : null
-    out.set(id, { ...summary, oldestUploadAt: oldest, approvedAt, statuses, selfieLooksLikePhoto: mine.some((d) => d.kind === 'selfie' && d.same === true) })
+    const rejectedAt =
+      [
+        itemState(statuses.cnic) === 'rejected' ? ((p.cnic_reviewed_at as string | null) ?? null) : null,
+        itemState(statuses.profilePic) === 'rejected' ? picAt : null,
+      ]
+        .filter((x): x is string => !!x)
+        .sort()[0] ?? null
+    out.set(id, { ...summary, oldestUploadAt: oldest, approvedAt, rejectedAt, statuses, selfieLooksLikePhoto: mine.some((d) => d.kind === 'selfie' && d.same === true) })
   }
   return out
 }

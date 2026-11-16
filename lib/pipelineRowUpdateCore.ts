@@ -44,19 +44,47 @@ export function cardReadyForReview(p: PipeCard): boolean {
   return docsReadyForReview(docsFromCard(p), p.completion ?? 0)
 }
 
-export type BadgeDelta = { pipelineDue: number; peopleWaiting: number }
+export type BadgeDelta = { pipelineDue: number; peopleWaiting: number; rejectedUninformed?: number }
+
+/** Counted in the Overview "Rejected, not informed" row (PR-02: the same rule
+ *  as its list). */
+export function cardRejectedUninformed(p: PipeCard): boolean {
+  return p.stage === 'rejected' && !p.notInterested && !p.informed
+}
 
 /** How the stored badges change when one card changes. A card that is new or
- *  gone counts as nothing on that side. */
-export function badgeDelta(prev: PipeCard | null, next: PipeCard | null, nowMs: number): BadgeDelta {
+ *  gone counts as nothing on that side. `real` = the row is a real tutor (not
+ *  staff, test or deleted) — only real tutors are in any count (PR-02). */
+export function badgeDelta(prev: PipeCard | null, next: PipeCard | null, nowMs: number, real = true): BadgeDelta {
+  if (!real) return { pipelineDue: 0, peopleWaiting: 0, rejectedUninformed: 0 }
   const due = (p: PipeCard | null) => (p && feePendingDue(p, nowMs) ? 1 : 0)
   const ready = (p: PipeCard | null) => (p && cardReadyForReview(p) ? 1 : 0)
-  return { pipelineDue: due(next) - due(prev), peopleWaiting: ready(next) - ready(prev) }
+  const rej = (p: PipeCard | null) => (p && cardRejectedUninformed(p) ? 1 : 0)
+  return { pipelineDue: due(next) - due(prev), peopleWaiting: ready(next) - ready(prev), rejectedUninformed: rej(next) - rej(prev) }
+}
+
+/** The stored Overview figures (overview:7 / overview:30) moved by one card's
+ *  change, so the to-do rows match the chips at once (PR-02). null when nothing
+ *  changes. Never below 0. */
+export function applyOverviewDelta<T extends Partial<Record<string, { count: number } | undefined>>>(o: T, d: BadgeDelta): T | null {
+  const moves: [string, number][] = [
+    ['todo-fee-pending', d.pipelineDue],
+    ['todo-docs', d.peopleWaiting],
+    ['todo-rejected-uninformed', d.rejectedUninformed ?? 0],
+  ]
+  if (moves.every(([, n]) => n === 0)) return null
+  const out: Record<string, unknown> = { ...o }
+  for (const [k, n] of moves) {
+    const cur = o[k]
+    if (!cur || n === 0) continue
+    out[k] = { ...cur, count: Math.max(0, cur.count + n) }
+  }
+  return out as T
 }
 
 /** The stored badges with a delta applied; never below 0. null when nothing changes. */
 export function applyBadgeDelta(b: BadgesPayload, d: BadgeDelta): BadgesPayload | null {
-  if (d.pipelineDue === 0 && d.peopleWaiting === 0) return null
+  if (d.pipelineDue === 0 && d.peopleWaiting === 0) return null // (rejectedUninformed is not a badge)
   return {
     ...b,
     pipelineDue: Math.max(0, (b.pipelineDue ?? 0) + d.pipelineDue),

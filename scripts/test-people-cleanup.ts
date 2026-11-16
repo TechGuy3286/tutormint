@@ -183,7 +183,7 @@ test('staff default view, and a URL filter overriding it', () => {
 
 // ------------------------------------------------------- 5. no mobile ---
 
-test('no-mobile tutors sort last in their stage and are never in the badge', () => {
+test('no-mobile tutors sort last in their stage (PR-02: counted in the badge — it is the chip)', () => {
   const rows = [
     { id: 'a', stage: 'approved' as const, section: 'not' as const, paused: false, noMobile: true, lastActiveAt: iso(T0 + DAY) },
     { id: 'b', stage: 'approved' as const, section: 'done' as const, paused: true, noMobile: false, lastActiveAt: iso(T0) },
@@ -195,7 +195,9 @@ test('no-mobile tutors sort last in their stage and are never in the badge', () 
   const nm = card({ mobileOk: false })
   assert.equal(nm.noMobile, true)
   assert.equal(pipeSortAt(nm), null)
-  assert.equal(feePendingDue(nm), false)
+  // PR-02 (16 Nov 2026): the badge counts the Approved · Not followed up chip
+  // exactly, so a no-mobile tutor is counted; the card still says so.
+  assert.equal(feePendingDue(nm), true)
   assert.equal(feePendingDue(card({})), true)
   assert.equal(NO_MOBILE_LINE, "No mobile number — can't follow up")
 })

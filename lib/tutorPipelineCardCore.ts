@@ -69,6 +69,10 @@ export type PipeCard = {
   reuploaded?: boolean
   /** Approved, fee pending: when the CNIC and photo were approved. */
   approvedAt?: string | null
+  /** When the tutor entered the current stage (approved: the approval; rejected:
+   *  the first rejection; null = not known). Follow-ups count only from here
+   *  (owner, 16 Nov 2026 — PR-02). Older stored rows have none until rebuilt. */
+  enteredAt?: string | null
   /** Started a Verification Fee payment that never completed and has not paid
    *  since (owner, 15 Nov 2026): the "Tried to pay" chip in Approved, fee pending. */
   triedToPay?: boolean
@@ -96,7 +100,21 @@ export type PipeCard = {
 }
 
 /** The document facts a card is built from (lib/tutorDocSummaries CardDocs). */
-export type PipeDocFacts = { statuses: CardStatuses; oldestUploadAt: string | null; approvedAt?: string | null }
+export type PipeDocFacts = {
+  statuses: CardStatuses
+  oldestUploadAt: string | null
+  approvedAt?: string | null
+  /** When the first still-standing rejection of the CNIC or photo was made. */
+  rejectedAt?: string | null
+}
+
+/** When a tutor entered a stage (PR-02): approved → the approval; rejected →
+ *  the rejection; other stages → null (every contact of the stage counts). */
+export function stageEnteredAt(stage: PipeStage, d: PipeDocFacts | null | undefined): string | null {
+  if (stage === 'approved') return d?.approvedAt ?? null
+  if (stage === 'rejected') return d?.rejectedAt ?? null
+  return null
+}
 
 /**
  * A rejected document was replaced and the new one waits for a decision (owner,
@@ -157,7 +175,8 @@ export function pipeCardFrom(a: {
   const stage = pipelineStage({ ...d, feePaid: a.feePaid, completion })
   const missing = missingDocs(d)
   const rejected = rejectedDocs(d, d.reasons)
-  const follow = isFollowStage(stage) ? followState(stage, a.contacts, a.nowMs) : null
+  const enteredAt = stageEnteredAt(stage, a.docs)
+  const follow = isFollowStage(stage) ? followState(stage, a.contacts, a.nowMs, enteredAt) : null
   const lc = newest(a.contacts)
   return {
     stage,
@@ -174,6 +193,7 @@ export function pipeCardFrom(a: {
     lastAttempt: follow?.lastAttempt ?? null,
     reuploaded: reuploadedAfterRejection(a.docs?.statuses),
     approvedAt: stage === 'approved' ? (a.docs?.approvedAt ?? null) : null,
+    enteredAt,
     triedToPay: stage === 'approved' && !!a.triedToPay,
     message: isFollowStage(stage) ? pipeMessage(stage, { firstName: firstNameOf(a.name), missing, rejected, supportWhatsapp: a.support }) : null,
     notInterested: a.notInterested,
@@ -193,7 +213,7 @@ export function pipeCardFrom(a: {
  *  keeping its stored stage. */
 export function withContacts(p: PipeCard, contacts: PipeContact[], nowMs: number): PipeCard {
   if (!isFollowStage(p.stage)) return p
-  const f = followState(p.stage, contacts, nowMs)
+  const f = followState(p.stage, contacts, nowMs, p.enteredAt ?? (p.stage === 'approved' ? p.approvedAt : null))
   const lc = newest(contacts)
   return {
     ...p,
@@ -212,13 +232,23 @@ export function followUpDue(p: PipeCard): boolean {
 }
 
 /**
- * The People badge's follow-up part (owner, 9 Nov 2026: only "act now"
- * counts): Approved, fee pending · Not followed up — and only tutors staff can
- * reach (a verified mobile on file).
+ * The People badge's follow-up part and the Overview "Fee pending, not followed
+ * up" row: EXACTLY the "Approved, fee pending · Not followed up (due now)" chip
+ * (owner, 16 Nov 2026 — PR-02: the badge and the Overview use the chips' own
+ * numbers). Supersedes the 9 Nov / 15 Nov rule that left out tutors with no
+ * mobile and a "No answer" retry pending — those are on the chip, so they are
+ * counted; the card still says "No mobile number" / "try again <date>".
  */
-export function feePendingDue(p: PipeCard, nowMs = Date.now()): boolean {
-  // "No answer" today: due again tomorrow, not an act-now item until then (owner, 15 Nov 2026).
-  return p.stage === 'approved' && followUpDue(p) && !p.noMobile && !retryPending({ section: p.section, retryAt: p.follow?.retryAt ?? null }, nowMs)
+export function feePendingDue(p: PipeCard, _nowMs = Date.now()): boolean {
+  return p.stage === 'approved' && followUpDue(p)
+}
+
+/** Tried to pay (PR-02): Approved, fee pending, started a fee payment that never
+ *  completed, AND due now — a subset of Not followed up (due now). After a
+ *  follow-up they leave the chip; they return when due. The card's label shows
+ *  in every view (triedToPay), the chip only while due. */
+export function triedToPayDue(p: Pick<PipeCard, 'stage' | 'section' | 'triedToPay'>): boolean {
+  return p.stage === 'approved' && p.section === 'not' && !!p.triedToPay
 }
 
 /** Ready for review (lib/tutorPipelineCore docsReadyForReview) from the
@@ -307,7 +337,7 @@ export function pipeTags(p: PipeCard): {
     stage: p.stage,
     stages: p.reuploaded ? [p.stage, REUPLOADED] : [p.stage],
     fu: p.section ?? 'na',
-    fus: [...followTag({ section: p.section, sent: p.follow?.sent ?? 0 }), ...(p.stage === 'approved' && p.triedToPay ? [FU_TRIED] : [])],
+    fus: [...followTag({ section: p.section, sent: p.follow?.sent ?? 0 }), ...(triedToPayDue(p) ? [FU_TRIED] : [])],
     reup: !!p.reuploaded,
     ni: p.notInterested,
     informed: p.informed,

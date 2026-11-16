@@ -181,17 +181,45 @@ export type PipeContact = {
 export const CALL_ATTEMPTS = ['no_answer', 'wrong_number'] as const
 export type CallAttempt = (typeof CALL_ATTEMPTS)[number]
 export const ATTEMPT_LABEL: Record<CallAttempt, string> = { no_answer: 'No answer', wrong_number: 'Wrong number' }
-/** Call-log rows from this time on are read as attempts; older "no answer"
- *  rows from the Unpaid signups log keep counting as calls (the 8 Nov rule). */
+/** Kept for older readers. Since 16 Nov 2026 (PR-02) EVERY "No answer" /
+ *  "Wrong number" row is an attempt, whatever its date — the owner: "No answer
+ *  attempts don't count". (Before, rows older than this counted as calls.) */
 export const CALL_OUTCOMES_FROM = '2026-11-15T00:00:00.000Z'
 /** After "No answer" the tutor is due again the next day. */
 export const RETRY_GAP_DAYS = 1
 
-/** A tutor_contact_logs row as the pipeline reads it: an attempt (a new "no
- *  answer" / "wrong number"), or null = a call that counts. */
-export function callLogAttempt(outcome: string | null | undefined, at: string | null | undefined): CallAttempt | null {
-  if (outcome !== 'no_answer' && outcome !== 'wrong_number') return null
-  return (at ?? '') >= CALL_OUTCOMES_FROM ? outcome : null
+/** A tutor_contact_logs row as the pipeline reads it: an attempt ("no answer"
+ *  / "wrong number", any date), or null = a call that counts. */
+export function callLogAttempt(outcome: string | null | undefined, _at?: string | null): CallAttempt | null {
+  return outcome === 'no_answer' || outcome === 'wrong_number' ? outcome : null
+}
+
+/**
+ * Follow-up numbering (owner, 16 Nov 2026 — PR-02). A tutor approved today
+ * showed "Follow-up 9 due": every contact made BEFORE they entered the stage
+ * (older Follow-ups taps, the "documents approved" WhatsApp, calls) was counted,
+ * and repeat taps seconds apart counted as separate follow-ups. Now:
+ *   - only contacts made since the tutor entered the CURRENT stage count (a
+ *     few minutes' grace: the "documents approved" message can be sent just
+ *     before the last approval is stamped);
+ *   - more than one contact on the same Pakistan-time day is ONE follow-up;
+ *   - a call that did not reach them is never a follow-up.
+ * A stage change (e.g. documents approved) therefore restarts at Follow-up 1.
+ */
+export const ENTRY_GRACE_MS = 10 * 60_000
+
+/** The Pakistan-time calendar day of an instant ("2026-11-16"). */
+export function pkDay(iso: string): string {
+  const t = Date.parse(iso)
+  return Number.isFinite(t) ? new Date(t + 5 * 3_600_000).toISOString().slice(0, 10) : ''
+}
+
+/** Made since the tutor entered the stage (null = no entry date known). */
+export function sinceEntry(at: string, enteredAt: string | null | undefined): boolean {
+  if (!enteredAt) return true
+  const e = Date.parse(enteredAt)
+  if (!Number.isFinite(e)) return true
+  return Date.parse(at) >= e - ENTRY_GRACE_MS
 }
 
 /** Read an older Follow-ups progress snapshot (`step|pct|fee|docsApproved`). */
@@ -206,12 +234,15 @@ const ts = (iso: string | null | undefined) => {
   return Number.isFinite(v) ? v : NaN
 }
 
-/** The contacts that belong to the tutor's current stage, newest first. */
-export function contactsInStage(contacts: PipeContact[], stage: FollowStage): PipeContact[] {
+/** The contacts that belong to the tutor's current stage, newest first.
+ *  `enteredAt` = when the tutor entered it (contacts before then are another
+ *  stage's — PR-02). */
+export function contactsInStage(contacts: PipeContact[], stage: FollowStage, enteredAt?: string | null): PipeContact[] {
   const sorted = contacts.filter((c) => Number.isFinite(ts(c.at))).sort((a, b) => ts(b.at) - ts(a.at))
   const out: PipeContact[] = []
   for (const c of sorted) {
     if (c.attempt) continue // an attempt is never a follow-up
+    if (!sinceEntry(c.at, enteredAt)) break // before the tutor entered this stage
     if (c.stage !== null && c.stage !== stage) break // an earlier stage — it and everything before it are not this stage's
     if (c.stage === null && c.docsApproved !== null) {
       // An older tap with a snapshot: count it only where it fits.
@@ -245,15 +276,31 @@ export type FollowState = {
 /** The call attempts of the current stage made after its last follow-up,
  *  newest first. An attempt older than a contact of another stage is that
  *  stage's, and one older than a follow-up is done with. */
-export function stageAttempts(contacts: PipeContact[], stage: FollowStage): PipeContact[] {
+export function stageAttempts(contacts: PipeContact[], stage: FollowStage, enteredAt?: string | null): PipeContact[] {
   const sorted = contacts.filter((c) => Number.isFinite(ts(c.at))).sort((a, b) => ts(b.at) - ts(a.at))
   const out: PipeContact[] = []
   for (const c of sorted) {
+    if (!sinceEntry(c.at, enteredAt)) break
     if (!c.attempt) {
       if (c.stage !== null && c.stage !== stage) break
-      if (contactsInStage([c], stage).length > 0) break
+      if (contactsInStage([c], stage, enteredAt).length > 0) break
       continue
     }
+    out.push(c)
+  }
+  return out
+}
+
+/** The follow-ups of a stage: its contacts (newest first), with every contact
+ *  on the same Pakistan-time day as a later one folded into it. The count is
+ *  `.length`; [0] is the newest contact (the due date runs from it). */
+export function followUpsInStage(contacts: PipeContact[], stage: FollowStage, enteredAt?: string | null): PipeContact[] {
+  const out: PipeContact[] = []
+  const days = new Set<string>()
+  for (const c of contactsInStage(contacts, stage, enteredAt)) {
+    const d = pkDay(c.at)
+    if (days.has(d)) continue
+    days.add(d)
     out.push(c)
   }
   return out
@@ -264,13 +311,13 @@ export function nextKindFor(n: number): FollowState['nextKind'] {
 }
 
 /** Where a tutor stands in their stage's sequence. */
-export function followState(stage: FollowStage, contacts: PipeContact[], nowMs: number): FollowState {
-  const mine = contactsInStage(contacts, stage)
-  const sent = mine.length
-  const last = mine[0] ?? null
-  const informed = mine.some((c) => c.kind === 'whatsapp' || c.kind === 'voice')
+export function followState(stage: FollowStage, contacts: PipeContact[], nowMs: number, enteredAt?: string | null): FollowState {
+  const all = contactsInStage(contacts, stage, enteredAt)
+  const sent = followUpsInStage(contacts, stage, enteredAt).length
+  const last = all[0] ?? null
+  const informed = all.some((c) => c.kind === 'whatsapp' || c.kind === 'voice')
   const nextNumber = sent + 1
-  const att = stageAttempts(contacts, stage)[0] ?? null
+  const att = stageAttempts(contacts, stage, enteredAt)[0] ?? null
   const lastAttempt = att?.attempt ? { at: att.at, outcome: att.attempt, by: att.staffName } : null
   const retryAt = att ? new Date(ts(att.at) + RETRY_GAP_DAYS * DAY).toISOString() : null
   if (!last) return { sent, nextNumber, nextKind: nextKindFor(nextNumber), dueAt: null, section: 'not', last, informed, lastAttempt, retryAt }
@@ -311,6 +358,29 @@ export const FU_BUCKET_LABEL: Record<FuBucket, string> = {
 }
 /** The old "Followed up" chip (?fu=done): every numbered chip together. */
 export const FU_DONE = 'done'
+
+/**
+ * Each chip's rule in one plain line (owner, 16 Nov 2026 — PR-02), shown as
+ * the chip's tooltip. Real tutors only: staff, test, deleted and Not
+ * interested accounts are counted under their own chips.
+ */
+export const CHIP_HINT = {
+  all: 'Every tutor, each in exactly one stage — the stages add up to this number.',
+  missing: 'The CNIC or profile photo is not uploaded yet, or the profile is under 80% with a document waiting.',
+  waiting: 'CNIC and profile photo uploaded, one waiting for our decision, and the profile 80% or more.',
+  rejected: 'The CNIC or profile photo was rejected and has not been uploaded again.',
+  approved: 'CNIC and profile photo approved; the Verification Fee is not paid yet.',
+  paid: 'The Verification Fee is paid.',
+  reuploaded: 'Uploaded a new document after a rejection; we have not decided on it yet.',
+  not: 'Never contacted in this stage, or their next follow-up date has arrived.',
+  f1: 'Had 1 follow-up in this stage; the next one is not due yet.',
+  f2: 'Had 2 follow-ups in this stage; the next one is not due yet.',
+  f3: 'Had 3 or more follow-ups in this stage; the next one is not due yet.',
+  tried: 'Started a Verification Fee payment, did not finish, and a follow-up is due now.',
+  ni: 'Marked Not interested — counted here only, never in the chips above.',
+  deleted: 'Accounts erased at the member’s request — counted here only.',
+  staffTest: 'Staff and test accounts — never counted in the chips.',
+} as const
 
 /** Approved, fee pending: started a Verification Fee payment that never
  *  completed (owner, 15 Nov 2026 — lib/paymentAttemptsCore). Its own chip in

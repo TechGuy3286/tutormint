@@ -27,7 +27,7 @@ import { callLogAttempt, kindOfTemplateKey, legacyDocsApproved, stageOfProgress,
 import { pipeCardFrom, withContacts, type PipeCard } from '@/lib/tutorPipelineCardCore'
 import { triedToPay } from '@/lib/paymentAttemptsCore'
 import type { PaymentFacts } from '@/lib/paymentLabelCore'
-import { applyBadgeDelta, badgeDelta, mergeLiveCard, peopleRowFor, type StoredPeopleRow } from '@/lib/pipelineRowUpdateCore'
+import { applyBadgeDelta, applyOverviewDelta, badgeDelta, mergeLiveCard, peopleRowFor, type StoredPeopleRow } from '@/lib/pipelineRowUpdateCore'
 import type { BadgesPayload } from '@/lib/adminSummaryCore'
 
 export { pipeCardFrom, pipeDocsOf, pipeSortAt, pipeTags, followUpDue, feePendingDue, readyForReviewFrom, type PipeCard } from '@/lib/tutorPipelineCardCore'
@@ -255,6 +255,7 @@ export async function loadOnePipeCard(memberId: string): Promise<PipeCard | null
     support,
     nowMs,
     triedToPay: tried.has(memberId),
+    paidAt: (tp?.verified_fee_paid_at as string | null) ?? null,
   })
 }
 
@@ -286,9 +287,10 @@ export async function updatePipelineRow(memberId: string, change: PipelineRowCha
     const stored = data ? ({ tags: (data.tags ?? {}) as Record<string, unknown>, row: (data.row ?? {}) as StoredPeopleRow['row'] } satisfies StoredPeopleRow) : null
     const prev = stored?.row.pipe
     if (!stored || !prev) return null
+    const real = stored.tags.excluded === false
     const now = Date.now()
     let next: PipeCard
-    if (change.kind === 'contacts') {
+    if (change.kind === 'contacts' && prev.enteredAt !== undefined) {
       next = withContacts(prev, (await loadPipeContacts([memberId])).get(memberId) ?? [], now)
     } else if (change.kind === 'ni') {
       next = { ...prev, notInterested: change.ni, niMark: change.ni ? change.mark : null }
@@ -300,27 +302,54 @@ export async function updatePipelineRow(memberId: string, change: PipelineRowCha
     const write = peopleRowFor(stored, next)
     const { error } = await admin.from('admin_list_rows').update(write).eq('list', LIST).eq('member_id', memberId)
     if (error) return null
-    await nudgeBadges(badgeDelta(prev, next, now))
+    await nudgeBadges(badgeDelta(prev, next, now, real))
     return { prev, next }
   } catch {
     return null /* the next summary run puts it right */
   }
 }
 
-/** The stored sidebar badges, moved by one card's change. Best effort. */
+/** The stored sidebar badges AND the stored Overview to-do rows, moved by one
+ *  card's change (PR-02), so the badge, the Overview and the chips agree at
+ *  once. Best effort — the next summary run recomputes them. */
 async function nudgeBadges(delta: ReturnType<typeof badgeDelta>): Promise<void> {
   const admin = createAdminClient()
   if (!admin) return
-  const { data } = await admin.from('admin_summary').select('payload').eq('key', 'badges').maybeSingle()
-  const cur = data?.payload as BadgesPayload | undefined
-  if (!cur) return
-  const next = applyBadgeDelta(cur, delta)
-  if (next) await admin.from('admin_summary').update({ payload: next }).eq('key', 'badges')
+  const { data } = await admin.from('admin_summary').select('key, payload').in('key', ['badges', 'overview:7', 'overview:30'])
+  for (const r of data ?? []) {
+    const cur = r.payload as Record<string, unknown> | null
+    if (!cur) continue
+    const next = r.key === 'badges' ? applyBadgeDelta(cur as unknown as BadgesPayload, delta) : applyOverviewDelta(cur as Record<string, { count: number } | undefined>, delta)
+    if (next) await admin.from('admin_summary').update({ payload: next }).eq('key', r.key)
+  }
 }
 
-/** After a follow-up is recorded or undone. Never throws. */
+/** After a follow-up is recorded or undone. The card is rebuilt live (PR-02),
+ *  so a stored card from before the numbering fix is put right too. Never throws. */
 export async function refreshPipelineRow(memberId: string): Promise<PipelineRowUpdate | null> {
-  return updatePipelineRow(memberId, { kind: 'contacts' })
+  return updatePipelineRow(memberId, { kind: 'live' })
+}
+
+/**
+ * Any logged change to a member (owner, 16 Nov 2026 — PR-02): a re-upload, a
+ * payment, a document decision, a completion change, a welcome… The People
+ * card of a tutor used to move only for the follow-up, Not interested and
+ * document-review routes; every other change waited for the summary rebuild,
+ * so some views lagged. lib/activityLog and lib/auditLog call this after the
+ * response is sent (next/server after()): the stored card is rebuilt live and
+ * the badge and Overview figures nudged. A no-op for anyone without a stored
+ * tutor row. Never throws.
+ */
+export async function syncPipelineRowAfterChange(memberId: string): Promise<void> {
+  try {
+    const admin = createAdminClient()
+    if (!admin) return
+    const { data } = await admin.from('admin_list_rows').select('member_id').eq('list', LIST).eq('member_id', memberId).maybeSingle()
+    if (!data) return
+    await updatePipelineRow(memberId, { kind: 'live' })
+  } catch {
+    /* the next summary run puts it right */
+  }
 }
 
 /** "Not interested" (and its Undo) moves the stored People row at once. Never throws. */

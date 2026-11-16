@@ -261,6 +261,8 @@
     "test:statusplan": "tsx --test scripts/test-status-plan.ts",
     "test:followupcleanup": "tsx --test scripts/test-followup-cleanup.ts",
     "test:pipelinemove": "tsx --test scripts/test-pipeline-move.ts",
+    "test:peoplecounts": "tsx --test scripts/test-people-counts.ts",
+    "check:people": "tsx --env-file=.env.local scripts/report-people-counts-check.ts",
     "test:staffrights": "tsx --test scripts/test-staff-rights.ts",
     "test:pipelinecards": "tsx scripts/test-pipeline-cards-mobile.tsx",
     "test:seocrawl": "tsx --test scripts/test-seo-crawl.ts",

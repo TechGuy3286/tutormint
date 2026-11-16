@@ -325,7 +325,7 @@ test('Tried to pay: the chip tag, the count and the sort', () => {
   const waiting = pipeCardFrom({ ...{ name: 'X', feePaid: false, completion: 90, mobileOk: true, contacts: [], notInterested: false, paused: false, lastActiveAt: null, support: null, nowMs: T0 }, docs: { statuses: { cnic: cs('waiting'), profilePic: cs('approved'), selfie: cs('none') }, oldestUploadAt: null }, triedToPay: true })
   assert.equal(waiting.triedToPay, false)
   // The People page offers the chip in that stage's row, and the card shows it.
-  assert.match((read('app/admin/users/PeopleTabs.tsx') + read('lib/peopleListQuery.ts')), /stageSel === 'approved' \? \[\{ key: FU_TRIED, label: FU_TRIED_LABEL \}\]/)
+  assert.match((read('app/admin/users/PeopleTabs.tsx') + read('lib/peopleListQuery.ts')), /stageSel === 'approved' \? \[\{ key: FU_TRIED, label: FU_TRIED_LABEL(, hint: CHIP_HINT\.tried)? \}\]/)
   assert.match(read('components/admin/PipelineActions.tsx'), /data-tried-to-pay/)
 })
 

@@ -183,17 +183,19 @@ test('No answer: an attempt only — stays due, again the next day', () => {
   assert.ok(retryPending(s, T0 + 60_000), 'not an act-now item today')
   assert.ok(!retryPending(s, T0 + DAY), 'due again the next day')
   const c = card({ contacts: [att], now: T0 + 60_000 })
-  assert.ok(!feePendingDue(c, T0 + 60_000), 'out of the badge until tomorrow')
+  // PR-02 (16 Nov 2026): the badge counts the Not followed up chip exactly, so a
+  // "No answer" today stays counted; the card says "try again <date>".
+  assert.ok(feePendingDue(c, T0 + 60_000), 'still on the chip and in the badge')
   assert.ok(feePendingDue(c, T0 + DAY + 1))
   assert.match(lastOutcomeLine(c, day, T0 + 60_000) ?? '', /No answer by Staff B · try again /)
   // After a real follow-up, earlier attempts are done with.
   const later = followState('approved', [att, contact(T0 + 3_600_000, 'whatsapp')], T0 + 2 * 3_600_000)
   assert.equal(later.sent, 1)
   assert.equal(later.retryAt, null)
-  // Call-log rows: new "no answer" / "wrong number" are attempts; older ones keep counting as calls.
+  // Call-log rows: "no answer" / "wrong number" are attempts at any date (PR-02).
   assert.equal(callLogAttempt('no_answer', CALL_OUTCOMES_FROM), 'no_answer')
   assert.equal(callLogAttempt('wrong_number', iso(T0)), 'wrong_number')
-  assert.equal(callLogAttempt('no_answer', '2026-11-01T00:00:00.000Z'), null)
+  assert.equal(callLogAttempt('no_answer', '2026-11-01T00:00:00.000Z'), 'no_answer')
   assert.equal(callLogAttempt('called', iso(T0)), null)
 })
 
@@ -241,7 +243,7 @@ test('a re-upload after a rejection is tagged, sorted first, and clears on the d
   assert.ok(!card({ d: docs(cs('rejected', 'Blurry'), cs('approved')) }).reuploaded)
   // The stage row offers "Re-uploaded".
   assert.equal(tutorStageFromAddress({ tab: 'tutors', stage: 'reuploaded' }), 'reuploaded')
-  assert.match((read('app/admin/users/PeopleTabs.tsx') + read('lib/peopleListQuery.ts')), /\{ key: REUPLOADED, label: REUPLOADED_LABEL \}/)
+  assert.match((read('app/admin/users/PeopleTabs.tsx') + read('lib/peopleListQuery.ts')), /\{ key: REUPLOADED, label: REUPLOADED_LABEL(, hint: CHIP_HINT.reuploaded)? \}/)
 })
 
 // ------------------------------------------- 5. member page + compact card ---
@@ -269,7 +271,9 @@ test('the compact card: one meta line, a detail line, a last-outcome line; appro
   assert.equal(pipeDetailLine(c, T0), 'Approved 3 days ago')
   assert.ok(!/Approved, fee pending|Documents approved · fee pending/.test(pipeDetailLine(c, T0) ?? ''), 'the stage is not repeated')
   assert.equal(lastOutcomeLine(c, day, T0), 'Never contacted · Follow-up 1 due')
-  const sent = withContacts(c, [contact(Date.parse('2026-11-11T07:00:00Z'), 'whatsapp', 'approved', { staffName: 'Alee' })], Date.parse('2026-11-12T07:00:00Z'))
+  // Approved before the follow-up (PR-02: contacts count from the approval on).
+  const early = card({ d: docs(cs('approved'), cs('approved'), cs('none'), '2026-11-10T07:00:00Z') })
+  const sent = withContacts(early, [contact(Date.parse('2026-11-11T07:00:00Z'), 'whatsapp', 'approved', { staffName: 'Alee' })], Date.parse('2026-11-12T07:00:00Z'))
   assert.equal(lastOutcomeLine(sent, day, Date.parse('2026-11-12T07:00:00Z')), '11 Nov · WhatsApp by Alee · Follow-up 2 due 13 Nov')
   // Approved, fee pending: newest approval first (owner, 15 Nov 2026).
   const order = pipelineOrder([

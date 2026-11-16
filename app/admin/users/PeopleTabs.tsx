@@ -18,6 +18,7 @@ import {
 import { parseFuTab } from '@/lib/tutorFollowUpTabsCore'
 import { parseParentChip } from '@/lib/parentFollowUpCore'
 import { waChatHref, waSendHref } from '@/lib/waLinkCore'
+import { CHIP_HINT } from '@/lib/tutorPipelineCore'
 import { senderRefCode } from '@/lib/staffSignups'
 import { loadBackendSupportKpi } from '@/lib/backendSupportKpi'
 import BackendSupportKpiView from '@/components/admin/BackendSupportKpiView'
@@ -108,6 +109,7 @@ export default async function PeopleTabs({
         {tab !== 'staff' && (
           <Link
             href={peopleHref(tab, { all: showAll ? null : '1' })}
+            title={CHIP_HINT.staffTest}
             className="inline-flex min-h-[40px] items-center rounded-full border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy"
           >
             {showAll ? 'Hide staff & test accounts' : `Show staff & test accounts (${hiddenCount})`}
@@ -143,6 +145,7 @@ export default async function PeopleTabs({
           <Link
             href={showDeleted ? peopleHref(tab) : peopleHref(tab, { deleted: '1' })}
             aria-current={showDeleted ? 'page' : undefined}
+            title={CHIP_HINT.deleted}
             className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-4 text-xs font-bold ${
               showDeleted ? 'border-gray-500 bg-gray-500 text-white' : 'border-gray-200 bg-gray-100 text-gray-600 hover:border-gray-500'
             }`}
@@ -337,6 +340,7 @@ export default async function PeopleTabs({
             <Link
               href={showNi ? peopleHref('tutors') : peopleHref('tutors', { ni: '1' })}
               aria-current={showNi ? 'page' : undefined}
+              title={CHIP_HINT.ni}
               className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-4 text-xs font-bold ${
                 showNi ? 'border-gray-500 bg-gray-500 text-white' : 'border-gray-200 bg-gray-100 text-gray-600 hover:border-gray-500'
               }`}

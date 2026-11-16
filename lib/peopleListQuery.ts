@@ -13,6 +13,7 @@ import { PLAN_FILTER } from '@/lib/upgradePlanCore'
 import { peopleList, windowRange } from '@/lib/adminSummaryCore'
 import { PARENT_CHIPS, peopleFixed } from '@/lib/peopleDirectoryCore'
 import {
+  CHIP_HINT,
   FU_BUCKET_LABEL,
   FU_BUCKETS,
   FU_DONE,
@@ -71,9 +72,9 @@ export function peopleListQuery(
           label: 'Stage',
           keepFirst: true,
           options: [
-            { key: 'all', label: 'All' },
-            ...PIPE_STAGES.map((s) => ({ key: s, label: STAGE_LABEL[s] })),
-            { key: REUPLOADED, label: REUPLOADED_LABEL },
+            { key: 'all', label: 'All', hint: CHIP_HINT.all },
+            ...PIPE_STAGES.map((s) => ({ key: s, label: STAGE_LABEL[s], hint: CHIP_HINT[s] })),
+            { key: REUPLOADED, label: REUPLOADED_LABEL, hint: CHIP_HINT.reuploaded },
           ],
         },
         // People → Paid (owner, 10 Nov 2026): All paid · Verified · Premium · Featured.
@@ -89,9 +90,9 @@ export function peopleListQuery(
                 sqlParam: 'fus',
                 label: 'Follow-up',
                 options: [
-                  ...FU_BUCKETS.map((b) => ({ key: b, label: FU_BUCKET_LABEL[b] })),
-                  // Approved, fee pending: "Tried to pay (N)" (owner, 15 Nov 2026).
-                  ...(stageSel === 'approved' ? [{ key: FU_TRIED, label: FU_TRIED_LABEL }] : []),
+                  ...FU_BUCKETS.map((b) => ({ key: b, label: FU_BUCKET_LABEL[b], hint: CHIP_HINT[b] })),
+                  // Approved, fee pending: "Tried to pay (N)" — due now only (PR-02).
+                  ...(stageSel === 'approved' ? [{ key: FU_TRIED, label: FU_TRIED_LABEL, hint: CHIP_HINT.tried }] : []),
                   { key: FU_DONE, label: 'Followed up (all)', hidden: true },
                 ],
               },

@@ -36,6 +36,9 @@ type Ctx = {
   counts: (param: string, server: Record<string, number> | undefined) => Record<string, number>
   /** How many cards left the list on this page since the last server data. */
   gone: number
+  /** The card as the server just saved it (PR-02): a card that stays in the
+   *  view shows its new follow-up line at once, before the refresh arrives. */
+  cardFor: (memberId: string, server: PipeCard) => PipeCard
 }
 
 const NOOP: Pick<Ctx, 'begin' | 'done' | 'fail'> & { view: ChipView | null } = {
@@ -51,6 +54,7 @@ export function PipelineMovesProvider({ view, version, children }: { view: ChipV
   const [hidden, setHidden] = useState<Set<string>>(() => new Set())
   const [shift, setShift] = useState<{ stage: Record<string, number>; fu: Record<string, number> }>({ stage: {}, fu: {} })
   const [gone, setGone] = useState(0)
+  const [cards, setCards] = useState<Map<string, PipeCard>>(() => new Map())
   const pending = useRef<Set<string>>(new Set())
 
   // Fresh server data: its counts and rows are already right — drop local work
@@ -58,6 +62,7 @@ export function PipelineMovesProvider({ view, version, children }: { view: ChipV
   useEffect(() => {
     setShift({ stage: {}, fu: {} })
     setGone(0)
+    setCards(new Map())
     setHidden(new Set(pending.current))
   }, [version])
 
@@ -78,6 +83,7 @@ export function PipelineMovesProvider({ view, version, children }: { view: ChipV
         })
         return
       }
+      setCards((m) => new Map(m).set(memberId, moved.next))
       const stays = cardInView(moved.next, view)
       const wasIn = cardInView(moved.prev, view)
       setHidden((h) => {
@@ -114,7 +120,9 @@ export function PipelineMovesProvider({ view, version, children }: { view: ChipV
     [shift],
   )
 
-  const value = useMemo<Ctx>(() => ({ view, begin, done, fail, hidden, counts, gone }), [view, begin, done, fail, hidden, counts, gone])
+  const cardFor = useCallback((memberId: string, server: PipeCard) => cards.get(memberId) ?? server, [cards])
+
+  const value = useMemo<Ctx>(() => ({ view, begin, done, fail, hidden, counts, gone, cardFor }), [view, begin, done, fail, hidden, counts, gone, cardFor])
   return <PipelineMovesContext.Provider value={value}>{children}</PipelineMovesContext.Provider>
 }
 

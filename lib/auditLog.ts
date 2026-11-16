@@ -142,6 +142,9 @@ export async function logAdminAction(params: {
   if (TUTOR_TARGETS.has(params.targetType)) {
     const { revalidateTutorProfile } = await import('@/lib/publicRevalidate')
     await revalidateTutorProfile(params.targetId)
+    // That tutor's People card moves at once, whatever the action (PR-02).
+    const { syncPipelineSoon } = await import('@/lib/pipelineSyncHook')
+    await syncPipelineSoon(params.targetId)
   }
 }
 

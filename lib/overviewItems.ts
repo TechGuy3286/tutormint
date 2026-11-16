@@ -29,7 +29,8 @@ import { loadUnpaidSignups } from '@/lib/staffOutreach'
 import { isTestName } from '@/lib/staffOutreachCore'
 import type { FollowUpSource } from '@/lib/followUpCore'
 import { tutorsWithChip } from '@/lib/tutorFollowUps'
-import { pipelineRows } from '@/lib/tutorPipeline'
+import { feePendingDue, pipelineRows } from '@/lib/tutorPipeline'
+import { cardRejectedUninformed } from '@/lib/pipelineRowUpdateCore'
 import { blankPhotoFlags } from '@/lib/photoBlank'
 import { blankLine, readyForReviewFrom } from '@/lib/tutorPipelineCardCore'
 import { stageHref } from '@/lib/tutorPipelineCore'
@@ -441,7 +442,8 @@ export async function loadOverviewList(
     case 'todo-fee-pending': {
       // People → Tutors, Approved fee pending · Not followed up (owner, 8 Nov
       // 2026) — the same loader and rule as that view, so the number is its count.
-      const list = await pipelineRows((c) => c.stage === 'approved' && c.section === 'not')
+      // The SAME rule as the People badge's follow-up part (PR-02 — lib/tutorPipelineCardCore feePendingDue).
+      const list = await pipelineRows((c) => feePendingDue(c))
       return {
         key,
         rows: list.map((r) => ({ id: r.id, title: r.name, detail: r.card.follow ? `Follow-up ${r.card.follow.nextNumber} due` : null, href: `/admin/users/${r.id}`, memberId: r.id })),
@@ -480,7 +482,7 @@ export async function loadOverviewList(
 
     case 'todo-rejected-uninformed': {
       // People → Tutors, Rejected, with no WhatsApp sent in that stage yet.
-      const list = await pipelineRows((c) => c.stage === 'rejected' && !c.informed)
+      const list = await pipelineRows((c) => cardRejectedUninformed(c))
       return {
         key,
         rows: list.map((r) => ({ id: r.id, title: r.name, detail: r.card.rejected.map((x) => x.name).join(', ') || null, href: `/admin/users/${r.id}`, memberId: r.id })),

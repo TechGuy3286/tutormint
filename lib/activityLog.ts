@@ -154,6 +154,9 @@ export async function logActivity(params: {
   if (!DIRTY_IGNORED_EVENTS.has(params.event)) {
     const { revalidateTutorProfile } = await import('@/lib/publicRevalidate')
     await revalidateTutorProfile(params.userId)
+    // Their People card moves at once, whatever the change (PR-02).
+    const { syncPipelineSoon } = await import('@/lib/pipelineSyncHook')
+    await syncPipelineSoon(params.userId)
   }
 }
 
