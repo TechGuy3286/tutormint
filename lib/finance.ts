@@ -20,6 +20,7 @@ import { ignoredCreditIds } from '@/lib/ignoredCredits'
 import { withoutIgnored } from '@/lib/settlementMatchCore'
 import { feeFor, typicalFees } from '@/lib/payproSettlementCore'
 import { loadPersonalEntries } from '@/lib/personalCredits'
+import { loadPayproFeeAllocation } from '@/lib/payproFees'
 import { personalByMonth, type PersonalMonth } from '@/lib/personalCreditCore'
 import { methodLabel, summarise, type FinancePayment, type FinanceSummary, type FinanceTransfer } from '@/lib/financeCore'
 
@@ -108,9 +109,16 @@ async function loadPayproNet(payments: FinancePayment[]): Promise<Map<string, nu
     admin.from('reconciliation_rows').select('order_number, order_amount, merchant_share').eq('gateway', 'paypro').eq('is_current', true).order('id').range(from, to),
   )
   const exportBy = new Map(rows.map((r) => [r.order_number.trim().toUpperCase(), r]))
+  // PR-03: PayPro's real fee, from its settlements (N x 193 = N payments of Rs 199).
+  const real = await loadPayproFeeAllocation()
   const typical = typicalFees(rows.map((r) => ({ amount: r.order_amount != null ? num(r.order_amount) : null, share: r.merchant_share != null ? num(r.merchant_share) : null })))
   for (const p of payments) {
     if (p.provider !== 'paypro') continue
+    const settledFee = real?.feeBy.get(p.id)
+    if (settledFee !== undefined) {
+      out.set(p.id, Math.round((p.amountPkr - settledFee) * 100) / 100)
+      continue
+    }
     const ex = exportBy.get((p.ref ?? '').trim().toUpperCase())
     const f = feeFor(
       {

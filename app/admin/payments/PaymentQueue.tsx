@@ -16,6 +16,7 @@ import { OwnerOnlyNote } from '@/components/admin/ReadOnly'
 import { channelLabel } from '@/lib/payments/receiptCore'
 import { PAYMENT_FILTERS, WAITING_LABEL, paymentsHeading } from '@/lib/paymentFiltersCore'
 import RefundControl from './RefundControl'
+import ReopenPayment from './ReopenPayment'
 import { refundLabel } from '@/lib/payments/refundCore'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { useInfinite } from '@/lib/useInfinite'
@@ -212,6 +213,15 @@ export default function PaymentQueue({
                   <Cell label="Came from" value={p.cameFrom ?? 'Direct'} />
                 </dl>
 
+                {awaitingApproval(p) && p.bankMatch && (
+                  <p className="rounded-xl bg-tm-tint-green p-2 text-[11px] font-bold text-tm-green-deep" data-bank-matched="">
+                    Bank-matched · {p.bankMatch}
+                  </p>
+                )}
+                {awaitingApproval(p) && p.reopenedAt && (
+                  <p className="text-[11px] font-bold text-tm-navy">Reopened {formatDateTime(p.reopenedAt)}</p>
+                )}
+
                 {p.rejectionReason && (
                   <p className="rounded-xl bg-tm-tint-red p-2 text-[11px] text-tm-red">
                     Rejected: {p.rejectionReason}
@@ -249,6 +259,7 @@ export default function PaymentQueue({
                   <StaffReceiptActions paymentId={p.id} payerName={p.name} checkedByName={p.checkedByName} canCheck={canCheck} staffMayApprove={staffMayApprove} />
                 )}
                 {!canApprove && awaitingApproval(p) && !canCheck && !staffMayApprove && <OwnerOnlyNote />}
+                {canApprove && p.status === 'rejected' && p.provider === 'manual' && <ReopenPayment paymentId={p.id} />}
                 {awaitingApproval(p) && p.checkedByName && canApprove && (
                   <span className="self-center text-[11px] font-bold text-tm-green-deep">Checked by {p.checkedByName}</span>
                 )}

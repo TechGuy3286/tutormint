@@ -53,3 +53,7 @@ next-env.d.ts
 # scratch: local screenshot evidence, never committed
 .tmp-ui/
 supabase/.temp/
+
+# Bank statements (PR-03): never commit a real statement export.
+*.xls
+!scripts/fixtures/faysal-statement-invented.xls

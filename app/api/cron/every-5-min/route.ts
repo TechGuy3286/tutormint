@@ -8,6 +8,7 @@ import { publishDuePosts } from '@/lib/blogPublish'
 import { sweepTutorAlerts } from '@/lib/tutorAlerts'
 import { runBankReader } from '@/lib/bankEmailReader'
 import { endExpiredViews } from '@/lib/viewAs'
+import { refreshStatementMatches } from '@/lib/bankStatement'
 
 // Backup reconcile (PR65 §5). PayPro's "Mark as Paid" callback can be missed, so
 // this re-checks pending PayPro orders via the ONE confirm path (PR104:
@@ -60,7 +61,10 @@ export async function GET(request: Request) {
   // "View as" (owner, 26 Oct 2026): a view whose 30 minutes ran out is ended
   // here even when the browser never comes back.
   const viewAsEnded = await endExpiredViews().catch(() => 0)
-  if (!pproConfigured()) return NextResponse.json({ ok: true, skipped: 'paypro_not_configured', blog, indexing, alerts, bankReader, viewAsEnded })
+  // Bank statement matches (PR-03): a receipt uploaded after an import becomes
+  // Bank-matched within 5 minutes. Counts only.
+  const statement = await refreshStatementMatches().catch(() => null)
+  if (!pproConfigured()) return NextResponse.json({ ok: true, skipped: 'paypro_not_configured', blog, indexing, alerts, bankReader, viewAsEnded, statement })
 
   const admin = createAdminClient()
   if (!admin) return NextResponse.json({ ok: true, skipped: 'no_admin_client' })

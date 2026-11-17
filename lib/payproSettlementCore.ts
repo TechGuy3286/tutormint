@@ -131,12 +131,15 @@ export function buildSettlement(
   payouts: PayoutIn[],
   typical: Map<number, number>,
   now: Date,
+  /** PR-03: PayPro's real fee per payment, from its settlements. Wins over the export. */
+  settledFee?: ReadonlyMap<string, number>,
 ): SettlementReport {
   const sorted = [...payments].sort((a, b) => Date.parse(a.paidAt) - Date.parse(b.paidAt) || a.ref.localeCompare(b.ref))
   let pool = round2(payouts.reduce((s, p) => s + p.amount, 0))
   const received = pool
   const lines: SettlementLine[] = sorted.map((p) => {
-    const f = feeFor(p, typical)
+    const real = settledFee?.get(p.id)
+    const f = real !== undefined ? { fee: real, kind: 'known' as FeeKind, net: round2(p.gross - real) } : feeFor(p, typical)
     const settled = round2(Math.min(pool, f.net))
     pool = round2(pool - settled)
     const pending = round2(f.net - settled)

@@ -15,6 +15,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { formatName } from '@/lib/formatName'
 import { ignoredCreditIds } from '@/lib/ignoredCredits'
+import { loadPayproFeeAllocation } from '@/lib/payproFees'
 import { buildSettlement, splitPayouts, typicalFees, type PayoutIn, type PayproPaymentIn, type SettlementReport } from '@/lib/payproSettlementCore'
 
 export type PayproSettlement = SettlementReport & { notFromPaypro: PayoutIn[] }
@@ -65,5 +66,7 @@ export async function loadPayproSettlement(now = new Date()): Promise<PayproSett
   const live = transfers.filter((t) => !ignored.has(String(t.id)))
   const { payouts, notFromPaypro } = splitPayouts(live.map((t) => ({ id: t.id, date: t.transferred_on, amount: Number(t.amount_pkr), sender: t.sender_name })))
   const typical = typicalFees(rows.map((r) => ({ amount: r.order_amount != null ? Number(r.order_amount) : null, share: r.merchant_share != null ? Number(r.merchant_share) : null })))
-  return { ...buildSettlement(ins, payouts, typical, now), notFromPaypro }
+  // PR-03: PayPro's real fee, from its settlements (N x 193 = N payments of Rs 199).
+  const real = await loadPayproFeeAllocation()
+  return { ...buildSettlement(ins, payouts, typical, now, real?.feeBy), notFromPaypro }
 }

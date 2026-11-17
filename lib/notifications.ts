@@ -57,6 +57,7 @@ export type NotificationKind =
   | 'plan_expired'
   | 'payment_submitted'
   | 'payment_rejected'
+  | 'payment_reopened'
   // T7a — moderation outcomes.
   | 'warning_issued'
   | 'account_suspended'

@@ -83,6 +83,8 @@ export default async function SettlementTab({ sp, extra }: { sp: { from?: string
         <h1 className="text-lg font-black text-tm-navy">Finance</h1>
         <p className="text-xs text-gray-500">What customers paid, and what has reached the bank — Pakistan time.</p>
         <p className="text-xs">
+          <Link href="/admin/finance/statement" className="font-bold text-tm-navy underline">Import bank statement</Link>
+          <span className="text-gray-500"> · </span>
           <Link href="/admin/payments/settings#fee-match-and-reader" className="font-bold text-tm-red underline">Finance settings</Link>
           <span className="text-gray-500"> · Bank email reader: {READER_STATUS_LABEL[reader.status]}</span>
         </p>

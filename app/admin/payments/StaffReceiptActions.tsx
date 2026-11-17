@@ -64,7 +64,21 @@ export default function StaffReceiptActions({
     })
     setBusy(false)
     if (ok) {
-      toast.success('Approved. The bank credit is linked and the Owner will see it in the daily list.')
+      toast.success('Approved. The bank credit is linked and the Owner will see it in the daily list.', {
+        label: 'Undo',
+        ms: 10_000,
+        // The 10-second Undo (PR-03): only the person who approved, straight after.
+        onClick: () =>
+          void adminFetch<{ error?: string }>('/api/admin/payments/undo-decision', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ paymentId }),
+          }).then((r) => {
+            if (r.ok) toast.success('Undone. The receipt is waiting for approval again.')
+            else toast.error(r.data?.error ?? 'Could not undo.')
+            router.refresh()
+          }),
+      })
       router.refresh()
     } else toast.error(data?.error ?? 'This one stays with the Owner.')
   }

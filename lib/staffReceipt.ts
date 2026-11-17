@@ -21,6 +21,7 @@ import { activatePayment } from '@/lib/payments/activate'
 import { existingFeeFor, freeCredits, linkChosenCredit, loadFeeBoard, loadFeePrice, loadFeeRange, loadRefundDues } from '@/lib/feeMatch'
 import { staffApprovalsDigest, staffReceiptDecision, type StaffReceiptDecision } from '@/lib/staffReceiptCore'
 import type { AdminRole } from '@/lib/adminAccessCore'
+import { statementCreditFor } from '@/lib/bankStatement'
 
 type Actor = { id: string; adminRole: AdminRole; email: string | null }
 const NOT_NOW = 'This is not working right now. Please try again in a few minutes.'
@@ -40,13 +41,14 @@ export async function staffReceiptCheck(paymentId: string, actor: { id: string }
     .maybeSingle()
   if (!p) return { ok: false, reason: 'not_pending', message: 'Payment not found.' }
   const memberId = (p.user_id as string | null) ?? null
-  const [{ data: prof }, { data: credit }, board, range, paid, refunds] = await Promise.all([
+  const [{ data: prof }, { data: credit }, board, range, paid, refunds, statementCreditId] = await Promise.all([
     memberId ? admin.from('profiles').select('full_name').eq('id', memberId).maybeSingle() : Promise.resolve({ data: null }),
     memberId ? admin.from('staff_signup_credits').select('staff_id').eq('member_id', memberId).maybeSingle() : Promise.resolve({ data: null }),
     loadFeeBoard(),
     loadFeeRange(),
     memberId ? existingFeeFor(memberId) : Promise.resolve(null),
     memberId ? loadRefundDues({ memberId, openOnly: true }) : Promise.resolve([]),
+    statementCreditFor(paymentId),
   ])
   const decision = staffReceiptDecision({
     payment: {
@@ -62,6 +64,7 @@ export async function staffReceiptCheck(paymentId: string, actor: { id: string }
     creditedToActor: (credit as { staff_id?: string | null } | null)?.staff_id === actor.id,
     alreadyPaid: !!paid,
     refundOpen: refunds.length > 0,
+    statementCreditId,
   })
   return { ...decision, ref: String(p.provider_ref ?? p.id), memberId }
 }

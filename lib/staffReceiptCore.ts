@@ -43,6 +43,8 @@ export type StaffReceiptInput = {
   alreadyPaid: boolean
   /** A refund is open for the member. */
   refundOpen: boolean
+  /** PR-03: the bank credit the statement import matched to THIS receipt ("Bank-matched"). */
+  statementCreditId?: string | null
 }
 
 export type StaffReceiptRefusal =
@@ -84,6 +86,10 @@ export function staffReceiptDecision(input: StaffReceiptInput): StaffReceiptDeci
   if (input.creditedToActor) return refuse('own_referral')
   if (input.alreadyPaid) return refuse('already_paid')
   if (input.refundOpen) return refuse('refund_open')
+
+  // Bank-matched by the statement import (PR-03): that one free credit, in the fee range.
+  const sc = input.statementCreditId ? input.credits.find((c) => c.id === input.statementCreditId) : null
+  if (sc && !sc.isPaypro && inFeeRange(sc.amountPkr, input.range)) return { ok: true, creditId: sc.id }
 
   const moments = { createdAt: p.createdAt, reviewedAt: null }
   const inWindow = input.credits.filter((c) => !c.isPaypro && gapMs(c, moments) <= AUTO_LINK_WINDOW_MS)

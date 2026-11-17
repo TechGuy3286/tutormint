@@ -43,6 +43,7 @@ import { tuitionPath } from '@/lib/slugs'
 import { loadVerifiedBadgeOk } from '@/lib/badgeFacts'
 import { TEAM_MEMBER_NAME } from '@/lib/teamPosterCore'
 import type { ReportTarget, ReporterApplication, ReporterFacts } from '@/lib/reportCardCore'
+import { bankMatchedReceipts } from '@/lib/bankStatement'
 
 // The admin lists that still ended at a hard cap, on the platform's
 // infinite-scroll pattern.
@@ -612,6 +613,10 @@ export type QueuePaymentRow = {
   statusLabel: string
   /** A bank receipt waiting for the Owner's decision. */
   waitingReview: boolean
+  /** PR-03: why the bank statement matched this waiting receipt ("Bank-matched") — words, never rupees. */
+  bankMatch: string | null
+  /** PR-03: a rejected receipt the Owner reopened. */
+  reopenedAt: string | null
 }
 
 export type PaymentQueueCounts = {
@@ -656,7 +661,7 @@ export async function loadPaymentQueue({
     admin
       .from('payments')
       .select(
-        'id, user_id, plan_code, amount_pkr, method, provider, provider_ref, reference, screenshot_path, status, rejection_reason, reviewed_at, created_at, utm_source, utm_medium, utm_campaign, refunded_amount_pkr, refund_method, refunded_at, note, checkout_closed_at, checkout_close_reason, staff_checked_at, staff_checked_by_name, staff_approved_by_name',
+        'id, user_id, plan_code, amount_pkr, method, provider, provider_ref, reference, screenshot_path, status, rejection_reason, reviewed_at, created_at, utm_source, utm_medium, utm_campaign, refunded_amount_pkr, refund_method, refunded_at, note, checkout_closed_at, checkout_close_reason, staff_checked_at, staff_checked_by_name, staff_approved_by_name, reopened_at',
       )
       .order('created_at', { ascending: false })
       .order('id', { ascending: false })
@@ -733,6 +738,8 @@ export async function loadPaymentQueue({
       refundedAt: (p.refunded_at as string | null) ?? null,
       statusLabel: bucket.label,
       waitingReview: bucket.waiting,
+      bankMatch: null,
+      reopenedAt: (p.reopened_at as string | null) ?? null,
       waiting: bucket.waiting,
       filter: bucket.filter,
       nameless: isNamelessPayment(facts),
@@ -759,6 +766,9 @@ export async function loadPaymentQueue({
   const page = list.slice(offset, offset + limit)
   const nextCursor = offset + limit < list.length ? String(offset + limit) : null
   const rows: QueuePaymentRow[] = page.map(({ waiting: _w, filter: _f, nameless: _n, ...r }) => r)
+  // PR-03: Bank-matched receipts (the statement import found their bank credit).
+  const matched = await bankMatchedReceipts(rows.filter((r) => r.status === 'pending').map((r) => r.id)).catch(() => new Map<string, string>())
+  for (const r of rows) r.bankMatch = matched.get(r.id) ?? null
 
   return { rows, nextCursor, total: list.length, counts, filter: chosen }
 }

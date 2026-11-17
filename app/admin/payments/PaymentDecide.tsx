@@ -27,10 +27,23 @@ export default function PaymentDecide({
   const [busy, setBusy] = useState(false)
   const readOnly = useAdminReadOnly()
 
+  // The 10-second Undo (PR-03): only the person who decided, straight after.
+  const undo = async () => {
+    const r = await adminFetch<{ error?: string; undid?: string }>('/api/admin/payments/undo-decision', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paymentId }),
+    })
+    if (r.ok) toast.success('Undone. The receipt is waiting for approval again.')
+    else toast.error(r.data?.error ?? 'Could not undo.')
+    router.refresh()
+  }
+  const undoAction = { label: 'Undo', ms: 10_000, onClick: () => void undo() }
+
   const approve = async () => {
     const ok = await confirm({
       title: 'Approve this bank transfer?',
-      body: `Check the receipt shows the amount expected, paid into our account. Approving activates it for ${payerName} and notifies them. It cannot be undone.`,
+      body: `Check the receipt shows the amount expected, paid into our account. Approving activates it for ${payerName} and notifies them. You can undo it for 10 seconds.`,
       confirmLabel: 'Approve',
     })
     if (!ok) return
@@ -50,6 +63,7 @@ export default function PaymentDecide({
         c
           ? `Bank transfer approved. Bank credit used: Rs ${c.amountPkr} on ${c.date}${c.time ? ` ${c.time}` : ''}${c.senderName ? ` from ${c.senderName}` : ''}${c.reference ? ` (ref ${c.reference})` : ''}${c.rounding > 0 ? ` · Rs ${c.rounding} rounding` : ''}.`
           : 'Bank transfer approved. It is active and the member has been told. No matching bank credit yet — it will link when the credit arrives.',
+        undoAction,
       )
       router.refresh()
     } else {
@@ -72,7 +86,7 @@ export default function PaymentDecide({
     })
     setBusy(false)
     if (done) {
-      toast.success('Receipt rejected. The member has been told and can upload a new one. The old receipt stays on record.')
+      toast.success('Receipt rejected. The member has been told and can upload a new one. The old receipt stays on record.', undoAction)
       router.refresh()
     } else {
       toast.error(data?.error ?? 'Could not reject this transfer.')

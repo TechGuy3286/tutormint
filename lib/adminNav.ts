@@ -198,6 +198,7 @@ export const SECTION_LABELS: Record<string, string> = {
   gateways: 'Payment gateways',
   finance: 'Finance',
   settlement: 'Settlement check',
+  statement: 'Import bank statement',
   overview: 'Overview',
   subjects: 'Subjects',
   settings: 'Settings',

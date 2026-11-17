@@ -118,6 +118,7 @@
     "test:bankpaymentlink": "tsx --test scripts/test-bank-payment-link.ts",
     "test:feematch": "tsx --test scripts/test-fee-match.ts",
     "test:personalcredits": "tsx --test scripts/test-personal-credits.ts",
+    "test:bankstatement": "tsx --test scripts/test-bank-statement.ts",
     "test:approvebankcredit": "tsx --test scripts/test-approve-bank-credit.ts",
     "test:paymentfilters": "tsx --test scripts/test-payment-filters.ts",
     "test:payproexport": "tsx --test scripts/test-paypro-export.ts",

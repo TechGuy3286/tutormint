@@ -245,6 +245,11 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed' | 'ret
   'payments/refund-due': 'view',
   'payments/settlement/relabel': 'view',
   'payments/settlement/personal': 'view',
+  // PR-03 (17 Nov 2026): the bank statement import and Reopen are Owner only; the
+  // 10-second Undo belongs to whoever decided (the Partner approves bank-matched receipts).
+  'finance/statement': 'view',
+  'payments/reopen': 'view',
+  'payments/undo-decision': 'edit',
   // The Project Manager approves bank-matched receipts (owner, 15 Nov 2026).
   'payments/decide': 'edit',
   'payments/gateways': 'view',
