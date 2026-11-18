@@ -165,6 +165,9 @@ export type NotificationKind =
   | 'application_opened'
   // PR-07: instant "Your application for … was sent to the parent" (not capped).
   | 'application_forwarded'
+  // PR-08: grouped "❤️ N parents shortlisted / tried to contact you" — real
+  // parent events only, blurred names, counts towards the 3-a-week cap.
+  | 'teaser_parent_interest'
 
 export async function notify(params: {
   userId: string

@@ -28,9 +28,13 @@ import { firstNameOf } from '@/lib/staffOutreachCore'
 import { logAdminAction } from '@/lib/auditLog'
 import type { AdminActor } from '@/lib/adminAuth'
 import type { BadgesPayload } from '@/lib/adminSummaryCore'
-import { loadTeaserTutors, type TeaserTutor } from '@/lib/tutorTeasers'
+import { loadTeaserTutors, loadWeekViews, type TeaserTutor } from '@/lib/tutorTeasers'
+import { loadInterestForTutors } from '@/lib/parentInterest'
+import { pickUnpaidRows, UNPAID_WA_DAILY_CAP, VERIFY_HREF } from '@/lib/parentInterestCore'
+import { peopleList } from '@/lib/adminSummaryCore'
 import {
   DAY_MS,
+  isPaid,
   mayUndoWaSend,
   openedWindowStartMs,
   pendingWaItems,
@@ -65,9 +69,23 @@ export type WaQueueRow = {
   weekCount: number
   /** Today's live send, for "Sent by … at …" and Undo. */
   sentToday: { id: string; at: string; by: string | null; staffId: string | null } | null
+  /** PR-08: an unpaid tutor's row, and its priority (1–3). */
+  unpaid: boolean
+  priority: 1 | 2 | 3 | null
 }
 
-export type WaQueue = { rows: WaQueueRow[]; toSend: number; eligible: number; optedOut: number; noNumber: number }
+export type WaQueue = {
+  rows: WaQueueRow[]
+  toSend: number
+  eligible: number
+  optedOut: number
+  noNumber: number
+  /** PR-08: the split of today's rows. */
+  paidToSend: number
+  unpaidToSend: number
+  unpaidRows: number
+  unpaidCap: number
+}
 
 type Facts = { tutors: TeaserTutor[]; sends: Map<string, WaSend[]>; items: Map<string, WaItem[]>; support: string }
 
@@ -82,7 +100,7 @@ async function loadFacts(admin: Admin, nowMs: number, ids?: string[]): Promise<F
     pageAllIn(tutorIds, (part, f, t) =>
       admin
         .from('whatsapp_update_sends')
-        .select('id, tutor_id, created_at, undone_at, kinds, application_ids, forwarded_application_ids, staff_id, staff_name')
+        .select('id, tutor_id, created_at, undone_at, kinds, application_ids, forwarded_application_ids, interest_event_ids, staff_id, staff_name')
         .in('tutor_id', part)
         .gte('created_at', since)
         .order('id')
@@ -120,23 +138,7 @@ async function loadFacts(admin: Admin, nowMs: number, ids?: string[]): Promise<F
     loadSupportWhatsApp(admin),
   ])
 
-  const sends = new Map<string, WaSend[]>()
-  for (const s of sendRows) {
-    const k = s.tutor_id as string
-    sends.set(k, [
-      ...(sends.get(k) ?? []),
-      {
-        id: s.id as string,
-        createdAt: s.created_at as string,
-        undoneAt: (s.undone_at as string | null) ?? null,
-        kinds: (s.kinds as string[] | null) ?? [],
-        applicationIds: (s.application_ids as string[] | null) ?? [],
-        forwardedIds: (s.forwarded_application_ids as string[] | null) ?? [],
-        staffId: (s.staff_id as string | null) ?? null,
-        staffName: (s.staff_name as string | null) ?? null,
-      },
-    ])
-  }
+  const sends = sendsByTutor(sendRows)
 
   // Application opens in the window, by these tutors, on tuitions still shown.
   const seenAt = new Map(views.map((v) => [v.application_id as string, v.first_seen_at as string]))
@@ -183,11 +185,92 @@ async function loadFacts(admin: Admin, nowMs: number, ids?: string[]): Promise<F
   return { tutors, sends, items, support }
 }
 
-function linkFor(items: WaItem[]): string {
+function sendsByTutor(sendRows: Record<string, unknown>[]): Map<string, WaSend[]> {
+  const sends = new Map<string, WaSend[]>()
+  for (const s of sendRows) {
+    const k = s.tutor_id as string
+    sends.set(k, [
+      ...(sends.get(k) ?? []),
+      {
+        id: s.id as string,
+        createdAt: s.created_at as string,
+        undoneAt: (s.undone_at as string | null) ?? null,
+        kinds: (s.kinds as string[] | null) ?? [],
+        applicationIds: (s.application_ids as string[] | null) ?? [],
+        forwardedIds: (s.forwarded_application_ids as string[] | null) ?? [],
+        interestEventIds: (s.interest_event_ids as string[] | null) ?? [],
+        staffId: (s.staff_id as string | null) ?? null,
+        staffName: (s.staff_name as string | null) ?? null,
+      },
+    ])
+  }
+  return sends
+}
+
+/**
+ * PR-08 — the unpaid tutors who may join today's queue: eligible (allowUnpaid),
+ * with a real parent shortlist / contact attempt or parent views in the last 7
+ * days. Items: parent_interest (counts, never names) and profile_views. Their
+ * People stage and sign-up date come from the stored People list.
+ */
+async function loadUnpaidFacts(admin: Admin, nowMs: number): Promise<Facts & { stages: Map<string, { stage: string | null; joinedAt: string }> }> {
+  const since7 = new Date(nowMs - 7 * DAY_MS).toISOString()
+  const [interest, views] = await Promise.all([
+    loadInterestForTutors(admin, nowMs, { sinceIso: since7, ignoreAlerted: true }),
+    loadWeekViews(admin, null, since7),
+  ])
+  const candIds = new Set<string>([...interest.byTutor.keys()])
+  for (const [id, v] of views) if (v.parentRows > 0) candIds.add(id)
+  const tutors = (await loadTeaserTutors(admin, nowMs, [...candIds], { includeUnpaid: true })).filter((t) => t.block === null && !isPaid(t.facts))
+  const ids = tutors.map((t) => t.id)
+  const [sendRows, listRows, support] = await Promise.all([
+    pageAllIn(ids, (part, f, t) =>
+      admin
+        .from('whatsapp_update_sends')
+        .select('id, tutor_id, created_at, undone_at, kinds, application_ids, forwarded_application_ids, interest_event_ids, staff_id, staff_name')
+        .in('tutor_id', part)
+        .gte('created_at', new Date(pkWeekStartMs(nowMs) - DAY_MS).toISOString())
+        .order('id')
+        .range(f, t),
+    ),
+    pageAllIn(ids, (part, f, t) => admin.from('admin_list_rows').select('member_id, tags').eq('list', peopleList('tutor')).in('member_id', part).order('member_id').range(f, t)),
+    loadSupportWhatsApp(admin),
+  ])
+  const stages = new Map<string, { stage: string | null; joinedAt: string }>()
+  for (const r of listRows) {
+    const tags = (r.tags ?? {}) as Record<string, unknown>
+    stages.set(r.member_id as string, { stage: (tags.stage as string | undefined) ?? null, joinedAt: String(tags.joined_at ?? '') })
+  }
+  const items = new Map<string, WaItem[]>()
+  for (const id of ids) {
+    const list: WaItem[] = []
+    const evs = interest.byTutor.get(id) ?? []
+    if (evs.length > 0) {
+      const shortlisters = new Set(evs.filter((e) => e.kind === 'shortlist').map((e) => e.parentId))
+      const contacters = new Set(evs.filter((e) => e.kind !== 'shortlist').map((e) => e.parentId))
+      list.push({
+        kind: 'parent_interest',
+        eventIds: evs.map((e) => e.id),
+        shortlists: shortlisters.size,
+        contacts: contacters.size,
+        at: evs.map((e) => e.createdAt).sort().pop() as string,
+      })
+    }
+    const v = views.get(id)?.parentRows ?? 0
+    if (v > 0) list.push({ kind: 'profile_views', views: v })
+    if (list.length) items.set(id, list)
+  }
+  return { tutors, sends: sendsByTutor(sendRows), items, support, stages }
+}
+
+function linkFor(items: WaItem[], unpaid = false): string {
+  if (unpaid) return siteLink(VERIFY_HREF)
   return siteLink(items.some((i) => i.kind === 'application_opened' || i.kind === 'application_forwarded') ? '/tutor/dashboard/applications' : '/tutor/dashboard')
 }
 
-function buildRow(t: TeaserTutor, f: Facts, nowMs: number): WaQueueRow & { msisdn: string | null } {
+type BuiltRow = WaQueueRow & { msisdn: string | null }
+
+function buildRow(t: TeaserTutor, f: Facts, nowMs: number, unpaid = false): BuiltRow {
   const sends = f.sends.get(t.id) ?? []
   const msisdn = normalisePkMobile(t.rawNumber)
   const pending = pendingWaItems(f.items.get(t.id) ?? [], sends, nowMs)
@@ -199,33 +282,71 @@ function buildRow(t: TeaserTutor, f: Facts, nowMs: number): WaQueueRow & { msisd
     city: t.match.cities[0] ?? null,
     state,
     items: state === 'to_send' ? pending : [],
-    message: state === 'to_send' ? waMessage({ firstName: firstNameOf(t.fullName), items: pending, link: linkFor(pending), supportWhatsapp: f.support }) : '',
+    message: state === 'to_send' ? waMessage({ firstName: firstNameOf(t.fullName), items: pending, link: linkFor(pending, unpaid), supportWhatsapp: f.support, unpaid }) : '',
     weekCount: sendsThisWeek(sends, nowMs).length,
     sentToday: today ? { id: today.id, at: today.createdAt, by: today.staffName, staffId: today.staffId } : null,
+    unpaid,
+    priority: null,
     msisdn,
   }
 }
 
-/** Today's queue: rows to send first (oldest open first), then today's sends. */
+/**
+ * PR-08 — today's unpaid rows: listed (to send, or sent today), then by
+ * priority (1 Approved + interest, 2 Approved + views, 3 Documents missing +
+ * interest), newest sign-up first, at most UNPAID_WA_DAILY_CAP. A row already
+ * sent today keeps its place under the cap.
+ */
+async function unpaidQueueRows(admin: Admin, nowMs: number): Promise<{ rows: BuiltRow[]; eligible: number; optedOut: number }> {
+  const f = await loadUnpaidFacts(admin, nowMs)
+  const listed = f.tutors.map((t) => buildRow(t, f, nowMs, true)).filter((r) => r.state !== 'hidden')
+  const cands = listed.map((r) => {
+    const raw = f.items.get(r.tutorId) ?? []
+    const st = f.stages.get(r.tutorId)
+    return {
+      row: r,
+      tutorId: r.tutorId,
+      stage: st?.stage ?? null,
+      hasInterest: raw.some((i) => i.kind === 'parent_interest'),
+      hasViews: raw.some((i) => i.kind === 'profile_views'),
+      joinedAt: st?.joinedAt ?? '',
+    }
+  })
+  const picked = pickUnpaidRows(cands, UNPAID_WA_DAILY_CAP)
+  return {
+    rows: picked.map((c) => ({ ...c.row, priority: c.priority })),
+    eligible: f.tutors.length,
+    optedOut: f.tutors.filter((t) => !t.whatsappUpdates).length,
+  }
+}
+
+/** Today's queue: rows to send first (paid, then unpaid by priority), then today's sends. */
 export async function loadWaQueue(nowMs = Date.now()): Promise<WaQueue> {
   const admin = createAdminClient()
-  const empty: WaQueue = { rows: [], toSend: 0, eligible: 0, optedOut: 0, noNumber: 0 }
+  const empty: WaQueue = { rows: [], toSend: 0, eligible: 0, optedOut: 0, noNumber: 0, paidToSend: 0, unpaidToSend: 0, unpaidRows: 0, unpaidCap: UNPAID_WA_DAILY_CAP }
   if (!admin) return empty
-  const f = await loadFacts(admin, nowMs)
+  const [f, unpaid] = await Promise.all([loadFacts(admin, nowMs), unpaidQueueRows(admin, nowMs)])
   const built = f.tutors.map((t) => buildRow(t, f, nowMs))
-  const rows = built
-    .filter((r) => r.state !== 'hidden')
+  const rows = [...built.filter((r) => r.state !== 'hidden'), ...unpaid.rows]
     .map(({ msisdn: _m, ...r }) => r)
     .sort((a, b) => {
       if (a.state !== b.state) return a.state === 'to_send' ? -1 : 1
+      if (a.unpaid !== b.unpaid) return a.unpaid ? 1 : -1
+      if (a.unpaid && b.unpaid) return (a.priority ?? 9) - (b.priority ?? 9)
       return a.name.localeCompare(b.name)
     })
+  const paidToSend = rows.filter((r) => r.state === 'to_send' && !r.unpaid).length
+  const unpaidToSend = rows.filter((r) => r.state === 'to_send' && r.unpaid).length
   return {
     rows,
-    toSend: rows.filter((r) => r.state === 'to_send').length,
+    toSend: paidToSend + unpaidToSend,
     eligible: f.tutors.length,
     optedOut: f.tutors.filter((t) => !t.whatsappUpdates).length,
     noNumber: built.filter((r) => !r.msisdn).length,
+    paidToSend,
+    unpaidToSend,
+    unpaidRows: unpaid.rows.length,
+    unpaidCap: UNPAID_WA_DAILY_CAP,
   }
 }
 
@@ -269,8 +390,9 @@ export async function recordWaSend(tutorId: string, actor: AdminActor): Promise<
   const nowMs = Date.now()
   const f = await loadFacts(admin, nowMs, [tutorId])
   const t = f.tutors.find((x) => x.id === tutorId)
-  if (!t) return { ok: false, status: 409, error: 'This tutor is not in today’s list any more.' }
-  const row = buildRow(t, f, nowMs)
+  // PR-08: an unpaid tutor must be among today's picked unpaid rows.
+  const row = t ? buildRow(t, f, nowMs) : (await unpaidQueueRows(admin, nowMs)).rows.find((r) => r.tutorId === tutorId)
+  if (!row) return { ok: false, status: 409, error: 'This tutor is not in today’s list any more.' }
   if (row.state === 'sent_today') return { ok: false, status: 409, error: 'This tutor was already sent an update today.' }
   if (row.state !== 'to_send' || !row.msisdn) return { ok: false, status: 409, error: 'This tutor is not in today’s list any more.' }
 
@@ -282,6 +404,7 @@ export async function recordWaSend(tutorId: string, actor: AdminActor): Promise<
       kinds: waKinds(row.items),
       application_ids: row.items.flatMap((i) => (i.kind === 'application_opened' ? [i.applicationId] : [])),
       forwarded_application_ids: row.items.flatMap((i) => (i.kind === 'application_forwarded' ? [i.applicationId] : [])),
+      interest_event_ids: row.items.flatMap((i) => (i.kind === 'parent_interest' ? i.eventIds : [])),
       staff_id: actor.id,
       staff_name: await staffName(admin, actor),
     })

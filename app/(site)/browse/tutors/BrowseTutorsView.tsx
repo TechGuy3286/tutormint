@@ -230,7 +230,6 @@ export async function BrowseTutorsView({ sp, guest = false }: { sp: Record<strin
     verifiedParent: false,
     canInitiateMessage: false,
   }
-  let saved = new Set<string>()
   // Only for the house-ad upsell filter, so an inline ad never pitches a plan
   // the viewer already holds.
   let viewerPlan: string | null = null
@@ -245,9 +244,6 @@ export async function BrowseTutorsView({ sp, guest = false }: { sp: Record<strin
       verifiedParent: ent.audience === 'parent' && !!ent.plan,
       canInitiateMessage: ent.canInitiateMessage,
     }
-
-    const { data: shortlisted } = await supabase.from('shortlists').select('tutor_id')
-    saved = new Set((shortlisted ?? []).map((s) => s.tutor_id as string))
 
   }
 
@@ -357,7 +353,7 @@ export async function BrowseTutorsView({ sp, guest = false }: { sp: Record<strin
                 key={t.id}
                 tutor={t}
                 viewer={viewer}
-                initiallySaved={saved.has(t.id)}
+                // Hearts are filled in the browser (lib/useShortlisted, PR-08) — nothing personal in the HTML.
                 showMessage={!viewer.signedIn || viewer.role !== 'tutor'}
                 headingLevel="h2"
                 priority={i === 0}
@@ -438,7 +434,7 @@ export async function BrowseTutorsView({ sp, guest = false }: { sp: Record<strin
                 <TutorCard
                   tutor={t}
                   viewer={viewer}
-                  initiallySaved={saved.has(t.id)}
+                  // Hearts are filled in the browser (lib/useShortlisted, PR-08) — nothing personal in the HTML.
                   showMessage={!viewer.signedIn || viewer.role !== 'tutor'}
                   headingLevel="h2"
                   priority={i === 0}

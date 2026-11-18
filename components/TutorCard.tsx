@@ -18,6 +18,7 @@ import NotVerifiedBadge from '@/components/badges/NotVerifiedBadge'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import AuthGateModal, { clearDraft, peekDraft, FOCUS_COMPOSER_KEY, type AuthIntent } from '@/components/AuthGateModal'
 import { badgesForPlan, isFeaturedPlan } from '@/lib/planBadges'
+import { markShortlisted, useShortlisted } from '@/lib/useShortlisted'
 
 // The tutor card, rebuilt against design/reference/tutor-card.jpeg.
 //
@@ -216,6 +217,12 @@ export default function TutorCard({
   const Heading = headingLevel
   const router = useRouter()
   const [saved, setSaved] = useState(initiallySaved)
+  // PR-08: the signed-in parent's hearts are filled after load (cached Browse
+  // HTML carries none); one request serves every card on the page.
+  const storedSaved = useShortlisted(tutor.id, viewer.signedIn && viewer.role !== 'tutor' && !hideShortlist)
+  useEffect(() => {
+    if (storedSaved !== null) setSaved(storedSaved)
+  }, [storedSaved])
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   // When a request is refused because the tutor is at their monthly limit, the
@@ -300,6 +307,7 @@ export default function TutorCard({
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Could not update your shortlist.')
       setSaved(json.saved)
+      markShortlisted(tutor.id, !!json.saved)
       toast.success(json.saved ? 'Added to your shortlist.' : 'Removed from your shortlist.')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not update your shortlist.')

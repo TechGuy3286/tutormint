@@ -45,7 +45,7 @@ export default function MoreJobs({
   const saved = useMemo(() => new Set(savedIds), [savedIds])
   const storageKey = useMemo(
     // v2 (PR96): bust stale caches so no pre-masking/pre-hide list is re-served.
-    () => `tm:more:tuitions:v3:${new URLSearchParams(params).toString()}`,
+    () => `tm:more:tuitions:v4:${new URLSearchParams(params).toString()}`,
     [params],
   )
 
@@ -57,6 +57,9 @@ export default function MoreJobs({
     initialCursor,
     storageKey,
     serverIds,
+    // PR-08: Back from a tuition returns to the same place with every
+    // "Load more" page; a fresh visit starts at the top.
+    restoreMode: 'back',
   })
 
   return (

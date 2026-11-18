@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activityLog'
 import { getEntitlements } from '@/lib/entitlements'
 import { parseBody, z, uuid } from '@/lib/validate'
+import { recordParentInterest } from '@/lib/parentInterest'
 
 // Shortlist a tutor, or remove one.
 //
@@ -84,6 +85,9 @@ export async function POST(request: Request) {
     targetType: 'tutor_profile',
     targetId: tutorId,
   })
+  // PR-08: a real parent shortlist feeds the tutor's parent-interest teaser
+  // (parent accounts only; staff/test never counted; never blocks the save).
+  if (ent.audience === 'parent') await recordParentInterest({ parentId: user.id, tutorId, kind: 'shortlist' })
 
   return NextResponse.json({ success: true, saved: true })
 }

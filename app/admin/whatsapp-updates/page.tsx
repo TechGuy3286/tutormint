@@ -1,12 +1,15 @@
 import LoadMoreLink from '@/components/admin/LoadMoreLink'
 import WaUpdateRow from '@/components/admin/WaUpdateRow'
+import HeldActivityPanel from '@/components/admin/HeldActivityPanel'
+import { loadHeldActivity } from '@/lib/parentInterest'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { pageSlice, shownCount } from '@/lib/adminPagingCore'
-import { formatTime } from '@/lib/datetime'
+import { formatDateTime, formatTime } from '@/lib/datetime'
 import { WA_WEEKLY_CAP } from '@/lib/tutorTeasersCore'
 import { loadWaQueue } from '@/lib/waUpdates'
 
-// People → WhatsApp updates (PR-06, owner 18 Nov 2026; rules lib/tutorTeasersCore,
+// People → WhatsApp updates (PR-06, owner 18 Nov 2026; PR-08 adds unpaid tutors
+// and the Owner-only "Held activity" panel; rules lib/tutorTeasersCore,
 // reads lib/waUpdates). Paid tutors with something worth a WhatsApp message
 // today: a parent opened one of their applications (today or yesterday), and on
 // Mondays their weekly summary. Each row has the ready message and a Send button
@@ -19,7 +22,8 @@ export const dynamic = 'force-dynamic'
 export default async function WhatsAppUpdatesPage({ searchParams }: { searchParams: Promise<{ n?: string }> }) {
   const actor = await requireAdminRole(...SCREEN_ACCESS.waUpdates)
   const sp = await searchParams
-  const queue = await loadWaQueue()
+  const isOwner = actor.adminRole === 'owner'
+  const [queue, held] = await Promise.all([loadWaQueue(), isOwner ? loadHeldActivity() : Promise.resolve(null)])
   const page = pageSlice(queue.rows, shownCount(sp.n))
   const sentToday = queue.rows.length - queue.toSend
 
@@ -28,12 +32,14 @@ export default async function WhatsAppUpdatesPage({ searchParams }: { searchPara
       <header className="space-y-1">
         <h2 className="text-lg font-black text-tm-navy">WhatsApp updates</h2>
         <p className="text-xs text-gray-600">
-          Paid tutors with real news today: a parent opened their application, and on Mondays their weekly summary. Send opens WhatsApp with the
-          message ready and logs who sent it. Each tutor gets at most {WA_WEEKLY_CAP} a week; tutors who turned updates off are not listed.
+          Tutors with real news today. Paid tutors: a parent opened or was sent their application, and on Mondays their weekly summary.
+          Unpaid tutors (at most {queue.unpaidCap} a day): parents shortlisted or tried to contact them, or viewed their profile — Approved,
+          fee pending first, then Documents missing. Send opens WhatsApp with the message ready and logs who sent it. Each tutor gets at most{' '}
+          {WA_WEEKLY_CAP} a week; tutors who turned updates off are not listed.
         </p>
         <p className="text-xs font-bold text-slate-800">
-          {queue.toSend} to send today · {sentToday} sent today · {queue.eligible} paid {queue.eligible === 1 ? 'tutor' : 'tutors'} eligible ·{' '}
-          {queue.optedOut} turned updates off
+          {queue.toSend} to send today ({queue.paidToSend} paid · {queue.unpaidToSend} unpaid) · {sentToday} sent today · {queue.eligible} paid{' '}
+          {queue.eligible === 1 ? 'tutor' : 'tutors'} eligible · {queue.optedOut} turned updates off
         </p>
       </header>
 
@@ -55,6 +61,8 @@ export default async function WhatsAppUpdatesPage({ searchParams }: { searchPara
                   message: r.message,
                   weekCount: r.weekCount,
                   kinds: [...new Set(r.items.map((i) => i.kind))],
+                  unpaid: r.unpaid,
+                  priority: r.priority,
                   sent: r.sentToday ? { id: r.sentToday.id, by: r.sentToday.by, time: formatTime(r.sentToday.at), mine: r.sentToday.staffId === actor.id || actor.adminRole === 'owner' } : null,
                 }}
                 cap={WA_WEEKLY_CAP}
@@ -64,6 +72,20 @@ export default async function WhatsAppUpdatesPage({ searchParams }: { searchPara
         </ul>
       )}
       {page.total > 0 && <LoadMoreLink shown={page.shown} total={page.total} noun="tutors" />}
+
+      {held && (
+        <HeldActivityPanel
+          rows={held.map((h) => ({
+            parentId: h.parentId,
+            name: h.name,
+            status: h.status,
+            detected: formatDateTime(h.detectedAt),
+            shortlists: h.shortlists,
+            attempts: h.attempts,
+            heldEvents: h.heldEvents,
+          }))}
+        />
+      )}
     </div>
   )
 }

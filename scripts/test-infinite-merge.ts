@@ -87,7 +87,9 @@ test('the Sehar case: a saved snapshot that overlaps the fresh server window is 
 test('useInfinite applies the merge on append and on restore; the public lists pass their server ids', () => {
   const s = readFileSync(new URL('../lib/useInfinite.ts', import.meta.url), 'utf8')
   assert.match(s, /setItems\(\(prev\) => mergeUnique\(prev, page\.items, serverIdsRef\.current\)\)/)
-  assert.match(s, /if \(!snapshotUsable\(s\.items, serverIdsRef\.current\)\)/)
+  // PR-08: the stale-snapshot rule moved into lib/infiniteRestoreCore restorePlan.
+  assert.match(s, /restorePlan\(s, serverIdsRef\.current,/)
+  assert.match(readFileSync(new URL('../lib/infiniteRestoreCore.ts', import.meta.url), 'utf8'), /snapshotUsable\(s\.items, serverIds\)/)
   for (const f of [
     'app/(site)/browse/tutors/BrowseTutorsView.tsx',
     'app/(site)/browse/tuitions/BrowseTuitionsView.tsx',

@@ -59,6 +59,8 @@ export const NOTIFICATION_GROUPS = {
     'teaser_profile_views',
     'teaser_views_tip',
     'teaser_weekly_summary',
+    // PR-08: parents shortlisted or tried to contact the tutor.
+    'teaser_parent_interest',
     // Conversion roll-ups (Part 3): the weekly view teaser and the quota nudge.
     'viewer_weekly_teaser',
     'quota_nudge',

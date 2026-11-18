@@ -43,7 +43,7 @@ export default function MoreTutors({
   // account was hidden or a card component changed. Bump it whenever the public
   // tutor set or the card markup changes.
   const storageKey = useMemo(
-    () => `tm:more:tutors:v4:${new URLSearchParams(params).toString()}`,
+    () => `tm:more:tutors:v5:${new URLSearchParams(params).toString()}`,
     [params],
   )
 
@@ -53,6 +53,9 @@ export default function MoreTutors({
     initialCursor,
     storageKey,
     serverIds,
+    // PR-08: Back from a profile or a message returns to the same place with
+    // every "Load more" page; a fresh visit starts at the top.
+    restoreMode: 'back',
   })
 
   return (

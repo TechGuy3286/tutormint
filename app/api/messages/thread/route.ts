@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { findOrCreateThread } from '@/lib/messaging'
+import { findOrCreateThread, isUnverifiedTutor } from '@/lib/messaging'
 import { parseBody, z, uuid } from '@/lib/validate'
+import { recordParentInterest } from '@/lib/parentInterest'
 
 // Open (or reopen) a conversation with someone.
 //
@@ -35,6 +36,21 @@ export async function POST(request: Request) {
     otherId: body.otherId,
     jobId: body.jobId ?? null,
   })
+
+  // PR-08: a parent starting (or trying to start) a conversation with a tutor
+  // is a parent-interest event — also when it could not reach an unpaid tutor.
+  // recordParentInterest keeps parent → tutor only and never throws. A blocked
+  // pair is not recorded (the tutor blocked them).
+  if (result.ok ? result.created : result.error !== 'You cannot message this member.') {
+    const unpaid = await isUnverifiedTutor(body.otherId).catch(() => false)
+    await recordParentInterest({
+      parentId: user.id,
+      tutorId: body.otherId,
+      kind: 'message',
+      blocked: result.ok ? (unpaid ? 'tutor_unpaid' : null) : unpaid ? 'tutor_unpaid' : result.status === 403 && result.gate ? 'parent_gate' : 'other',
+      sourceRef: result.ok ? `thread:${result.threadId}` : null,
+    })
+  }
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error, upgrade: result.upgrade, gate: result.gate }, { status: result.status })

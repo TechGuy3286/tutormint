@@ -274,7 +274,10 @@
     "test:pipelinecards": "tsx scripts/test-pipeline-cards-mobile.tsx",
     "test:seocrawl": "tsx --test scripts/test-seo-crawl.ts",
     "test:citygaps:live": "tsx --env-file=.env.local scripts/test-city-gaps-live.ts",
-    "test:nov16": "tsx --test scripts/test-nov16-drafter-queue.ts"
+    "test:nov16": "tsx --test scripts/test-nov16-drafter-queue.ts",
+    "test:parentinterest": "tsx --test scripts/test-parent-interest.ts",
+    "test:browserestore": "tsx --test scripts/test-browse-restore.ts",
+    "report:interest": "tsx --conditions=react-server --env-file=.env.local scripts/report-parent-interest.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

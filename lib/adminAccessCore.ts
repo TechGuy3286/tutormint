@@ -531,6 +531,9 @@ export const SCREEN_ACCESS = withSupervisor({
   // People → WhatsApp updates (PR-06, owner 18 Nov 2026): the Owner, the
   // Project Manager (Partner — may send) and Backend Support. Nobody else.
   waUpdates: ['partner', 'backend_support'] as AdminRole[],
+  // "Held activity" (PR-08, owner 18 Nov 2026): parent accounts the burst check
+  // held from teasers; Release / Keep held. The Owner only.
+  heldActivity: [] as AdminRole[],
   paidWelcome: ['admin', 'operations', 'tuitions_staff', 'partner', 'backend_support'] as AdminRole[],
   // 'Looks fine' on a blank-photo flag, and its Undo (owner, 10 Nov 2026):
   // the roles that see the flag on People cards and Review.

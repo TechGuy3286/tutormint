@@ -30,12 +30,15 @@ import { flowFactsByTutor } from '@/lib/onboardingStop'
 import { tutorRequired, tutorItemHref } from '@/lib/profileRequired'
 import { PARENT_VIEWER_ROLES } from '@/lib/profileViews'
 import { getViewAsContext } from '@/lib/viewAsContext'
+import { loadInterestForTutors, markAlerted } from '@/lib/parentInterest'
+import { backfillPicks, groupByParent, interestTeaser, unpaidApplyLine } from '@/lib/parentInterestCore'
 import {
   APPLICATION_FORWARDED_KIND,
   APPLICATION_OPENED_KIND,
   applicationForwardedText,
   forwardAlertGoes,
   DAY_MS,
+  isPaid,
   TEASER_KINDS,
   applicationOpenedText,
   jobMatches,
@@ -69,21 +72,21 @@ export type TeaserTutor = {
   whatsappUpdates: boolean
 }
 
-/** Every paid tutor (or just `ids`) with the facts the teasers need. */
-export async function loadTeaserTutors(admin: Admin, nowMs: number, ids?: string[]): Promise<TeaserTutor[]> {
-  const tps: R[] = ids
-    ? await pageAllIn(ids, (part, f, t) =>
-        admin.from('tutor_profiles').select('id, verified_fee_paid_at, city, job_types, gender, whatsapp_updates').in('id', part).order('id').range(f, t),
-      )
-    : await pageAll<R>((f, t) =>
-        admin
-          .from('tutor_profiles')
-          .select('id, verified_fee_paid_at, city, job_types, gender, whatsapp_updates')
-          .not('verified_fee_paid_at', 'is', null)
-          .order('id')
-          .range(f, t) as never,
-      )
-  const tutorIds = tps.filter((t) => !!t.verified_fee_paid_at).map((t) => t.id as string)
+/** Every paid tutor (or just `ids`) with the facts the teasers need. PR-08:
+ *  `includeUnpaid` adds the unpaid tutors too (their block is then worked out
+ *  with allowUnpaid — parent interest, views and new tuitions). */
+export async function loadTeaserTutors(admin: Admin, nowMs: number, ids?: string[], opts: { includeUnpaid?: boolean } = {}): Promise<TeaserTutor[]> {
+  const cols = 'id, verified_fee_paid_at, city, job_types, gender, whatsapp_updates, imported, claimed_at'
+  const unpaidToo = !!opts.includeUnpaid
+  const tps: R[] = (
+    ids
+      ? await pageAllIn(ids, (part, f, t) => admin.from('tutor_profiles').select(cols).in('id', part).order('id').range(f, t))
+      : await pageAll<R>((f, t) => {
+          const q = admin.from('tutor_profiles').select(cols)
+          return (unpaidToo ? q : q.not('verified_fee_paid_at', 'is', null)).order('id').range(f, t) as never
+        })
+  ).filter((t) => unpaidToo || !!t.verified_fee_paid_at)
+  const tutorIds = tps.map((t) => t.id as string)
   if (tutorIds.length === 0) return []
 
   const [ps, erasures, dismissals, areas, subjects] = await Promise.all([
@@ -114,13 +117,12 @@ export async function loadTeaserTutors(admin: Admin, nowMs: number, ids?: string
   for (const s of subjects) subs.set(s.tutor_id as string, [...(subs.get(s.tutor_id as string) ?? []), Number(s.master_id)])
 
   return tps
-    .filter((t) => !!t.verified_fee_paid_at)
     .map((t) => {
       const id = t.id as string
       const p = pBy.get(id)
       const facts: TeaserEligibilityFacts = {
         role: (p?.role as string | null) ?? null,
-        feePaidAt: t.verified_fee_paid_at as string,
+        feePaidAt: (t.verified_fee_paid_at as string | null) ?? null,
         isSeed: p?.is_seed as boolean | null,
         isTeam: p?.is_team_account as boolean | null,
         isTestName: p?.is_test_name as boolean | null,
@@ -133,6 +135,7 @@ export async function loadTeaserTutors(admin: Admin, nowMs: number, ids?: string
         eraseRequested: erased.get(id) === 'scheduled',
         erased: erased.get(id) === 'done',
         notInterested: ni.has(id),
+        unclaimedImport: !!t.imported && !t.claimed_at,
       }
       const main = ((t.city as string | null) ?? '').trim()
       const cities: string[] = main ? [main] : []
@@ -140,7 +143,7 @@ export async function loadTeaserTutors(admin: Admin, nowMs: number, ids?: string
       return {
         id,
         facts,
-        block: p ? teaserBlock(facts, nowMs) : 'not_tutor',
+        block: p ? teaserBlock(facts, nowMs, { allowUnpaid: unpaidToo }) : 'not_tutor',
         match: {
           masterIds: [...new Set(subs.get(id) ?? [])],
           cities,
@@ -212,11 +215,11 @@ export type ViewsByTutor = Map<string, { parents: ParentViewer[]; parentRows: nu
  * tutor themselves. `parentRows` is the dashboard tile's number
  * (weeklyParentViewCount: parent rows, not distinct people).
  */
-export async function loadWeekViews(admin: Admin, tutorIds: Set<string>, sinceIso: string): Promise<ViewsByTutor> {
+export async function loadWeekViews(admin: Admin, tutorIds: Set<string> | null, sinceIso: string): Promise<ViewsByTutor> {
   const rows = await pageAll<R>((f, t) =>
     admin.from('profile_views').select('id, tutor_id, viewer_id, viewer_role, created_at').gte('created_at', sinceIso).order('id').range(f, t) as never,
   )
-  const mine = rows.filter((r) => tutorIds.has(r.tutor_id as string) && r.viewer_id !== r.tutor_id)
+  const mine = rows.filter((r) => (!tutorIds || tutorIds.has(r.tutor_id as string)) && r.viewer_id !== r.tutor_id)
   const parentIds = [...new Set(mine.filter((r) => (PARENT_VIEWER_ROLES as readonly string[]).includes(r.viewer_role as string) && r.viewer_id).map((r) => r.viewer_id as string))]
   const viewers = await pageAllIn(parentIds, (part, f, t) =>
     admin
@@ -280,6 +283,10 @@ export async function weeklyNumbersFor(admin: Admin, tutors: TeaserTutor[], nowM
 
 export type TeaserRunResult = {
   eligible: number
+  /** PR-08: of them, unpaid tutors. */
+  unpaidEligible: number
+  /** PR-08: parent-interest alerts made only of backfilled events. */
+  interestFromBackfill: number
   sent: Record<TeaserKind, number>
   skippedCap: number
   errors: string[]
@@ -291,41 +298,67 @@ export type TeaserRunResult = {
  */
 export async function runTutorTeasers(opts: { nowMs?: number; dryRun?: boolean } = {}): Promise<TeaserRunResult> {
   const nowMs = opts.nowMs ?? Date.now()
-  const result: TeaserRunResult = { eligible: 0, sent: { teaser_profile_views: 0, teaser_views_tip: 0, teaser_new_tuitions: 0, teaser_weekly_summary: 0 }, skippedCap: 0, errors: [] }
+  const result: TeaserRunResult = {
+    eligible: 0,
+    unpaidEligible: 0,
+    interestFromBackfill: 0,
+    sent: { teaser_profile_views: 0, teaser_views_tip: 0, teaser_new_tuitions: 0, teaser_weekly_summary: 0, teaser_parent_interest: 0 },
+    skippedCap: 0,
+    errors: [],
+  }
   const admin = createAdminClient()
   if (!admin) return { ...result, errors: ['service-role client unavailable'] }
 
   let tutors: TeaserTutor[]
   try {
-    tutors = (await loadTeaserTutors(admin, nowMs)).filter((t) => t.block === null)
+    tutors = (await loadTeaserTutors(admin, nowMs, undefined, { includeUnpaid: true })).filter((t) => t.block === null)
   } catch (e) {
     return { ...result, errors: [`tutors: ${(e as Error).message}`] }
   }
   result.eligible = tutors.length
+  result.unpaidEligible = tutors.filter((t) => !isPaid(t.facts)).length
   if (tutors.length === 0) return result
   const ids = tutors.map((t) => t.id)
   const day = pkWeekday(nowMs)
 
   try {
     const since14 = new Date(nowMs - 15 * DAY_MS).toISOString()
-    const [log, dayJobs, views, weekly, flow] = await Promise.all([
+    const paidTutors = tutors.filter((t) => isPaid(t.facts))
+    const [log, dayJobs, views, weekly, interest] = await Promise.all([
       pageAllIn(ids, (part, f, t) =>
         admin.from('notifications').select('id, user_id, kind, created_at').in('user_id', part).in('kind', [...TEASER_KINDS]).gte('created_at', since14).order('id').range(f, t),
       ),
       loadRecentJobs(admin, new Date(nowMs - DAY_MS).toISOString()),
       day === VIEWS_TEASER_WEEKDAY ? loadWeekViews(admin, new Set(ids), new Date(nowMs - 7 * DAY_MS).toISOString()) : Promise.resolve(null),
-      day === SUMMARY_WEEKDAY ? weeklyNumbersFor(admin, tutors, nowMs) : Promise.resolve(null),
-      day === VIEWS_TEASER_WEEKDAY ? flowFactsByTutor(admin, ids) : Promise.resolve(null),
+      day === SUMMARY_WEEKDAY ? weeklyNumbersFor(admin, paidTutors, nowMs) : Promise.resolve(null),
+      loadInterestForTutors(admin, nowMs),
     ])
+    const eligibleIds = new Set(ids)
+    const byTutor = new Map([...interest.byTutor].filter(([id]) => eligibleIds.has(id)))
+    // The backfill is spread over several days: a tutor whose only events are
+    // backfilled waits for one of today's places.
+    const picks = backfillPicks(byTutor)
+    const matchesBy = new Map(tutors.map((t) => [t.id, matchingJobs(dayJobs, t.match)]))
+    // Profile facts: everyone on Thursday (the 0-views tip), and unpaid tutors
+    // with new tuitions (what stands before Apply).
+    const flowIds = day === VIEWS_TEASER_WEEKDAY ? ids : tutors.filter((t) => !isPaid(t.facts) && (matchesBy.get(t.id)?.length ?? 0) > 0).map((t) => t.id)
+    const flow = flowIds.length ? await flowFactsByTutor(admin, flowIds) : null
     const logBy = new Map<string, SentLog[]>()
     for (const l of log) logBy.set(l.user_id as string, [...(logBy.get(l.user_id as string) ?? []), { kind: l.kind as string, created_at: l.created_at as string }])
 
     for (const t of tutors) {
       try {
-        const matches = matchingJobs(dayJobs, t.match)
+        const matches = matchesBy.get(t.id) ?? []
         const facts = flow?.get(t.id)
         const missingItem = facts ? (tutorRequired(facts).missing.find((m) => m.key !== 'verify') ?? null) : null
+        const paid = isPaid(t.facts)
+        const evs = byTutor.get(t.id) ?? []
+        const onlyBackfill = evs.length > 0 && evs.every((e) => e.source === 'backfill')
+        const interestText = evs.length > 0 && (!onlyBackfill || picks.has(t.id)) ? interestTeaser(groupByParent(evs, interest.parents), paid) : null
         const plan = planForTutor({
+          paid,
+          unpaidApply: paid ? null : unpaidApplyLine(!!facts && !missingItem),
+          interest: interestText ? { text: interestText, meta: { parents: new Set(evs.map((e) => e.parentId)).size, events: evs.length } } : null,
           nowMs,
           log: logBy.get(t.id) ?? [],
           views: views?.get(t.id),
@@ -337,6 +370,10 @@ export async function runTutorTeasers(opts: { nowMs?: number; dryRun?: boolean }
         for (const x of plan) {
           if (!opts.dryRun) await notify({ userId: t.id, kind: x.kind, title: x.text.title, body: x.text.body, href: x.text.href, meta: x.meta ?? null })
           result.sent[x.kind]++
+          if (x.kind === 'teaser_parent_interest') {
+            if (onlyBackfill) result.interestFromBackfill++
+            if (!opts.dryRun) await markAlerted(admin, evs.map((e) => e.id), new Date().toISOString())
+          }
         }
       } catch (e) {
         result.errors.push(`teaser: ${String(e).slice(0, 120)}`)

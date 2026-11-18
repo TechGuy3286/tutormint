@@ -24,12 +24,17 @@ export type WaRowView = {
   weekCount: number
   kinds: string[]
   sent: { id: string; by: string | null; time: string; mine: boolean } | null
+  /** PR-08: an unpaid tutor's row and its priority. */
+  unpaid?: boolean
+  priority?: 1 | 2 | 3 | null
 }
 
 const KIND_LABEL: Record<string, string> = {
   application_opened: 'Application opened',
   application_forwarded: 'Sent to the parent',
   weekly_summary: 'Weekly summary',
+  parent_interest: 'Parents interested',
+  profile_views: 'Profile views',
 }
 
 const BTN = 'inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-bold'
@@ -87,6 +92,9 @@ export default function WaUpdateRow({ row, cap }: { row: WaRowView; cap: number 
           </p>
         </div>
         <div className="flex flex-wrap gap-1">
+          {row.unpaid && (
+            <span className="rounded-full bg-tm-tint-red px-2 py-0.5 text-[10px] font-bold text-tm-red">Unpaid{row.priority ? ` · priority ${row.priority}` : ''}</span>
+          )}
           {row.kinds.map((k) => (
             <span key={k} className="rounded-full bg-tm-tint-navy px-2 py-0.5 text-[10px] font-bold text-tm-navy">
               {KIND_LABEL[k] ?? k}

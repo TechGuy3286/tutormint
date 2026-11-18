@@ -20,8 +20,9 @@ const PK_OFFSET_MS = 5 * 3_600_000 // Asia/Karachi is UTC+5 all year (no DST).
 
 // ------------------------------------------------------------------ kinds ---
 
-/** The four in-app teaser kinds that count towards the weekly cap. */
-export const TEASER_KINDS = ['teaser_profile_views', 'teaser_views_tip', 'teaser_new_tuitions', 'teaser_weekly_summary'] as const
+/** The in-app teaser kinds that count towards the weekly cap (PR-08 added the
+ *  grouped parent-interest alert, at most one a day). */
+export const TEASER_KINDS = ['teaser_profile_views', 'teaser_views_tip', 'teaser_new_tuitions', 'teaser_weekly_summary', 'teaser_parent_interest'] as const
 export type TeaserKind = (typeof TEASER_KINDS)[number]
 /** The instant alert — never counted towards the cap. */
 export const APPLICATION_OPENED_KIND = 'application_opened' as const
@@ -87,6 +88,8 @@ export type TeaserEligibilityFacts = {
   erased?: boolean
   /** A live "Not interested" mark (follow_up_dismissals, not undone). */
   notInterested?: boolean
+  /** An imported profile nobody has claimed (no one reads its bell). */
+  unclaimedImport?: boolean
 }
 
 export type NotEligibleReason =
@@ -100,9 +103,12 @@ export type NotEligibleReason =
   | 'paused'
   | 'staff'
   | 'test'
+  | 'unclaimed'
 
-/** Why this tutor gets no teaser, or null when they may get one. */
-export function teaserBlock(f: TeaserEligibilityFacts, nowMs: number): NotEligibleReason | null {
+/** Why this tutor gets no teaser, or null when they may get one. PR-08: with
+ *  `allowUnpaid` an unpaid tutor may get one too (parent interest, views and
+ *  new tuitions) — the 2-day wait applies only after paying. */
+export function teaserBlock(f: TeaserEligibilityFacts, nowMs: number, opts: { allowUnpaid?: boolean } = {}): NotEligibleReason | null {
   if (f.staff || f.role === 'admin') return 'staff'
   if (f.role !== 'tutor') return 'not_tutor'
   if (f.erased || f.eraseRequested) return 'erase_requested'
@@ -111,14 +117,20 @@ export function teaserBlock(f: TeaserEligibilityFacts, nowMs: number): NotEligib
   if (f.suspended) return 'suspended'
   if (f.selfPaused) return 'paused'
   if (f.notInterested) return 'not_interested'
+  if (f.unclaimedImport) return 'unclaimed'
   const paid = f.feePaidAt ? Date.parse(f.feePaidAt) : NaN
-  if (!Number.isFinite(paid)) return 'not_paid'
+  if (!Number.isFinite(paid)) return opts.allowUnpaid ? null : 'not_paid'
   if (nowMs - paid < TEASER_START_DAYS * DAY_MS) return 'too_soon'
   return null
 }
 
-export function teaserEligible(f: TeaserEligibilityFacts, nowMs: number): boolean {
-  return teaserBlock(f, nowMs) === null
+export function teaserEligible(f: TeaserEligibilityFacts, nowMs: number, opts: { allowUnpaid?: boolean } = {}): boolean {
+  return teaserBlock(f, nowMs, opts) === null
+}
+
+/** Has this tutor paid the Verification Fee? */
+export function isPaid(f: Pick<TeaserEligibilityFacts, 'feePaidAt'>): boolean {
+  return !!f.feePaidAt && Number.isFinite(Date.parse(f.feePaidAt))
 }
 
 // ------------------------------------------------------------- weekly cap ---
@@ -298,11 +310,15 @@ export function tuitionsListHref(city: string | null, singleMasterId: number | n
   return q ? `/browse/tuitions?${q}` : '/tutor/dashboard/jobs'
 }
 
-/** "📚 3 new tuitions in your areas in the last 24 hours". Null when 0. */
-export function newTuitionsTeaser(count: number, href: string): TeaserText | null {
+/** "📚 3 new tuitions in your areas in the last 24 hours". Null when 0. An
+ *  unpaid tutor (PR-08) gets the step that stands before Apply as the body
+ *  ("Finish your profile to apply." / "Pay the Verification Fee to apply."). */
+export function newTuitionsTeaser(count: number, href: string, unpaid?: { body: string; href: string } | null): TeaserText | null {
   const n = Math.floor(count)
   if (!(n >= 1)) return null
-  return { title: `📚 ${plural(n, 'new tuition', 'new tuitions')} in your areas in the last 24 hours`, body: 'Open the list and apply to the ones that suit you.', href }
+  const title = `📚 ${plural(n, 'new tuition', 'new tuitions')} in your areas in the last 24 hours`
+  if (unpaid) return { title, body: unpaid.body, href: unpaid.href }
+  return { title, body: 'Open the list and apply to the ones that suit you.', href }
 }
 
 // ------------------------------------------------------ c) application opened ---
@@ -374,6 +390,10 @@ export type WaItem =
   | { kind: 'application_opened'; applicationId: string; at: string; jobTitle: string | null; area: string | null; city: string | null }
   | { kind: 'application_forwarded'; applicationId: string; at: string; jobTitle: string | null; area: string | null; city: string | null }
   | { kind: 'weekly_summary'; numbers: WeeklyNumbers }
+  // PR-08, unpaid tutors only: parents who shortlisted or tried to contact
+  // them (counts — no names on WhatsApp), and this week's parent views.
+  | { kind: 'parent_interest'; eventIds: string[]; shortlists: number; contacts: number; at: string }
+  | { kind: 'profile_views'; views: number }
 
 export type WaSend = {
   id: string
@@ -383,6 +403,8 @@ export type WaSend = {
   applicationIds: string[]
   /** Forwards this send carried (PR-07), kept apart from the opened ones. */
   forwardedIds?: string[]
+  /** Parent-interest events this send carried (PR-08). */
+  interestEventIds?: string[]
   staffId: string | null
   staffName: string | null
 }
@@ -411,15 +433,30 @@ export function pendingWaItems(items: WaItem[], sends: WaSend[], nowMs: number):
   const live = sends.filter((s) => !s.undoneAt)
   const sentApps = new Set(live.flatMap((s) => s.applicationIds))
   const sentForwards = new Set(live.flatMap((s) => s.forwardedIds ?? []))
+  const sentInterest = new Set(live.flatMap((s) => s.interestEventIds ?? []))
   const week = sendsThisWeek(sends, nowMs)
   const summarySent = week.some((s) => s.kinds.includes('weekly_summary'))
+  const viewsSent = week.some((s) => s.kinds.includes('profile_views'))
   const from = openedWindowStartMs(nowMs)
-  return items.filter((i) => {
-    if (i.kind === 'application_opened') return !sentApps.has(i.applicationId) && Date.parse(i.at) >= from
-    // PR-07: a forward to the parent, today or yesterday, not already sent.
-    if (i.kind === 'application_forwarded') return !sentForwards.has(i.applicationId) && Date.parse(i.at) >= from
-    return pkWeekday(nowMs) === SUMMARY_WEEKDAY && !summarySent && !allZero(i.numbers)
-  })
+  const out: WaItem[] = []
+  for (const i of items) {
+    if (i.kind === 'application_opened') {
+      if (!sentApps.has(i.applicationId) && Date.parse(i.at) >= from) out.push(i)
+    } else if (i.kind === 'application_forwarded') {
+      // PR-07: a forward to the parent, today or yesterday, not already sent.
+      if (!sentForwards.has(i.applicationId) && Date.parse(i.at) >= from) out.push(i)
+    } else if (i.kind === 'parent_interest') {
+      // PR-08: only the events no live send carried yet; none left → no item.
+      const left = i.eventIds.filter((id) => !sentInterest.has(id))
+      if (left.length > 0) out.push(left.length === i.eventIds.length ? i : { ...i, eventIds: left })
+    } else if (i.kind === 'profile_views') {
+      // PR-08: this week's views, once a week.
+      if (!viewsSent && i.views > 0) out.push(i)
+    } else if (pkWeekday(nowMs) === SUMMARY_WEEKDAY && !summarySent && !allZero(i.numbers)) {
+      out.push(i)
+    }
+  }
+  return out
 }
 
 export type WaRowState = 'to_send' | 'sent_today' | 'hidden'
@@ -444,11 +481,13 @@ export function waRowState(p: { eligible: boolean; optedIn: boolean; hasNumber: 
  * superlative; greeting by first name, at most three lines before the one link
  * on its own line, then the support line (the template wording rules).
  */
-export function waMessage(p: { firstName: string; items: WaItem[]; link: string; supportWhatsapp: string }): string {
+export function waMessage(p: { firstName: string; items: WaItem[]; link: string; supportWhatsapp: string; unpaid?: boolean }): string {
   const name = p.firstName.trim()
   const opened = p.items.filter((i): i is Extract<WaItem, { kind: 'application_opened' }> => i.kind === 'application_opened')
   const forwarded = p.items.filter((i): i is Extract<WaItem, { kind: 'application_forwarded' }> => i.kind === 'application_forwarded')
   const summary = p.items.find((i): i is Extract<WaItem, { kind: 'weekly_summary' }> => i.kind === 'weekly_summary')
+  const interest = p.items.find((i): i is Extract<WaItem, { kind: 'parent_interest' }> => i.kind === 'parent_interest')
+  const views = p.items.find((i): i is Extract<WaItem, { kind: 'profile_views' }> => i.kind === 'profile_views')
   const sentences: string[] = []
   // A later sentence starts with a capital; the first follows the greeting.
   const lead = (s: string) => (sentences.length ? s.charAt(0).toUpperCase() + s.slice(1) : s)
@@ -462,6 +501,15 @@ export function waMessage(p: { firstName: string; items: WaItem[]; link: string;
   else if (forwarded.length > 1) sentences.push(lead(`${forwarded.length} of your applications were sent to the parents.`))
   if (opened.length === 1) sentences.push(lead(`a parent opened your application for ${named(opened[0])}.`))
   else if (opened.length > 1) sentences.push(lead(`parents opened ${opened.length} of your applications.`))
+  // PR-08 (unpaid tutors): real counts only, no names on WhatsApp.
+  if (interest) {
+    const contactWords = p.unpaid ? 'tried to contact you' : 'contacted you'
+    if (interest.contacts === 0) sentences.push(lead(`${plural(interest.shortlists, 'parent', 'parents')} shortlisted your profile.`))
+    else if (interest.shortlists === 0) sentences.push(lead(`${plural(interest.contacts, 'parent', 'parents')} ${contactWords}.`))
+    else sentences.push(lead(`${plural(interest.shortlists, 'parent', 'parents')} shortlisted your profile and ${plural(interest.contacts, 'parent', 'parents')} ${contactWords}.`))
+  }
+  if (views && views.views > 0) sentences.push(lead(`parents viewed your profile ${views.views === 1 ? 'once' : `${views.views} times`} this week.`))
+  if (p.unpaid && (interest || views)) sentences.push('Get verified so parents can contact you.')
   if (summary) {
     const n = summary.numbers
     const week = `${plural(n.views, 'profile view', 'profile views')}, ${plural(n.applications, 'application sent', 'applications sent')}, ${plural(n.tuitions, 'new tuition', 'new tuitions')} in your areas.`
@@ -505,8 +553,17 @@ export function planForTutor(p: {
   newTuitions: { count: number; href: string }
   weekly: WeeklyNumbers | undefined
   missing: { label: string; href: string } | null
+  /** PR-08: false for an unpaid tutor (no weekly summary; the new-tuitions
+   *  teaser says what stands before Apply). Default true. */
+  paid?: boolean
+  /** PR-08: the unpaid tutor's step before Apply. */
+  unpaidApply?: { body: string; href: string } | null
+  /** PR-08: today's grouped parent-interest alert, already built from real
+   *  events (null when none). At most one a day; counts towards the cap. */
+  interest?: { text: TeaserText; meta?: Record<string, unknown> } | null
 }): { kind: TeaserKind; text: TeaserText; meta?: Record<string, unknown> }[] {
   const { nowMs } = p
+  const paid = p.paid !== false
   const weekStart = pkWeekStartMs(nowMs)
   const dayStart = pkDayStartMs(nowMs)
   const teasers = p.log.filter((l) => (TEASER_KINDS as readonly string[]).includes(l.kind))
@@ -518,7 +575,7 @@ export function planForTutor(p: {
   const out: { kind: TeaserKind; text: TeaserText; meta?: Record<string, unknown> }[] = []
   const day = pkWeekday(nowMs)
 
-  if (day === SUMMARY_WEEKDAY && p.weekly && !sentWeekKinds.has('teaser_weekly_summary') && weeklyTeaserAllowed(sentThisWeek)) {
+  if (paid && day === SUMMARY_WEEKDAY && p.weekly && !sentWeekKinds.has('teaser_weekly_summary') && weeklyTeaserAllowed(sentThisWeek)) {
     const text = weeklySummaryTeaser(p.weekly)
     if (text) {
       out.push({ kind: 'teaser_weekly_summary', text, meta: { ...p.weekly } })
@@ -535,8 +592,13 @@ export function planForTutor(p: {
       sentThisWeek++
     }
   }
+  // Parent interest before new tuitions: a real parent is the stronger news.
+  if (p.interest && !sentToday.has('teaser_parent_interest') && dailyTeaserAllowed(sentThisWeek, nowMs)) {
+    out.push({ kind: 'teaser_parent_interest', text: p.interest.text, meta: p.interest.meta })
+    sentThisWeek++
+  }
   if (!sentToday.has('teaser_new_tuitions') && dailyTeaserAllowed(sentThisWeek, nowMs)) {
-    const text = newTuitionsTeaser(p.newTuitions.count, p.newTuitions.href)
+    const text = newTuitionsTeaser(p.newTuitions.count, p.newTuitions.href, paid ? null : (p.unpaidApply ?? null))
     if (text) out.push({ kind: 'teaser_new_tuitions', text, meta: { count: p.newTuitions.count } })
   }
   return out

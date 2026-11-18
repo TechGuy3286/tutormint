@@ -12,6 +12,7 @@ import { notify } from '@/lib/notifications'
 import { isUnverifiedTutor } from '@/lib/messaging'
 import { tutorAtIncomingCap, refuseIncomingRequest, recordIncoming } from '@/lib/incomingRequests'
 import { parseBody, z, uuid } from '@/lib/validate'
+import { recordParentInterest } from '@/lib/parentInterest'
 
 // A parent asks a tutor for a demo lesson.
 //
@@ -88,6 +89,8 @@ export async function POST(request: Request) {
   // 2026 — supersedes the 5 Oct CNIC + address rule). The free parent_verified
   // plan is synthesised from phone_verified_at, which is what `ent.plan` says.
   if (!ent.plan) {
+    // PR-08: the attempt is still real parent interest (never blocks the reply).
+    await recordParentInterest({ parentId: user.id, tutorId, kind: 'demo', blocked: 'parent_gate' })
     const gate = await buildGate('parent_verify', ent)
     return NextResponse.json({ error: PARENT_MOBILE_GATE_MESSAGE, gate: gate ?? undefined }, { status: 403 })
   }
@@ -114,6 +117,7 @@ export async function POST(request: Request) {
   // parent is pointed at similar tutors, and the tutor is nudged to upgrade.
   // Fails open — an unreadable counter never blocks a request.
   if (await tutorAtIncomingCap(tutorId)) {
+    await recordParentInterest({ parentId: user.id, tutorId, kind: 'demo', blocked: 'cap' })
     const refused = await refuseIncomingRequest(tutorId)
     return NextResponse.json(refused, { status: 403 })
   }
@@ -147,6 +151,10 @@ export async function POST(request: Request) {
       : 'A parent has asked you for a demo lesson.',
     href: locked ? '/tutor/complete-profile?step=verify' : '/tutor/dashboard/demos',
   })
+
+  // PR-08: a parent-interest event (a demo an unpaid tutor cannot see yet is
+  // marked blocked: tutor_unpaid). The ref stops the backfill counting it twice.
+  await recordParentInterest({ parentId: user.id, tutorId, kind: 'demo', blocked: locked ? 'tutor_unpaid' : null, sourceRef: `demo:${created.id}` })
 
   await logActivity({
     userId: user.id,

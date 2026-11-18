@@ -10,6 +10,7 @@ import { runBankReader } from '@/lib/bankEmailReader'
 import { endExpiredViews } from '@/lib/viewAs'
 import { refreshStatementMatches } from '@/lib/bankStatement'
 import { runAddressBackfill } from '@/lib/cnicAddress'
+import { runInterestBackfill } from '@/lib/parentInterest'
 
 // Backup reconcile (PR65 §5). PayPro's "Mark as Paid" callback can be missed, so
 // this re-checks pending PayPro orders via the ONE confirm path (PR104:
@@ -70,7 +71,11 @@ export async function GET(request: Request) {
   // address are read into unconfirmed suggestions; each image once, so it ends
   // by itself. Counts only — never an address.
   const addressBackfill = await runAddressBackfill({ limit: 12, deadlineMs: t0 + 30_000 }).catch(() => null)
-  if (!pproConfigured()) return NextResponse.json({ ok: true, skipped: 'paypro_not_configured', blog, indexing, alerts, bankReader, viewAsEnded, statement, addressBackfill })
+  // Parent-interest backfill (PR-08): once — the last 30 days of shortlists,
+  // parent-started conversations and demo requests become events; marked done
+  // in app_settings so later runs return at once. Counts only.
+  const interestBackfill = await runInterestBackfill().then((r) => (r.ran ? r : null)).catch(() => null)
+  if (!pproConfigured()) return NextResponse.json({ ok: true, skipped: 'paypro_not_configured', blog, indexing, alerts, bankReader, viewAsEnded, statement, addressBackfill, interestBackfill })
 
   const admin = createAdminClient()
   if (!admin) return NextResponse.json({ ok: true, skipped: 'no_admin_client' })

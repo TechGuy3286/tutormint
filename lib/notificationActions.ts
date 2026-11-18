@@ -77,6 +77,8 @@ export function ctaFor(row: { kind: string; href: string | null }): Notification
       return row.href ? { kind: 'link', label: 'See the tuitions', href: row.href } : null
     case 'teaser_profile_views':
       return { kind: 'link', label: 'See your views', href: row.href ?? '/tutor/dashboard/views' }
+    case 'teaser_parent_interest':
+      return row.href ? { kind: 'link', label: row.href.includes('step=verify') ? 'Get verified' : 'Open', href: row.href } : null
     case 'teaser_views_tip':
       return row.href ? { kind: 'link', label: 'Improve my profile', href: row.href } : null
     case 'application_opened':

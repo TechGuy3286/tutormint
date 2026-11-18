@@ -113,6 +113,8 @@ const NO_POLICY_OK: Record<string, string> = {
   whatsapp_update_sends: 'staff WhatsApp update sends with Undo stamps (migration 235, PR-06) — service role only; read on the server behind SCREEN_ACCESS.waUpdates',
   address_suggestions: 'home address read from the CNIC back, a suggestion until the member confirms (migration 236, PR-07) — service role only; member reads own via /api/profile/address-suggestion, staff masked with a logged Show',
   application_forward_alerts: 'first forward of an application to the parent, once-only alert (migration 236, PR-07) — service role only',
+  parent_interest_events: 'real parent shortlists and message/demo attempts on a tutor, the source of the parent-interest teasers (migration 237, PR-08) — service role only; no name, phone or email',
+  interest_holds: 'parent accounts held from teasers by the burst check, Owner releases or keeps (migration 237, PR-08) — service role only',
   bank_statement_imports: 'Faysal statement uploads (migration 233): counts and totals only — service role only; the Owner reads them through a server route',
   bank_statement_rows: 'Faysal statement transactions (migration 233), Owner only — service role reads and writes; shown masked to the Owner through a server route',
   admin_summary: 'admin badges and Overview figures (migration 218) — service role only; pages read it on the server behind each screen role check',

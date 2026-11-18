@@ -78,6 +78,8 @@ test('every view-only area refuses a Partner write; the Owner is unaffected', ()
     'staffDocDecisions',
     // Suspend, ban, lift a ban and change a mobile: the Owner only (owner, 15 Nov 2026).
     'memberSuspendBan', 'memberMobileChange',
+    // Held activity, Release / Keep held: the Owner only (PR-08).
+    'heldActivity',
     // Team overview (owner, 24 Oct 2026): a read-only card.
     'teamOverview',
     // Merge duplicates / Not a duplicate / View as (owner, 26 Oct 2026): the site Owner only.
@@ -148,6 +150,8 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed' | 'ret
   whatsapp: 'edit',
   // People → WhatsApp updates Send / Undo (PR-06).
   'whatsapp-updates': 'edit',
+  // Held activity Release / Keep held (PR-08): the site Owner only.
+  'held-activity': 'owner',
   // City owners (owner, 22 Oct 2026): the site Owner only.
   'city-owners': 'owner',
   // Withdraw a contact (owner, 27 Oct 2026): the site Owner only.
