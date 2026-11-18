@@ -159,6 +159,11 @@ export const CARDS: Record<string, { title: Bilingual; hint?: Bilingual }> = {
     title: { en: 'Pause my account', ur: 'اپنا اکاؤنٹ روکیں' },
     hint: { en: 'Hide your profile for a while.', ur: 'کچھ وقت کے لیے اپنی پروفائل چھپائیں۔' },
   },
+  // WhatsApp updates (PR-06, owner 18 Nov 2026). New text is English only.
+  whatsappUpdates: {
+    title: { en: 'WhatsApp updates', ur: '' },
+    hint: { en: 'Short updates from our team on WhatsApp.', ur: '' },
+  },
   // Delete my account (owner, 27 Oct 2026). New text is English only.
   delete: {
     title: { en: 'Delete my account', ur: '' },

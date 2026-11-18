@@ -61,6 +61,8 @@ const EDITORS: Record<string, RegExp> = {
   monthlyFee: /<SaveBar onSave=\{saveFee\}/,
   details: /<SaveBar onSave=\{saveDetails\}/,
   password: /<ChangePasswordCard \/>/,
+  // "Send me updates on WhatsApp" (PR-06, owner 18 Nov 2026): the switch saves itself.
+  whatsappUpdates: /<WhatsAppUpdatesCard \/>/,
   pause: /<PauseAccountCard \/>/,
   delete: /<DeleteAccountCard \/>/,
 }

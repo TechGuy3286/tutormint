@@ -42,6 +42,8 @@ const EDIT: Key[] = [
   'statusImage', 'memberContactReveal',
   // Send welcome on a paid tutor's People card (owner, 9 Nov 2026).
   'paidWelcome',
+  // People → WhatsApp updates (PR-06, owner 18 Nov 2026): the Project Manager sends.
+  'waUpdates',
   // Parent consent for listings (owner, 27 Oct 2026).
   'tuitionConsent',
   // Refresh the pre-calculated admin summary (owner, 1 Nov 2026): changes no data,
@@ -144,6 +146,8 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed' | 'ret
   'applications/tutor-update': 'edit',
   // POST since 27 Oct 2026: a parent's WhatsApp is a recorded follow-up.
   whatsapp: 'edit',
+  // People → WhatsApp updates Send / Undo (PR-06).
+  'whatsapp-updates': 'edit',
   // City owners (owner, 22 Oct 2026): the site Owner only.
   'city-owners': 'owner',
   // Withdraw a contact (owner, 27 Oct 2026): the site Owner only.

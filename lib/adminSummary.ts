@@ -40,6 +40,7 @@ import { loadParentFollowUps } from '@/lib/parentFollowUps'
 import { fuBadgeCount } from '@/lib/tutorFollowUpTabsCore'
 import { newApplicationsItems, overdueApplicationsItems } from '@/lib/applicationTracking'
 import { loadPaidTutors } from '@/lib/paidTutors'
+import { loadWaQueue } from '@/lib/waUpdates'
 import { receiptsWaitingCount } from '@/lib/payments/receipt'
 import { loadTeamOverview } from '@/lib/teamOverview'
 import { loadSignupFunnel } from '@/lib/siteVisits'
@@ -327,7 +328,7 @@ async function rebuildOnce(opts: { force?: boolean }): Promise<{ ran: boolean; m
     filter: l.filter,
   })
 
-  const [ov7, ov30, sections, dir, docs, pipeline, parentFu, apps, appsNew, paid, reports, receipts, paidSignups] = await Promise.all([
+  const [ov7, ov30, sections, dir, docs, pipeline, parentFu, apps, appsNew, paid, reports, receipts, paidSignups, waToSend] = await Promise.all([
     safe('overview', async () => {
       const out: OverviewPayload = {}
       await Promise.all(keys.map(async (k) => (out[k] = toItem(await loadOverviewList(k, { days: 7 })))))
@@ -358,6 +359,8 @@ async function rebuildOnce(opts: { force?: boolean }): Promise<{ ran: boolean; m
     safe('receipts', () => receiptsWaitingCount()),
     // The paid sign-ups view (owner, 9 Nov 2026): counts only, no amounts.
     safe('paid sign-ups', () => loadPaidSignups()),
+    // People → WhatsApp updates (PR-06): rows still to send today.
+    safe('whatsapp updates', async () => (await loadWaQueue()).toSend),
   ])
 
   // Overview, sections.
@@ -431,6 +434,7 @@ async function rebuildOnce(opts: { force?: boolean }): Promise<{ ran: boolean; m
     appsOverdue: apps ? tally(apps) : (prev?.appsOverdue ?? { total: 0, byOwner: {} }),
     appsNew: appsNew ? tally(appsNew) : (prev?.appsNew ?? { total: 0, byOwner: {} }),
     paidRed: paid ? tally(paid.rows.filter((r) => r.red.length > 0).map((r) => ({ ownerId: r.ownerId ?? null }))) : (prev?.paidRed ?? { total: 0, byOwner: {} }),
+    waUpdates: waToSend ?? prev?.waUpdates ?? 0,
   }
   await safe('write badges', () => put(admin, 'badges', badges, at))
 

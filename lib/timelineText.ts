@@ -277,6 +277,8 @@ export function timelineSentence(event: string, meta: TimelineMeta = {}): string
       return 'Verification Fee record corrected by staff'
     case 'email_preferences_changed':
       return 'Changed their email settings'
+    case 'whatsapp_updates_changed':
+      return meta.on === false ? 'Turned off WhatsApp updates' : 'Turned on WhatsApp updates'
     case 'document_unlocked':
       return 'A document was unlocked for re-upload'
     default:

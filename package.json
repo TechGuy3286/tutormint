@@ -120,6 +120,7 @@
     "test:personalcredits": "tsx --test scripts/test-personal-credits.ts",
     "test:bankstatement": "tsx --test scripts/test-bank-statement.ts",
     "test:pr04": "tsx --test scripts/test-pr04.ts",
+    "test:teasers": "tsx --test scripts/test-tutor-teasers.ts",
     "test:approvebankcredit": "tsx --test scripts/test-approve-bank-credit.ts",
     "test:paymentfilters": "tsx --test scripts/test-payment-filters.ts",
     "test:payproexport": "tsx --test scripts/test-paypro-export.ts",

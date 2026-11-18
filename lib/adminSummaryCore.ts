@@ -111,6 +111,8 @@ export type BadgesPayload = {
   appsNew?: Tally
   /** Stored, no longer a badge (owner, 9 Nov 2026). */
   paidRed: Tally
+  /** People → WhatsApp updates: rows still to send today (PR-06). */
+  waUpdates?: number
 }
 
 /** The number a sidebar badge shows: the real count up to 99, then "99+";
@@ -132,9 +134,11 @@ export function badgeText(n: number): string | null {
 export function navBadgesFrom(
   b: BadgesPayload,
   actor: { id: string; adminRole: string | null | undefined },
-  may: { followUps: boolean; paidTutors?: boolean; parentFollowUps?: boolean; users?: boolean },
+  may: { followUps: boolean; paidTutors?: boolean; parentFollowUps?: boolean; users?: boolean; waUpdates?: boolean },
 ): Record<string, number> {
   return {
+    // Only for the roles that open People → WhatsApp updates (PR-06).
+    ...(may.waUpdates ? { '/admin/whatsapp-updates': b.waUpdates ?? 0 } : {}),
     '/admin/reports': b.reports,
     '/admin/payments': b.receipts,
     '/admin/applications': viewerCount(b.appsNew ?? null, actor),

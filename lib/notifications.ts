@@ -153,6 +153,16 @@ export type NotificationKind =
   | 'account_type_changed'
   // A parent review was approved or not (owner, 27 Oct 2026).
   | 'review_decided'
+  // PR-06 (owner, 18 Nov 2026) — paid-tutor teasers, every one a count of real
+  // rows (lib/tutorTeasersCore): the weekly profile views (blurred parent names,
+  // never a phone/email/address) or the 0-views tip, the daily new matching
+  // tuitions, the Monday weekly summary — at most 3 a week together — and the
+  // instant "A parent opened your application" (not capped). No upsell.
+  | 'teaser_profile_views'
+  | 'teaser_views_tip'
+  | 'teaser_new_tuitions'
+  | 'teaser_weekly_summary'
+  | 'application_opened'
 
 export async function notify(params: {
   userId: string

@@ -66,6 +66,7 @@ export type AdminScreen =
   | 'pausedTuitions'
   | 'applicantForwards'
   | 'paidTutors'
+  | 'waUpdates'
   | 'cityOwners'
   | 'jobsPost'
   | 'tuitionPosting'
@@ -109,6 +110,9 @@ export const NAV_GROUPS: NavGroup[] = [
       // plus the Parents & email not confirmed and Orphaned accounts tabs. Its
       // badge is documents waiting plus follow-ups due now.
       { href: '/admin/users', label: 'People', icon: 'contact', screen: 'people' },
+      // Paid tutors with something worth a WhatsApp message today (PR-06, owner
+      // 18 Nov 2026). Its badge: rows still to send today.
+      { href: '/admin/whatsapp-updates', label: 'WhatsApp updates', icon: 'messageCircle', screen: 'waUpdates' },
       { href: '/admin/team', label: 'Team', icon: 'key', screen: 'team' },
     ],
   },
@@ -252,6 +256,7 @@ export const SECTION_LABELS: Record<string, string> = {
   users: 'People',
   'unpaid-signups': 'Follow-ups',
   'featured-whatsapp': 'Featured WhatsApp',
+  'whatsapp-updates': 'WhatsApp updates',
 }
 
 export type Crumb = { label: string; href?: string }

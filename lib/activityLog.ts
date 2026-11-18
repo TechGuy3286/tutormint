@@ -112,6 +112,8 @@ export type ActivityEvent =
   // T8a — email confirmation and notification preferences.
   | 'email_confirmed'
   | 'email_preferences_changed'
+  // "Send me updates on WhatsApp" turned on or off on Edit Profile (PR-06).
+  | 'whatsapp_updates_changed'
   // A tutor downloaded their CV PDF (the Verified-gated conversion feature).
   | 'cv_downloaded'
   // A tutor chose their CV accent colour (owner, 24 Oct 2026).

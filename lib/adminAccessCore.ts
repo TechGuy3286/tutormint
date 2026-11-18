@@ -81,7 +81,7 @@ export const PARTNER_VIEW_ONLY = 'View only. Your account cannot change this.'
  * tuition board and everything under it, Reports, Flagged messages, the Team
  * inbox, and the Overview work lists (not Unmet searches).
  */
-const PARTNER_EDIT_PREFIXES = ['/admin/tutors', '/admin/parents', '/admin/users', '/admin/follow-ups', '/admin/signups', '/admin/orphans', '/admin/jobs', '/admin/reports', '/admin/flags', '/admin/inbox', '/admin/overview', '/admin/security']
+const PARTNER_EDIT_PREFIXES = ['/admin/tutors', '/admin/parents', '/admin/users', '/admin/follow-ups', '/admin/signups', '/admin/orphans', '/admin/jobs', '/admin/reports', '/admin/flags', '/admin/inbox', '/admin/overview', '/admin/security', '/admin/whatsapp-updates']
 const PARTNER_VIEW_PREFIXES = ['/admin/overview/todo-unmet']
 
 export function partnerEditsPath(pathname: string | null | undefined): boolean {
@@ -528,6 +528,9 @@ export const SCREEN_ACCESS = withSupervisor({
   statusImage: ['admin', 'operations', 'tuitions_staff', 'partner', 'backend_support'] as AdminRole[],
   // "Send welcome" on a paid tutor's People card and the "Paid, not welcomed"
   // to-do row (owner, 9 Nov 2026): the roles that work People → Tutors.
+  // People → WhatsApp updates (PR-06, owner 18 Nov 2026): the Owner, the
+  // Project Manager (Partner — may send) and Backend Support. Nobody else.
+  waUpdates: ['partner', 'backend_support'] as AdminRole[],
   paidWelcome: ['admin', 'operations', 'tuitions_staff', 'partner', 'backend_support'] as AdminRole[],
   // 'Looks fine' on a blank-photo flag, and its Undo (owner, 10 Nov 2026):
   // the roles that see the flag on People cards and Review.

@@ -71,6 +71,17 @@ export function ctaFor(row: { kind: string; href: string | null }): Notification
         href: reactivateHref(row.href),
       }
 
+    // PR-06 teasers: a plain link to the real list behind the number. Never an
+    // upgrade button — promotion is paused.
+    case 'teaser_new_tuitions':
+      return row.href ? { kind: 'link', label: 'See the tuitions', href: row.href } : null
+    case 'teaser_profile_views':
+      return { kind: 'link', label: 'See your views', href: row.href ?? '/tutor/dashboard/views' }
+    case 'teaser_views_tip':
+      return row.href ? { kind: 'link', label: 'Improve my profile', href: row.href } : null
+    case 'application_opened':
+      return { kind: 'link', label: 'My applications', href: row.href ?? '/tutor/dashboard/applications' }
+
     // The position widget is on the dashboard and has an id.
     case 'rank_dropped':
       return { kind: 'link', label: 'See your position', href: '/tutor/dashboard#position' }

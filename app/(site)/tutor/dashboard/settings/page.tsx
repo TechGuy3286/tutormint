@@ -18,7 +18,7 @@ import Link from 'next/link'
 import {
   X, Plus, Save, ArrowLeft, ArrowRight, BadgeCheck, ShieldAlert,
   Smartphone, CreditCard, Image as ImageIcon, Camera, BookOpen, MapPin, ShieldCheck,
-  GraduationCap, Award, Briefcase, Mail, Tags, CalendarDays, Lock, UserRound, Wallet,
+  GraduationCap, Award, Briefcase, Mail, Tags, CalendarDays, Lock, UserRound, Wallet, MessageCircle,
 } from 'lucide-react'
 import IdentityCard from '@/components/identity/IdentityCard'
 import DocLockNotice, { combinedView } from '@/components/identity/DocLockNotice'
@@ -56,6 +56,7 @@ import { formatName } from '@/lib/formatName'
 import { TextLinesSkeleton } from '@/components/Skeletons'
 import { usePhotoCropUpload } from '@/components/photo/usePhotoCropUpload'
 import HidePhotoToggle from '@/components/tutor/HidePhotoToggle'
+import WhatsAppUpdatesCard from '@/components/tutor/WhatsAppUpdatesCard'
 import { PHOTO_STEP_EXPLAIN } from '@/lib/photoPrivacyCore'
 import { SELFIE_CHECKED_LABEL, showSelfieChecked } from '@/lib/selfieOptionalCore'
 
@@ -1055,6 +1056,13 @@ export default function TutorSettingsPage() {
             ]} />
         </div>
       ),
+    },
+    {
+      // "Send me updates on WhatsApp" (PR-06, owner 18 Nov 2026), default on.
+      key: 'whatsappUpdates',
+      status: 'neutral',
+      icon: <MessageCircle size={20} aria-hidden />,
+      body: <WhatsAppUpdatesCard />,
     },
     {
       key: 'password',

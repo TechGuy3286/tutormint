@@ -36,7 +36,7 @@ export type NotificationRow = {
 export const NOTIFICATION_GROUPS = {
   all: [] as string[],
   unread: [] as string[],
-  jobs: ['application_received', 'application_withdrawn', 'application_shortlisted', 'application_rejected', 'hired', 'job_filled', 'job_closed', 'job_matched'],
+  jobs: ['application_received', 'application_withdrawn', 'application_shortlisted', 'application_rejected', 'hired', 'job_filled', 'job_closed', 'job_matched', 'teaser_new_tuitions', 'application_opened'],
   messages: ['message_received'],
   demos: ['demo_requested', 'demo_accepted', 'demo_declined', 'demo_cancelled', 'demo_feedback'],
   account: [
@@ -55,6 +55,10 @@ export const NOTIFICATION_GROUPS = {
     // rather than jobs because neither is about a specific tuition.
     'profile_viewed',
     'rank_dropped',
+    // PR-06 teasers that are not about one tuition.
+    'teaser_profile_views',
+    'teaser_views_tip',
+    'teaser_weekly_summary',
     // Conversion roll-ups (Part 3): the weekly view teaser and the quota nudge.
     'viewer_weekly_teaser',
     'quota_nudge',

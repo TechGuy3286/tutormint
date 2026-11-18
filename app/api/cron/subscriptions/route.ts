@@ -5,6 +5,7 @@ import { publishDuePosts } from '@/lib/blogPublish'
 import { rebuildContentQueue } from '@/lib/contentQueue/build'
 import { deliverContentDigest } from '@/lib/contentQueue/digest'
 import { runConversionSweep } from '@/lib/conversionSweep'
+import { runTutorTeasers } from '@/lib/tutorTeasers'
 import { expirePendingSignups } from '@/lib/pendingSignup'
 import { purgeOldSmsSends } from '@/lib/smsLog'
 import { purgeOldEmailSends } from '@/lib/emailHealth'
@@ -76,6 +77,11 @@ async function handle(request: Request) {
     (e) => ({ teasersSent: 0, quotaNudgesSent: 0, errors: [String(e)] }),
   )
 
+  // Paid-tutor teasers in the bell (PR-06, owner 18 Nov 2026): Monday summary,
+  // Thursday profile views (or the 0-views tip), daily new matching tuitions —
+  // at most 3 a week, nothing when the numbers are 0. Counts only in the result.
+  const teasers = await runTutorTeasers().catch((e) => ({ eligible: 0, sent: {}, skippedCap: 0, errors: [String(e)] }))
+
   // Expired pending-signup drafts (migration 75). Rows are dead the moment their
   // 10-minute expiry passes — every read filters on it — so this is cleanup, not
   // correctness; wrapped so a sweep error cannot fail the billing sweep.
@@ -131,6 +137,7 @@ async function handle(request: Request) {
       queue,
       digest,
       conversion,
+      teasers,
       pending,
       smsLogPurged,
       emailLogPurged,

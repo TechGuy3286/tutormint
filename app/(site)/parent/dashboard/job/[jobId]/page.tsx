@@ -13,6 +13,8 @@ import FeaturedTag from '@/components/badges/FeaturedTag'
 import ApplicantList, { type Applicant } from './ApplicantList'
 import JobActions from './JobActions'
 import { formatName } from '@/lib/formatName'
+import { recordParentApplicationViews } from '@/lib/tutorTeasers'
+import { getViewAsContext } from '@/lib/viewAsContext'
 
 // One of the parent's own tuitions, with its applicants.
 //
@@ -113,6 +115,17 @@ export default async function ParentJobPage({ params }: { params: Promise<{ jobI
         createdAt: a.created_at as string,
       }
     })
+  }
+
+  // PR-06 — the parent has opened their tuition page and seen these
+  // applications: the first view of each is stored once (no parent id, IP or
+  // device) and its tutor gets "A parent opened your application". Never under
+  // "View as" (the Owner looking is not the parent looking); never blocks the page.
+  if (applicants.length > 0 && !(await getViewAsContext().catch(() => null))) {
+    await recordParentApplicationViews(
+      { title: (job.title as string | null) ?? null, area: (job.area as string | null) ?? null, city: (job.city as string | null) ?? null },
+      applicants.map((a) => ({ id: a.id, tutorId: a.tutorId, withdrawn: a.withdrawn })),
+    ).catch(() => 0)
   }
 
   const live = applicants.filter((a) => !a.withdrawn).length
