@@ -123,6 +123,27 @@ const C = {
   tilePinkBg: '#FCE7F3', tilePinkInk: '#9D174D',
 } as Record<string, string>
 
+/** `top` laid over `under` at `alpha` (0..1), as a browser blends it — hex out. */
+function over(top: string, under: string, alpha: number): string {
+  const ch = (h: string, i: number) => parseInt(h.replace('#', '').slice(i, i + 2), 16)
+  return (
+    '#' +
+    [0, 2, 4]
+      .map((i) => Math.round(ch(top, i) * alpha + ch(under, i) * (1 - alpha)).toString(16).padStart(2, '0'))
+      .join('')
+      .toUpperCase()
+  )
+}
+
+// Homepage "crystal" polish (owner PR-09, 18 Nov 2026). The percentages are the
+// ones in app/globals.css (.tm-hero-glow, .tm-glass, .tm-glass-chip). The glow's
+// three peaks are stacked — darker than any spot the layout produces — so a
+// pass here holds anywhere in the hero. Glass is 66% white over that; where
+// backdrop-filter is unsupported the cards are solid white (already listed).
+C.heroGlow = over(C.greenDeep, over(C.navy, over(C.mint, C.bg, 0.28), 0.06), 0.05)
+C.glassOnGlow = over(C.white, C.heroGlow, 0.66)
+C.glassChip = over(C.white, C.bg, 0.7)
+
 type Pair = { fg: string; bg: string; where: string; large?: boolean }
 
 /** Large text = 18.66px bold or 24px regular; AA allows 3:1 there. */
@@ -235,6 +256,15 @@ const PAIRS: Pair[] = [
 
   // The homepage hero pill, authorised 2 Sep 2026.
   { fg: 'navy', bg: 'tintGreen', where: 'homepage hero pill' },
+
+  // Homepage glass (PR-09): text straight on the glow, and text on glass over it.
+  { fg: 'black', bg: 'heroGlow', where: 'homepage H1 and Urdu line over the glow (PR-09)' },
+  { fg: 'red', bg: 'heroGlow', where: 'homepage red subline over the glow (PR-09)' },
+  { fg: 'navy', bg: 'glassOnGlow', where: 'homepage glass pill, card headings (PR-09)' },
+  { fg: 'slate700', bg: 'glassOnGlow', where: 'homepage glass card points (PR-09)' },
+  { fg: 'red', bg: 'glassOnGlow', where: 'homepage glass card links (PR-09)' },
+  { fg: 'greenDeep', bg: 'glassOnGlow', where: 'homepage glass card check icons (PR-09)', large: true },
+  { fg: 'navy', bg: 'glassChip', where: 'homepage city chips (PR-09)' },
 
   // "Your things" dashboard tiles (components/dashboard/YourThings.tsx). Each
   // tile is washed in one of five light tints; the number/icon carry that

@@ -338,3 +338,169 @@ input:disabled,
     }
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Homepage "crystal" polish (owner-authorised PR-09, 18 Nov 2026 — look only).
+   Used only by app/(site)/page.tsx and components/home/HomeLinks.tsx. No text,
+   link, order or brand-button colour changed; these classes only restyle.
+
+   CONTRAST. The glow is the darkest thing any hero text can sit on. Its three
+   peaks (mint 28%, navy 6%, green-deep 5%) are asserted STACKED — the worst case,
+   tighter than the layout ever produces — in scripts/contrast-check.ts, both bare
+   (the H1, red subline, Urdu line) and under the 66% white glass (pill, cards).
+   Change a percentage here and change it there. The glow fades out above the
+   link block, so its gray-500 rows stay on the plain page ground.
+
+   Light theme only: public pages have no dark theme (the count tiles were taken
+   off dark mode in #57), so there is no dark variant to keep in step.
+--------------------------------------------------------------------------- */
+
+/* 1. Soft brand shapes behind the hero. Radial gradients, not blurred boxes:
+   the same soft look with no filter for a phone GPU to run. */
+.tm-hero-glow {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: -1;
+  height: 600px;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 420px 300px at 14% 16%, color-mix(in srgb, var(--color-tm-mint) 28%, transparent), transparent 72%),
+    radial-gradient(ellipse 400px 300px at 88% 34%, color-mix(in srgb, var(--color-tm-navy) 6%, transparent), transparent 72%),
+    radial-gradient(ellipse 380px 240px at 24% 66%, color-mix(in srgb, var(--color-tm-green-deep) 5%, transparent), transparent 72%);
+  -webkit-mask-image: linear-gradient(to bottom, black 62%, transparent);
+  mask-image: linear-gradient(to bottom, black 62%, transparent);
+}
+
+/* 2 & 4. Frosted glass — the two cards and the brand-line pill. A solid white
+   card where backdrop-filter is not supported. Needs `border` on the element
+   for the hairline width. */
+.tm-glass {
+  background-color: rgb(255 255 255 / 0.66);
+  border-color: color-mix(in srgb, var(--color-tm-navy) 9%, rgb(255 255 255 / 0.7));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.9),
+    0 1px 2px color-mix(in srgb, var(--color-tm-navy) 6%, transparent),
+    0 12px 32px -16px color-mix(in srgb, var(--color-tm-navy) 22%, transparent);
+  -webkit-backdrop-filter: blur(7px);
+  backdrop-filter: blur(7px);
+}
+@media (min-width: 640px) {
+  .tm-glass {
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+  }
+}
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .tm-glass {
+    background-color: white;
+  }
+}
+
+/* The glass cards lift 2px with a stronger shadow on hover (devices that
+   hover) and while a link inside has keyboard focus. */
+.tm-glass-card {
+  transition:
+    transform 160ms ease-out,
+    box-shadow 160ms ease-out;
+}
+.tm-glass-card:focus-within {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.9),
+    0 2px 4px color-mix(in srgb, var(--color-tm-navy) 8%, transparent),
+    0 18px 40px -16px color-mix(in srgb, var(--color-tm-navy) 30%, transparent);
+}
+@media (hover: hover) {
+  .tm-glass-card:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.9),
+      0 2px 4px color-mix(in srgb, var(--color-tm-navy) 8%, transparent),
+      0 18px 40px -16px color-mix(in srgb, var(--color-tm-navy) 30%, transparent);
+  }
+}
+
+/* 3. The two big buttons keep their exact fill (bg-tm-green-deep / bg-tm-navy
+   and their hovers). On top: an 18px sheen that ends INSIDE the 20px padding,
+   so no letter ever sits on a lightened fill (white-on-fill stays the listed
+   pair), a top highlight line and a soft glow in the button's own colour. */
+.tm-gloss {
+  position: relative;
+  isolation: isolate;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.28),
+    0 1px 2px rgb(10 10 10 / 0.12),
+    0 12px 28px -12px var(--tm-glow);
+  transition:
+    background-color 160ms ease-out,
+    transform 160ms ease-out,
+    box-shadow 160ms ease-out;
+}
+.tm-gloss-green {
+  --tm-glow: color-mix(in srgb, var(--color-tm-green-deep) 60%, transparent);
+}
+.tm-gloss-navy {
+  --tm-glow: color-mix(in srgb, var(--color-tm-navy) 55%, transparent);
+}
+.tm-gloss::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: -1;
+  height: 18px;
+  border-radius: inherit;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  background: linear-gradient(rgb(255 255 255 / 0.2), rgb(255 255 255 / 0));
+  pointer-events: none;
+}
+.tm-gloss:focus-visible {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.28),
+    0 2px 4px rgb(10 10 10 / 0.14),
+    0 18px 36px -12px var(--tm-glow);
+}
+@media (hover: hover) {
+  .tm-gloss:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.28),
+      0 2px 4px rgb(10 10 10 / 0.14),
+      0 18px 36px -12px var(--tm-glow);
+  }
+}
+/* The icon square inside each button: a glass tile on the brand fill. */
+.tm-glass-tile {
+  background: linear-gradient(rgb(255 255 255 / 0.26), rgb(255 255 255 / 0.1));
+  border: 1px solid rgb(255 255 255 / 0.32);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35);
+}
+
+/* 5. "Tuition jobs by city" chips. They sit below the glow on the plain page
+   ground, so they carry the glass look without a backdrop-filter — two dozen
+   blurred chips would cost a phone frames for nothing behind them. */
+.tm-glass-chip {
+  background-color: rgb(255 255 255 / 0.7);
+  border: 1px solid color-mix(in srgb, var(--color-tm-navy) 12%, white);
+  box-shadow:
+    inset 0 1px 0 white,
+    0 1px 2px color-mix(in srgb, var(--color-tm-navy) 8%, transparent);
+  transition:
+    background-color 160ms ease-out,
+    border-color 160ms ease-out;
+}
+.tm-glass-chip:hover {
+  background-color: white;
+  border-color: color-mix(in srgb, var(--color-tm-navy) 28%, white);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tm-glass-card:hover,
+  .tm-glass-card:focus-within,
+  .tm-gloss:hover,
+  .tm-gloss:focus-visible {
+    transform: none;
+  }
+}

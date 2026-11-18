@@ -60,10 +60,39 @@ test('c) the link block: city links once, up to six tutor pages, and four links'
   assert.equal((home.match(/CityJobsLinks/g) ?? []).length, 0, 'the homepage has one city list, in HomeLinks')
 })
 
+test('PR-09 "crystal" polish is look only (owner, 18 Nov 2026)', () => {
+  const css = read('app/globals.css')
+  const block = read('components/home/HomeLinks.tsx')
+  // The glow is one empty, hidden box; glass and gloss are classes only.
+  assert.ok(home.includes('<div aria-hidden className="tm-hero-glow" />'))
+  for (const cls of ['.tm-hero-glow', '.tm-glass ', '.tm-glass-card', '.tm-gloss ', '.tm-gloss::before', '.tm-glass-tile', '.tm-glass-chip']) {
+    assert.ok(css.includes(cls), `${cls} is defined`)
+  }
+  // Solid-white fallback, smaller blur on phones, reduced motion respected.
+  assert.ok(css.includes('@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px)))'))
+  assert.ok(css.includes('backdrop-filter: blur(7px)') && css.includes('backdrop-filter: blur(12px)'))
+  assert.ok(/prefers-reduced-motion: reduce\) \{\s*\.tm-glass-card:hover/.test(css))
+  // The sheen ends inside the button padding (p-5 = 20px), so no text sits on it.
+  assert.ok(/\.tm-gloss::before \{[^}]*height: 18px/.test(css) && home.includes('rounded-2xl p-5 text-left text-white'))
+  // Brand button colours untouched.
+  assert.ok(home.includes("'tm-gloss-green bg-tm-green-deep hover:bg-tm-green-deep-hover focus-visible:outline-tm-green-deep'"))
+  assert.ok(home.includes("'tm-gloss-navy bg-tm-navy hover:bg-tm-navy-hover focus-visible:outline-tm-navy'"))
+  // City chips: 40px tall on phones, same link and label, no dot separators.
+  assert.ok(block.includes('tm-glass-chip inline-flex min-h-10'))
+  assert.ok(block.includes('{p.city} ({p.count})') && block.includes('href={cityPagePath(p.citySlug)}'))
+  // The contrast gate checks text on the glow and on glass.
+  const contrast = read('scripts/contrast-check.ts')
+  assert.ok(contrast.includes("C.heroGlow = over(C.greenDeep, over(C.navy, over(C.mint, C.bg, 0.28), 0.06), 0.05)"))
+  assert.ok(css.includes('var(--color-tm-mint) 28%') && css.includes('var(--color-tm-navy) 6%') && css.includes('var(--color-tm-green-deep) 5%'))
+  assert.ok(css.includes('rgb(255 255 255 / 0.66)') && contrast.includes('over(C.white, C.heroGlow, 0.66)'))
+  assert.ok(read('docs/history/2026-11.md').includes('Homepage — seventh owner authorisation'))
+})
+
 test('nothing else on the homepage changed', () => {
   // HIRE, the red line, the Urdu line, both buttons. The pill keeps its
   // styling; its TEXT is the computed brand line (owner-approved, 14 Oct 2026).
-  assert.ok(home.includes('rounded-full border border-tm-green-deep/20 bg-tm-tint-green px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-tm-navy sm:text-xs sm:tracking-[0.18em]'))
+  // Same type and size; the surface became glass in PR-09 (owner, 18 Nov 2026).
+  assert.ok(home.includes('tm-glass rounded-full border px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-tm-navy sm:text-xs sm:tracking-[0.18em]'))
   assert.ok(home.includes('{pill}') && home.includes('const pill = await cachedBrandLine().catch(() => BRAND_LINE_GROWING)'))
   assert.ok(!home.replace(/\/\/.*$/gm, '').includes('Largest'))
   assert.equal(brandLine(0), "Pakistan's fast-growing tutor network")

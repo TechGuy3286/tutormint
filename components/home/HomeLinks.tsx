@@ -20,6 +20,11 @@ export const HOME_TUTOR_PAGES_MAX = 6
 
 const ROW = 'flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[11px] text-gray-500'
 const LINK = 'inline-flex min-h-[32px] items-center font-semibold text-tm-navy hover:underline'
+// The city links as small glass chips (owner PR-09, 18 Nov 2026 — look only):
+// same links, order and counts; 40px tall on a phone, a little shorter above.
+const CITY_ROW = 'flex flex-wrap items-center justify-center gap-2 text-[11px] text-gray-500 sm:text-xs'
+const CITY_CHIP =
+  'tm-glass-chip inline-flex min-h-10 items-center rounded-full px-3 font-semibold text-tm-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-navy sm:min-h-8'
 
 export default async function HomeLinks() {
   const [cities, landing, newest] = await Promise.all([
@@ -38,15 +43,12 @@ export default async function HomeLinks() {
   return (
     <div className="space-y-2">
       {cities.length > 0 && (
-        <nav aria-label="Tuition jobs by city" className={ROW}>
+        <nav aria-label="Tuition jobs by city" className={CITY_ROW}>
           <span className="font-bold text-tm-navy">Tuition jobs by city:</span>
-          {cities.map((p, i) => (
-            <span key={p.citySlug} className="inline-flex items-center gap-2">
-              {i > 0 && <span aria-hidden>·</span>}
-              <Link href={cityPagePath(p.citySlug)} className={LINK}>
-                {p.city} ({p.count})
-              </Link>
-            </span>
+          {cities.map((p) => (
+            <Link key={p.citySlug} href={cityPagePath(p.citySlug)} className={CITY_CHIP}>
+              {p.city} ({p.count})
+            </Link>
           ))}
         </nav>
       )}

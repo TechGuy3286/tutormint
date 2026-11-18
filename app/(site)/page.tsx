@@ -72,10 +72,14 @@ export default async function HomePage() {
   // page by the site chrome (components/SiteChrome), so this page carries none
   // of its own.
   return (
-    <div className="bg-tm-bg">
+    <div className="relative isolate bg-tm-bg">
+      {/* Soft brand shapes behind the hero (owner PR-09, 18 Nov 2026 — look
+          only): one empty, absolutely placed box drawn in CSS (.tm-hero-glow),
+          so the layout and the text are exactly as before. */}
+      <div aria-hidden className="tm-hero-glow" />
       <section className="mx-auto flex max-w-5xl flex-col items-center px-4 pt-5 pb-8 text-center sm:px-6 sm:pt-6 sm:pb-4">
-        {/* Eyebrow pill */}
-        <p className="rounded-full border border-tm-green-deep/20 bg-tm-tint-green px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-tm-navy sm:text-xs sm:tracking-[0.18em]">
+        {/* Eyebrow pill — a glass pill since PR-09; same text and type. */}
+        <p className="tm-glass rounded-full border px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-tm-navy sm:text-xs sm:tracking-[0.18em]">
           {pill}
         </p>
 
@@ -123,7 +127,7 @@ export default async function HomePage() {
             words come from lib/siteIdentity. */}
         <div className="mt-4 grid w-full max-w-3xl grid-cols-1 gap-3 text-left sm:grid-cols-2 sm:gap-4">
           {HOME_CARDS.map((card) => (
-            <section key={card.title} className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+            <section key={card.title} className="tm-glass tm-glass-card rounded-3xl border p-4 sm:p-5">
               <h2 className="text-base font-black text-tm-navy">{card.title}</h2>
               <ul className="mt-2 space-y-1 text-sm text-slate-700">
                 {card.points.map((point) => (
@@ -172,10 +176,12 @@ function HomeCta({
   tone: 'green' | 'navy'
   icon: React.ReactNode
 }) {
+  // Colours exactly as approved; tm-gloss-* only adds the sheen and the glow
+  // (owner PR-09, 18 Nov 2026 — look only).
   const surface =
     tone === 'green'
-      ? 'bg-tm-green-deep hover:bg-tm-green-deep-hover focus-visible:outline-tm-green-deep'
-      : 'bg-tm-navy hover:bg-tm-navy-hover focus-visible:outline-tm-navy'
+      ? 'tm-gloss-green bg-tm-green-deep hover:bg-tm-green-deep-hover focus-visible:outline-tm-green-deep'
+      : 'tm-gloss-navy bg-tm-navy hover:bg-tm-navy-hover focus-visible:outline-tm-navy'
 
   // ONE ROW, and the height follows the content.
   //
@@ -188,9 +194,9 @@ function HomeCta({
   return (
     <Link
       href={href}
-      className={`group flex items-center gap-4 rounded-2xl p-5 text-left text-white shadow-lg transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 sm:gap-5 sm:p-6 ${surface}`}
+      className={`tm-gloss group flex items-center gap-4 rounded-2xl p-5 text-left text-white focus-visible:outline-2 focus-visible:outline-offset-2 sm:gap-5 sm:p-6 ${surface}`}
     >
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white">
+      <span className="tm-glass-tile flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white">
         {icon}
       </span>
       <span className="text-lg font-bold sm:text-xl">{label}</span>
