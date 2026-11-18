@@ -79,7 +79,10 @@ test('nothing else on the homepage changed', () => {
   // Not added: "How it works", the features list, live counts.
   assert.ok(!/SITE_HOW_IT_WORKS|SITE_FEATURES|How TutorMint works|What you get/.test(home + read('components/home/HomeLinks.tsx')))
   // The lock note records the three changes and the date.
-  const claude = read('CLAUDE.md')
+  // The dated authorisations moved, unchanged, to docs/history (PR-05);
+  // CLAUDE.md keeps the one-line lock rule.
+  const claude = read('docs/history/2026-10.md')
+  assert.ok(read('CLAUDE.md').includes('Homepage is LOCKED'))
   assert.ok(claude.includes('Homepage — fourth owner authorisation (13 Oct 2026)'))
   assert.ok(claude.includes('Homepage — fifth owner authorisation (14 Oct 2026)'))
   assert.ok(claude.includes('Homepage — sixth owner authorisation (15 Oct 2026)'))
