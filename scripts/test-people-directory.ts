@@ -79,7 +79,7 @@ test('the toggle brings left-out accounts back; the default leaves them out', ()
   // Push 2 (1 Nov 2026): every row is stored with its excluded flag; the default view asks for excluded: false.
   // The toggle view still leaves deleted accounts out (owner, 5 Nov 2026 — peopleFixed).
   // People's tutor pipeline (owner, 8 Nov 2026) keeps the same three views.
-  assert.ok(tabs.includes("const view = showDeleted ? 'deleted' : showAll ? 'all' : 'real'") && tabs.includes('...peopleFixed(view),') && read('lib/adminSummary.ts').includes('excluded: p.excluded !== null'))
+  assert.ok(tabs.includes("const view = showErase ? 'erase' : opts.showDeleted ? 'deleted' : showAll ? 'all' : 'real'") && tabs.includes('...peopleFixed(view),') && read('lib/adminSummary.ts').includes('excluded: p.excluded !== null'))
   assert.ok(read('app/admin/users/page.tsx').includes("showAll={all === '1'}"))
 })
 

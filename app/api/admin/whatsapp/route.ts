@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { refuseEraseRequestedContact } from '@/lib/eraseRequestedGuard'
 import { checkAdminRole, SCREEN_ACCESS, type AdminActor } from '@/lib/adminAuth'
 import { logAdminAction } from '@/lib/auditLog'
 import { adminWhatsAppFor } from '@/lib/adminWhatsApp'
@@ -67,6 +68,8 @@ export async function GET(request: Request) {
   const params = new URL(request.url).searchParams
   const id = uuid.safeParse(params.get('memberId'))
   if (!id.success) return NextResponse.json({ error: BAD }, { status: 400 })
+  const erase = await refuseEraseRequestedContact(gate.actor, id.data)
+  if (erase) return erase
   const r = await build(id.data, gate.actor, params.get('from'))
   if ('error' in r) return NextResponse.json({ error: r.error }, { status: r.status })
   return NextResponse.redirect(r.href, { status: 302, headers: { 'Cache-Control': 'private, no-store' } })
@@ -78,6 +81,8 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as { memberId?: unknown; from?: unknown } | null
   const id = uuid.safeParse(body?.memberId)
   if (!id.success) return NextResponse.json({ error: BAD }, { status: 400 })
+  const erase = await refuseEraseRequestedContact(gate.actor, id.data)
+  if (erase) return erase
   const r = await build(id.data, gate.actor, typeof body?.from === 'string' ? body.from : null)
   if ('error' in r) return NextResponse.json({ error: r.error }, { status: r.status })
   return NextResponse.json({ href: r.href, followUpId: r.followUpId, type: r.type }, { headers: { 'Cache-Control': 'private, no-store' } })

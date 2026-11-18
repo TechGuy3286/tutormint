@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import AdminAvatar from '@/components/admin/AdminAvatar'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Send, Pencil, ShieldCheck, MessageCircle } from 'lucide-react'
@@ -211,7 +212,10 @@ export default function InboxClient({
                 }`}
               >
                 <div className="flex min-w-0 items-center justify-between gap-2">
-                  <span className="min-w-0 truncate text-xs font-black text-tm-navy">{t.memberName}</span>
+                  <span className="flex min-w-0 items-center gap-2">
+                    <AdminAvatar name={t.memberName} src={t.avatar?.src ?? null} gender={t.avatar?.gender ?? null} className="h-8 w-8 text-[10px]" px={32} />
+                    <span className="min-w-0 truncate text-xs font-black text-tm-navy">{t.memberName}</span>
+                  </span>
                   {t.unreadFromMember > 0 && (
                     <span className="shrink-0 rounded-full bg-tm-red px-1.5 text-[10px] font-black text-white">
                       {t.unreadFromMember}

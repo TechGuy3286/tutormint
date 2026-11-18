@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ExternalLink, FileCheck2, MessageCircle, Phone, Search } from 'lucide-react'
 
-import Avatar from '@/components/Avatar'
+import AdminAvatar from '@/components/admin/AdminAvatar'
 import BadgeRow from '@/components/badges/BadgeRow'
 import DuplicateActions from '@/components/admin/DuplicateActions'
 import { formatDate } from '@/lib/datetime'
@@ -467,7 +467,7 @@ function MemberBody({
   return (
     <>
       <div className="flex items-start gap-3">
-        <Avatar name={m.name} src={m.avatarUrl} gender={m.gender} decorative className="h-12 w-12 shrink-0 text-sm" px={48} />
+        <AdminAvatar name={m.name} src={m.avatarUrl} gender={m.gender} decorative className="h-12 w-12 shrink-0 text-sm" px={48} />
         <div className="min-w-0 flex-1 space-y-1">
           {/* The name and its badges on ONE line (owner, 26 Oct 2026): the badge
               sits right after the name, never on its own line; a long name is

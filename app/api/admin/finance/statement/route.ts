@@ -3,7 +3,12 @@ import { NextResponse } from 'next/server'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { refuseUnlessOwnerApproval } from '@/lib/ownerGuard'
 import {
+  ensureRowCredit,
   importStatement,
+  linkRowToApproved,
+  sameMoneyRow,
+  undoSameMoneyRow,
+  unlinkRow,
   markRowPersonal,
   reclassifyRow,
   resolveUnclearRow,
@@ -22,7 +27,9 @@ import { parseBody, z } from '@/lib/validate'
 //
 //   POST multipart (file)        import a Faysal statement export
 //   POST json { action, rowId }  reclassify / undo_class / personal /
-//                                undo_personal / reveal / resolve
+//                                undo_personal / reveal / resolve /
+//                                link_approved / unlink / same_money /
+//                                undo_same / ensure_credit (PR-04)
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
@@ -36,6 +43,12 @@ const Json = z.discriminatedUnion('action', [
   z.object({ action: z.literal('undo_personal'), rowId: z.guid() }),
   z.object({ action: z.literal('reveal'), rowId: z.guid() }),
   z.object({ action: z.literal('resolve'), rowId: z.guid(), transferId: z.guid().nullable() }),
+  // PR-04
+  z.object({ action: z.literal('link_approved'), rowId: z.guid(), paymentId: z.guid() }),
+  z.object({ action: z.literal('unlink'), rowId: z.guid() }),
+  z.object({ action: z.literal('same_money'), rowId: z.guid(), transferId: z.guid() }),
+  z.object({ action: z.literal('undo_same'), rowId: z.guid() }),
+  z.object({ action: z.literal('ensure_credit'), rowId: z.guid() }),
 ])
 
 export async function POST(request: Request) {
@@ -64,8 +77,21 @@ export async function POST(request: Request) {
     if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status })
     return NextResponse.json({ ok: true, value: r.value }, { headers: { 'Cache-Control': 'private, no-store' } })
   }
+  if (d.action === 'ensure_credit') {
+    const e = await ensureRowCredit(d.rowId, actor)
+    if (!e.ok) return NextResponse.json({ error: e.error }, { status: e.status })
+    return NextResponse.json({ ok: true, transferId: e.transferId })
+  }
   const r =
-    d.action === 'reclassify'
+    d.action === 'link_approved'
+      ? await linkRowToApproved(d.rowId, d.paymentId, actor)
+      : d.action === 'unlink'
+        ? await unlinkRow(d.rowId, actor)
+        : d.action === 'same_money'
+          ? await sameMoneyRow(d.rowId, d.transferId, actor)
+          : d.action === 'undo_same'
+            ? await undoSameMoneyRow(d.rowId, actor)
+            : d.action === 'reclassify'
       ? await reclassifyRow(d.rowId, d.to as never, actor)
       : d.action === 'undo_class'
         ? await undoReclassifyRow(d.rowId, actor)

@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import AdminAvatar from '@/components/admin/AdminAvatar'
 import Link from 'next/link'
 import { NO_LONGER_AVAILABLE } from '@/lib/hiddenTuitionCore'
 import { useRouter } from 'next/navigation'
@@ -106,6 +107,7 @@ export default function ApplicationsClient({
   initialPreview = null,
   tutorUpdateTemplate = null,
   supportDisplay = null,
+  avatars = {},
 }: {
   /** Worked out on the server over the whole board (lib/applicationsPagingCore). */
   view: AppsViewResult<BoardRow, ForwardCard>
@@ -128,6 +130,8 @@ export default function ApplicationsClient({
   tutorUpdateTemplate?: string | null
   /** The support WhatsApp number from settings. */
   supportDisplay?: string | null
+  /** Tutor pictures by id (PR-04): the default + No photo tag when none. */
+  avatars?: Record<string, { src: string | null; gender: string | null }>
 }) {
   const router = useRouter()
   const toast = useToast()
@@ -316,6 +320,7 @@ export default function ApplicationsClient({
       >
         {context === 'tuition' ? (
           <>
+            <AdminAvatar name={r.tutorName} src={avatars[r.tutorId]?.src ?? null} gender={avatars[r.tutorId]?.gender ?? null} className="h-6 w-6 text-[9px]" px={24} />
             {canOpenMembers || r.tutorSlug ? (
               <Link
                 href={canOpenMembers ? `/admin/users/${r.tutorId}` : `/tutor/${r.tutorSlug}`}
@@ -445,6 +450,7 @@ export default function ApplicationsClient({
     return (
       <li key={key} className="overflow-hidden rounded-xl border border-gray-200 bg-white">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 bg-tm-tint-navy px-2 py-1 text-[11px]">
+          <AdminAvatar name={head.tutorName} src={avatars[key]?.src ?? null} gender={avatars[key]?.gender ?? null} className="h-7 w-7 text-[9px]" px={28} />
           <span className="font-black text-tm-navy">{head.tutorName}</span>
           {head.tutorPhone && <span className="font-mono text-slate-600">{head.tutorPhone}</span>}
           <span className="font-bold text-slate-700">{active.length} in progress</span>

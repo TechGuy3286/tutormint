@@ -41,7 +41,7 @@ export type PeopleListQuery = {
   followRow: boolean
   showNi: boolean
   signed: SignupWindow | null
-  view: 'real' | 'all' | 'deleted'
+  view: 'real' | 'all' | 'deleted' | 'erase'
   fixed: Record<string, unknown>
   since: string | null
   until: string | null
@@ -58,7 +58,10 @@ export function peopleListQuery(
   opts: { showAll: boolean; showDeleted: boolean; nowMs?: number },
 ): PeopleListQuery {
   const isTutors = tab === 'tutors'
-  const { showAll, showDeleted } = opts
+  const { showAll } = opts
+  // Erase requested (PR-04) is a grey chip like Deleted: no stage or follow-up rows.
+  const showErase = !opts.showDeleted && one(sp.erase) === '1'
+  const showDeleted = opts.showDeleted || showErase
   // Opened with no filter in the address, staff land on Approved, fee pending ·
   // Not followed up (owner, 9 Nov 2026); any filter in the address wins.
   const stageSel = isTutors ? tutorStageFromAddress(sp) : 'all'
@@ -122,7 +125,7 @@ export function peopleListQuery(
   const signedRaw = one(sp.signed)
   const signed: SignupWindow | null = isTutors && isSignupWindow(signedRaw) ? signedRaw : null
   const range = signed ? windowRange(signed, opts.nowMs ?? Date.now()) : null
-  const view = showDeleted ? 'deleted' : showAll ? 'all' : 'real'
+  const view = showErase ? 'erase' : opts.showDeleted ? 'deleted' : showAll ? 'all' : 'real'
   const fixed: Record<string, unknown> = {
     ...peopleFixed(view),
     // (The sign-up day view lists every unpaid tutor of that day, Not interested included — the card's count.)
@@ -156,7 +159,7 @@ export function peopleListQuery(
 }
 
 /** The address keys a People list depends on — carried onto Export CSV. */
-export const PEOPLE_LIST_KEYS = ['tab', 'all', 'deleted', 'ni', 'signed', 'stage', 'plan', 'fu', 'posted', 'pv', 'q'] as const
+export const PEOPLE_LIST_KEYS = ['tab', 'all', 'deleted', 'erase', 'ni', 'signed', 'stage', 'plan', 'fu', 'posted', 'pv', 'q'] as const
 
 /** The Export CSV link for the list on screen: the same address keys, nothing else. */
 export function peopleExportHref(tab: 'tutors' | 'parents' | 'staff', sp: Sp): string {

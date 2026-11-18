@@ -181,7 +181,9 @@ test('every member avatar goes through the shared component and passes gender wh
     'app/admin/jobs/[id]/page.tsx',
     'app/(site)/tutor/dashboard/settings/page.tsx',
   ]
-  for (const p of passes) assert.match(read(p), /<Avatar[\s\S]{0,200}?gender=\{/, `${p} passes gender`)
+  // PR-04: admin draws through components/admin/AdminAvatar, which wraps the shared Avatar.
+  for (const p of passes) assert.match(read(p), /<(?:Admin)?Avatar[\s\S]{0,200}?gender=\{/, `${p} passes gender`)
+  assert.match(read('components/admin/AdminAvatar.tsx'), /<Avatar name=\{name\} src=\{v\.src\} gender=\{v\.gender\}/)
   assert.match(read('lib/browseTutors.ts'), /avatar_url, gender, city/)
   assert.match(read('lib/messaging.ts'), /otherGender: genders\.get\(otherId\) \?\? null/)
   assert.match(read('lib/overviewCards.ts'), /gender: \(t\?\.gender as string \| null\) \?\? null/)

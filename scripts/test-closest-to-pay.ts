@@ -27,8 +27,9 @@ import {
 import { excludedReason, peopleFixed, sortPeople, waitingBadge } from '../lib/peopleDirectoryCore'
 
 /** admin_list_page's p_fixed rule (jsonb containment) over a stored row's tags. */
-function inTabRule(p: { excluded: unknown; deleted: boolean }, fixed: Record<string, boolean>): boolean {
-  const tags: Record<string, boolean> = { excluded: p.excluded !== null, deleted: p.deleted }
+function inTabRule(p: { excluded: unknown; deleted: boolean; erase_req?: boolean }, fixed: Record<string, boolean>): boolean {
+  // The stored row's tags (lib/adminSummary peopleRows), erase_req since PR-04.
+  const tags: Record<string, boolean> = { excluded: p.excluded !== null, deleted: p.deleted, erase_req: !!p.erase_req }
   return Object.entries(fixed).every(([k, v]) => tags[k] === v)
 }
 import { roleSatisfies, SCREEN_ACCESS } from '../lib/adminAccessCore'
@@ -121,9 +122,9 @@ test('deleted accounts are in no work list or count, only under Deleted', () => 
   assert.equal(excludedReason({ role: 'admin', erased: true }), 'deleted')
   assert.equal(excludedReason({ role: 'tutor' }), null)
   const people = [
-    { id: '1', role: 'tutor', excluded: excludedReason({ role: 'tutor', erased: true }), deleted: true, kind: 'waiting' },
-    { id: '2', role: 'tutor', excluded: null, deleted: false, kind: 'waiting' },
-    { id: '3', role: 'tutor', excluded: 'test' as const, deleted: false, kind: 'waiting' },
+    { id: '1', role: 'tutor', excluded: excludedReason({ role: 'tutor', erased: true }), deleted: true, erase_req: false, kind: 'waiting' },
+    { id: '2', role: 'tutor', excluded: null, deleted: false, erase_req: false, kind: 'waiting' },
+    { id: '3', role: 'tutor', excluded: 'test' as const, deleted: false, erase_req: false, kind: 'waiting' },
   ]
   // Every default list (All, Paid, Unpaid, every Documents chip, the badge) is the "real" view.
   const real = people.filter((p) => inTabRule(p, peopleFixed('real')))

@@ -238,7 +238,8 @@ test('match: two similar members → unmatched with a note; a paid member is not
     members: [member('a', ['Ali Raza']), member('b', ['Ali Raza'])],
     range: RANGE,
   })
-  assert.deepEqual(m.get('r8'), { kind: 'unmatched', note: '2 members have a similar name' })
+  // PR-04: the two accounts are offered for the Owner to pick one.
+  assert.deepEqual(m.get('r8'), { kind: 'unmatched', note: '2 members have a similar name', candidates: ['a', 'b'] })
   const paid = matchFeeCredits({ credits: [credit('r8', '2026-11-05', 199, 'ALI RAZA')], receipts: [], approved: [], members: [member('a', ['Ali Raza'], { feePaid: true })], range: RANGE })
   assert.equal(paid.get('r8')?.kind, 'unmatched')
 })
@@ -268,14 +269,15 @@ test('the four result lists', () => {
       credit('r1', '2026-11-01', 199, 'ZARA NAQVI'),
       credit('r2', '2026-11-01', 200, 'EASYPAISA WALLET', { mobile: '923009998877' }),
       credit('r3', '2026-11-02', 199, 'BILAL SHAH'),
-      credit('r8', '2026-11-05', 199, 'NOBODY KNOWN'),
+      // Outside ±2 days of every approved payment, so it stays unmatched (PR-04 pairs by amount + time).
+      credit('r8', '2026-11-09', 199, 'NOBODY KNOWN'),
     ],
     receipts: [receipt('p1', 'm1', 'Zara Naqvi', '2026-11-01T06:00:00Z')],
     approved,
     members: [member('m2', ['Hamza Raza'], { mobiles: ['923009998877'] })],
     range: RANGE,
   })
-  const lists = resultLists(matches, approved, { from: '2026-11-01', to: '2026-11-05' })
+  const lists = resultLists(matches, approved, { from: '2026-11-01', to: '2026-11-09' })
   assert.deepEqual(lists.bankMatched.map((x) => x.paymentId), ['p1'])
   assert.deepEqual(lists.paidNotRecorded.map((x) => x.memberId), ['m2'])
   assert.deepEqual(lists.unmatched.map((x) => x.rowId), ['r8'])

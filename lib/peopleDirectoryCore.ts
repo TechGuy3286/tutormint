@@ -49,7 +49,7 @@ export function pickPeopleTab(v: string | null | undefined): PeopleTab {
 // Who counts
 // ---------------------------------------------------------------------------
 
-export type ExcludeReason = 'deleted' | 'staff' | 'seed' | 'team' | 'test' | 'merged'
+export type ExcludeReason = 'deleted' | 'erase_requested' | 'staff' | 'seed' | 'team' | 'test' | 'merged'
 
 export type PersonFacts = {
   role: string | null
@@ -68,10 +68,14 @@ export type PersonFacts = {
   /** The account was erased on request (account_erasures status 'done') —
    *  owner, 5 Nov 2026: in no work list or count; only under People → Deleted. */
   erased?: boolean
+  /** An erase is scheduled (account_erasures status 'scheduled') — PR-04:
+   *  never followed up; only under People → Erase requested. */
+  eraseRequested?: boolean
 }
 
 export function excludedReason(f: PersonFacts): ExcludeReason | null {
   if (f.erased) return 'deleted'
+  if (f.eraseRequested) return 'erase_requested'
   if (f.role === 'admin') return 'staff'
   if (f.mergedInto) return 'merged'
   if (f.isSeed) return 'seed'
@@ -83,6 +87,7 @@ export function excludedReason(f: PersonFacts): ExcludeReason | null {
 
 export const EXCLUDE_WORDS: Record<ExcludeReason, string> = {
   deleted: 'Deleted account',
+  erase_requested: 'Erase requested',
   staff: 'Staff account',
   seed: 'Seed account',
   team: 'Team account',
@@ -135,9 +140,11 @@ export function sortPeople<T extends { createdAt: string; id: string; suspended:
 }
 
 /** Every people-list query outside the "Deleted" chip leaves deleted accounts out. */
-export function peopleFixed(view: 'real' | 'all' | 'deleted'): Record<string, boolean> {
+export function peopleFixed(view: 'real' | 'all' | 'deleted' | 'erase'): Record<string, boolean> {
   if (view === 'deleted') return { deleted: true }
-  if (view === 'all') return { deleted: false }
+  // Erase requested (PR-04): only under its own grey chip.
+  if (view === 'erase') return { erase_req: true }
+  if (view === 'all') return { deleted: false, erase_req: false }
   return { excluded: false }
 }
 

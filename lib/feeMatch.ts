@@ -418,6 +418,45 @@ export async function linkCreditToExisting(input: { transferId: string; paymentI
   return res.ok ? { ok: true, rounding } : { ok: false, status: 409, error: res.error }
 }
 
+/** A statement credit linked to an approved bank payment (PR-04): automatically
+ *  when the pairing is unique on both sides, or by the Owner's "Link". The same
+ *  stored link as every other one; refused when either side already has a link,
+ *  so no credit and no payment is ever counted twice. */
+export async function linkStatementCredit(
+  input: { transferId: string; paymentId: string; auto: boolean },
+  actor: Actor,
+): Promise<{ ok: true; rounding: number } | { ok: false; status: number; error: string }> {
+  const board = await loadBoard()
+  if (!board) return { ok: false, status: 503, error: NOT_NOW }
+  const c = board.credits.find((x) => x.id === input.transferId)
+  if (!c) return { ok: false, status: 404, error: 'That bank credit was not found.' }
+  if (c.state !== 'unmatched') return { ok: false, status: 409, error: 'This bank credit is already linked or set aside.' }
+  const r = board.receipts.find((x) => x.id === input.paymentId)
+  if (!r) return { ok: false, status: 404, error: 'That payment is not an approved bank-transfer payment.' }
+  if (r.state !== 'waiting') return { ok: false, status: 409, error: 'That payment already has a bank credit.' }
+  const range = await loadFeeRange()
+  const fee = r.planCode === 'verified'
+  if (fee ? !inFeeRange(c.amountPkr, range) : Math.abs(c.amountPkr - r.amountPkr) > 0.005) {
+    return { ok: false, status: 409, error: 'The credit is not the amount of that payment.' }
+  }
+  const rounding = roundingOf(c.amountPkr, r.amountPkr)
+  const res = await storeLink(
+    {
+      creditId: c.id,
+      paymentId: r.id,
+      rounding,
+      note: `${input.auto ? STATEMENT_AUTO_NOTE : 'Statement match linked by the Owner'}: ${r.ref}${rounding > 0 ? ` · ${rs(rounding)} rounding` : ''}`,
+      action: input.auto ? 'settlement.statement_auto_link' : 'settlement.statement_link',
+      detail: { paymentRef: r.ref, amountPkr: c.amountPkr, auto: input.auto },
+    },
+    actor,
+  )
+  return res.ok ? { ok: true, rounding } : { ok: false, status: 409, error: res.error }
+}
+
+/** The note every automatic statement link starts with. */
+export const STATEMENT_AUTO_NOTE = 'Automatic statement match'
+
 // ----------------------------------------------------------------- refund due
 
 export type RefundDue = {

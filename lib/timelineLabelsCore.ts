@@ -157,6 +157,8 @@ export const AUDIT_LABELS: Record<string, string> = {
   'settlement.statement_reclassify': 'Changed the type of a statement entry',
   'settlement.statement_reclassify_undo': 'Undid a statement entry type change',
   'settlement.statement_resolve': 'Added a statement credit as a bank credit',
+  'settlement.statement_link_undo': 'Undid a statement credit link',
+  'settlement.statement_same_undo': 'Undid a "same money" statement link',
   'settlement.statement_reveal': 'Showed a full account number on the statement',
   'settlement.personal_undo': 'Undid a not business (personal) mark on a bank credit',
   'settings.fee_match_range': 'Changed the fee match range',

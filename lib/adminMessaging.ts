@@ -176,6 +176,8 @@ export type InboxThread = {
   unreadFromMember: number
   /** The step-1 status tag (PR94 Part 3), or null when complete. */
   tag: import('@/lib/inboxTags').InboxTag | null
+  /** The member's picture (PR-04), filled by the page. */
+  avatar?: import('@/lib/adminAvatarCore').AdminAvatarFacts | null
 }
 
 /** The inbox list: one row per member with any official message, newest first. */

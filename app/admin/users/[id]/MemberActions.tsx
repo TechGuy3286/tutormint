@@ -47,6 +47,7 @@ export default function MemberActions({
   editTutorHref = null,
   secondRole = null,
   pipeContact = null,
+  eraseContact = 'allowed',
 }: {
   userId: string
   name: string
@@ -80,6 +81,8 @@ export default function MemberActions({
   /** A tutor due a follow-up (owner, 15 Nov 2026): the stage's own WhatsApp,
    *  voice note and Call, each logged as the card logs it. */
   pipeContact?: { stage: FollowStage; nextKind: FollowState['nextKind']; links: PipeContactLinks } | null
+  /** Erase requested (PR-04): 'blocked' turns contact off for staff; 'warn' (the Owner) shows a warning. */
+  eraseContact?: 'allowed' | 'warn' | 'blocked'
 }) {
   const router = useRouter()
   const toast = useToast()
@@ -333,6 +336,18 @@ export default function MemberActions({
           {!isSelf && (
             <div className="space-y-1.5">
               <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Contact</p>
+              {eraseContact !== 'allowed' && (
+                <p data-erase-contact={eraseContact} className="rounded-lg bg-tm-tint-red px-3 py-2 text-[11px] font-bold text-tm-red-hover">
+                  {eraseContact === 'blocked' ? 'Erase requested — don’t contact. Contact is turned off.' : 'Erase requested — don’t contact. You are the Owner, so the buttons still work.'}
+                </p>
+              )}
+              {eraseContact === 'blocked' ? (
+                <div className="flex flex-wrap gap-2" aria-disabled="true">
+                  {['Message', 'WhatsApp', 'Call'].map((w) => (
+                    <span key={w} className={`${BTN} cursor-not-allowed border border-dashed border-gray-300 text-gray-500`}>{w}</span>
+                  ))}
+                </div>
+              ) : (
               <div className="flex flex-wrap gap-2">
                 {!banned && (
                   <Link href={`/admin/inbox?to=${userId}`} className={`${BTN} border border-gray-200 text-slate-700 hover:border-tm-navy`}>
@@ -370,6 +385,7 @@ export default function MemberActions({
                 )}
                 {!whatsappMsisdn && !callMsisdn && <span className="self-center text-[11px] text-gray-500">No mobile number on file.</span>}
               </div>
+              )}
             </div>
           )}
 

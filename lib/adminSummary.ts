@@ -1,4 +1,5 @@
 import 'server-only'
+import { eraseDateLine } from '@/lib/eraseRequestedCore'
 
 // lib/adminSummary.ts — the pre-calculated admin summary and lists (owner,
 // 1 Nov 2026; rules in lib/adminSummaryCore). rebuildAdminSummary() runs the
@@ -89,6 +90,8 @@ export type PeoplePayload = {
   hidden: { tutor: number; parent: number }
   /** Erased accounts — only under the "Deleted" chip (owner, 5 Nov 2026). */
   deleted?: { tutor: number; parent: number }
+  /** Erase requested — only under the grey "Erase requested" chip (PR-04). */
+  eraseRequested?: { tutor: number; parent: number }
   videosWaiting: number
   parentsWaiting: number
   staff: StaffPerson[]
@@ -231,7 +234,7 @@ function peopleRows(
   const ordered =
     role === 'tutor' && pipeline ? pipelineOrder(list.map((p) => ({ p, ...pipelineSort(pipeline.get(p.id), p) }))).map((x) => x.p) : list
   return ordered.map((p, pos) => {
-    const badge = p.deleted ? EXCLUDE_WORDS.deleted : p.banned ? 'Banned' : p.suspended ? 'Paused' : p.selfPaused ? 'Paused by user' : p.excluded ? EXCLUDE_WORDS[p.excluded] : null
+    const badge = p.deleted ? EXCLUDE_WORDS.deleted : p.eraseDueAt ? eraseDateLine(p.eraseDueAt) : p.banned ? 'Banned' : p.suspended ? 'Paused' : p.selfPaused ? 'Paused by user' : p.excluded ? EXCLUDE_WORDS[p.excluded] : null
     // Paused accounts always sort last (owner, 5 Nov 2026), in the oldest-waiting order too.
     const paused = p.suspended || p.banned || p.selfPaused
     const d = role === 'tutor' ? (docs.get(p.id) ?? null) : null
@@ -271,6 +274,8 @@ function peopleRows(
         ...(pipe ? pipeTags(pipe) : {}),
         excluded: p.excluded !== null,
         deleted: p.deleted,
+        erase_req: !!p.eraseDueAt,
+        excluded_base: p.excluded !== null && p.excluded !== 'erase_requested',
         joined_at: p.createdAt,
       },
       sort_at: pipe ? pipeSortAt(pipe) : paused ? null : (d?.oldestUploadAt ?? null),
@@ -372,7 +377,8 @@ async function rebuildOnce(opts: { force?: boolean }): Promise<{ ran: boolean; m
     ])
     const people: PeoplePayload = {
       counts: { tutors: tutors.filter((p) => p.excluded === null).length, parents: parents.filter((p) => p.excluded === null).length, staff: dir.staff.length },
-      hidden: { tutor: tutors.filter((p) => p.excluded !== null && !p.deleted).length, parent: parents.filter((p) => p.excluded !== null && !p.deleted).length },
+      hidden: { tutor: tutors.filter((p) => p.excluded !== null && !p.deleted && !p.eraseDueAt).length, parent: parents.filter((p) => p.excluded !== null && !p.deleted && !p.eraseDueAt).length },
+      eraseRequested: { tutor: tutors.filter((p) => !!p.eraseDueAt).length, parent: parents.filter((p) => !!p.eraseDueAt).length },
       deleted: { tutor: tutors.filter((p) => p.deleted).length, parent: parents.filter((p) => p.deleted).length },
       videosWaiting: tutors.filter((p) => p.excluded === null && p.videoWaiting).length,
       parentsWaiting: parents.filter((p) => p.excluded === null && p.parent?.verification === 'waiting').length,

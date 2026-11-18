@@ -1,4 +1,5 @@
 import 'server-only'
+import { loadAvatarFacts } from '@/lib/memberAvatars'
 
 // lib/bankStatement.ts — the I/O half of the Faysal Bank statement import
 // (owner, 17 Nov 2026 — PR-03). Rules in lib/bankStatementCore.ts.
@@ -20,7 +21,10 @@ import { logAdminAction } from '@/lib/auditLog'
 import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { formatName } from '@/lib/formatName'
 import { normalisePkMobile } from '@/lib/phone'
-import { autoLinkNewCredits, loadFeeBoard, loadFeeRange, freeCredits } from '@/lib/feeMatch'
+import { autoLinkNewCredits, loadFeeBoard, loadFeeRange, freeCredits, linkStatementCredit, STATEMENT_AUTO_NOTE } from '@/lib/feeMatch'
+import { siteOwnerId } from '@/lib/staffHandover'
+import { clearLinks } from '@/lib/settlementMatch'
+import { maskPhoneDisplay } from '@/lib/contactMaskCore'
 import { markPersonal, undoPersonal } from '@/lib/personalCredits'
 import type { Actor } from '@/lib/settlementMatch'
 import {
@@ -33,12 +37,15 @@ import {
   importSummary,
   masked,
   matchFeeCredits,
+  pairApprovedPayments,
+  possibleDuplicates,
   parseStatement,
   resultLists,
   senderOf,
   statementRefs,
   suggestPersonal,
   type ApprovedBankPayment,
+  type ApprovedPairing,
   type CreditMatch,
   type FeeCredit,
   type ImportSummary,
@@ -268,10 +275,11 @@ type RowRecord = {
   match_member_id: string | null
   match_reason: string | null
   match_note: string | null
+  auto_link_undone_at: string | null
 }
 
 const ROW_COLUMNS =
-  'id, tran_date, tran_time, deposit, withdrawal, description, reference, stan, transfer_account_no, sender_name, class, class_auto, transfer_id, transfer_how, personal_at, match_kind, match_payment_id, match_member_id, match_reason, match_note'
+  'id, tran_date, tran_time, deposit, withdrawal, description, reference, stan, transfer_account_no, sender_name, class, class_auto, transfer_id, transfer_how, personal_at, match_kind, match_payment_id, match_member_id, match_reason, match_note, auto_link_undone_at'
 
 async function loadRows(admin: Admin): Promise<RowRecord[]> {
   return pageAll<RowRecord>((f, t) => admin.from('bank_statement_rows').select(ROW_COLUMNS).order('tran_date', { ascending: false }).order('id').range(f, t))
@@ -283,7 +291,10 @@ async function matchInputs(admin: Admin, rows: RowRecord[]): Promise<MatchInputs
   const board = await loadFeeBoard()
   if (!board) return null
   const free = new Set(freeCredits(board).map((c) => c.id))
-  const feeRows = rows.filter((r) => r.class === 'fee' && Number(r.deposit) > 0)
+  // A row waiting under "Check: possibly already recorded" has no bank credit
+  // of its own yet and may be money already recorded — it is never matched
+  // until the Owner decides (PR-04), so it can never be counted twice.
+  const feeRows = rows.filter((r) => r.class === 'fee' && Number(r.deposit) > 0 && !(r.transfer_how === 'unclear' && !r.transfer_id))
   const credits: FeeCredit[] = feeRows.map((r) => ({
     rowId: r.id,
     transferId: r.transfer_id,
@@ -336,6 +347,7 @@ async function matchInputs(admin: Admin, rows: RowRecord[]): Promise<MatchInputs
     planCode: r.planCode ?? null,
     amount: r.amountPkr,
     approvedAt: r.reviewedAt ?? `${r.approvedDay}T12:00:00+05:00`,
+    createdAt: r.createdAt ?? null,
     hasCredit: r.state === 'matched',
   }))
   const members: MatchMember[] = people.map((p) => ({
@@ -348,14 +360,66 @@ async function matchInputs(admin: Admin, rows: RowRecord[]): Promise<MatchInputs
   return { credits, receipts, approved, members }
 }
 
-export async function refreshStatementMatches(): Promise<{ changed: number } | null> {
+type MatchRun = { matches: Map<string, CreditMatch>; pairing: ApprovedPairing; inputs: MatchInputs; autoLinked: number }
+
+const STATEMENT_ACTOR = 'system: statement matching'
+
+/**
+ * Work the matches out (PR-04). A unique approved-payment pairing is LINKED
+ * here, once (lib/feeMatch linkStatementCredit refuses a credit or payment that
+ * already has a link); a row the Owner unlinked (auto_link_undone_at) is never
+ * linked automatically again. One extra pass after linking, so the result shown
+ * is the state the links left.
+ */
+async function runMatches(admin: Admin, rows: RowRecord[], opts: { autoLink: boolean }): Promise<MatchRun | null> {
+  let inputs = await matchInputs(admin, rows)
+  if (!inputs) return null
+  const range = await loadFeeRange()
+  let matches = matchFeeCredits({ ...inputs, range })
+  let autoLinked = 0
+  if (opts.autoLink) {
+    const rowBy = new Map(rows.map((r) => [r.id, r]))
+    const owner = await siteOwnerId(admin)
+    for (const [rowId, m] of matches) {
+      if (m.kind !== 'approved' || !m.auto || !owner) continue
+      const row = rowBy.get(rowId)
+      if (!row?.transfer_id || row.auto_link_undone_at) continue
+      const r = await linkStatementCredit({ transferId: row.transfer_id, paymentId: m.paymentId, auto: true }, { id: owner, adminRole: 'owner', email: STATEMENT_ACTOR })
+      if (r.ok) autoLinked++
+    }
+    if (autoLinked) {
+      inputs = (await matchInputs(admin, rows)) ?? inputs
+      matches = matchFeeCredits({ ...inputs, range })
+    }
+  }
+  // Suggestions for "Approved, no bank credit": the credits still unmatched,
+  // closest by time first. An auto pair the Owner undid stays a suggestion.
+  const left = inputs.credits.filter((c) => matches.get(c.rowId)?.kind === 'unmatched' || (matches.get(c.rowId) as { auto?: boolean } | undefined)?.auto)
+  const pairing = pairApprovedPayments(
+    left.map((c) => ({ rowId: c.rowId, date: c.date, time: c.time, amount: c.amount })),
+    inputs.approved,
+    range,
+  )
+  // An auto pair that was not linked (undone, or no bank credit) reads as unmatched + a suggestion.
+  for (const [rowId, m] of matches) {
+    if (m.kind === 'approved' && m.auto) matches.set(rowId, { kind: 'unmatched', note: null })
+  }
+  return { matches, pairing, inputs, autoLinked }
+}
+
+export async function refreshStatementMatches(): Promise<{ changed: number; autoLinked: number } | null> {
+  const r = await refreshWithRun()
+  return r ? { changed: r.changed, autoLinked: r.run?.autoLinked ?? 0 } : null
+}
+
+async function refreshWithRun(): Promise<{ changed: number; run: MatchRun | null } | null> {
   const admin = createAdminClient()
   if (!admin) return null
   const rows = await loadRows(admin)
-  if (!rows.some((r) => r.class === 'fee')) return { changed: 0 }
-  const inputs = await matchInputs(admin, rows)
-  if (!inputs) return null
-  const matches = matchFeeCredits({ ...inputs, range: await loadFeeRange() })
+  if (!rows.some((r) => r.class === 'fee')) return { changed: 0, run: null }
+  const run = await runMatches(admin, rows, { autoLink: true })
+  if (!run) return null
+  const { matches } = run
   let changed = 0
   const now = new Date().toISOString()
   for (const r of rows) {
@@ -378,7 +442,7 @@ export async function refreshStatementMatches(): Promise<{ changed: number } | n
     await admin.from('bank_statement_rows').update({ ...next, matched_at: now }).eq('id', r.id)
     changed++
   }
-  return { changed }
+  return { changed, run }
 }
 
 /** Payment id → why it is Bank-matched (no rupees — safe for every staff role). */
@@ -425,22 +489,43 @@ export type BoardRow = {
   suggestPersonal: boolean
 }
 
+export type CandidateMember = { id: string; name: string; mobile: string | null }
+export type DuplicateCredit = { id: string; date: string; time: string | null; amount: number; sender: string | null; source: string }
+export type AutoLinkView = { row: BoardRow; paymentId: string; paymentRef: string; memberId: string | null; memberName: string | null; linkedAt: string }
+
 export type StatementBoard = {
   imports: { id: string; createdAt: string; filename: string | null; byName: string | null; periodFrom: string | null; periodTo: string | null; rowsNew: number; rowsDuplicate: number; totalCredits: number; totalDebits: number; closingFile: number | null; closingComputed: number | null; added: number; linked: number; unclear: number }[]
   rows: BoardRow[]
   lists: {
     bankMatched: { row: BoardRow; paymentId: string; paymentRef: string; memberId: string | null; memberName: string | null; reason: string }[]
     paidNotRecorded: { row: BoardRow; memberId: string; memberName: string | null; reason: string }[]
-    unmatched: { row: BoardRow; note: string | null }[]
-    approvedNoCredit: { paymentId: string; paymentRef: string; memberId: string | null; memberName: string | null; amount: number; approvedAt: string; suggestion: { row: BoardRow; reason: string } | null }[]
+    /** `candidates`: the accounts a shared number (or a similar name) points at — the Owner picks one (PR-04). */
+    unmatched: { row: BoardRow; note: string | null; candidates: CandidateMember[] }[]
+    approvedNoCredit: {
+      paymentId: string
+      paymentRef: string
+      memberId: string | null
+      memberName: string | null
+      amount: number
+      approvedAt: string
+      suggestion: { row: BoardRow; reason: string } | null
+      /** Every likely credit, the closest first (PR-04). */
+      suggestions: { row: BoardRow; reason: string }[]
+    }[]
+    /** Statement credits linked to an approved payment by the matching, with Undo (PR-04). */
+    autoLinked: AutoLinkView[]
   }
-  unclear: BoardRow[]
+  /** `duplicates`: the recorded credits each row may be the same money as (PR-04). */
+  unclear: (BoardRow & { duplicates: DuplicateCredit[] })[]
+  /** Member pictures by id (PR-04): the default + No photo tag when none. */
+  avatars: Record<string, { src: string | null; gender: string | null }>
 }
 
 export async function loadStatementBoard(): Promise<StatementBoard | null> {
   const admin = createAdminClient()
   if (!admin) return null
-  await refreshStatementMatches().catch(() => null)
+  const refreshed = await refreshWithRun().catch(() => null)
+  const run = refreshed?.run ?? null
   const [imports, rows] = await Promise.all([
     admin.from('bank_statement_imports').select('*').order('created_at', { ascending: false }).limit(20),
     pageAll<RowRecord & { tran_type: string | null; contra_account: string | null; class_prev: string | null; personal_note: string | null; account_last4: string | null }>((f, t) =>
@@ -474,30 +559,49 @@ export async function loadStatementBoard(): Promise<StatementBoard | null> {
     suggestPersonal: !r.personal_at && suggestPersonal({ deposit: Number(r.deposit), type: r.tran_type }, r.class),
   })
   const byId = new Map(rows.map((r) => [r.id, view(r)]))
+  const rowByTransfer = new Map(rows.filter((r) => r.transfer_id).map((r) => [r.transfer_id!, r.id]))
+
+  // The matches as this run worked them out (candidates and suggestions are
+  // not stored); the stored columns when the run could not be made.
+  const matches = new Map<string, CreditMatch>()
+  if (run) for (const [k, v] of run.matches) matches.set(k, v)
+  else
+    for (const r of rows) {
+      if (r.class !== 'fee' || !r.match_kind) continue
+      const k = r.match_kind
+      if (k === 'receipt' || k === 'approved') matches.set(r.id, { kind: k, paymentId: r.match_payment_id!, reason: (r.match_reason ?? '') as never })
+      else if (k === 'member') matches.set(r.id, { kind: 'member', memberId: r.match_member_id!, reason: (r.match_reason ?? '') as never })
+      else if (k === 'unmatched') matches.set(r.id, { kind: 'unmatched', note: r.match_note })
+      else matches.set(r.id, { kind: 'settled' })
+    }
+
+  // Automatic statement links still standing.
+  const autoLinks = await pageAll<{ transfer_id: string; target: string | null; created_at: string }>((f, t) =>
+    admin.from('settlement_links').select('transfer_id, target, created_at').eq('kind', 'receipt').is('removed_at', null).like('note', `${STATEMENT_AUTO_NOTE}%`).order('id').range(f, t),
+  )
 
   const paymentIds = [...new Set(rows.map((r) => r.match_payment_id).filter((v): v is string => !!v))]
   const board = await loadFeeBoard()
   const approvedPays = board ? board.receipts.filter((r) => r.state === 'waiting') : []
-  const allPayIds = [...new Set([...paymentIds, ...approvedPays.map((r) => r.id)])]
+  const allPayIds = [...new Set([...paymentIds, ...approvedPays.map((r) => r.id), ...autoLinks.map((l) => l.target).filter((v): v is string => !!v), ...[...matches.values()].flatMap((m) => (m.kind === 'receipt' || m.kind === 'approved' ? [m.paymentId] : []))])]
   const pays = await pageAllIn<{ id: string; provider_ref: string | null; user_id: string | null }, string>(allPayIds, (part, f, t) =>
     admin.from('payments').select('id, provider_ref, user_id').in('id', part).order('id').range(f, t),
   )
   const payBy = new Map(pays.map((p) => [p.id, p]))
-  const memberIds = [...new Set([...pays.map((p) => p.user_id), ...rows.map((r) => r.match_member_id)].filter((v): v is string => !!v))]
-  const people = await pageAllIn<{ id: string; full_name: string | null }, string>(memberIds, (part, f, t) =>
-    admin.from('profiles').select('id, full_name').in('id', part).order('id').range(f, t),
+  const candidateIds = [...matches.values()].flatMap((m) => (m.kind === 'unmatched' ? (m.candidates ?? []) : []))
+  const memberIds = [
+    ...new Set(
+      [...pays.map((p) => p.user_id), ...rows.map((r) => r.match_member_id), ...[...matches.values()].flatMap((m) => (m.kind === 'member' ? [m.memberId] : [])), ...candidateIds].filter(
+        (v): v is string => !!v,
+      ),
+    ),
+  ]
+  const people = await pageAllIn<{ id: string; full_name: string | null; phone_number: string | null; whatsapp: string | null }, string>(memberIds, (part, f, t) =>
+    admin.from('profiles').select('id, full_name, phone_number, whatsapp').in('id', part).order('id').range(f, t),
   )
   const nameBy = new Map(people.map((p) => [p.id, formatName(p.full_name ?? '') || 'Member']))
+  const personBy = new Map(people.map((p) => [p.id, p]))
 
-  const matches = new Map<string, CreditMatch>()
-  for (const r of rows) {
-    if (r.class !== 'fee' || !r.match_kind) continue
-    const k = r.match_kind
-    if (k === 'receipt' || k === 'approved') matches.set(r.id, { kind: k, paymentId: r.match_payment_id!, reason: (r.match_reason ?? '') as never })
-    else if (k === 'member') matches.set(r.id, { kind: 'member', memberId: r.match_member_id!, reason: (r.match_reason ?? '') as never })
-    else if (k === 'unmatched') matches.set(r.id, { kind: 'unmatched', note: r.match_note })
-    else matches.set(r.id, { kind: 'settled' })
-  }
   const days = rows.map((r) => String(r.tran_date).slice(0, 10)).sort()
   const approvedIn: ApprovedBankPayment[] = approvedPays.map((r) => ({
     id: r.id,
@@ -506,11 +610,21 @@ export async function loadStatementBoard(): Promise<StatementBoard | null> {
     planCode: r.planCode ?? null,
     amount: r.amountPkr,
     approvedAt: r.reviewedAt ?? `${r.approvedDay}T12:00:00+05:00`,
+    createdAt: r.createdAt ?? null,
     hasCredit: false,
   }))
-  const lists = resultLists(matches, approvedIn, { from: days[0] ?? null, to: days[days.length - 1] ?? null })
+  const lists = resultLists(matches, approvedIn, { from: days[0] ?? null, to: days[days.length - 1] ?? null }, run?.pairing)
+  const avatars = await loadAvatarFacts([...memberIds, ...approvedIn.map((a) => a.memberId)])
   const ref = (id: string) => String(payBy.get(id)?.provider_ref ?? id.slice(0, 8))
   const member = (id: string) => payBy.get(id)?.user_id ?? null
+
+  // "Check: possibly already recorded": the recorded credits each row may duplicate.
+  const unclearRows = rows.filter((r) => r.transfer_how === 'unclear' && !r.transfer_id)
+  let recorded: RecordedCredit[] = []
+  if (unclearRows.length) {
+    const ud = unclearRows.map((r) => String(r.tran_date).slice(0, 10)).sort()
+    recorded = await loadRecorded(admin, ud[0], ud[ud.length - 1])
+  }
 
   return {
     imports: ((imports.data ?? []) as Record<string, unknown>[]).map((i) => ({
@@ -534,9 +648,17 @@ export async function loadStatementBoard(): Promise<StatementBoard | null> {
     lists: {
       bankMatched: lists.bankMatched.map((m) => ({ row: byId.get(m.rowId)!, paymentId: m.paymentId, paymentRef: ref(m.paymentId), memberId: member(m.paymentId), memberName: member(m.paymentId) ? (nameBy.get(member(m.paymentId)!) ?? null) : null, reason: m.reason })),
       paidNotRecorded: lists.paidNotRecorded.map((m) => ({ row: byId.get(m.rowId)!, memberId: m.memberId, memberName: nameBy.get(m.memberId) ?? null, reason: m.reason })),
-      unmatched: lists.unmatched.map((m) => ({ row: byId.get(m.rowId)!, note: m.note })),
+      unmatched: lists.unmatched.map((m) => ({
+        row: byId.get(m.rowId)!,
+        note: m.note,
+        candidates: m.candidates.map((id) => {
+          const p = personBy.get(id)
+          return { id, name: nameBy.get(id) ?? 'Member', mobile: maskPhoneDisplay(p?.phone_number ?? p?.whatsapp ?? null) }
+        }),
+      })),
       approvedNoCredit: lists.approvedNoCredit.map((a) => {
         const p = approvedIn.find((x) => x.id === a.paymentId)!
+        const sugg = a.suggestions.filter((s) => byId.has(s.rowId)).map((s) => ({ row: byId.get(s.rowId)!, reason: s.reason }))
         return {
           paymentId: a.paymentId,
           paymentRef: ref(a.paymentId),
@@ -544,13 +666,28 @@ export async function loadStatementBoard(): Promise<StatementBoard | null> {
           memberName: p.memberId ? (nameBy.get(p.memberId) ?? p.memberName) : p.memberName,
           amount: p.amount,
           approvedAt: p.approvedAt,
-          suggestion: a.suggestion ? { row: byId.get(a.suggestion.rowId)!, reason: a.suggestion.reason } : null,
+          suggestion: sugg[0] ?? null,
+          suggestions: sugg,
         }
       }),
+      autoLinked: autoLinks
+        .filter((l) => l.target && rowByTransfer.has(l.transfer_id))
+        .map((l) => {
+          const rowId = rowByTransfer.get(l.transfer_id)!
+          const pid = l.target!
+          return { row: byId.get(rowId)!, paymentId: pid, paymentRef: ref(pid), memberId: member(pid), memberName: member(pid) ? (nameBy.get(member(pid)!) ?? null) : null, linkedAt: l.created_at }
+        })
+        .sort((a, b) => b.linkedAt.localeCompare(a.linkedAt)),
     },
-    unclear: rows.filter((r) => r.transfer_how === 'unclear' && !r.transfer_id).map((r) => byId.get(r.id)!),
+    avatars,
+    unclear: unclearRows.map((r) => {
+      const v = byId.get(r.id)!
+      const dups = possibleDuplicates({ deposit: Number(r.deposit), date: v.date, time: v.time, sender: r.sender_name }, recorded)
+      return { ...v, duplicates: dups.map((d) => ({ id: d.id, date: d.date, time: d.time, amount: d.amountPkr, sender: d.senderName, source: d.source })) }
+    }),
   }
 }
+
 
 /** Every run of 6+ digits in a description, masked to its last 4. */
 export function maskDigits(s: string): string {
@@ -747,4 +884,114 @@ export async function resolveUnclearRow(rowId: string, choice: { kind: 'new' } |
   })
   await refreshStatementMatches().catch(() => null)
   return { ok: true }
+}
+
+// ===========================================================================
+// PR-04 actions — Owner only (the route checks), audited, nothing deleted.
+
+/** "Link": a statement credit to an approved bank payment with no credit. */
+export async function linkRowToApproved(rowId: string, paymentId: string, actor: Actor): Promise<Result> {
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, status: 503, error: NOT_NOW }
+  const { data: row } = await admin.from('bank_statement_rows').select('id, transfer_id, personal_at').eq('id', rowId).maybeSingle()
+  if (!row) return { ok: false, status: 404, error: 'That statement row was not found.' }
+  if (row.personal_at) return { ok: false, status: 409, error: 'This entry is marked personal.' }
+  if (!row.transfer_id) return { ok: false, status: 409, error: 'This row has no bank credit yet. Decide "Same money" or "Add as a new credit" first.' }
+  const r = await linkStatementCredit({ transferId: row.transfer_id as string, paymentId, auto: false }, actor)
+  if (!r.ok) return r
+  await refreshStatementMatches().catch(() => null)
+  return { ok: true }
+}
+
+/** Undo a statement link (automatic or the Owner's). The link is stamped
+ *  removed, and the row is never linked automatically again. */
+export async function unlinkRow(rowId: string, actor: Actor): Promise<Result> {
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, status: 503, error: NOT_NOW }
+  const { data: row } = await admin.from('bank_statement_rows').select('id, transfer_id, deposit, tran_date').eq('id', rowId).maybeSingle()
+  if (!row?.transfer_id) return { ok: false, status: 404, error: 'That statement row has no bank credit.' }
+  const { data: links } = await admin.from('settlement_links').select('id, target').eq('transfer_id', row.transfer_id).eq('kind', 'receipt').is('removed_at', null)
+  if (!(links ?? []).length) return { ok: false, status: 409, error: 'This credit is not linked to a payment.' }
+  if (!(await clearLinks(row.transfer_id as string, actor))) return { ok: false, status: 500, error: 'That did not save. Please try again.' }
+  await admin.from('bank_statement_rows').update({ auto_link_undone_at: new Date().toISOString(), auto_link_undone_by: actor.id }).eq('id', rowId)
+  await logAdminAction({
+    actorId: actor.id, actorRole: actor.adminRole, actorEmail: actor.email ?? null,
+    action: 'settlement.statement_link_undo', targetType: 'bank_statement_row', targetId: rowId,
+    detail: { paymentIds: (links ?? []).map((l) => l.target), date: row.tran_date, amountPkr: Number(row.deposit) },
+  })
+  await refreshStatementMatches().catch(() => null)
+  return { ok: true }
+}
+
+/** "Same money — link": the statement row IS a credit already recorded. No
+ *  new money: the row points at the existing credit. Only a recorded credit of
+ *  the same amount, not tied to another statement row, may be chosen. */
+export async function sameMoneyRow(rowId: string, transferId: string, actor: Actor): Promise<Result> {
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, status: 503, error: NOT_NOW }
+  const { data: row } = await admin.from('bank_statement_rows').select('id, transfer_id, deposit').eq('id', rowId).maybeSingle()
+  if (!row) return { ok: false, status: 404, error: 'That statement row was not found.' }
+  if (row.transfer_id) return { ok: false, status: 409, error: 'This row already has a bank credit.' }
+  const { data: t } = await admin.from('bank_transfers').select('id, amount_pkr, statement_row_id').eq('id', transferId).maybeSingle()
+  if (!t) return { ok: false, status: 404, error: 'That bank credit was not found.' }
+  if (Math.abs(Number(t.amount_pkr) - Number(row.deposit)) > 0.005) return { ok: false, status: 409, error: 'That recorded credit is a different amount.' }
+  return resolveUnclearRow(rowId, { kind: 'same', transferId }, actor)
+}
+
+/** Undo "Same money — link": the row goes back to "possibly already recorded". */
+export async function undoSameMoneyRow(rowId: string, actor: Actor): Promise<Result> {
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, status: 503, error: NOT_NOW }
+  const { data: row } = await admin.from('bank_statement_rows').select('id, transfer_id, transfer_how').eq('id', rowId).maybeSingle()
+  if (!row?.transfer_id || row.transfer_how !== 'linked') return { ok: false, status: 409, error: 'There is no "Same money" link to undo.' }
+  await admin.from('bank_transfers').update({ statement_row_id: null }).eq('id', row.transfer_id).eq('statement_row_id', rowId)
+  await admin.from('bank_statement_rows').update({ transfer_id: null, transfer_how: 'unclear' }).eq('id', rowId)
+  await logAdminAction({
+    actorId: actor.id, actorRole: actor.adminRole, actorEmail: actor.email ?? null,
+    action: 'settlement.statement_same_undo', targetType: 'bank_statement_row', targetId: rowId,
+    detail: { transferId: row.transfer_id },
+  })
+  await refreshStatementMatches().catch(() => null)
+  return { ok: true }
+}
+
+/** "Assign to a member" on a fee row with no bank credit (and not waiting
+ *  under "possibly already recorded"): the bank credit is made first. */
+export async function ensureRowCredit(rowId: string, actor: Actor): Promise<Result<{ transferId: string }>> {
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, status: 503, error: NOT_NOW }
+  const { data } = await admin.from('bank_statement_rows').select('id, transfer_id, transfer_how, deposit').eq('id', rowId).maybeSingle()
+  if (!data) return { ok: false, status: 404, error: 'That statement row was not found.' }
+  if (data.transfer_id) return { ok: true, transferId: String(data.transfer_id) }
+  if (data.transfer_how === 'unclear') return { ok: false, status: 409, error: 'This row may be money already recorded. Decide "Same money" or "Add as a new credit" first.' }
+  if (!(Number(data.deposit) > 0)) return { ok: false, status: 400, error: 'Only a credit can be assigned.' }
+  const r = await resolveUnclearRow(rowId, { kind: 'new' }, actor)
+  if (!r.ok) return r
+  const { data: after } = await admin.from('bank_statement_rows').select('transfer_id').eq('id', rowId).maybeSingle()
+  return after?.transfer_id ? { ok: true, transferId: String(after.transfer_id) } : { ok: false, status: 500, error: 'That did not save. Please try again.' }
+}
+
+/** The statement list counts, READ ONLY (PR-04 report): the same matching as
+ *  the page, with no automatic link and nothing stored. Counts only. */
+export async function statementListCounts(): Promise<{ bankMatched: number; paidNotRecorded: number; unmatched: number; possiblyRecorded: number; approvedNoCredit: number; linkedAutomatically: number } | null> {
+  const admin = createAdminClient()
+  if (!admin) return null
+  const rows = await loadRows(admin)
+  const run = await runMatches(admin, rows, { autoLink: false })
+  if (!run) return null
+  const board = await loadFeeBoard()
+  const approvedIn: ApprovedBankPayment[] = (board?.receipts ?? [])
+    .filter((r) => r.state === 'waiting')
+    .map((r) => ({ id: r.id, memberId: r.memberId ?? null, memberName: r.payerName, planCode: r.planCode ?? null, amount: r.amountPkr, approvedAt: r.reviewedAt ?? `${r.approvedDay}T12:00:00+05:00`, createdAt: r.createdAt ?? null, hasCredit: false }))
+  const days = rows.map((r) => String(r.tran_date).slice(0, 10)).sort()
+  const lists = resultLists(run.matches, approvedIn, { from: days[0] ?? null, to: days[days.length - 1] ?? null }, run.pairing)
+  const { count } = await admin.from('settlement_links').select('id', { count: 'exact', head: true }).eq('kind', 'receipt').is('removed_at', null).like('note', `${STATEMENT_AUTO_NOTE}%`)
+  return {
+    bankMatched: lists.bankMatched.length,
+    paidNotRecorded: lists.paidNotRecorded.length,
+    unmatched: lists.unmatched.length,
+    possiblyRecorded: rows.filter((r) => r.transfer_how === 'unclear' && !r.transfer_id).length,
+    approvedNoCredit: lists.approvedNoCredit.length,
+    linkedAutomatically: count ?? 0,
+  }
 }

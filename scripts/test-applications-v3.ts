@@ -295,7 +295,7 @@ test('the forward panel keeps every old feature and moves the ticked tutors to F
     'Admin page',
     'New applicant',
     'Check with parent',
-    '<Avatar name={tutor.name} src={tutor.avatarUrl} gender={tutor.gender}',
+    '<AdminAvatar name={tutor.name} src={tutor.avatarUrl} gender={tutor.gender}',
     '<BadgeRow badges={tutor.badges}',
     'type="checkbox"',
   ]) {

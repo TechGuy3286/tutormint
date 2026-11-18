@@ -8,6 +8,7 @@ import { adminFetch } from '@/components/admin/adminFetch'
 import { useCanApprove } from '@/components/admin/ReadOnly'
 import LinkBankCredit from '@/components/admin/LinkBankCredit'
 import MemberNameLink from '@/components/admin/MemberNameLink'
+import AdminAvatar from '@/components/admin/AdminAvatar'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { CLASS_LABEL, STATEMENT_CLASSES, type StatementClass } from '@/lib/bankStatementCore'
@@ -42,6 +43,16 @@ function RowLine({ row }: { row: BoardRow }) {
   )
 }
 
+// A member with their picture (PR-04): the default + No photo tag when none.
+function Who({ id, name, avatars }: { id: string; name: string; avatars?: Record<string, { src: string | null; gender: string | null }> }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 align-middle">
+      <AdminAvatar name={name} src={avatars?.[id]?.src ?? null} gender={avatars?.[id]?.gender ?? null} className="h-6 w-6 text-[9px]" px={24} />
+      <MemberNameLink id={id} name={name} />
+    </span>
+  )
+}
+
 export default function StatementClient({ board, settlements }: { board: StatementBoard; settlements: Settlement[] }) {
   const owner = useCanApprove()
   const router = useRouter()
@@ -50,7 +61,7 @@ export default function StatementClient({ board, settlements }: { board: Stateme
   const [busy, setBusy] = useState(false)
   const [outcome, setOutcome] = useState<ImportOutcome | null>(null)
   const [filter, setFilter] = useState<StatementClass | 'all' | 'personal'>('all')
-  const [linking, setLinking] = useState<{ rowId: string; member?: { id: string; name: string } } | null>(null)
+  const [linking, setLinking] = useState<{ rowId: string; transferId?: string; member?: { id: string; name: string } } | null>(null)
   const [revealed, setRevealed] = useState<Record<string, string | null>>({})
 
   const post = async (body: Record<string, unknown>) => {
@@ -113,6 +124,8 @@ export default function StatementClient({ board, settlements }: { board: Stateme
   }
 
   const addAsNew = async (row: BoardRow) => {
+    const ok = await confirm({ title: 'Add as a new credit?', body: 'This counts it as NEW money in the bank totals. Only do this if it is a different payment from the credit already recorded.', confirmLabel: 'Add as new money', destructive: true })
+    if (!ok) return
     const r = await post({ action: 'resolve', rowId: row.id, transferId: null })
     if (r.ok) {
       toast.success('Added as a new bank credit.')
@@ -120,18 +133,44 @@ export default function StatementClient({ board, settlements }: { board: Stateme
     }
   }
 
-  const linkExisting = async (transferId: string, paymentId: string) => {
-    setBusy(true)
-    const r = await adminFetch<{ error?: string }>('/api/admin/payments/bank-link', {
+  // PR-04: Link a statement credit to an approved payment, with Undo.
+  const linkApproved = async (row: BoardRow, paymentId: string) => {
+    const r = await post({ action: 'link_approved', rowId: row.id, paymentId })
+    if (r.ok) {
+      toast.success('Bank credit linked to the payment.', { label: 'Undo', ms: 10_000, onClick: () => void post({ action: 'unlink', rowId: row.id }).then(() => router.refresh()) })
+      router.refresh()
+    }
+  }
+
+  const unlink = async (row: BoardRow) => {
+    const ok = await confirm({ title: 'Undo this link?', body: 'The credit and the payment go back to unlinked. This pair will not be linked automatically again.', confirmLabel: 'Undo link' })
+    if (!ok) return
+    const r = await post({ action: 'unlink', rowId: row.id })
+    if (r.ok) {
+      toast.success('Link undone.')
+      router.refresh()
+    }
+  }
+
+  // "Same money — link": no new money is added.
+  const sameMoney = async (row: BoardRow, transferId: string) => {
+    const r = await post({ action: 'same_money', rowId: row.id, transferId })
+    if (r.ok) {
+      toast.success('Linked to the credit already recorded. Nothing was added.', { label: 'Undo', ms: 10_000, onClick: () => void post({ action: 'undo_same', rowId: row.id }).then(() => router.refresh()) })
+      router.refresh()
+    }
+  }
+
+  // Assign on a row with no bank credit yet: the credit is made first.
+  const startAssign = async (row: BoardRow, memberPick?: { id: string; name: string }) => {
+    if (row.transferId) return setLinking({ rowId: row.id, transferId: row.transferId, member: memberPick })
+    const r = await adminFetch<{ error?: string; transferId?: string }>('/api/admin/finance/statement', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'link_existing', transferId, paymentId }),
+      body: JSON.stringify({ action: 'ensure_credit', rowId: row.id }),
     })
-    setBusy(false)
-    if (r.ok) {
-      toast.success('Bank credit linked to the payment.')
-      router.refresh()
-    } else toast.error(r.data?.error ?? 'That did not save. Please try again.')
+    if (r.ok && r.data?.transferId) setLinking({ rowId: row.id, transferId: r.data.transferId, member: memberPick })
+    else toast.error(r.data?.error ?? 'That did not save. Please try again.')
   }
 
   const rows = useMemo(
@@ -147,12 +186,12 @@ export default function StatementClient({ board, settlements }: { board: Stateme
     return c
   }, [board.rows])
 
-  const credit = (row: BoardRow) => ({ id: row.transferId!, date: row.date, time: row.time, amountPkr: row.deposit, reference: null, senderName: row.sender })
+  const credit = (row: BoardRow, transferId?: string) => ({ id: transferId ?? row.transferId!, date: row.date, time: row.time, amountPkr: row.deposit, reference: null, senderName: row.sender })
 
   const linker = (row: BoardRow) =>
-    linking?.rowId === row.id && row.transferId ? (
+    linking?.rowId === row.id && (linking.transferId ?? row.transferId) ? (
       <div className="mt-2">
-        <LinkBankCredit credit={credit(row)} initialMember={linking.member} onCancel={() => setLinking(null)} />
+        <LinkBankCredit credit={credit(row, linking.transferId)} initialMember={linking.member} onCancel={() => setLinking(null)} />
       </div>
     ) : null
 
@@ -246,7 +285,7 @@ export default function StatementClient({ board, settlements }: { board: Stateme
                 <div>
                   <RowLine row={m.row} />
                   <div className="text-gray-500">
-                    {m.memberId ? <MemberNameLink id={m.memberId} name={m.memberName ?? 'Member'} /> : m.memberName ?? 'Member'} · {m.paymentRef} · <span className="font-bold text-tm-green-deep">{m.reason}</span>
+                    {m.memberId ? <Who id={m.memberId} name={m.memberName ?? 'Member'} avatars={board.avatars} /> : m.memberName ?? 'Member'} · {m.paymentRef} · <span className="font-bold text-tm-green-deep">{m.reason}</span>
                   </div>
                 </div>
                 <a href={`/admin/payments?search=${encodeURIComponent(m.paymentRef)}`} className={btn}>Open in Payments</a>
@@ -269,7 +308,7 @@ export default function StatementClient({ board, settlements }: { board: Stateme
                   <div>
                     <RowLine row={m.row} />
                     <div className="text-gray-500">
-                      <MemberNameLink id={m.memberId} name={m.memberName ?? 'Member'} /> · <span className="font-bold text-tm-green-deep">{m.reason}</span>
+                      <Who id={m.memberId} name={m.memberName ?? 'Member'} avatars={board.avatars} /> · <span className="font-bold text-tm-green-deep">{m.reason}</span>
                     </div>
                   </div>
                   {owner && m.row.transferId && (
@@ -297,15 +336,28 @@ export default function StatementClient({ board, settlements }: { board: Stateme
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <RowLine row={m.row} />
-                    {m.note && <div className="text-gray-500">{m.note}</div>}
+                    {m.note && <div className="text-gray-500">{m.note}{m.candidates.length > 0 ? ' — pick the right one:' : ''}</div>}
+                    {m.candidates.length > 0 && (
+                      <ul className="mt-1 space-y-1" data-candidates="">
+                        {m.candidates.map((c) => (
+                          <li key={c.id} className="flex flex-wrap items-center gap-2">
+                            <Who id={c.id} name={c.name} avatars={board.avatars} />
+                            {c.mobile && <span className="text-gray-500">{c.mobile}</span>}
+                            {owner && (
+                              <button type="button" className="text-[11px] font-bold text-tm-navy underline" disabled={busy} onClick={() => void startAssign(m.row, { id: c.id, name: c.name })}>
+                                Pick this account
+                              </button>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                   {owner && (
                     <div className="flex flex-wrap gap-2">
-                      {m.row.transferId && (
-                        <button type="button" className={btn} disabled={busy} onClick={() => setLinking({ rowId: m.row.id })}>
-                          Assign to a member
-                        </button>
-                      )}
+                      <button type="button" className={btn} disabled={busy} onClick={() => void startAssign(m.row)}>
+                        Assign to a member
+                      </button>
                       <button type="button" className={btn} disabled={busy} onClick={() => void reclassify(m.row, 'other_credit')}>
                         Not a fee
                       </button>
@@ -330,19 +382,27 @@ export default function StatementClient({ board, settlements }: { board: Stateme
               <li key={a.paymentId} className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs">
                 <div>
                   <span className="font-bold text-tm-navy">{pkr(a.amount)}</span> · {a.paymentRef} ·{' '}
-                  {a.memberId ? <MemberNameLink id={a.memberId} name={a.memberName ?? 'Member'} /> : a.memberName ?? 'Deleted account'} ·{' '}
+                  {a.memberId ? <Who id={a.memberId} name={a.memberName ?? 'Member'} avatars={board.avatars} /> : a.memberName ?? 'Deleted account'} ·{' '}
                   approved {new Date(a.approvedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Asia/Karachi' })}
-                  {a.suggestion && (
-                    <div className="text-gray-500">
-                      Likely credit: <RowLine row={a.suggestion.row} /> · <span className="font-bold text-tm-green-deep">{a.suggestion.reason}</span>
-                    </div>
+                  {a.suggestions.length === 0 ? (
+                    <div className="text-gray-500">No statement credit of this amount within 2 days.</div>
+                  ) : (
+                    <ul className="mt-1 space-y-1" data-likely-credits="">
+                      {a.suggestions.slice(0, 4).map((s, i) => (
+                        <li key={s.row.id} className="flex flex-wrap items-center gap-2 text-gray-500">
+                          <span>
+                            {i === 0 ? 'Likely credit' : 'Or'}: <RowLine row={s.row} /> · <span className="font-bold text-tm-green-deep">{s.reason}</span>
+                          </span>
+                          {owner && s.row.transferId && (
+                            <button type="button" className={i === 0 ? btnPrimary : btn} disabled={busy} onClick={() => void linkApproved(s.row, a.paymentId)}>
+                              Link
+                            </button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </div>
-                {owner && a.suggestion?.row.transferId && (
-                  <button type="button" className={btnPrimary} disabled={busy} onClick={() => void linkExisting(a.suggestion!.row.transferId!, a.paymentId)}>
-                    Link
-                  </button>
-                )}
               </li>
             ))}
           </ul>
@@ -352,14 +412,66 @@ export default function StatementClient({ board, settlements }: { board: Stateme
       {board.unclear.length > 0 && (
         <section className={card}>
           <h2 className="text-sm font-black text-tm-navy">Check: possibly already recorded ({board.unclear.length})</h2>
-          <p className="text-[11px] text-gray-500">More than one bank credit already recorded has the same amount that day, so these were not added. Add one only if it is a different payment.</p>
+          <p className="text-[11px] text-gray-500">
+            A bank credit of the same amount that day is already recorded, so these were not added. Usually it is the same money: link it. Add one only if it
+            is a different payment — that counts new money.
+          </p>
           <ul className="divide-y divide-gray-100">
             {board.unclear.map((row) => (
-              <li key={row.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs">
+              <li key={row.id} className="space-y-1 py-2 text-xs" data-unclear-row="">
                 <RowLine row={row} />
+                {row.duplicates.length === 0 ? (
+                  <p className="text-gray-500">The recorded credit is already tied to another statement row.</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {row.duplicates.map((d, i) => (
+                      <li key={d.id} className="flex flex-wrap items-center gap-2 text-gray-500">
+                        <span>
+                          Recorded: <span className="font-bold text-tm-navy">{pkr(d.amount)}</span> · {dayLabel(d.date, d.time)}
+                          {d.sender ? ` · ${d.sender}` : ''} · {d.source === 'email' ? 'from the bank email' : 'entered by hand'}
+                        </span>
+                        {owner && (
+                          <button type="button" className={i === 0 ? btnPrimary : btn} disabled={busy} onClick={() => void sameMoney(row, d.id)}>
+                            Same money — link
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 {owner && (
-                  <button type="button" className={btn} disabled={busy} onClick={() => void addAsNew(row)}>
-                    Add as a new credit
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button type="button" className={btn} disabled={busy} onClick={() => void addAsNew(row)}>
+                      Add as a new credit
+                    </button>
+                    <span className="text-[11px] font-bold text-tm-gold-ink">Adding counts it as new money.</span>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {board.lists.autoLinked.length > 0 && (
+        <section className={card} id="auto-linked">
+          <h2 className="text-sm font-black text-tm-navy">Linked automatically ({board.lists.autoLinked.length})</h2>
+          <p className="text-[11px] text-gray-500">
+            The only credit of that amount within 2 days, and the only payment it could be — so they were linked. Undo if one is wrong; it will not be linked
+            again.
+          </p>
+          <ul className="divide-y divide-gray-100">
+            {board.lists.autoLinked.map((l) => (
+              <li key={l.row.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs">
+                <div>
+                  <RowLine row={l.row} />
+                  <div className="text-gray-500">
+                    {l.memberId ? <Who id={l.memberId} name={l.memberName ?? 'Member'} avatars={board.avatars} /> : (l.memberName ?? 'Member')} · {l.paymentRef}
+                  </div>
+                </div>
+                {owner && (
+                  <button type="button" className={btn} disabled={busy} onClick={() => void unlink(l.row)}>
+                    Undo
                   </button>
                 )}
               </li>

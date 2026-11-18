@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { tuitionPath } from '@/lib/slugs'
 import { notFound } from 'next/navigation'
 import { ExternalLink, Flag, MapPin, Wallet, Clock, GraduationCap, Phone, Mail, Globe, Pencil, MessageCircle } from 'lucide-react'
-import Avatar from '@/components/Avatar'
+import AdminAvatar from '@/components/admin/AdminAvatar'
 import BadgeRow from '@/components/badges/BadgeRow'
 import TimeAgo from '@/components/TimeAgo'
 import { requireAdminRole, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
@@ -295,7 +295,7 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
         <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">Posted by</h2>
         {parent ? (
           <div className="flex items-start gap-3">
-            <Avatar
+            <AdminAvatar
               name={formatName(parent.full_name as string | null)}
               src={(parent.avatar_url as string) ?? null}
               className="h-11 w-11 shrink-0 text-xs"
@@ -434,7 +434,7 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
               const isHired = tid === job.hired_tutor_id
               return (
                 <li key={a.id as string} className="flex items-start gap-3 py-2.5">
-                  <Avatar
+                  <AdminAvatar
                     name={tutorName.get(tid) ?? 'Tutor'}
                     src={tutorAvatar.get(tid) ?? null}
                     gender={tutorGenderOf.get(tid)}

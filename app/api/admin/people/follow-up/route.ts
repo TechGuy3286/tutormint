@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { refuseEraseRequestedContact } from '@/lib/eraseRequestedGuard'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { refuseSupervisorMember } from '@/lib/supervisorScope'
@@ -65,6 +66,8 @@ export async function POST(request: Request) {
 
   const scope = await refuseSupervisorMember(gate.actor, b.memberId)
   if (scope) return scope
+  const erase = await refuseEraseRequestedContact(gate.actor, b.memberId)
+  if (erase) return erase
 
   if (b.action === 'attempt') {
     const res = await recordCallAttempt(b.memberId, b.outcome, gate.actor)

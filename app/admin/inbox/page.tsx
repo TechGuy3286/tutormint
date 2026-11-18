@@ -1,4 +1,5 @@
 import { requireAdminRole, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
+import { loadAvatarFacts } from '@/lib/memberAvatars'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   loadInboxThreads,
@@ -29,7 +30,10 @@ export default async function AdminInboxPage({
   const actor = await requireAdminRole(...SCREEN_ACCESS.inbox)
   const { to, templates: openTemplates } = await searchParams
 
-  const [threads, stored, supportDisplay, approved] = await Promise.all([loadInboxThreads(), loadTemplates(), loadSupportWhatsApp(), approvedTemplateBodies()])
+  const [rawThreads, stored, supportDisplay, approved] = await Promise.all([loadInboxThreads(), loadTemplates(), loadSupportWhatsApp(), approvedTemplateBodies()])
+  // PR-04: each member's picture (the default + No photo tag when none).
+  const avatars = await loadAvatarFacts(rawThreads.map((t) => t.memberId))
+  const threads = rawThreads.map((t) => ({ ...t, avatar: avatars[t.memberId] ?? null }))
   // Reset to default puts back the approved wording (owner, 28 Oct 2026).
   const templates = stored.map((t) => (approved.has(t.key) ? { ...t, resetBody: approved.get(t.key)! } : t))
 

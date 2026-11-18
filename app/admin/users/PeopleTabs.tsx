@@ -1,4 +1,5 @@
 import { peopleExportHref, peopleListQuery } from '@/lib/peopleListQuery'
+import { ERASE_CHIP_HINT, ERASE_CHIP_LABEL } from '@/lib/eraseRequestedCore'
 import Link from 'next/link'
 import { Download, Film, Trash2 } from 'lucide-react'
 
@@ -80,6 +81,9 @@ export default async function PeopleTabs({
   }
   const hiddenCount = (tab === 'parents' ? d?.hidden.parent : d?.hidden.tutor) ?? 0
   const deletedCount = (tab === 'parents' ? d?.deleted?.parent : d?.deleted?.tutor) ?? 0
+  // Erase requested (PR-04): a grey chip like Deleted; never followed up.
+  const eraseCount = (tab === 'parents' ? d?.eraseRequested?.parent : d?.eraseRequested?.tutor) ?? 0
+  const showErase = !showDeleted && (Array.isArray(sp?.erase) ? sp?.erase[0] : sp?.erase) === '1'
   const isOwner = role === 'owner'
 
   const tabHref = (t: PeopleTab) => peopleHref(t, { all: showAll && (t === 'tutors' || t === 'parents') ? '1' : null })
@@ -151,6 +155,19 @@ export default async function PeopleTabs({
             }`}
           >
             Deleted <span className={showDeleted ? 'text-white' : 'text-gray-600'}>{deletedCount}</span>
+          </Link>
+        )}
+        {tab !== 'staff' && (eraseCount > 0 || showErase) && (
+          <Link
+            href={showErase ? peopleHref(tab) : peopleHref(tab, { erase: '1' })}
+            aria-current={showErase ? 'page' : undefined}
+            title={ERASE_CHIP_HINT}
+            data-erase-chip=""
+            className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-4 text-xs font-bold ${
+              showErase ? 'border-gray-500 bg-gray-500 text-white' : 'border-gray-200 bg-gray-100 text-gray-600 hover:border-gray-500'
+            }`}
+          >
+            {ERASE_CHIP_LABEL} <span className={showErase ? 'text-white' : 'text-gray-600'}>({eraseCount})</span>
           </Link>
         )}
       </div>
@@ -298,6 +315,7 @@ export default async function PeopleTabs({
     tab,
     all: showAll ? '1' : undefined,
     deleted: showDeleted ? '1' : undefined,
+    erase: showErase ? '1' : undefined,
     ni: showNi ? '1' : undefined,
     signed: signed ?? undefined,
   }
@@ -327,10 +345,13 @@ export default async function PeopleTabs({
           )}
         </div>
       )}
+      {showErase && (
+        <p className="text-[11px] text-gray-500">Members who asked for their account to be erased. Never followed up; the card shows the erase date. If the erase is cancelled they return to their stage.</p>
+      )}
       {showDeleted && (
         <p className="text-[11px] text-gray-500">Accounts erased at the member&rsquo;s request, kept for the record. They are in no work list or count.</p>
       )}
-      {isTutors && !showDeleted && (
+      {isTutors && !showDeleted && !showErase && (
         <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
           <p className="min-w-0 flex-1">
             {signed ? 'Tutors who signed up on this day and have not paid. ' : ''}
@@ -370,7 +391,7 @@ export default async function PeopleTabs({
           noun: isTutors ? 'tutors' : 'parents',
           // A card moves out of these chips at once after a follow-up (owner, 15 Nov 2026).
           pipelineView:
-            isTutors && !showDeleted
+            isTutors && !showDeleted && !showErase
               ? { stage: sel.stage ?? stageSel, fu: followRow ? (sel.fu ?? 'not') : null, ni: view === 'real' && !signed ? showNi : undefined }
               : undefined,
         }}

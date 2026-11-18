@@ -1,4 +1,5 @@
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { loadAvatarFacts } from '@/lib/memberAvatars'
 import { createAdminClient } from '@/lib/supabase/admin'
 import TeamClient, { type StaffRow, type FormerStaffRow } from './TeamClient'
 import { formatName } from '@/lib/formatName'
@@ -80,6 +81,7 @@ export default async function AdminTeamPage() {
     tenure: viewOf(f.id as string, null, f.former_staff_at as string),
   }))
 
+  const avatars = await loadAvatarFacts((staff ?? []).map((s) => s.id as string))
   const rows: StaffRow[] = (staff ?? []).map((s) => ({
     id: s.id as string,
     name: formatName(s.full_name as string | null) || '—',
@@ -95,6 +97,7 @@ export default async function AdminTeamPage() {
     createdAt: s.created_at as string,
     isMe: (s.id as string) === actor.id,
     tenure: viewOf(s.id as string, s.admin_role as string, null),
+    avatar: avatars[s.id as string] ?? null,
   }))
 
   return <TeamClient staff={rows} former={formerRows} viewerRole={actor.adminRole} />

@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle, FileCheck2, MoreHorizontal, RotateCcw, X } from 'lucide-react'
 
-import Avatar from '@/components/Avatar'
+import AdminAvatar from '@/components/admin/AdminAvatar'
 import BadgeRow from '@/components/badges/BadgeRow'
 import { adminFetch } from '@/components/admin/adminFetch'
 import NotInterestedButton from '@/components/admin/NotInterestedButton'
@@ -139,7 +139,7 @@ export default function PipelineCardBody({
       <Link href={`/admin/users/${memberId}`} aria-label={`Open ${m.name}`} className="absolute inset-0 z-0 rounded-2xl" data-card-link="" />
       <div className="pointer-events-none relative z-10 flex flex-col gap-1.5 [&_a]:pointer-events-auto [&_button]:pointer-events-auto">
         <div className="flex items-start gap-2.5">
-          <Avatar name={m.name} src={m.avatarUrl} gender={m.gender} decorative className="h-10 w-10 shrink-0 text-xs" px={40} />
+          <AdminAvatar name={m.name} src={m.avatarUrl} gender={m.gender} decorative className="h-10 w-10 shrink-0 text-xs" px={40} />
           <div className="min-w-0 flex-1">
             <p className="flex min-h-[20px] min-w-0 items-center gap-1.5" data-name-row="">
               <span className="min-w-0 truncate text-sm font-black text-tm-navy">{m.name}</span>

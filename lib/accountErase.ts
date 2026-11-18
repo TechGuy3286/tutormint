@@ -164,6 +164,8 @@ export async function scheduleErase(args: {
     if (!r.ok) return { ok: false, status: 500, error: r.error }
     return { ok: true, erasure: { ...erasure, status: 'done' }, ran: true, emailed: r.emailed, confirmation: ERASE_CONFIRMATION }
   }
+  // PR-04: out of every work list and count at once (never followed up).
+  await (await import('@/lib/tutorPipeline')).setPeopleEraseRequested(args.memberId, erasure.due_at).catch(() => null)
   return { ok: true, erasure, ran: false }
 }
 
@@ -187,6 +189,8 @@ export async function cancelErase(args: { memberId: string; by: Requester }): Pr
     targetId: args.memberId,
     detail: { source: args.by.kind },
   })
+  // PR-04: back to their normal stage at once.
+  await (await import('@/lib/tutorPipeline')).setPeopleEraseRequested(args.memberId, null).catch(() => null)
   return { ok: true }
 }
 

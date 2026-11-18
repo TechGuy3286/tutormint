@@ -1,6 +1,7 @@
 'use client'
 
 import { shownEmail } from '@/lib/actorLabelCore'
+import AdminAvatar from '@/components/admin/AdminAvatar'
 
 import { useState } from 'react'
 import Link from 'next/link'
@@ -43,6 +44,8 @@ export type StaffRow = {
   twoFactorOn: boolean
   createdAt: string
   isMe: boolean
+  /** The staff member's picture (PR-04). */
+  avatar?: { src: string | null; gender: string | null } | null
   /** Joined / role since lines (owner, 2 Nov 2026, Part G). */
   tenure: TenureView
 }
@@ -676,6 +679,8 @@ export default function TeamClient({ staff, former = [], viewerRole }: { staff: 
           return (
           <li key={s.id} className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
             <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="flex min-w-0 items-start gap-2.5">
+              <AdminAvatar name={s.name} src={s.avatar?.src ?? null} gender={s.avatar?.gender ?? null} />
               <div className="min-w-0">
                 <p className="truncate text-sm font-black text-tm-navy">
                   {s.name}
@@ -687,6 +692,7 @@ export default function TeamClient({ staff, former = [], viewerRole }: { staff: 
                 </p>
                 <p className="truncate text-[11px] text-gray-500">{shownEmail(s.email)}</p>
                 <TenureLines tenure={s.tenure} canSet={viewerRole === 'owner'} staffId={s.id} />
+              </div>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 {s.twoFactorOn ? (

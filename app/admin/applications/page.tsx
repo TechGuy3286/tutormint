@@ -1,4 +1,5 @@
 import { permanentRedirect } from 'next/navigation'
+import { loadAvatarFacts } from '@/lib/memberAvatars'
 
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadApplicationBoard } from '@/lib/applicationTracking'
@@ -45,6 +46,8 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
     loadSupportWhatsApp(),
   ])
   const staffFilter = parseStaffFilter(sp.staff, actor)
+  // PR-04: tutor pictures (the default + No photo tag when none).
+  const avatars = await loadAvatarFacts(board.rows.map((r) => r.tutorId))
   const stageFilter = parseStageFilter(sp.show)
   const tab = sp.tab === 'sent' ? 'sent' : 'todo'
   const view = sp.view === 'tutor' ? 'tutor' : 'tuition'
@@ -92,6 +95,7 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
         initialPreview={sp.preview ?? null}
         tutorUpdateTemplate={templates.get('app_tutor_update') ?? null}
         supportDisplay={supportDisplay}
+        avatars={avatars}
       />
     </div>
   )

@@ -1,4 +1,6 @@
 import Link from 'next/link'
+import { loadAvatarFacts } from '@/lib/memberAvatars'
+import AdminAvatar from '@/components/admin/AdminAvatar'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadOpenDuplicatePairs } from '@/lib/memberDuplicates'
 import { DUP_WORDS } from '@/lib/peopleDirectoryCore'
@@ -13,6 +15,7 @@ export const dynamic = 'force-dynamic'
 export default async function DuplicatesPage() {
   await requireAdminRole(...SCREEN_ACCESS.memberMerge)
   const pairs = await loadOpenDuplicatePairs()
+  const avatars = await loadAvatarFacts(pairs.flatMap((p) => [p.aId, p.bId]))
   return (
     <div className="space-y-4">
       <header>
@@ -27,11 +30,13 @@ export default async function DuplicatesPage() {
         <ul className="space-y-2" data-duplicate-pairs="">
           {pairs.map((p) => (
             <li key={`${p.aId}|${p.bId}`} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-gray-200 bg-white p-3 text-xs">
-              <span>
+              <span className="flex flex-wrap items-center gap-1.5">
+                <AdminAvatar name={p.aName} src={avatars[p.aId]?.src ?? null} gender={avatars[p.aId]?.gender ?? null} className="h-8 w-8 text-[10px]" px={32} />
                 <Link href={`/admin/users/${p.aId}`} className="font-black text-tm-navy hover:underline">
                   {p.aName}
                 </Link>
                 {' and '}
+                <AdminAvatar name={p.bName} src={avatars[p.bId]?.src ?? null} gender={avatars[p.bId]?.gender ?? null} className="h-8 w-8 text-[10px]" px={32} />
                 <Link href={`/admin/users/${p.bId}`} className="font-black text-tm-navy hover:underline">
                   {p.bName}
                 </Link>

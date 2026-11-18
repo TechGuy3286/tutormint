@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Check, ExternalLink, Loader2, MessageCircle, Phone } from 'lucide-react'
 
-import Avatar from '@/components/Avatar'
+import AdminAvatar from '@/components/admin/AdminAvatar'
 import BadgeRow from '@/components/badges/BadgeRow'
 import StatusChip from '@/components/admin/StatusChip'
 import { adminFetch } from '@/components/admin/adminFetch'
@@ -271,7 +271,7 @@ function TutorLine({ tutor, checked, onToggle, canSelect, canOpenMembers }: { tu
       {canSelect && (
         <input type="checkbox" checked={checked} onChange={onToggle} aria-label={`Include ${tutor.name}`} className="mt-2 h-5 w-5 shrink-0 accent-tm-navy" />
       )}
-      <Avatar name={tutor.name} src={tutor.avatarUrl} gender={tutor.gender} className="h-10 w-10" px={40} decorative />
+      <AdminAvatar name={tutor.name} src={tutor.avatarUrl} gender={tutor.gender} className="h-10 w-10" px={40} decorative />
       <div className="min-w-0 flex-1 space-y-0.5">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-xs font-bold text-slate-800">{tutor.name}</span>

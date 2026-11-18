@@ -1,4 +1,6 @@
 import { loadTutorDocSummaries } from '@/lib/tutorDocSummaries'
+import { loadAvatarFacts } from '@/lib/memberAvatars'
+import type { AdminAvatarFacts } from '@/lib/adminAvatarCore'
 import type { DocSummaryKind } from '@/lib/tutorDocSummaryCore'
 import 'server-only'
 import { receiptIsPdf, receiptUnderReview } from '@/lib/payments/receiptCore'
@@ -613,6 +615,8 @@ export type QueuePaymentRow = {
   statusLabel: string
   /** A bank receipt waiting for the Owner's decision. */
   waitingReview: boolean
+  /** The payer's picture (PR-04): photo + gender; the default when none. */
+  avatar?: AdminAvatarFacts | null
   /** PR-03: why the bank statement matched this waiting receipt ("Bank-matched") — words, never rupees. */
   bankMatch: string | null
   /** PR-03: a rejected receipt the Owner reopened. */
@@ -769,6 +773,8 @@ export async function loadPaymentQueue({
   // PR-03: Bank-matched receipts (the statement import found their bank credit).
   const matched = await bankMatchedReceipts(rows.filter((r) => r.status === 'pending').map((r) => r.id)).catch(() => new Map<string, string>())
   for (const r of rows) r.bankMatch = matched.get(r.id) ?? null
+  const avatars = await loadAvatarFacts(rows.map((r) => r.userId))
+  for (const r of rows) r.avatar = r.userId ? (avatars[r.userId] ?? null) : null
 
   return { rows, nextCursor, total: list.length, counts, filter: chosen }
 }

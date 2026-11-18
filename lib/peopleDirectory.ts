@@ -53,6 +53,8 @@ export type DirectoryPerson = {
   selfPaused: boolean
   /** Erased on request (account_erasures 'done'). */
   deleted: boolean
+  /** An erase is scheduled — the due date (PR-04); null otherwise. */
+  eraseDueAt: string | null
   /** Lower-case email + mobile digits, for the page's search box only. */
   searchText: string
   /** Tutors. */
@@ -121,7 +123,7 @@ async function loadDirectoryFresh(): Promise<Directory> {
   const tutorIds = members.filter((p) => p.role === 'tutor').map((p) => p.id as string)
   const parentIds = members.filter((p) => isParentRole(p.role as string)).map((p) => p.id as string)
 
-  const [tps, audits, jobs, parentPays, parentSubs, parentDocs, erasures] = await Promise.all([
+  const [tps, audits, jobs, parentPays, parentSubs, parentDocs, erasures, eraseRequests] = await Promise.all([
     pageAllIn(tutorIds, (part, from, to) =>
       admin.from('tutor_profiles').select('id, verified_fee_paid_at, onboarded_at, video_status').in('id', part).order('id').range(from, to),
     ),
@@ -145,8 +147,11 @@ async function loadDirectoryFresh(): Promise<Directory> {
     ),
     // Accounts erased on request (owner, 5 Nov 2026) — out of every work list.
     pageAll<Row>((a, b) => admin.from('account_erasures').select('id, member_id').eq('status', 'done').order('id').range(a, b)),
+    // Erase requested (PR-04): scheduled, not run yet — out of every work list too.
+    pageAll<Row>((a, b) => admin.from('account_erasures').select('id, member_id, due_at').eq('status', 'scheduled').order('id').range(a, b)),
   ])
   const erased = new Set(erasures.map((e) => String(e.member_id)))
+  const eraseDue = new Map(eraseRequests.map((e) => [String(e.member_id), String(e.due_at ?? '')]))
 
   const tp = new Map(tps.map((t) => [t.id as string, t]))
   const formerStaff = new Set(audits.map((r) => String(r.target_id)))
@@ -241,11 +246,13 @@ async function loadDirectoryFresh(): Promise<Directory> {
         activity,
         mergedInto: (p.merged_into as string | null) ?? null,
         erased: erased.has(id),
+        eraseRequested: eraseDue.has(id),
       }),
       suspended: !!p.is_suspended,
       banned: !!p.is_banned,
       selfPaused: !!p.paused_by_user_at,
       deleted: erased.has(id),
+      eraseDueAt: erased.has(id) ? null : (eraseDue.get(id) ?? null),
       searchText: [String(p.email ?? '').toLowerCase(), ...digits].join(' '),
       feePaidAt: (t?.verified_fee_paid_at as string | null) ?? null,
       videoWaiting: t?.video_status === 'uploaded',

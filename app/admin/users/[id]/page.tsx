@@ -72,6 +72,10 @@ import { maskEmailDisplay, maskPhoneDisplay } from '@/lib/contactMaskCore'
 import RestoreStaffCard from '@/components/admin/RestoreStaffCard'
 import { canRestore as canRestoreStaff } from '@/lib/formerStaffCore'
 import { postedAsParent } from '@/lib/convertAccountCore'
+import { loadPendingErasure } from '@/lib/accountErase'
+import AdminAvatar from '@/components/admin/AdminAvatar'
+import { pickAvatarSrc } from '@/lib/adminAvatarCore'
+import { ERASE_BANNER, eraseContactPolicy, eraseDateLine } from '@/lib/eraseRequestedCore'
 
 // One member, everything about them in one place.
 //
@@ -140,7 +144,7 @@ export default async function AdminMemberPage({
   ] = await Promise.all([
     admin
       .from('tutor_profiles')
-      .select('id, slug, verification_status, verified_fee_paid_at, video_status, video_visibility, rating_avg, rating_count, is_featured')
+      .select('id, slug, verification_status, verified_fee_paid_at, video_status, video_visibility, rating_avg, rating_count, is_featured, gender, avatar_url')
       .eq('id', id)
       .maybeSingle(),
     admin
@@ -341,6 +345,10 @@ export default async function AdminMemberPage({
   const mergedIntoName = profile.merged_into
     ? formatName(((await admin.from('profiles').select('full_name').eq('id', profile.merged_into as string).maybeSingle()).data?.full_name as string | null) ?? null) || 'another account'
     : null
+  // Erase requested (PR-04): never followed up — a red banner, contact
+  // disabled for staff (the Owner is warned and may still contact).
+  const pendingErase = await loadPendingErasure(id).catch(() => null)
+  const eraseContact = eraseContactPolicy(!!pendingErase, actor.adminRole)
   const headerPhone = maskPhoneDisplay(((profile.phone_number as string | null) ?? (profile.whatsapp as string | null)) ?? null)
   const headerEmail = maskEmailDisplay(profile.email as string | null)
 
@@ -359,8 +367,25 @@ export default async function AdminMemberPage({
 
   return (
     <div className="space-y-5">
+      {pendingErase && (
+        <p role="alert" data-erase-banner="" className="rounded-2xl border border-tm-red/40 bg-tm-tint-red p-4 text-sm font-black text-tm-red-hover">
+          {ERASE_BANNER}
+          <span className="block text-xs font-bold">
+            {eraseDateLine(pendingErase.due_at)}. {eraseContact === 'warn' ? 'You can still contact them, but they asked to be erased.' : 'Contact buttons are turned off.'}
+          </span>
+        </p>
+      )}
       <header className="space-y-2">
         <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="flex min-w-0 items-start gap-3">
+            {/* PR-04: the member's picture — the branded default + a No photo tag when there is none. */}
+            <AdminAvatar
+              name={formatName(profile.full_name as string | null)}
+              src={pickAvatarSrc((tutor?.avatar_url as string | null) ?? null, (profile.avatar_url as string | null) ?? null)}
+              gender={(tutor?.gender as string | null) ?? null}
+              className="h-14 w-14 text-sm"
+              px={56}
+            />
           <div className="min-w-0">
             <h2 className="truncate text-xl font-black text-tm-navy sm:text-2xl">
               {formatName(profile.full_name as string | null)}
@@ -402,6 +427,7 @@ export default async function AdminMemberPage({
                 {headerEmail && <MaskedContact memberId={id} field="email" masked={headerEmail} />}
               </p>
             )}
+          </div>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-1.5">
             {mergedIntoName && (
@@ -525,6 +551,11 @@ export default async function AdminMemberPage({
       {(parentDocs || tutorDocs || tutorAddressDocs) && (
         <section id="documents" className="scroll-mt-20 space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
           <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">Documents</h2>
+          {pendingErase && (
+            <p data-erase-doc-warning="" className="rounded-xl border border-tm-red/30 bg-tm-tint-red px-3 py-2 text-xs font-bold text-tm-red-hover">
+              {ERASE_BANNER}. You can still approve documents, but don&rsquo;t message them about it.
+            </p>
+          )}
           {parentDocs && (
             <ParentDocumentReview
               canReview={canReviewParent}
@@ -639,7 +670,8 @@ export default async function AdminMemberPage({
         hasMobile={!!profile.phone_number}
         whatsappMsisdn={memberMsisdn}
         callMsisdn={callMsisdn}
-        pipeContact={pipeContact}
+        pipeContact={eraseContact === 'blocked' ? null : pipeContact}
+        eraseContact={eraseContact}
         editTutorHref={isTutor && pageActs.editProfile ? memberEditHref(id) : null}
         secondRole={
           profile.role !== 'admin' && pageActs.createSecondRole(profile.role === 'tutor' ? 'parent' : profile.role === 'parent' || profile.role === 'academy' ? 'tutor' : null) ? (

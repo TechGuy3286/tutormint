@@ -8,6 +8,7 @@
 // or CNIC number.
 
 import type { NiMark } from '@/lib/notInterestedCore'
+import { eraseDateLine, eraseMovesCount, eraseTags } from '@/lib/eraseRequestedCore'
 import { pickUpgrade, type UpgradeHeld } from '@/lib/upgradePlanCore'
 import 'server-only'
 
@@ -383,6 +384,33 @@ export async function refreshPipelineBlank(memberId: string): Promise<void> {
       .update({ row: { ...row, pipe: { ...row.pipe, blank: flags.get(memberId) ?? [] } } })
       .eq('list', LIST)
       .eq('member_id', memberId)
+  } catch {
+    /* the next summary run puts it right */
+  }
+}
+
+/** An erase was scheduled (dueAt) or cancelled (null) — PR-04. The member's
+ *  stored People row leaves (or returns to) every counted list at once, and
+ *  the stored badges / Overview to-dos move with it. The next summary run
+ *  recomputes everything else. Never throws. */
+export async function setPeopleEraseRequested(memberId: string, dueAt: string | null): Promise<void> {
+  const admin = createAdminClient()
+  if (!admin) return
+  try {
+    for (const list of ['people:tutor', 'people:parent']) {
+      const { data } = await admin.from('admin_list_rows').select('tags, row').eq('list', list).eq('member_id', memberId).maybeSingle()
+      if (!data) continue
+      const tags = (data.tags ?? {}) as Record<string, unknown>
+      const row = (data.row ?? {}) as Record<string, unknown> & { pipe?: PipeCard | null }
+      const move = eraseMovesCount(tags, dueAt)
+      // A cancel clears the erase date; any other badge comes back with the next summary run.
+      const nextRow = { ...row, badge: dueAt ? eraseDateLine(dueAt) : String(row.badge ?? '').startsWith('Erase on ') ? null : row.badge }
+      await admin.from('admin_list_rows').update({ tags: eraseTags(tags, dueAt), row: nextRow }).eq('list', list).eq('member_id', memberId)
+      if (list === LIST && row.pipe && move !== 'none') {
+        const now = Date.now()
+        await nudgeBadges(move === 'out' ? badgeDelta(row.pipe, null, now, true) : badgeDelta(null, row.pipe, now, true))
+      }
+    }
   } catch {
     /* the next summary run puts it right */
   }

@@ -3,7 +3,7 @@
 import { shownEmail } from '@/lib/actorLabelCore'
 import { Ban, Check, Pause, RotateCcw } from 'lucide-react'
 
-import Avatar from '@/components/Avatar'
+import AdminAvatar from '@/components/admin/AdminAvatar'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -315,7 +315,7 @@ export default function TutorModerationClient({
                     name to a third party as a query string, and img-src in the
                     CSP does not name that host, so it rendered nothing at all
                     in production. */}
-                <Avatar
+                <AdminAvatar
                   name={t.fullName}
                   src={t.avatarUrl}
                   gender={t.gender}

@@ -405,6 +405,25 @@ export function statementRefs(row: Pick<StatementRow, 'reference' | 'stan' | 'de
   return [row.reference, f.raastRef, row.stan].map(refKey).filter((v) => v.length >= 6)
 }
 
+/** The recorded credits a statement credit may be the same money as — the
+ *  candidates behind an "unclear" decision (PR-04): same amount, same day, a
+ *  compatible sender, not already tied to another statement row. Closest time
+ *  first. Shown under "Check: possibly already recorded". */
+export function possibleDuplicates(
+  row: Pick<StatementRow, 'deposit' | 'date' | 'time'> & { sender: string | null },
+  recorded: readonly RecordedCredit[],
+): RecordedCredit[] {
+  const free = recorded.filter((c) => !c.statementRowId && c.source !== 'statement')
+  const same = free.filter((c) => Math.abs(c.amountPkr - row.deposit) < 0.005 && c.date === row.date)
+  const compatible = same.filter((c) => {
+    const a = nameKeyOf(c.senderName)
+    const b = nameKeyOf(row.sender)
+    return !a || !b || a === b || namesMatch(c.senderName, row.sender) || /paypro/i.test(`${c.senderName} ${row.sender}`)
+  })
+  const gap = (c: RecordedCredit) => (c.time && row.time ? Math.abs(minutes(c.date, c.time) - minutes(row.date, row.time)) : 24 * 60)
+  return [...compatible].sort((a, b) => gap(a) - gap(b) || a.id.localeCompare(b.id))
+}
+
 export function decideStatementCredit(
   row: Pick<StatementRow, 'reference' | 'stan' | 'description' | 'deposit' | 'date' | 'time'> & { sender: string | null },
   recorded: readonly RecordedCredit[],
@@ -530,6 +549,8 @@ export type ApprovedBankPayment = {
   planCode: string | null
   amount: number
   approvedAt: string
+  /** When the receipt was uploaded (payments.created_at), when known (PR-04). */
+  createdAt?: string | null
   /** A bank credit is already linked to it. */
   hasCredit: boolean
 }
@@ -550,13 +571,101 @@ export type MatchReason =
   | 'Mobile number'
   | 'Name (close spelling) + amount + date'
   | 'Name (close spelling)'
+  | 'Amount + date (only match)'
+  | 'Amount + date'
+
+/** The reason an automatic statement link carries — unique on both sides (PR-04). */
+export const AUTO_PAIR_REASON: MatchReason = 'Amount + date (only match)'
 
 export type CreditMatch =
   | { kind: 'settled' }
   | { kind: 'receipt'; paymentId: string; reason: MatchReason }
-  | { kind: 'approved'; paymentId: string; reason: MatchReason }
+  | { kind: 'approved'; paymentId: string; reason: MatchReason; auto?: boolean }
   | { kind: 'member'; memberId: string; reason: MatchReason }
-  | { kind: 'unmatched'; note: string | null }
+  | { kind: 'unmatched'; note: string | null; candidates?: string[] }
+
+// =========================================================================
+// Approved payments ↔ fee credits by amount and time (PR-04). The matching
+// above needs a name, a reference or a mobile; most statement credits carry
+// none ("CONTRA ACCT: …" with last-4 digits). So: same amount (Rs 199/200 for
+// the fee, else the plan price), within ±2 days of the receipt upload OR the
+// approval. Linked automatically ONLY when the pairing is unique on both sides —
+// the credit has one candidate payment and that payment one candidate credit.
+// Everything else is a suggestion, closest by time first.
+
+export const APPROVED_PAIR_WINDOW_DAYS = 2
+
+export type PairCredit = { rowId: string; date: string; time: string | null; amount: number }
+
+export type ApprovedPairing = {
+  /** Unique on both sides — link automatically. */
+  auto: { rowId: string; paymentId: string }[]
+  /** payment id → candidate credits, closest first. */
+  forPayment: Map<string, string[]>
+  /** credit row id → candidate payments, closest first. */
+  forCredit: Map<string, string[]>
+}
+
+function pairGapMs(c: PairCredit, p: ApprovedBankPayment): number | null {
+  const at = creditMs(c)
+  const gaps = [p.createdAt, p.approvedAt].filter((v): v is string => !!v).map((v) => Math.abs(Date.parse(v) - at)).filter((g) => Number.isFinite(g))
+  if (!gaps.length) return null
+  const g = Math.min(...gaps)
+  return g <= APPROVED_PAIR_WINDOW_DAYS * DAY_MS ? g : null
+}
+
+export function pairApprovedPayments(credits: readonly PairCredit[], payments: readonly ApprovedBankPayment[], range: FeeRange): ApprovedPairing {
+  const forPayment = new Map<string, { id: string; gap: number }[]>()
+  const forCredit = new Map<string, { id: string; gap: number }[]>()
+  const open = payments.filter((p) => !p.hasCredit)
+  for (const c of credits) {
+    for (const p of open) {
+      if (!amountFits(c.amount, p.planCode, p.amount, range)) continue
+      const gap = pairGapMs(c, p)
+      if (gap === null) continue
+      forCredit.set(c.rowId, [...(forCredit.get(c.rowId) ?? []), { id: p.id, gap }])
+      forPayment.set(p.id, [...(forPayment.get(p.id) ?? []), { id: c.rowId, gap }])
+    }
+  }
+  const order = (xs: { id: string; gap: number }[]) => [...xs].sort((a, b) => a.gap - b.gap || a.id.localeCompare(b.id)).map((x) => x.id)
+  const auto: ApprovedPairing['auto'] = []
+  for (const [rowId, ps] of forCredit) {
+    if (ps.length !== 1) continue
+    const back = forPayment.get(ps[0].id) ?? []
+    if (back.length === 1 && back[0].id === rowId) auto.push({ rowId, paymentId: ps[0].id })
+  }
+  auto.sort((a, b) => a.rowId.localeCompare(b.rowId))
+  return {
+    auto,
+    forPayment: new Map([...forPayment].map(([k, v]) => [k, order(v)])),
+    forCredit: new Map([...forCredit].map(([k, v]) => [k, order(v)])),
+  }
+}
+
+/** One credit is linked to at most one payment, and one payment to at most one
+ *  credit — the rule that keeps money from being counted twice (PR-04). Returns
+ *  the offending ids, empty when the links are sound. */
+export function doubleLinks(links: readonly { creditId: string; paymentId: string }[]): string[] {
+  const credit = new Map<string, number>()
+  const payment = new Map<string, number>()
+  for (const l of links) {
+    credit.set(l.creditId, (credit.get(l.creditId) ?? 0) + 1)
+    payment.set(l.paymentId, (payment.get(l.paymentId) ?? 0) + 1)
+  }
+  return [...[...credit].filter(([, n]) => n > 1).map(([k]) => k), ...[...payment].filter(([, n]) => n > 1).map(([k]) => k)]
+}
+
+/** The money a set of statement rows puts in the bank totals: each row counts
+ *  through the ONE bank credit it is tied to, and a bank credit counts once
+ *  however many rows point at it ("Same money — link" adds nothing). Rows with
+ *  no bank credit count nothing. */
+export function bankMoneyCounted(
+  rows: readonly { id: string; transferId: string | null }[],
+  transfers: readonly { id: string; amountPkr: number; setAside?: boolean }[],
+): number {
+  const used = new Set(rows.map((r) => r.transferId).filter((v): v is string => !!v))
+  return r2(transfers.filter((t) => used.has(t.id) && !t.setAside).reduce((s, t) => s + t.amountPkr, 0))
+}
 
 function creditMs(c: Pick<FeeCredit, 'date' | 'time'>): number {
   return Date.parse(`${c.date}T${c.time ?? '12:00'}:00+05:00`)
@@ -663,11 +772,28 @@ export function matchFeeCredits(input: {
     }
     pick({
       kind: 'unmatched',
-      note: fuzzyMembers.length > 1 ? `${fuzzyMembers.length} members have a similar name` : mobileMembers.length > 1 ? 'that number is on more than one account' : null,
+      note: fuzzyMembers.length > 1 ? `${fuzzyMembers.length} members have a similar name` : mobileMembers.length > 1 ? MULTI_ACCOUNT_NOTE : null,
+      // "That number is on more than one account": the Owner picks one (PR-04).
+      ...(mobileMembers.length > 1 ? { candidates: mobileMembers } : fuzzyMembers.length > 1 ? { candidates: fuzzyMembers.map((m) => m.id) } : {}),
     })
+  }
+
+  // (d) PR-04: the credits still unmatched vs approved bank payments with no
+  // credit, by amount and time. Unique on both sides → linked automatically.
+  const left = sorted.filter((c) => out.get(c.rowId)?.kind === 'unmatched')
+  const pairing = pairApprovedPayments(
+    left.map((c) => ({ rowId: c.rowId, date: c.date, time: c.time, amount: c.amount })),
+    openApproved.filter((p) => !usedPay.has(p.id)),
+    input.range,
+  )
+  for (const a of pairing.auto) {
+    out.set(a.rowId, { kind: 'approved', paymentId: a.paymentId, reason: AUTO_PAIR_REASON, auto: true })
+    usedPay.add(a.paymentId)
   }
   return out
 }
+
+export const MULTI_ACCOUNT_NOTE = 'that number is on more than one account'
 
 // =========================================================================
 // The four result lists
@@ -675,24 +801,31 @@ export function matchFeeCredits(input: {
 export type ResultLists = {
   bankMatched: { rowId: string; paymentId: string; reason: MatchReason }[]
   paidNotRecorded: { rowId: string; memberId: string; reason: MatchReason }[]
-  unmatched: { rowId: string; note: string | null }[]
-  approvedNoCredit: { paymentId: string; suggestion: { rowId: string; reason: MatchReason } | null }[]
+  unmatched: { rowId: string; note: string | null; candidates: string[] }[]
+  /** `suggestions` = every likely credit, the strongest first (PR-04). */
+  approvedNoCredit: { paymentId: string; suggestion: { rowId: string; reason: MatchReason } | null; suggestions: { rowId: string; reason: MatchReason }[] }[]
 }
 
 /** Approved bank payments inside the statement's dates with no bank credit
- *  linked; each with the statement credit that looks like its own, if any. */
+ *  linked; each with the statement credit(s) that look like its own. A credit
+ *  the matching tied to it comes first; then the closest unlinked credits of
+ *  the same amount and window (`pairing`, PR-04). */
 export function resultLists(
   matches: ReadonlyMap<string, CreditMatch>,
   approved: ApprovedBankPayment[],
   period: { from: string | null; to: string | null },
+  pairing?: Pick<ApprovedPairing, 'forPayment'>,
 ): ResultLists {
   const lists: ResultLists = { bankMatched: [], paidNotRecorded: [], unmatched: [], approvedNoCredit: [] }
   const suggestionFor = new Map<string, { rowId: string; reason: MatchReason }>()
+  const free = new Set<string>()
   for (const [rowId, m] of matches) {
     if (m.kind === 'receipt') lists.bankMatched.push({ rowId, paymentId: m.paymentId, reason: m.reason })
     else if (m.kind === 'member') lists.paidNotRecorded.push({ rowId, memberId: m.memberId, reason: m.reason })
-    else if (m.kind === 'unmatched') lists.unmatched.push({ rowId, note: m.note })
-    else if (m.kind === 'approved') suggestionFor.set(m.paymentId, { rowId, reason: m.reason })
+    else if (m.kind === 'unmatched') {
+      lists.unmatched.push({ rowId, note: m.note, candidates: m.candidates ?? [] })
+      free.add(rowId)
+    } else if (m.kind === 'approved') suggestionFor.set(m.paymentId, { rowId, reason: m.reason })
   }
   const pkd = (iso: string) => new Date(Date.parse(iso) + 5 * 3_600_000).toISOString().slice(0, 10)
   for (const p of approved) {
@@ -700,7 +833,10 @@ export function resultLists(
     const d = pkd(p.approvedAt)
     if (period.from && d < period.from) continue
     if (period.to && d > period.to) continue
-    lists.approvedNoCredit.push({ paymentId: p.id, suggestion: suggestionFor.get(p.id) ?? null })
+    const first = suggestionFor.get(p.id) ?? null
+    const more = (pairing?.forPayment.get(p.id) ?? []).filter((rowId) => free.has(rowId) && rowId !== first?.rowId).map((rowId) => ({ rowId, reason: 'Amount + date' as MatchReason }))
+    const suggestions = [...(first ? [first] : []), ...more]
+    lists.approvedNoCredit.push({ paymentId: p.id, suggestion: suggestions[0] ?? null, suggestions })
   }
   return lists
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import MemberNameLink from '@/components/admin/MemberNameLink'
+import AdminAvatar from '@/components/admin/AdminAvatar'
 import { shownEmail } from '@/lib/actorLabelCore'
 import { useState } from 'react'
 import { Receipt } from 'lucide-react'
@@ -164,12 +165,15 @@ export default function PaymentQueue({
             {allPayments.map((p) => (
               <li key={p.id} className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <div className="flex min-w-0 items-start gap-2.5">
+                  {p.userId && <AdminAvatar name={p.name} src={p.avatar?.src ?? null} gender={p.avatar?.gender ?? null} />}
                   <div className="min-w-0">
                     <p className="truncate text-sm font-black text-tm-navy"><MemberNameLink id={p.userId} name={p.name} /></p>
                     <p className="truncate text-[11px] text-gray-500">{shownEmail(p.email)}</p>
                     {p.note && p.userId && (
                       <p className="truncate text-[11px] font-semibold text-tm-gold-ink">{p.note}</p>
                     )}
+                  </div>
                   </div>
                   {/* A submitted transfer waiting for a person reads "Waiting for
                       approval" (gold). A 'pending' row with no payer reference

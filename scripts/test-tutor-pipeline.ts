@@ -311,10 +311,10 @@ test('Backend Support sees the pipeline and the to-do rows, and no money', () =>
 test('deleted accounts appear only under Deleted', () => {
   type Tags = Record<string, unknown>
   const rows: { id: string; tags: Tags }[] = [
-    { id: 'real', tags: { excluded: false, deleted: false, ni: false, stage: 'missing' } },
-    { id: 'ni', tags: { excluded: false, deleted: false, ni: true, stage: 'missing' } },
-    { id: 'test', tags: { excluded: true, deleted: false, ni: false, stage: 'missing' } },
-    { id: 'gone', tags: { excluded: true, deleted: true, ni: false, stage: 'missing' } },
+    { id: 'real', tags: { excluded: false, deleted: false, erase_req: false, ni: false, stage: 'missing' } },
+    { id: 'ni', tags: { excluded: false, deleted: false, erase_req: false, ni: true, stage: 'missing' } },
+    { id: 'test', tags: { excluded: true, deleted: false, erase_req: false, ni: false, stage: 'missing' } },
+    { id: 'gone', tags: { excluded: true, deleted: true, erase_req: false, ni: false, stage: 'missing' } },
   ]
   // admin_list_page's p_fixed rule: jsonb containment.
   const view = (fixed: Tags) => rows.filter((r) => Object.entries(fixed).every(([k, v]) => r.tags[k] === v)).map((r) => r.id)

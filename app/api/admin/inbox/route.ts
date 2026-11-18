@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { refuseEraseRequestedContact } from '@/lib/eraseRequestedGuard'
 
 import { checkAdminRole, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
 import { sendAdminMessage, saveTemplate, loadTemplates } from '@/lib/adminMessaging'
@@ -43,6 +44,8 @@ export async function POST(request: Request) {
   if (!parsed.ok) return parsed.response
   const body = parsed.data
 
+  const erase = await refuseEraseRequestedContact(gate.actor, body.memberId!)
+  if (erase) return erase
   const result = await sendAdminMessage({
     memberId: body.memberId!,
     body: body.body ?? '',
