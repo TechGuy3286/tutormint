@@ -38,6 +38,26 @@ const DOC_COLUMNS = 'id, user_id, kind, label, status, created_at, original_path
 
 type DocRow = CnicDocRow & { user_id: string; original_path: string | null; rotation: number | null }
 
+/**
+ * One stored identity image, ready to send to the Claude API (shared with the
+ * CNIC address reader, PR-07): in memory only, the right way up (EXIF, then the
+ * rotation staff saved), sized for the API. The stored file is not touched.
+ */
+export async function docImageForVision(originalPath: string | null, rotation: number | null): Promise<{ mediaType: 'image/jpeg'; base64: string } | null> {
+  const admin = createAdminClient()
+  if (!admin || !originalPath) return null
+  const { data: file, error } = await admin.storage.from(DOCS_BUCKET).download(originalPath)
+  if (error || !file) return null
+  const upright = await sharp(Buffer.from(await file.arrayBuffer()), { failOn: 'none' }).rotate().toBuffer()
+  const turned = normaliseRotation(rotation)
+  const out = await sharp(upright)
+    .rotate(turned)
+    .resize({ width: SEND_MAX_EDGE, height: SEND_MAX_EDGE, fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 88 })
+    .toBuffer()
+  return { mediaType: 'image/jpeg' as const, base64: out.toString('base64') }
+}
+
 /** The member's CNIC front document row, or null. */
 export async function findCnicFront(memberId: string): Promise<DocRow | null> {
   const admin = createAdminClient()
@@ -83,21 +103,7 @@ export async function readCnicFromDocument(documentId: string): Promise<CnicRead
     release: async () => {
       await admin.from('user_documents').update({ cnic_read_status: null, cnic_read_at: null }).eq('id', documentId).eq('cnic_read_status', 'reading')
     },
-    loadImage: async () => {
-      if (!doc.original_path) return null
-      const { data: file, error } = await admin.storage.from(DOCS_BUCKET).download(doc.original_path)
-      if (error || !file) return null
-      // In memory only: the right way up (EXIF, then the rotation staff saved),
-      // sized for the API. The stored file is not touched.
-      const upright = await sharp(Buffer.from(await file.arrayBuffer()), { failOn: 'none' }).rotate().toBuffer()
-      const turned = normaliseRotation(doc.rotation)
-      const out = await sharp(upright)
-        .rotate(turned)
-        .resize({ width: SEND_MAX_EDGE, height: SEND_MAX_EDGE, fit: 'inside', withoutEnlargement: true })
-        .jpeg({ quality: 88 })
-        .toBuffer()
-      return { mediaType: 'image/jpeg' as const, base64: out.toString('base64') }
-    },
+    loadImage: () => docImageForVision(doc.original_path, doc.rotation),
     vision: (image) => completeWithImage({ system: CNIC_READ_SYSTEM, prompt: CNIC_READ_PROMPT, image, maxTokens: 30, timeoutMs: 25_000 }),
     saveSuggestion: async (number) => {
       await admin

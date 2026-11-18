@@ -13,7 +13,7 @@ import { readSummary, summaryUpdatedLabel, type OverviewPayload, type OverviewSu
 import SummaryUpdated from '@/components/admin/SummaryUpdated'
 import TeamOverviewView from '@/components/admin/TeamOverviewView'
 import { OVERVIEW_ITEMS, SIGNUPS_TODAY_HREF, type OverviewItemKey } from '@/lib/overviewItemsCore'
-import { FEE_PENDING_KEY, stageHref } from '@/lib/tutorPipelineCore'
+import { FEE_PENDING_KEY, FU_APPROVED_TODAY, stageHref } from '@/lib/tutorPipelineCore'
 import { funnelSteps } from '@/lib/staffOutreachCore'
 import { TILE_TONE, type TileTone } from '@/lib/tileTones'
 import { smsProviderLabel } from '@/lib/sms'
@@ -51,6 +51,7 @@ function bigNumberSize(text: string): string {
 const CARD_KEYS: OverviewItemKey[] = ['revenue', 'paid-today', 'tutors', 'parents', 'open-tuitions', 'signups-today']
 const TODO_KEYS: OverviewItemKey[] = [
   'todo-docs',
+  'todo-approved-today',
   'todo-blank-photos',
   'todo-fee-pending',
   'todo-not-welcomed',
@@ -108,7 +109,7 @@ export default async function AdminHome({
   // The "Paid" card opens the paid sign-ups view (owner, 9 Nov 2026).
   const paidView = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paidSignups)
   const href = (k: OverviewItemKey) =>
-    k === 'signups-today' ? SIGNUPS_TODAY_HREF : k === 'paid-today' && paidView ? '/admin/paid-signups' : k === FEE_PENDING_KEY ?stageHref('approved', 'not') : OVERVIEW_KEY_PEOPLE[k] ? OVERVIEW_KEY_PEOPLE[k] : `/admin/overview/${k}${OVERVIEW_ITEMS[k].funnel ? `?days=${funnelDays}` : ''}`
+    k === 'signups-today' ? SIGNUPS_TODAY_HREF : k === 'paid-today' && paidView ? '/admin/paid-signups' : k === FEE_PENDING_KEY ? stageHref('approved', 'not') : k === 'todo-approved-today' ? stageHref('approved', FU_APPROVED_TODAY) : OVERVIEW_KEY_PEOPLE[k] ? OVERVIEW_KEY_PEOPLE[k] : `/admin/overview/${k}${OVERVIEW_ITEMS[k].funnel ? `?days=${funnelDays}` : ''}`
 
   const tiles = CARD_KEYS.filter((k) => lists.has(k)).map((k) => {
     const l = lists.get(k)!

@@ -32,8 +32,8 @@ import { tutorsWithChip } from '@/lib/tutorFollowUps'
 import { feePendingDue, pipelineRows } from '@/lib/tutorPipeline'
 import { cardRejectedUninformed } from '@/lib/pipelineRowUpdateCore'
 import { blankPhotoFlags } from '@/lib/photoBlank'
-import { blankLine, readyForReviewFrom } from '@/lib/tutorPipelineCardCore'
-import { stageHref } from '@/lib/tutorPipelineCore'
+import { approvedTodayDue, blankLine, readyForReviewFrom } from '@/lib/tutorPipelineCardCore'
+import { FU_APPROVED_TODAY, stageHref } from '@/lib/tutorPipelineCore'
 import { welcomeDue } from '@/lib/paidWelcomeCore'
 import type { FollowChip } from '@/lib/tutorFollowUpCore'
 import { pauseDueAtMs } from '@/lib/tuitionStatus'
@@ -449,6 +449,19 @@ export async function loadOverviewList(
         rows: list.map((r) => ({ id: r.id, title: r.name, detail: r.card.follow ? `Follow-up ${r.card.follow.nextNumber} due` : null, href: `/admin/users/${r.id}`, memberId: r.id })),
         filter: 'with CNIC and profile photo approved, the Verification Fee not paid, and a follow-up due',
         workHref: stageHref('approved', 'not'),
+      }
+    }
+
+    case 'todo-approved-today': {
+      // "Approved today, not contacted" (owner, 18 Nov 2026 — PR-07): People →
+      // Tutors, Approved fee pending · Approved today — the same cards and rule.
+      const nowMs = now.getTime()
+      const list = (await pipelineRows((c) => approvedTodayDue(c, nowMs))).sort((x, y) => Date.parse(y.card.approvedAt ?? '') - Date.parse(x.card.approvedAt ?? ''))
+      return {
+        key,
+        rows: list.map((r) => ({ id: r.id, title: r.name, detail: 'Approved today · never contacted', href: `/admin/users/${r.id}`, memberId: r.id })),
+        filter: 'with CNIC and profile photo approved today (Pakistan time), the Verification Fee not paid, and not contacted yet',
+        workHref: stageHref('approved', FU_APPROVED_TODAY),
       }
     }
 

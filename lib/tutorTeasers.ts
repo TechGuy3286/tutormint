@@ -10,6 +10,10 @@
 //                                page: the first view of each application is
 //                                stored once, and its tutor gets the instant
 //                                "A parent opened your application" alert.
+//   alertApplicationsForwarded()  staff forwarded applications to the parent
+//                                (PR-07): the first forward of each is stored
+//                                once and its tutor gets "Your application for …
+//                                was sent to the parent".
 //
 // The notification IS the record: the weekly cap, "already sent today" and the
 // 14-day tip rule are all answered by the tutor's own notifications. Nothing
@@ -25,8 +29,12 @@ import { genderApplyBlocked } from '@/lib/genderPref'
 import { flowFactsByTutor } from '@/lib/onboardingStop'
 import { tutorRequired, tutorItemHref } from '@/lib/profileRequired'
 import { PARENT_VIEWER_ROLES } from '@/lib/profileViews'
+import { getViewAsContext } from '@/lib/viewAsContext'
 import {
+  APPLICATION_FORWARDED_KIND,
   APPLICATION_OPENED_KIND,
+  applicationForwardedText,
+  forwardAlertGoes,
   DAY_MS,
   TEASER_KINDS,
   applicationOpenedText,
@@ -371,5 +379,82 @@ export async function recordParentApplicationViews(job: { title: string | null; 
     return sent
   } catch {
     return 0
+  }
+}
+
+/**
+ * Staff forwarded these applications to the tuition's parent (PR-07: Forward to
+ * parents, or the Applied message). The FIRST forward of each application is
+ * stored once (application_forward_alerts) and its tutor gets the instant
+ * "Your application for … was sent to the parent" alert — eligible paid tutors
+ * only, never under View as, never for a tuition posted by a test, seed or
+ * hidden account. Later forwards change nothing. Never throws; never blocks the
+ * forward. Returns how many alerts went.
+ */
+export async function alertApplicationsForwarded(applicationIds: string[]): Promise<number> {
+  const ids = [...new Set(applicationIds)]
+  if (ids.length === 0) return 0
+  try {
+    // View as reads as the member and refuses every write; a forward made
+    // there is not a real event.
+    const viewAs = !!(await getViewAsContext().catch(() => null))
+    if (viewAs) return 0
+    const admin = createAdminClient()
+    if (!admin) return 0
+    const apps = await pageAllIn(ids, (part, f, t) => admin.from('applications').select('id, tutor_id, job_id, withdrawn_at').in('id', part).order('id').range(f, t))
+    if (apps.length === 0) return 0
+    const { data } = await admin
+      .from('application_forward_alerts')
+      .upsert(
+        apps.map((a) => ({ application_id: a.id as string, tutor_id: a.tutor_id as string, job_id: a.job_id as string })),
+        { onConflict: 'application_id', ignoreDuplicates: true },
+      )
+      .select('application_id')
+    const fresh = new Set((data ?? []).map((r) => r.application_id as string))
+    if (fresh.size === 0) return 0
+    const firstTime = apps.filter((a) => fresh.has(a.id as string))
+    const jobIds = [...new Set(firstTime.map((a) => a.job_id as string))]
+    const jobs = await pageAllIn(jobIds, (part, f, t) => admin.from('jobs').select('id, title, area, city, parent_id').in('id', part).order('id').range(f, t))
+    const jobBy = new Map(jobs.map((j) => [j.id as string, j]))
+    const posterIds = [...new Set(jobs.map((j) => j.parent_id as string).filter(Boolean))]
+    const posters = await pageAllIn(posterIds, (part, f, t) =>
+      admin.from('profiles').select('id, is_seed, is_test_name, hidden_from_public').in('id', part).order('id').range(f, t),
+    )
+    const testPoster = new Set(posters.filter((p) => p.is_seed || p.is_test_name || p.hidden_from_public).map((p) => p.id as string))
+    const nowMs = Date.now()
+    const tutors = await loadTeaserTutors(admin, nowMs, [...new Set(firstTime.map((a) => a.tutor_id as string))])
+    const eligible = new Set(tutors.filter((t) => t.block === null).map((t) => t.id))
+    let sent = 0
+    for (const a of firstTime) {
+      const j = jobBy.get(a.job_id as string)
+      if (!j) continue
+      const goes = forwardAlertGoes({
+        viewAs,
+        withdrawn: !!a.withdrawn_at,
+        tutorEligible: eligible.has(a.tutor_id as string),
+        posterTest: testPoster.has(j.parent_id as string),
+      })
+      if (!goes) continue
+      const text = applicationForwardedText({ title: (j.title as string | null) ?? null, area: (j.area as string | null) ?? null, city: (j.city as string | null) ?? null })
+      await notify({ userId: a.tutor_id as string, kind: APPLICATION_FORWARDED_KIND, title: text.title, body: text.body, href: text.href, meta: { application_id: a.id } })
+      await admin.from('application_forward_alerts').update({ notified: true }).eq('application_id', a.id as string)
+      sent++
+    }
+    return sent
+  } catch {
+    return 0
+  }
+}
+
+/** The Applied message's Undo put the application back to Applied (PR-07): the
+ *  forward leaves the WhatsApp updates queue. The bell alert already shown
+ *  stays (nothing is deleted). Never throws. */
+export async function undoForwardAlert(applicationId: string): Promise<void> {
+  try {
+    const admin = createAdminClient()
+    if (!admin) return
+    await admin.from('application_forward_alerts').update({ undone_at: new Date().toISOString() }).eq('application_id', applicationId).is('undone_at', null)
+  } catch {
+    /* the undo itself stands */
   }
 }

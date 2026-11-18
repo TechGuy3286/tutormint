@@ -22,6 +22,9 @@ export const OVERVIEW_ITEM_KEYS = [
   'open-tuitions',
   // today's to-do
   'todo-docs',
+  // "Approved today, not contacted" (owner, 18 Nov 2026 — PR-07): the People
+  // Approved, fee pending · Approved today chip. Hidden at 0.
+  'todo-approved-today',
   // "Photo looks blank" (owner, 9 Nov 2026): tutors whose current profile
   // photo or selfie looks almost entirely black or blank. Hidden at 0.
   'todo-blank-photos',
@@ -75,6 +78,7 @@ export const OVERVIEW_ITEMS: Record<OverviewItemKey, OverviewItemMeta> = {
   parents: { title: 'Parents', screen: 'usersView', noun: ['parent', 'parents'] },
   'open-tuitions': { title: 'Open tuitions', screen: 'jobs', noun: ['tuition', 'tuitions'] },
   'todo-docs': { title: 'Documents to approve', screen: 'documentView', noun: ['member', 'members'] },
+  'todo-approved-today': { title: 'Approved today, not contacted', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
   'todo-blank-photos': { title: 'Blank photos to check', screen: 'documentView', noun: ['tutor', 'tutors'] },
   'todo-fee-pending': { title: 'Fee pending, not followed up', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
   'todo-not-welcomed': { title: 'Paid, not welcomed', screen: 'paidWelcome', noun: ['tutor', 'tutors'] },

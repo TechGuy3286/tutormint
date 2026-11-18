@@ -14,6 +14,7 @@
 // dashboard and the tests — one file, so none of them can disagree.
 
 import { safeSlice, siteLink } from '@/lib/waLinkCore'
+import { jobCodeMatches } from '@/lib/jobCodeSearchCore'
 
 export const STAGES = ['applied', 'forwarded', 'contacted', 'demo', 'hired', 'not_selected', 'no_response'] as const
 export type Stage = (typeof STAGES)[number]
@@ -465,12 +466,14 @@ export function shortTitle(title: string, max = 60): string {
 }
 
 /** Search: tutor name, TM number (with or without "TM-"), title, city. */
-export function searchMatches(r: { tutorName: string; jobRef: string | null; jobTitle: string; jobCity: string | null }, query: string): boolean {
+export function searchMatches(r: { tutorName: string; jobRef: string | null; jobTx?: string | null; jobTitle: string; jobCity: string | null }, query: string): boolean {
   const needle = query.trim().toLowerCase()
   if (!needle) return false
   const bare = needle.replace(/^tm-?/, '')
   const ref = (r.jobRef ?? '').toLowerCase()
   if (ref && (ref.includes(needle) || (bare.length > 0 && ref.replace(/^tm-?/, '').includes(bare)))) return true
+  // The job code too, e.g. "JOB-TX-GYEMZMG" or "gyemzmg" (PR-07, lib/jobCodeSearchCore).
+  if (jobCodeMatches({ ref: r.jobRef, tx: r.jobTx ?? null }, query)) return true
   return [r.tutorName, r.jobTitle, r.jobCity].some((v) => (v ?? '').toLowerCase().includes(needle))
 }
 

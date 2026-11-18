@@ -25,6 +25,8 @@ export const TEASER_KINDS = ['teaser_profile_views', 'teaser_views_tip', 'teaser
 export type TeaserKind = (typeof TEASER_KINDS)[number]
 /** The instant alert — never counted towards the cap. */
 export const APPLICATION_OPENED_KIND = 'application_opened' as const
+/** The instant "sent to the parent" alert (PR-07) — never counted towards the cap. */
+export const APPLICATION_FORWARDED_KIND = 'application_forwarded' as const
 
 export const WEEKLY_TEASER_CAP = 3
 /** Teasers start this long after the Verification Fee was paid. */
@@ -316,6 +318,38 @@ export function applicationOpenedText(job: { title: string | null; area: string 
   }
 }
 
+// --------------------------------------------------- c2) sent to the parent ---
+
+/** "Your application for Home Tutor, Gulberg was sent to the parent" (PR-07):
+ *  staff forwarded the application to the tuition's parent. A real forward
+ *  only; the title and place are the tuition's own (no parent detail). */
+export function applicationForwardedText(job: { title: string | null; area: string | null; city: string | null }): TeaserText {
+  const title = (job.title ?? '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'a tuition'
+  const place = safePlace(job.area) ?? safePlace(job.city)
+  return {
+    title: `Your application for ${title}${place ? `, ${place}` : ''} was sent to the parent`,
+    body: 'Keep your phone close — the parent may contact you.',
+    href: '/tutor/dashboard/applications',
+  }
+}
+
+export type ForwardAlertFacts = {
+  /** The application was withdrawn. */
+  withdrawn: boolean
+  /** The tutor passes teaserBlock (paid, not test/staff/paused/…). */
+  tutorEligible: boolean
+  /** The tuition's poster is a test, seed or hidden account. */
+  posterTest: boolean
+  /** The request runs under View as. */
+  viewAs: boolean
+}
+
+/** Does a NEW forward send the bell alert? Real events only (PR-07). Once per
+ *  application is the caller's first-insert rule (application_forward_alerts). */
+export function forwardAlertGoes(f: ForwardAlertFacts): boolean {
+  return !f.viewAs && !f.withdrawn && f.tutorEligible && !f.posterTest
+}
+
 // ---------------------------------------------------------- d) weekly summary ---
 
 export type WeeklyNumbers = { views: number; applications: number; tuitions: number }
@@ -338,9 +372,20 @@ export function weeklySummaryTeaser(n: WeeklyNumbers): TeaserText | null {
 
 export type WaItem =
   | { kind: 'application_opened'; applicationId: string; at: string; jobTitle: string | null; area: string | null; city: string | null }
+  | { kind: 'application_forwarded'; applicationId: string; at: string; jobTitle: string | null; area: string | null; city: string | null }
   | { kind: 'weekly_summary'; numbers: WeeklyNumbers }
 
-export type WaSend = { id: string; createdAt: string; undoneAt: string | null; kinds: string[]; applicationIds: string[]; staffId: string | null; staffName: string | null }
+export type WaSend = {
+  id: string
+  createdAt: string
+  undoneAt: string | null
+  kinds: string[]
+  applicationIds: string[]
+  /** Forwards this send carried (PR-07), kept apart from the opened ones. */
+  forwardedIds?: string[]
+  staffId: string | null
+  staffName: string | null
+}
 
 /** Live (not undone) sends since the start of this Pakistan week. */
 export function sendsThisWeek(sends: WaSend[], nowMs: number): WaSend[] {
@@ -365,11 +410,14 @@ export function openedWindowStartMs(nowMs: number): number {
 export function pendingWaItems(items: WaItem[], sends: WaSend[], nowMs: number): WaItem[] {
   const live = sends.filter((s) => !s.undoneAt)
   const sentApps = new Set(live.flatMap((s) => s.applicationIds))
+  const sentForwards = new Set(live.flatMap((s) => s.forwardedIds ?? []))
   const week = sendsThisWeek(sends, nowMs)
   const summarySent = week.some((s) => s.kinds.includes('weekly_summary'))
   const from = openedWindowStartMs(nowMs)
   return items.filter((i) => {
     if (i.kind === 'application_opened') return !sentApps.has(i.applicationId) && Date.parse(i.at) >= from
+    // PR-07: a forward to the parent, today or yesterday, not already sent.
+    if (i.kind === 'application_forwarded') return !sentForwards.has(i.applicationId) && Date.parse(i.at) >= from
     return pkWeekday(nowMs) === SUMMARY_WEEKDAY && !summarySent && !allZero(i.numbers)
   })
 }
@@ -399,24 +447,30 @@ export function waRowState(p: { eligible: boolean; optedIn: boolean; hasNumber: 
 export function waMessage(p: { firstName: string; items: WaItem[]; link: string; supportWhatsapp: string }): string {
   const name = p.firstName.trim()
   const opened = p.items.filter((i): i is Extract<WaItem, { kind: 'application_opened' }> => i.kind === 'application_opened')
+  const forwarded = p.items.filter((i): i is Extract<WaItem, { kind: 'application_forwarded' }> => i.kind === 'application_forwarded')
   const summary = p.items.find((i): i is Extract<WaItem, { kind: 'weekly_summary' }> => i.kind === 'weekly_summary')
   const sentences: string[] = []
-  if (opened.length === 1) {
-    const o = opened[0]
+  // A later sentence starts with a capital; the first follows the greeting.
+  const lead = (s: string) => (sentences.length ? s.charAt(0).toUpperCase() + s.slice(1) : s)
+  const named = (o: { jobTitle: string | null; area: string | null; city: string | null }) => {
     const place = safePlace(o.area) ?? safePlace(o.city)
     const title = (o.jobTitle ?? '').replace(/\s+/g, ' ').trim().slice(0, 50) || 'a tuition'
-    sentences.push(`a parent opened your application for ${title}${place ? `, ${place}` : ''}.`)
-  } else if (opened.length > 1) {
-    sentences.push(`parents opened ${opened.length} of your applications.`)
+    return `${title}${place ? `, ${place}` : ''}`
   }
+  // PR-07: the forward first — it comes before a parent can open it.
+  if (forwarded.length === 1) sentences.push(lead(`your application for ${named(forwarded[0])} was sent to the parent.`))
+  else if (forwarded.length > 1) sentences.push(lead(`${forwarded.length} of your applications were sent to the parents.`))
+  if (opened.length === 1) sentences.push(lead(`a parent opened your application for ${named(opened[0])}.`))
+  else if (opened.length > 1) sentences.push(lead(`parents opened ${opened.length} of your applications.`))
   if (summary) {
     const n = summary.numbers
     const week = `${plural(n.views, 'profile view', 'profile views')}, ${plural(n.applications, 'application sent', 'applications sent')}, ${plural(n.tuitions, 'new tuition', 'new tuitions')} in your areas.`
     sentences.push(sentences.length ? `Your week: ${week}` : `your week: ${week}`)
   }
   // The greeting carries the first sentence, so the message is at most three
-  // lines before its one link.
-  const lines = [`Assalam o Alaikum${name ? ` ${name}` : ''}, ${sentences[0] ?? 'here is your update.'}`, ...sentences.slice(1)]
+  // lines before its one link; any further sentences share the second line.
+  const rest = sentences.slice(1)
+  const lines = [`Assalam o Alaikum${name ? ` ${name}` : ''}, ${sentences[0] ?? 'here is your update.'}`, ...(rest.length ? [rest.join(' ')] : [])]
   lines.push('See the details here:', p.link, `Need help? WhatsApp ${p.supportWhatsapp}`)
   return lines.join('\n')
 }

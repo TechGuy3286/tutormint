@@ -11,7 +11,7 @@
 // Pure: no I/O. lib/tutorPipeline.ts does the reads and writes.
 
 import { docsReadyForReview, type DocState, type PipeDocs } from '@/lib/tutorPipelineCore'
-import { feePendingDue, pipeSortAt, pipeTags, type PipeCard } from '@/lib/tutorPipelineCardCore'
+import { approvedTodayDue, feePendingDue, pipeSortAt, pipeTags, type PipeCard } from '@/lib/tutorPipelineCardCore'
 import type { BadgesPayload } from '@/lib/adminSummaryCore'
 
 export type StoredPeopleRow = { tags: Record<string, unknown>; row: Record<string, unknown> & { pipe?: PipeCard } }
@@ -44,7 +44,7 @@ export function cardReadyForReview(p: PipeCard): boolean {
   return docsReadyForReview(docsFromCard(p), p.completion ?? 0)
 }
 
-export type BadgeDelta = { pipelineDue: number; peopleWaiting: number; rejectedUninformed?: number }
+export type BadgeDelta = { pipelineDue: number; peopleWaiting: number; rejectedUninformed?: number; approvedToday?: number }
 
 /** Counted in the Overview "Rejected, not informed" row (PR-02: the same rule
  *  as its list). */
@@ -56,11 +56,12 @@ export function cardRejectedUninformed(p: PipeCard): boolean {
  *  gone counts as nothing on that side. `real` = the row is a real tutor (not
  *  staff, test or deleted) — only real tutors are in any count (PR-02). */
 export function badgeDelta(prev: PipeCard | null, next: PipeCard | null, nowMs: number, real = true): BadgeDelta {
-  if (!real) return { pipelineDue: 0, peopleWaiting: 0, rejectedUninformed: 0 }
+  if (!real) return { pipelineDue: 0, peopleWaiting: 0, rejectedUninformed: 0, approvedToday: 0 }
   const due = (p: PipeCard | null) => (p && feePendingDue(p, nowMs) ? 1 : 0)
   const ready = (p: PipeCard | null) => (p && cardReadyForReview(p) ? 1 : 0)
   const rej = (p: PipeCard | null) => (p && cardRejectedUninformed(p) ? 1 : 0)
-  return { pipelineDue: due(next) - due(prev), peopleWaiting: ready(next) - ready(prev), rejectedUninformed: rej(next) - rej(prev) }
+  const today = (p: PipeCard | null) => (p && approvedTodayDue(p, nowMs) ? 1 : 0)
+  return { pipelineDue: due(next) - due(prev), peopleWaiting: ready(next) - ready(prev), rejectedUninformed: rej(next) - rej(prev), approvedToday: today(next) - today(prev) }
 }
 
 /** The stored Overview figures (overview:7 / overview:30) moved by one card's
@@ -71,6 +72,7 @@ export function applyOverviewDelta<T extends Partial<Record<string, { count: num
     ['todo-fee-pending', d.pipelineDue],
     ['todo-docs', d.peopleWaiting],
     ['todo-rejected-uninformed', d.rejectedUninformed ?? 0],
+    ['todo-approved-today', d.approvedToday ?? 0],
   ]
   if (moves.every(([, n]) => n === 0)) return null
   const out: Record<string, unknown> = { ...o }

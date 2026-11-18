@@ -121,6 +121,8 @@ export function auditSentence(action: string, detail: Record<string, unknown> | 
       return item ? `Unlocked ${item} for re-upload` : 'Unlocked a document for re-upload'
     case 'cnic.reveal':
       return 'Showed the full CNIC number'
+    case 'address.reveal':
+      return 'Showed the full home address'
     case 'staff.signup_credit':
       return 'Sign-up credited to a staff member'
     case 'staff.signup_claim':
@@ -221,7 +223,7 @@ export type TimelineItem = {
 }
 
 const RED = new Set(['suspended', 'banned', 'member.suspend', 'member.ban', 'tutor.hold', 'parent.verify.reject'])
-const GOLD = new Set(['warned', 'reported_by', 'member.warn', 'document.unlock', 'cnic.reveal'])
+const GOLD = new Set(['warned', 'reported_by', 'member.warn', 'document.unlock', 'cnic.reveal', 'address.reveal'])
 const GREEN = new Set([
   'unsuspended', 'plan_purchased', 'verification_fee_paid', 'payment_approved', 'member.unsuspend',
   'member.unban', 'tutor.approve', 'parent.verify.approve', 'plan.grant', 'payment.approve',

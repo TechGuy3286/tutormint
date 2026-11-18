@@ -80,6 +80,7 @@ export function ctaFor(row: { kind: string; href: string | null }): Notification
     case 'teaser_views_tip':
       return row.href ? { kind: 'link', label: 'Improve my profile', href: row.href } : null
     case 'application_opened':
+    case 'application_forwarded':
       return { kind: 'link', label: 'My applications', href: row.href ?? '/tutor/dashboard/applications' }
 
     // The position widget is on the dashboard and has an id.

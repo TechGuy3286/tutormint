@@ -51,6 +51,8 @@ export type AppsRowLike = BoardItem & {
   tutorId: string
   tutorName: string
   jobRef: string | null
+  /** JOB-TX-… (PR-07: searchable). */
+  jobTx?: string | null
   jobTitle: string
   jobCity: string | null
   followUps: FollowUpRecord[]

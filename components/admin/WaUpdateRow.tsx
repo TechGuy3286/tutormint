@@ -28,6 +28,7 @@ export type WaRowView = {
 
 const KIND_LABEL: Record<string, string> = {
   application_opened: 'Application opened',
+  application_forwarded: 'Sent to the parent',
   weekly_summary: 'Weekly summary',
 }
 

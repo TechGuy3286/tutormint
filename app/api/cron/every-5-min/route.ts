@@ -9,6 +9,7 @@ import { sweepTutorAlerts } from '@/lib/tutorAlerts'
 import { runBankReader } from '@/lib/bankEmailReader'
 import { endExpiredViews } from '@/lib/viewAs'
 import { refreshStatementMatches } from '@/lib/bankStatement'
+import { runAddressBackfill } from '@/lib/cnicAddress'
 
 // Backup reconcile (PR65 §5). PayPro's "Mark as Paid" callback can be missed, so
 // this re-checks pending PayPro orders via the ONE confirm path (PR104:
@@ -44,6 +45,7 @@ function authorised(request: Request): boolean {
 
 export async function GET(request: Request) {
   if (!authorised(request)) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  const t0 = Date.now()
   // Scheduled blog posts go live within five minutes (owner, 5 Oct 2026): this
   // is the only frequent cron, so it also runs the due-post sweep, independent
   // of PayPro being configured. The daily cron keeps its own call as a backstop.
@@ -64,7 +66,11 @@ export async function GET(request: Request) {
   // Bank statement matches (PR-03): a receipt uploaded after an import becomes
   // Bank-matched within 5 minutes. Counts only.
   const statement = await refreshStatementMatches().catch(() => null)
-  if (!pproConfigured()) return NextResponse.json({ ok: true, skipped: 'paypro_not_configured', blog, indexing, alerts, bankReader, viewAsEnded, statement })
+  // CNIC address backfill (PR-07): a few approved CNIC backs of members with no
+  // address are read into unconfirmed suggestions; each image once, so it ends
+  // by itself. Counts only — never an address.
+  const addressBackfill = await runAddressBackfill({ limit: 12, deadlineMs: t0 + 30_000 }).catch(() => null)
+  if (!pproConfigured()) return NextResponse.json({ ok: true, skipped: 'paypro_not_configured', blog, indexing, alerts, bankReader, viewAsEnded, statement, addressBackfill })
 
   const admin = createAdminClient()
   if (!admin) return NextResponse.json({ ok: true, skipped: 'no_admin_client' })

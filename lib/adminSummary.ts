@@ -36,6 +36,7 @@ import { DUP_WORDS, EXCLUDE_WORDS, PARENT_VERIFICATION_WORDS, paidTag, postedTag
 import type { CardDocs } from '@/lib/tutorDocSummaries'
 import { feePendingDue, loadTutorPipeline, pipeSortAt, pipeTags, readyForReviewFrom, type PipeCard } from '@/lib/tutorPipeline'
 import { pipelineOrder } from '@/lib/tutorPipelineCore'
+import { approvedTodayDue } from '@/lib/tutorPipelineCardCore'
 import { loadParentFollowUps } from '@/lib/parentFollowUps'
 import { fuBadgeCount } from '@/lib/tutorFollowUpTabsCore'
 import { newApplicationsItems, overdueApplicationsItems } from '@/lib/applicationTracking'
@@ -219,6 +220,7 @@ function pipelineSort(c: PipeCard | undefined, p: DirectoryPerson) {
     approvedAt: c?.approvedAt ?? null,
     lastContactAt: c?.lastContact?.at ?? null,
     triedToPay: !!c?.triedToPay,
+    approvedTodayDue: !!c && approvedTodayDue(c),
   }
 }
 

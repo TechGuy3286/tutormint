@@ -11,6 +11,7 @@ import { alertIfReupload } from '@/lib/docReupload'
 import { RELOAD_AND_RETRY } from '@/lib/tutorSubjectCap'
 import { decideUpload, spendUnlock } from '@/lib/docLocks'
 import { readCnicFromDocument } from '@/lib/cnicReader'
+import { readAddressFromDocument } from '@/lib/cnicAddress'
 import { isValidCnic } from '@/lib/cnic'
 import { checkSelfieAgainstProfilePhoto } from '@/lib/selfieMatch'
 import { checkPhotosAfterUpload } from '@/lib/photoBlank'
@@ -175,6 +176,16 @@ export async function POST(request: Request) {
         await readCnicFromDocument(documentId)
       })
     }
+  }
+
+  // A CNIC BACK (PR-07): read the home address in the background as an
+  // unconfirmed suggestion. Nothing is read when the member already has an
+  // address, and profiles.address is never written here.
+  if (kind === 'cnic' && label === 'back') {
+    const documentId = result.doc.id
+    after(async () => {
+      await readAddressFromDocument(documentId)
+    })
   }
 
   const completion = await recomputeCompletion(user.id)

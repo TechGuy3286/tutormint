@@ -19,6 +19,8 @@ import {
   FU_DONE,
   FU_TRIED,
   FU_TRIED_LABEL,
+  FU_APPROVED_TODAY,
+  FU_APPROVED_TODAY_LABEL,
   isFollowStage,
   PIPE_STAGES,
   REUPLOADED,
@@ -95,7 +97,13 @@ export function peopleListQuery(
                 options: [
                   ...FU_BUCKETS.map((b) => ({ key: b, label: FU_BUCKET_LABEL[b], hint: CHIP_HINT[b] })),
                   // Approved, fee pending: "Tried to pay (N)" — due now only (PR-02).
-                  ...(stageSel === 'approved' ? [{ key: FU_TRIED, label: FU_TRIED_LABEL, hint: CHIP_HINT.tried }] : []),
+                  // "Approved today (N)" (PR-07) — approved today, never contacted, due now.
+                  ...(stageSel === 'approved'
+                    ? [
+                        { key: FU_APPROVED_TODAY, label: FU_APPROVED_TODAY_LABEL, hint: CHIP_HINT.approvedToday },
+                        { key: FU_TRIED, label: FU_TRIED_LABEL, hint: CHIP_HINT.tried },
+                      ]
+                    : []),
                   { key: FU_DONE, label: 'Followed up (all)', hidden: true },
                 ],
               },

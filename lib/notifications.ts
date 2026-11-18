@@ -163,6 +163,8 @@ export type NotificationKind =
   | 'teaser_new_tuitions'
   | 'teaser_weekly_summary'
   | 'application_opened'
+  // PR-07: instant "Your application for … was sent to the parent" (not capped).
+  | 'application_forwarded'
 
 export async function notify(params: {
   userId: string

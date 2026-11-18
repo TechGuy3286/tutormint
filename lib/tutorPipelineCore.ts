@@ -377,6 +377,7 @@ export const CHIP_HINT = {
   f2: 'Had 2 follow-ups in this stage; the next one is not due yet.',
   f3: 'Had 3 or more follow-ups in this stage; the next one is not due yet.',
   tried: 'Started a Verification Fee payment, did not finish, and a follow-up is due now.',
+  approvedToday: 'CNIC and profile photo approved today (Pakistan time), fee not paid, not contacted in this stage yet. Leaves this chip after the first follow-up.',
   ni: 'Marked Not interested — counted here only, never in the chips above.',
   deleted: 'Accounts erased at the member’s request — counted here only.',
   staffTest: 'Staff and test accounts — never counted in the chips.',
@@ -387,6 +388,19 @@ export const CHIP_HINT = {
  *  that stage's follow-up row, and first within Not followed up. */
 export const FU_TRIED = 'tried'
 export const FU_TRIED_LABEL = 'Tried to pay'
+
+/** Approved, fee pending: documents approved TODAY (Pakistan time) and not
+ *  contacted in this stage yet (owner, 18 Nov 2026 — PR-07). A subset of Not
+ *  followed up (due now), like Tried to pay; first in that chip. */
+export const FU_APPROVED_TODAY = 'approved_today'
+export const FU_APPROVED_TODAY_LABEL = 'Approved today'
+
+/** Approved on the Pakistan date holding `nowMs`. */
+export function approvedOnPkDay(approvedAt: string | null | undefined, nowMs: number): boolean {
+  if (!approvedAt) return false
+  const d = pkDay(approvedAt)
+  return d !== '' && d === pkDay(new Date(nowMs).toISOString())
+}
 
 export function followBucket(state: { section: 'not' | 'done' | null; sent: number }): FuBucket | null {
   if (state.section === null) return null
@@ -447,6 +461,13 @@ export type PipeSortable = {
   /** Approved, fee pending: started a fee payment that never completed (owner,
    *  15 Nov 2026) — first within Not followed up, before the approval order. */
   triedToPay?: boolean
+  /** Approved today and not contacted in this stage (PR-07): first within Not
+   *  followed up, before Tried to pay. */
+  approvedTodayDue?: boolean
+}
+
+function approvedTodayFirst(r: PipeSortable): boolean {
+  return r.stage === 'approved' && r.section === 'not' && !!r.approvedTodayDue
 }
 
 function triedFirst(r: PipeSortable): boolean {
@@ -487,6 +508,7 @@ export function pipelineOrder<T extends PipeSortable>(rows: T[], nowMs: number =
         Number(!!a.r.noMobile) - Number(!!b.r.noMobile) ||
         sec(a.r.section) - sec(b.r.section) ||
         Number(a.r.paused) - Number(b.r.paused) ||
+        Number(!approvedTodayFirst(a.r)) - Number(!approvedTodayFirst(b.r)) ||
         Number(!triedFirst(a.r)) - Number(!triedFirst(b.r)) ||
         Number(recentlyContacted(a.r, nowMs)) - Number(recentlyContacted(b.r, nowMs)) ||
         approvalOrder(a.r, b.r) ||
@@ -565,7 +587,7 @@ export function followUpsToPeople(sp: Record<string, string | string[] | undefin
 }
 
 /** A People → Tutors address on a stage (and a follow-up chip). */
-export function stageHref(stage: PipeStage | 'all' | typeof REUPLOADED, fu?: FuBucket | typeof FU_DONE | null): string {
+export function stageHref(stage: PipeStage | 'all' | typeof REUPLOADED, fu?: FuBucket | typeof FU_DONE | typeof FU_TRIED | typeof FU_APPROVED_TODAY | null): string {
   const q = new URLSearchParams()
   q.set('tab', 'tutors')
   q.set('stage', stage)

@@ -18,6 +18,7 @@ import 'server-only'
 import { cache } from 'react'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { alertApplicationsForwarded } from '@/lib/tutorTeasers'
 import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
@@ -219,6 +220,8 @@ export type BoardRow = BoardItem & {
   /** Passes the Social posts rule — the Success story button needs it. */
   tutorVerified: boolean
   jobRef: string | null
+  /** JOB-TX-… — found by the search (PR-07). */
+  jobTx: string | null
   jobTitle: string
   jobCity: string | null
   jobPath: string | null
@@ -294,6 +297,7 @@ export async function loadApplicationBoard(): Promise<ApplicationBoard> {
       tutorPhone: phone ? maskMobile(phone) : null,
       tutorVerified: eligible.has(a.tutor_id),
       jobRef: j?.ref_id ?? null,
+      jobTx: j?.job_tx_id ?? null,
       jobTitle: (j?.title ?? '').trim() || 'Tuition',
       jobCity: j?.city ?? null,
       jobPath: j ? tuitionPath({ public_slug: j.public_slug, city: j.city, job_tx_id: j.job_tx_id, id: j.id }) : null,
@@ -471,6 +475,7 @@ export async function advanceForwarded(actor: AdminActor, jobId: string, tutorId
   const name = await actorName(admin, actor)
   let n = 0
   const touched: string[] = []
+  const moved: string[] = []
   for (const a of (data ?? []) as AppRow[]) {
     if (a.withdrawn_at) continue
     if (a.stage !== 'applied') {
@@ -478,11 +483,16 @@ export async function advanceForwarded(actor: AdminActor, jobId: string, tutorId
       continue
     }
     try {
-      if (await writeStage(admin, actor, name, a, 'forwarded', 'forwarded to parent')) n++
+      if (await writeStage(admin, actor, name, a, 'forwarded', 'forwarded to parent')) {
+        n++
+        moved.push(a.id)
+      }
     } catch {
       /* the forward itself is recorded; a stage that did not move shows Applied */
     }
   }
+  // PR-07: "Your application was sent to the parent" — once per application.
+  await alertApplicationsForwarded(moved)
   // Forwarding is activity on every included application (Applications v2):
   // one already past Applied keeps its stage and sinks as worked.
   await markWorked(admin, actor, name, touched)

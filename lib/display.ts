@@ -121,6 +121,7 @@ export function adminActionLabel(action: string | null | undefined): string {
     'blog.delete': 'Deleted a post',
     'orphan.backfill': 'Created a missing profile',
     'cnic.reveal': 'Revealed a CNIC number',
+    'address.reveal': 'Revealed a home address',
   }
   return known[(action ?? '').trim()] ?? humanizeKey(action)
 }

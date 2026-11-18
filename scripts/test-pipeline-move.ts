@@ -97,7 +97,7 @@ test('logging a follow-up rewrites the stored row, the chip counts and the badge
 
   // The sidebar badge (Approved fee pending · due now) drops by one.
   const d = badgeDelta(prev, next, T0)
-  assert.deepEqual(d, { pipelineDue: -1, peopleWaiting: 0, rejectedUninformed: 0 })
+  assert.deepEqual(d, { pipelineDue: -1, peopleWaiting: 0, rejectedUninformed: 0, approvedToday: 0 })
   assert.equal(applyBadgeDelta(BADGES, d)?.pipelineDue, 6)
 })
 
@@ -137,7 +137,7 @@ test('a document decision moves the card to its new stage and the waiting badge'
   assert.equal(cardReadyForReview(prev), true)
   const next = mergeLiveCard(prev, card(docs('approved', 'approved')))
   assert.equal(next.stage, 'approved')
-  assert.deepEqual(badgeDelta(prev, next, T0), { pipelineDue: 1, peopleWaiting: -1, rejectedUninformed: 0 })
+  assert.deepEqual(badgeDelta(prev, next, T0), { pipelineDue: 1, peopleWaiting: -1, rejectedUninformed: 0, approvedToday: 0 })
   const view: ChipView = { stage: 'waiting', ni: false }
   assert.equal(cardInView(next, view), false)
   const s = chipCountShift(prev, next, view)

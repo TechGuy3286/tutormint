@@ -63,6 +63,8 @@ const EDITORS: Record<string, RegExp> = {
   password: /<ChangePasswordCard \/>/,
   // "Send me updates on WhatsApp" (PR-06, owner 18 Nov 2026): the switch saves itself.
   whatsappUpdates: /<WhatsAppUpdatesCard \/>/,
+  // Home address (PR-07): the suggestion from the CNIC back, Confirm / Edit; saves itself.
+  homeAddress: /<HomeAddressCard \/>/,
   pause: /<PauseAccountCard \/>/,
   delete: /<DeleteAccountCard \/>/,
 }

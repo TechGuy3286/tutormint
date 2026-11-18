@@ -244,6 +244,7 @@ const PAIRS: Pair[] = [
   // label pairs.
   { fg: 'navy', bg: 'tintNavy', where: 'your-things tile value, navy tone' },
   { fg: 'greenDeep', bg: 'tintGreen', where: 'your-things tile value, green tone' },
+  { fg: 'greenDeep', bg: 'tintGreen', where: 'People card "Approved today" label (PR-07)' },
   { fg: 'red', bg: 'tintRed', where: 'your-things tile value, red tone' },
   { fg: 'goldInk', bg: 'tintGold', where: 'your-things tile value, gold tone' },
   { fg: 'navy', bg: 'tintMint', where: 'your-things tile value, mint tone' },

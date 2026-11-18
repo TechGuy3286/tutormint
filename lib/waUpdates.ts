@@ -6,7 +6,8 @@
 // Each Pakistan day the queue lists the eligible paid tutors who have something
 // worth a WhatsApp message: a parent opened one of their applications (today or
 // yesterday), and on Mondays their weekly summary (the in-app summary's own
-// numbers — the notification is the record). A tutor who opted out, has no
+// numbers — the notification is the record), and (PR-07) an application staff
+// sent to the parent today or yesterday. A tutor who opted out, has no
 // WhatsApp number, or was already sent two this week is left out.
 //
 // Send writes whatsapp_update_sends (staff and time) and an audit row, and
@@ -77,11 +78,11 @@ async function loadFacts(admin: Admin, nowMs: number, ids?: string[]): Promise<F
   const openedFrom = new Date(openedWindowStartMs(nowMs)).toISOString()
   const monday = pkWeekday(nowMs) === SUMMARY_WEEKDAY
 
-  const [sendRows, views, summaries, support] = await Promise.all([
+  const [sendRows, views, forwards, summaries, support] = await Promise.all([
     pageAllIn(tutorIds, (part, f, t) =>
       admin
         .from('whatsapp_update_sends')
-        .select('id, tutor_id, created_at, undone_at, kinds, application_ids, staff_id, staff_name')
+        .select('id, tutor_id, created_at, undone_at, kinds, application_ids, forwarded_application_ids, staff_id, staff_name')
         .in('tutor_id', part)
         .gte('created_at', since)
         .order('id')
@@ -92,6 +93,18 @@ async function loadFacts(admin: Admin, nowMs: number, ids?: string[]): Promise<F
           admin.from('application_parent_views').select('application_id, first_seen_at').gte('first_seen_at', openedFrom).order('application_id').range(f, t) as never,
         )
       : Promise.resolve([] as Record<string, unknown>[]),
+    // PR-07: forwards to the parent that sent the bell alert, not undone.
+    pageAllIn(tutorIds, (part, f, t) =>
+      admin
+        .from('application_forward_alerts')
+        .select('application_id, tutor_id, job_id, forwarded_at')
+        .in('tutor_id', part)
+        .eq('notified', true)
+        .is('undone_at', null)
+        .gte('forwarded_at', openedFrom)
+        .order('application_id')
+        .range(f, t),
+    ),
     monday
       ? pageAllIn(tutorIds, (part, f, t) =>
           admin
@@ -118,6 +131,7 @@ async function loadFacts(admin: Admin, nowMs: number, ids?: string[]): Promise<F
         undoneAt: (s.undone_at as string | null) ?? null,
         kinds: (s.kinds as string[] | null) ?? [],
         applicationIds: (s.application_ids as string[] | null) ?? [],
+        forwardedIds: (s.forwarded_application_ids as string[] | null) ?? [],
         staffId: (s.staff_id as string | null) ?? null,
         staffName: (s.staff_name as string | null) ?? null,
       },
@@ -131,7 +145,7 @@ async function loadFacts(admin: Admin, nowMs: number, ids?: string[]): Promise<F
     admin.from('applications').select('id, tutor_id, job_id, withdrawn_at').in('id', part).order('id').range(f, t),
   )
   const openedApps = apps.filter((a) => !a.withdrawn_at && mine.has(a.tutor_id as string))
-  const jobIds = [...new Set(openedApps.map((a) => a.job_id as string))]
+  const jobIds = [...new Set([...openedApps.map((a) => a.job_id as string), ...forwards.map((x) => x.job_id as string)])]
   const jobs = await pageAllIn(jobIds, (part, f, t) => admin.from('jobs').select('id, title, area, city, status').in('id', part).order('id').range(f, t))
   const jobBy = new Map(jobs.map((j) => [j.id as string, j]))
 
@@ -149,6 +163,18 @@ async function loadFacts(admin: Admin, nowMs: number, ids?: string[]): Promise<F
       city: (j.city as string | null) ?? null,
     })
   }
+  for (const x of forwards) {
+    const j = jobBy.get(x.job_id as string)
+    if (!j || isHiddenTuition(j.status as string | null)) continue
+    add(x.tutor_id as string, {
+      kind: 'application_forwarded',
+      applicationId: x.application_id as string,
+      at: x.forwarded_at as string,
+      jobTitle: (j.title as string | null) ?? null,
+      area: (j.area as string | null) ?? null,
+      city: (j.city as string | null) ?? null,
+    })
+  }
   for (const s of summaries) {
     const m = (s.meta ?? {}) as Partial<WeeklyNumbers>
     const numbers: WeeklyNumbers = { views: Number(m.views) || 0, applications: Number(m.applications) || 0, tuitions: Number(m.tuitions) || 0 }
@@ -158,7 +184,7 @@ async function loadFacts(admin: Admin, nowMs: number, ids?: string[]): Promise<F
 }
 
 function linkFor(items: WaItem[]): string {
-  return siteLink(items.some((i) => i.kind === 'application_opened') ? '/tutor/dashboard/applications' : '/tutor/dashboard')
+  return siteLink(items.some((i) => i.kind === 'application_opened' || i.kind === 'application_forwarded') ? '/tutor/dashboard/applications' : '/tutor/dashboard')
 }
 
 function buildRow(t: TeaserTutor, f: Facts, nowMs: number): WaQueueRow & { msisdn: string | null } {
@@ -255,6 +281,7 @@ export async function recordWaSend(tutorId: string, actor: AdminActor): Promise<
       pk_day: pkDateKey(nowMs),
       kinds: waKinds(row.items),
       application_ids: row.items.flatMap((i) => (i.kind === 'application_opened' ? [i.applicationId] : [])),
+      forwarded_application_ids: row.items.flatMap((i) => (i.kind === 'application_forwarded' ? [i.applicationId] : [])),
       staff_id: actor.id,
       staff_name: await staffName(admin, actor),
     })

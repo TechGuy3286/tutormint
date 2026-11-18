@@ -35,7 +35,11 @@ export type SummaryState = {
   dirtyAt: string | null
 }
 
+/** The Pakistan date of an instant ("2026-11-18"). */
+const pkDateOf = (ms: number) => new Date(ms + 5 * 3_600_000).toISOString().slice(0, 10)
+
 /** Should the job rebuild now? Never while another rebuild is running. */
+
 export function needsRebuild(s: SummaryState, nowMs: number, force = false): boolean {
   const started = s.startedAt ? Date.parse(s.startedAt) : NaN
   const built = s.builtAt ? Date.parse(s.builtAt) : NaN
@@ -44,6 +48,9 @@ export function needsRebuild(s: SummaryState, nowMs: number, force = false): boo
   if (force) return true
   if (!Number.isFinite(built)) return true
   if (nowMs - built >= SUMMARY_MAX_AGE_MS) return true
+  // A new Pakistan day (PR-07): "Approved today" and every other today-count
+  // turn over at midnight PKT, so the first run after it rebuilds.
+  if (pkDateOf(built) !== pkDateOf(nowMs)) return true
   const dirty = s.dirtyAt ? Date.parse(s.dirtyAt) : NaN
   return Number.isFinite(dirty) && dirty > built && nowMs - built >= MIN_DIRTY_GAP_MS
 }

@@ -99,6 +99,7 @@ export const AUDIT_LABELS: Record<string, string> = {
   'profile_photo.crop': 'Cropped the profile picture',
   'profile_photo.crop_reset': 'Reset the profile picture crop',
   'cnic.reveal': 'Showed the full CNIC number',
+  'address.reveal': 'Showed the full home address',
   'member.contact_reveal': 'Showed the phone, WhatsApp or email',
   'member.name_edit': 'Changed the name',
   'member.whatsapp_edit': 'Changed the WhatsApp number',

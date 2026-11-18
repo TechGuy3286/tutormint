@@ -19,7 +19,7 @@ import { useToast } from '@/components/ui/Toast'
 import { formatDate, formatDayMonth } from '@/lib/datetime'
 import type { BadgeName } from '@/lib/planBadges'
 import { niChip, niMenuAllowed, type NiMark } from '@/lib/notInterestedCore'
-import { isFollowStage } from '@/lib/tutorPipelineCore'
+import { CHIP_HINT, FU_APPROVED_TODAY_LABEL, isFollowStage } from '@/lib/tutorPipelineCore'
 import { TRIED_TO_PAY_LABEL } from '@/lib/paymentAttemptsCore'
 import {
   blankLine,
@@ -28,6 +28,7 @@ import {
   pipeDetailLine,
   pipeMetaLine,
   REUPLOADED_LABEL,
+  approvedTodayLabel,
   type PipeCard,
 } from '@/lib/tutorPipelineCardCore'
 import { BLANK_REJECT_LABEL, blankRejectReason, type BlankItem } from '@/lib/photoBlankCore'
@@ -130,6 +131,8 @@ export default function PipelineCardBody({
   // Backend Support may decide only a waiting photo or selfie; the Owner any.
   const mayReject = (item: BlankItem) => !readOnly && (decider === 'owner' || (decider === 'staff' && pending.includes(BLANK_NAME[item])))
   const detail = pipeDetailLine(pipe, now)
+  // "Approved today" (PR-07): all day, in every view, contacted or not.
+  const approvedToday = approvedTodayLabel(pipe, now)
   const outcome = followable && !pipe.noMobile ? lastOutcomeLine(pipe, formatDayMonth, now) : null
   const contact = !readOnly && followable && !pipe.noMobile && follow && isFollowStage(pipe.stage)
 
@@ -154,11 +157,16 @@ export default function PipelineCardBody({
 
         {/* "Selfie checked" is not on People cards (owner, 15 Nov 2026) — it
             stays on the member page and the tutor's own dashboard. */}
-        {(pipe.reuploaded || (pipe.stage === 'approved' && pipe.triedToPay)) && (
+        {(pipe.reuploaded || approvedToday || (pipe.stage === 'approved' && pipe.triedToPay)) && (
           <p className="flex flex-wrap gap-1">
             {pipe.reuploaded && (
               <span data-reuploaded="" className="inline-flex items-center gap-1 rounded-full bg-tm-tint-navy px-2 py-0.5 text-[10px] font-bold text-tm-navy">
                 <RotateCcw aria-hidden size={10} /> {REUPLOADED_LABEL}
+              </span>
+            )}
+            {approvedToday && (
+              <span data-approved-today="" title={CHIP_HINT.approvedToday} className="rounded-full bg-tm-tint-green px-2 py-0.5 text-[10px] font-bold text-tm-green-deep">
+                {FU_APPROVED_TODAY_LABEL}
               </span>
             )}
             {pipe.stage === 'approved' && pipe.triedToPay && (

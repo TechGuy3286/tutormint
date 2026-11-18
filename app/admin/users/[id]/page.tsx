@@ -24,6 +24,8 @@ import { loadDocumentStatuses } from '@/lib/tutorDocuments'
 import { loadAdminLockInfo, type AdminLockInfo } from '@/lib/docLocks'
 import { maskCnicHeavy } from '@/lib/cnic'
 import ParentDocumentReview from '@/components/admin/ParentDocumentReview'
+import AddressShow from '@/components/admin/AddressShow'
+import { staffAddressFor } from '@/lib/cnicAddress'
 import TutorDocumentReview from '@/components/admin/TutorDocumentReview'
 import { docDecider } from '@/lib/docDecisionCore'
 import { cnicNameDiffers } from '@/lib/memberNamesCore'
@@ -246,6 +248,9 @@ export default async function AdminMemberPage({
   // A tutor's home address (owner, 27 Oct 2026): reviewed like a parent's.
   const tutorAddressLoaded = isTutor ? await loadParentDocs(id, { allowTutor: true }) : null
   const tutorAddressDocs = tutorAddressLoaded && (tutorAddressLoaded.address ?? '').trim() ? tutorAddressLoaded : null
+  // The home address as staff receive it (PR-07): MASKED with its label; the
+  // full address only through the reviewers' logged Show (address.reveal).
+  const addrStaff = isTutor || isParent ? await staffAddressFor(id) : null
   let tutorDocs: {
     cnicFrontId: string | null
     cnicBackId: string | null
@@ -564,7 +569,8 @@ export default async function AdminMemberPage({
                 cnicFrontId: parentDocs.cnicFrontId,
                 cnicBackId: parentDocs.cnicBackId,
                 cnicNumber: parentDocs.cnicNumber,
-                address: parentDocs.address,
+                address: (parentDocs.address ?? '').trim() ? (addrStaff?.masked ?? '••••••') : null,
+                addressLabel: addrStaff?.source === 'member' ? addrStaff.label : null,
                 city: parentDocs.city,
                 cnic: parentDocs.cnic,
                 addressItem: parentDocs.addressItem,
@@ -611,6 +617,13 @@ export default async function AdminMemberPage({
               nameMismatch={nameMismatch}
             />
           )}
+          {/* PR-07: an address read from the CNIC back, not confirmed by the member yet. */}
+          {addrStaff?.source === 'cnic' && (
+            <div className="space-y-1 rounded-2xl border border-gray-200 bg-white p-4" data-address-from-cnic="">
+              <p className="text-xs font-black text-tm-navy">Home address</p>
+              <AddressShow memberId={id} masked={addrStaff.masked} label={addrStaff.label} />
+            </div>
+          )}
           {tutorAddressDocs && (
             <ParentDocumentReview
               addressOnly
@@ -620,7 +633,8 @@ export default async function AdminMemberPage({
                 cnicFrontId: null,
                 cnicBackId: null,
                 cnicNumber: null,
-                address: tutorAddressDocs.address,
+                address: addrStaff?.masked ?? '••••••',
+                addressLabel: addrStaff?.source === 'member' ? addrStaff.label : null,
                 city: tutorAddressDocs.city,
                 cnic: tutorAddressDocs.cnic,
                 addressItem: tutorAddressDocs.addressItem,

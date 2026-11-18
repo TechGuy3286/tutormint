@@ -292,6 +292,8 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed' | 'ret
   // Owner only since 16 Nov 2026 (one SMS code for life — clearing can lock a member out).
   'tutors/clear-mobile': 'owner',
   'tutors/cnic-reveal': 'edit',
+  // PR-07: the home address Show, like the CNIC number (reviewers; logged).
+  'members/address-reveal': 'edit',
   'tutors/document-review': 'edit',
   'tutors/name-checked': 'edit',
   'tutors/edit': 'edit',

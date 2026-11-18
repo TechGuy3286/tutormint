@@ -36,7 +36,7 @@ export type NotificationRow = {
 export const NOTIFICATION_GROUPS = {
   all: [] as string[],
   unread: [] as string[],
-  jobs: ['application_received', 'application_withdrawn', 'application_shortlisted', 'application_rejected', 'hired', 'job_filled', 'job_closed', 'job_matched', 'teaser_new_tuitions', 'application_opened'],
+  jobs: ['application_received', 'application_withdrawn', 'application_shortlisted', 'application_rejected', 'hired', 'job_filled', 'job_closed', 'job_matched', 'teaser_new_tuitions', 'application_opened', 'application_forwarded'],
   messages: ['message_received'],
   demos: ['demo_requested', 'demo_accepted', 'demo_declined', 'demo_cancelled', 'demo_feedback'],
   account: [

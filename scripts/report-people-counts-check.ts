@@ -17,8 +17,8 @@
 import { createClient } from '@supabase/supabase-js'
 
 import { peopleListQuery } from '../lib/peopleListQuery'
-import { FOLLOW_STAGES, FU_BUCKETS, FU_TRIED, PIPE_STAGES, REUPLOADED } from '../lib/tutorPipelineCore'
-import { compare, countsFromRows, feePendingFromRows, rejectedUninformedFromRows, structuralMismatches, type CheckRow, type Mismatch } from '../lib/peopleCountsCheckCore'
+import { FOLLOW_STAGES, FU_APPROVED_TODAY, FU_BUCKETS, FU_TRIED, PIPE_STAGES, REUPLOADED } from '../lib/tutorPipelineCore'
+import { approvedTodayFromRows, compare, countsFromRows, feePendingFromRows, rejectedUninformedFromRows, structuralMismatches, type CheckRow, type Mismatch } from '../lib/peopleCountsCheckCore'
 import type { PipeCard } from '../lib/tutorPipelineCardCore'
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })
@@ -100,12 +100,12 @@ async function main() {
     let fuSum = 0
     let fuCards = 0
     const line: string[] = []
-    for (const b of [...FU_BUCKETS, ...(st === 'approved' ? [FU_TRIED] : [])]) {
+    for (const b of [...FU_BUCKETS, ...(st === 'approved' ? [FU_TRIED, FU_APPROVED_TODAY] : [])]) {
       const c = await chip({ stage: st, fu: b })
       const shown = fuCounts[b] ?? 0
       line.push(`${b} ${shown}`)
       mism.push(...compare([[`${st}/${b}: chip = list`, shown, c.total], [`${st}/${b}: list = cards`, c.total, c.cards]]))
-      if (b !== FU_TRIED) {
+      if (b !== FU_TRIED && b !== FU_APPROVED_TODAY) {
         fuSum += shown
         fuCards += c.cards
       }
@@ -115,6 +115,8 @@ async function main() {
     mism.push(...compare([[`${st}: follow-up chips add up to the stage`, stageTotal, fuSum], [`${st}: stage chip = cards of its follow-up lists`, stageTotal, fuCards]]))
   }
   mism.push(...compare([['Tried to pay ⊆ Not followed up', 1, (fuOf[`approved/${FU_TRIED}`] ?? 0) <= (fuOf['approved/not'] ?? 0) ? 1 : 0]]))
+  // PR-07: Approved today ⊆ Not followed up (due now).
+  mism.push(...compare([['Approved today ⊆ Not followed up', 1, (fuOf[`approved/${FU_APPROVED_TODAY}`] ?? 0) <= (fuOf['approved/not'] ?? 0) ? 1 : 0]]))
 
   // Not interested / Deleted / staff & test — counted separately.
   const ni = rows.filter((r) => r.tags.excluded === false && r.tags.ni === true).length
@@ -128,7 +130,9 @@ async function main() {
   const ov = (sums?.find((r) => r.key === 'overview:7')?.payload ?? {}) as Record<string, { count?: number } | undefined>
   const feePending = feePendingFromRows(rows)
   const rejUninf = rejectedUninformedFromRows(rows)
+  const approvedToday = approvedTodayFromRows(rows)
   console.log(`\nBadge: documents waiting ${badges.peopleWaiting} + fee pending · due ${badges.pipelineDue} = ${(badges.peopleWaiting ?? 0) + (badges.pipelineDue ?? 0)}`)
+  console.log(`Approved today (chip ${fuOf[`approved/${FU_APPROVED_TODAY}`] ?? 0} · cards ${approvedToday} · Overview ${ov['todo-approved-today']?.count ?? 0})`)
   console.log(`Overview: fee pending ${ov['todo-fee-pending']?.count ?? 0} · rejected not informed ${ov['todo-rejected-uninformed']?.count ?? 0} · documents to approve ${ov['todo-docs']?.count ?? 0}`)
   mism.push(
     ...compare([
@@ -136,6 +140,8 @@ async function main() {
       ['badge fee-pending part = cards due', feePending, badges.pipelineDue],
       ['Overview fee pending = the chip', fuOf['approved/not'] ?? 0, ov['todo-fee-pending']?.count ?? 0],
       ['Overview rejected not informed = cards', rejUninf, ov['todo-rejected-uninformed']?.count ?? 0],
+      ['Overview approved today = the chip', fuOf[`approved/${FU_APPROVED_TODAY}`] ?? 0, ov['todo-approved-today']?.count ?? 0],
+      ['Approved today chip = cards', approvedToday, fuOf[`approved/${FU_APPROVED_TODAY}`] ?? 0],
     ]),
   )
 

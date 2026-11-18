@@ -13,6 +13,7 @@ import { useToast } from '@/components/ui/Toast'
 import { OwnerOnlyNote, useAdminReadOnly, useCanApprove, useDocDecider, useStaffRefCode } from '@/components/admin/ReadOnly'
 import CnicNameCheck from '@/components/admin/CnicNameCheck'
 import { staffCardBlock } from '@/lib/docDecisionCore'
+import AddressShow from '@/components/admin/AddressShow'
 import { PARENT_REJECT_PRESETS, addressChipLabel, type ParentDocItem, type ParentItemState } from '@/lib/parentDocsCore'
 import { buildRejectReason, rejectionWhatsAppText } from '@/lib/rejectReasonsCore'
 import RejectReasonPicker from '@/components/admin/RejectReasonPicker'
@@ -41,7 +42,11 @@ export type ParentDocsView = {
   cnicBackId: string | null
   /** MASKED (XXXXX-XXXXXXX-4); the Owner's "Show" fetches the full number. */
   cnicNumber: string | null
+  /** MASKED ("•••••• (Lahore)", lib/cnicAddressCore) — never the address; the
+   *  reviewers' logged "Show" fetches it (PR-07). */
   address: string | null
+  /** "Confirmed by member" / "Read from CNIC — not confirmed" (PR-07). */
+  addressLabel?: string | null
   city: string | null
   cnic: ParentItemState
   addressItem: ParentItemState
@@ -90,10 +95,10 @@ export default function ParentDocumentReview({
     return (
       <div className="space-y-3" data-tutor-address="">
         <ReviewItem parentId={docs.parentId} item="address" title="Home address" canReview={canReview} state={docs.addressItem} whatsapp={docs.whatsapp} onVerified={() => {}} audience="tutor">
-          <p className="rounded-xl border border-gray-100 bg-tm-bg p-3 text-xs text-slate-700">
-            {docs.address?.trim() ? docs.address : 'No address entered yet.'}
+          <div className="rounded-xl border border-gray-100 bg-tm-bg p-3 text-xs text-slate-700">
+            {docs.address?.trim() ? <AddressShow memberId={docs.parentId} masked={docs.address} label={docs.addressLabel ?? null} /> : 'No address entered yet.'}
             {docs.city ? <span className="block text-[11px] text-gray-500">City: {docs.city}</span> : null}
-          </p>
+          </div>
         </ReviewItem>
       </div>
     )
@@ -157,10 +162,10 @@ export default function ParentDocumentReview({
         </ReviewItem>
 
         <ReviewItem parentId={docs.parentId} item="address" title="Home address" canReview={canReview} state={docs.addressItem} whatsapp={docs.whatsapp} onVerified={setVerified}>
-          <p className="rounded-xl border border-gray-100 bg-tm-bg p-3 text-xs text-slate-700">
-            {docs.address?.trim() ? docs.address : 'No address entered yet.'}
+          <div className="rounded-xl border border-gray-100 bg-tm-bg p-3 text-xs text-slate-700">
+            {docs.address?.trim() ? <AddressShow memberId={docs.parentId} masked={docs.address} label={docs.addressLabel ?? null} /> : 'No address entered yet.'}
             {docs.city ? <span className="block text-[11px] text-gray-500">City: {docs.city}</span> : null}
-          </p>
+          </div>
         </ReviewItem>
       </div>
       <DocumentViewer images={images} index={lbIndex} onIndex={setLbIndex} onClose={() => setLbIndex(null)} />

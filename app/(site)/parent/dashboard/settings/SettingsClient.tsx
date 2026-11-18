@@ -27,6 +27,7 @@ import { SettingsTile, OpenTileHeader } from '@/components/tutor/SettingsPieces'
 import { STATUS_META, type CardStatus } from '@/lib/tutorSettingsCopy'
 import { FormChecklist, ChecklistStatus } from '@/components/forms/FormChecklist'
 import CompletionLine, { type CompletionLineItem } from '@/components/profile/CompletionLine'
+import HomeAddressCard from '@/components/account/HomeAddressCard'
 
 
 function mmss(total: number): string {
@@ -331,6 +332,9 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
               </datalist>
             </label>
           </div>
+
+          {/* PR-07: the address read from the CNIC back, waiting for Confirm or Edit. */}
+          {!address.trim() && <HomeAddressCard mode="suggestion" onSaved={(a) => setAddress(a)} />}
 
           <label className="block space-y-1">
             <span className={LABEL}>Home address</span>

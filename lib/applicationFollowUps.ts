@@ -41,6 +41,7 @@ import {
 import { STAGE_TEMPLATE } from '@/lib/applicationTemplatesCore'
 import { loadAppTemplates, loadSupportWhatsApp } from '@/lib/applicationTemplates'
 import { writeStage } from '@/lib/applicationTracking'
+import { alertApplicationsForwarded, undoForwardAlert } from '@/lib/tutorTeasers'
 import { senderRefCode } from '@/lib/staffSignups'
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>
@@ -284,6 +285,8 @@ async function forwardByAppliedMessage(admin: Admin, actor: AdminActor, name: st
   }
   const moved = await writeStage(admin, actor, name, { ...app, stage: 'applied' }, 'forwarded', 'applied message sent to parent', at)
   if (!moved) throw new Error('stage did not move')
+  // PR-07: "Your application was sent to the parent" — once per application.
+  await alertApplicationsForwarded([app.id])
   const { data: fwd, error } = await admin
     .from('applicant_forwards')
     .insert({ job_id: app.job_id, channel: FORWARD_CHANNEL, tutor_ids: [app.tutor_id], staff_id: actor.id, staff_email: actor.email, staff_name: name, created_at: at })
@@ -540,5 +543,7 @@ async function undoAppliedForward(admin: Admin, actor: AdminActor, followUpId: s
     targetId: fu.application_id as string,
     meta: { jobId: fu.job_id, recipient: fu.recipient, kind: fu.kind, stage: 'applied' },
   })
+  // PR-07: the forward leaves the WhatsApp updates queue.
+  await undoForwardAlert(fu.application_id as string)
   return { ok: true, undone: 1 }
 }

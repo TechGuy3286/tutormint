@@ -159,6 +159,11 @@ export const CARDS: Record<string, { title: Bilingual; hint?: Bilingual }> = {
     title: { en: 'Pause my account', ur: 'اپنا اکاؤنٹ روکیں' },
     hint: { en: 'Hide your profile for a while.', ur: 'کچھ وقت کے لیے اپنی پروفائل چھپائیں۔' },
   },
+  // Home address (PR-07, owner 18 Nov 2026). New text is English only.
+  homeAddress: {
+    title: { en: 'Home address', ur: '' },
+    hint: { en: 'Private — only our verification team sees it.', ur: '' },
+  },
   // WhatsApp updates (PR-06, owner 18 Nov 2026). New text is English only.
   whatsappUpdates: {
     title: { en: 'WhatsApp updates', ur: '' },

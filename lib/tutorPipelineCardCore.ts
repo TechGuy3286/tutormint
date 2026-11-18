@@ -36,6 +36,8 @@ import {
   type PipeDocs,
   type PipeStage,
   FU_TRIED,
+  FU_APPROVED_TODAY,
+  approvedOnPkDay,
 } from '@/lib/tutorPipelineCore'
 
 /** What a People → Tutors card carries about the pipeline. */
@@ -251,6 +253,21 @@ export function triedToPayDue(p: Pick<PipeCard, 'stage' | 'section' | 'triedToPa
   return p.stage === 'approved' && p.section === 'not' && !!p.triedToPay
 }
 
+/** The "Approved today" label on a card (PR-07): Approved, fee pending, with
+ *  the CNIC and photo approved on today's Pakistan date. Shown all day in every
+ *  view, contacted or not. */
+export function approvedTodayLabel(p: Pick<PipeCard, 'stage' | 'approvedAt'>, nowMs: number = Date.now()): boolean {
+  return p.stage === 'approved' && approvedOnPkDay(p.approvedAt, nowMs)
+}
+
+/** The "Approved today" CHIP (PR-07): approved today, fee not paid, due now and
+ *  never followed up in this stage — a subset of Not followed up (due now). The
+ *  first follow-up takes them out at once (sent becomes 1). Not interested
+ *  tutors are never in the chips. */
+export function approvedTodayDue(p: Pick<PipeCard, 'stage' | 'section' | 'approvedAt' | 'follow' | 'notInterested'>, nowMs: number = Date.now()): boolean {
+  return p.stage === 'approved' && p.section === 'not' && !p.notInterested && (p.follow?.sent ?? 0) === 0 && approvedOnPkDay(p.approvedAt, nowMs)
+}
+
 /** Ready for review (lib/tutorPipelineCore docsReadyForReview) from the
  *  document facts and the profile completion. */
 export function readyForReviewFrom(docs: PipeDocFacts | null | undefined, completion: number): boolean {
@@ -323,7 +340,7 @@ export const NO_MOBILE_LINE = "No mobile number — can't follow up"
  *  ARRAY tags (admin_list_page matches an element) behind the stage row (with
  *  its "Re-uploaded" chip) and the follow-up chips (owner, 15 Nov 2026); `stage`
  *  and `fu` stay as they were for older readers. */
-export function pipeTags(p: PipeCard): {
+export function pipeTags(p: PipeCard, nowMs: number = Date.now()): {
   stage: PipeStage
   stages: string[]
   fu: 'not' | 'done' | 'na'
@@ -337,7 +354,11 @@ export function pipeTags(p: PipeCard): {
     stage: p.stage,
     stages: p.reuploaded ? [p.stage, REUPLOADED] : [p.stage],
     fu: p.section ?? 'na',
-    fus: [...followTag({ section: p.section, sent: p.follow?.sent ?? 0 }), ...(triedToPayDue(p) ? [FU_TRIED] : [])],
+    fus: [
+      ...followTag({ section: p.section, sent: p.follow?.sent ?? 0 }),
+      ...(triedToPayDue(p) ? [FU_TRIED] : []),
+      ...(approvedTodayDue(p, nowMs) ? [FU_APPROVED_TODAY] : []),
+    ],
     reup: !!p.reuploaded,
     ni: p.notInterested,
     informed: p.informed,
@@ -412,7 +433,8 @@ export function pipeDetailLine(p: PipeCard, nowMs: number): string | null {
   } else if (p.stage === 'waiting') {
     if (pending.length) parts.push(`Waiting: ${pending.join(', ')}`)
   } else if (p.stage === 'approved') {
-    const ago = approvedAgoLine(p.approvedAt, nowMs)
+    // Approved today carries its own label (PR-07), so the line does not repeat it.
+    const ago = approvedTodayLabel(p, nowMs) ? null : approvedAgoLine(p.approvedAt, nowMs)
     if (ago) parts.push(ago)
   } else if (pending.length) {
     parts.push(`Waiting: ${pending.join(', ')}`)

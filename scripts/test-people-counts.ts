@@ -167,7 +167,7 @@ test('a follow-up logged from any view moves the card, the chips, the badge and 
   const ov = applyOverviewDelta({ 'todo-fee-pending': { count: 5 }, 'todo-docs': { count: 2 } }, d)
   assert.equal(ov?.['todo-fee-pending']?.count, 4)
   // A test / staff row never moves a count.
-  assert.deepEqual(badgeDelta(before, after, T0, false), { pipelineDue: 0, peopleWaiting: 0, rejectedUninformed: 0 })
+  assert.deepEqual(badgeDelta(before, after, T0, false), { pipelineDue: 0, peopleWaiting: 0, rejectedUninformed: 0, approvedToday: 0 })
   // The page keeps the saved card, so a card that stays shows its new line at once.
   const moves = read('components/admin/PipelineMoves.tsx')
   assert.match(moves, /setCards\(\(m\) => new Map\(m\)\.set\(memberId, moved\.next\)\)/)

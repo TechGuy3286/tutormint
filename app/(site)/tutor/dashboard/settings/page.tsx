@@ -18,7 +18,7 @@ import Link from 'next/link'
 import {
   X, Plus, Save, ArrowLeft, ArrowRight, BadgeCheck, ShieldAlert,
   Smartphone, CreditCard, Image as ImageIcon, Camera, BookOpen, MapPin, ShieldCheck,
-  GraduationCap, Award, Briefcase, Mail, Tags, CalendarDays, Lock, UserRound, Wallet, MessageCircle,
+  GraduationCap, Award, Briefcase, Mail, Tags, CalendarDays, Lock, UserRound, Wallet, MessageCircle, Home,
 } from 'lucide-react'
 import IdentityCard from '@/components/identity/IdentityCard'
 import DocLockNotice, { combinedView } from '@/components/identity/DocLockNotice'
@@ -57,6 +57,7 @@ import { TextLinesSkeleton } from '@/components/Skeletons'
 import { usePhotoCropUpload } from '@/components/photo/usePhotoCropUpload'
 import HidePhotoToggle from '@/components/tutor/HidePhotoToggle'
 import WhatsAppUpdatesCard from '@/components/tutor/WhatsAppUpdatesCard'
+import HomeAddressCard from '@/components/account/HomeAddressCard'
 import { PHOTO_STEP_EXPLAIN } from '@/lib/photoPrivacyCore'
 import { SELFIE_CHECKED_LABEL, showSelfieChecked } from '@/lib/selfieOptionalCore'
 
@@ -1056,6 +1057,14 @@ export default function TutorSettingsPage() {
             ]} />
         </div>
       ),
+    },
+    {
+      // Home address (PR-07, owner 18 Nov 2026): private; the address read from
+      // the CNIC back waits here for the tutor's Confirm or Edit.
+      key: 'homeAddress',
+      status: 'neutral',
+      icon: <Home size={20} aria-hidden />,
+      body: <HomeAddressCard />,
     },
     {
       // "Send me updates on WhatsApp" (PR-06, owner 18 Nov 2026), default on.

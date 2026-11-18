@@ -27,6 +27,7 @@ import { consentFor } from '@/lib/tuitionConsent'
 import { consentLabel, isRecorded } from '@/lib/tuitionConsentCore'
 import { hasFee } from '@/lib/jobFieldsCore'
 import { normalisePkMobile } from '@/lib/phone'
+import { jobCodeOrTerms } from '@/lib/jobCodeSearchCore'
 
 export type AdminJobRow = {
   id: string
@@ -148,7 +149,9 @@ export async function adminJobPage({
       // The reference and the internal id are what an admin pastes from a
       // support message, so both must match as readily as the title. ref_id
       // matches with or without the "TM-" prefix (ilike %1005% and %TM-1005%).
-      if (term) q = q.or(`title.ilike.%${term}%,job_tx_id.ilike.%${term}%,ref_id.ilike.%${term}%`)
+      // PR-07: a typed code in another shape ("tm2558", "job tx gyemzmg") also
+      // matches its stored form (lib/jobCodeSearchCore).
+      if (term) q = q.or([`title.ilike.%${term}%`, `job_tx_id.ilike.%${term}%`, `ref_id.ilike.%${term}%`, ...jobCodeOrTerms(filters.q)].join(','))
     }
     return q
   }

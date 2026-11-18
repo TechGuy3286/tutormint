@@ -7,13 +7,14 @@
 //   - in each followed-up stage, every tutor is in exactly one follow-up chip,
 //     and Not followed up + 1st + 2nd + 3rd+ add up to the stage;
 //   - Tried to pay ⊆ Not followed up (due now);
+//   - Approved today ⊆ Not followed up (due now) (PR-07);
 //   - each chip's count equals the number of cards its list returns;
 //   - the badge's follow-up part and the Overview to-do rows equal their chips.
 // Used by scripts/test-people-counts.ts (invented data) and the read-only
 // production script scripts/report-people-counts-check.ts. Counts only.
 
-import { FOLLOW_STAGES, FU_BUCKETS, FU_TRIED, PIPE_STAGES } from '@/lib/tutorPipelineCore'
-import { feePendingDue, type PipeCard } from '@/lib/tutorPipelineCardCore'
+import { FOLLOW_STAGES, FU_APPROVED_TODAY, FU_BUCKETS, FU_TRIED, PIPE_STAGES } from '@/lib/tutorPipelineCore'
+import { approvedTodayDue, feePendingDue, type PipeCard } from '@/lib/tutorPipelineCardCore'
 import { cardRejectedUninformed } from '@/lib/pipelineRowUpdateCore'
 
 export type CheckRow = { tags: Record<string, unknown>; card: PipeCard | null }
@@ -28,7 +29,7 @@ const arr = (v: unknown): string[] => (Array.isArray(v) ? (v as unknown[]).map(S
 export type ChipCounts = {
   all: number
   stage: Record<string, number>
-  /** Per followed-up stage: not / f1 / f2 / f3 / tried. */
+  /** Per followed-up stage: not / f1 / f2 / f3 / tried / approved_today. */
   fu: Record<string, Record<string, number>>
   reuploaded: number
 }
@@ -38,7 +39,7 @@ export function countsFromRows(rows: CheckRow[]): ChipCounts {
   const live = rows.filter(inChips)
   const out: ChipCounts = { all: live.length, stage: {}, fu: {}, reuploaded: 0 }
   for (const s of PIPE_STAGES) out.stage[s] = 0
-  for (const s of FOLLOW_STAGES) out.fu[s] = { not: 0, f1: 0, f2: 0, f3: 0, [FU_TRIED]: 0 }
+  for (const s of FOLLOW_STAGES) out.fu[s] = { not: 0, f1: 0, f2: 0, f3: 0, [FU_TRIED]: 0, [FU_APPROVED_TODAY]: 0 }
   for (const r of live) {
     const stages = arr(r.tags.stages)
     for (const s of PIPE_STAGES) if (stages.includes(s)) out.stage[s]++
@@ -46,7 +47,7 @@ export function countsFromRows(rows: CheckRow[]): ChipCounts {
     const st = stages.find((s) => (FOLLOW_STAGES as readonly string[]).includes(s))
     if (!st) continue
     const fus = arr(r.tags.fus)
-    for (const k of [...FU_BUCKETS, FU_TRIED]) if (fus.includes(k)) out.fu[st][k]++
+    for (const k of [...FU_BUCKETS, FU_TRIED, FU_APPROVED_TODAY]) if (fus.includes(k)) out.fu[st][k]++
   }
   return out
 }
@@ -71,6 +72,9 @@ export function structuralMismatches(rows: CheckRow[]): Mismatch[] {
     if (sumFu !== c.stage[st]) out.push({ check: `${st}: follow-up chips add up to the stage`, expected: c.stage[st], got: sumFu })
     const triedNotDue = inStage.filter((r) => arr(r.tags.fus).includes(FU_TRIED) && !arr(r.tags.fus).includes('not')).length
     if (triedNotDue) out.push({ check: `${st}: Tried to pay outside Not followed up`, expected: 0, got: triedNotDue })
+    const todayNotDue = inStage.filter((r) => arr(r.tags.fus).includes(FU_APPROVED_TODAY) && !arr(r.tags.fus).includes('not')).length
+    if (todayNotDue) out.push({ check: `${st}: Approved today outside Not followed up`, expected: 0, got: todayNotDue })
+    if (c.fu[st][FU_APPROVED_TODAY] > c.fu[st].not) out.push({ check: `${st}: Approved today ⊆ Not followed up`, expected: c.fu[st].not, got: c.fu[st][FU_APPROVED_TODAY] })
   }
   // The card and its tags agree (a stale row would not).
   const cardTagDiff = live.filter((r) => r.card && !arr(r.tags.stages).includes(r.card.stage)).length
@@ -82,6 +86,11 @@ export function structuralMismatches(rows: CheckRow[]): Mismatch[] {
  *  Approved · Not followed up chip, worked out from the cards. */
 export function feePendingFromRows(rows: CheckRow[]): number {
   return rows.filter((r) => inChips(r) && !!r.card && feePendingDue(r.card)).length
+}
+
+/** Overview "Approved today, not contacted" (PR-07): the Approved today chip, from the cards. */
+export function approvedTodayFromRows(rows: CheckRow[], nowMs: number = Date.now()): number {
+  return rows.filter((r) => inChips(r) && !!r.card && approvedTodayDue(r.card, nowMs)).length
 }
 
 /** Overview "Rejected, not informed", from the cards. */
