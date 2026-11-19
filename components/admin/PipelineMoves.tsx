@@ -23,7 +23,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { cardInView, chipCountShift, shiftCounts, type ChipView } from '@/lib/pipelineRowUpdateCore'
 import type { PipeCard } from '@/lib/tutorPipelineCardCore'
 
-export type Moved = { prev: PipeCard; next: PipeCard }
+/** `at` = the server time the move was judged at (PR-10): the chips use it,
+ *  never this device's clock. */
+export type Moved = { prev: PipeCard; next: PipeCard; at?: number }
 
 type Ctx = {
   view: ChipView
@@ -84,8 +86,9 @@ export function PipelineMovesProvider({ view, version, children }: { view: ChipV
         return
       }
       setCards((m) => new Map(m).set(memberId, moved.next))
-      const stays = cardInView(moved.next, view)
-      const wasIn = cardInView(moved.prev, view)
+      const at = moved.at ?? Date.now()
+      const stays = cardInView(moved.next, view, at)
+      const wasIn = cardInView(moved.prev, view, at)
       setHidden((h) => {
         const n = new Set(h)
         if (stays) n.delete(memberId)
@@ -94,7 +97,7 @@ export function PipelineMovesProvider({ view, version, children }: { view: ChipV
       })
       if (wasIn && !stays) setGone((g) => g + 1)
       if (!wasIn && stays) setGone((g) => g - 1)
-      const s = chipCountShift(moved.prev, moved.next, view)
+      const s = chipCountShift(moved.prev, moved.next, view, at)
       setShift((cur) => ({ stage: shiftCounts(cur.stage, s.stage), fu: shiftCounts(cur.fu, s.fu) }))
     },
     [view],

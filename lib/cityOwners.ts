@@ -23,12 +23,12 @@ type OwnerRow = { job_id: string; staff_id: string | null; source: string; poste
 
 export type CityOwnerSetting = { city: string; staffId: string | null; staffName: string | null; updatedAt: string; updatedByName: string | null }
 
-async function siteOwnerId(admin: Admin): Promise<string | null> {
+export async function siteOwnerId(admin: Admin): Promise<string | null> {
   const { data } = await admin.from('profiles').select('id').eq('role', 'admin').eq('admin_role', 'owner').limit(1).maybeSingle()
   return (data?.id as string | undefined) ?? null
 }
 
-async function cityMap(admin: Admin): Promise<Map<string, string>> {
+export async function cityMap(admin: Admin): Promise<Map<string, string>> {
   const { data } = await admin.from('city_owners').select('city, staff_id')
   const map = new Map<string, string>()
   for (const r of data ?? []) if (r.staff_id) map.set(cityKey(r.city as string), r.staff_id as string)

@@ -407,8 +407,12 @@ test('access: Owner, Project Manager and Backend Support only', () => {
   for (const r of ['admin', 'operations', 'tuitions_staff', 'supervisor'] as const) assert.equal(roleSatisfies(r, list), false, r)
   const route = readFileSync('app/api/admin/whatsapp-updates/route.ts', 'utf8')
   assert.match(route, /checkAdminRole\(\.\.\.SCREEN_ACCESS\.waUpdates\)/)
+  // PR-10: the page opens for the Parent interest inbox roles (city owners
+  // too, their own rows only); the Today tab stays waUpdates-only.
   const page = readFileSync('app/admin/whatsapp-updates/page.tsx', 'utf8')
-  assert.match(page, /requireAdminRole\(\.\.\.SCREEN_ACCESS\.waUpdates\)/)
+  assert.match(page, /requireAdminRole\(\.\.\.SCREEN_ACCESS\.interestInbox\)/)
+  assert.match(page, /const seesToday = roleSatisfies\(actor\.adminRole, SCREEN_ACCESS\.waUpdates\)/)
+  assert.match(page, /tab = !seesToday \|\| sp\.tab === 'interest' \? 'interest' : 'today'/)
 })
 
 test('badge: today’s count, only for roles that open the page', () => {

@@ -35,6 +35,8 @@ import { blankPhotoFlags } from '@/lib/photoBlank'
 import { approvedTodayDue, blankLine, readyForReviewFrom } from '@/lib/tutorPipelineCardCore'
 import { FU_APPROVED_TODAY, stageHref } from '@/lib/tutorPipelineCore'
 import { welcomeDue } from '@/lib/paidWelcomeCore'
+import { loadInterestInboxFresh } from '@/lib/interestInbox'
+import { demoDetail, INBOX_HREF } from '@/lib/interestInboxCore'
 import type { FollowChip } from '@/lib/tutorFollowUpCore'
 import { pauseDueAtMs } from '@/lib/tuitionStatus'
 import { settleByDate } from '@/lib/settlementCore'
@@ -462,6 +464,21 @@ export async function loadOverviewList(
         rows: list.map((r) => ({ id: r.id, title: r.name, detail: 'Approved today · never contacted', href: `/admin/users/${r.id}`, memberId: r.id })),
         filter: 'with CNIC and profile photo approved today (Pakistan time), the Verification Fee not paid, and not contacted yet',
         workHref: stageHref('approved', FU_APPROVED_TODAY),
+      }
+    }
+
+    case 'todo-interest': {
+      // "Parent interest to send" (owner, 19 Nov 2026 — PR-10): the inbox's
+      // ready rows — the same loader and caps as People → WhatsApp updates →
+      // Parent interest, so the number is its count.
+      const inbox = await loadInterestInboxFresh(now.getTime())
+      const list = inbox.rows.filter((r) => r.tab !== 'sent' && !r.wait)
+      return {
+        key,
+        rows: list.map((r) => ({ id: r.tutorId, title: r.name, detail: r.summaryText, href: `/admin/users/${r.tutorId}`, memberId: r.tutorId })),
+        filter: 'with real parent activity in the last 30 days, not yet told (or with new activity since), ready to send today',
+        extra: demoDetail(inbox.counts.readyDemo),
+        workHref: INBOX_HREF,
       }
     }
 

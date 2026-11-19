@@ -44,6 +44,8 @@ const EDIT: Key[] = [
   'paidWelcome',
   // People → WhatsApp updates (PR-06, owner 18 Nov 2026): the Project Manager sends.
   'waUpdates',
+  // Parent interest inbox Send / Undo (PR-10, owner 19 Nov 2026): the Project Manager sends every row.
+  'interestInbox', 'interestInboxAll',
   // Parent consent for listings (owner, 27 Oct 2026).
   'tuitionConsent',
   // Refresh the pre-calculated admin summary (owner, 1 Nov 2026): changes no data,
@@ -150,6 +152,8 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed' | 'ret
   whatsapp: 'edit',
   // People → WhatsApp updates Send / Undo (PR-06).
   'whatsapp-updates': 'edit',
+  // Parent interest inbox Send / Undo (PR-10).
+  'interest-inbox': 'edit',
   // Held activity Release / Keep held (PR-08): the site Owner only.
   'held-activity': 'owner',
   // City owners (owner, 22 Oct 2026): the site Owner only.

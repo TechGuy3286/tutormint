@@ -269,7 +269,7 @@ export type PipelineRowChange =
   /** "Not interested" or its Undo. */
   | { kind: 'ni'; ni: boolean; mark: NiMark | null }
 
-export type PipelineRowUpdate = { prev: PipeCard; next: PipeCard }
+export type PipelineRowUpdate = { prev: PipeCard; next: PipeCard; at: number }
 
 /**
  * The card moves at once (owner, 15 Nov 2026): after a follow-up, call
@@ -300,11 +300,13 @@ export async function updatePipelineRow(memberId: string, change: PipelineRowCha
       if (!live) return null
       next = mergeLiveCard(prev, live)
     }
-    const write = peopleRowFor(stored, next)
+    // One clock for the stored tags, the badge/Overview nudge and (via `at`)
+    // the page's chip shift (PR-10).
+    const write = peopleRowFor(stored, next, now)
     const { error } = await admin.from('admin_list_rows').update(write).eq('list', LIST).eq('member_id', memberId)
     if (error) return null
     await nudgeBadges(badgeDelta(prev, next, now, real))
-    return { prev, next }
+    return { prev, next, at: now }
   } catch {
     return null /* the next summary run puts it right */
   }

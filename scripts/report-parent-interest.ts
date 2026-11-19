@@ -49,7 +49,8 @@ async function main() {
   try {
     const { loadWaQueue } = await import('../lib/waUpdates')
     const q = await loadWaQueue()
-    console.log(`WhatsApp queue today: ${q.toSend} to send (paid ${q.paidToSend}, unpaid ${q.unpaidToSend}); unpaid rows listed ${q.unpaidRows} of cap ${q.unpaidCap}; sent today ${q.rows.length - q.toSend}`)
+    console.log(`WhatsApp queue today (paid tutors' application/summary news): ${q.toSend} to send; sent today ${q.rows.length - q.toSend}`)
+    // PR-10: parent interest (paid and unpaid) is the inbox — npm run report:interestinbox
   } catch (e) {
     console.log(`queue unavailable: ${String((e as Error).message).slice(0, 120)}`)
   }

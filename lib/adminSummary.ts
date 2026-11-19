@@ -41,7 +41,8 @@ import { loadParentFollowUps } from '@/lib/parentFollowUps'
 import { fuBadgeCount } from '@/lib/tutorFollowUpTabsCore'
 import { newApplicationsItems, overdueApplicationsItems } from '@/lib/applicationTracking'
 import { loadPaidTutors } from '@/lib/paidTutors'
-import { loadWaQueue } from '@/lib/waUpdates'
+import { interestTally, loadWaQueue } from '@/lib/waUpdates'
+import { loadInterestInboxFresh } from '@/lib/interestInbox'
 import { receiptsWaitingCount } from '@/lib/payments/receipt'
 import { loadTeamOverview } from '@/lib/teamOverview'
 import { loadSignupFunnel } from '@/lib/siteVisits'
@@ -330,7 +331,7 @@ async function rebuildOnce(opts: { force?: boolean }): Promise<{ ran: boolean; m
     filter: l.filter,
   })
 
-  const [ov7, ov30, sections, dir, docs, pipeline, parentFu, apps, appsNew, paid, reports, receipts, paidSignups, waToSend] = await Promise.all([
+  const [ov7, ov30, sections, dir, docs, pipeline, parentFu, apps, appsNew, paid, reports, receipts, paidSignups, waToSend, inbox] = await Promise.all([
     safe('overview', async () => {
       const out: OverviewPayload = {}
       await Promise.all(keys.map(async (k) => (out[k] = toItem(await loadOverviewList(k, { days: 7 })))))
@@ -363,6 +364,8 @@ async function rebuildOnce(opts: { force?: boolean }): Promise<{ ran: boolean; m
     safe('paid sign-ups', () => loadPaidSignups()),
     // People → WhatsApp updates (PR-06): rows still to send today.
     safe('whatsapp updates', async () => (await loadWaQueue()).toSend),
+    // PR-10: the Parent interest inbox's ready rows, per assignee.
+    safe('parent interest inbox', async () => interestTally((await loadInterestInboxFresh()).counts)),
   ])
 
   // Overview, sections.
@@ -437,6 +440,7 @@ async function rebuildOnce(opts: { force?: boolean }): Promise<{ ran: boolean; m
     appsNew: appsNew ? tally(appsNew) : (prev?.appsNew ?? { total: 0, byOwner: {} }),
     paidRed: paid ? tally(paid.rows.filter((r) => r.red.length > 0).map((r) => ({ ownerId: r.ownerId ?? null }))) : (prev?.paidRed ?? { total: 0, byOwner: {} }),
     waUpdates: waToSend ?? prev?.waUpdates ?? 0,
+    interestInbox: inbox ?? prev?.interestInbox ?? { total: 0, byOwner: {} },
   }
   await safe('write badges', () => put(admin, 'badges', badges, at))
 

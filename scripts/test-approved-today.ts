@@ -18,7 +18,7 @@ import { dirname, join } from 'node:path'
 
 import { approvedOnPkDay, CHIP_HINT, FU_APPROVED_TODAY, FU_TRIED, pipelineOrder, type DocState, type PipeContact } from '../lib/tutorPipelineCore'
 import { approvedTodayDue, approvedTodayLabel, pipeCardFrom, pipeDetailLine, pipeTags, withContacts, type PipeCard, type PipeDocFacts } from '../lib/tutorPipelineCardCore'
-import { applyOverviewDelta, badgeDelta, chipCountShift } from '../lib/pipelineRowUpdateCore'
+import { applyOverviewDelta, badgeDelta, cardInView, chipCountShift, peopleRowFor } from '../lib/pipelineRowUpdateCore'
 import { approvedTodayFromRows, countsFromRows, structuralMismatches, type CheckRow } from '../lib/peopleCountsCheckCore'
 import { needsRebuild } from '../lib/adminSummaryCore'
 import { OVERVIEW_ITEMS, OVERVIEW_ITEM_KEYS } from '../lib/overviewItemsCore'
@@ -104,9 +104,22 @@ test('a follow-up takes them out of the chip at once; the label stays all day', 
   assert.ok(!pipeTags(after, NOW).fus.includes(FU_APPROVED_TODAY))
   assert.ok(approvedTodayLabel(after, NOW), 'the card still says Approved today')
   // The instant count shift on the Approved stage view.
-  const shift = chipCountShift(fresh, after, { stage: 'approved', fu: FU_APPROVED_TODAY, ni: false })
+  // PR-10: judged at the server's move time (movedJson `at`), not the wall
+  // clock — the old call read Date.now(), so this failed from the next Pakistan
+  // day on (and a browser with a wrong clock missed the drop the same way).
+  const view = { stage: 'approved', fu: FU_APPROVED_TODAY, ni: false }
+  const shift = chipCountShift(fresh, after, view, NOW)
   assert.equal(shift.fu[FU_APPROVED_TODAY], -1)
   assert.equal(shift.fu.not, -1)
+  assert.equal(cardInView(fresh, view, NOW), true)
+  assert.equal(cardInView(after, view, NOW), false, 'the card leaves the chip at once')
+  // The stored row loses the tag at the same moment; other tags are kept.
+  const stored = peopleRowFor({ tags: { excluded: false, city: 'x', ...pipeTags(fresh, NOW) }, row: { pipe: fresh } }, after, NOW)
+  assert.ok(!(stored.tags.fus as string[]).includes(FU_APPROVED_TODAY))
+  assert.equal(stored.tags.city, 'x')
+  // Every move carries the server time, and the page passes it on.
+  assert.match(read('lib/tutorPipeline.ts'), /return \{ prev, next, at: now \}/)
+  assert.match(read('components/admin/PipelineMoves.tsx'), /chipCountShift\(moved\.prev, moved\.next, view, at\)/)
   // A "No answer" call is an attempt, not a follow-up: they stay.
   const attempt = withContacts(fresh, [contact(NOW - 60_000, 'call', { attempt: 'no_answer' })], NOW)
   assert.equal(attempt.section, 'not')

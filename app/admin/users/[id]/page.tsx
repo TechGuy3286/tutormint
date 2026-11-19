@@ -1,10 +1,12 @@
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { avatarOriginalUrl } from '@/lib/avatarCrop'
 import NameChangeCheck from '@/components/admin/NameChangeCheck'
 import SecondRoleCard from './SecondRoleCard'
 import { secondRoleState } from '@/lib/secondRole'
 import { notFound } from 'next/navigation'
 import { requireAdminRole, roleBadge, roleSatisfies, SCREEN_ACCESS, roleMayWrite } from '@/lib/adminAuth'
+import ParentInterestPanel from '@/components/admin/ParentInterestPanel'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { describeUtm } from '@/lib/utm'
 import { describeSource } from '@/lib/signupSourceCore'
@@ -739,6 +741,13 @@ export default async function AdminMemberPage({
           </h2>
           <StaffActivityTable counts={staffCounts} />
         </section>
+      )}
+
+      {/* -------------------------------- parent interest (PR-10) --- */}
+      {isParent && roleSatisfies(actor.adminRole, SCREEN_ACCESS.interestInbox) && (
+        <Suspense fallback={<p className="rounded-2xl border border-gray-200 bg-white p-4 text-xs text-gray-600">Loading parent interest…</p>}>
+          <ParentInterestPanel parentId={id} actor={actor} />
+        </Suspense>
       )}
 
       {/* ------------------------------------------------ linked objects --- */}

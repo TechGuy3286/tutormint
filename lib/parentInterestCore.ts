@@ -259,39 +259,7 @@ export function unpaidApplyLine(profileComplete: boolean): { body: string; href:
 }
 
 // ------------------------------------------- WhatsApp queue, unpaid rows ---
-
-export const UNPAID_WA_DAILY_CAP = 50
-
-export type UnpaidCandidate = {
-  tutorId: string
-  /** People pipeline stage (lib/tutorPipelineCore PIPE_STAGES). */
-  stage: string | null
-  /** A shortlist or a message/demo attempt waiting to be sent. */
-  hasInterest: boolean
-  /** Parent views this week. */
-  hasViews: boolean
-  joinedAt: string
-}
-
-/**
- * Priority of an unpaid row, or null when it does not qualify:
- *   1 Approved, fee pending — with a shortlist or contact attempt
- *   2 Approved, fee pending — with views
- *   3 Documents missing    — with a shortlist or contact attempt
- */
-export function unpaidPriority(c: Pick<UnpaidCandidate, 'stage' | 'hasInterest' | 'hasViews'>): 1 | 2 | 3 | null {
-  if (c.stage === 'approved' && c.hasInterest) return 1
-  if (c.stage === 'approved' && c.hasViews) return 2
-  if (c.stage === 'missing' && c.hasInterest) return 3
-  return null
-}
-
-/** Today's unpaid rows: by priority, newest sign-up first, at most `cap`
- *  (rows already sent today still take their place under the cap). */
-export function pickUnpaidRows<T extends UnpaidCandidate>(cands: T[], cap = UNPAID_WA_DAILY_CAP): (T & { priority: 1 | 2 | 3 })[] {
-  return cands
-    .map((c) => ({ ...c, priority: unpaidPriority(c) }))
-    .filter((c): c is T & { priority: 1 | 2 | 3 } => c.priority !== null)
-    .sort((a, b) => a.priority - b.priority || b.joinedAt.localeCompare(a.joinedAt) || a.tutorId.localeCompare(b.tutorId))
-    .slice(0, Math.max(0, cap))
-}
+//
+// PR-10 (owner, 19 Nov 2026): PR-08's unpaid rows (priority by People stage,
+// 50 a day) moved into the Parent interest inbox (lib/interestInboxCore —
+// hottest first, the same 50-a-day cap: INBOX_UNPAID_DAILY_CAP).

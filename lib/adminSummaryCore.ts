@@ -120,6 +120,8 @@ export type BadgesPayload = {
   paidRed: Tally
   /** People → WhatsApp updates: rows still to send today (PR-06). */
   waUpdates?: number
+  /** PR-10: Parent interest inbox rows ready to send today, per assignee. */
+  interestInbox?: Tally
 }
 
 /** The number a sidebar badge shows: the real count up to 99, then "99+";
@@ -141,11 +143,15 @@ export function badgeText(n: number): string | null {
 export function navBadgesFrom(
   b: BadgesPayload,
   actor: { id: string; adminRole: string | null | undefined },
-  may: { followUps: boolean; paidTutors?: boolean; parentFollowUps?: boolean; users?: boolean; waUpdates?: boolean },
+  may: { followUps: boolean; paidTutors?: boolean; parentFollowUps?: boolean; users?: boolean; waUpdates?: boolean; interestAll?: boolean; interestOwn?: boolean },
 ): Record<string, number> {
+  // People → WhatsApp updates (PR-06) + the Parent interest inbox (PR-10):
+  // every ready row for the roles that see them all, a city owner's own rows
+  // for the roles that work only theirs.
+  const inbox = may.interestAll ? (b.interestInbox?.total ?? 0) : may.interestOwn ? (b.interestInbox?.byOwner[actor.id] ?? 0) : 0
+  const wa = (may.waUpdates ? (b.waUpdates ?? 0) : 0) + inbox
   return {
-    // Only for the roles that open People → WhatsApp updates (PR-06).
-    ...(may.waUpdates ? { '/admin/whatsapp-updates': b.waUpdates ?? 0 } : {}),
+    ...(may.waUpdates || may.interestAll || may.interestOwn ? { '/admin/whatsapp-updates': wa } : {}),
     '/admin/reports': b.reports,
     '/admin/payments': b.receipts,
     '/admin/applications': viewerCount(b.appsNew ?? null, actor),

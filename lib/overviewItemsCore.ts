@@ -25,6 +25,10 @@ export const OVERVIEW_ITEM_KEYS = [
   // "Approved today, not contacted" (owner, 18 Nov 2026 — PR-07): the People
   // Approved, fee pending · Approved today chip. Hidden at 0.
   'todo-approved-today',
+  // "Parent interest to send" (owner, 19 Nov 2026 — PR-10): the Parent interest
+  // inbox's rows ready to send today (To send + New activity since sent,
+  // within the caps), with the demo-request count. Opens the inbox; hidden at 0.
+  'todo-interest',
   // "Photo looks blank" (owner, 9 Nov 2026): tutors whose current profile
   // photo or selfie looks almost entirely black or blank. Hidden at 0.
   'todo-blank-photos',
@@ -79,6 +83,7 @@ export const OVERVIEW_ITEMS: Record<OverviewItemKey, OverviewItemMeta> = {
   'open-tuitions': { title: 'Open tuitions', screen: 'jobs', noun: ['tuition', 'tuitions'] },
   'todo-docs': { title: 'Documents to approve', screen: 'documentView', noun: ['member', 'members'] },
   'todo-approved-today': { title: 'Approved today, not contacted', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
+  'todo-interest': { title: 'Parent interest to send', screen: 'interestInbox', noun: ['tutor', 'tutors'] },
   'todo-blank-photos': { title: 'Blank photos to check', screen: 'documentView', noun: ['tutor', 'tutors'] },
   'todo-fee-pending': { title: 'Fee pending, not followed up', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
   'todo-not-welcomed': { title: 'Paid, not welcomed', screen: 'paidWelcome', noun: ['tutor', 'tutors'] },

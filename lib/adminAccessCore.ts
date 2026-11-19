@@ -531,6 +531,13 @@ export const SCREEN_ACCESS = withSupervisor({
   // People → WhatsApp updates (PR-06, owner 18 Nov 2026): the Owner, the
   // Project Manager (Partner — may send) and Backend Support. Nobody else.
   waUpdates: ['partner', 'backend_support'] as AdminRole[],
+  // People → WhatsApp updates → Parent interest (PR-10, owner 19 Nov 2026):
+  // the inbox, the parent page's Parent interest panel and their Send/Undo.
+  // City owners (Manager, Tuitions staff) open it for their OWN rows only —
+  // every route refuses another staff member's row. interestInboxAll = the
+  // roles that see and send every row (and choose the staff filter).
+  interestInbox: ['partner', 'backend_support', 'supervisor', 'tuitions_staff'] as AdminRole[],
+  interestInboxAll: ['partner', 'backend_support'] as AdminRole[],
   // "Held activity" (PR-08, owner 18 Nov 2026): parent accounts the burst check
   // held from teasers; Release / Keep held. The Owner only.
   heldActivity: [] as AdminRole[],

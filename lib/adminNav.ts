@@ -67,6 +67,7 @@ export type AdminScreen =
   | 'applicantForwards'
   | 'paidTutors'
   | 'waUpdates'
+  | 'interestInbox'
   | 'cityOwners'
   | 'jobsPost'
   | 'tuitionPosting'
@@ -112,7 +113,9 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/users', label: 'People', icon: 'contact', screen: 'people' },
       // Paid tutors with something worth a WhatsApp message today (PR-06, owner
       // 18 Nov 2026). Its badge: rows still to send today.
-      { href: '/admin/whatsapp-updates', label: 'WhatsApp updates', icon: 'messageCircle', screen: 'waUpdates' },
+      // PR-10: 'interestInbox' (a superset of waUpdates) — city owners open the
+      // Parent interest tab for their own rows.
+      { href: '/admin/whatsapp-updates', label: 'WhatsApp updates', icon: 'messageCircle', screen: 'interestInbox' },
       { href: '/admin/team', label: 'Team', icon: 'key', screen: 'team' },
     ],
   },

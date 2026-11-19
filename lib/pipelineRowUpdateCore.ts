@@ -19,9 +19,9 @@ export type PeopleRowWrite = { tags: Record<string, unknown>; row: Record<string
 
 /** The new stored row for a changed card: the other tags (city, search, dupes…)
  *  are kept, the pipeline tags and the card are replaced. */
-export function peopleRowFor(prev: StoredPeopleRow, next: PipeCard): PeopleRowWrite {
+export function peopleRowFor(prev: StoredPeopleRow, next: PipeCard, nowMs: number = Date.now()): PeopleRowWrite {
   return {
-    tags: { ...prev.tags, ...pipeTags(next) },
+    tags: { ...prev.tags, ...pipeTags(next, nowMs) },
     row: { ...prev.row, pipe: next },
     sort_at: pipeSortAt(next),
   }
@@ -123,9 +123,9 @@ function counted(p: PipeCard, view: ChipView): boolean {
 /** Does a card still belong in the view the staff member is looking at? The
  *  optimistic move: after a successful log the card leaves the view at once
  *  when its new state no longer matches. */
-export function cardInView(p: PipeCard, view: ChipView): boolean {
+export function cardInView(p: PipeCard, view: ChipView, nowMs: number = Date.now()): boolean {
   if (!counted(p, view)) return false
-  const t = pipeTags(p)
+  const t = pipeTags(p, nowMs)
   if (view.stage && view.stage !== 'all' && !t.stages.includes(view.stage)) return false
   if (view.fu && !t.fus.includes(view.fu)) return false
   return true
@@ -133,8 +133,13 @@ export function cardInView(p: PipeCard, view: ChipView): boolean {
 
 /** How the chip counts move when one card changes: `stage` = the Stage row
  *  (All, each stage, Re-uploaded), `fu` = the Follow-up row of the view's own
- *  stage (it is counted inside that stage). Only non-zero entries. */
-export function chipCountShift(prev: PipeCard, next: PipeCard, view: ChipView): { stage: Record<string, number>; fu: Record<string, number> } {
+ *  stage (it is counted inside that stage). Only non-zero entries.
+ *
+ *  `nowMs` (PR-10): the moment the SERVER moved the card (movedJson `at`). The
+ *  time-based chip (Approved today) is judged at the same moment as the stored
+ *  row and the Overview — never by the browser's own clock, which may be wrong
+ *  or already past midnight PKT. */
+export function chipCountShift(prev: PipeCard, next: PipeCard, view: ChipView, nowMs: number = Date.now()): { stage: Record<string, number>; fu: Record<string, number> } {
   const stage: Record<string, number> = {}
   const fu: Record<string, number> = {}
   const add = (m: Record<string, number>, k: string, n: number) => {
@@ -143,7 +148,7 @@ export function chipCountShift(prev: PipeCard, next: PipeCard, view: ChipView): 
   }
   const side = (p: PipeCard, n: number) => {
     if (!counted(p, view)) return
-    const t = pipeTags(p)
+    const t = pipeTags(p, nowMs)
     add(stage, 'all', n)
     for (const s of t.stages) add(stage, s, n)
     if (view.stage && t.stages.includes(view.stage)) for (const f of t.fus) add(fu, f, n)
@@ -161,7 +166,9 @@ export function shiftCounts(counts: Record<string, number>, shift: Record<string
 }
 
 /** What a route sends back after it moved a card: the card before and after,
- *  so the page can move it out of its chip and shift the counts at once. */
-export function movedJson(moved: { prev: PipeCard; next: PipeCard } | null): { moved?: { prev: PipeCard; next: PipeCard } } {
+ *  so the page can move it out of its chip and shift the counts at once. `at`
+ *  (PR-10) is the server time the move was judged at — the page uses it. */
+export type MovedPayload = { prev: PipeCard; next: PipeCard; at?: number }
+export function movedJson(moved: MovedPayload | null): { moved?: MovedPayload } {
   return moved ? { moved } : {}
 }

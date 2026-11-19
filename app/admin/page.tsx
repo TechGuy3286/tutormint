@@ -27,6 +27,7 @@ import { readerFailingAlert } from '@/lib/bankEmailCore'
 import { loadBackendSupportKpi } from '@/lib/backendSupportKpi'
 import BackendSupportKpiView from '@/components/admin/BackendSupportKpiView'
 import { overviewKeysWithoutMoney } from '@/lib/overviewMoneyCore'
+import { INBOX_HREF, INTEREST_TODO_KEY } from '@/lib/interestInboxCore'
 
 // Each Overview card a distinct colour (PR32 §2), keyed on the item key.
 // Short card titles (owner, 17 Oct 2026). The list pages keep their own titles.
@@ -52,6 +53,7 @@ const CARD_KEYS: OverviewItemKey[] = ['revenue', 'paid-today', 'tutors', 'parent
 const TODO_KEYS: OverviewItemKey[] = [
   'todo-docs',
   'todo-approved-today',
+  'todo-interest',
   'todo-blank-photos',
   'todo-fee-pending',
   'todo-not-welcomed',
@@ -109,7 +111,7 @@ export default async function AdminHome({
   // The "Paid" card opens the paid sign-ups view (owner, 9 Nov 2026).
   const paidView = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paidSignups)
   const href = (k: OverviewItemKey) =>
-    k === 'signups-today' ? SIGNUPS_TODAY_HREF : k === 'paid-today' && paidView ? '/admin/paid-signups' : k === FEE_PENDING_KEY ? stageHref('approved', 'not') : k === 'todo-approved-today' ? stageHref('approved', FU_APPROVED_TODAY) : OVERVIEW_KEY_PEOPLE[k] ? OVERVIEW_KEY_PEOPLE[k] : `/admin/overview/${k}${OVERVIEW_ITEMS[k].funnel ? `?days=${funnelDays}` : ''}`
+    k === 'signups-today' ? SIGNUPS_TODAY_HREF : k === 'paid-today' && paidView ? '/admin/paid-signups' : k === FEE_PENDING_KEY ? stageHref('approved', 'not') : k === 'todo-approved-today' ? stageHref('approved', FU_APPROVED_TODAY) : k === INTEREST_TODO_KEY ? INBOX_HREF : OVERVIEW_KEY_PEOPLE[k] ? OVERVIEW_KEY_PEOPLE[k] : `/admin/overview/${k}${OVERVIEW_ITEMS[k].funnel ? `?days=${funnelDays}` : ''}`
 
   const tiles = CARD_KEYS.filter((k) => lists.has(k)).map((k) => {
     const l = lists.get(k)!

@@ -24,14 +24,12 @@ import {
   interestTeaser,
   isHeld,
   parentCounts,
-  pickUnpaidRows,
-  UNPAID_WA_DAILY_CAP,
   unpaidApplyLine,
-  unpaidPriority,
   usableEvents,
   type InterestEvent,
   type InterestParent,
 } from '../lib/parentInterestCore'
+import { INBOX_UNPAID_DAILY_CAP } from '../lib/interestInboxCore'
 import {
   DAY_MS,
   newTuitionsTeaser,
@@ -279,31 +277,11 @@ test('backfill is paced: at most BACKFILL_TUTORS_PER_DAY tutors a day, newest fi
 
 // ------------------------------------------------- WhatsApp unpaid rows ---
 
-test('unpaid priority: approved+interest, approved+views, documents missing+interest', () => {
-  assert.equal(unpaidPriority({ stage: 'approved', hasInterest: true, hasViews: true }), 1)
-  assert.equal(unpaidPriority({ stage: 'approved', hasInterest: false, hasViews: true }), 2)
-  assert.equal(unpaidPriority({ stage: 'missing', hasInterest: true, hasViews: false }), 3)
-  assert.equal(unpaidPriority({ stage: 'missing', hasInterest: false, hasViews: true }), null)
-  assert.equal(unpaidPriority({ stage: 'waiting', hasInterest: true, hasViews: true }), null)
-  assert.equal(unpaidPriority({ stage: 'approved', hasInterest: false, hasViews: false }), null)
-})
-
-test('unpaid rows capped at 50 a day, by priority then newest sign-up', () => {
-  const cands = [
-    ...Array.from({ length: 30 }, (_, i) => ({ tutorId: `m${i}`, stage: 'missing', hasInterest: true, hasViews: false, joinedAt: iso(WED - i * DAY_MS) })),
-    ...Array.from({ length: 30 }, (_, i) => ({ tutorId: `v${i}`, stage: 'approved', hasInterest: false, hasViews: true, joinedAt: iso(WED - i * DAY_MS) })),
-    ...Array.from({ length: 10 }, (_, i) => ({ tutorId: `a${i}`, stage: 'approved', hasInterest: true, hasViews: false, joinedAt: iso(WED - i * DAY_MS) })),
-    { tutorId: 'none', stage: 'paid', hasInterest: true, hasViews: true, joinedAt: iso(WED) },
-  ]
-  const out = pickUnpaidRows(cands)
-  assert.equal(UNPAID_WA_DAILY_CAP, 50)
-  assert.equal(out.length, 50)
-  assert.deepEqual(out.slice(0, 10).map((r) => r.priority), Array(10).fill(1))
-  assert.equal(out[0].tutorId, 'a0', 'newest sign-up first')
-  assert.deepEqual([...new Set(out.slice(10, 40).map((r) => r.priority))], [2])
-  assert.deepEqual([...new Set(out.slice(40).map((r) => r.priority))], [3])
-  assert.equal(out[40].tutorId, 'm0')
-  assert.ok(!out.some((r) => r.tutorId === 'none'))
+test('PR-10: unpaid rows moved to the Parent interest inbox, with the same 50-a-day cap', () => {
+  assert.equal(INBOX_UNPAID_DAILY_CAP, 50)
+  const wa = read('lib/waUpdates.ts')
+  assert.doesNotMatch(wa, /unpaidQueueRows|loadUnpaidFacts|pickUnpaidRows/, 'the daily queue carries no unpaid rows')
+  assert.match(read('lib/interestInbox.ts'), /applyCaps\(/)
 })
 
 test('unpaid WhatsApp message: counts only, no names, verify line, wording rules', () => {
