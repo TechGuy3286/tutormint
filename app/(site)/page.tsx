@@ -17,6 +17,10 @@
 // "Largest"; it shows the computed brand line (lib/brandClaims brandLine).
 // Same styling. Recorded in CLAUDE.md.
 //
+// OWNER-APPROVED, 19 Nov 2026 (PR-09) — no numbers on the homepage: the pill is
+// always "Pakistan's fast-growing tutor network" and the city links carry no
+// counts. Recorded in CLAUDE.md.
+//
 // OWNER-APPROVED, 15 Oct 2026 — the "HIRE" word above the H1 is removed (it
 // belonged with the old heading), and the site header's "Join free" button
 // shows here as on every public page. Nothing else changed. Recorded in
@@ -38,7 +42,6 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Check, Search, ClipboardList } from 'lucide-react'
 import { socialMeta } from '@/lib/seo'
-import { cachedBrandLine } from '@/lib/brandLineServer'
 import { BRAND_LINE_GROWING } from '@/lib/brandClaims'
 import { HOME_CARDS, HOME_H1_LINES, HOME_TITLE, SITE_DESCRIPTION } from '@/lib/siteIdentity'
 
@@ -65,9 +68,10 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function HomePage() {
-  // The pill (owner-approved, 14 Oct 2026): the computed brand line, never a
-  // claim we cannot prove. Recomputed at most once an hour.
-  const pill = await cachedBrandLine().catch(() => BRAND_LINE_GROWING)
+  // The pill (owner PR-09, 19 Nov 2026): always the modest brand line — the
+  // homepage shows no member, tutor or tuition counts, so it no longer follows
+  // the live verified-tutor count (blog covers still use brandLine()).
+  const pill = BRAND_LINE_GROWING
   // The Organization + WebSite structured data is emitted once for every public
   // page by the site chrome (components/SiteChrome), so this page carries none
   // of its own.

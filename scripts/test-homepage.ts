@@ -77,9 +77,10 @@ test('PR-09 "crystal" polish is look only (owner, 18 Nov 2026)', () => {
   // Brand button colours untouched.
   assert.ok(home.includes("'tm-gloss-green bg-tm-green-deep hover:bg-tm-green-deep-hover focus-visible:outline-tm-green-deep'"))
   assert.ok(home.includes("'tm-gloss-navy bg-tm-navy hover:bg-tm-navy-hover focus-visible:outline-tm-navy'"))
-  // City chips: 40px tall on phones, same link and label, no dot separators.
+  // City chips: 40px tall on phones, same link, no dot separators, and no
+  // count (owner PR-09, 19 Nov 2026: no numbers on the homepage).
   assert.ok(block.includes('tm-glass-chip inline-flex min-h-10'))
-  assert.ok(block.includes('{p.city} ({p.count})') && block.includes('href={cityPagePath(p.citySlug)}'))
+  assert.ok(/className=\{CITY_CHIP\}>\s*\{p\.city\}\s*<\/Link>/.test(block) && !block.includes('{p.count}') && block.includes('href={cityPagePath(p.citySlug)}'))
   // The contrast gate checks text on the glow and on glass.
   const contrast = read('scripts/contrast-check.ts')
   assert.ok(contrast.includes("C.heroGlow = over(C.greenDeep, over(C.navy, over(C.mint, C.bg, 0.28), 0.06), 0.05)"))
@@ -93,7 +94,7 @@ test('nothing else on the homepage changed', () => {
   // styling; its TEXT is the computed brand line (owner-approved, 14 Oct 2026).
   // Same type and size; the surface became glass in PR-09 (owner, 18 Nov 2026).
   assert.ok(home.includes('tm-glass rounded-full border px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-tm-navy sm:text-xs sm:tracking-[0.18em]'))
-  assert.ok(home.includes('{pill}') && home.includes('const pill = await cachedBrandLine().catch(() => BRAND_LINE_GROWING)'))
+  assert.ok(home.includes('{pill}') && home.includes('const pill = BRAND_LINE_GROWING') && !home.includes('cachedBrandLine'))
   assert.ok(!home.replace(/\/\/.*$/gm, '').includes('Largest'))
   assert.equal(brandLine(0), "Pakistan's fast-growing tutor network")
   assert.equal(brandLine(99), "Pakistan's fast-growing tutor network")
@@ -105,7 +106,10 @@ test('nothing else on the homepage changed', () => {
   assert.ok(home.includes('کوئی فیس نہیں &bull; کوئی کمیشن نہیں &bull; کوئی مڈل مین نہیں &bull; لائیو ڈیمو'))
   assert.ok(home.includes('label="Find Tutors / Teachers"') && home.includes('label="Find Tuitions / Jobs"'))
   assert.equal(SITE_TAGLINE, 'Free to join. No commission. No middleman.')
-  // Not added: "How it works", the features list, live counts.
+  // Not added: "How it works", the features list, live counts. No count
+  // anywhere on the homepage (owner PR-09, 19 Nov 2026).
+  assert.ok(!/\.count\}|cachedBrandLine|verifiedBadgeTutorCount/.test(home + read('components/home/HomeLinks.tsx')))
+  assert.ok(read('CLAUDE.md').includes('homepage shows no member, tutor or tuition counts'))
   assert.ok(!/SITE_HOW_IT_WORKS|SITE_FEATURES|How TutorMint works|What you get/.test(home + read('components/home/HomeLinks.tsx')))
   // The lock note records the three changes and the date.
   // The dated authorisations moved, unchanged, to docs/history (PR-05);

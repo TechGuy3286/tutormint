@@ -278,11 +278,12 @@ test('the brand line switches at 100 and rounds down to the nearest 50', () => {
   // Neither line trips the guard.
   for (const n of [0, 100, 250]) assert.equal(coverTextProblem(brandLine(n)), null)
   // The count is the live number of tutors holding the Verified badge, by the site's own rule.
-  // One loader for the homepage pill and every cover.
+  // One loader for every cover. The homepage pill no longer uses it: it is
+  // always the modest line, with no count (owner PR-09, 19 Nov 2026).
   const line = read('lib', 'brandLineServer.ts')
   assert.ok(line.includes('loadVerifiedBadgeOk(') && line.includes('brandLine(await verifiedBadgeTutorCount())'))
   assert.ok(read('lib', 'covers', 'render.ts').includes("from '@/lib/brandLineServer'"))
-  assert.ok(read('app', '(site)', 'page.tsx').includes('await cachedBrandLine()'))
+  assert.ok(read('app', '(site)', 'page.tsx').includes('const pill = BRAND_LINE_GROWING'))
 })
 
 test('the guard rejects any cover text with a banned word', () => {
