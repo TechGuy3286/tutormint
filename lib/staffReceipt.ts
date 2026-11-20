@@ -121,6 +121,8 @@ export type StaffApprovalRow = {
   ref: string
   memberId: string | null
   memberName: string | null
+  /** PR-11: the member was erased on request (grey "Deleted user" row). */
+  erasedAt: string | null
   planCode: string | null
   staffName: string | null
   approvedAt: string
@@ -143,15 +145,20 @@ export async function loadStaffApprovals(opts: { sinceIso?: string; untilIso?: s
   const rows = (data ?? []) as Record<string, unknown>[]
   const ids = [...new Set(rows.map((r) => r.user_id as string | null).filter((x): x is string => !!x))]
   const names = new Map<string, string>()
+  const erased = new Map<string, string>()
   if (ids.length) {
-    const { data: ps } = await admin.from('profiles').select('id, full_name').in('id', ids)
-    for (const p of (ps ?? []) as { id: string; full_name: string | null }[]) names.set(p.id, formatName(p.full_name) || '')
+    const { data: ps } = await admin.from('profiles').select('id, full_name, erased_at').in('id', ids)
+    for (const p of (ps ?? []) as { id: string; full_name: string | null; erased_at: string | null }[]) {
+      names.set(p.id, formatName(p.full_name) || '')
+      if (p.erased_at) erased.set(p.id, p.erased_at)
+    }
   }
   return rows.map((r) => ({
     id: String(r.id),
     ref: String(r.provider_ref ?? r.id),
     memberId: (r.user_id as string | null) ?? null,
     memberName: r.user_id ? names.get(r.user_id as string) || null : null,
+    erasedAt: r.user_id ? (erased.get(r.user_id as string) ?? null) : null,
     planCode: (r.plan_code as string | null) ?? null,
     staffName: (r.staff_approved_by_name as string | null) ?? null,
     approvedAt: String(r.staff_approved_at),

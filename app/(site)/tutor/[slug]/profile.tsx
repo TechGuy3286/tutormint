@@ -3,6 +3,10 @@
 // file: page.tsx and the twin import it.
 
 import Avatar from '@/components/Avatar'
+import { citySegment } from '@/lib/slugs'
+import RelatedTutorLinks from '@/components/seo/RelatedTutorLinks'
+import { similarTutorLinks, tutorCityBySlug } from '@/lib/tutorCrawl'
+import { cityTutorPageIndexable, cityTutorPath } from '@/lib/tutorCrawlCore'
 import CnicVerifiedChip from '@/components/CnicVerifiedChip'
 import { publicPhoto } from '@/lib/photoPrivacyCore'
 import Breadcrumbs from '@/components/Breadcrumbs'
@@ -649,6 +653,10 @@ export async function TutorProfileView({ slug, ownerId }: { slug: string; ownerI
     cnicApproved, profilePicApproved, selfieApproved,
   })
   const effectivePlan = tutor.plan_code ?? (feePaid ? 'basic' : null)
+  // PR-11: an indexable profile links to up to 6 similar indexable tutors
+  // (same city and subject), and to its city tutor page.
+  const similarTutors = indexable && !preview ? await similarTutorLinks(tutor.id).catch(() => []) : []
+  const tutorCity = similarTutors.length > 0 && tutor.city ? await tutorCityBySlug(citySegment(tutor.city)).catch(() => null) : null
 
   // PR105-B §1 — the Verified badge needs staff-approved CNIC, photo AND selfie
   // (replacing the old reviewed-degree rule). A verified, plan-holding tutor whose
@@ -1079,6 +1087,12 @@ export async function TutorProfileView({ slug, ownerId }: { slug: string; ownerI
             </ul>
           )}
         </section>
+
+        <RelatedTutorLinks
+          tutors={similarTutors}
+          heading="Similar tutors"
+          more={tutorCity && cityTutorPageIndexable(tutorCity) ? { href: cityTutorPath(tutorCity.citySlug), label: `All tutors in ${tutorCity.city}` } : null}
+        />
 
         {/* Reporting a profile. Signed-in only: an anonymous report has nobody
             to ask about it, and a moderator needs to be able to see who filed

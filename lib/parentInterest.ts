@@ -22,7 +22,7 @@
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { pageAll, pageAllIn } from '@/lib/pageAll'
+import { pageAll, pageAllIn, READ_CONCURRENCY } from '@/lib/pageAll'
 import { getViewAsContext } from '@/lib/viewAsContext'
 import { logAdminAction } from '@/lib/auditLog'
 import { formatName } from '@/lib/formatName'
@@ -204,7 +204,7 @@ export async function runInterestBackfill(opts: { nowMs?: number; dryRun?: boole
 
 export async function loadHolds(admin: Admin, parentIds?: string[]): Promise<Map<string, Hold>> {
   const rows: R[] = parentIds
-    ? await pageAllIn(parentIds, (part, f, t) => admin.from('interest_holds').select('parent_id, status, decided_at').in('parent_id', part).order('parent_id').range(f, t))
+    ? await pageAllIn(parentIds, (part, f, t) => admin.from('interest_holds').select('parent_id, status, decided_at').in('parent_id', part).order('parent_id').range(f, t), 100, READ_CONCURRENCY)
     : await pageAll<R>((f, t) => admin.from('interest_holds').select('parent_id, status, decided_at').order('parent_id').range(f, t) as never)
   return new Map(rows.map((h) => [h.parent_id as string, { status: h.status as HoldStatus, decidedAt: (h.decided_at as string | null) ?? null }]))
 }
@@ -222,8 +222,8 @@ export async function loadParentInfo(admin: Admin, ids: string[]): Promise<Map<s
         .in('id', part)
         .order('id')
         .range(f, t),
-    ),
-    pageAllIn(ids, (part, f, t) => admin.from('account_erasures').select('id, member_id').in('member_id', part).in('status', ['scheduled', 'done']).order('id').range(f, t)),
+    100, READ_CONCURRENCY),
+    pageAllIn(ids, (part, f, t) => admin.from('account_erasures').select('id, member_id').in('member_id', part).in('status', ['scheduled', 'done']).order('id').range(f, t), 100, READ_CONCURRENCY),
   ])
   const erased = new Set(erasures.map((e) => e.member_id as string))
   return new Map(

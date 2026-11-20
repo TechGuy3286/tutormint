@@ -18,12 +18,14 @@ export default function MoreTimeline({
   initialCursor,
   serverCount,
   total,
+  deleted = false,
 }: {
   memberId: string
   group: string
   initialCursor: string | null
   serverCount: number
   total: number
+  deleted?: boolean
 }) {
   const { items, state, done, loadMore, sentinel } = useInfinite<TimelineEvent>({
     endpoint: '/api/admin/queues/timeline',
@@ -38,7 +40,7 @@ export default function MoreTimeline({
       {items.length > 0 && (
         <ol className="space-y-2">
           {items.map((e) => (
-            <TimelineRow key={e.id} event={e} memberId={memberId} />
+            <TimelineRow key={e.id} event={e} memberId={memberId} deleted={deleted} />
           ))}
         </ol>
       )}

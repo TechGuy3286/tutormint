@@ -45,6 +45,7 @@ import { tuitionPath } from '@/lib/slugs'
 import { loadVerifiedBadgeOk } from '@/lib/badgeFacts'
 import { TEAM_MEMBER_NAME } from '@/lib/teamPosterCore'
 import type { ReportTarget, ReporterApplication, ReporterFacts } from '@/lib/reportCardCore'
+import { deletedUserLine } from '@/lib/deletedUserCore'
 import { bankMatchedReceipts } from '@/lib/bankStatement'
 
 // The admin lists that still ended at a hard cap, on the platform's
@@ -621,6 +622,8 @@ export type QueuePaymentRow = {
   bankMatch: string | null
   /** PR-03: a rejected receipt the Owner reopened. */
   reopenedAt: string | null
+  /** PR-11: the payer's account was erased on request — a grey "Deleted user" row. */
+  erasedAt?: string | null
 }
 
 export type PaymentQueueCounts = {
@@ -675,7 +678,7 @@ export async function loadPaymentQueue({
   const userIds = Array.from(new Set(all.map((p) => p.user_id as string | null).filter((x): x is string => !!x)))
   const [profiles, { data: plans }] = await Promise.all([
     pageAllIn<Record<string, unknown>, string>(userIds, (ids, from, to) =>
-      admin.from('profiles').select('id, full_name, email, is_test_name, hidden_from_public').in('id', ids).order('id').range(from, to),
+      admin.from('profiles').select('id, full_name, email, is_test_name, hidden_from_public, erased_at').in('id', ids).order('id').range(from, to),
     ),
     admin.from('plans').select('code, name'),
   ])
@@ -687,6 +690,7 @@ export async function loadPaymentQueue({
         name: formatName(p.full_name as string | null),
         email: (p.email as string) ?? '—',
         test: !!p.is_test_name || !!p.hidden_from_public,
+        erasedAt: (p.erased_at as string | null) ?? null,
       },
     ]),
   )
@@ -716,8 +720,10 @@ export async function loadPaymentQueue({
       userId: (p.user_id as string | null) ?? null,
       // A payment whose account was hard-deleted keeps its amount, reference and
       // dates; the name line reads its note instead of a dash.
-      name: member?.name || (p.note ? String(p.note) : '—'),
-      email: member?.email ?? (p.user_id ? '—' : 'account deleted'),
+      // PR-11: an erased payer reads "Deleted user · erased <date>", no email.
+      name: member?.erasedAt ? deletedUserLine(member.erasedAt) : member?.name || (p.note ? String(p.note) : '—'),
+      email: member?.erasedAt ? '—' : (member?.email ?? (p.user_id ? '—' : 'account deleted')),
+      erasedAt: member?.erasedAt ?? null,
       note: (p.note as string | null) ?? null,
       planCode: (p.plan_code as string) ?? '—',
       planName: (p.plan_code as string) === 'verified' ? FEE_LABEL : (planName.get(p.plan_code as string) ?? ((p.plan_code as string) ?? '—')),
@@ -774,7 +780,7 @@ export async function loadPaymentQueue({
   const matched = await bankMatchedReceipts(rows.filter((r) => r.status === 'pending').map((r) => r.id)).catch(() => new Map<string, string>())
   for (const r of rows) r.bankMatch = matched.get(r.id) ?? null
   const avatars = await loadAvatarFacts(rows.map((r) => r.userId))
-  for (const r of rows) r.avatar = r.userId ? (avatars[r.userId] ?? null) : null
+  for (const r of rows) r.avatar = r.userId && !r.erasedAt ? (avatars[r.userId] ?? null) : null
 
   return { rows, nextCursor, total: list.length, counts, filter: chosen }
 }
@@ -1121,6 +1127,8 @@ export type QueueSubscriptionRow = {
   note: string | null
   /** The member (owner, 11 Nov 2026: the name links to their admin page). */
   userId?: string | null
+  /** PR-11: erased on request — a grey "Deleted user" row. */
+  erasedAt?: string | null
 }
 
 /** gateway / manual transfer / admin grant, derived not stored. */
@@ -1163,7 +1171,7 @@ export async function loadSubscriptionLedger({
   const [{ data: profiles }, { data: plans }, { data: payments }] = await Promise.all([
     admin
       .from('profiles')
-      .select('id, full_name, email, role')
+      .select('id, full_name, email, role, erased_at')
       .in('id', userIds.length ? userIds : [NO_MATCH]),
     admin.from('plans').select('code, name'),
     admin
@@ -1177,9 +1185,10 @@ export async function loadSubscriptionLedger({
     (profiles ?? []).map((p) => [
       p.id as string,
       {
-        name: formatName(p.full_name as string | null) || '—',
-        email: (p.email as string) ?? '—',
+        name: p.erased_at ? deletedUserLine(p.erased_at as string) : formatName(p.full_name as string | null) || '—',
+        email: p.erased_at ? '—' : ((p.email as string) ?? '—'),
         role: p.role as string,
+        erasedAt: (p.erased_at as string | null) ?? null,
       },
     ]),
   )
@@ -1195,6 +1204,7 @@ export async function loadSubscriptionLedger({
     name: who.get(s.user_id as string)?.name ?? '—',
     email: who.get(s.user_id as string)?.email ?? '—',
     role: who.get(s.user_id as string)?.role ?? '—',
+    erasedAt: who.get(s.user_id as string)?.erasedAt ?? null,
     planName: (s.plan_code as string) === 'verified' ? FEE_LABEL : (planName.get(s.plan_code as string) ?? (s.plan_code as string)),
     status: s.status as string,
     startsAt: s.starts_at as string,

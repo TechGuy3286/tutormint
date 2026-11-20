@@ -7,6 +7,8 @@
 // page is indexable. A database blip leaves a file short, never a 500.
 
 import 'server-only'
+import { loadCrawlSet } from '@/lib/tutorCrawl'
+import { CITY_TUTOR_THRESHOLD, cityTutorPath } from '@/lib/tutorCrawlCore'
 
 import { pageAll } from '@/lib/pageAll'
 import { createPublicClient } from '@/lib/supabase/public'
@@ -160,6 +162,17 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
         overlap: overlap.has(overlapKey(p.kind, p.citySlug, p.masterId)),
         lastmod: p.kind === 'tutors' ? newestTutor : newestJob,
       })
+    }
+    // PR-11: the city tutor pages (and female variants) at 3+ indexable
+    // tutors — the same set and rule their robots tag reads. lastmod = the
+    // newest real change of one of the city's tutors.
+    const crawl = await loadCrawlSet()
+    const lastBySlug = new Map(tutors.map((t) => [t.url.slice(`${BASE}/tutor/`.length), t.lastmod]))
+    for (const c of crawl.cities) {
+      const mine = crawl.tutors.filter((t) => t.citySlug === c.citySlug)
+      const newest = (list: typeof mine) => newestOf(list.map((t) => lastBySlug.get(t.slug) ?? null)) ?? newestTutor
+      hubs.push({ path: cityTutorPath(c.citySlug), count: c.indexable, threshold: CITY_TUTOR_THRESHOLD, lastmod: newest(mine), priority: 0.8 })
+      hubs.push({ path: cityTutorPath(c.citySlug, true), count: c.female, threshold: CITY_TUTOR_THRESHOLD, lastmod: newest(mine.filter((t) => t.gender === 'female')) })
     }
   } catch {
     // The static pages are still worth serving.

@@ -34,6 +34,9 @@ export function revalidatePublicTuition(job: { public_slug?: string | null; city
  *  moderation, pause, merge, erase): every tutor landing page and profile. */
 export function revalidatePublicTutors(): void {
   mark('/tutors/[city]/[subject]', 'page')
+  // PR-11: the city tutor pages and their female variant.
+  mark('/tutors/[city]', 'page')
+  mark('/tutors/[city]/female', 'page')
   mark('/tutor/[slug]', 'page')
 }
 

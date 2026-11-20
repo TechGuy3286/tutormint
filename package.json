@@ -279,6 +279,7 @@
     "test:browserestore": "tsx --test scripts/test-browse-restore.ts",
     "report:interest": "tsx --conditions=react-server --env-file=.env.local scripts/report-parent-interest.ts",
     "test:interestinbox": "tsx --test scripts/test-interest-inbox.ts",
+    "test:pr11": "tsx --test scripts/test-pr11.ts",
     "report:interestinbox": "tsx --conditions=react-server --env-file=.env.local scripts/report-interest-inbox.ts"
   },
   "dependencies": {

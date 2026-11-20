@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { DELETED_ROW_CLASS } from '@/lib/deletedUserCore'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 
 import { formatDateTime } from '@/lib/datetime'
@@ -24,7 +25,7 @@ const TONE: Record<TimelineTone, string> = {
 
 type Page = { id: string; text: string; at: string }
 
-export default function TimelineRow({ event: e, memberId }: { event: TimelineEvent; memberId: string }) {
+export default function TimelineRow({ event: e, memberId, deleted = false }: { event: TimelineEvent; memberId: string; deleted?: boolean }) {
   const [open, setOpen] = useState(false)
   const [pages, setPages] = useState<Page[] | null>(null)
   const [loading, setLoading] = useState(false)
@@ -50,7 +51,7 @@ export default function TimelineRow({ event: e, memberId }: { event: TimelineEve
   }
 
   return (
-    <li className="rounded-2xl border border-gray-200 bg-white p-3">
+    <li className={`rounded-2xl border border-gray-200 p-3 ${deleted ? DELETED_ROW_CLASS : 'bg-white'}`} data-deleted-row={deleted ? '' : undefined}>
       <div className="flex min-h-[28px] flex-wrap items-baseline gap-x-2 gap-y-1">
         {/* A grouped line is short by construction (groupLineText) and is
             clamped to 2 lines as well; the full detail is under "Show each". */}

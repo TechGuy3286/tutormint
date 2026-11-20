@@ -22,7 +22,7 @@
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { pageAll, pageAllIn } from '@/lib/pageAll'
+import { pageAll, pageAllIn, READ_CONCURRENCY } from '@/lib/pageAll'
 import { notify } from '@/lib/notifications'
 import { matchVisibilityCities } from '@/lib/matchChip'
 import { genderApplyBlocked } from '@/lib/genderPref'
@@ -80,7 +80,7 @@ export async function loadTeaserTutors(admin: Admin, nowMs: number, ids?: string
   const unpaidToo = !!opts.includeUnpaid
   const tps: R[] = (
     ids
-      ? await pageAllIn(ids, (part, f, t) => admin.from('tutor_profiles').select(cols).in('id', part).order('id').range(f, t))
+      ? await pageAllIn(ids, (part, f, t) => admin.from('tutor_profiles').select(cols).in('id', part).order('id').range(f, t), 100, READ_CONCURRENCY)
       : await pageAll<R>((f, t) => {
           const q = admin.from('tutor_profiles').select(cols)
           return (unpaidToo ? q : q.not('verified_fee_paid_at', 'is', null)).order('id').range(f, t) as never
@@ -97,11 +97,11 @@ export async function loadTeaserTutors(admin: Admin, nowMs: number, ids?: string
         .in('id', part)
         .order('id')
         .range(f, t),
-    ),
-    pageAllIn(tutorIds, (part, f, t) => admin.from('account_erasures').select('id, member_id, status').in('member_id', part).in('status', ['scheduled', 'done']).order('id').range(f, t)),
-    pageAllIn(tutorIds, (part, f, t) => admin.from('follow_up_dismissals').select('id, member_id').in('member_id', part).is('undone_at', null).order('id').range(f, t)),
-    pageAllIn(tutorIds, (part, f, t) => admin.from('tutor_areas').select('id, tutor_id, city').in('tutor_id', part).order('id').range(f, t)),
-    pageAllIn(tutorIds, (part, f, t) => admin.from('tutor_subjects').select('tutor_id, master_id').in('tutor_id', part).order('tutor_id').order('master_id').range(f, t)),
+    100, READ_CONCURRENCY),
+    pageAllIn(tutorIds, (part, f, t) => admin.from('account_erasures').select('id, member_id, status').in('member_id', part).in('status', ['scheduled', 'done']).order('id').range(f, t), 100, READ_CONCURRENCY),
+    pageAllIn(tutorIds, (part, f, t) => admin.from('follow_up_dismissals').select('id, member_id').in('member_id', part).is('undone_at', null).order('id').range(f, t), 100, READ_CONCURRENCY),
+    pageAllIn(tutorIds, (part, f, t) => admin.from('tutor_areas').select('id, tutor_id, city').in('tutor_id', part).order('id').range(f, t), 100, READ_CONCURRENCY),
+    pageAllIn(tutorIds, (part, f, t) => admin.from('tutor_subjects').select('tutor_id, master_id').in('tutor_id', part).order('tutor_id').order('master_id').range(f, t), 100, READ_CONCURRENCY),
   ])
 
   const pBy = new Map(ps.map((p) => [p.id as string, p]))

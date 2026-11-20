@@ -2,6 +2,8 @@
 
 import MemberNameLink from '@/components/admin/MemberNameLink'
 import AdminAvatar from '@/components/admin/AdminAvatar'
+import DeletedUserName from '@/components/admin/DeletedUserName'
+import { DELETED_ROW_CLASS } from '@/lib/deletedUserCore'
 import { shownEmail } from '@/lib/actorLabelCore'
 import { useState } from 'react'
 import { Receipt } from 'lucide-react'
@@ -163,8 +165,11 @@ export default function PaymentQueue({
         ) : (
           <ul className="space-y-3">
             {allPayments.map((p) => (
-              <li key={p.id} className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
+              <li key={p.id} className={`space-y-3 rounded-2xl border border-gray-200 p-4 ${p.erasedAt ? DELETED_ROW_CLASS : 'bg-white'}`} data-deleted-row={p.erasedAt ? '' : undefined}>
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  {p.erasedAt ? (
+                    <DeletedUserName erasedAt={p.erasedAt} />
+                  ) : (
                   <div className="flex min-w-0 items-start gap-2.5">
                   {p.userId && <AdminAvatar name={p.name} src={p.avatar?.src ?? null} gender={p.avatar?.gender ?? null} />}
                   <div className="min-w-0">
@@ -175,6 +180,7 @@ export default function PaymentQueue({
                     )}
                   </div>
                   </div>
+                  )}
                   {/* A submitted transfer waiting for a person reads "Waiting for
                       approval" (gold). A 'pending' row with no payer reference
                       never completed → neutral "Incomplete". Others as stored. */}
@@ -256,14 +262,16 @@ export default function PaymentQueue({
                     </button>
                   ))}
 
-                {canApprove && awaitingApproval(p) && (
+                {/* PR-11: no decision on a deleted user's receipt — only the
+                    Owner's money actions (refund) stay. */}
+                {canApprove && awaitingApproval(p) && !p.erasedAt && (
                   <PaymentDecide paymentId={p.id} payerName={p.name} />
                 )}
-                {!canApprove && awaitingApproval(p) && (canCheck || staffMayApprove) && (
+                {!canApprove && awaitingApproval(p) && !p.erasedAt && (canCheck || staffMayApprove) && (
                   <StaffReceiptActions paymentId={p.id} payerName={p.name} checkedByName={p.checkedByName} canCheck={canCheck} staffMayApprove={staffMayApprove} />
                 )}
-                {!canApprove && awaitingApproval(p) && !canCheck && !staffMayApprove && <OwnerOnlyNote />}
-                {canApprove && p.status === 'rejected' && p.provider === 'manual' && <ReopenPayment paymentId={p.id} />}
+                {!canApprove && awaitingApproval(p) && !p.erasedAt && !canCheck && !staffMayApprove && <OwnerOnlyNote />}
+                {canApprove && !p.erasedAt && p.status === 'rejected' && p.provider === 'manual' && <ReopenPayment paymentId={p.id} />}
                 {awaitingApproval(p) && p.checkedByName && canApprove && (
                   <span className="self-center text-[11px] font-bold text-tm-green-deep">Checked by {p.checkedByName}</span>
                 )}
@@ -346,9 +354,9 @@ export default function PaymentQueue({
             {/* Cards under sm — a six-column table at 360px is unreadable. */}
             <ul className="space-y-2 sm:hidden">
               {allSubs.map((s) => (
-                <li key={s.id} className="space-y-1 rounded-2xl border border-gray-200 bg-white p-3">
+                <li key={s.id} className={`space-y-1 rounded-2xl border border-gray-200 p-3 ${s.erasedAt ? DELETED_ROW_CLASS : 'bg-white'}`}>
                   <div className="flex items-baseline justify-between gap-2">
-                    <p className="truncate text-xs font-black text-tm-navy"><MemberNameLink id={s.userId} name={s.name} /></p>
+                    <p className="truncate text-xs font-black text-tm-navy"><MemberNameLink id={s.userId} name={s.name} erasedAt={s.erasedAt} avatar /></p>
                     <StatusChip status={s.status} />
                   </div>
                   <p className="truncate text-[11px] text-gray-500">{shownEmail(s.email)}</p>
@@ -373,9 +381,9 @@ export default function PaymentQueue({
                 </thead>
                 <tbody>
                   {allSubs.map((s) => (
-                    <tr key={s.id} className="border-b border-gray-100 last:border-0">
+                    <tr key={s.id} className={`border-b border-gray-100 last:border-0 ${s.erasedAt ? DELETED_ROW_CLASS : ''}`}>
                       <td className="p-3">
-                        <MemberNameLink id={s.userId} name={s.name} className="block font-bold text-tm-navy" />
+                        <MemberNameLink id={s.userId} name={s.name} erasedAt={s.erasedAt} avatar className="block font-bold text-tm-navy" />
                         <span className="block text-[11px] text-gray-500">{shownEmail(s.email)}</span>
                       </td>
                       <td className="p-3 font-semibold">{s.planName}</td>

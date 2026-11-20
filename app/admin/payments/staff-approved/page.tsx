@@ -1,4 +1,5 @@
 import MemberNameLink from '@/components/admin/MemberNameLink'
+import { DELETED_ROW_CLASS } from '@/lib/deletedUserCore'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { canApprove } from '@/lib/adminAccessCore'
 import { loadStaffApprovals } from '@/lib/staffReceipt'
@@ -33,9 +34,9 @@ export default async function StaffApprovedPage() {
       ) : (
         <ul className="divide-y divide-gray-100 rounded-2xl border border-gray-200 bg-white">
           {rows.map((r) => (
-            <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 p-3 text-xs">
+            <li key={r.id} className={`flex flex-wrap items-center justify-between gap-2 p-3 text-xs ${r.erasedAt ? DELETED_ROW_CLASS : ''}`}>
               <div className="min-w-0">
-                <p className="font-bold text-tm-navy"><MemberNameLink id={r.memberId} name={r.memberName || 'A member'} /> · {planLabel(r.planCode ?? '')}</p>
+                <p className="font-bold text-tm-navy"><MemberNameLink id={r.memberId} name={r.memberName || 'A member'} erasedAt={r.erasedAt} avatar /> · {planLabel(r.planCode ?? '')}</p>
                 <p className="text-gray-600">
                   {r.ref} · approved by {r.staffName || 'staff'} · {formatDateTime(r.approvedAt)}
                 </p>

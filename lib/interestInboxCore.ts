@@ -392,3 +392,22 @@ export type InboxRowView = {
   inInbox?: boolean
 }
 
+
+// PR-11 — the stored inbox (admin_summary 'interest-inbox').
+/** A stored inbox older than this is rebuilt on open (the cron keeps it younger). */
+export const INBOX_SNAPSHOT_MAX_AGE_MS = 90_000
+
+/** Is a stored inbox still the inbox? Same Pakistan day, young, nothing newer. */
+export function storedInboxUsable(stored: { builtAt: string; pkDay: string } | null, nowMs: number, newestChange: string | null): boolean {
+  if (!stored) return false
+  const built = Date.parse(stored.builtAt)
+  if (!Number.isFinite(built) || nowMs - built > INBOX_SNAPSHOT_MAX_AGE_MS || nowMs < built) return false
+  if (stored.pkDay !== pkDayKeyOf(nowMs)) return false
+  return !newestChange || Date.parse(newestChange) <= built
+}
+
+
+/** The Pakistan date (YYYY-MM-DD) of a moment — UTC+5, no daylight saving. */
+export function pkDayKeyOf(nowMs: number): string {
+  return new Date(nowMs + 5 * 60 * 60 * 1000).toISOString().slice(0, 10)
+}

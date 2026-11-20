@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import DeletedUserName from '@/components/admin/DeletedUserName'
+import { DELETED_ROW_CLASS } from '@/lib/deletedUserCore'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ExternalLink, FileCheck2, MessageCircle, Phone, Search } from 'lucide-react'
 
@@ -95,6 +97,9 @@ export type GridItem = {
   dupes?: { id: string; name: string; reason: string; reasonKey?: string }[]
   /** People → Tutors: the pipeline stage and its follow-up (owner, 8 Nov 2026). */
   pipe?: { card: PipeCard; links: PipeLinks } | null
+  /** PR-11: erased on request — a grey "Deleted user · erased <date>" card with
+   *  the default avatar; nothing personal, no buttons. */
+  erasedAt?: string | null
 }
 
 export type GridParent = {
@@ -245,8 +250,8 @@ function PagedGrid({ items, isOwner = false, filterRows = [], paged }: GridProps
       ) : (
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" data-card-count={total}>
           {shownItems.map((it) => (
-            <li key={it.id} className={`relative flex min-w-0 flex-col gap-3 rounded-2xl border border-gray-200 bg-white ${it.pipe ? 'p-3' : 'p-4'}`}>
-              {it.member ? <MemberBody it={it} m={it.member} onMoved={refresh} onRestored={refresh} /> : <PlainBody it={it} />}
+            <li key={it.id} className={`relative flex min-w-0 flex-col gap-3 rounded-2xl border border-gray-200 ${it.erasedAt ? DELETED_ROW_CLASS : 'bg-white'} ${it.pipe ? 'p-3' : 'p-4'}`}>
+              {it.erasedAt ? <DeletedBody it={it} /> : it.member ? <MemberBody it={it} m={it.member} onMoved={refresh} onRestored={refresh} /> : <PlainBody it={it} />}
             </li>
           ))}
         </ul>
@@ -414,8 +419,8 @@ function ClientGrid({ items, docFilters = false, isOwner = false, filterRows = [
       ) : (
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" data-card-count={filtered.length}>
           {visible.map((it) => (
-            <li key={it.id} className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-4">
-              {it.member ? <MemberBody it={it} m={it.member} onMoved={onMoved} onRestored={onRestored} /> : <PlainBody it={it} />}
+            <li key={it.id} className={`flex flex-col gap-3 rounded-2xl border border-gray-200 p-4 ${it.erasedAt ? DELETED_ROW_CLASS : 'bg-white'}`}>
+              {it.erasedAt ? <DeletedBody it={it} /> : it.member ? <MemberBody it={it} m={it.member} onMoved={onMoved} onRestored={onRestored} /> : <PlainBody it={it} />}
             </li>
           ))}
         </ul>
@@ -651,6 +656,20 @@ function DocsRow({ docs }: { docs: DocSummary }) {
         <span className={`font-bold ${DOC_TONE[docs.kind]}`}>{docs.label}</span>
       </button>
       {open && <p className="mt-1 px-2 font-semibold text-slate-700">{docs.breakdown}</p>}
+    </div>
+  )
+}
+
+/** PR-11: an erased member's card — the grey line and the record link only. */
+function DeletedBody({ it }: { it: GridItem }) {
+  return (
+    <div className="space-y-2" data-deleted-row="">
+      <DeletedUserName erasedAt={it.erasedAt} />
+      {it.href && (
+        <Link href={it.href} className="inline-flex min-h-[44px] items-center text-xs font-bold text-slate-700 underline">
+          Open record
+        </Link>
+      )}
     </div>
   )
 }

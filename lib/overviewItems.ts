@@ -49,6 +49,8 @@ import { tutorDocStatusesFromProfile } from '@/lib/tutorDocStatus'
 import { formatName } from '@/lib/formatName'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { FEE_LABEL } from '@/lib/display'
+import { BLOCKED_SIGNUPS_HREF, blockedSignupsTodo } from '@/lib/eraseFingerprint'
+import { KIND_LABEL, maskedLastTwo, STEP_LABEL } from '@/lib/eraseFingerprintCore'
 import {
   OVERVIEW_ITEMS,
   payerPeriodRange,
@@ -635,6 +637,18 @@ export async function loadOverviewList(
         })),
         filter: 'emails that permanently failed in the last 7 days',
         workHref: '/admin/settings/messaging#email',
+      }
+    }
+
+    case 'todo-blocked-signups': {
+      // The Owner's Blocked re-sign-ups list (PR-11): attempts not yet allowed or
+      // kept blocked — the same rows, so the number is that list's.
+      const list = await blockedSignupsTodo()
+      return {
+        key,
+        rows: list.map((r) => ({ id: r.id, title: `${KIND_LABEL[r.kind]} ${maskedLastTwo(r.last2)} · ${STEP_LABEL[r.step]}`, detail: `${formatDateTime(r.at)} · closed account erased ${formatDate(r.erasedAt)}`, href: BLOCKED_SIGNUPS_HREF })),
+        filter: 'refused because the number or CNIC belongs to an erased account, not yet allowed or kept blocked',
+        workHref: BLOCKED_SIGNUPS_HREF,
       }
     }
 

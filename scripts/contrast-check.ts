@@ -93,6 +93,7 @@ const C = {
   gray400: '#9CA3AF',
   gray300: '#D1D5DB',
   gray500: '#6B7280',
+  gray600: '#4B5563',
   gray100: '#F3F4F6',
   gray200: '#E5E7EB',
   gray700: '#374151',
@@ -221,6 +222,11 @@ const PAIRS: Pair[] = [
   // the 'expired' and 'inactive' chips. Both neutrals, so again invisible to a
   // brand-token check.
   { fg: 'gray700', bg: 'gray100', where: 'expired and inactive chips' },
+  // PR-11: the grey "Deleted user" rows (lib/deletedUserCore DELETED_ROW_CLASS) and
+  // the navy / slate text that sits on them.
+  { fg: 'gray600', bg: 'gray100', where: 'Deleted user rows (PR-11)' },
+  { fg: 'navy', bg: 'gray100', where: 'Deleted user rows: amounts and labels (PR-11)' },
+  { fg: 'slate700', bg: 'gray100', where: 'Deleted user rows: cells and Open record (PR-11)' },
 
   // Admin, explicitly. These combinations are already checked above through
   // the public surfaces that share them; they are named again so the gate

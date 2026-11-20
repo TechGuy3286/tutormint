@@ -65,6 +65,7 @@ const TODO_KEYS: OverviewItemKey[] = [
   'todo-pausing',
   'todo-unmet',
   'todo-email-failed',
+  'todo-blocked-signups',
 ]
 const STEP_KEYS: OverviewItemKey[] = ['funnel-signed-up', 'funnel-mobile', 'funnel-onboarded', 'funnel-paid']
 const LOST_KEYS: (OverviewItemKey | null)[] = [null, 'lost-mobile', 'lost-onboarding', 'lost-payment']
@@ -111,7 +112,7 @@ export default async function AdminHome({
   // The "Paid" card opens the paid sign-ups view (owner, 9 Nov 2026).
   const paidView = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paidSignups)
   const href = (k: OverviewItemKey) =>
-    k === 'signups-today' ? SIGNUPS_TODAY_HREF : k === 'paid-today' && paidView ? '/admin/paid-signups' : k === FEE_PENDING_KEY ? stageHref('approved', 'not') : k === 'todo-approved-today' ? stageHref('approved', FU_APPROVED_TODAY) : k === INTEREST_TODO_KEY ? INBOX_HREF : OVERVIEW_KEY_PEOPLE[k] ? OVERVIEW_KEY_PEOPLE[k] : `/admin/overview/${k}${OVERVIEW_ITEMS[k].funnel ? `?days=${funnelDays}` : ''}`
+    k === 'signups-today' ? SIGNUPS_TODAY_HREF : k === 'paid-today' && paidView ? '/admin/paid-signups' : k === FEE_PENDING_KEY ? stageHref('approved', 'not') : k === 'todo-approved-today' ? stageHref('approved', FU_APPROVED_TODAY) : k === INTEREST_TODO_KEY ? INBOX_HREF : k === 'todo-blocked-signups' ? '/admin/blocked-signups' : OVERVIEW_KEY_PEOPLE[k] ? OVERVIEW_KEY_PEOPLE[k] : `/admin/overview/${k}${OVERVIEW_ITEMS[k].funnel ? `?days=${funnelDays}` : ''}`
 
   const tiles = CARD_KEYS.filter((k) => lists.has(k)).map((k) => {
     const l = lists.get(k)!

@@ -88,7 +88,8 @@ test('waiting receipts sort first with the badge, the rest newest first', () => 
   assert.deepEqual(sortPayments(rows).map((r) => r.id), ['d', 'b', 'c', 'a'])
   const queue = read('app/admin/payments/PaymentQueue.tsx')
   assert.match(queue, /label=\{WAITING_LABEL\} tone="pending"/)
-  assert.match(queue, /canApprove && awaitingApproval\(p\) && \(\s*<PaymentDecide/)
+  // PR-11: a deleted user's receipt gets no decision (`&& !p.erasedAt`).
+  assert.match(queue, /canApprove && awaitingApproval\(p\) && (!p\.erasedAt && )?\(\s*<PaymentDecide/)
 })
 
 test('default filter: Unpaid when receipts wait, else Paid', () => {

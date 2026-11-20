@@ -1,5 +1,8 @@
 import { cache } from 'react'
 import type { Metadata } from 'next'
+import RelatedTutorLinks from '@/components/seo/RelatedTutorLinks'
+import { tutorCityBySlug, tutorLinksForTuition } from '@/lib/tutorCrawl'
+import { cityTutorPageIndexable, cityTutorPath } from '@/lib/tutorCrawlCore'
 import Link from 'next/link'
 import { notFound, permanentRedirect } from 'next/navigation'
 import { Briefcase, CalendarDays, Clock, GraduationCap, MapPin, ShieldCheck, Wallet, UserRound } from 'lucide-react'
@@ -319,6 +322,14 @@ export default async function TuitionPage({ params }: { params: Params }) {
   // §3 — an OPEN tuition is cross-linked too, so the page carries more unique,
   // useful content than a single row: the matching landing page (all tuitions for
   // this subject in this city, when one exists) and a few live related tuitions.
+  // PR-11: an OPEN tuition links to up to 6 matching indexable tutors (same
+  // city, then subject or level, then the gender preference) — so the tutor
+  // profiles are reached from every live tuition, not only from Browse.
+  const tutorLinks = state.isOpen
+    ? await tutorLinksForTuition({ id: job.id, city: job.city ?? null, masterIds: (job.subject_links ?? []).map((l) => l.masterId), genderPref: job.gender_preference ?? null }).catch(() => [])
+    : []
+  const tutorCity = tutorLinks.length > 0 && job.city ? await tutorCityBySlug(citySegment(job.city)).catch(() => null) : null
+
   let landingHref: string | null = null
   let landingLabel: string | null = null
   let relatedOpen: typeof similar = []
@@ -726,6 +737,12 @@ export default async function TuitionPage({ params }: { params: Params }) {
           </ViewerJobsProvider>
         </section>
       )}
+
+      <RelatedTutorLinks
+        tutors={tutorLinks}
+        heading={job.city ? `Tutors in ${job.city} for this tuition` : 'Tutors for this tuition'}
+        more={tutorCity && cityTutorPageIndexable(tutorCity) ? { href: cityTutorPath(tutorCity.citySlug), label: `All tutors in ${tutorCity.city}` } : null}
+      />
 
       {/* §3 — an OPEN tuition points at more of the same: the matching landing
           page and a few live related tuitions, so it is not a dead-end single row. */}

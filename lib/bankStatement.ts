@@ -1,5 +1,5 @@
 import 'server-only'
-import { loadAvatarFacts } from '@/lib/memberAvatars'
+import { loadAvatarFacts, loadErasedAt } from '@/lib/memberAvatars'
 
 // lib/bankStatement.ts — the I/O half of the Faysal Bank statement import
 // (owner, 17 Nov 2026 — PR-03). Rules in lib/bankStatementCore.ts.
@@ -519,6 +519,8 @@ export type StatementBoard = {
   unclear: (BoardRow & { duplicates: DuplicateCredit[] })[]
   /** Member pictures by id (PR-04): the default + No photo tag when none. */
   avatars: Record<string, { src: string | null; gender: string | null }>
+  /** PR-11: members erased on request (id → erased_at) — grey "Deleted user" rows. */
+  erased: Record<string, string>
 }
 
 export async function loadStatementBoard(): Promise<StatementBoard | null> {
@@ -615,6 +617,7 @@ export async function loadStatementBoard(): Promise<StatementBoard | null> {
   }))
   const lists = resultLists(matches, approvedIn, { from: days[0] ?? null, to: days[days.length - 1] ?? null }, run?.pairing)
   const avatars = await loadAvatarFacts([...memberIds, ...approvedIn.map((a) => a.memberId)])
+  const erased = await loadErasedAt([...memberIds, ...approvedIn.map((a) => a.memberId)])
   const ref = (id: string) => String(payBy.get(id)?.provider_ref ?? id.slice(0, 8))
   const member = (id: string) => payBy.get(id)?.user_id ?? null
 
@@ -680,6 +683,7 @@ export async function loadStatementBoard(): Promise<StatementBoard | null> {
         .sort((a, b) => b.linkedAt.localeCompare(a.linkedAt)),
     },
     avatars,
+    erased,
     unclear: unclearRows.map((r) => {
       const v = byId.get(r.id)!
       const dups = possibleDuplicates({ deposit: Number(r.deposit), date: v.date, time: v.time, sender: r.sender_name }, recorded)

@@ -44,7 +44,9 @@ function RowLine({ row }: { row: BoardRow }) {
 }
 
 // A member with their picture (PR-04): the default + No photo tag when none.
-function Who({ id, name, avatars }: { id: string; name: string; avatars?: Record<string, { src: string | null; gender: string | null }> }) {
+function Who({ id, name, avatars, erased }: { id: string; name: string; avatars?: Record<string, { src: string | null; gender: string | null }>; erased?: Record<string, string> }) {
+  // PR-11: an erased member — the grey "Deleted user · erased <date>", no link.
+  if (erased?.[id]) return <MemberNameLink id={id} name={name} erasedAt={erased[id]} avatar />
   return (
     <span className="inline-flex items-center gap-1.5 align-middle">
       <AdminAvatar name={name} src={avatars?.[id]?.src ?? null} gender={avatars?.[id]?.gender ?? null} className="h-6 w-6 text-[9px]" px={24} />
@@ -285,7 +287,7 @@ export default function StatementClient({ board, settlements }: { board: Stateme
                 <div>
                   <RowLine row={m.row} />
                   <div className="text-gray-500">
-                    {m.memberId ? <Who id={m.memberId} name={m.memberName ?? 'Member'} avatars={board.avatars} /> : m.memberName ?? 'Member'} · {m.paymentRef} · <span className="font-bold text-tm-green-deep">{m.reason}</span>
+                    {m.memberId ? <Who id={m.memberId} name={m.memberName ?? 'Member'} avatars={board.avatars} erased={board.erased} /> : m.memberName ?? 'Member'} · {m.paymentRef} · <span className="font-bold text-tm-green-deep">{m.reason}</span>
                   </div>
                 </div>
                 <a href={`/admin/payments?search=${encodeURIComponent(m.paymentRef)}`} className={btn}>Open in Payments</a>
@@ -308,7 +310,7 @@ export default function StatementClient({ board, settlements }: { board: Stateme
                   <div>
                     <RowLine row={m.row} />
                     <div className="text-gray-500">
-                      <Who id={m.memberId} name={m.memberName ?? 'Member'} avatars={board.avatars} /> · <span className="font-bold text-tm-green-deep">{m.reason}</span>
+                      <Who id={m.memberId} name={m.memberName ?? 'Member'} avatars={board.avatars} erased={board.erased} /> · <span className="font-bold text-tm-green-deep">{m.reason}</span>
                     </div>
                   </div>
                   {owner && m.row.transferId && (
@@ -341,7 +343,7 @@ export default function StatementClient({ board, settlements }: { board: Stateme
                       <ul className="mt-1 space-y-1" data-candidates="">
                         {m.candidates.map((c) => (
                           <li key={c.id} className="flex flex-wrap items-center gap-2">
-                            <Who id={c.id} name={c.name} avatars={board.avatars} />
+                            <Who id={c.id} name={c.name} avatars={board.avatars} erased={board.erased} />
                             {c.mobile && <span className="text-gray-500">{c.mobile}</span>}
                             {owner && (
                               <button type="button" className="text-[11px] font-bold text-tm-navy underline" disabled={busy} onClick={() => void startAssign(m.row, { id: c.id, name: c.name })}>
@@ -382,7 +384,7 @@ export default function StatementClient({ board, settlements }: { board: Stateme
               <li key={a.paymentId} className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs">
                 <div>
                   <span className="font-bold text-tm-navy">{pkr(a.amount)}</span> · {a.paymentRef} ·{' '}
-                  {a.memberId ? <Who id={a.memberId} name={a.memberName ?? 'Member'} avatars={board.avatars} /> : a.memberName ?? 'Deleted account'} ·{' '}
+                  {a.memberId ? <Who id={a.memberId} name={a.memberName ?? 'Member'} avatars={board.avatars} erased={board.erased} /> : a.memberName ?? 'Deleted account'} ·{' '}
                   approved {new Date(a.approvedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Asia/Karachi' })}
                   {a.suggestions.length === 0 ? (
                     <div className="text-gray-500">No statement credit of this amount within 2 days.</div>
@@ -466,7 +468,7 @@ export default function StatementClient({ board, settlements }: { board: Stateme
                 <div>
                   <RowLine row={l.row} />
                   <div className="text-gray-500">
-                    {l.memberId ? <Who id={l.memberId} name={l.memberName ?? 'Member'} avatars={board.avatars} /> : (l.memberName ?? 'Member')} · {l.paymentRef}
+                    {l.memberId ? <Who id={l.memberId} name={l.memberName ?? 'Member'} avatars={board.avatars} erased={board.erased} /> : (l.memberName ?? 'Member')} · {l.paymentRef}
                   </div>
                 </div>
                 {owner && (

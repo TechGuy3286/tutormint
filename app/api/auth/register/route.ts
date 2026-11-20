@@ -13,6 +13,7 @@ import { rateLimit, callerIp } from '@/lib/rateLimit'
 import { bridgeStatus } from '@/lib/sms'
 import { checkBlocklist } from '@/lib/blocklist'
 import { numberSavedElsewhere } from '@/lib/phoneAccount'
+import { checkErasedBlock } from '@/lib/eraseFingerprint'
 import { ensureProfile } from '@/lib/ensureProfile'
 import { startPendingSignup, PENDING_COOKIE } from '@/lib/pendingSignup'
 import { CODE_TTL_MS } from '@/lib/otp'
@@ -351,6 +352,13 @@ export async function POST(request: Request) {
       },
       { status: 409 },
     )
+  }
+
+  // PR-11: a number of an erased (closed) account cannot sign up again until
+  // the Owner allows it. No code is sent.
+  const erasedBlock = await checkErasedBlock('mobile', mobile, 'signup')
+  if (erasedBlock.blocked) {
+    return NextResponse.json({ error: erasedBlock.message, blocked: true, fields: { identifier: erasedBlock.message } }, { status: 403 })
   }
 
   const { data: existingEmail } = await admin

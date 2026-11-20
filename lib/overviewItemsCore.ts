@@ -47,6 +47,10 @@ export const OVERVIEW_ITEM_KEYS = [
   'todo-pausing',
   'todo-unmet',
   'todo-email-failed',
+  // "Blocked re-sign-ups" (owner, 20 Nov 2026 — PR-11): sign-ups refused
+  // because the number or CNIC belongs to an erased account, not yet decided.
+  // Owner (the Partner views). Hidden at 0.
+  'todo-blocked-signups',
   // signup to payment (each takes ?days=7|30)
   'funnel-signed-up',
   'funnel-mobile',
@@ -101,6 +105,7 @@ export const OVERVIEW_ITEMS: Record<OverviewItemKey, OverviewItemMeta> = {
   // Every email send is recorded (owner, 16 Oct 2026, migration 183); this is
   // the ones that permanently failed in the last 7 days.
   'todo-email-failed': { title: 'Emails that failed in the last 7 days', screen: 'emailHealth', noun: ['email', 'emails'] },
+  'todo-blocked-signups': { title: 'Blocked re-sign-ups', screen: 'blockedSignups', noun: ['attempt', 'attempts'] },
   'funnel-signed-up': { title: 'Signed up', screen: 'usersView', noun: ['tutor', 'tutors'], funnel: true },
   'funnel-mobile': { title: 'Mobile verified', screen: 'usersView', noun: ['tutor', 'tutors'], funnel: true },
   'funnel-onboarded': { title: 'Onboarding done', screen: 'usersView', noun: ['tutor', 'tutors'], funnel: true },

@@ -72,7 +72,7 @@ test('every view-only area refuses a Partner write; the Owner is unaffected', ()
   const VIEW: Key[] = [
     'finance', 'revenue', 'paymentAmounts', 'payments', 'paymentsApprove', 'paymentsRefund', 'paymentsSettings', 'paymentsSwitches',
     'paymentGateways', 'smsHealth', 'emailHealth', 'messaging', 'reconciliation', 'plans', 'plansMutate', 'subjectsCore', 'secondRole', 'team', 'audit', 'seo', 'unmetSearches',
-    'ads', 'social', 'cleanup', 'blog', 'blogPublish', 'blogApprove', 'blogQueue', 'blogGenerate', 'blogQueueDraft', 'contentQueueUpload', 'staffActivity', 'signupFunnel', 'usersExport', 'overview',
+    'ads', 'blockedSignups', 'social', 'cleanup', 'blog', 'blogPublish', 'blogApprove', 'blogQueue', 'blogGenerate', 'blogQueueDraft', 'contentQueueUpload', 'staffActivity', 'signupFunnel', 'usersExport', 'overview',
     'staffSignupsAll', 'staffSignupClaim', 'staffClaimsReview', 'mySignups', 'cityOwners', 'supportNumber',
     // Convert account type (owner, 23 Oct 2026): the site Owner only.
     'convertAccount',
@@ -180,6 +180,7 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed' | 'ret
   'documents/name-mismatch': 'edit',
   // Documents by staff, Undo (owner, 5 Nov 2026): the Owner only.
   'documents/staff-decisions': 'owner',
+  'blocked-signups': 'owner',
   'flags': 'edit',
   'follow-ups': 'edit',
   // Check payment status on a Started payment card (owner, 20 Oct 2026):

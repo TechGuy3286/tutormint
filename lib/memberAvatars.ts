@@ -30,3 +30,24 @@ export async function loadAvatarFacts(ids: (string | null | undefined)[]): Promi
   }
   return out
 }
+
+/**
+ * PR-11: which of these members were erased on request (id → erased_at). Every
+ * list that names members uses it to show the grey "Deleted user · erased
+ * <date>" row instead of the name.
+ */
+export async function loadErasedAt(ids: (string | null | undefined)[]): Promise<Record<string, string>> {
+  const out: Record<string, string> = {}
+  const unique = [...new Set(ids.filter((v): v is string => !!v))]
+  const admin = createAdminClient()
+  if (!admin || !unique.length) return out
+  try {
+    const rows = await pageAllIn<{ id: string; erased_at: string | null }, string>(unique, (part, f, t) =>
+      admin.from('profiles').select('id, erased_at').in('id', part).not('erased_at', 'is', null).order('id').range(f, t),
+    100, 8)
+    for (const r of rows) if (r.erased_at) out[r.id] = r.erased_at
+  } catch {
+    /* names show as they are; the member page still says "erased" */
+  }
+  return out
+}

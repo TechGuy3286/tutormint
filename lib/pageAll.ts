@@ -44,10 +44,23 @@ export async function pageAllIn<T, K>(
   ids: K[],
   fetchChunk: (ids: K[], from: number, to: number) => PageResult<T>,
   size = 100,
+  /** Chunks read at the same time (PR-11: the Parent interest inbox reads
+   *  thousands of ids — one chunk after another was most of its 10 s). The
+   *  rows come back in the same order either way. */
+  concurrency = 1,
 ): Promise<T[]> {
-  const out: T[] = []
-  for (const part of chunk(ids, size)) {
-    out.push(...(await pageAll((from, to) => fetchChunk(part, from, to))))
+  const parts = chunk(ids, size)
+  const results: T[][] = new Array(parts.length)
+  let next = 0
+  const worker = async () => {
+    while (next < parts.length) {
+      const i = next++
+      results[i] = await pageAll((from, to) => fetchChunk(parts[i], from, to))
+    }
   }
-  return out
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(concurrency, parts.length)) }, worker))
+  return results.flat()
 }
+
+/** How many `.in()` chunks the admin read-models fetch at once (PR-11). */
+export const READ_CONCURRENCY = 8

@@ -1,5 +1,6 @@
 import { peopleExportHref, peopleListQuery } from '@/lib/peopleListQuery'
 import { ERASE_CHIP_HINT, ERASE_CHIP_LABEL } from '@/lib/eraseRequestedCore'
+import { loadErasedAt } from '@/lib/memberAvatars'
 import Link from 'next/link'
 import { Download, Film, Trash2 } from 'lucide-react'
 
@@ -270,10 +271,14 @@ export default async function PeopleTabs({
 
   // Card facts (photo, completion, share link) for the shown cards only.
   const ids = page.rows.map((x) => x.id)
-  const [members, shares] = await Promise.all([loadMemberCards(ids), isTutors ? loadProfileShares(ids) : Promise.resolve(null)])
+  const [members, shares, erased] = await Promise.all([loadMemberCards(ids), isTutors ? loadProfileShares(ids) : Promise.resolve(null), loadErasedAt(ids)])
   const mayFollow = roleSatisfies(role, SCREEN_ACCESS.unpaidSignups)
 
   const items: GridItem[] = page.rows.map(({ id, row: p }) => {
+    // PR-11: an erased member — the grey card, nothing personal, no buttons.
+    if (erased[id]) {
+      return { id, title: 'Deleted user', detail: null, href: `/admin/users/${id}`, amount: null, badge: null, actions: [], memberId: id, reviewHref: null, member: null, erasedAt: erased[id] }
+    }
     const m = members.get(id) ?? null
     const msisdn = m?.msisdn ?? null
     const pipe = isTutors && p.pipe ? p.pipe : null

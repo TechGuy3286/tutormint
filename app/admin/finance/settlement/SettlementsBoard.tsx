@@ -968,10 +968,10 @@ function LinkPanel({
 }
 
 /** "Member: <name>" — the name opens their admin page (owner, 11 Nov 2026). */
-function MemberLine({ m }: { m: { id: string; name: string } }) {
+function MemberLine({ m }: { m: { id: string; name: string; erasedAt?: string | null } }) {
   return (
     <p className="text-[11px] text-slate-700">
-      Member: <MemberNameLink id={m.id} name={m.name} className="font-bold text-tm-navy" />
+      Member: <MemberNameLink id={m.id} name={m.name} erasedAt={m.erasedAt} className="font-bold text-tm-navy" />
     </p>
   )
 }

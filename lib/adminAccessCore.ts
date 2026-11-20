@@ -297,6 +297,9 @@ export const SCREEN_ACCESS = withSupervisor({
   // The Owner's "Documents approved by staff" list with Undo (Owner; the
   // Partner views).
   staffDocDecisions: [] as AdminRole[],
+  // "Blocked re-sign-ups" (owner, 20 Nov 2026 — PR-11): numbers of erased
+  // accounts refused at sign-up. The Owner allows / keeps blocked; the Partner views.
+  blockedSignups: [] as AdminRole[],
   parents: ['admin', 'operations', 'partner'] as AdminRole[],
   // OWNER AND PARTNER AREAS (owner, 8 Oct 2026, item 3; Partner full rights
   // from 13 Oct): `[]` = the owner and the Partner (roleSatisfies admits both),

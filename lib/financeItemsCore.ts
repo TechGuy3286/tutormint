@@ -39,7 +39,7 @@ export type FinanceItem = {
   refundDueId?: string
   /** The member the row is about (owner, 11 Nov 2026: the name links to
    *  their admin page). Display name only. */
-  member?: { id: string; name: string }
+  member?: { id: string; name: string; erasedAt?: string | null }
 }
 
 /** Per-credit hints (lib/feeMatch creditHints): a one-tap suggestion, a

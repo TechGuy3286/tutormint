@@ -18,7 +18,7 @@
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { pageAll, pageAllIn } from '@/lib/pageAll'
+import { pageAll, pageAllIn, READ_CONCURRENCY } from '@/lib/pageAll'
 import { formatName } from '@/lib/formatName'
 import { normalisePkMobile } from '@/lib/phone'
 import { maskPhoneDisplay } from '@/lib/contactMaskCore'
@@ -43,6 +43,8 @@ import {
   inboxTab,
   INBOX_UNPAID_DAILY_CAP,
   INBOX_WINDOW_DAYS,
+  pkDayKeyOf,
+  storedInboxUsable,
   messageParents,
   parentLeftOut,
   pendingActivity,
@@ -169,7 +171,7 @@ async function loadActivity(admin: Admin, nowMs: number) {
   const [info, holds, phones] = await Promise.all([
     loadParentInfo(admin, parentIds),
     loadHolds(admin, parentIds),
-    pageAllIn(parentIds, (part, f, t) => admin.from('profiles').select('id, phone_number').in('id', part).order('id').range(f, t)),
+    pageAllIn(parentIds, (part, f, t) => admin.from('profiles').select('id, phone_number').in('id', part).order('id').range(f, t), 100, READ_CONCURRENCY),
   ])
   const phoneBy = new Map(phones.map((p) => [p.id as string, maskPhoneDisplay((p.phone_number as string | null) ?? null)]))
   const facts = (id: string) => {
@@ -197,7 +199,7 @@ async function buildInbox(admin: Admin, nowMs: number) {
 
   const sendsSince = new Date(Math.min(nowMs - INBOX_WINDOW_DAYS * DAY_MS, pkWeekStartMs(nowMs) - DAY_MS)).toISOString()
   const [sendRows, todayRows, owners, ownerId, support] = await Promise.all([
-    pageAllIn(ids, (part, f, t) => admin.from('whatsapp_update_sends').select(SEND_COLS).in('tutor_id', part).gte('created_at', sendsSince).order('id').range(f, t)),
+    pageAllIn(ids, (part, f, t) => admin.from('whatsapp_update_sends').select(SEND_COLS).in('tutor_id', part).gte('created_at', sendsSince).order('id').range(f, t), 100, READ_CONCURRENCY),
     pageAll<R>((f, t) =>
       admin.from('whatsapp_update_sends').select(SEND_COLS).gte('created_at', new Date(pkDayStartMs(nowMs)).toISOString()).is('undone_at', null).order('id').range(f, t) as never,
     ),
@@ -213,7 +215,7 @@ async function buildInbox(admin: Admin, nowMs: number) {
   const unpaidSentToday = todayRows.map(toSend).filter((s) => s.unpaid).length
 
   const assigneeIds = new Set<string>([...owners.values(), ...(ownerId ? [ownerId] : [])])
-  const staffRows = await pageAllIn([...assigneeIds], (part, f, t) => admin.from('profiles').select('id, full_name').in('id', part).order('id').range(f, t))
+  const staffRows = await pageAllIn([...assigneeIds], (part, f, t) => admin.from('profiles').select('id, full_name').in('id', part).order('id').range(f, t), 100, READ_CONCURRENCY)
   const staffName = new Map(staffRows.map((p) => [p.id as string, formatName((p.full_name as string | null) ?? null) || 'Staff']))
 
   // Sendable stats for the caps, hottest first.
@@ -318,7 +320,71 @@ export const INBOX_MEMO_TAG = 'interest-inbox'
 /** The whole inbox for the pages (every row; the page filters by tab, city,
  *  paid and staff). Held in memory for 20 s so changing a filter is quick;
  *  Send and Undo clear it (and always re-check against fresh data). */
-export const loadInterestInbox = memoize(() => loadInterestInboxFresh(), ['interest-inbox'], { revalidate: 20, tags: [INBOX_MEMO_TAG] })
+export const loadInterestInbox = memoize(() => loadInterestInboxStored(), ['interest-inbox'], { revalidate: 20, tags: [INBOX_MEMO_TAG] })
+
+// ------------------------------------------------------- stored snapshot ---
+// PR-11 (owner, 20 Nov 2026): the inbox took ~10 s to open — it was rebuilt from
+// thousands of ids on every visit. The built inbox is now kept as ONE row of
+// admin_summary ('interest-inbox'), rebuilt by the 1-minute cron and whenever
+// something it shows has changed since (a parent's interest event or view, a
+// send or Undo, a hold decision, a Not interested). The rules, counts and order
+// are exactly buildInbox's — the stored row IS its output. Send and Undo still
+// re-check against fresh data (recordInterestSend builds anew).
+
+export const INBOX_SNAPSHOT_KEY = 'interest-inbox'
+
+type StoredInbox = { builtAt: string; pkDay: string; inbox: Inbox }
+
+/** The newest moment anything the inbox shows changed (null = nothing found). */
+async function newestInboxChange(admin: Admin): Promise<string | null> {
+  const newest = (table: string, col: string, viewersOnly = false) => {
+    // A plain select of one column (the table name is a variable, so the
+    // generated row types are not needed here).
+    type Q = { not: (c: string, op: string, v: null) => Q; in: (c: string, v: string[]) => Q; order: (c: string, o: { ascending: boolean }) => Q; limit: (n: number) => Q; maybeSingle: () => PromiseLike<{ data: unknown }> }
+    let q = (admin.from(table as 'profiles').select(col) as unknown as Q).not(col, 'is', null)
+    if (viewersOnly) q = q.not('viewer_id', 'is', null).in('viewer_role', [...PARENT_VIEWER_ROLES])
+    return q
+      .order(col, { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then((r) => ((r.data as Record<string, unknown> | null)?.[col] as string | null) ?? null)
+  }
+  const all = await Promise.all([
+    newest('parent_interest_events', 'created_at'),
+    newest('profile_views', 'created_at', true),
+    newest('whatsapp_update_sends', 'created_at'),
+    newest('whatsapp_update_sends', 'undone_at'),
+    newest('interest_holds', 'decided_at'),
+    newest('interest_holds', 'detected_at'),
+    newest('follow_up_dismissals', 'created_at'),
+    newest('follow_up_dismissals', 'undone_at'),
+  ])
+  return all.filter((v): v is string => !!v).sort().pop() ?? null
+}
+
+/** Build the inbox now and store it (the cron, and an open that found it stale). */
+export async function refreshInterestInboxSnapshot(nowMs = Date.now()): Promise<Inbox> {
+  const inbox = await loadInterestInboxFresh(nowMs)
+  const admin = createAdminClient()
+  if (admin) {
+    const row: StoredInbox = { builtAt: new Date(nowMs).toISOString(), pkDay: pkDayKeyOf(nowMs), inbox }
+    await admin.from('admin_summary').upsert({ key: INBOX_SNAPSHOT_KEY, payload: row, computed_at: row.builtAt })
+  }
+  return inbox
+}
+
+/** The inbox for the page: the stored one when it is still current, else rebuilt. */
+export async function loadInterestInboxStored(nowMs = Date.now()): Promise<Inbox> {
+  const admin = createAdminClient()
+  if (!admin) return loadInterestInboxFresh(nowMs)
+  // The change check starts first; the build begins only if it has to.
+  const [stored, changed] = await Promise.all([
+    admin.from('admin_summary').select('payload').eq('key', INBOX_SNAPSHOT_KEY).maybeSingle().then((r) => (r.data?.payload as StoredInbox | null) ?? null),
+    newestInboxChange(admin).catch(() => new Date(nowMs).toISOString()),
+  ])
+  if (stored && storedInboxUsable(stored, nowMs, changed)) return stored.inbox
+  return refreshInterestInboxSnapshot(nowMs)
+}
 
 /** The whole inbox, read now (the summary job, the badge, reports). */
 export async function loadInterestInboxFresh(nowMs = Date.now()): Promise<Inbox> {
@@ -381,7 +447,7 @@ export async function loadParentInterestPanel(parentId: string, nowMs = Date.now
   }
   const rowBy = new Map(b.rows.map((r) => [r.tutorId, r]))
   const outside = [...mineByTutor.keys()].filter((id) => !rowBy.has(id))
-  const names = await pageAllIn(outside, (part, f, t) => admin.from('profiles').select('id, full_name, city').in('id', part).order('id').range(f, t))
+  const names = await pageAllIn(outside, (part, f, t) => admin.from('profiles').select('id, full_name, city').in('id', part).order('id').range(f, t), 100, READ_CONCURRENCY)
   const nameBy = new Map(names.map((p) => [p.id as string, p]))
   const rows = [...mineByTutor.entries()].map(([tid, mine]) => {
     const r = rowBy.get(tid)

@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from 'react'
 import AdminAvatar from '@/components/admin/AdminAvatar'
+import DeletedUserName from '@/components/admin/DeletedUserName'
+import { DELETED_ROW_CLASS } from '@/lib/deletedUserCore'
 import Link from 'next/link'
 import { NO_LONGER_AVAILABLE } from '@/lib/hiddenTuitionCore'
 import { useRouter } from 'next/navigation'
@@ -305,7 +307,9 @@ export default function ApplicationsClient({
   }
 
   function rowView(r: Row, context: View) {
-    const editable = mayEditStage(actor, r.ownerId) && !r.unavailable
+    // PR-11: an erased tutor — grey "Deleted user" row, read only, no buttons.
+    const gone = !!r.tutorErasedAt
+    const editable = mayEditStage(actor, r.ownerId) && !r.unavailable && !gone
     const hit = hits.has(r.id)
     const story = successStoryAction(r)
     const recipient = STAGE_RECIPIENT[r.stage]
@@ -316,9 +320,12 @@ export default function ApplicationsClient({
         key={r.id}
         data-section={r.section}
         data-opened={isOpened(r) ? '' : undefined}
-        className={`flex flex-wrap items-center gap-x-2 gap-y-0.5 px-2 py-0.5 text-[11px] ${hit ? 'bg-tm-tint-gold' : r.section === 'sent' ? 'bg-tm-bg' : ''} ${isOpened(r) ? 'opacity-75' : ''}`}
+        data-deleted-row={gone ? '' : undefined}
+        className={`flex flex-wrap items-center gap-x-2 gap-y-0.5 px-2 py-0.5 text-[11px] ${gone ? DELETED_ROW_CLASS : hit ? 'bg-tm-tint-gold' : r.section === 'sent' ? 'bg-tm-bg' : ''} ${isOpened(r) ? 'opacity-75' : ''}`}
       >
-        {context === 'tuition' ? (
+        {context === 'tuition' && gone ? (
+          <DeletedUserName erasedAt={r.tutorErasedAt} size="h-6 w-6 text-[9px]" px={24} className="w-40 shrink-0" />
+        ) : context === 'tuition' ? (
           <>
             <AdminAvatar name={r.tutorName} src={avatars[r.tutorId]?.src ?? null} gender={avatars[r.tutorId]?.gender ?? null} className="h-6 w-6 text-[9px]" px={24} />
             {canOpenMembers || r.tutorSlug ? (
@@ -373,6 +380,7 @@ export default function ApplicationsClient({
         <span className={r.section === 'sent' ? 'text-tm-green-deep' : 'text-gray-600'}>{statusLine(r)}</span>
         {tu && context === 'tuition' && <span className="text-gray-600">· Tutor updated {ago(tu.at, nowMs)}</span>}
         {searching && <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-black ${SECTION_CHIP[r.section]}`}>{SECTION_LABEL[r.section]}</span>}
+        {!gone && (
         <span className="ms-auto flex items-center gap-1">
           {story &&
             ('href' in story ? (
@@ -393,6 +401,7 @@ export default function ApplicationsClient({
             <MessageCircle aria-hidden size={12} /> {buttonLabel(recipient, hasNumber)}
           </button>
         </span>
+        )}
       </li>
     )
   }
@@ -449,9 +458,15 @@ export default function ApplicationsClient({
     const canSend = !!head.tutorPhone && active.length > 0
     return (
       <li key={key} className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 bg-tm-tint-navy px-2 py-1 text-[11px]">
+        <div className={`flex flex-wrap items-center gap-x-2 gap-y-0.5 px-2 py-1 text-[11px] ${head.tutorErasedAt ? DELETED_ROW_CLASS : 'bg-tm-tint-navy'}`}>
+          {head.tutorErasedAt ? (
+            <DeletedUserName erasedAt={head.tutorErasedAt} size="h-7 w-7 text-[9px]" px={28} />
+          ) : (
+            <>
           <AdminAvatar name={head.tutorName} src={avatars[key]?.src ?? null} gender={avatars[key]?.gender ?? null} className="h-7 w-7 text-[9px]" px={28} />
           <span className="font-black text-tm-navy">{head.tutorName}</span>
+            </>
+          )}
           {head.tutorPhone && <span className="font-mono text-slate-600">{head.tutorPhone}</span>}
           <span className="font-bold text-slate-700">{active.length} in progress</span>
           {updated && (
@@ -460,6 +475,7 @@ export default function ApplicationsClient({
               {updated.staffName ? ` by ${updated.staffName}` : ''}
             </span>
           )}
+          {!head.tutorErasedAt && (
           <span className="ms-auto flex items-center gap-1">
             <button
               type="button"
@@ -481,6 +497,7 @@ export default function ApplicationsClient({
               <MessageCircle aria-hidden size={12} /> {head.tutorPhone ? (active.length ? 'WhatsApp tutor' : 'Nothing in progress') : 'No tutor number'}
             </button>
           </span>
+          )}
         </div>
         {preview === key && <pre className="whitespace-pre-wrap border-b border-gray-100 bg-white px-3 py-2 font-sans text-[11px] text-slate-800">{message}</pre>}
         <ul className="divide-y divide-gray-100">{list.map((r) => rowView(r, 'tutor'))}</ul>

@@ -24,6 +24,7 @@ import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import type { AdminActor } from '@/lib/adminAuth'
 import { formatName } from '@/lib/formatName'
+import { deletedUserLine } from '@/lib/deletedUserCore'
 import { formerStaffName } from '@/lib/formerStaffCore'
 import { isHiddenTuition, NO_LONGER_AVAILABLE_STAFF } from '@/lib/hiddenTuitionCore'
 import { maskMobile } from '@/lib/smsHealthCore'
@@ -214,6 +215,8 @@ export type BoardRow = BoardItem & {
   jobId: string
   tutorId: string
   tutorName: string
+  /** PR-11: the tutor was erased on request — a grey "Deleted user" row, no actions. */
+  tutorErasedAt: string | null
   tutorSlug: string | null
   /** 0321•••••22 — never the full number. */
   tutorPhone: string | null
@@ -254,8 +257,8 @@ export async function loadApplicationBoard(): Promise<ApplicationBoard> {
   const jobIds = [...new Set(counted.map((a) => a.job_id))]
 
   const [people, tps, jobs, staff, eligible, fus, parents, consent] = await Promise.all([
-    pageAllIn<{ id: string; full_name: string | null; phone_number: string | null; whatsapp: string | null }, string>(tutorIds, (ids, from, to) =>
-      admin.from('profiles').select('id, full_name, phone_number, whatsapp').in('id', ids).order('id').range(from, to),
+    pageAllIn<{ id: string; full_name: string | null; phone_number: string | null; whatsapp: string | null; erased_at: string | null }, string>(tutorIds, (ids, from, to) =>
+      admin.from('profiles').select('id, full_name, phone_number, whatsapp, erased_at').in('id', ids).order('id').range(from, to),
     ),
     pageAllIn<{ id: string; slug: string | null }, string>(tutorIds, (ids, from, to) =>
       admin.from('tutor_profiles').select('id, slug').in('id', ids).order('id').range(from, to),
@@ -292,9 +295,10 @@ export async function loadApplicationBoard(): Promise<ApplicationBoard> {
       ...toItem(a, owners, jobCreated, hiddenJobs),
       jobId: a.job_id,
       tutorId: a.tutor_id,
-      tutorName: formatName(p?.full_name) || 'Tutor',
-      tutorSlug: slugBy.get(a.tutor_id) ?? null,
-      tutorPhone: phone ? maskMobile(phone) : null,
+      tutorName: p?.erased_at ? deletedUserLine(p.erased_at) : formatName(p?.full_name) || 'Tutor',
+      tutorErasedAt: p?.erased_at ?? null,
+      tutorSlug: p?.erased_at ? null : (slugBy.get(a.tutor_id) ?? null),
+      tutorPhone: phone && !p?.erased_at ? maskMobile(phone) : null,
       tutorVerified: eligible.has(a.tutor_id),
       jobRef: j?.ref_id ?? null,
       jobTx: j?.job_tx_id ?? null,

@@ -111,6 +111,8 @@ const VIEW_DEFINER_OK: Record<string, string> = {
 const NO_POLICY_OK: Record<string, string> = {
   application_parent_views: 'first time a parent opened their tuition page showing an application (migration 235, PR-06) — no parent id; service role only',
   whatsapp_update_sends: 'staff WhatsApp update sends with Undo stamps (migration 235, PR-06) — service role only; read on the server behind SCREEN_ACCESS.waUpdates',
+  erased_fingerprints: 'keyed HMAC fingerprints of an erased member’s mobiles and CNIC — never the number (migration 239, PR-11) — service role only; read by lib/eraseFingerprint at sign-up',
+  signup_block_attempts: 'refused re-sign-ups, last two digits only (migration 239, PR-11) — service role only; the Owner’s Blocked re-sign-ups list',
   address_suggestions: 'home address read from the CNIC back, a suggestion until the member confirms (migration 236, PR-07) — service role only; member reads own via /api/profile/address-suggestion, staff masked with a logged Show',
   application_forward_alerts: 'first forward of an application to the parent, once-only alert (migration 236, PR-07) — service role only',
   parent_interest_events: 'real parent shortlists and message/demo attempts on a tutor, the source of the parent-interest teasers (migration 237, PR-08) — service role only; no name, phone or email',

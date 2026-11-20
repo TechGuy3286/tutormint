@@ -15,6 +15,7 @@ import { parseBody, z } from '@/lib/validate'
 import { RELOAD_AND_RETRY } from '@/lib/tutorSubjectCap'
 import { cnicApprovedMarker } from '@/lib/docLocks'
 import { LOCKED_ERROR } from '@/lib/docLockCore'
+import { checkErasedBlock } from '@/lib/eraseFingerprint'
 
 // The identity card's three writes, for either role.
 //
@@ -94,6 +95,12 @@ export async function POST(request: Request) {
         { error: CNIC_FORMAT_HINT, fields: { cnicNumber: CNIC_FORMAT_HINT } },
         { status: 400 },
       )
+    }
+    // PR-11: the CNIC of an erased (closed) account cannot be used again until
+    // the Owner allows it.
+    const erasedBlock = await checkErasedBlock('cnic', cnicNumber, 'cnic')
+    if (erasedBlock.blocked) {
+      return NextResponse.json({ error: erasedBlock.message, blocked: true, fields: { cnicNumber: erasedBlock.message } }, { status: 403 })
     }
     // PR106-H4 §3.8: a CNIC already on ANOTHER account cannot be saved. The
     // guard is a SECURITY DEFINER function so it compares across accounts without

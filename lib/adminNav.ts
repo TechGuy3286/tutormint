@@ -51,6 +51,7 @@ export type AdminScreen =
   | 'reports'
   | 'reviews'
   | 'staffDocDecisions'
+  | 'blockedSignups'
   | 'inbox'
   | 'audit'
   | 'ads'
@@ -179,6 +180,9 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/audit', label: 'Audit', icon: 'scroll', screen: 'audit' },
       // Owner only (owner, 27 Oct 2026): remove a phone number used without consent.
       { href: '/admin/withdraw-contact', label: 'Withdraw a contact', icon: 'phone', screen: 'contactWithdraw' },
+      // Owner (PR-11, 20 Nov 2026): sign-ups refused because the number or CNIC
+      // belongs to an erased account; Allow / Keep blocked.
+      { href: '/admin/blocked-signups', label: 'Blocked re-sign-ups', icon: 'shieldAlert', screen: 'blockedSignups' },
     ],
   },
   {

@@ -873,6 +873,7 @@ export default async function AdminMemberPage({
         initialCursor={timeline.nextCursor}
         total={timeline.total}
         summaryLine={activity ? activitySummaryLine(activity) : null}
+        erasedAt={(profile.erased_at as string | null) ?? null}
       />
     </div>
   )

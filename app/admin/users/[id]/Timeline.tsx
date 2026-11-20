@@ -1,6 +1,7 @@
 import Link from 'next/link'
 
 import { TIMELINE_TABS, type TimelineGroup } from '@/lib/memberTimelineCore'
+import DeletedUserName from '@/components/admin/DeletedUserName'
 import MoreTimeline from './MoreTimeline'
 import TimelineRow, { type TimelineEvent } from './TimelineRow'
 
@@ -20,6 +21,7 @@ export default function Timeline({
   initialCursor,
   total,
   summaryLine,
+  erasedAt = null,
 }: {
   events: TimelineEvent[]
   memberId: string
@@ -28,6 +30,8 @@ export default function Timeline({
   total: number
   /** "2 sessions · 6 min in the last 30 days · last seen …" (Activity tab). */
   summaryLine: string | null
+  /** PR-11: the member was erased — grey rows under a "Deleted user" line. */
+  erasedAt?: string | null
 }) {
   return (
     <section className="space-y-3">
@@ -54,6 +58,8 @@ export default function Timeline({
         ))}
       </nav>
 
+      {erasedAt && <DeletedUserName erasedAt={erasedAt} />}
+
       {group === 'activity' && summaryLine && (
         <p className="rounded-2xl border border-gray-200 bg-white p-3 text-xs font-semibold text-tm-navy">{summaryLine}</p>
       )}
@@ -66,7 +72,7 @@ export default function Timeline({
         <>
           <ol className="space-y-2">
             {events.map((e) => (
-              <TimelineRow key={e.id} event={e} memberId={memberId} />
+              <TimelineRow key={e.id} event={e} memberId={memberId} deleted={!!erasedAt} />
             ))}
           </ol>
           <MoreTimeline
@@ -75,6 +81,7 @@ export default function Timeline({
             initialCursor={initialCursor}
             serverCount={events.length}
             total={total}
+            deleted={!!erasedAt}
           />
         </>
       )}

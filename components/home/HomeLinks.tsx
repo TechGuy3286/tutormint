@@ -4,6 +4,7 @@ import { cityPagesCachedForLinks, cityPagePath } from '@/lib/cityJobs'
 import { liveLandingPages } from '@/lib/landing'
 import { HOME_MORE_LINKS } from '@/lib/siteIdentity'
 import NewestTuitions from '@/components/seo/NewestTuitions'
+import CityTutorLinks from '@/components/seo/CityTutorLinks'
 import { newestTuitionLinks } from '@/lib/newestTuitions'
 
 // The homepage's link block (owner-approved, 13 Oct 2026): the city tuition-job
@@ -54,6 +55,9 @@ export default async function HomeLinks() {
           ))}
         </nav>
       )}
+      {/* The city tutor pages (owner, 20 Nov 2026 — PR-11, owner-authorised):
+          the same glass chips, names only, no counts. */}
+      <CityTutorLinks heading="Tutors by city" className={CITY_ROW} linkClassName={CITY_CHIP} />
       <NewestTuitions links={newest} variant="row" />
       {tutorPages.length > 0 && (
         <nav aria-label="Tutors by subject and city" className={ROW}>

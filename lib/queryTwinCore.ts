@@ -12,6 +12,8 @@ const HUB = /^\/tuition-jobs\/(?!school\/)[^/]+(?:\/[^/]+)?$/
 const TUTOR = /^\/tutor\/[^/]+$/
 
 const BROWSE = /^\/browse\/(tutors|tuitions)$/
+// PR-11: the city tutor pages and their female variant (?page=2, 3 …).
+const CITY_TUTORS = /^\/tutors\/[^/]+(?:\/female)?$/
 
 /** The twin to rewrite to, or null to serve the cached page.
  *  Browse (owner, 2 Nov 2026 — phone speed): only the bare address for a
@@ -22,6 +24,7 @@ export function queryTwinPath(pathname: string, params: URLSearchParams, signedI
   const has = (k: string) => (params.get(k) ?? '') !== ''
   if (pathname === '/blog' && (has('cluster') || has('page'))) return QUERY_TWIN_PREFIX + pathname
   if (HUB.test(pathname) && has('page') && params.get('page') !== '1') return QUERY_TWIN_PREFIX + pathname
+  if (CITY_TUTORS.test(pathname) && has('page') && params.get('page') !== '1') return QUERY_TWIN_PREFIX + pathname
   if (TUTOR.test(pathname) && params.get('preview') === '1') return QUERY_TWIN_PREFIX + pathname
   return null
 }

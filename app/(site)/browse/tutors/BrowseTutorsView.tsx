@@ -1,5 +1,7 @@
 import { Globe, Plus } from 'lucide-react'
 import { postTuitionHref } from '@/lib/signupLinks'
+import PageLinks from '@/components/seo/PageLinks'
+import CityTutorLinks from '@/components/seo/CityTutorLinks'
 import { browseTutorsMeta, browseTuitionsMeta } from '@/lib/browseMeta'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import TrackSearch from '@/components/TrackSearch'
@@ -460,9 +462,10 @@ export async function BrowseTutorsView({ sp, guest = false }: { sp: Record<strin
           </div>
         )}
 
-        {/* No numbered pagination (CLAUDE.md, 3 Sep 2026). MoreTutors appends
-            from the cursor this window ended on, and renders the Load more
-            button, the scroll trigger and the end-of-results line. */}
+        {/* MoreTutors appends from the cursor this window ended on, and renders
+            the Load more button, the scroll trigger and the end-of-results line.
+            Numbered page links below it for crawlers (owner, 20 Nov 2026 —
+            PR-11, as on /browse/tuitions). */}
         {tutors.length > 0 && (
           <MoreTutors
             params={{ ...tutorFiltersToParams(listFilters), ...(page > 1 ? { page: String(page) } : {}) }}
@@ -474,6 +477,18 @@ export async function BrowseTutorsView({ sp, guest = false }: { sp: Record<strin
             serverIds={tutors.map((t) => t.id)}
           />
         )}
+
+        {tutors.length > 0 && (
+          <PageLinks
+            path="/browse/tutors"
+            page={page}
+            pages={pages}
+            params={{ subject: filters.subject, city, area, mode, gender, feeMin, feeMax, q }}
+            label="Pages of tutors"
+          />
+        )}
+        {/* The city tutor pages (PR-11), so each is linked from here. */}
+        <CityTutorLinks />
 
         {/* Popular searches sit at the END of the page (owner, 5 Oct 2026) —
             after the full list and the load-more footer. Directly under the

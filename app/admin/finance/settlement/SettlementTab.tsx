@@ -14,6 +14,7 @@ import { loadPayproSettlement } from '@/lib/payproSettlement'
 import PayproSettlementCard from '@/components/admin/PayproSettlementCard'
 import SettlementCheck from './SettlementCheck'
 import SettlementsBoard from './SettlementsBoard'
+import { loadErasedAt } from '@/lib/memberAvatars'
 
 // The body of Admin → Finance (owner, 21 Oct 2026: the Finance and Settlement
 // check tabs became one page with one month picker). OWNER ONLY plus the
@@ -52,6 +53,9 @@ export default async function SettlementTab({ sp, extra }: { sp: { from?: string
   const cards = board ? financeCards(board.view, allItems) : null
   const group: FinanceGroup = pickFinanceGroup(sp.f, counts)
   const page = pageSlice(allItems.filter((i) => i.group === group), shownCount(sp.n))
+  // PR-11: an erased member on a shown row reads "Deleted user · erased <date>".
+  const erased = await loadErasedAt(page.rows.map((i) => i.member?.id))
+  for (const i of page.rows) if (i.member && erased[i.member.id]) i.member = { id: i.member.id, name: 'Deleted user', erasedAt: erased[i.member.id] }
   const views: { id: string; name: string; view: SettlementView }[] = []
   for (const g of health.gateways) {
     if (!g.connected) continue

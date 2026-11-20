@@ -24,6 +24,7 @@ import { recipientProblem, isSyntheticAddress } from '@/lib/notify/recipient'
 import { loadSupportWhatsApp } from '@/lib/applicationTemplates'
 import { deleteVideo, youtubeConfigured } from '@/lib/youtube'
 import { revalidateLanding } from '@/lib/landingRevalidate'
+import { recordErasedFingerprints } from '@/lib/eraseFingerprint'
 import {
   DELETED_MESSAGE,
   ERASE_BUCKETS,
@@ -236,13 +237,13 @@ export async function runErase(erasure: Erasure): Promise<RunResult> {
   const id = erasure.member_id
   const now = new Date().toISOString()
 
-  const { data: p } = await admin.from('profiles').select('id, role, admin_role, erased_at, email, avatar_url, city').eq('id', id).maybeSingle()
+  const { data: p } = await admin.from('profiles').select('id, role, admin_role, erased_at, email, avatar_url, city, phone_number, whatsapp, secondary_phone, cnic_number').eq('id', id).maybeSingle()
   const problem = eraseTargetProblem(p as never, { retry: true })
   if (problem) {
     await admin.from('account_erasures').update({ status: 'failed', error: problem }).eq('id', erasure.id)
     return { ok: false, error: problem }
   }
-  const prof = p as { role: string; email: string | null; avatar_url: string | null; city: string | null }
+  const prof = p as { role: string; email: string | null; avatar_url: string | null; city: string | null; phone_number: string | null; whatsapp: string | null; secondary_phone: string | null; cnic_number: string | null }
 
   try {
     // 1 — the confirmation email, BEFORE the address is erased.
@@ -256,7 +257,7 @@ export async function runErase(erasure: Erasure): Promise<RunResult> {
     // 2 — what to remove from storage.
     const { data: tp } = await admin
       .from('tutor_profiles')
-      .select('id, slug, city, video_youtube_id, avatar_url, cover_image_url, cnic_front_url, cnic_back_url, selfie_url, video_intro_url, experience_letter_url')
+      .select('id, slug, city, phone_number, whatsapp_number, video_youtube_id, avatar_url, cover_image_url, cnic_front_url, cnic_back_url, selfie_url, video_intro_url, experience_letter_url')
       .eq('id', id)
       .maybeSingle()
     const { data: docs } = await admin.from('user_documents').select('original_path, preview_path').eq('user_id', id)
@@ -296,6 +297,17 @@ export async function runErase(erasure: Erasure): Promise<RunResult> {
     const hashes = [...new Set([...(((prev?.slug_hashes as string[] | null) ?? [])), ...[...slugs].filter((s) => !s.startsWith('deleted-')).map(slugHash)])]
     const keptCity = (prev?.city as string | null) ?? city
     await admin.from('account_erasures').update({ slug_hashes: hashes, city: keptCity }).eq('id', erasure.id)
+
+    // 4b — the re-sign-up block (PR-11): keyed fingerprints of every mobile
+    // and the CNIC number, stored BEFORE they are cleared below. Never fails
+    // the erase; without ERASE_FINGERPRINT_SECRET it is skipped and noted.
+    const fp = await recordErasedFingerprints(admin, {
+      memberId: id,
+      erasureId: erasure.id,
+      erasedAtIso: now,
+      mobiles: [prof.phone_number, prof.whatsapp, prof.secondary_phone, t.phone_number, t.whatsapp_number],
+      cnic: prof.cnic_number,
+    })
 
     // 5 — the rows.
     const must = async (label: string, q: PromiseLike<{ error: { message: string } | null }>) => {
@@ -360,7 +372,7 @@ export async function runErase(erasure: Erasure): Promise<RunResult> {
     // 7 — done.
     const byName = erasure.source === 'member' ? 'the member' : erasure.requested_by_name || 'Owner'
     const line = eraseAuditLine({ reason: erasure.reason ?? 'Requested by the member', byName, at: now })
-    const summary = { files: storage.removed, filesFailed: storage.failed, emailed, youtube, role: prof.role }
+    const summary = { files: storage.removed, filesFailed: storage.failed, emailed, youtube, role: prof.role, fingerprints: fp.note ?? fp.stored }
     await must(
       'erasure',
       admin

@@ -11,6 +11,7 @@ import { sendOtp, verifyOtp, consumeOtp } from '@/lib/otp'
 import { activatePausedIfListed } from '@/lib/payments/goLive'
 import { normalisePkMobile, formatPkMobile, syntheticEmail, isSyntheticEmail } from '@/lib/phone'
 import { numberSavedElsewhere, NUMBER_TAKEN_MESSAGE } from '@/lib/phoneAccount'
+import { checkErasedBlock } from '@/lib/eraseFingerprint'
 import { recordTutorSelfChanges } from '@/lib/fieldHistory'
 import { RELOAD_AND_RETRY } from '@/lib/tutorSubjectCap'
 
@@ -81,6 +82,13 @@ export async function POST(request: Request) {
   const admin = createAdminClient()
   if (admin && (await numberSavedElsewhere(admin, phone, user.id))) {
     return NextResponse.json({ error: NUMBER_TAKEN_MESSAGE }, { status: 409 })
+  }
+
+  // PR-11: the number of an erased (closed) account — no code is sent and it
+  // cannot be verified, until the Owner allows it.
+  const erasedBlock = await checkErasedBlock('mobile', phone, 'verify')
+  if (erasedBlock.blocked) {
+    return NextResponse.json({ error: erasedBlock.message, blocked: true }, { status: 403 })
   }
 
   // PR17 §3.2 — once a number is VERIFIED it is read-only; a change goes through
