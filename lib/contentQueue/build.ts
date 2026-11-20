@@ -244,7 +244,7 @@ const REASON_TOPIC: Record<string, { label: string; title: string; notes: string
     label: 'paying outside TutorMint',
     title: 'Why you should never pay a tutor outside TutorMint',
     notes:
-      'Some users are being asked to pay outside the platform. Explain why paying off-platform is risky, that TutorMint takes no commission so there is no reason to, and how to report a request to pay outside.',
+      'Some users are being asked to pay outside the platform. Explain why paying off-platform is risky and how to report a request to pay outside.',
   },
   fake_profile: {
     label: 'fake or impersonated profiles',

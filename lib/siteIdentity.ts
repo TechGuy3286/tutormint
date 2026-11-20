@@ -21,18 +21,18 @@ import { SUPPORT_EMAIL_FALLBACK, SUPPORT_PHONE_SCHEMA, SUPPORT_WHATSAPP_DISPLAY 
 export const SITE_NAME = 'TutorMint'
 
 /** The tagline, exactly. */
-export const SITE_TAGLINE = 'Free to join. No commission. No middleman.'
+export const SITE_TAGLINE = 'Free to join. Verified tutors. Contact tutors directly.'
 
 /** The one-sentence description — the homepage meta description and the Organization description. */
 export const SITE_DESCRIPTION =
-  'TutorMint connects parents with verified home and online tutors across Pakistan, and helps tutors find tuitions — free to join, no commission, no middleman.'
+  'TutorMint connects parents with verified home and online tutors across Pakistan, and helps tutors find tuitions — free to join, and you contact tutors directly.'
 
 /** The same thing, one sentence for each side. */
 export const SITE_TWO_SIDED = {
   parents:
     'Parents, schools and academies browse verified home and online tutors by subject, level, city, area, gender and teaching mode, post a tuition free, and contact tutors directly.',
   tutors:
-    'Tutors get verified, build a public profile with their subjects, levels and areas, and apply to tuition and teaching jobs across Pakistan — TutorMint takes no commission.',
+    'Tutors get verified, build a public profile with their subjects, levels and areas, and apply to tuition and teaching jobs across Pakistan.',
 }
 
 /** The logo lockup (mark + wordmark, no tagline line) — the clean file made by
@@ -48,7 +48,7 @@ export const SITE_FEATURES: string[] = [
   'Verified tutors — CNIC and photo checked by staff',
   'Browse tutors by subject, level, city, area, gender and teaching mode',
   'Parents post a tuition free and tutors apply',
-  'Contact tutors directly — no commission',
+  'Contact tutors directly',
   'Notify me when a matching tutor joins',
   'Tuition jobs for tutors across Pakistan',
   'Verified tutor profiles with subjects, levels and areas',
@@ -62,13 +62,13 @@ export const SITE_HOW_IT_WORKS = {
     'Browse tutors free — no account needed.',
     'Verify your mobile number to post a tuition, message a tutor or request a demo lesson.',
     'Read profiles, compare, and talk to the tutor directly.',
-    'Agree the fee with the tutor. TutorMint takes no commission.',
+    'Agree the fee directly with the tutor.',
   ],
   tutors: [
     'Sign up free and set your subjects, levels, city and areas.',
     'Get verified: pay the one-time Verification Fee and send your CNIC, a profile photo and a selfie.',
     'Apply to tuition and teaching jobs that match you.',
-    'Keep everything you earn — no commission, no middleman.',
+    'Agree your fee directly with parents.',
   ],
 }
 
@@ -100,7 +100,7 @@ export const HOME_CARDS: { title: string; points: string[]; links: { label: stri
   },
   {
     title: 'For tutors',
-    points: ['Get verified', 'Find tuitions near you', 'No commission'],
+    points: ['Get verified', 'Find tuitions near you', 'Free to join'],
     links: [
       { label: 'Become a tutor', href: '/register' },
       { label: 'Tuition jobs', href: '/browse/tuitions' },
@@ -197,7 +197,7 @@ export function llmsText(): string {
     ...LLMS_CITY_PAGES.map((c) => `- [Tuition jobs in ${c.name}](${absoluteUrl(`/tuition-jobs/${c.slug}`)})`),
     '',
     '## Costs',
-    'Joining and browsing are free. Tutors pay a one-time Verification Fee to get verified, and optional membership plans add more applications and contact options. TutorMint takes no commission on any tuition. Current details are on the membership plans page:',
+    'Joining and browsing are free. Tutors pay a one-time Verification Fee to get verified, and optional membership plans add more applications and contact options. Current details are on the membership plans page:',
     `- [Membership plans](${absoluteUrl('/membership-plans')})`,
     '',
     '## Support',

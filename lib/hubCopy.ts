@@ -89,7 +89,7 @@ export function hubTitle(kind: HubKind, name: string, count: number, shortName?:
 export function hubDescription(kind: HubKind, name: string, f: HubFacts): string {
   const levels = f.levels.length ? ` for ${words(f.levels)}` : ''
   return seoDescription(
-    `${f.count} open ${hubNoun(kind, name)}${levels}, updated daily. Free to join, no commission — apply on TutorMint.`,
+    `${f.count} open ${hubNoun(kind, name)}${levels}, updated daily. Free to join — apply on TutorMint.`,
   )
 }
 
@@ -137,7 +137,7 @@ export function hubFaq(kind: HubKind, name: string, f: HubFacts): Faq[] {
   }
   out.push({
     q: `How do I apply for ${kind === 'school' ? `a job at ${name}` : `one of these jobs`}?`,
-    a: `Open the post and press Apply. You need a TutorMint tutor account with a verified mobile number, and a verified profile to send an application. Joining is free and TutorMint takes no commission on any job.`,
+    a: `Open the post and press Apply. You need a TutorMint tutor account with a verified mobile number, and a verified profile to send an application. Joining is free.`,
   })
   return out
 }
@@ -166,7 +166,7 @@ export function landingFaq(
       },
       {
         q: `How do I contact a tutor?`,
-        a: `Browsing is free and needs no account. To message a tutor or ask for a demo lesson, sign up as a parent and verify your mobile number. TutorMint takes no commission.`,
+        a: `Browsing is free and needs no account. To message a tutor or ask for a demo lesson, sign up as a parent and verify your mobile number.`,
       },
     ]
   }
@@ -186,7 +186,7 @@ export function landingFaq(
     },
     {
       q: `How do I apply for a tuition?`,
-      a: `Open the tuition and press Apply. You need a TutorMint tutor account with a verified mobile number, and a verified profile to send an application. Joining is free and TutorMint takes no commission.`,
+      a: `Open the tuition and press Apply. You need a TutorMint tutor account with a verified mobile number, and a verified profile to send an application. Joining is free.`,
     },
   ]
 }

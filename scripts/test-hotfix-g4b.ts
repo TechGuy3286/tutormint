@@ -37,8 +37,9 @@ test('the PayPro request (now sent from the choice screen) matches the working c
   assert.match(HOOK, /body: JSON\.stringify\(returnTo \? \{ planCode, returnTo \} : \{ planCode \}\)/, 'the package, no payment method → the online path')
   // PayPro retired (owner, 26 Oct 2026): the choice screen no longer starts a PayPro checkout.
   assert.doesNotMatch(read('app/(site)/pay/choose/PayChoice.tsx'), /useVerifyCheckout\(/, 'the choice screen starts no PayPro checkout')
-  // reuse/replace of a pending invoice is the route's job (unchanged, proven)
-  assert.match(ROUTE, /startPayproCheckout\(/, 'routes through startPayproCheckout (reuses a < 24h pending invoice)')
+  // PR-12 (owner, 20 Nov 2026): PayPro has ended — the route refuses the card path.
+  assert.doesNotMatch(ROUTE, /startPayproCheckout\(/, 'no PayPro checkout any more')
+  assert.match(ROUTE, /code: 'use_transfer'/, 'the card path says "use bank transfer"')
 })
 
 test('redirect navigates; any non-redirect sets a reason, never a silent/raw failure', () => {

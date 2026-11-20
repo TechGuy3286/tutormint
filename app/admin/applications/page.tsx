@@ -5,6 +5,7 @@ import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadApplicationBoard } from '@/lib/applicationTracking'
 import { loadForwardBoard } from '@/lib/applicantForwards'
 import { legacyApplicationsHref, parseStaffFilter, parseStageFilter } from '@/lib/applicationStageCore'
+import { seesAllRows } from '@/lib/staffAllRows'
 import { ADMIN_PAGE_SIZE, shownCount } from '@/lib/adminPagingCore'
 import { applicationsView } from '@/lib/applicationsPagingCore'
 
@@ -45,7 +46,8 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
     loadAppTemplates(),
     loadSupportWhatsApp(),
   ])
-  const staffFilter = parseStaffFilter(sp.staff, actor)
+  // PR-12: an account with the "every row" grant opens on All, like the Owner.
+  const staffFilter = parseStaffFilter(sp.staff, actor, await seesAllRows(actor, SCREEN_ACCESS.applicationsAll))
   // PR-04: tutor pictures (the default + No photo tag when none).
   const avatars = await loadAvatarFacts(board.rows.map((r) => r.tutorId))
   const stageFilter = parseStageFilter(sp.show)

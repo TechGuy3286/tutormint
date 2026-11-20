@@ -132,7 +132,7 @@ export function factsSheetText(facts: PlatformFacts = buildPlatformFacts()): str
         return `${p.name} — ${powers.join(', ')}`
       })
       .join('; ')}. Only a Featured parent can complete a hire.`,
-    '- TutorMint takes no commission. It never promises tuitions, replies, applications, hires or income — only visibility.',
+    '- Never write "no commission", "no middleman" or "no agent": TutorMint works with academies and agents. TutorMint never promises tuitions, replies, applications, hires or income — only visibility.',
     `- Payments are not refundable: the ${fee} and plans carry no refund.`,
     '- A demo is a demo lesson. Never call it free.',
   ]

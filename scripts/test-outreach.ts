@@ -97,7 +97,8 @@ test('item 2: the Verified badge carries no Urdu label', () => {
 })
 
 test('item 3: new tagline, "demo lesson", no academy fee example on /faq', () => {
-  assert.ok(readFileSync('components/FooterTagline.tsx', 'utf8').includes('Free to join. No commission. No middleman.'))
+  // PR-12: the footer renders SITE_TAGLINE ("Free to join. Verified tutors. Contact tutors directly.").
+  assert.ok(readFileSync('components/FooterTagline.tsx', 'utf8').includes('{SITE_TAGLINE}'))
   const faq = readFileSync('lib/faqContent.ts', 'utf8')
   assert.ok(!/free demo/i.test(faq))
   assert.ok(!faq.includes('An academy takes half the first month') && !faq.includes('Academy pehle mahine ki aadhi fee'))

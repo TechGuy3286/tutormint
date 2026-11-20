@@ -45,6 +45,7 @@ import {
   INBOX_WINDOW_DAYS,
   pkDayKeyOf,
   storedInboxUsable,
+  inboxSnapshotDiff,
   messageParents,
   parentLeftOut,
   pendingActivity,
@@ -537,4 +538,39 @@ export async function recordInterestSend(tutorId: string, actor: AdminActor, opt
     detail: { channel: 'interest', from: opts.from, send_id: data.id, parents: row.pending.parentIds.length, kinds: row.pendingKinds },
   })
   return { ok: true, id: data.id as string, waHref: waSendHref(row.msisdn, row.message) }
+}
+
+// ------------------------------------------------- stored-copy check (PR-12) ---
+
+export type InboxSnapshotCheck = {
+  stored: { builtAt: string; pkDay: string; ageSeconds: number; usableNow: boolean } | null
+  newestChange: string | null
+  /** A fresh build for the stored copy's own moment vs the stored copy. */
+  sameMoment: string[]
+  /** A fresh build vs the same build after a JSON round trip (what jsonb keeps). */
+  roundTrip: string[]
+  rows: { fresh: number; stored: number | null }
+}
+
+/**
+ * READ-ONLY: build the inbox for the stored copy's own moment and compare —
+ * nothing is written (no upsert, no memo). Used by scripts/check-inbox-stored.ts.
+ */
+export async function compareInboxSnapshot(nowMs = Date.now()): Promise<InboxSnapshotCheck> {
+  const admin = createAdminClient()
+  if (!admin) throw new Error('no admin client')
+  const [stored, newestChange] = await Promise.all([
+    admin.from('admin_summary').select('payload').eq('key', INBOX_SNAPSHOT_KEY).maybeSingle().then((r) => (r.data?.payload as StoredInbox | null) ?? null),
+    newestInboxChange(admin),
+  ])
+  const at = stored ? Date.parse(stored.builtAt) : nowMs
+  const fresh = await loadInterestInboxFresh(at)
+  const trip = JSON.parse(JSON.stringify(fresh)) as Inbox
+  return {
+    stored: stored ? { builtAt: stored.builtAt, pkDay: stored.pkDay, ageSeconds: Math.round((nowMs - at) / 1000), usableNow: storedInboxUsable(stored, nowMs, newestChange) } : null,
+    newestChange,
+    sameMoment: stored ? inboxSnapshotDiff(fresh, stored.inbox) : ['no stored copy'],
+    roundTrip: inboxSnapshotDiff(fresh, trip),
+    rows: { fresh: fresh.rows.length, stored: stored ? stored.inbox.rows.length : null },
+  }
 }

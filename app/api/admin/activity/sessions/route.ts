@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { checkAdminRole } from '@/lib/adminAuth'
+import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadActivitySessions } from '@/lib/adminActivity'
 
 // Load-more for the member activity session list (PR99 §2). OWNER/ADMIN ONLY —
@@ -9,7 +9,7 @@ import { loadActivitySessions } from '@/lib/adminActivity'
 export const runtime = 'nodejs'
 
 export async function GET(request: Request) {
-  const gate = await checkAdminRole('admin')
+  const gate = await checkAdminRole(...SCREEN_ACCESS.memberSessions)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
 
   const url = new URL(request.url)

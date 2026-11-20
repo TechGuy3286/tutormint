@@ -6,7 +6,7 @@
  * The pure rules of the social creatives (lib/social/copy.ts). The render module
  * imports next/og and cannot run under tsx, so the 12 combinations are proven by
  * the live smoke; these pin what must never regress:
- *   - the word "commission" appears EXACTLY ONCE on every template (the tagline);
+ *   - the tagline appears EXACTLY ONCE on every template, and never "commission" (PR-12);
  *   - the fixed brand band's text is present on every template;
  *   - the caption carries the tagline once, the profile URL, the handles and 5
  *     hashtags, and an announcement caption leads with the headline.
@@ -50,11 +50,11 @@ function data(over: Partial<SocialData> = {}): SocialData {
 
 // ---- the single-"commission" rule -----------------------------------------
 
-test('every template says "commission" exactly once — only in the tagline', () => {
+test('every template carries the tagline exactly once and never says "commission" or "middleman" (PR-12)', () => {
   for (const template of SOCIAL_TEMPLATES) {
-    const text = socialText(template, data({ headline: 'New verified tutors this month' })).join(' \n ').toLowerCase()
-    const count = (text.match(/commission/g) ?? []).length
-    assert.equal(count, 1, `${template}: expected 1 "commission", got ${count}`)
+    const text = socialText(template, data({ headline: 'New verified tutors this month' })).join(' \n ')
+    assert.equal(text.split(TAGLINE).length - 1, 1, `${template}: tagline once`)
+    assert.doesNotMatch(text, /commission|middle ?man/i, template)
   }
 })
 
@@ -91,7 +91,8 @@ test('the teaching chip follows the online rule', () => {
 
 test('the caption carries the tagline once, the URL, the handles and 5 hashtags', () => {
   const cap = buildCaption('spotlight', data())
-  assert.equal((cap.match(/commission/g) ?? []).length, 1)
+  assert.equal(cap.split(TAGLINE).length - 1, 1)
+  assert.doesNotMatch(cap, /commission|middle ?man/i)
   assert.ok(cap.includes('https://www.tutormint.org/tutor/ali-raza'))
   assert.ok(cap.includes(HANDLE))
   assert.ok(cap.includes(X_HANDLE))

@@ -486,7 +486,7 @@ export function buildIntro(kind: LandingKind, subject: string, city: string, f: 
   return (
     `${f.count} open ${subject} tuition${f.count === 1 ? '' : 's'} in ${city}${modeClause}${areaClause}.` +
     budget +
-    ` These are live requests, newest first — free to join, no commission.`
+    ` These are live requests, newest first — free to join.`
   )
 }
 

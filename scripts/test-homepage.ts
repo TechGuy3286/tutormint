@@ -27,7 +27,8 @@ test('a) the H1 is the approved text, in the same styling', () => {
 test('b) two cards directly below the buttons, from lib/siteIdentity, with real routes', () => {
   assert.deepEqual(HOME_CARDS.map((c) => c.title), ['For parents', 'For tutors'])
   assert.deepEqual(HOME_CARDS[0].points, ['Find verified tutors free', 'Post a tuition free', 'Contact tutors directly'])
-  assert.deepEqual(HOME_CARDS[1].points, ['Get verified', 'Find tuitions near you', 'No commission'])
+  // PR-12 (owner-authorised): 'No commission' became 'Free to join'.
+  assert.deepEqual(HOME_CARDS[1].points, ['Get verified', 'Find tuitions near you', 'Free to join'])
   assert.deepEqual(HOME_CARDS[0].links, [
     { label: 'Browse tutors', href: '/browse/tutors' },
     { label: 'Post a tuition', href: '/register?next=%2Fparent%2Fdashboard%2Fpost-job&role=parent' },
@@ -102,10 +103,11 @@ test('nothing else on the homepage changed', () => {
   assert.equal(brandLine(260), '250+ verified tutors across Pakistan')
   // "HIRE" is gone (owner-approved, 15 Oct 2026) — and nothing else with it.
   assert.ok(!home.replace(/\/\/.*$/gm, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '').includes('HIRE'))
-  assert.ok(home.includes('Free to Join &bull; No Commission &bull; No Middleman &bull; Live Demo'))
-  assert.ok(home.includes('کوئی فیس نہیں &bull; کوئی کمیشن نہیں &bull; کوئی مڈل مین نہیں &bull; لائیو ڈیمو'))
+  // PR-12 (owner-authorised for this purpose only): no commission / middleman wording.
+  assert.ok(home.includes('Free to Join &bull; Verified Tutors &bull; Contact Directly &bull; Live Demo'))
+  assert.ok(home.includes('کوئی فیس نہیں &bull; تصدیق شدہ ٹیوٹرز &bull; براہِ راست رابطہ &bull; لائیو ڈیمو'))
   assert.ok(home.includes('label="Find Tutors / Teachers"') && home.includes('label="Find Tuitions / Jobs"'))
-  assert.equal(SITE_TAGLINE, 'Free to join. No commission. No middleman.')
+  assert.equal(SITE_TAGLINE, 'Free to join. Verified tutors. Contact tutors directly.')
   // Not added: "How it works", the features list, live counts. No count
   // anywhere on the homepage (owner PR-09, 19 Nov 2026).
   assert.ok(!/\.count\}|cachedBrandLine|verifiedBadgeTutorCount/.test(home + read('components/home/HomeLinks.tsx')))

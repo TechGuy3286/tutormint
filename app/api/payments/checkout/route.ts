@@ -3,25 +3,15 @@ import { serverError } from '@/lib/errorResponse'
 import { createClient } from '@/lib/supabase/server'
 import { getProvider, newPaymentReference } from '@/lib/payments'
 import { manual } from '@/lib/payments/manual'
-import { pproVisibleFor, startPayproCheckout, toPayproMobile } from '@/lib/payments/paypro'
-import { isSyntheticEmail } from '@/lib/phone'
 import { logActivity } from '@/lib/activityLog'
 import { parseBody, z, text } from '@/lib/validate'
-import { paymentReturnTo } from '@/lib/returnTo'
-import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
-import { bankTransferOn, getGatewaySettings, onlineCheckoutOn, PAYPRO_RETIRED, recordGatewayEvent } from '@/lib/payments/gatewaySettings'
+import { bankTransferOn, getGatewaySettings } from '@/lib/payments/gatewaySettings'
 import { PAYPRO_CLOSED_MESSAGE } from '@/lib/payments/payproRetireCore'
 import { RELOAD_AND_RETRY } from '@/lib/tutorSubjectCap'
 import { upgradeRefusal } from '@/lib/upgradesPausedCore'
 
-// node:https (PayPro) needs the Node runtime, not edge.
 export const runtime = 'nodejs'
-// PayPro's own request timeout is 15s for the token and 15s for create-order
-// (lib/payments/paypro rawRequest), so a slow gateway can need up to ~30s to
-// return a CLEAN 502 "payment_failed". Without this the function was killed at
-// the platform default and the client saw an opaque 504 → the onboarding final
-// screen's generic "unavailable" (HOTFIX-G4b). 30s lets the real outcome return.
 export const maxDuration = 30
 
 // Start a purchase.
@@ -42,7 +32,7 @@ export const maxDuration = 30
 
 const CheckoutBody = z.object({
   planCode: text({ min: 1, max: 64, label: 'Plan' }),
-  // 'card' (default) → PayPro; 'transfer' → the bank/wallet transfer order page.
+  // 'transfer' → the bank/wallet transfer order page; 'card' is refused (PayPro ended).
   method: z.enum(['card', 'transfer'], { message: RELOAD_AND_RETRY }).optional(),
   // The page to come back to after paying the fee (owner, 15 Oct 2026).
   returnTo: z.string({ message: RELOAD_AND_RETRY }).max(512, { message: RELOAD_AND_RETRY }).optional(),
@@ -101,12 +91,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Please complete your profile first.' }, { status: 403 })
   }
 
-  // PR106-G2 §0: the launch-phase "test emails only" gate is GONE from the
-  // top of the route. Bank TRANSFER is always available to any signed-in
-  // member (it does not depend on the gateway), and CARD is open to EVERY
-  // tutor the moment PayPro is LIVE — both decided below (pproVisibleFor /
-  // the transfer branch), through the one onlinePaymentOpen() fact. A mobile
-  // signup whose auth email is synthetic is no longer blocked.
+  // Bank TRANSFER is available to any signed-in member (PayPro card checkout
+  // ended — PR-12). A mobile signup whose auth email is synthetic is not blocked.
 
   const audience = profile.role === 'tutor' ? 'tutor' : 'parent'
   if (plan.audience !== audience) {
@@ -120,9 +106,7 @@ export async function POST(request: Request) {
   // PR106-H3). Refuse a second checkout once it is paid — the flag is set by
   // activate.ts on approval, and an already-approved fee payment is the same
   // fact before the sweep runs. This is what stops a tutor being charged twice
-  // for it (the Annie double-pay). A PENDING fee invoice is NOT blocked:
-  // startPayproCheckout reuses a pending < 24h invoice, which is the legitimate
-  // "continue your payment" path.
+  // for it (the Annie double-pay).
   if (audience === 'tutor' && plan.code === 'verified') {
     const { data: tp } = await supabase
       .from('tutor_profiles')
@@ -175,9 +159,8 @@ export async function POST(request: Request) {
     }
   }
 
-  // The member can choose to pay by bank/wallet transfer instead of card. When
-  // they do (or PayPro is not configured), we skip the gateway and send them to
-  // the transfer order page. Default is card → PayPro.
+  // Bank/wallet transfer is the only way to pay (PayPro ended, PR-12): the
+  // member is sent to the transfer order page.
   const wantsTransfer = body.method === 'transfer'
 
   // Payment gateways (owner, 6 Oct 2026, item 19): a method the owner has turned
@@ -193,96 +176,11 @@ export async function POST(request: Request) {
       { status: 400 },
     )
   }
-  // PayPro is retired (owner, 26 Oct 2026): no new PayPro checkout, whatever
-  // the gateway settings say. Orders started before the change still confirm
-  // through /paypro/uis until the cut-off (lib/payments/payproRetireCore).
-  if (!wantsTransfer && PAYPRO_RETIRED) {
-    return NextResponse.json({ error: PAYPRO_CLOSED_MESSAGE, code: 'use_transfer' }, { status: 409 })
-  }
-  if (!wantsTransfer && !onlineCheckoutOn(gateways)) {
-    return NextResponse.json(
-      transferOn
-        ? { error: 'Online payment is not available right now. Please pay by bank transfer.', code: 'use_transfer' }
-        : { error: 'Payments are not available right now. Please try again later.', code: 'method_off' },
-      { status: transferOn ? 409 : 400 },
-    )
-  }
-
-  // CARD via PayPro — open to EVERY tutor when the gateway is LIVE
-  // (pproVisibleFor → onlinePaymentOpen). When it is not available for this
-  // account (sandbox for a normal member / unconfigured), DO NOT fall through
-  // to a dev simulator or a mislabelled row: tell the UI to use the always-
-  // available bank transfer instead (the payment screen shows that card).
+  // PayPro has ended (owner, 20 Nov 2026 — PR-12; checkout retired 26 Oct):
+  // every payment is a bank transfer with a receipt. A card request is refused
+  // with the plain "pay by bank transfer" line.
   if (!wantsTransfer) {
-    if (!pproVisibleFor(profile)) {
-      return NextResponse.json(
-        // Item 19: only point at bank transfer while it is switched on.
-        transferOn
-          ? { error: 'Online card payment isn’t open yet — please pay by bank transfer.', code: 'use_transfer' }
-          : { error: 'Online payment isn’t open yet. Please try again later.', code: 'method_off' },
-        { status: 409 },
-      )
-    }
-    // The amount is the plan price read above — never the client's.
-    const rawEmail = typeof profile.email === 'string' ? profile.email : ''
-    const started = await startPayproCheckout({
-      userId: user.id,
-      planCode: plan.code as string,
-      amountPkr: plan.price_pkr as number,
-      customer: {
-        name: (profile.full_name as string) ?? 'Customer',
-        mobile: toPayproMobile(profile.phone_number as string | null),
-        email: rawEmail && !isSyntheticEmail(rawEmail) ? rawEmail : '',
-      },
-      utm: {
-        source: (profile.utm_source as string) ?? null,
-        medium: (profile.utm_medium as string) ?? null,
-        campaign: (profile.utm_campaign as string) ?? null,
-        content: (profile.utm_content as string) ?? null,
-      },
-    })
-    if (!started.ok) {
-      // Never surface a database or gateway message to the member (PR66 §2).
-      // HOTFIX-PAY2: distinguish PayPro being down (retry) from PayPro DECLINING
-      // the order we sent (our bug) so the UI shows the honest line. The real
-      // reason + message are logged for staff, never shown.
-      console.error('[paypro] checkout start failed:', started.reason, started.error)
-      // Health (item 19): a plain-English line only — never the gateway's raw text.
-      await recordGatewayEvent(
-        'paypro',
-        'error',
-        started.reason === 'unavailable'
-          ? 'PayPro did not respond when a member tried to pay.'
-          : started.reason === 'rejected'
-            ? 'PayPro refused to create a payment order.'
-            : 'We could not record a payment on our side.',
-      )
-      const code = started.reason === 'unavailable' ? 'paypro_unavailable' : 'payment_failed'
-      return NextResponse.json({ error: 'We could not start your payment.', code }, { status: started.status })
-    }
-    // Remember the tuition to come back to (payments.return_to, migration 174).
-    // Best-effort: a failure only means the tutor lands on the dashboard.
-    const returnTo = paymentReturnTo(plan.code as string, body.returnTo)
-    if (returnTo) {
-      const admin = createAdminClient()
-      const { error: rtError } = admin
-        ? await admin.from('payments').update({ return_to: returnTo }).eq('id', started.paymentId).eq('user_id', user.id)
-        : { error: null }
-      if (rtError) console.error('[paypro] return_to not saved:', rtError.message)
-    }
-    await logActivity({
-      userId: user.id,
-      event: 'payment_submitted',
-      targetType: 'payment',
-      targetId: started.paymentId,
-      meta: { planCode: plan.code, provider: 'paypro', reference: started.reference, amountPkr: plan.price_pkr },
-    })
-    return NextResponse.json({
-      mode: 'redirect',
-      url: started.url,
-      reference: started.reference,
-      paymentId: started.paymentId,
-    })
+    return NextResponse.json({ error: PAYPRO_CLOSED_MESSAGE, code: 'use_transfer' }, { status: 409 })
   }
 
   // Transfer path (or no gateway): force the manual provider so a transfer

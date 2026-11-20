@@ -270,6 +270,7 @@
     "test:jobcodesearch": "tsx --test scripts/test-job-code-search.ts",
     "test:forwardteaser": "tsx --test scripts/test-forward-teaser.ts",
     "check:people": "tsx --env-file=.env.local scripts/report-people-counts-check.ts",
+    "check:inboxstored": "tsx --conditions=react-server --env-file=.env.local scripts/check-inbox-stored.ts",
     "test:staffrights": "tsx --test scripts/test-staff-rights.ts",
     "test:pipelinecards": "tsx scripts/test-pipeline-cards-mobile.tsx",
     "test:seocrawl": "tsx --test scripts/test-seo-crawl.ts",
@@ -279,6 +280,7 @@
     "test:browserestore": "tsx --test scripts/test-browse-restore.ts",
     "report:interest": "tsx --conditions=react-server --env-file=.env.local scripts/report-parent-interest.ts",
     "test:interestinbox": "tsx --test scripts/test-interest-inbox.ts",
+    "test:pr12": "tsx --test scripts/test-pr12.ts",
     "test:pr11": "tsx --test scripts/test-pr11.ts",
     "report:interestinbox": "tsx --conditions=react-server --env-file=.env.local scripts/report-interest-inbox.ts"
   },

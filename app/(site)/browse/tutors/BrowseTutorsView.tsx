@@ -128,7 +128,7 @@ export async function tutorsMetadata(sp: Record<string, string | string[] | unde
   // description claims they all are.
   // Owner, 12 Oct 2026 (Search Console: 109 impressions at position 2.5, no
   // clicks): the title says what the page offers and the description names the
-  // cities and "free to join, no commission". Both built in lib/browseMeta.
+  // cities and "free to join". Both built in lib/browseMeta.
   const { title, description } = browseTutorsMeta(label, city)
 
   const page = Math.max(1, intOrNull(one(sp.page)) ?? 1)

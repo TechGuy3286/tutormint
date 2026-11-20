@@ -114,9 +114,10 @@ export function timeAtStage(changedAt: string | null, nowMs: number): string {
 
 export type BoardFilter = 'mine' | 'all' | 'unassigned' | Stage
 
-export function defaultFilter(actor: ActorLike | null | undefined): 'mine' | 'all' {
-  // The Owner, the Project Managers and Supervisors open on every staff member's list (owner, 24 Oct 2026).
-  return actor?.adminRole === 'owner' || actor?.adminRole === 'partner' || actor?.adminRole === 'supervisor' ? 'all' : 'mine'
+export function defaultFilter(actor: ActorLike | null | undefined, seesAll = false): 'mine' | 'all' {
+  // The Owner, the Project Managers and Supervisors open on every staff member's list (owner, 24 Oct 2026);
+  // so does an account with the "every row" grant (PR-12, lib/staffAllRows).
+  return seesAll || actor?.adminRole === 'owner' || actor?.adminRole === 'partner' || actor?.adminRole === 'supervisor' ? 'all' : 'mine'
 }
 
 export function parseFilter(v: string | null | undefined, actor: ActorLike | null | undefined): BoardFilter {
@@ -324,12 +325,12 @@ export function isWorked(i: BoardItem, nowMs: number): boolean {
 /** 'all', 'unassigned', or one staff member's id ('mine' = the viewer). */
 export type StaffFilter = string
 
-export function parseStaffFilter(v: string | null | undefined, actor: ActorLike): StaffFilter {
+export function parseStaffFilter(v: string | null | undefined, actor: ActorLike, seesAll = false): StaffFilter {
   const s = (v ?? '').trim()
   if (s === 'all' || s === 'unassigned') return s
   if (s === 'mine') return actor.id
   if (/^[0-9a-f-]{36}$/i.test(s)) return s.toLowerCase()
-  return defaultFilter(actor) === 'all' ? 'all' : actor.id
+  return defaultFilter(actor, seesAll) === 'all' ? 'all' : actor.id
 }
 
 export function matchesStaff(i: Pick<BoardItem, 'ownerId'>, f: StaffFilter): boolean {

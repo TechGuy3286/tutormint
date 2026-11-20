@@ -35,18 +35,19 @@ test('payproCustomerName drops digits/symbols that PayPro rejects, keeps a real 
   assert.ok(!/\d/.test(payproCustomerName('Grade 10 Teacher 2024')), 'never sends a digit to PayPro')
 })
 
-test('createPayproOrder uses the sanitiser and classifies the failure reason', () => {
+// PR-12 (owner, 20 Nov 2026): PayPro has ENDED — no order is created, so the
+// create-order and reason-mapping code is gone. The route now refuses the card
+// path outright; the (now unused) hook keeps its honest lines.
+test('PR-12: no PayPro order is created any more; the route refuses the card path', () => {
   const pp = read('lib/payments/paypro.ts')
-  assert.match(pp, /CustomerName: payproCustomerName\(o\.customerName\)/, 'the order sends the sanitised name')
-  // a thrown request (timeout/connection) → unavailable; a declined order → rejected
-  assert.match(pp, /PayPro create-order failed\.', reason: 'unavailable'/, 'timeout/connection → unavailable')
-  assert.match(pp, /PayPro create-order failed: \$\{desc\}`, reason: 'rejected'/, 'PayPro declined our order → rejected (our bug)')
+  assert.doesNotMatch(pp, /createPayproOrder|CustomerName/, 'the order builder is gone')
+  const route = read('app/api/payments/checkout/route.ts')
+  assert.doesNotMatch(route, /paypro_unavailable|startPayproCheckout/)
+  assert.match(route, /code: 'use_transfer'/)
 })
 
 // --------------------------------------------- STEP 2: honest messages ------
-test('the route maps reason to an honest code; the hook maps the code to the right line', () => {
-  const route = read('app/api/payments/checkout/route.ts')
-  assert.match(route, /started\.reason === 'unavailable' \? 'paypro_unavailable' : 'payment_failed'/, 'unavailable→paypro code, else our code')
+test('the hook maps a code to the right line', () => {
   const hook = read('components/tutor/useVerifyCheckout.ts')
   assert.match(hook, /data\?\.code === 'paypro_unavailable' \|\| \(!data\?\.code && res\.status >= 500\)/, 'only a real outage is "PayPro not responding"')
   // the two member lines are unchanged and distinct

@@ -35,9 +35,9 @@ import { extractJsonObject, runOutline, stripDraftHead } from './draftReply'
 
 // The intro every prompt opens with. It never uses the RETIRED tagline: "No fee"
 // contradicts the Verification Fee (owner, 7 Oct 2026). The current one,
-// "Free to join. No commission. No middleman." (owner, 8 Oct 2026), is true.
+// "Free to join. Verified tutors. Contact tutors directly." (PR-12), may be used.
 const INTRO =
-  'You write for the TutorMint blog. TutorMint is a Pakistani platform where parents find verified tutors and tutors find tuitions. TutorMint takes no commission.'
+  'You write for the TutorMint blog. TutorMint is a Pakistani platform where parents find verified tutors and tutors find tuitions. Never write "no commission", "no middleman" or "no agent" — TutorMint works with academies and agents.'
 
 /** The LIVE facts sheet when the brief carries it, else the built-in one. */
 function factsFor(brief: BlogBrief): string {
@@ -72,7 +72,7 @@ function ctaLine(brief: BlogBrief): string {
 }
 
 /** How the SEO fields are written (owner, 7 Oct 2026). */
-const SEO_RULE = `Also write an SEO title (at most ${SEO_TITLE_LIMIT} characters) and a meta description (at most ${SEO_DESCRIPTION_LIMIT} characters) for THIS post: say what the post covers, accurately. Never use the retired tagline ("No fee, no commission, no middleman" — it contradicts the Verification Fee); the current tagline "Free to join. No commission. No middleman." is true and may be used. Never contradict the post or the facts.`
+const SEO_RULE = `Also write an SEO title (at most ${SEO_TITLE_LIMIT} characters) and a meta description (at most ${SEO_DESCRIPTION_LIMIT} characters) for THIS post: say what the post covers, accurately. Never use "no fee", "no commission", "no middleman" or "no agent" (TutorMint works with academies and agents); the current tagline "Free to join. Verified tutors. Contact tutors directly." may be used. Never contradict the post or the facts.`
 
 // PR16 §6.3 — how the internal-link list is described to the model, shared by the
 // full-draft and sectioned prompts. It must place real links from the list only.
@@ -225,7 +225,7 @@ function outlineSystem(brief: BlogBrief, terse = false): string {
     ].join('\n')
   }
   return [
-    'You plan a post for the TutorMint blog. TutorMint is a Pakistani platform where parents find verified tutors and tutors find tuitions. TutorMint takes no commission.',
+    'You plan a post for the TutorMint blog. TutorMint is a Pakistani platform where parents find verified tutors and tutors find tuitions. Never write "no commission", "no middleman" or "no agent" — TutorMint works with academies and agents.',
     factsFor(brief),
     'Produce an OUTLINE only — no prose.',
     audienceRule(brief),

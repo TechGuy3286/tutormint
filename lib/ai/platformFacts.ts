@@ -172,8 +172,15 @@ function rulesFor(facts: PlatformFacts): FactRule[] {
       },
     },
     {
+      // PR-12 (owner, 20 Nov 2026): TutorMint is onboarding academies and
+      // commission agents, so nothing may suggest we eliminate them.
+      kind: 'middleman',
+      why: 'Never write "no middleman", "no commission" or "no agent" — TutorMint works with academies and agents.',
+      find: re(/\b(?:no[- ]middle ?m[ae]n|middle ?m[ae]n|no commission|zero commission|commission[- ]free|no agents?|without (?:an )?agents?|agent[- ]free|koi agent nahi|commission nahi)\b|ایجنٹ|کمیشن|مڈل ?مین/i),
+    },
+    {
       kind: 'commission',
-      why: 'TutorMint takes no commission.',
+      why: 'TutorMint does not take a share of what a tutor charges or a parent pays.',
       find: (s) => {
         const m = /\b(?:takes?|charges?|keeps?|deducts?) (?:a |any |its )?(?:commission|cut|percentage)\b/i.exec(s)
         if (!m) return null
@@ -355,8 +362,8 @@ export function ctaViolation(body: string, audience: 'parents' | 'tutors' | 'bot
 }
 
 // The RETIRED tagline ("No fee, no commission, no middleman") contradicts the
-// Verification Fee and is still flagged. The current tagline, "Free to
-// join. No commission. No middleman." (owner, 8 Oct 2026), is TRUE and allowed.
+// Verification Fee and is still flagged; since PR-12 "no commission / no
+// middleman" is flagged on its own too (the 'middleman' rule above).
 const TAGLINE_RE = /\bno fees?[.,]?\s*no commission/i
 export const SEO_TITLE_LIMIT = 60
 export const SEO_DESCRIPTION_LIMIT = 155

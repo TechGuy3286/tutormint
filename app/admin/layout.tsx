@@ -7,6 +7,7 @@ import AdminSignOut from '@/components/admin/AdminSignOut'
 import BridgeBanner from '@/components/admin/BridgeBanner'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import { getAdminActor, alwaysNeedsTwoFactor, roleBadge, roleSatisfies, SCREEN_ACCESS, type AdminActor } from '@/lib/adminAuth'
+import { seesAllRows } from '@/lib/staffAllRows'
 import { canApprove } from '@/lib/adminAccessCore'
 import { mayRevealCnic } from '@/lib/cnicRevealCore'
 import { docDecider } from '@/lib/docDecisionCore'
@@ -34,7 +35,9 @@ async function navBadges(actor: AdminActor): Promise<Record<string, number>> {
     parentFollowUps: roleSatisfies(actor.adminRole, SCREEN_ACCESS.signups),
     users: roleSatisfies(actor.adminRole, SCREEN_ACCESS.usersView),
     waUpdates: roleSatisfies(actor.adminRole, SCREEN_ACCESS.waUpdates),
-    interestAll: roleSatisfies(actor.adminRole, SCREEN_ACCESS.interestInboxAll),
+    // PR-12: the Owner and Project Managers by role, granted accounts by id.
+    interestAll: await seesAllRows(actor, SCREEN_ACCESS.interestInboxAll),
+    appsAll: await seesAllRows(actor, SCREEN_ACCESS.applicationsAll),
     interestOwn: roleSatisfies(actor.adminRole, SCREEN_ACCESS.interestInbox),
   })
 }

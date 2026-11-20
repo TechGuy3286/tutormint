@@ -41,7 +41,8 @@ test('PayPro is retired: no online checkout, bank transfer always on', () => {
 })
 
 test('the cut-off: activate through the last day, Pakistan time; record only after', () => {
-  assert.equal(PAYPRO_CUTOFF_DEFAULT, '2026-11-25')
+  // PR-12 (owner, 20 Nov 2026 — "stop now"): the last day moved to 19 Nov.
+  assert.equal(PAYPRO_CUTOFF_DEFAULT, '2026-11-19')
   // 25 Nov 23:59 PKT = 25 Nov 18:59 UTC → still activates.
   assert.equal(payproMayActivate(new Date('2026-11-25T18:59:00Z'), '2026-11-25'), true)
   // 26 Nov 00:01 PKT = 25 Nov 19:01 UTC → after the cut-off.
@@ -52,28 +53,28 @@ test('the cut-off: activate through the last day, Pakistan time; record only aft
   assert.equal(payproMayActivate(new Date('2027-01-01T00:00:00Z'), 'garbage'), false)
 })
 
-test('the one confirm path checks the cut-off BEFORE activating, and records a late call', () => {
+// PR-12 (owner, 20 Nov 2026): PayPro has ENDED. Nothing calls PayPro, nothing
+// activates; a late "paid" callback is logged and recorded for the Owner.
+test('PR-12: the confirm path never activates and never calls PayPro; a late notice is recorded', () => {
   const src = read('lib/payments/payproReconcile.ts')
-  const cut = src.indexOf('payproMayActivate(')
-  const act = src.indexOf('activatePayment({')
-  assert.ok(cut > 0 && act > cut, 'cut-off check comes before activatePayment')
+  assert.doesNotMatch(src, /activatePayment|getPayproOrderStatus/)
+  assert.match(src, /reason: 'paypro_ended'/)
   assert.match(src, /kind: 'paypro_late'/)
-  assert.match(src, /recordedLate: true/)
 })
 
-test('/paypro/uis still answers: wrong credentials unchanged, a late paid order acknowledged', () => {
+test('PR-12: /paypro/uis answers safely — logs, never activates, never needs a PAYPRO_* variable', () => {
   const src = read('app/paypro/uis/route.ts')
-  assert.match(src, /StatusCode: '01', InvoiceID: null, Description: 'Invalid Data\. Username or password is invalid'/)
-  assert.match(src, /r\.activated \|\| r\.alreadyActive \|\| r\.recordedLate/)
+  assert.match(src, /recordGatewayEvent\('paypro', 'callback'/)
+  assert.doesNotMatch(src, /process\.env|activatePayment|confirmPayproOrder/)
+  assert.match(src, /StatusCode: '03', InvoiceID: id, Description: 'No records found\.'/)
 })
 
 test('new PayPro checkouts are refused on the server with the bank-transfer message', () => {
   const src = read('app/api/payments/checkout/route.ts')
-  const guard = src.indexOf('if (!wantsTransfer && PAYPRO_RETIRED)')
-  const start = src.indexOf('startPayproCheckout({')
-  assert.ok(guard > 0 && start > guard, 'the retired guard runs before any PayPro order is created')
+  assert.match(src, /if \(!wantsTransfer\) \{\s*\n\s*return NextResponse\.json\(\{ error: PAYPRO_CLOSED_MESSAGE/)
+  assert.doesNotMatch(src, /startPayproCheckout/)
   assert.match(PAYPRO_CLOSED_MESSAGE, /bank transfer/)
-  assert.match(read('app/api/admin/paypro/test-order/route.ts'), /if \(PAYPRO_RETIRED\)/)
+  assert.match(read('app/api/admin/paypro/test-order/route.ts'), /status: 410/)
 })
 
 test('the payment screen offers bank transfer only, with the plain line', () => {

@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
 import BadgeRow from '@/components/badges/BadgeRow'
 import { formatDate } from '@/lib/datetime'
-import { confirmPayproOrder } from '@/lib/payments/payproReconcile'
+import { PAYPRO_CLOSED_MESSAGE } from '@/lib/payments/payproRetireCore'
 import { payReturnView } from '@/lib/payments/returnView'
 import { afterFeeReturnPath } from '@/lib/returnTo'
 
@@ -15,13 +15,11 @@ import { afterFeeReturnPath } from '@/lib/returnTo'
 // come back after a PayPro payment (PR65 §4).
 //
 // The status is read from OUR payment row, never from the query string (a return
-// URL is just a browser redirect anyone can type). For a pending PayPro order we
-// additionally confirm with Get Order Status (ggos) and, if PayPro says PAID and
-// the amount matches, activate defensively — so a missed callback still lands the
-// member on "your plan is active". Every state has a way forward: no dead end.
+// URL is just a browser redirect anyone can type). PayPro has ended (PR-12), so a
+// pending PayPro order is never confirmed here: the member is sent to pay by bank
+// transfer instead. Every state has a way forward: no dead end.
 
 export const dynamic = 'force-dynamic'
-export const runtime = 'nodejs' // ggos (node:https) needs the Node runtime
 
 type View = 'approved' | 'waiting' | 'notpaid' | 'unknown'
 
@@ -72,31 +70,12 @@ export default async function PayReturnPage({
         .maybeSingle()
     : { data: null }
 
-  // Confirm a pending PayPro order with ggos, and activate if it is genuinely
-  // paid (the callback/cron do this too — this is the defensive third path).
-  let clickToPay: string | null = null
-  let status = (payment?.status as string) ?? 'unknown'
-  let view: View = payReturnView(status)
-
-  if (payment && payment.provider === 'paypro' && status === 'pending') {
-    const raw = payment.raw as { paypro?: { click2pay?: string } } | null
-    clickToPay = raw?.paypro?.click2pay ?? null
-    // The SAME confirm+activate path as the callback and the cron (PR104): ggos,
-    // the amount rule that allows a gateway fee on top of our price, activate.
-    const r = await confirmPayproOrder({
-      id: payment.id as string,
-      amount_pkr: payment.amount_pkr as number,
-      status: payment.status as string,
-      provider_ref: payment.provider_ref as string,
-      raw: payment.raw,
-    })
-    if (r.activated || r.alreadyActive) {
-      status = 'approved'
-      view = 'approved'
-    }
-    // Otherwise leave as 'waiting' — the member may still be completing payment,
-    // and the 5-minute cron keeps retrying. (ggos failure is also 'waiting'.)
-  }
+  // PayPro has ended (PR-12, 20 Nov 2026): an unfinished PayPro order can no
+  // longer be paid or confirmed, so the member is pointed at bank transfer.
+  const status = (payment?.status as string) ?? 'unknown'
+  const view: View = payReturnView(status)
+  const payproEnded = !!payment && payment.provider === 'paypro' && status === 'pending'
+  const payByTransfer = payment ? `/pay/choose?plan=${encodeURIComponent(payment.plan_code as string)}` : '/pay/choose'
 
   const ent = await getEntitlements(userId)
   const home = ent.audience === 'tutor' ? '/tutor/dashboard' : '/parent/dashboard'
@@ -147,11 +126,8 @@ export default async function PayReturnPage({
             ) : (
               <>
                 <Clock size={40} className="mx-auto text-tm-gold-ink" />
-                <h1 className="text-lg font-black text-tm-navy">We&rsquo;re still waiting for your payment</h1>
-                <p className="text-xs leading-relaxed text-gray-500">
-                  If you have just paid, it can take a minute to confirm. Your plan will start on its own —
-                  you don&rsquo;t need to do anything.
-                </p>
+                <h1 className="text-lg font-black text-tm-navy">This payment was not completed</h1>
+                <p className="text-xs leading-relaxed text-gray-500">{PAYPRO_CLOSED_MESSAGE}</p>
               </>
             )
           ) : view === 'notpaid' ? (
@@ -173,15 +149,15 @@ export default async function PayReturnPage({
           {payment && <p className="font-mono text-[10px] text-gray-500">{payment.provider_ref as string}</p>}
         </section>
 
-        {/* Continue an unfinished PayPro payment, or try again — never a dead end. */}
-        {view === 'waiting' && clickToPay && (
-          <a
-            href={clickToPay}
+        {/* PayPro has ended: an unfinished PayPro payment continues by bank transfer. */}
+        {view === 'waiting' && payproEnded && (
+          <Link
+            href={payByTransfer}
             className="gap-1.5 inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-tm-red px-5 text-xs font-bold text-white hover:bg-tm-red-hover"
           >
             <CreditCard aria-hidden size={14} />
-            Continue your payment
-          </a>
+            Pay by bank transfer
+          </Link>
         )}
         {view === 'notpaid' && (
           <Link

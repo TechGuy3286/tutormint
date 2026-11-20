@@ -1,6 +1,7 @@
 import { NextResponse, after } from 'next/server'
 
-import { checkAdminRole, roleMayWrite, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { checkAdminRole, roleMayWrite, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { seesAllRows } from '@/lib/staffAllRows'
 import { parseBody, uuid, z } from '@/lib/validate'
 import { INBOX_MEMO_TAG, recordInterestSend } from '@/lib/interestInbox'
 import { invalidateMemoTag } from '@/lib/memoCache'
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true })
   }
 
-  const seesAll = roleSatisfies(gate.actor.adminRole, SCREEN_ACCESS.interestInboxAll)
+  const seesAll = await seesAllRows(gate.actor, SCREEN_ACCESS.interestInboxAll)
   const res = await recordInterestSend(b.tutorId, gate.actor, { seesAll, from: b.from })
   if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status })
   after(() => refreshWaBadge()) // badge + Overview row, after the response

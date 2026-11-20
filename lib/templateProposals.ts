@@ -186,7 +186,7 @@ export const WHATSAPP_PROPOSALS: readonly Proposal[] = [
   ], 'continue_link', both(both(FU, MY), TEAM)),
   wa('fu_fee_reply', 'About the Verification Fee', 'tutor', [
     hi('first_name'),
-    'Joining TutorMint is free, with no commission. To apply to tuitions, you pay a one-time Verification Fee of Rs 199.',
+    'Joining TutorMint is free. To apply to tuitions, you pay a one-time Verification Fee of Rs 199.',
     'You can pay here:',
   ], 'pay_link', FU, { priceExpected: true }),
 

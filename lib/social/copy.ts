@@ -6,7 +6,7 @@
 //
 // THE BRAND BAND is fixed on all four templates and all three formats: the
 // one-word wordmark, the tagline exactly once, the site, the handle line and a
-// QR. The word "commission" appears ONLY in the tagline — the test asserts a
+// QR. The tagline is SITE_TAGLINE's words (no "commission" anywhere — PR-12); the test asserts a
 // single occurrence across each template's whole text.
 
 import { levelLabel, jobType } from '@/lib/display'
@@ -97,7 +97,7 @@ export type SocialData = {
 // ---- the band -------------------------------------------------------------
 
 export const WORDMARK = 'TutorMint'
-export const TAGLINE = 'Free to join. No commission. No middleman.'
+export const TAGLINE = 'Free to join. Verified tutors. Contact tutors directly.'
 export const SITE = 'tutormint.org'
 export const HANDLE = '@tutormint.official'
 export const X_HANDLE = 'X: @TutorMint5'

@@ -45,6 +45,8 @@ export const ACTION_KEYS = [
   'applied', 'viewed_contact', 'messaged', 'demo_requested', 'demo_accepted',
   'shortlisted', 'unshortlisted', 'profile_edited', 'payment_started',
   'payment_completed', 'plan_changed', 'logged_in', 'logged_out',
+  // PR-12 (Admin → Insights): a tap on a WhatsApp or call link.
+  'whatsapp_click', 'call_click',
 ] as const
 
 export type RawEvent = {
@@ -139,6 +141,8 @@ const ACTION_PHRASE: Record<string, string> = {
   plan_changed: 'Changed plan',
   logged_in: 'Signed in',
   logged_out: 'Signed out',
+  whatsapp_click: 'Tapped WhatsApp',
+  call_click: 'Tapped Call',
 }
 
 /** One plain-English line for an activity event, for the admin view (PR99 §2).

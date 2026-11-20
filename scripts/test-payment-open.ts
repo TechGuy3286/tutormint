@@ -56,35 +56,28 @@ test('card checkout is never open when PayPro is unconfigured (bank transfer is 
   assert.equal(payproCardVisibleFrom({ admin_role: 'admin', is_seed: true, email: 'o@x' }, off, new Set()), false)
 })
 
-test('the checkout route no longer blocks transfer at the top; card gates via pproVisibleFor', () => {
+// PR-12 (owner, 20 Nov 2026): PayPro has ENDED. The card branch, the
+// test-email gates and the PayPro client are gone; every surface offers bank
+// transfer only. The pure paymentOpen helpers above stay (unused) for history.
+test('PR-12: the checkout route refuses card and keeps bank transfer', () => {
   const r = read('app/api/payments/checkout/route.ts')
   assert.ok(!/!onlinePaymentOpen\(\) && !checkoutVisibleFor/.test(r), 'the launch-phase top gate is gone')
-  assert.match(r, /if \(!wantsTransfer\) \{\s*\n\s*if \(!pproVisibleFor\(profile\)\)/, 'card gated; transfer falls through')
-  assert.match(r, /code: 'use_transfer'/, 'card-not-open tells the UI to use transfer')
+  assert.match(r, /if \(!wantsTransfer\) \{\s*\n\s*return NextResponse\.json\(\{ error: PAYPRO_CLOSED_MESSAGE, code: 'use_transfer' \}/, 'card refused, transfer falls through')
+  assert.ok(!r.includes('pproVisibleFor') && !r.includes('onlinePaymentOpen'), 'no PayPro gate left')
+  assert.ok(!r.includes('getPaymentSwitches') && !r.includes('planOpenToAll'), 'no duplicated switch flag')
 })
 
-// --------------------------- every surface uses the ONE check (§1/§4) ------
-
-test('the checkout route gate uses onlinePaymentOpen and no longer reads the manual switches', () => {
-  const src = read('app/api/payments/checkout/route.ts')
-  assert.ok(src.includes('onlinePaymentOpen()'), 'checkout gate resolves through onlinePaymentOpen')
-  assert.ok(!src.includes('getPaymentSwitches'), 'no duplicated switch flag in the checkout gate')
-  assert.ok(!src.includes('planOpenToAll'), 'no duplicated switch flag in the checkout gate')
-})
-
-test('the Membership Plans page uses onlinePaymentOpen for checkoutOpen', () => {
+test('PR-12: Membership Plans opens the bank-transfer page for everyone (no test-email gate)', () => {
   const src = read('app/(site)/membership-plans/page.tsx')
-  assert.ok(src.includes('onlinePaymentOpen()'), 'Membership Plans resolves through onlinePaymentOpen')
+  assert.match(src, /const checkoutOpen = true/)
+  assert.ok(!src.includes('checkoutVisibleFor') && !src.includes('onlinePaymentOpen'), 'no PayPro gate')
   assert.ok(!src.includes('getPaymentSwitches'), 'no duplicated switch flag on Membership Plans')
 })
 
-test('onlinePaymentOpen() is derived from the live-gateway facts, so it matches what checkout uses', () => {
+test('PR-12: the PayPro client is gone — no live-gateway check, no env read', () => {
   const src = read('lib/payments/paypro.ts')
-  assert.ok(src.includes('export function onlinePaymentOpen()'), 'the shared check lives with the PayPro client')
-  assert.ok(src.includes('onlinePaymentOpenFrom({ configured: pproConfigured(), sandbox: pproSandbox() })'))
-  // pproVisibleFor now delegates to the pure payproCardVisibleFrom (open to
-  // everyone when live, sandbox test-only) — the matrix is unit-tested above.
-  assert.ok(src.includes('return payproCardVisibleFrom('), 'pproVisibleFor delegates to the pure helper')
+  assert.ok(!src.includes('export function onlinePaymentOpen()'))
+  assert.ok(!/process\.env\.PAYPRO_/.test(src))
 })
 
 // Repointed (owner, 11 Oct 2026): every paid checkout now opens the payment

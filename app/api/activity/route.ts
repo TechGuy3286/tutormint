@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimit } from '@/lib/rateLimit'
 import { cleanEvents, isBotUserAgent, clampActiveDelta } from '@/lib/activityTrack'
+import { deviceOf } from '@/lib/insightsCore'
 
 // Member activity ingest (PR99 §2).
 //
@@ -81,7 +82,9 @@ export async function POST(request: Request) {
         page_count: pageViews,
         is_staff: isStaff,
         is_seed: !!prof?.is_seed,
-        user_agent: (ua ?? '').slice(0, 300),
+        // PR-12: only the device CATEGORY is kept now, never the full string.
+        user_agent: null,
+        ...deviceOf(ua),
       })
       .select('id')
       .single()

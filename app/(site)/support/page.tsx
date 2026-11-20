@@ -106,7 +106,7 @@ const GROUPS: FaqGroup[] = [
     title: 'Payments and refunds',
     items: [
       {
-        q: 'Do you take a commission on my earnings or my fees?',
+        q: 'Do you take a share of my earnings or my fees?',
         a: 'No. TutorMint never takes a cut of what a tutor charges or a parent pays. The only thing we sell is a monthly membership. What you agree between yourselves is entirely yours.',
       },
       {

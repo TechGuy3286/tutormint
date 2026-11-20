@@ -1,14 +1,13 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
+import { SITE_TAGLINE } from '@/lib/siteIdentity'
 
 // The footer's brand tagline — rendered on every page EXCEPT the homepage.
 //
-// The homepage's locked, partner-approved hero already carries "Free to Join · No
-// Commission · No Middleman", so repeating it in the footer would put the word
-// "commission" on the page twice — one more than the brand rule allows (owner,
-// 10 Sep 2026). Every other page has no such line in its body, so the footer
-// carries it there.
+// The homepage's locked hero already carries its own line ("Free to Join · Verified
+// Tutors · Contact Directly · Live Demo" since PR-12), so the footer does not
+// repeat the tagline there. Every other page carries SITE_TAGLINE here.
 //
 // This is a CLIENT component reading usePathname() ON PURPOSE. The Footer is a
 // server component in the (site) layout, and that layout is NOT re-rendered on a
@@ -20,7 +19,7 @@ export default function FooterTagline() {
   if (pathname === '/') return null
   return (
     <p className="mt-2 max-w-xs text-xs leading-snug text-slate-400">
-      Free to join. No commission. No middleman.
+      {SITE_TAGLINE}
     </p>
   )
 }

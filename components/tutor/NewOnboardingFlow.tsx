@@ -1537,7 +1537,7 @@ function GetVerifiedStep({ stepTotal, onBack, payFailed = false, returnTo = null
           </p>
         )}
         <p className="text-sm leading-relaxed text-gray-700">
-          After verification, you can apply to tuitions and jobs and contact parents and employers directly. You pay no commission to TutorMint, and never pay anyone in TutorMint&rsquo;s name.
+          After verification, you can apply to tuitions and jobs and contact parents and employers directly. Never pay anyone in TutorMint&rsquo;s name.
         </p>
         <p className="rounded-xl bg-tm-tint-green/60 px-3 py-2 text-[12px] font-semibold leading-snug text-tm-green-deep">
           Verification Fee. We keep TutorMint clean of fake and spam accounts.

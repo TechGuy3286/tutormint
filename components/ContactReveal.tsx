@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Phone, Mail, MessageCircle, MapPin, Globe, Loader2, Eye } from 'lucide-react'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
+import { trackContactTap } from '@/lib/contactTap'
 import { submitSignal } from '@/lib/submit'
 import { goCompleteProfile } from '@/lib/gatedFetch'
 import { formatPkMobile } from '@/lib/phone'
@@ -118,15 +119,16 @@ export default function ContactReveal({
 
   if (contact) {
     return (
-      <div className={`space-y-1.5 ${className ?? ''}`}>
+      <div className={`space-y-1.5 ${className ?? ''}`} onClickCapture={trackContactTap}>
         {contact.name && <p className="text-sm font-black text-tm-navy">{contact.name}</p>}
         {contact.phone && (
           <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-tm-navy">
-            <a href={`tel:+${contact.phone}`} className="inline-flex items-center gap-1.5 hover:underline">
+            <a data-tap="call" href={`tel:+${contact.phone}`} className="inline-flex items-center gap-1.5 hover:underline">
               <Phone size={14} aria-hidden />
               {formatPkMobile(contact.phone)}
             </a>
             <a
+              data-tap="whatsapp"
               href={waChatHref(contact.phone) ?? undefined}
               target="_blank"
               rel="noopener noreferrer"
@@ -139,6 +141,7 @@ export default function ContactReveal({
         )}
         {waNumber && (
           <a
+            data-tap="whatsapp"
             href={waChatHref(waNumber) ?? undefined}
             target="_blank"
             rel="noopener noreferrer"
@@ -178,11 +181,11 @@ export default function ContactReveal({
         {/* PR91 Part B.2 — numbers/emails found in the listing text. */}
         {(contact.textPhones ?? []).map((p) => (
           <div key={`tp-${p}`} className="flex flex-wrap items-center gap-3 text-xs font-bold text-tm-navy">
-            <a href={`tel:+${p}`} className="inline-flex items-center gap-1.5 hover:underline">
+            <a data-tap="call" href={`tel:+${p}`} className="inline-flex items-center gap-1.5 hover:underline">
               <Phone size={14} aria-hidden />
               {formatPkMobile(p)}
             </a>
-            <a href={waChatHref(p) ?? undefined} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-tm-green-deep hover:underline">
+            <a data-tap="whatsapp" href={waChatHref(p) ?? undefined} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-tm-green-deep hover:underline">
               <MessageCircle size={14} aria-hidden />
               WhatsApp
             </a>

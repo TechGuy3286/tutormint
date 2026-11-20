@@ -31,7 +31,7 @@ export const BLOG_WARN_WORDS = 800
 
 /** The site tagline. A blog meta description must NOT use it (owner, 7 Oct
  *  2026) — kept only for withBrandTail, which the blog no longer calls. */
-export const SEO_BRAND_TAIL = 'Free to join, no commission, no middleman.'
+export const SEO_BRAND_TAIL = 'Free to join. Contact tutors directly.'
 
 export type BlogBrief = {
   title: string
@@ -239,7 +239,7 @@ export function figureGate(
 export function withBrandTail(lead: string, max = 155): string {
   const tail = SEO_BRAND_TAIL
   const clean = lead.trim().replace(/[.\s]+$/, '')
-  if (clean.toLowerCase().includes('no commission')) return clean.slice(0, max)
+  if (clean.toLowerCase().includes('contact tutors directly')) return clean.slice(0, max)
   const room = max - tail.length - 2 // ". "
   if (room <= 0) return tail.slice(0, max)
   const head = clean.length > room ? clean.slice(0, room).replace(/\s+\S*$/, '') : clean
@@ -402,9 +402,9 @@ export function composeBlogDraft(brief: BlogBrief): BlogDraft {
 
   parts.push('## Frequently asked questions')
   // A correct FAQ — never the "TutorMint is free" contradiction. Browsing is
-  // free; joining and getting verified are not, and there is no commission.
-  parts.push('### Does TutorMint charge a commission?')
-  parts.push('No. TutorMint takes no commission on what a tutor charges or a parent pays. Browsing is free; a tutor pays the one-time ' + FEE_LABEL + ' to get verified, and the Premium and Featured plans are optional.')
+  // free; joining and getting verified are not.
+  parts.push('### Does TutorMint take a share of the tuition fee?')
+  parts.push('No. The fee a tutor and a parent agree goes to the tutor. Browsing is free; a tutor pays the one-time ' + FEE_LABEL + ' to get verified, and the Premium and Featured plans are optional.')
 
   parts.push(
     brief.audience === 'tutors'

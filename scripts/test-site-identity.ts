@@ -153,8 +153,9 @@ test('Organization and WebSite: one graph, @id references, the tagline exactly',
   assert.equal(org['@id'], ORGANIZATION_ID)
   assert.equal(site['@id'], WEBSITE_ID)
   assert.equal(org.name, 'TutorMint')
-  assert.equal(org.slogan, 'Free to join. No commission. No middleman.')
-  assert.equal(SITE_TAGLINE, 'Free to join. No commission. No middleman.')
+  // PR-12 (owner, 20 Nov 2026): no "commission / middleman" wording.
+  assert.equal(org.slogan, 'Free to join. Verified tutors. Contact tutors directly.')
+  assert.equal(SITE_TAGLINE, 'Free to join. Verified tutors. Contact tutors directly.')
   assert.equal(org.description, SITE_DESCRIPTION)
   assert.deepEqual(org.areaServed, { '@type': 'Country', name: 'Pakistan' })
   const contact = org.contactPoint as Node
@@ -198,8 +199,9 @@ test('the homepage title and description name both sides; the rest of the hero i
   assert.ok(home.includes('{HOME_H1_LINES[0]}') && home.includes('{HOME_H1_LINES[1]}'))
   assert.equal((home.match(/<h1 className=/g) ?? []).length, 1)
   // The red line, the Urdu line and the two buttons are as approved.
-  assert.ok(home.includes('Free to Join &bull; No Commission &bull; No Middleman &bull; Live Demo'))
-  assert.ok(home.includes('کوئی فیس نہیں &bull; کوئی کمیشن نہیں &bull; کوئی مڈل مین نہیں &bull; لائیو ڈیمو'))
+  // PR-12 (owner-authorised for this purpose only).
+  assert.ok(home.includes('Free to Join &bull; Verified Tutors &bull; Contact Directly &bull; Live Demo'))
+  assert.ok(home.includes('کوئی فیس نہیں &bull; تصدیق شدہ ٹیوٹرز &bull; براہِ راست رابطہ &bull; لائیو ڈیمو'))
   assert.ok(home.includes('label="Find Tutors / Teachers"') && home.includes('label="Find Tuitions / Jobs"'))
 })
 
@@ -243,11 +245,11 @@ test('tutor profile: ProfilePage + Person, nothing private, no fee, no employer'
 test('tutor meta description: verified only when true, the mode from the Job Types', () => {
   assert.equal(
     tutorMetaDescription({ name: 'Ayesha Khan', subjects: ['Physics', 'Mathematics'], city: 'Lahore', areas: ['DHA Lahore', 'Gulberg'], jobTypes: ['Home Tutor', 'Online Tutor'], verified: true }),
-    'Ayesha Khan — verified Physics, Mathematics tutor in DHA & Gulberg, Lahore (home/online). Contact directly on TutorMint, no commission.',
+    'Ayesha Khan — verified Physics, Mathematics tutor in DHA & Gulberg, Lahore (home/online). Contact directly on TutorMint.',
   )
   assert.equal(
     tutorMetaDescription({ name: 'Ali', subjects: [], city: 'Karachi', areas: [], jobTypes: ['Primary Teacher'], verified: false }),
-    'Ali — tutor in Karachi. Contact directly on TutorMint, no commission.',
+    'Ali — tutor in Karachi. Contact directly on TutorMint.',
   )
 })
 

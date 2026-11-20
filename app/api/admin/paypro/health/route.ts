@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server'
 import { getAdminActor } from '@/lib/adminAuth'
-import { pproAuthHealth } from '@/lib/payments/paypro'
 
-// Owner-only PayPro health check (PR65 §7): calls PayPro auth and reports whether
-// it succeeded, plus whether we are pointed at the sandbox — never the token.
+// PayPro health check — retired (PR-12, 20 Nov 2026). PayPro no longer works
+// with TutorMint and its API client is gone, so there is nothing to check. Kept
+// as an address that answers plainly; it reads no PayPro setting.
 
-export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
@@ -13,7 +12,5 @@ export async function GET() {
   if (!actor || (actor.adminRole !== 'owner' && actor.adminRole !== 'partner')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
-  const health = await pproAuthHealth()
-  // health = { ok, error? (a type, never the token), sandbox, host }
-  return NextResponse.json(health)
+  return NextResponse.json({ ok: false, retired: true, error: 'PayPro has ended. Members pay by bank transfer.' }, { status: 410 })
 }

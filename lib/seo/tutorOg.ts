@@ -12,7 +12,7 @@
 import { collapseLevels } from '@/lib/levelDisplay'
 import { TITLE_MAX, DESCRIPTION_MAX, clampWords } from '@/lib/seo'
 
-export const OG_TAGLINE = 'Free to join. No commission. No middleman.'
+export const OG_TAGLINE = 'Free to join. Verified tutors. Contact tutors directly.'
 const BRAND = 'TutorMint'
 
 const clean = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim()

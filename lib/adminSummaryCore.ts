@@ -96,9 +96,9 @@ export function tally(items: { ownerId: string | null }[]): Tally {
   return { total: items.length, byOwner }
 }
 
-export function viewerCount(t: Tally | null | undefined, actor: { id: string; adminRole: string | null | undefined }): number {
+export function viewerCount(t: Tally | null | undefined, actor: { id: string; adminRole: string | null | undefined }, seesAll = false): number {
   if (!t) return 0
-  return actor.adminRole === 'owner' ? t.total : (t.byOwner[actor.id] ?? 0)
+  return seesAll || actor.adminRole === 'owner' ? t.total : (t.byOwner[actor.id] ?? 0)
 }
 
 export type BadgesPayload = {
@@ -143,7 +143,7 @@ export function badgeText(n: number): string | null {
 export function navBadgesFrom(
   b: BadgesPayload,
   actor: { id: string; adminRole: string | null | undefined },
-  may: { followUps: boolean; paidTutors?: boolean; parentFollowUps?: boolean; users?: boolean; waUpdates?: boolean; interestAll?: boolean; interestOwn?: boolean },
+  may: { followUps: boolean; paidTutors?: boolean; parentFollowUps?: boolean; users?: boolean; waUpdates?: boolean; interestAll?: boolean; interestOwn?: boolean; appsAll?: boolean },
 ): Record<string, number> {
   // People → WhatsApp updates (PR-06) + the Parent interest inbox (PR-10):
   // every ready row for the roles that see them all, a city owner's own rows
@@ -154,7 +154,7 @@ export function navBadgesFrom(
     ...(may.waUpdates || may.interestAll || may.interestOwn ? { '/admin/whatsapp-updates': wa } : {}),
     '/admin/reports': b.reports,
     '/admin/payments': b.receipts,
-    '/admin/applications': viewerCount(b.appsNew ?? null, actor),
+    '/admin/applications': viewerCount(b.appsNew ?? null, actor, !!may.appsAll),
     '/admin/users': (may.users === false ? 0 : b.peopleWaiting) + (may.followUps ? (b.pipelineDue ?? 0) : 0),
   }
 }

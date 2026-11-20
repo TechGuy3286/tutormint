@@ -4,7 +4,6 @@ import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { getViewerEntitlements } from '@/lib/entitlements'
 import { getProvider } from '@/lib/payments'
-import { checkoutVisibleFor, onlinePaymentOpen } from '@/lib/payments/paypro'
 import { checkoutMethodsOf, getGatewaySettings, PAYPRO_RETIRED } from '@/lib/payments/gatewaySettings'
 import PackagesTable, { type PlanRow } from '@/components/PackagesTable'
 import PackagesTabs from '@/components/membership-plans/PackagesTabs'
@@ -57,20 +56,11 @@ export default async function PackagesPage({
   // by the team, so nothing activates instantly.
   const instant = !PAYPRO_RETIRED && provider.id !== 'manual'
 
-  // PR106-C0 §1/§4: the Buy buttons use the ONE shared open check — the PayPro
-  // gateway being LIVE. When live, Buy is open to everyone (a signed-out visitor
-  // sees Buy → sign-in via BuyButton); in sandbox, only owner/staff/seed/test
-  // accounts can check out.
-  // PayPro retired (26 Oct 2026): Buy opens the bank-transfer page for everyone.
-  let checkoutOpen = PAYPRO_RETIRED || onlinePaymentOpen()
+  // Buy opens the bank-transfer page for everyone (PayPro ended — PR-12; the old
+  // PAYPRO_TEST_EMAILS gate is gone).
+  const checkoutOpen = true
   let paymentBanner: Banner | null = null
   if (ent) {
-    const { data: me } = await supabase
-      .from('profiles')
-      .select('admin_role, is_seed, email')
-      .eq('id', ent.userId)
-      .maybeSingle()
-    checkoutOpen = checkoutOpen || (!!me && checkoutVisibleFor(me))
     // The "payment started, not finished" banner (owner, 17 Oct 2026): only a
     // checkout that can still be paid, or a receipt waiting for approval.
     // Rules in lib/paymentBannerCore.

@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server'
 import { drainIndexingQueue, INDEXING_DAILY_LIMIT } from '@/lib/googleIndexing'
 import { timingSafeEqual } from 'node:crypto'
-import { createAdminClient } from '@/lib/supabase/admin'
-import { pproConfigured, markPayproOrderBlocked } from '@/lib/payments/paypro'
-import { confirmPayproOrder } from '@/lib/payments/payproReconcile'
 import { publishDuePosts } from '@/lib/blogPublish'
 import { sweepTutorAlerts } from '@/lib/tutorAlerts'
 import { runBankReader } from '@/lib/bankEmailReader'
@@ -11,15 +8,12 @@ import { endExpiredViews } from '@/lib/viewAs'
 import { refreshStatementMatches } from '@/lib/bankStatement'
 import { runAddressBackfill } from '@/lib/cnicAddress'
 import { runInterestBackfill } from '@/lib/parentInterest'
+import { refreshInsights } from '@/lib/insights'
 
-// Backup reconcile (PR65 §5). PayPro's "Mark as Paid" callback can be missed, so
-// this re-checks pending PayPro orders via the ONE confirm path (PR104:
-// confirmPayproOrder → ggos → the amount rule that allows a gateway fee on top →
-// activate). Idempotent, so running it every 5 min is safe.
-//
-// It also tidies DUPLICATES: a pending PayPro order whose (member, plan) already
-// has an APPROVED payment can never be paid again, so it is blocked at PayPro
-// (ppro/moab) and its row set to 'rejected' — the superseded-order case (PR104 §3).
+// The 5-minute jobs: due blog posts, Indexing API notices, tutor alerts, the
+// bank reader, View-as expiry, statement matches and the backfills. It used to
+// re-check pending PayPro orders too; PayPro has ended (PR-12), so it no longer
+// does.
 //
 // Protected by CRON_SECRET (the subscriptions-cron pattern): refuses every
 // request when the secret is unset, and compares in constant time. GET, because
@@ -75,88 +69,11 @@ export async function GET(request: Request) {
   // parent-started conversations and demo requests become events; marked done
   // in app_settings so later runs return at once. Counts only.
   const interestBackfill = await runInterestBackfill().then((r) => (r.ran ? r : null)).catch(() => null)
-  if (!pproConfigured()) return NextResponse.json({ ok: true, skipped: 'paypro_not_configured', blog, indexing, alerts, bankReader, viewAsEnded, statement, addressBackfill, interestBackfill })
-
-  const admin = createAdminClient()
-  if (!admin) return NextResponse.json({ ok: true, skipped: 'no_admin_client' })
-
-  // Pending PayPro orders from the last 2 days (older ones have expired). An
-  // optional ?days=N (bounded 1–60) widens the window for a one-off sweep.
-  const daysParam = Number(new URL(request.url).searchParams.get('days'))
-  const days = Number.isFinite(daysParam) ? Math.min(Math.max(Math.floor(daysParam), 1), 60) : 2
-  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
-  const { data: rows } = await admin
-    .from('payments')
-    .select('id, user_id, plan_code, amount_pkr, status, provider_ref, raw, created_at')
-    .eq('provider', 'paypro')
-    .eq('status', 'pending')
-    .gte('created_at', since)
-    .limit(100)
-
-  let checked = 0
-  let activated = 0
-  let notPaid = 0
-  let blocked = 0
-  const diag: Record<string, unknown>[] = []
-  for (const row of rows ?? []) {
-    checked++
-    try {
-      const r = await confirmPayproOrder({
-        id: row.id as string,
-        amount_pkr: row.amount_pkr as number,
-        status: row.status as string,
-        provider_ref: row.provider_ref as string,
-        raw: row.raw,
-      })
-      // Amounts/status/reason only — never a secret — for ops to see WHY a paid
-      // order was or was not accepted.
-      diag.push({
-        ref: row.provider_ref,
-        activated: r.activated,
-        accepted: r.accepted,
-        reason: r.reason ?? null,
-        ggosError: r.ggosError ?? null,
-        orderStatus: r.orderStatus ?? null,
-        amountPayable: r.amountPayable ?? null,
-        amountPaid: r.amountPaid ?? null,
-        ours: row.amount_pkr,
-      })
-      if (r.activated) {
-        activated++
-        continue
-      }
-      if (r.accepted) continue // already active
-
-      // Not paid (or rejected amount). If the member ALREADY has an approved
-      // payment for this same plan, this pending order is a superseded duplicate
-      // they could pay by mistake — block it at PayPro and mark it rejected.
-      const { data: paidSibling } = await admin
-        .from('payments')
-        .select('id')
-        .eq('user_id', row.user_id as string)
-        .eq('plan_code', row.plan_code as string)
-        .eq('status', 'approved')
-        .limit(1)
-        .maybeSingle()
-      if (paidSibling) {
-        await markPayproOrderBlocked(row.provider_ref as string)
-        await admin
-          .from('payments')
-          .update({
-            status: 'rejected',
-            rejection_reason: 'Duplicate order — superseded by a completed payment.',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', row.id as string)
-          .eq('status', 'pending')
-        blocked++
-      } else {
-        notPaid++
-      }
-    } catch {
-      /* skip this row; the next run retries */
-    }
-  }
-
-  return NextResponse.json({ ok: true, checked, activated, notPaid, blocked, diag, bankReader })
+  // Admin → Insights (PR-12): keep the last month of days built — today every
+  // 10 minutes, a few other days per run, inside what is left of the minute.
+  const insights = await refreshInsights(Date.now(), t0 + 50_000).catch(() => null)
+  // PayPro has ended (PR-12, 20 Nov 2026): no order is re-checked at PayPro any
+  // more and nothing activates from it, so this job no longer reads a PAYPRO_*
+  // setting or touches a PayPro payment row.
+  return NextResponse.json({ ok: true, paypro: 'ended', blog, indexing, alerts, bankReader, viewAsEnded, statement, addressBackfill, interestBackfill, insights })
 }

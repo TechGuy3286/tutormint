@@ -119,7 +119,9 @@ test('buildTaglineUser lists the facts given and omits the blanks; the system pr
 // old clutter.
 test('Get verified screen is clean (no CNIC card / Continue / Pay later clutter)', () => {
   assert.match(FLOW, /function GetVerifiedStep/, 'the clean Get-verified screen')
-  assert.match(FLOW, /You pay no commission to TutorMint/, 'the commission message')
+  // PR-12: the "no commission" half of the line was removed (owner, 20 Nov 2026).
+  assert.match(FLOW, /Never pay anyone in TutorMint&rsquo;s name/, 'the pay-safely message')
+  assert.doesNotMatch(FLOW, /commission/i)
   for (const gone of ['being checked', 'documents received', 'Continue to become', 'Pay later']) {
     assert.ok(!new RegExp(gone).test(FLOW), `"${gone}" removed from the new flow`)
   }

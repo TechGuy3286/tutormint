@@ -59,6 +59,8 @@ const EDIT: Key[] = [
   // documents, approves bank-matched receipts, warns, verifies a mobile
   // manually and opens the full-size photo.
   'documentDecide', 'receiptStaffApprove', 'memberWarn', 'memberVerifyMobile', 'documentView',
+  // PR-12: Applications "every row" + badge totals (the Partner by role).
+  'applicationsAll',
 ]
 
 test('the Partner may open every screen, and change only the tutor, parent and tuition areas', () => {
@@ -98,6 +100,8 @@ test('every view-only area refuses a Partner write; the Owner is unaffected', ()
     'receiptCheck', 'backendSupportKpi',
     // The paid sign-ups view (owner, 9 Nov 2026): counts to read, nothing to change.
     'paidSignups',
+    // PR-12: Insights (read-only page) and a member's session pages (GET only).
+    'insights', 'memberSessions',
   ]
   // 'Looks fine' on a blank-photo flag (owner, 10 Nov 2026) names the Partner: an edit area.
   assert.ok(EDIT.includes('blankPhotoClear'))

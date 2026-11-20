@@ -167,7 +167,7 @@ export const FU_REUSED_DEFAULTS: Record<'signup_mobile_unverified' | 'profile_co
  *  Seeded by migration 197 with exactly this text (owner, 23 Oct 2026). */
 export const FU_FEE_REPLY_KEY = 'fu_fee_reply' as const
 export const FU_FEE_REPLY_DEFAULT =
-  'Joining TutorMint is free — no commission, no middleman. To apply to tuitions, tutors pay a one-time Verification Fee of Rs 199. We check your CNIC and selfie, and your profile gets the Verified badge so parents can trust you. You can pay here: {pay_link}. Any questions, message us on WhatsApp {support_whatsapp}.'
+  'Joining TutorMint is free. To apply to tuitions, tutors pay a one-time Verification Fee of Rs 199. We check your CNIC and selfie, and your profile gets the Verified badge so parents can trust you. You can pay here: {pay_link}. Any questions, message us on WhatsApp {support_whatsapp}.'
 /** Where the fee reply sends the tutor: the payment choice screen. */
 export const FEE_REPLY_PAY_PATH = '/pay/choose'
 

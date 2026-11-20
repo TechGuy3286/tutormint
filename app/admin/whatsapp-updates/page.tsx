@@ -7,6 +7,7 @@ import InterestInboxRow from '@/components/admin/InterestInboxRow'
 import InterestInboxFilters from '@/components/admin/InterestInboxFilters'
 import { loadHeldActivity } from '@/lib/parentInterest'
 import { requireAdminRole, roleMayWrite, roleSatisfies, SCREEN_ACCESS, type AdminActor } from '@/lib/adminAuth'
+import { seesAllRows } from '@/lib/staffAllRows'
 import { pageSlice, shownCount } from '@/lib/adminPagingCore'
 import { formatDateTime, formatTime } from '@/lib/datetime'
 import { WA_WEEKLY_CAP } from '@/lib/tutorTeasersCore'
@@ -136,7 +137,7 @@ const isTab = (v: string | undefined): v is InboxTab => v === 'to_send' || v ===
 
 async function InterestTab({ actor, sp }: { actor: AdminActor; sp: SP }) {
   const inbox = await loadInterestInbox()
-  const seesAll = roleSatisfies(actor.adminRole, SCREEN_ACCESS.interestInboxAll)
+  const seesAll = await seesAllRows(actor, SCREEN_ACCESS.interestInboxAll)
   const mayWrite = roleMayWrite(actor.adminRole, SCREEN_ACCESS.interestInbox)
   const canReveal = roleSatisfies(actor.adminRole, SCREEN_ACCESS.memberContactReveal)
   const who = staffFilter(seesAll, actor.id, sp.staff)

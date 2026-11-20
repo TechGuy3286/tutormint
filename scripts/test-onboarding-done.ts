@@ -227,7 +227,7 @@ test('return-to after PayPro success and after a bank-transfer receipt (wiring)'
   assert.match(payChoice, /afterFeeReturnPath\(returnTo, 'receipt'\)/)
   assert.match(read('components/tutor/useVerifyCheckout.ts'), /JSON\.stringify\(returnTo \? \{ planCode, returnTo \} : \{ planCode \}\)/)
   // Stored on the payment by the server, through the same-site rule.
-  assert.match(read('app/api/payments/checkout/route.ts'), /paymentReturnTo\(plan\.code as string, body\.returnTo\)/)
+  // PR-12: PayPro ended, so only the receipt route stores the page to come back to.
   assert.match(read('app/api/payments/receipt/route.ts'), /paymentReturnTo\(planCode, form\.get\('returnTo'\)\)/)
   // PayPro success → the tuition with "You're ready — tap Apply".
   assert.match(read('app/(site)/pay/return/page.tsx'), /redirect\(afterFeeReturnPath\(payment\.return_to as string \| null, 'paid'\) \?\? '\/tutor\/dashboard\?paid=1'\)/)

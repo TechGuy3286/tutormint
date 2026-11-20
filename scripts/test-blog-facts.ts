@@ -39,7 +39,8 @@ test('the facts sheet states the owner’s facts, built from the plan rows', () 
   // A verified mobile is all a parent needs (owner, 8 Oct 2026).
   assert.ok(/A parent needs only a verified mobile number \(free\) to post a tuition, message a tutor or request a demo/.test(t))
   assert.ok(/CNIC and home address are optional/.test(t))
-  assert.ok(/takes no commission/.test(t) && /never promises tuitions, replies, applications, hires or income/.test(t))
+  // PR-12: the sheet forbids the phrase instead of stating it.
+  assert.ok(/Never write "no commission", "no middleman" or "no agent"/.test(t) && /never promises tuitions, replies, applications, hires or income/.test(t))
   assert.ok(!/\bRs\b|PKR|\b(199|499|999)\b/.test(t), 'the sheet itself carries no price')
   // The allowances come from the plans page settings (owner, 7 Oct 2026).
   assert.ok(t.includes('applications — Featured unlimited, Premium 100, Basic 10'))
@@ -102,7 +103,6 @@ test('correct statements from the published post are never flagged', () => {
     'Yes — Premium and Featured tutors rank above others, and verified tutors rank above unverified ones.',
     'Keep in mind that the subjects and grades you list are self-declared — TutorMint doesn’t check them.',
     'Signing up is free, and parents can browse tutors without an account.',
-    'TutorMint takes no commission on what you charge.',
     'Payments are non-refundable.',
     // From the live Terms and Support pages (7 Oct 2026) — correct, never flagged.
     'We do not set fees, supervise lessons, guarantee results, or take a commission on anything you earn or pay.',
@@ -166,9 +166,11 @@ test('any price or Rs amount is flagged', () => {
 test('SEO fields: length, the tagline, and a contradicting meta description', () => {
   const tagline = seoFieldViolations({ title: 'How to become a home tutor', description: 'Learn how to start tutoring. No fee, no commission, no middleman' }, facts)
   assert.ok(tagline.some((s) => s.field === 'seoDescription' && /tagline/.test(s.message)))
-  // The CURRENT tagline (owner, 8 Oct 2026) is true and allowed.
-  const current = seoFieldViolations({ title: 'How to become a home tutor', description: 'Learn how to start tutoring. Free to join. No commission. No middleman.' }, facts)
+  // The CURRENT tagline (PR-12) is allowed; the old "No commission. No middleman." is now flagged.
+  const current = seoFieldViolations({ title: 'How to become a home tutor', description: 'Learn how to start tutoring. Free to join. Verified tutors. Contact tutors directly.' }, facts)
   assert.deepEqual(current, [])
+  const old = seoFieldViolations({ title: 'How to become a home tutor', description: 'Learn how to start tutoring. Free to join. No commission. No middleman.' }, facts)
+  assert.ok(old.some((s) => /academies and agents/.test(s.message)))
   const long = seoFieldViolations({ title: 'x'.repeat(61), description: 'y '.repeat(80) }, facts)
   assert.ok(long.some((s) => s.field === 'seoTitle' && /61 characters/.test(s.message)))
   assert.ok(long.some((s) => s.field === 'seoDescription' && /characters/.test(s.message)))

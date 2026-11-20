@@ -73,6 +73,7 @@ export type AdminScreen =
   | 'jobsPost'
   | 'tuitionPosting'
   | 'mySignups'
+  | 'insights'
 
 export type NavItem = {
   href: string
@@ -96,6 +97,9 @@ export const NAV_GROUPS: NavGroup[] = [
       // `screen: 'overview'` keeps the figures off the restricted tuitions_staff
       // role (which cannot see Overview); every full role still has it.
       { href: '/admin', label: 'Overview', icon: 'gauge', screen: 'overview' },
+      // Activity insights (owner, 20 Nov 2026 — PR-12): the Owner and the
+      // Project Managers only. Counts, no rupees, no contact details.
+      { href: '/admin/insights', label: 'Insights', icon: 'activity', screen: 'insights' },
       // No `screen`: every staff member can open their own two-factor screen
       // (PR50 §2), including a non-owner who never sees the Team page.
       { href: '/admin/security', label: 'Two-factor', icon: 'shieldCheck' },

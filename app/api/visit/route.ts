@@ -5,6 +5,7 @@ import { getSessionUser } from '@/lib/auth'
 import { rateLimit, callerIp } from '@/lib/rateLimit'
 import { countsAsVisit, visitKindsFor } from '@/lib/signupFunnelCore'
 import { bumpSiteVisit } from '@/lib/siteVisits'
+import { recordInsightVisit } from '@/lib/insightVisit'
 
 // One page view, for the daily sign-up funnel (owner, 15 Oct 2026). Sent by
 // components/VisitBeacon after a signed-out visitor's page loads in a real
@@ -26,7 +27,11 @@ export async function POST(request: Request) {
     if (session) return none()
     const body = (await request.json().catch(() => ({}))) as { path?: unknown }
     const path = typeof body.path === 'string' ? body.path.slice(0, 300) : ''
-    for (const kind of visitKindsFor(path)) await bumpSiteVisit(kind)
+    const kinds = visitKindsFor(path)
+    for (const kind of kinds) await bumpSiteVisit(kind)
+    // Admin → Insights (PR-12): one unique visitor per day (a keyed hash that
+    // changes daily — no IP or user-agent is stored) and the device category.
+    if (kinds.length > 0) await recordInsightVisit(callerIp(request), ua)
   } catch {
     /* never an error for a count */
   }

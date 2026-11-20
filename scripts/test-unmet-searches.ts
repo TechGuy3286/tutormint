@@ -185,12 +185,12 @@ test('"Add search word" makes the search find results: subject, school, level an
 test('the hiring post template fills {city}, with a copy button and a WhatsApp share link', () => {
   assert.equal(
     hiringPost(HIRING_TEMPLATE_DEFAULT, 'Sahiwal'),
-    'Hiring tutors in Sahiwal! Join TutorMint free — find home and online tuitions near you. No commission, no middleman. Join: https://www.tutormint.org/register',
+    'Hiring tutors in Sahiwal! Join TutorMint free — find home and online tuitions near you. Join: https://www.tutormint.org/register',
   )
   // {join_link} = the sending staff member's own link (owner, 15 Oct 2026).
   assert.equal(
     hiringPost(HIRING_TEMPLATE_DEFAULT, 'Sahiwal', 'https://www.tutormint.org/join/aseer'),
-    'Hiring tutors in Sahiwal! Join TutorMint free — find home and online tuitions near you. No commission, no middleman. Join: https://www.tutormint.org/join/aseer',
+    'Hiring tutors in Sahiwal! Join TutorMint free — find home and online tuitions near you. Join: https://www.tutormint.org/join/aseer',
   )
   assert.equal(hiringPost('Tutors wanted in {city}. {city} only.', ' Okara '), 'Tutors wanted in Okara. Okara only.')
   assert.equal(hiringPost('', 'Sahiwal'), hiringPost(HIRING_TEMPLATE_DEFAULT, 'Sahiwal'), 'an empty template falls back')
@@ -202,7 +202,10 @@ test('the hiring post template fills {city}, with a copy button and a WhatsApp s
   const sql = read('supabase', 'migrations', '163_photo_crop_unmet_actions.sql')
   assert.ok(sql.includes("('city_hiring_post', 'Hiring post for a city'"))
   // Migration 175 gave the seeded wording {join_link}; the code default matches it.
-  assert.ok(read('supabase', 'migrations', '175_staff_signups.sql').includes(`set body = '${HIRING_TEMPLATE_DEFAULT}'`))
+  // PR-12 removed " No commission, no middleman." from both (the stored row by
+  // scripts/dataop-pr12-wording.ts); otherwise the default is migration 175's wording.
+  assert.ok(read('supabase', 'migrations', '175_staff_signups.sql').includes(`set body = '${HIRING_TEMPLATE_DEFAULT.replace(' Join:', ' No commission, no middleman. Join:')}'`))
+  assert.ok(read('scripts', 'dataop-pr12-wording.ts').includes("key: 'city_hiring_post'"))
   assert.ok(read('lib', 'unmetSearches.ts').includes(".eq('key', HIRING_TEMPLATE_KEY)"))
   const ui = read('app', 'admin', 'overview', 'todo-unmet', 'UnmetSearchesClient.tsx')
   assert.ok(ui.includes('Hiring post for {c.city}') && ui.includes('{c.city && ('), 'only when the search named a city')

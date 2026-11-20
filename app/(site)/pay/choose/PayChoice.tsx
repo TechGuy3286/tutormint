@@ -19,6 +19,7 @@ import { prepareReceiptFile } from '@/lib/payments/receiptPrepare'
 import { compressImage } from '@/lib/imageCompress'
 import { bankCopyRows, COPIED_MS, IBAN_LINK_LABEL, splitBankRows, type BankCopyRow } from '@/lib/payments/bankCopyCore'
 import { PAY_BY_TRANSFER_LINE } from '@/lib/payments/payproRetireCore'
+import { NON_REFUNDABLE_FIELD, NON_REFUNDABLE_NOTICE, NON_REFUNDABLE_TICK, NON_REFUNDABLE_TICK_NEEDED } from '@/lib/nonRefundableCore'
 
 // The payment screen (owner, 11 Oct 2026; PayPro retired 26 Oct 2026).
 //
@@ -162,6 +163,8 @@ export default function PayChoice({
   const backToTuition = afterFeeReturnPath(returnTo, 'receipt')
   const [state, setState] = useState<ReceiptState>(receipt)
   const [file, setFile] = useState<File | null>(null)
+  // "I understand the fee is non-refundable" (PR-12): required before Submit.
+  const [ack, setAck] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -211,12 +214,17 @@ export default function PayChoice({
       setError(problem)
       return
     }
+    if (!ack) {
+      setError(NON_REFUNDABLE_TICK_NEEDED)
+      return
+    }
     setSending(true)
     setError(null)
     try {
       const form = new FormData()
       form.set('planCode', planCode)
       form.set('receipt', file)
+      form.set(NON_REFUNDABLE_FIELD, '1')
       if (returnTo) form.set('returnTo', returnTo)
       const res = await fetch('/api/payments/receipt', { method: 'POST', body: form, signal: submitSignal(UPLOAD_TIMEOUT_MS) })
       const data = (await res.json().catch(() => null)) as { success?: boolean; error?: string; code?: string; message?: string } | null
@@ -293,12 +301,30 @@ export default function PayChoice({
               </p>
             )}
 
+            {/* The non-refundable notice and its required tick, just above Submit (PR-12). */}
+            <div className="space-y-2 rounded-xl border border-gray-200 bg-tm-bg p-3" data-non-refundable="">
+              <p className="text-xs leading-relaxed text-slate-700">{NON_REFUNDABLE_NOTICE}</p>
+              <label className="flex min-h-[44px] cursor-pointer items-center gap-3 text-xs font-bold text-tm-navy">
+                <input
+                  type="checkbox"
+                  checked={ack}
+                  onChange={(e) => {
+                    setAck(e.target.checked)
+                    if (e.target.checked && error === NON_REFUNDABLE_TICK_NEEDED) setError(null)
+                  }}
+                  className="h-5 w-5 shrink-0 accent-tm-navy"
+                  data-non-refundable-tick=""
+                />
+                <span>{NON_REFUNDABLE_TICK}</span>
+              </label>
+            </div>
+
             <button
               type="button"
               onClick={() => void send()}
-              disabled={sending || !file}
-              data-submit-receipt={file ? 'ready' : 'waiting'}
-              className={`flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl px-6 text-sm font-bold ${submitButtonClass(!!file)}`}
+              disabled={sending || !file || !ack}
+              data-submit-receipt={file && ack ? 'ready' : 'waiting'}
+              className={`flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl px-6 text-sm font-bold ${submitButtonClass(!!file && ack)}`}
             >
               {sending && <Loader2 aria-hidden size={16} className="animate-spin" />}
               {sending ? 'Sending…' : SUBMIT_LABEL}

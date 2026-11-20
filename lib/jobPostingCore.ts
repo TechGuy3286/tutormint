@@ -105,7 +105,7 @@ export function jobPostingDescription(job: {
     job.timing ? `Timing: ${job.timing.trim().replace(/[.\s]+$/, '')}.` : '',
     job.genderWord ? `A ${job.genderWord.toLowerCase()} teacher is preferred.` : '',
     job.budgetLabel ? `${tuition ? 'Budget' : 'Salary'}: ${job.budgetLabel} a month.` : '',
-    'Apply on TutorMint — free to join, no commission.',
+    'Apply on TutorMint — free to join.',
   ].filter(Boolean)
 
   const free = (job.freeText ?? '').replace(/\s+/g, ' ').trim()

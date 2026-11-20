@@ -1,6 +1,7 @@
 'use client'
 
 import { showUpgradePrompts } from '@/lib/upgradesPausedCore'
+import { trackContactTap } from '@/lib/contactTap'
 import { createContext, Suspense, useContext, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Lock, MessageCircle, Phone } from 'lucide-react'
@@ -77,15 +78,16 @@ export function TutorContactBox({ tutorName }: { tutorName: string }) {
             : 'This tutor has not added a phone number yet. Request a demo and they will reply here.'}
         </p>
       ) : contact && has ? (
-        <div className="space-y-2 pt-3">
+        <div className="space-y-2 pt-3" onClickCapture={trackContactTap}>
           {contact.phone && (
-            <a href={`tel:${contact.phone}`} className="flex min-h-[44px] items-center gap-2 text-sm font-bold text-tm-navy">
+            <a data-tap="call" href={`tel:${contact.phone}`} className="flex min-h-[44px] items-center gap-2 text-sm font-bold text-tm-navy">
               <Phone size={16} className="text-gray-500" />
               {contact.phone}
             </a>
           )}
           {contact.whatsapp && (
             <a
+              data-tap="whatsapp"
               href={waSendHref(
                 contact.whatsapp.replace(/[^0-9]/g, ''),
                 `Assalam-o-Alaikum ${tutorName}, I found your profile on TutorMint and would like to discuss tuition.`,

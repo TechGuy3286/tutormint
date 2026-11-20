@@ -1,13 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { checkoutVisibleFor } from '@/lib/payments/paypro'
 import { manualInstructions } from '@/lib/payments/manual'
 
 // Serve the bank-transfer QR image (PR98 §4).
 //
 // The QR lives in the private payment-proofs bucket; this is the only way its
-// bytes reach a browser. Shown only to accounts inside the checkout gate (the
-// same set that sees the bank transfer option), so it is not an open asset. The
+// bytes reach a browser. Any signed-in member may fetch it — bank transfer is
+// the one way to pay (PR-12 removed the old PAYPRO_TEST_EMAILS gate). The
 // storage path is read from the setting, never from the request, so a crafted
 // path cannot walk the bucket.
 
@@ -20,12 +19,8 @@ export async function GET() {
   } = await supabase.auth.getUser()
   if (!user) return new Response('Sign in required.', { status: 401 })
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('admin_role, is_seed, email')
-    .eq('id', user.id)
-    .maybeSingle()
-  if (!profile || !checkoutVisibleFor(profile)) return new Response('Bank transfer is not open for your account yet. Use the payment page instead.', { status: 403 })
+  const { data: profile } = await supabase.from('profiles').select('id').eq('id', user.id).maybeSingle()
+  if (!profile) return new Response('Please complete your profile first.', { status: 403 })
 
   const instructions = await manualInstructions()
   if (!instructions.qrPath) return new Response('The bank QR code is not available right now. Use the account details on the payment page instead.', { status: 404 })

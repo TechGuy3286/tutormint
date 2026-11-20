@@ -177,7 +177,8 @@ test('the Follow-ups badge: own overdue applications; every one for the Owner', 
   const layout = code('app/admin/layout.tsx')
   // Push 2 (1 Nov 2026): own overdue for staff, every one for the Owner — viewerCount over the stored tally.
   // Since 9 Nov 2026 the sidebar badge is new, unseen applications only; the overdue tally is still stored.
-  assert.match(code('lib/adminSummaryCore.ts'), /'\/admin\/applications': viewerCount\(b\.appsNew \?\? null, actor\)/)
+  // PR-12: plus every one for an account with the "every row" grant (may.appsAll).
+  assert.match(code('lib/adminSummaryCore.ts'), /'\/admin\/applications': viewerCount\(b\.appsNew \?\? null, actor, !!may\.appsAll\)/)
   assert.match(code('lib/adminSummary.ts'), /overdueApplicationsItems\(\)/)
   assert.match(code('lib/adminSummary.ts'), /newApplicationsItems\(\)/)
   void layout

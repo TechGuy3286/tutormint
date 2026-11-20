@@ -312,7 +312,8 @@ test('access: city owners (Manager, Tuitions staff) open the inbox for their own
   }
   const route = read('app/api/admin/interest-inbox/route.ts')
   assert.match(route, /checkAdminRole\(\.\.\.SCREEN_ACCESS\.interestInbox\)/)
-  assert.match(route, /roleSatisfies\(gate\.actor\.adminRole, SCREEN_ACCESS\.interestInboxAll\)/)
+  // PR-12: every row by role (Owner/Partner) or by the per-account grant (lib/staffAllRows).
+  assert.match(route, /seesAllRows\(gate\.actor, SCREEN_ACCESS\.interestInboxAll\)/)
   assert.match(route, /undoWaSend\(b\.id, gate\.actor\)/, 'Undo: the sender or the Owner, the same day')
 })
 

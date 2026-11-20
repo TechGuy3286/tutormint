@@ -291,7 +291,7 @@ test('the status image uses the display name and carries no phone number', async
   // The props the picture is drawn from carry no phone at all.
   assert.ok(!Object.keys(tutor).some((k) => /phone|whatsapp|cnic/.test(k)))
   // The tagline is on it.
-  assert.match(src('lib/social/copy.ts'), /Free to join\. No commission\. No middleman\./)
+  assert.match(src('lib/social/copy.ts'), /Free to join\. Verified tutors\. Contact tutors directly\./)
 })
 
 // ------------------------------------------------------------ 4 parent welcome

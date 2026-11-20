@@ -522,7 +522,8 @@ export function render(input: TemplateInput): RenderedEmail {
         [
           `Payment of Rs. ${input.amountPkr.toLocaleString('en-PK')} received for the Verification Fee. Your profile is now shown to parents.`,
           'Complete your profile to appear higher in search. Verified tutors are shown to parents first.',
-          'The Verification Fee is one-time and non-refundable, as set out in our Terms.',
+          // PR-12 (owner, 20 Nov 2026): the receipt carries exactly this line.
+          'This fee is non-refundable.',
         ],
         true, // a receipt
         { label: 'Open your dashboard', href: '/tutor/dashboard' },

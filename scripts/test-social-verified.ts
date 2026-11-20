@@ -199,7 +199,9 @@ mainTest('the verified template is the default; the Headline field replaces the 
   const text = socialText('verified', data({ headline: null })).join('\n')
   assert.match(text, /I'm a Verified Tutor/)
   assert.match(text, /Get your profile verified → tutormint\.org/)
-  assert.equal((text.toLowerCase().match(/commission/g) ?? []).length, 1)
+  // PR-12: the tagline once, never "commission".
+  assert.equal(text.split('Free to join. Verified tutors. Contact tutors directly.').length - 1, 1)
+  assert.doesNotMatch(text, /commission|middle ?man/i)
 })
 
 // ---- PR C2: text fitting ----------------------------------------------------
@@ -522,7 +524,7 @@ mainTest('every template has 3 distinct captions: same link, hashtags and taglin
     const tails = caps.map((c) => c.split('\n').slice(1).join('\n'))
     assert.equal(new Set(tails).size, 1, `${t}: same tagline, link, handles and hashtags`)
     for (const c of caps) {
-      assert.equal((c.match(/Free to join\. No commission\. No middleman\./g) ?? []).length, 1, `${t}: tagline once`)
+      assert.equal((c.match(/Free to join\. Verified tutors\. Contact tutors directly\./g) ?? []).length, 1, `${t}: tagline once`)
       assert.doesNotMatch(c, PRICE_C, `${t}: ${c}`)
       assert.deepEqual(bannedClaims(c), [], `${t}: ${c}`)
     }
@@ -567,8 +569,8 @@ mainTest('the profile og:title fits ~60 characters and is cut at a whole word or
 mainTest('the profile og:description is at most 155 characters and ends with the tagline', () => {
   const d = tutorOgDescription({ headline: LONG_OWN + ' ' + LONG_OWN, subjects: [], city: 'Lahore' })
   assert.ok(d.length <= 155, String(d.length))
-  assert.ok(d.endsWith('Free to join. No commission. No middleman.'))
-  assert.equal(tutorOgDescription({ headline: null, subjects: ['Physics', 'Chemistry'], city: 'Lahore' }), 'Teaches Physics, Chemistry in Lahore. Free to join. No commission. No middleman.')
+  assert.ok(d.endsWith('Free to join. Verified tutors. Contact tutors directly.'))
+  assert.equal(tutorOgDescription({ headline: null, subjects: ['Physics', 'Chemistry'], city: 'Lahore' }), 'Teaches Physics, Chemistry in Lahore. Free to join. Verified tutors. Contact tutors directly.')
 })
 
 mainTest('the profile og:image never says Verified for an unverified tutor, never uses a hidden photo, and refreshes', async () => {

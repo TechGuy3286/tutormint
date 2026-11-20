@@ -111,6 +111,8 @@ const VIEW_DEFINER_OK: Record<string, string> = {
 const NO_POLICY_OK: Record<string, string> = {
   application_parent_views: 'first time a parent opened their tuition page showing an application (migration 235, PR-06) — no parent id; service role only',
   whatsapp_update_sends: 'staff WhatsApp update sends with Undo stamps (migration 235, PR-06) — service role only; read on the server behind SCREEN_ACCESS.waUpdates',
+  insight_visitor_days: 'Admin → Insights signed-out visitors (migration 240, PR-12) — a daily-rotating keyed hash + device category, no IP or user-agent; written only by bump_insight_visit (service role), read by the Insights builder',
+  insight_hour_counts: 'Admin → Insights visitor page views per PKT hour (migration 240, PR-12) — counts only; written only by bump_insight_visit (service role)',
   erased_fingerprints: 'keyed HMAC fingerprints of an erased member’s mobiles and CNIC — never the number (migration 239, PR-11) — service role only; read by lib/eraseFingerprint at sign-up',
   signup_block_attempts: 'refused re-sign-ups, last two digits only (migration 239, PR-11) — service role only; the Owner’s Blocked re-sign-ups list',
   address_suggestions: 'home address read from the CNIC back, a suggestion until the member confirms (migration 236, PR-07) — service role only; member reads own via /api/profile/address-suggestion, staff masked with a logged Show',

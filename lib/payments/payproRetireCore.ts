@@ -12,13 +12,15 @@
 /** app_settings key holding the last day (Pakistan time) PayPro may activate. */
 export const PAYPRO_CUTOFF_KEY = 'pay.paypro.cutoff'
 
-/** Used only when the setting cannot be read: 30 days after the deploy of
- *  26 Oct 2026. The migration seeds the same day into app_settings. */
-export const PAYPRO_CUTOFF_DEFAULT = '2026-11-25'
+/** Used only when the setting cannot be read. PayPro ENDED on 20 Nov 2026
+ *  (owner, PR-12 — "stop now"), so the last day is 19 Nov 2026; migration 240
+ *  stores the same day in app_settings. Since PR-12 nothing calls PayPro at all,
+ *  so no order can activate whatever this says. */
+export const PAYPRO_CUTOFF_DEFAULT = '2026-11-19'
 
 /** The read-only line Admin → Payments → Settings and Payment gateways show in
  *  place of "PayPro mode" (owner, 27 Oct 2026). The stored mode is unchanged. */
-export const PAYPRO_RETIRED_LINE = 'PayPro: Retired — orders started before 25 Nov 2026 still complete'
+export const PAYPRO_RETIRED_LINE = 'PayPro: Ended — no PayPro order activates since 20 Nov 2026'
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
 

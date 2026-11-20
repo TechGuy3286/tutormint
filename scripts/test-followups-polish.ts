@@ -178,7 +178,7 @@ const VALUES = {
 test('D: "About the Verification Fee" has the owner\'s wording and fills exactly', () => {
   assert.equal(
     FU_FEE_REPLY_DEFAULT,
-    'Joining TutorMint is free — no commission, no middleman. To apply to tuitions, tutors pay a one-time Verification Fee of Rs 199. We check your CNIC and selfie, and your profile gets the Verified badge so parents can trust you. You can pay here: {pay_link}. Any questions, message us on WhatsApp {support_whatsapp}.',
+    'Joining TutorMint is free. To apply to tuitions, tutors pay a one-time Verification Fee of Rs 199. We check your CNIC and selfie, and your profile gets the Verified badge so parents can trust you. You can pay here: {pay_link}. Any questions, message us on WhatsApp {support_whatsapp}.',
   )
   const def = fuTemplateDef(FU_FEE_REPLY_KEY)!
   assert.equal(def.title, 'About the Verification Fee')
@@ -189,7 +189,7 @@ test('D: "About the Verification Fee" has the owner\'s wording and fills exactly
   const text = fillFollowUp(FU_FEE_REPLY_DEFAULT, VALUES, 'pay')
   assert.equal(
     text,
-    'Joining TutorMint is free — no commission, no middleman. To apply to tuitions, tutors pay a one-time Verification Fee of Rs 199. We check your CNIC and selfie, and your profile gets the Verified badge so parents can trust you. You can pay here: https://www.tutormint.org/pay/choose. Any questions, message us on WhatsApp 0321 5872222.',
+    'Joining TutorMint is free. To apply to tuitions, tutors pay a one-time Verification Fee of Rs 199. We check your CNIC and selfie, and your profile gets the Verified badge so parents can trust you. You can pay here: https://www.tutormint.org/pay/choose. Any questions, message us on WhatsApp 0321 5872222.',
     'nothing appended: it has its own link and support number',
   )
   // As sent: the one link goes on its own line.
@@ -197,7 +197,10 @@ test('D: "About the Verification Fee" has the owner\'s wording and fills exactly
   assert.ok(sent.endsWith('\n\nhttps://www.tutormint.org/pay/choose'), sent)
   // The migration seeds the same text.
   const mig = read('supabase/migrations/197_fee_reply_template.sql')
-  assert.ok(mig.includes(`'${FU_FEE_REPLY_DEFAULT}'`), 'migration 197 seeds the code default')
+  // PR-12 removed "— no commission, no middleman." from the default and (by
+  // scripts/dataop-pr12-wording.ts) from the stored row; 197 keeps the original.
+  assert.ok(mig.includes(`'${FU_FEE_REPLY_DEFAULT.replace('Joining TutorMint is free.', 'Joining TutorMint is free — no commission, no middleman.')}'`), 'migration 197 seeded the earlier wording')
+  assert.ok(read('scripts/dataop-pr12-wording.ts').includes("key: 'fu_fee_reply'"))
   assert.match(mig, /on conflict \(key\) do nothing/)
 })
 

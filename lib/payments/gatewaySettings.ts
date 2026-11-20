@@ -12,7 +12,6 @@ import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { pproConfigured } from './paypro'
 import {
   DEFAULT_GATEWAY_SETTINGS,
   GATEWAY_KEYS,
@@ -40,7 +39,8 @@ export async function getGatewaySettings(): Promise<GatewaySettings> {
 }
 
 export function gatewayConfigured(): Record<GatewayId, boolean> {
-  return { paypro: pproConfigured() }
+  // PayPro has ended (PR-12): never "connected", and no PAYPRO_* variable is read.
+  return { paypro: false }
 }
 
 /** Record a callback received or an error hit. `message` must be plain English

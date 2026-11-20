@@ -3,10 +3,10 @@
 // Titles, descriptions and structured data, in one place.
 //
 // THE PROMISE GOES IN THE TITLE. A search result shows the title almost always
-// and the description often enough that Google rewrites it — so "no
-// commission" belongs where it will actually be read. That is why the template
-// is "<page> — verified, no commission | TutorMint" rather than putting the
-// differentiator in the description and hoping.
+// and the description often enough that Google rewrites it — so the promise
+// belongs where it will actually be read. That is why the template is
+// "<page> — verified tutors | TutorMint" rather than putting the differentiator
+// in the description and hoping. (The old closing phrases were removed in PR-12.)
 //
 // Nothing here invents a fact. The Organization block carries the legal name,
 // the registered office and the support email from app_settings, and the
@@ -24,7 +24,7 @@ import { jobPostingEmploymentType } from '@/lib/jobPostingCore'
 import { ORGANIZATION_ID, WEBSITE_ID, SITE_DESCRIPTION, SITE_LOGO_PATH, SITE_LOGO_SIZE, SITE_TAGLINE, socialProfiles } from '@/lib/siteIdentity'
 
 export const BRAND = 'TutorMint'
-export const SLOGAN = 'Free to join, no commission, no middleman'
+export const SLOGAN = 'Free to join, verified tutors, contact tutors directly'
 
 // The branded share image every page falls back to when it has no imagery of
 // its own — the 1200×630 logo card in the brand palette, already in public/.
@@ -90,12 +90,12 @@ export function socialMeta(opts: {
   }
 }
 
-const TITLE_SUFFIX = 'verified, no commission'
+const TITLE_SUFFIX = 'verified tutors'
 const DESCRIPTION_TAIL =
-  "on TutorMint, Pakistan's verified tutors network. Free to join, no commission, no middleman."
+  "on TutorMint, Pakistan's verified tutors network. Free to join. Contact tutors directly."
 
 /**
- * "<page> — verified, no commission | TutorMint"
+ * "<page> — verified tutors | TutorMint"
  *
  * Kept under about 60 characters where the page name allows, because a title
  * that is cut off loses its tail — and the tail is the part carrying the
@@ -114,7 +114,7 @@ export const DESCRIPTION_MAX = 155
 
 /**
  * A title of TITLE_MAX characters or fewer (owner, 6 Oct 2026) for tuition
- * details, landing pages and tutor profiles: the "— verified, no commission"
+ * details, landing pages and tutor profiles: the "— verified tutors"
  * suffix is dropped, and " | TutorMint" is kept only when it fits. A page name
  * longer than the limit is cut at a word boundary.
  */
@@ -177,8 +177,8 @@ export function tuitionDescription(job: {
 }
 
 /**
- * "<lead> on TutorMint, Pakistan's verified tutors network. No fee, no
- * commission, no middleman."
+ * "<lead> on TutorMint, Pakistan's verified tutors network. Free to join.
+ * Contact tutors directly."
  *
  * The lead should end without punctuation; this joins it.
  */

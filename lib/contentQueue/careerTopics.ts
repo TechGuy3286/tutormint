@@ -68,7 +68,7 @@ export const CAREER_TOPICS: CareerTopic[] = [
   {
     slug: 'late-payments-and-fee-disputes',
     title: 'Dealing with late payments and fee disputes as a tutor',
-    notes: 'Agreeing terms up front, a polite reminder, when to pause lessons, and that TutorMint takes no commission and never handles the money between tutor and parent.',
+    notes: 'Agreeing terms up front, a polite reminder, when to pause lessons, and that TutorMint never handles the money between tutor and parent.',
   },
   {
     slug: 'safety-for-tutors',

@@ -1,21 +1,15 @@
 import 'server-only'
 
-import { createAdminClient } from '@/lib/supabase/admin'
-import { getPayproOrderStatus, payProIdFromRow } from '@/lib/payments/paypro'
-import { payproOrderAccepted } from '@/lib/payments/payproVerify'
-import { activatePayment } from '@/lib/payments/activate'
-import { loadPayproCutoff } from '@/lib/payments/payproCutoff'
-import { payproMayActivate } from '@/lib/payments/payproRetireCore'
 import { recordFinanceAlert } from '@/lib/financeAlerts'
 
-// The ONE "confirm a PayPro order and activate it" path (PR104). The callback,
-// the return page and the reconcile cron all call this, so the amount rule
-// (lib/payproVerify) and the recording live in one place — not three copies, as
-// in PR103 where every copy of the guard rejected every paid order.
+// PayPro orders after PayPro ENDED (owner, 20 Nov 2026 — PR-12).
 //
-// It is idempotent (an already-approved row short-circuits, and activatePayment
-// is itself idempotent), records what PayPro reported for finance (amount paid,
-// the gateway fee, how it was paid) in the row's raw, and never logs a secret.
+// This used to be the ONE "confirm a PayPro order with Get Order Status and
+// activate it" path (PR104). PayPro no longer works with TutorMint and its API
+// client is gone, so nothing here calls PayPro and NOTHING activates: the
+// callback (/paypro/uis), the return page and the Owner's "Check payment
+// status" all land here and get "PayPro has ended". The shape of the result is
+// kept so those callers stay simple.
 
 export type PayproRow = {
   id: string
@@ -32,75 +26,44 @@ export type ConfirmResult = {
   accepted: boolean
   ggosOk: boolean
   reason?: string
-  /** ggos facts for ops diagnostics — amounts/status only, never a secret. */
   orderStatus?: string
   amountPayable?: number
   amountPaid?: number
-  /** The ggos failure description (PayPro's text or an HTTP status) — no secret. */
   ggosError?: string
-  /** Paid at PayPro AFTER the cut-off (pay.paypro.cutoff): recorded under
-   *  Finance → Needs attention, nobody activated. */
+  /** A PayPro "paid" notice arrived after PayPro ended: recorded for the Owner
+   *  under Finance → Needs attention, nobody activated. */
   recordedLate?: boolean
 }
 
+/** Never activates. An already-approved row is reported as active (nothing to
+ *  do); anything else is "PayPro has ended". No PayPro call, no data change. */
 export async function confirmPayproOrder(row: PayproRow): Promise<ConfirmResult> {
-  // Idempotent: nothing to do for an already-approved row.
   if (row.status === 'approved') {
     return { activated: false, alreadyActive: true, accepted: true, ggosOk: true }
   }
+  return { activated: false, alreadyActive: false, accepted: false, ggosOk: false, reason: 'paypro_ended' }
+}
 
-  const status = await getPayproOrderStatus(payProIdFromRow(row))
-  if (!status.ok) {
-    return { activated: false, alreadyActive: false, accepted: false, ggosOk: false, reason: 'ggos_failed', ggosError: status.error }
-  }
-
-  const facts = { orderStatus: status.orderStatus, amountPayable: status.amountPayable, amountPaid: status.amountPaid }
-  const verdict = payproOrderAccepted(
-    { ...facts, orderNumber: status.orderNumber },
-    { ourPrice: Number(row.amount_pkr), ourRef: row.provider_ref },
-  )
-  if (!verdict.accepted) {
-    return { activated: false, alreadyActive: false, accepted: false, ggosOk: true, reason: verdict.reason, ...facts }
-  }
-
-  // PayPro is retired (owner, 26 Oct 2026). Through the cut-off day an order
-  // started before the change still activates; after it, the order is only
-  // recorded for the Owner (Finance → Needs attention) — nobody is activated.
-  if (!payproMayActivate(new Date(), await loadPayproCutoff())) {
+/**
+ * A PayPro callback said an order was paid, after PayPro ended. We cannot (and
+ * do not) confirm it with PayPro any more, so nobody is activated and the
+ * payment row is not touched; the Owner gets one Finance → Needs attention line
+ * per order (recordFinanceAlert de-duplicates by kind + ref) to check the PayPro
+ * portal and refund or grant by hand. Never throws.
+ */
+export async function recordLatePayproNotice(row: PayproRow): Promise<boolean> {
+  if (row.status === 'approved') return false
+  try {
     await recordFinanceAlert({
       kind: 'paypro_late',
       ref: row.provider_ref,
-      title: `PayPro order ${row.provider_ref} was paid after the cut-off`,
-      detail: 'Not activated. Check the member and grant or refund by hand.',
+      title: `PayPro sent a "paid" notice for order ${row.provider_ref} after PayPro ended`,
+      detail: 'Not confirmed and not activated. Check the PayPro portal, then grant or refund by hand.',
       amountPkr: Number(row.amount_pkr),
       happenedAt: new Date().toISOString(),
-    }).catch(() => {})
-    return { activated: false, alreadyActive: false, accepted: true, ggosOk: true, reason: 'after_cutoff', recordedLate: true, ...facts }
-  }
-
-  // Record what PayPro reported, for finance — amount_pkr stays OUR price.
-  const admin = createAdminClient()
-  if (admin) {
-    const rawObj = (row.raw && typeof row.raw === 'object' ? (row.raw as Record<string, unknown>) : {}) as Record<string, unknown>
-    const paypro = (rawObj.paypro && typeof rawObj.paypro === 'object' ? (rawObj.paypro as Record<string, unknown>) : {}) as Record<string, unknown>
-    const d = status.raw as Record<string, unknown>
-    const paid = {
-      amountPaid: status.amountPaid,
-      amountPayable: status.amountPayable,
-      fee: Math.max(0, Math.round((status.amountPaid - status.amountPayable) * 100) / 100),
-      paymentVia: typeof d.PaymentVia === 'string' ? d.PaymentVia : null,
-      datePaid: typeof d.DatePaid === 'string' ? d.DatePaid : null,
-      confirmedAt: new Date().toISOString(),
-    }
-    await admin.from('payments').update({ raw: { ...rawObj, paypro: { ...paypro, paid } } }).eq('id', row.id)
-  }
-
-  const result = await activatePayment({ paymentId: row.id, source: 'gateway' })
-  return {
-    activated: result.ok,
-    alreadyActive: result.ok && 'alreadyActive' in result ? !!result.alreadyActive : false,
-    accepted: true,
-    ggosOk: true,
-    ...facts,
+    })
+    return true
+  } catch {
+    return false
   }
 }

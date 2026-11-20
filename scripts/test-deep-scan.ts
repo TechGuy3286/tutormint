@@ -251,11 +251,13 @@ test('Backend Support: allowed screens and actions', () => {
 })
 
 test('Backend Support: blocked actions', () => {
-  for (const k of ['finance', 'revenue', 'paymentAmounts', 'paymentGateways', 'paymentsSwitches', 'plans', 'plansMutate', 'jobsMutate', 'memberMerge', 'convertAccount', 'contactWithdraw', 'team', 'users', 'cnicRead', 'subjectsCore', 'notificationSettings', 'templateReview', 'supportNumber', 'orphans', 'memberSuspendBan', 'memberMobileChange', 'audit', 'documentUnlock', 'documentRotate', 'cityOwners', 'cleanup'] as const) {
+  for (const k of ['finance', 'revenue', 'paymentAmounts', 'paymentGateways', 'paymentsSwitches', 'plans', 'plansMutate', 'jobsMutate', 'memberMerge', 'convertAccount', 'contactWithdraw', 'team', 'cnicRead', 'subjectsCore', 'notificationSettings', 'templateReview', 'supportNumber', 'memberSuspendBan', 'memberMobileChange', 'audit', 'documentUnlock', 'documentRotate', 'cityOwners', 'cleanup'] as const) {
     assert.ok(!roleMayWrite(BS, SCREEN_ACCESS[k]), `cannot change ${k}`)
   }
   for (const k of ['finance', 'revenue', 'paymentAmounts', 'paymentGateways', 'team', 'audit'] as const) assert.ok(!roleSatisfies(BS, SCREEN_ACCESS[k]), `cannot open ${k}`)
-  assert.ok(!mayOpenFollowUpTab(BS, 'orphans'))
+  // PR-12 (owner, 20 Nov 2026): Backend Support works every tutor/parent screen —
+  // People actions and Orphaned accounts included; Owner-only decisions stay refused.
+  for (const k of ['users', 'orphans', 'tutors', 'parents'] as const) assert.ok(roleMayWrite(BS, SCREEN_ACCESS[k]), `may change ${k}`)
   // Member actions (owner, 15 Nov 2026 — lib/memberActionsCore): Backend Support
   // may warn and verify a mobile; suspend, ban and mobile changes are the Owner's.
   assert.match(read('app/api/admin/members/route.ts'), /memberActionAllowed\(actor\.adminRole/)

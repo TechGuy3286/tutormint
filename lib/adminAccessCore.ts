@@ -284,7 +284,10 @@ export const SCREEN_ACCESS = withSupervisor({
   summaryRefresh: ['admin', 'operations', 'partner', 'backend_support'] as AdminRole[],
   // The tutor and parent verification queues: open to these roles; the
   // approve / reject decisions themselves are the Owner's alone (canApprove).
-  tutors: ['admin', 'operations', 'partner'] as AdminRole[],
+  // Backend Support joined the tutor and parent screens (owner, 20 Nov 2026 —
+  // PR-12: "full actions on the tutor/parent screens, never rupees"). The
+  // Owner-only decisions inside them stay refused by lib/ownerGuard.
+  tutors: ['admin', 'operations', 'partner', 'backend_support'] as AdminRole[],
   // Staff who decide identity documents besides the Owner (owner, 5 Nov 2026,
   // lib/docDecisionCore). The review routes admit these on top of tutors /
   // parents; what they may decide is lib/docDecisionCore staffDocRefusal.
@@ -300,7 +303,7 @@ export const SCREEN_ACCESS = withSupervisor({
   // "Blocked re-sign-ups" (owner, 20 Nov 2026 — PR-11): numbers of erased
   // accounts refused at sign-up. The Owner allows / keeps blocked; the Partner views.
   blockedSignups: [] as AdminRole[],
-  parents: ['admin', 'operations', 'partner'] as AdminRole[],
+  parents: ['admin', 'operations', 'partner', 'backend_support'] as AdminRole[],
   // OWNER AND PARTNER AREAS (owner, 8 Oct 2026, item 3; Partner full rights
   // from 13 Oct): `[]` = the owner and the Partner (roleSatisfies admits both),
   // everyone else gets 403 and no menu item. Finance, the Overview revenue figure, payment amounts and
@@ -402,7 +405,7 @@ export const SCREEN_ACCESS = withSupervisor({
   // Tuitions → City owners (owner, 22 Oct 2026): only the site Owner edits;
   // the Partner views (roleMayWrite refuses them, the list names nobody).
   cityOwners: [] as AdminRole[],
-  users: ['admin', 'operations', 'partner'] as AdminRole[],
+  users: ['admin', 'operations', 'partner', 'backend_support'] as AdminRole[],
   // VIEWING People and member pages (owner, 31 Oct 2026): `users` plus Backend
   // Support. Every member ACTION route stays on `users`, so Backend Support can
   // open a member and never warn, suspend, ban or change a number.
@@ -462,8 +465,8 @@ export const SCREEN_ACCESS = withSupervisor({
   // tutors their new matches). Owner, admin, Operations AND Tuitions staff — the
   // owner named all four. These are the only People screens tuitions_staff opens.
   unpaidSignups: ['admin', 'operations', 'tuitions_staff', 'partner', 'backend_support'] as AdminRole[],
-  featuredWhatsapp: ['admin', 'operations', 'tuitions_staff', 'partner'] as AdminRole[],
-  orphans: ['admin', 'operations', 'partner'] as AdminRole[],
+  featuredWhatsapp: ['admin', 'operations', 'tuitions_staff', 'partner', 'backend_support'] as AdminRole[],
+  orphans: ['admin', 'operations', 'partner', 'backend_support'] as AdminRole[],
   signups: ['admin', 'operations', 'partner', 'backend_support'] as AdminRole[],
   usersExport: ['admin'] as AdminRole[],
   // The audit log is owner-only (owner, 8 Oct 2026, item 3).
@@ -473,8 +476,11 @@ export const SCREEN_ACCESS = withSupervisor({
   // hiring post, mark done. The roles that could already open the list; the
   // Partner views and changes nothing.
   unmetSearches: ['admin', 'operations'] as AdminRole[],
-  videoVisibility: ['admin', 'partner'] as AdminRole[],
-  tutorSlug: ['admin', 'partner'] as AdminRole[],
+  videoVisibility: ['admin', 'partner', 'backend_support'] as AdminRole[],
+  tutorSlug: ['admin', 'partner', 'backend_support'] as AdminRole[],
+  // A member's session pages on the Activity tab (PR-12): was 'admin' in the
+  // route; Backend Support works the member pages too.
+  memberSessions: ['admin', 'backend_support'] as AdminRole[],
   // Backend Support edits a member's name, documents and subjects too (owner,
   // 15 Nov 2026); the mobile and the CNIC number stay Owner-only in the route.
   tutorEdit: ['admin', 'operations', 'partner', 'backend_support'] as AdminRole[],
@@ -540,7 +546,12 @@ export const SCREEN_ACCESS = withSupervisor({
   // every route refuses another staff member's row. interestInboxAll = the
   // roles that see and send every row (and choose the staff filter).
   interestInbox: ['partner', 'backend_support', 'supervisor', 'tuitions_staff'] as AdminRole[],
-  interestInboxAll: ['partner', 'backend_support'] as AdminRole[],
+  // PR-12 (owner, 20 Nov 2026): every row is the Owner's and the Project
+  // Managers' by role, and named accounts' by grant (lib/staffAllRows —
+  // 'staff.all_rows'; Mohsin). Other Backend Support staff see their own rows.
+  interestInboxAll: ['partner'] as AdminRole[],
+  // Applications "every row" + its badge total: the same rule (PR-12).
+  applicationsAll: ['partner', 'supervisor'] as AdminRole[],
   // "Held activity" (PR-08, owner 18 Nov 2026): parent accounts the burst check
   // held from teasers; Release / Keep held. The Owner only.
   heldActivity: [] as AdminRole[],
@@ -558,6 +569,9 @@ export const SCREEN_ACCESS = withSupervisor({
   // "Show" on the masked phone / email in a member page's header (owner, 26 Oct
   // 2026) — the roles that open the member page; every Show is in Audit.
   memberContactReveal: ['admin', 'operations', 'partner', 'backend_support'] as AdminRole[],
+  // Admin → Insights (owner, 20 Nov 2026 — PR-12): the Owner and the Project
+  // Managers (roleSatisfies admits both for `[]`). Read-only page.
+  insights: [] as AdminRole[],
 })
 
 /**

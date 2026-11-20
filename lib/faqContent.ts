@@ -23,6 +23,7 @@
 
 import { SUPPORT_EMAIL_FALLBACK, SUPPORT_WHATSAPP_DISPLAY } from '@/lib/supportContacts'
 import { PARENT_SIGNUP_HREF, POST_TUITION_HREF } from '@/lib/signupLinks'
+import { DOUBLE_CHARGE_LINE, NON_REFUNDABLE_NOTICE } from '@/lib/nonRefundableCore'
 
 export type FaqLink = { label: string; href: string }
 
@@ -56,7 +57,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
     items: [
       {
         q: 'Is TutorMint free to join?',
-        a: 'Yes, for both sides. Parents, schools and academies join free, browse tutors with no account, and post tuitions free once their mobile number is verified. Tutors join free and build a profile; to be verified and apply to tuitions they pay a one-time Verification Fee. Membership plans are optional, and TutorMint never takes a commission on any tuition.',
+        a: 'Yes, for both sides. Parents, schools and academies join free, browse tutors with no account, and post tuitions free once their mobile number is verified. Tutors join free and build a profile; to be verified and apply to tuitions they pay a one-time Verification Fee. Membership plans are optional.',
         links: [
           { label: 'Create an account', href: '/register' },
           { label: 'Membership plans', href: '/membership-plans' },
@@ -64,7 +65,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       },
       {
         q: 'What is TutorMint?',
-        a: 'TutorMint connects parents with verified home and online tutors across Pakistan, and helps tutors find tuitions. Parents, schools and academies browse tutors or post a tuition; tutors build a profile and apply to tuition and teaching jobs. The two sides talk to each other directly. It is free to join, there is no commission and there is no middleman.',
+        a: 'TutorMint connects parents with verified home and online tutors across Pakistan, and helps tutors find tuitions. Parents, schools and academies browse tutors or post a tuition; tutors build a profile and apply to tuition and teaching jobs. The two sides talk to each other directly. It is free to join.',
         links: [
           { label: 'About TutorMint', href: '/about' },
           { label: 'Find tutors', href: '/browse/tutors' },
@@ -80,8 +81,8 @@ export const FAQ_GROUPS: FaqGroup[] = [
         ],
       },
       {
-        q: 'Do tutors pay commission?',
-        a: 'No. TutorMint takes no commission on any tuition. The fee a parent agrees with a tutor goes to the tutor, and we never handle it. A tutor pays a one-time Verification Fee to become verified, and can choose an optional membership plan.',
+        q: 'Does TutorMint take a share of the tuition fee?',
+        a: 'No. The fee a parent agrees with a tutor goes to the tutor, and we never handle it. A tutor pays a one-time Verification Fee to become verified, and can choose an optional membership plan.',
         links: [{ label: 'Membership plans', href: '/membership-plans' }],
       },
       {
@@ -91,7 +92,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       },
       {
         q: 'How do parents contact tutors?',
-        a: 'Directly. Once your mobile number is verified you can message any tutor in the app or request a demo lesson. There is no agent in between and no commission. A tutor’s phone and WhatsApp number are shown to parents on the Featured membership.',
+        a: 'Directly. Once your mobile number is verified you can message any tutor in the app or request a demo lesson. A tutor’s phone and WhatsApp number are shown to parents on the Featured membership.',
         links: [
           { label: 'Find tutors', href: '/browse/tutors' },
           { label: 'Membership plans', href: '/membership-plans' },
@@ -131,7 +132,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
     blurb: 'Finding and hiring a tutor.',
     items: [
       {
-        q: 'What does "free to join, no commission, no middleman" mean?',
+        q: 'Does TutorMint take anything from the fee I agree with a tutor?',
         a: 'It means the fee you agree with a tutor is the fee. TutorMint takes nothing from it — not a placement fee, not a percentage of the first month, not a cut of anything afterwards. We never handle the money between you and the tutor, and we do not need to know what you pay. Our only income is a monthly membership, and only from people who choose to buy one.',
         links: [
           { label: 'Browse tutors', href: '/browse/tutors' },
@@ -218,8 +219,8 @@ export const FAQ_GROUPS: FaqGroup[] = [
         ],
       },
       {
-        q: 'What does an academy charge that you do not?',
-        a: 'A home-tuition academy typically keeps half of your first month and often a share of every month after. TutorMint takes no commission on any tuition, ever.',
+        q: 'Do I pay TutorMint a share of my tuition fee?',
+        a: 'No. The fee you agree with a parent is yours, and TutorMint never handles it.',
         links: [
           { label: 'Tutor memberships', href: '/membership-plans?for=tutors' },
         ],
@@ -231,6 +232,12 @@ export const FAQ_GROUPS: FaqGroup[] = [
           { label: 'Complete your profile', href: '/tutor/complete-profile' },
           { label: 'Tutor memberships', href: '/membership-plans?for=tutors' },
         ],
+      },
+      {
+        // PR-12 (owner, 20 Nov 2026): the same words as the payment page and Terms.
+        q: 'Can I get a refund of the Verification Fee?',
+        a: `${NON_REFUNDABLE_NOTICE} ${DOUBLE_CHARGE_LINE}`,
+        links: [{ label: 'The Terms', href: '/terms#fees-and-refunds' }],
       },
       {
         q: 'Why is my profile not appearing in search?',
@@ -265,7 +272,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
     items: [
       {
         q: 'How much does a home tutor cost in Lahore?',
-        a: 'It depends on the level and the area more than on the city. On TutorMint tutors set their own monthly fee and the filters group them into four bands — under Rs 5,000, Rs 5,000 to 10,000, Rs 10,000 to 20,000, and over Rs 20,000 — so the honest answer is the one in the directory rather than an average we made up. Primary and Middle tuition sits at the lower end; O and A Level, Matric science and test preparation sit higher, and a tutor travelling to DHA or Bahria Town usually asks more than one teaching online. Filter by your subject and area and you are looking at real asking fees, not an estimate. Whatever you agree is what you pay: we take no commission from it.',
+        a: 'It depends on the level and the area more than on the city. On TutorMint tutors set their own monthly fee and the filters group them into four bands — under Rs 5,000, Rs 5,000 to 10,000, Rs 10,000 to 20,000, and over Rs 20,000 — so the honest answer is the one in the directory rather than an average we made up. Primary and Middle tuition sits at the lower end; O and A Level, Matric science and test preparation sit higher, and a tutor travelling to DHA or Bahria Town usually asks more than one teaching online. Filter by your subject and area and you are looking at real asking fees, not an estimate. Whatever you agree is what you pay.',
         links: [
           { label: 'Tutors in Lahore', href: '/browse/tutors?city=Lahore' },
           { label: 'Post a tuition and let tutors apply', href: POST_TUITION_HREF },
@@ -350,7 +357,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       {
         q: 'Karachi mein home tutor ki fees kitni hai?',
         lang: 'ur',
-        a: 'Wohi chaar fee bands, aur wohi usool: level aur ilaqa sheher se ziyada farq daalte hain. Clifton ya Defence aane wala tutor aam taur par online parhane wale se ziyada maangta hai, aur O ya A Level science Primary se mehngi hoti hai. Apna subject aur ilaqa filter karein aur asli fees khud dekh lein. Us fee mein hum kuch add nahi karte — TutorMint commission nahi leta.',
+        a: 'Wohi chaar fee bands, aur wohi usool: level aur ilaqa sheher se ziyada farq daalte hain. Clifton ya Defence aane wala tutor aam taur par online parhane wale se ziyada maangta hai, aur O ya A Level science Primary se mehngi hoti hai. Apna subject aur ilaqa filter karein aur asli fees khud dekh lein. Us fee mein hum kuch add nahi karte.',
         links: [
           { label: 'Karachi ke tutors', href: '/browse/tutors?city=Karachi' },
           { label: 'Karachi ki tuitions', href: '/browse/tuitions?city=Karachi' },
@@ -359,7 +366,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       {
         q: 'TutorMint aap se kya paise leta hai?',
         lang: 'ur',
-        a: 'Aap ki fee mein se kuch nahi. Na placement fee, na pehle mahine ka hissa, na baad mein koi commission. Paisa hamare beech se guzarta hi nahi, aur humein yeh jaanne ki zaroorat bhi nahi ke aap kitna dete hain. Hamari waahid aamdani mahana membership hai, aur sirf un logon se jo khud lena chahein.',
+        a: 'Aap ki fee mein se kuch nahi. Paisa hamare beech se guzarta hi nahi, aur humein yeh jaanne ki zaroorat bhi nahi ke aap kitna dete hain. Hamari waahid aamdani mahana membership hai, aur sirf un logon se jo khud lena chahein.',
         links: [
           { label: 'Parent membership', href: '/membership-plans?for=parents' },
           { label: 'Sharait (Terms)', href: '/terms' },

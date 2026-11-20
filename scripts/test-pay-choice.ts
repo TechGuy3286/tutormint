@@ -64,13 +64,15 @@ test('PayPro is retired: no JazzCash (PayPro) option; the checkout hook is uncha
   const hook = read('components/tutor/useVerifyCheckout.ts')
   assert.match(hook, /fetch\('\/api\/payments\/checkout'/, 'same endpoint')
   assert.match(hook, /body: JSON\.stringify\(returnTo \? \{ planCode, returnTo \} : \{ planCode \}\)/, 'no payment method → the online (PayPro) path')
-  // The route itself: same order creation, amount from the plan.
-  assert.match(CHECKOUT, /startPayproCheckout\(\{/, 'creates the PayPro order')
-  assert.match(CHECKOUT, /amountPkr: plan\.price_pkr as number/, 'amount from the plan, never the request')
+  // PR-12 (owner, 20 Nov 2026): PayPro has ended — the route creates no PayPro
+  // order; the transfer order's amount still comes from the plan.
+  assert.doesNotMatch(CHECKOUT, /startPayproCheckout\(/, 'no PayPro order')
+  assert.match(CHECKOUT, /amount_pkr: plan\.price_pkr/, 'amount from the plan, never the request')
   // Gateway payments activate with no staff approval…
   // (The generic gateway webhook was removed with AssanPay and the simulator, 31 Oct 2026.)
   assert.doesNotMatch(read('app/api/payments/webhook/route.ts'), /activatePayment/)
-  assert.match(read('lib/payments/payproReconcile.ts'), /activatePayment\(\{ paymentId: row\.id, source: 'gateway' \}\)/)
+  // PR-12: PayPro has ended — a PayPro order never activates anything now.
+  assert.doesNotMatch(read('lib/payments/payproReconcile.ts'), /activatePayment/)
   // …and staff cannot approve one by hand.
   assert.match(DECIDE, /payment\.provider !== 'manual'/, 'only a bank transfer is decided by staff')
   // The receipt route never activates anything.

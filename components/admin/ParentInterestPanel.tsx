@@ -4,6 +4,7 @@ import Link from 'next/link'
 
 import InterestInboxRow from '@/components/admin/InterestInboxRow'
 import { roleMayWrite, roleSatisfies, SCREEN_ACCESS, type AdminActor } from '@/lib/adminAuth'
+import { seesAllRows } from '@/lib/staffAllRows'
 import { loadParentInterestPanel } from '@/lib/interestInbox'
 import { inboxView } from '@/lib/interestInboxView'
 import { INBOX_HREF, WAIT_LABEL } from '@/lib/interestInboxCore'
@@ -20,7 +21,7 @@ import { WA_WEEKLY_CAP } from '@/lib/tutorTeasersCore'
 
 export default async function ParentInterestPanel({ parentId, actor }: { parentId: string; actor: AdminActor }) {
   const panel = await loadParentInterestPanel(parentId)
-  const seesAll = roleSatisfies(actor.adminRole, SCREEN_ACCESS.interestInboxAll)
+  const seesAll = await seesAllRows(actor, SCREEN_ACCESS.interestInboxAll)
   const mayWrite = roleMayWrite(actor.adminRole, SCREEN_ACCESS.interestInbox)
   const canReveal = roleSatisfies(actor.adminRole, SCREEN_ACCESS.memberContactReveal)
   const nowMs = Date.now()

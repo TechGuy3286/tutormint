@@ -173,7 +173,8 @@ test('C: an unclear fee says Check with PayPro; a missing export row uses the us
 
 // ── Part D ──────────────────────────────────────────────────────────────
 test('D: PayPro reads Retired; no Pay later and no PayPro way to pay in Payment gateways', () => {
-  assert.equal(PAYPRO_RETIRED_LINE, 'PayPro: Retired — orders started before 25 Nov 2026 still complete')
+  // PR-12 (owner, 20 Nov 2026): PayPro has ended.
+  assert.equal(PAYPRO_RETIRED_LINE, 'PayPro: Ended — no PayPro order activates since 20 Nov 2026')
   const settings = read('app/admin/payments/settings/page.tsx')
   // The retired line itself left the settings pages (owner, 31 Oct 2026).
   assert.ok(!settings.includes('PAYPRO_RETIRED_LINE') && !settings.includes('PayPro mode') && !settings.includes('Pay later'))

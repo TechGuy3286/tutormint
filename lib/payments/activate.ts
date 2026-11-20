@@ -199,7 +199,7 @@ export async function activatePayment(params: {
       title: 'You are verified',
       body:
         'Your Verification Fee is paid and your profile is now shown to parents. Complete your ' +
-        'profile to appear higher in search. There are no refunds.',
+        'profile to appear higher in search. This fee is non-refundable.',
       // Started from a tuition (a bank transfer approved hours later): the
       // notification takes the tutor back to it, Apply ready (owner, 15 Oct 2026).
       href: afterFeeReturnPath(payment.return_to as string | null, 'paid') ?? '/tutor/dashboard',

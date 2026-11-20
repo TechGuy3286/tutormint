@@ -411,3 +411,47 @@ export function storedInboxUsable(stored: { builtAt: string; pkDay: string } | n
 export function pkDayKeyOf(nowMs: number): string {
   return new Date(nowMs + 5 * 60 * 60 * 1000).toISOString().slice(0, 10)
 }
+
+// ------------------------------------------------- stored-copy check (PR-12) ---
+// "Does the stored inbox say what a fresh build says?" Compared at the SAME
+// moment: the fresh build is made for the stored copy's own builtAt, so only a
+// real difference (a change the staleness check missed, or something lost in
+// storage) shows up — never ordinary drift between two times. Pure.
+
+type SnapshotRowLike = { tutorId: string; tab: string; wait: string | null; assigneeId: string; pendingKinds?: readonly string[] }
+type SnapshotLike = {
+  rows: readonly SnapshotRowLike[]
+  counts: { byTab: Record<string, number>; ready: number; readyDemo: number; waitingBeyondCap: number; readyByAssignee: Record<string, number>; unpaidSentToday: number }
+}
+
+/** Plain lines naming every difference between two inbox snapshots (none = []). */
+export function inboxSnapshotDiff(fresh: SnapshotLike, stored: SnapshotLike): string[] {
+  const out: string[] = []
+  const num = (label: string, a: number, b: number) => {
+    if (a !== b) out.push(`${label}: fresh ${a}, stored ${b}`)
+  }
+  for (const t of new Set([...Object.keys(fresh.counts.byTab), ...Object.keys(stored.counts.byTab)])) num(`tab ${t}`, fresh.counts.byTab[t] ?? 0, stored.counts.byTab[t] ?? 0)
+  num('ready', fresh.counts.ready, stored.counts.ready)
+  num('ready demo', fresh.counts.readyDemo, stored.counts.readyDemo)
+  num('waiting beyond cap', fresh.counts.waitingBeyondCap, stored.counts.waitingBeyondCap)
+  num('unpaid sent today', fresh.counts.unpaidSentToday, stored.counts.unpaidSentToday)
+  for (const id of new Set([...Object.keys(fresh.counts.readyByAssignee), ...Object.keys(stored.counts.readyByAssignee)])) {
+    num(`ready for assignee ${id.slice(0, 8)}`, fresh.counts.readyByAssignee[id] ?? 0, stored.counts.readyByAssignee[id] ?? 0)
+  }
+  num('rows', fresh.rows.length, stored.rows.length)
+  const s = new Map(stored.rows.map((r) => [r.tutorId, r]))
+  const f = new Map(fresh.rows.map((r) => [r.tutorId, r]))
+  for (const r of fresh.rows) {
+    const o = s.get(r.tutorId)
+    if (!o) out.push(`tutor ${r.tutorId.slice(0, 8)}: only in the fresh build (${r.tab})`)
+    else if (o.tab !== r.tab || o.wait !== r.wait || o.assigneeId !== r.assigneeId || (o.pendingKinds ?? []).join() !== (r.pendingKinds ?? []).join()) {
+      out.push(`tutor ${r.tutorId.slice(0, 8)}: fresh ${r.tab}/${r.wait ?? 'ready'}, stored ${o.tab}/${o.wait ?? 'ready'}`)
+    }
+  }
+  for (const r of stored.rows) if (!f.has(r.tutorId)) out.push(`tutor ${r.tutorId.slice(0, 8)}: only in the stored copy (${r.tab})`)
+  // Row ORDER is what the page shows; report the first place it differs.
+  const fo = fresh.rows.map((r) => r.tutorId).join()
+  const so = stored.rows.map((r) => r.tutorId).join()
+  if (out.length === 0 && fo !== so) out.push('same rows, different order')
+  return out
+}

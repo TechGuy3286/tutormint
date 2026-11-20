@@ -333,6 +333,8 @@ export function paymentCheckOutcome(
   checkedText: string,
 ): PaymentCheckOutcome {
   if (r.alreadyActive || (r.accepted && r.activated)) return { state: 'paid', message: 'Paid ✅' }
+  // PayPro has ended (PR-12): nothing is asked of PayPro any more.
+  if (r.reason === 'paypro_ended') return { state: 'not_paid', message: 'PayPro has ended — this order can no longer be checked or paid. Ask the member to pay by bank transfer.' }
   if (!r.ggosOk) return { state: 'unreachable', message: 'PayPro could not be reached. Try again in a few minutes.' }
   if (r.accepted && !r.activated) return { state: 'unreachable', message: 'PayPro says paid, but activation did not finish. Try again.' }
   if (r.reason === 'not_paid') return { state: 'not_paid', message: `Not paid yet (checked ${checkedText})` }

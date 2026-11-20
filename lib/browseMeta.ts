@@ -4,7 +4,7 @@
 // 2026). Search Console showed /browse/tutors at position 2.5 with 109
 // impressions and no clicks: the snippet said nothing a searcher wanted. The
 // title now says what the page offers, and the description names the cities and
-// the two things that set the site apart — free to join, no commission.
+// what sets the site apart — free to join, contact directly.
 //
 // Pure, so the page and the test read the same strings. Titles stay at about
 // 60 characters and descriptions under 155 (lib/seo fitTitle / seoDescription).
@@ -22,8 +22,8 @@ export function browseTutorsMeta(subject: string | null, city: string): { title:
   const what = subject ? `${subject} tutors` : 'home and online tutors'
   const description = seoDescription(
     city
-      ? `Find ${what} in ${city}. Verified tutors are listed first. Free to join, no commission — message a tutor directly on TutorMint.`
-      : `Find ${what} in ${CITIES}. Verified tutors are listed first. Free to join, no commission.`,
+      ? `Find ${what} in ${city}. Verified tutors are listed first. Free to join — message a tutor directly on TutorMint.`
+      : `Find ${what} in ${CITIES}. Verified tutors are listed first. Free to join.`,
   )
   return { title, description }
 }
@@ -39,8 +39,8 @@ export function browseTuitionsMeta(subject: string | null, city: string): { titl
   const what = subject ? `${subject} tuition jobs` : 'Home tuition, online tuition and school teaching jobs'
   const description = seoDescription(
     city
-      ? `${what} in ${city}, updated daily. Free to join, no commission — apply on TutorMint.`
-      : `${what} in ${CITIES}, updated daily. Free to join, no commission.`,
+      ? `${what} in ${city}, updated daily. Free to join — apply on TutorMint.`
+      : `${what} in ${CITIES}, updated daily. Free to join.`,
   )
   return { title, description }
 }

@@ -13,6 +13,7 @@ import { loadBankPanel, loadReceiptState } from '@/lib/payments/receipt'
 import { RECEIPT_MESSAGES, RECEIPT_TYPES, receiptFileProblem } from '@/lib/payments/receiptCore'
 import { FEE_LABEL } from '@/lib/display'
 import { upgradeRefusal } from '@/lib/upgradesPausedCore'
+import { NON_REFUNDABLE_FIELD, NON_REFUNDABLE_TICK_NEEDED, nonRefundableTicked } from '@/lib/nonRefundableCore'
 
 // Send a bank-transfer receipt (owner, 11 Oct 2026).
 //
@@ -64,6 +65,14 @@ export async function POST(request: Request) {
 
   const problem = receiptFileProblem(file instanceof File ? { type: file.type, size: file.size } : null)
   if (problem || !(file instanceof File)) return NextResponse.json({ error: problem }, { status: 400 })
+
+  // The fee is non-refundable (owner, 20 Nov 2026 — PR-12): the member must
+  // tick "I understand the fee is non-refundable" first. Refused here, not only
+  // on the screen; the tick time is stored with the payment below.
+  if (!nonRefundableTicked(form.get(NON_REFUNDABLE_FIELD))) {
+    return NextResponse.json({ error: NON_REFUNDABLE_TICK_NEEDED, code: 'non_refundable_tick' }, { status: 400 })
+  }
+  const nonRefundableAckAt = new Date().toISOString()
 
   const { data: plan } = await supabase
     .from('plans')
@@ -178,6 +187,7 @@ export async function POST(request: Request) {
       method: 'bank',
       reference: transactionId || null,
       screenshot_path: path,
+      non_refundable_ack_at: nonRefundableAckAt,
       ...(returnTo ? { return_to: returnTo } : {}),
       // A receipt on a checkout that had been cancelled or expired opens it
       // again: it is now a payment waiting for approval (17 Oct 2026).

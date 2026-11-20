@@ -3,6 +3,7 @@ import { pageTitle } from '@/lib/seo'
 import { getCompany } from '@/lib/company'
 import Link from 'next/link'
 import LegalDoc, { entitySection, type LegalSection } from '@/components/LegalDoc'
+import { DOUBLE_CHARGE_LINE, NON_REFUNDABLE_NOTICE } from '@/lib/nonRefundableCore'
 
 // Terms of Service.
 //
@@ -27,7 +28,7 @@ export const metadata: Metadata = {
     'The rules for using TutorMint: memberships and prices, the no-refund policy, quotas, verification, conduct, and how accounts are suspended.',
 }
 
-const UPDATED = '1 September 2026'
+const UPDATED = '20 November 2026'
 
 const SECTIONS: LegalSection[] = [
   {
@@ -42,7 +43,7 @@ const SECTIONS: LegalSection[] = [
         </p>
         <p>
           <strong>We are not an employer, an agency, or a tuition centre.</strong> We do not set
-          fees, supervise lessons, guarantee results, or take a commission on anything you earn or
+          fees, supervise lessons, guarantee results, or take a share of anything you earn or
           pay. The teaching relationship — its price, its schedule, its quality — is entirely
           between the tutor and the family.
         </p>
@@ -200,7 +201,7 @@ const SECTIONS: LegalSection[] = [
         <p>
           TutorMint sells two things: a one-time <strong>Verification Fee</strong> that a tutor
           pays once to be verified and listed, and optional monthly memberships. We charge no
-          commission and no per-introduction fee.
+          per-introduction fee.
         </p>
         <p>
           <strong>The Verification Fee.</strong> It is paid once, never renews, and is what
@@ -240,6 +241,18 @@ const SECTIONS: LegalSection[] = [
           We may change prices or what a plan includes. Changes apply to new purchases and renewals,
           never retroactively to a month you have already paid for.
         </p>
+      </>
+    ),
+  },
+  {
+    // PR-12 (owner, 20 Nov 2026): the short "Fees and refunds" section, in the
+    // exact words the payment page shows above its Submit button.
+    id: 'fees-and-refunds',
+    heading: 'Fees and refunds',
+    body: (
+      <>
+        <p>{NON_REFUNDABLE_NOTICE}</p>
+        <p>{DOUBLE_CHARGE_LINE}</p>
       </>
     ),
   },

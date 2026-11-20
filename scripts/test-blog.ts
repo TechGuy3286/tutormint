@@ -186,12 +186,12 @@ test('figureGate is active and flags with notes present', () => {
 test('withBrandTail ends with the brand line and fits 155', () => {
   const d = withBrandTail('A short lead about O Level Physics tutors in Lahore')
   assert.ok(d.length <= 155, `length ${d.length} must be <= 155`)
-  assert.ok(d.includes('Free to join, no commission, no middleman.'), 'brand line present')
+  assert.ok(d.includes('Free to join. Contact tutors directly.'), 'brand line present (PR-12 wording)')
 })
 
 test('withBrandTail does not double the brand line', () => {
-  const d = withBrandTail('Find tutors — no commission at all')
-  assert.equal((d.match(/no commission/gi) ?? []).length, 1)
+  const d = withBrandTail('Find tutors — contact tutors directly')
+  assert.equal((d.match(/contact tutors directly/gi) ?? []).length, 1)
 })
 
 test('the composed fallback invents no figure not in its notes', () => {
@@ -402,7 +402,8 @@ test('contradictionViolations flags the four false claims, allows the brand slog
   assert.deepEqual(contradictionViolations('Verified tutors can message parents directly.'), [])
   // The site tagline's "No fee" contradicts the Verification Fee (owner, 7 Oct 2026).
   assert.ok(contradictionViolations('No fee, no commission, no middleman.').length > 0)
-  assert.deepEqual(contradictionViolations('TutorMint takes no commission on what you earn.'), [])
+  // PR-12: "no commission" is now flagged (TutorMint works with academies and agents).
+  assert.ok(contradictionViolations('TutorMint takes no commission on what you earn.').some((v) => v.kind === 'middleman'))
   // A normal factual sentence is clean.
   assert.deepEqual(contradictionViolations('A verified tutor can reply to parents and apply to tuitions.'), [])
 })

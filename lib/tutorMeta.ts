@@ -3,7 +3,7 @@
 // A tutor profile's meta description (owner, 13 Oct 2026). PURE.
 //
 //   "<Name> — verified <subjects> tutor in <areas, city> (home/online).
-//    Contact directly on TutorMint, no commission."
+//    Contact directly on TutorMint."
 //
 // "verified" is said only when the caller says the tutor IS verified (the page
 // is indexable: fee paid and documents approved) — never as a blanket claim.
@@ -41,5 +41,5 @@ export function tutorMetaDescription(t: {
       : city || areas.join(' & ') || 'Pakistan'
   const modes = tutorModeWords(t.jobTypes)
   const what = [t.verified ? 'verified' : '', subjects, 'tutor'].filter(Boolean).join(' ')
-  return `${t.name} — ${what} in ${where}${modes.length ? ` (${modes.join('/')})` : ''}. Contact directly on TutorMint, no commission.`
+  return `${t.name} — ${what} in ${where}${modes.length ? ` (${modes.join('/')})` : ''}. Contact directly on TutorMint.`
 }

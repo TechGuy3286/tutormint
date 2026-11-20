@@ -35,7 +35,7 @@ function fnBody(src: string, name: string): string {
 test('the final screen is "Complete Your Verification": English-only, full progress, opens the choice screen', () => {
   const g = fnBody(FLOW, 'GetVerifiedStep')
   assert.match(g, /heading="Complete Your Verification"/, 'heading')
-  assert.match(g, /You pay no commission to TutorMint/, 'the commission message')
+  assert.match(g, /Never pay anyone in TutorMint&rsquo;s name/, 'the pay-safely message (PR-12: no "commission")')
   assert.match(g, /Verification Fee\. We keep TutorMint clean of fake and spam accounts\./, 'the fee line (no amount — PR106-G6)')
   // HOTFIX-G4b: button label carries no amount; the failure line is the shared
   // reason-based message (see the dedicated HOTFIX test).
@@ -62,12 +62,11 @@ test('the PayPro hook reuses a pending invoice via /api/payments/checkout, and f
   // + the page to come back to (15 Oct 2026); still no payment method → PayPro.
   assert.match(h, /body: JSON\.stringify\(returnTo \? \{ planCode, returnTo \} : \{ planCode \}\)/, 'posts the package with no payment method → the online (PayPro) path')
   assert.match(h, /data\?\.mode === 'redirect'/, 'a redirect navigates; any non-redirect sets a reason (see the HOTFIX test), never a raw error')
-  // the checkout route still routes the no-method verified path through startPayproCheckout,
-  // which reuses a < 24h pending invoice.
+  // PR-12 (owner, 20 Nov 2026): PayPro has ended — the no-method (card) path is
+  // refused with "pay by bank transfer"; the hook is no longer used by any screen.
   const route = read('app/api/payments/checkout/route.ts')
-  assert.match(route, /startPayproCheckout\(/, 'checkout calls startPayproCheckout')
-  const pp = read('lib/payments/paypro.ts')
-  assert.match(pp, /ageMs < DAY_MS && click2pay/, 'startPayproCheckout reuses a fresh pending order')
+  assert.doesNotMatch(route, /startPayproCheckout\(/, 'no PayPro checkout')
+  assert.match(route, /if \(!wantsTransfer\) \{\s*\n\s*return NextResponse\.json\(\{ error: PAYPRO_CLOSED_MESSAGE/, 'card refused')
 })
 
 // --------------------------------------------- STEP 2: dashboard card -------
@@ -125,7 +124,7 @@ test('Membership Plans shows bank only when switched on, no Pay later (retired 3
   assert.ok(pt.includes("showTransfer={!hideTransfer}"), 'BuyButton transfer follows hideTransfer')
   const checkout = read('app/api/payments/checkout/route.ts')
   assert.ok(checkout.includes("wantsTransfer && !transferOn"), 'the server refuses an off transfer')
-  assert.ok(checkout.includes("!wantsTransfer && !onlineCheckoutOn(gateways)"), 'the server refuses off online payment')
+  assert.ok(checkout.includes("if (!wantsTransfer) {"), 'the server refuses online payment (PayPro ended — PR-12)')
 })
 
 test('/pay/manual still works and bank details are not deleted (staff can still share manually)', () => {

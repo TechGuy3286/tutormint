@@ -107,7 +107,6 @@ export default async function AboutPage() {
         <p>
           Browsing tutors and tuitions is free and needs no account. Signing up is free. Parents post
           tuitions, message tutors and request demo lessons free once their mobile number is verified.
-          TutorMint takes no commission on any tuition.
         </p>
         <p>
           We earn in two ways only: a one-time Verification Fee that a tutor pays to become verified,
@@ -166,7 +165,7 @@ export default async function AboutPage() {
             Verification Fee and sending their CNIC and a profile photo, so a parent
             knows the person they found is real
             before they send the first message. The two figures in our logo are a tutor and a
-            parent, talking directly — no agency, no middleman between them.{' '}
+            parent, talking directly.{' '}
             <strong>Genuine tutors, minted daily.</strong>
           </p>
         </div>

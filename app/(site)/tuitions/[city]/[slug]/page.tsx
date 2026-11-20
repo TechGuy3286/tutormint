@@ -161,7 +161,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   // browser tab and a Google Jobs result. Falls back to the composed string only
   // when there is no stored title (owner, 11 Sep 2026). The CARD keeps composed.
   const pageHeadline = preferHumanTitle(job.headline, job.title)
-  // ≤ 60 characters (owner, 6 Oct 2026): no "— verified, no commission" suffix;
+  // ≤ 60 characters (owner, 6 Oct 2026): no "— verified tutors" suffix;
   // "| TutorMint" only when it fits. The description (≤ 155) is built from the
   // tuition's own fields — level, subjects, area, city, Job Type, budget — never
   // the free text and never an invented fact.

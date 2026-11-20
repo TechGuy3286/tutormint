@@ -360,7 +360,7 @@ export async function tutorProfileMetadata(slug: string): Promise<Metadata> {
   const ogLevels = tutor.subjects.filter((x) => !x.school).map((x) => levelLabel(x.level))
   const title = tutorOgTitle({ name: tutor.full_name, subjects: ogSubjects, levels: ogLevels, city: tutor.city })
   // "<Name> — verified <subjects> tutor in <areas, city> (home/online). Contact
-  // directly on TutorMint, no commission." (owner, 13 Oct 2026). "verified" is
+  // directly on TutorMint." (owner, 13 Oct 2026; the old closing phrase removed PR-12). "verified" is
   // said only when the page is indexable — fee paid and documents approved.
   const description = seoDescription(
     tutorMetaDescription({

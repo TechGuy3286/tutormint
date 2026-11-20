@@ -157,8 +157,8 @@ test('My sign-ups: her own link and her own data only', () => {
 test('Previously blocked actions are still refused', () => {
   for (const k of [
     'finance', 'revenue', 'paymentAmounts', 'paymentGateways', 'paymentsSwitches', 'paymentsSettings', 'paymentsApprove', 'paymentsRefund',
-    'plans', 'plansMutate', 'jobsMutate', 'memberMerge', 'convertAccount', 'contactWithdraw', 'team', 'users',
-    'cnicRead', 'subjectsCore', 'notificationSettings', 'templateReview', 'supportNumber', 'orphans', 'audit', 'memberSuspendBan', 'memberMobileChange',
+    'plans', 'plansMutate', 'jobsMutate', 'memberMerge', 'convertAccount', 'contactWithdraw', 'team',
+    'cnicRead', 'subjectsCore', 'notificationSettings', 'templateReview', 'supportNumber', 'audit', 'memberSuspendBan', 'memberMobileChange',
     'documentUnlock', 'documentRotate', 'cityOwners', 'cleanup', 'messaging', 'emailHealth', 'smsHealth', 'teamOverview',
   ] as const) {
     assert.ok(!roleMayWrite(BS, SCREEN_ACCESS[k]), `cannot change ${k}`)
