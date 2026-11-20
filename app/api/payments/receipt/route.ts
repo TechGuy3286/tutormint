@@ -12,7 +12,10 @@ import { sendBankTransferPending } from '@/lib/payments/paymentAlerts'
 import { loadBankPanel, loadReceiptState } from '@/lib/payments/receipt'
 import { RECEIPT_MESSAGES, RECEIPT_TYPES, receiptFileProblem } from '@/lib/payments/receiptCore'
 import { FEE_LABEL } from '@/lib/display'
+import { paymentPlanName } from '@/lib/paymentLabelCore'
 import { upgradeRefusal } from '@/lib/upgradesPausedCore'
+import { downgradeRefusal } from '@/lib/planPurchaseCore'
+import { planChangeFor } from '@/lib/planPurchase'
 import { NON_REFUNDABLE_FIELD, NON_REFUNDABLE_TICK_NEEDED, nonRefundableTicked } from '@/lib/nonRefundableCore'
 
 // Send a bank-transfer receipt (owner, 11 Oct 2026).
@@ -76,14 +79,14 @@ export async function POST(request: Request) {
 
   const { data: plan } = await supabase
     .from('plans')
-    .select('code, name, audience, price_pkr')
+    .select('code, name, audience, price_pkr, search_rank')
     .eq('code', planCode)
     .maybeSingle()
   if (!plan || !(plan.price_pkr as number)) {
     return NextResponse.json({ error: 'Choose a package first.' }, { status: 400 })
   }
 
-  // Premium / Featured are paused (owner, 9 Nov 2026): no receipt for them.
+  // A paused plan (tutor Featured since PR-13) takes no receipt.
   const paused = upgradeRefusal(plan.code as string, plan.price_pkr as number)
   if (paused) return NextResponse.json({ error: paused.error, code: paused.code }, { status: paused.status })
 
@@ -116,6 +119,14 @@ export async function POST(request: Request) {
         { status: 400 },
       )
     }
+  }
+
+  // No downgrades (PR-13): a member on a higher running plan cannot buy a lower
+  // one. The same plan extends it; a higher one replaces it on approval.
+  if (plan.code !== 'verified') {
+    const { change } = await planChangeFor(user.id, audience, { code: plan.code as string, rank: (plan.search_rank as number) ?? 0 })
+    const down = downgradeRefusal(change)
+    if (down) return NextResponse.json({ error: down.error, code: down.code }, { status: down.status })
   }
 
   // "Other method" exists only while the owner's switch is on and the bank
@@ -224,6 +235,7 @@ export async function POST(request: Request) {
     memberName: (profile.full_name as string) ?? 'A member',
     role: audience === 'tutor' ? 'Tutor' : 'Parent',
     amountPkr: (plan.price_pkr as number) ?? 0,
+    what: plan.code === 'verified' ? FEE_LABEL : `${paymentPlanName(plan.code as string)} plan`,
   })
 
   await returnFromNotInterested(user.id, 'receipt_sent')

@@ -186,8 +186,8 @@ test('the Plan filter counts and the 7-day ending window', () => {
 // ------------------------------------------------------------ 5. promotion off --
 
 test('no upgrade invitation goes out while the setting is off', () => {
-  assert.equal(UPGRADES_PAUSED, true)
-  assert.equal(PROMOTE_UPGRADES, false, 'one setting, following the pause')
+  assert.equal(UPGRADES_PAUSED, false) // PR-13: per-plan pause now
+  assert.equal(PROMOTE_UPGRADES, false, 'its own switch since PR-13 — still off')
   assert.equal(showUpgradePrompts(), false)
   assert.equal(inviteAllowed('viewer_weekly_teaser'), false)
   assert.equal(inviteAllowed('quota_nudge'), false)

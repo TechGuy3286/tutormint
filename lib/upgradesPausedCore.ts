@@ -1,24 +1,33 @@
-// Premium and Featured upgrades are paused (owner, 9 Nov 2026).
+// Which paid upgrades can be bought (owner: all paused 9 Nov 2026; PR-13,
+// 21 Nov 2026: tutor Premium and parent Featured on sale again by bank transfer).
 //
-// In this phase the only thing that earns money is the one-time Verification
-// Fee ('verified'). Every other paid plan — tutor Premium and Featured, parent
-// Featured — shows "Coming soon" and cannot be bought: the cards, the upgrade
-// sheet, /pay/choose and the two routes that create a payment (checkout and
-// receipt) all read this one rule. Members who already hold a plan keep it until
-// its end date: entitlements read subscriptions, which this never touches.
+// PR-13 turned on only the plans whose every card line is delivered by code.
+// Tutor Featured stays "Coming soon": its "Matched tuitions on your WhatsApp"
+// line was a staff-sent list (Featured WhatsApp) that was retired on 31 Oct
+// 2026, so that plan cannot be sold until the list is back. The cards, the
+// upgrade sheet, /pay/choose and the two routes that create a payment
+// (checkout and receipt) all read this one rule. Members who already hold a
+// plan keep it until its end date: entitlements read subscriptions, which this
+// never touches.
 //
 // Pure: no I/O, so the test runner and client components can import it.
 
-/** Flip to false to sell upgrades again. */
-export const UPGRADES_PAUSED = true
+/** The upgrade plan codes that are still "Coming soon". Remove a code to sell it. */
+export const PAUSED_UPGRADE_CODES: readonly string[] = ['featured']
+
+/** Every upgrade paused at once (the 9 Nov 2026 state). Off since PR-13 — the
+ *  per-plan list above decides. */
+export const UPGRADES_PAUSED: boolean = false
 
 /** The plan code of the one-time Verification Fee — never paused. */
 export const FEE_PLAN_CODE = 'verified'
 
 export const COMING_SOON_LABEL = 'Coming soon'
 
-export const UPGRADES_PAUSED_MESSAGE =
-  'Premium and Featured plans are coming soon. You cannot buy them right now.'
+export const UPGRADES_PAUSED_MESSAGE = 'This plan is coming soon. You cannot buy it right now.'
+
+/** The pause the app runs with: everything, or the per-plan list. */
+const CURRENT_PAUSE: boolean | readonly string[] = UPGRADES_PAUSED || PAUSED_UPGRADE_CODES
 
 /** True for a paid plan other than the Verification Fee. */
 export function isUpgradePlan(code: string | null | undefined, pricePkr?: number | null): boolean {
@@ -28,31 +37,42 @@ export function isUpgradePlan(code: string | null | undefined, pricePkr?: number
   return true
 }
 
-/** True when this plan cannot be bought right now. */
-export function upgradeBlocked(code: string | null | undefined, pricePkr?: number | null, paused = UPGRADES_PAUSED): boolean {
-  return paused && isUpgradePlan(code, pricePkr)
+/** True when this plan cannot be bought right now. `paused` is a list of
+ *  paused plan codes (default: the live list) or a blanket true/false. */
+export function upgradeBlocked(
+  code: string | null | undefined,
+  pricePkr?: number | null,
+  paused: boolean | readonly string[] = CURRENT_PAUSE,
+): boolean {
+  if (!isUpgradePlan(code, pricePkr)) return false
+  if (typeof paused === 'boolean') return paused
+  return paused.includes((code ?? '').trim())
 }
 
 /** The server's refusal for a purchase, or null when it may go ahead. */
 export function upgradeRefusal(
   code: string | null | undefined,
   pricePkr?: number | null,
-  paused = UPGRADES_PAUSED,
+  paused: boolean | readonly string[] = CURRENT_PAUSE,
 ): { error: string; code: 'upgrades_paused'; status: 409 } | null {
   return upgradeBlocked(code, pricePkr, paused) ? { error: UPGRADES_PAUSED_MESSAGE, code: 'upgrades_paused', status: 409 } : null
 }
 
 // ------------------------------------------------- promotion (owner, 10 Nov 2026) --
 //
-// While upgrades are "Coming soon", nothing invites a member to buy one: no
+// While upgrades were "Coming soon", nothing invited a member to buy one: no
 // weekly "who viewed your profile" upsell, no quota nudge, no house banner for
-// a paid plan, no dashboard "Upgrade" / "See Premium" / "Renew" prompt. ONE
-// switch; it follows UPGRADES_PAUSED by default, so selling again turns the
-// invitations back on too. Benefits of members who already hold a plan are
-// untouched (entitlements never read this). Templates are not deleted.
+// a paid plan, no dashboard "Upgrade" / "See Premium" / "Renew" prompt.
+// Benefits of members who already hold a plan are untouched (entitlements never
+// read this). Templates are not deleted.
+//
+// PR-13 put Premium and parent Featured on sale but asked only for the buttons
+// on Membership Plans and the payment flow behind them. Promotion stays OFF —
+// no upsell notifications, nudges, banners or "Renew" reminders — until the
+// Owner asks for it. It is its own switch now, no longer tied to the pause.
 
 /** Flip to true to invite members to upgrade again. */
-export const PROMOTE_UPGRADES = !UPGRADES_PAUSED
+export const PROMOTE_UPGRADES: boolean = false
 
 /** The plan codes an invitation may pitch (the Verification Fee and the free
  *  parent tier are not upgrades). */

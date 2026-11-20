@@ -121,7 +121,9 @@ test('Membership Plans shows bank only when switched on, no Pay later (retired 3
   assert.ok(page.includes("Back<span"), 'Back always stays')
   const pt = read('components/PackagesTable.tsx')
   assert.ok(pt.includes("hideTransfer = false"), 'PackagesTable default')
-  assert.ok(pt.includes("showTransfer={!hideTransfer}"), 'BuyButton transfer follows hideTransfer')
+  // PR-13: the card button only opens /pay/choose, which hides the bank panel when
+  // the switch is off (loadBankPanel) — the prop is accepted but no longer passed on.
+  assert.ok(pt.includes("void hideTransfer"), 'hideTransfer accepted; /pay/choose decides')
   const checkout = read('app/api/payments/checkout/route.ts')
   assert.ok(checkout.includes("wantsTransfer && !transferOn"), 'the server refuses an off transfer')
   assert.ok(checkout.includes("if (!wantsTransfer) {"), 'the server refuses online payment (PayPro ended — PR-12)')

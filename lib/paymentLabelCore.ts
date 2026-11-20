@@ -11,7 +11,7 @@
 //   Verification Fee Rs 199 — cancelled             a checkout the member cancelled
 //
 // Plan names are the same everywhere: Verification Fee, Premium, Featured,
-// Parent Verified, Parent Featured. The amount is left out for a viewer who may
+// Parent Verified, Featured parent (PR-13 wording). The amount is left out for a viewer who may
 // not see amounts. PURE — unit-tested by scripts/test-admin-cleanup.ts.
 
 import { FEE_LABEL } from '@/lib/display'
@@ -23,7 +23,7 @@ export const PAYMENT_PLAN_NAME: Record<string, string> = {
   premium: 'Premium',
   featured: 'Featured',
   parent_verified: 'Parent Verified',
-  parent_featured: 'Parent Featured',
+  parent_featured: 'Featured parent',
 }
 
 export function paymentPlanName(code: string | null | undefined): string {

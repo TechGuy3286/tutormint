@@ -41,9 +41,10 @@ const pkt = (y: number, mo: number, d: number, h = 0, mi = 0) => Date.UTC(y, mo 
 // ------------------------------------------------------------ 1 upgrades paused
 
 test('an upgrade purchase is refused on the server; the Verification Fee is not', () => {
-  assert.equal(UPGRADES_PAUSED, true)
+  // PR-13 (21 Nov 2026): only tutor Featured is still paused; a blanket pause (true) still refuses all three.
+  assert.equal(UPGRADES_PAUSED, false)
   for (const code of ['premium', 'featured', 'parent_featured']) {
-    const r = upgradeRefusal(code, 499)
+    const r = upgradeRefusal(code, 499, true)
     assert.ok(r, code)
     assert.equal(r!.status, 409)
     assert.equal(r!.code, 'upgrades_paused')
@@ -52,6 +53,9 @@ test('an upgrade purchase is refused on the server; the Verification Fee is not'
   assert.equal(upgradeRefusal('basic', 0), null, 'a free plan is never an upgrade')
   assert.equal(isUpgradePlan('verified'), false)
   assert.equal(upgradeBlocked('premium', 499, false), false, 'switching the pause off sells upgrades again')
+  assert.ok(upgradeRefusal('featured', 999), 'tutor Featured stays Coming soon (PR-13)')
+  assert.equal(upgradeRefusal('premium', 499), null, 'Premium on sale (PR-13)')
+  assert.equal(upgradeRefusal('parent_featured', 999), null, 'parent Featured on sale (PR-13)')
 
   // Both routes that create a payment refuse BEFORE any payment row is made.
   for (const route of ['app/api/payments/checkout/route.ts', 'app/api/payments/receipt/route.ts']) {

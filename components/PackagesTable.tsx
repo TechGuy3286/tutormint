@@ -6,6 +6,7 @@ import type { BadgeName } from '@/lib/planBadges'
 import BuyButton from '@/components/membership-plans/BuyButton'
 import { formatDate } from '@/lib/datetime'
 import { COMING_SOON_LABEL, upgradeBlocked } from '@/lib/upgradesPausedCore'
+import { buyButtonState, type RunningPlan } from '@/lib/planPurchaseCore'
 
 // The plan matrix, rendered from the `plans` table (owner PR12/§1.2).
 //
@@ -116,6 +117,8 @@ export default function PackagesTable({
   checkoutOpen,
   hideTransfer = false,
   onlineOff = false,
+  viewerAudience = null,
+  feePaid = false,
 }: {
   plans: PlanRow[]
   audience: 'tutor' | 'parent'
@@ -136,8 +139,16 @@ export default function PackagesTable({
   hideTransfer?: boolean
   /** Item 19: the owner switched online payment off — Buy goes to bank transfer. */
   onlineOff?: boolean
+  /** The signed-in viewer's own audience (PR-13), null when signed out or staff. */
+  viewerAudience?: 'tutor' | 'parent' | null
+  /** Tutor only: the one-time Verification Fee is paid (PR-13 — plans need it first). */
+  feePaid?: boolean
 }) {
+  void hideTransfer
+  void onlineOff
   const currentRank = plans.find((p) => p.code === currentPlan)?.search_rank ?? 0
+  // The paid plan running now (free tiers have no end date) — PR-13 extend/upgrade.
+  const running: RunningPlan = currentPlan && expiresAt ? { code: currentPlan, rank: currentRank, expiresAt } : null
   const features = audience === 'tutor' ? TUTOR_FEATURES : PARENT_FEATURES
   const free = plans.find((p) => p.price_pkr === 0) ?? null
 
@@ -149,6 +160,18 @@ export default function PackagesTable({
           const spotlit = !mine && p.code === highlight
           const isFree = p.price_pkr === 0
           const lower = !mine && p.search_rank < currentRank
+          // PR-13: the paid card's button, from one pure rule (lib/planPurchaseCore).
+          const buy = isFree
+            ? null
+            : buyButtonState({
+                signedIn,
+                viewerAudience,
+                cardAudience: audience,
+                feePaid,
+                current: running,
+                plan: { code: p.code, rank: p.search_rank },
+                blocked: upgradeBlocked(p.code, p.price_pkr),
+              })
 
           // The free card shows its own features; a paid card shows only the
           // additions over the free tier (owner PR13 §1.4/§1.5). The tutor free
@@ -213,11 +236,17 @@ export default function PackagesTable({
               </ul>
 
               {mine ? (
-                <div className="rounded-xl bg-tm-green-deep/10 p-3 text-center">
-                  <p className="text-[11px] font-black text-tm-green-deep">
-                    Current plan
-                    {expiresAt ? ` · runs until ${formatDate(expiresAt)}` : ''}
-                  </p>
+                <div className="space-y-2">
+                  <div className="rounded-xl bg-tm-green-deep/10 p-3 text-center">
+                    <p className="text-[11px] font-black text-tm-green-deep">
+                      Current plan
+                      {expiresAt ? ` · runs until ${formatDate(expiresAt)}` : ''}
+                    </p>
+                  </div>
+                  {/* PR-13: paying again for the plan you hold adds 30 days to its end date. */}
+                  {buy === 'extend' && checkoutOpen && (
+                    <BuyButton planCode={p.code} planName={p.name} cardAudience={audience} state="extend" />
+                  )}
                 </div>
               ) : lower ? (
                 // No downgrade offers: a member never sees a button for a tier
@@ -237,9 +266,9 @@ export default function PackagesTable({
                     {audience === 'tutor' ? 'Get verified' : 'Verify your mobile (free)'}
                   </Link>
                 ) : null
-              ) : upgradeBlocked(p.code, p.price_pkr) ? (
-                // Premium / Featured are paused (owner, 9 Nov 2026). The card
-                // stays visible; nothing can be bought from it.
+              ) : buy === 'coming_soon' ? (
+                // A paused plan (upgradeBlocked — tutor Featured since PR-13).
+                // The card stays visible; nothing can be bought from it.
                 <button
                   type="button"
                   disabled
@@ -248,16 +277,12 @@ export default function PackagesTable({
                 >
                   {COMING_SOON_LABEL}
                 </button>
-              ) : checkoutOpen ? (
-                <BuyButton
-                  planCode={p.code}
-                  planName={p.name}
-                  signedIn={signedIn}
-                  upgrading={!!currentPlan}
-                  emphasis={spotlit}
-                  showTransfer={!hideTransfer}
-                  onlineOff={onlineOff}
-                />
+              ) : buy === 'other_audience' ? (
+                <p className="rounded-xl bg-tm-bg p-3 text-center text-[11px] font-semibold text-gray-500">
+                  {audience === 'tutor' ? 'For tutor accounts.' : 'For parent accounts.'}
+                </p>
+              ) : buy === 'lower' ? null : checkoutOpen && buy ? (
+                <BuyButton planCode={p.code} planName={p.name} cardAudience={audience} state={buy} emphasis={spotlit} />
               ) : (
                 // Gated launch (PR98 §2): online payment is not open to this
                 // account yet. Plain note, no price.

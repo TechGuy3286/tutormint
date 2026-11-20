@@ -815,7 +815,7 @@ export default async function AdminMemberPage({
             <Row
               key={s.id as string}
               main={paymentPlanName(s.plan_code as string)}
-              sub={`${s.status} · ${s.source} · until ${s.expires_at ? formatDate(s.expires_at as string) : '—'}`}
+              sub={`${s.status} · ${s.source} · from ${s.starts_at ? formatDate(s.starts_at as string) : '—'} until ${s.expires_at ? formatDate(s.expires_at as string) : '—'}`}
             />
           ))}
         </Panel>

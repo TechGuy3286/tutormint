@@ -10,6 +10,7 @@ import { FEE_LABEL } from '@/lib/display'
 import OrderPageNav from '../manual/[ref]/OrderPageNav'
 import PayChoice from './PayChoice'
 import { upgradeBlocked } from '@/lib/upgradesPausedCore'
+import { planChangeFor } from '@/lib/planPurchase'
 import Link from 'next/link'
 import { safeReturnTo } from '@/lib/returnTo'
 import { payChooseHref } from '@/lib/payChooseDefault'
@@ -146,10 +147,18 @@ export default async function PayChoosePage({
     plan = feeRow
   }
   if (!plan) redirect(plansHref)
-  // Premium / Featured are paused (owner, 9 Nov 2026): the plans page shows
-  // them as "Coming soon"; nothing can be paid here for them.
+  // A paused plan (tutor Featured since PR-13) shows "Coming soon" on the plans
+  // page; nothing can be paid here for it.
   if (upgradeBlocked(plan.code as string, plan.price_pkr as number)) redirect(plansHref)
   const isFee = plan.code === 'verified'
+  // No downgrades (PR-13): a lower plan than the one running goes back to the plans.
+  let extending = false
+  if (!isFee) {
+    const { data: rankRow } = await supabase.from('plans').select('search_rank').eq('code', plan.code as string).maybeSingle()
+    const { change } = await planChangeFor(userId, audience, { code: plan.code as string, rank: (rankRow?.search_rank as number) ?? 0 })
+    if (change === 'downgrade') redirect(plansHref)
+    extending = change === 'extend'
+  }
 
   const [bank, receipt] = await Promise.all([
     loadBankPanel(),
@@ -203,7 +212,11 @@ export default async function PayChoosePage({
               <span lang="ur" dir="rtl" className="mt-0.5 block text-[11px] font-semibold">{unlocks.ur}</span>
             </p>
           )}
-          {!isFee && <p className="text-[11px] font-semibold text-tm-navy">Runs for 30 days. Non-refundable.</p>}
+          {!isFee && (
+            <p className="text-[11px] font-semibold text-tm-navy">
+              {extending ? 'Adds 30 days to the end of your current plan. Non-refundable.' : 'Runs for 30 days. Non-refundable.'}
+            </p>
+          )}
         </section>
 
         <PayChoice

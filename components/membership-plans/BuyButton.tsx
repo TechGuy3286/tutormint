@@ -3,56 +3,50 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-import { usePathname } from 'next/navigation'
+import { buyButtonLabel, FEE_FIRST_NOTE, signInThenPlanHref, type BuyButtonState } from '@/lib/planPurchaseCore'
 
-// "Buy" on a plan card.
+// The button on a paid plan card (PR-13, 21 Nov 2026).
 //
-// It opens the payment CHOICE screen (owner, 11 Oct 2026 — /pay/choose), which
-// shows the package with its price and the two ways to pay: JazzCash (PayPro)
-// or a bank transfer with a receipt. Nothing is created or charged here; that
-// screen sends an unverified tutor to get verified first, as checkout always did.
+// "Upgrade to <plan>" opens the payment page (/pay/choose), the one screen with
+// the plan's amount, the bank details, the receipt upload and the required
+// non-refundable tick. Nothing is created or charged here.
 //
-// A signed-out visitor is sent to /login?next=<this page> rather than being
-// hidden the button: the packages pages are a public sales surface, and the
-// product rule is that nobody is asked to sign in until they attempt a
-// transactional action. Buying is one.
+//   • Signed out: sign in (or sign up) first, then back to this plan's card —
+//     nobody is asked to sign in until they try to buy.
+//   • A tutor who has not paid the Verification Fee: the same button, with a
+//     note; /pay/choose sends them to the fee step first and back afterwards.
+//   • The plan they hold: "Extend 30 days" (30 more days from its end date).
+//
+// The state is decided by lib/planPurchaseCore buyButtonState; the server
+// refuses the same cases again (paused plan, fee first, downgrade).
 
 export default function BuyButton({
   planCode,
   planName,
-  signedIn,
-  upgrading,
+  cardAudience,
+  state,
   emphasis,
 }: {
   planCode: string
   planName: string
-  signedIn: boolean
-  upgrading: boolean
+  cardAudience: 'tutor' | 'parent'
+  state: Extract<BuyButtonState, 'sign_in' | 'pay_fee_first' | 'upgrade' | 'extend'>
   emphasis?: boolean
-  /** Unused since the choice screen (11 Oct 2026) — both ways to pay are offered there. */
-  showTransfer?: boolean
-  /** Unused since the choice screen (11 Oct 2026). */
-  onlineOff?: boolean
 }) {
   const router = useRouter()
-  const pathname = usePathname()
   const [busy, setBusy] = useState(false)
 
-  // "Upgrade" when the member holds a lower plan (PackagesTable only renders
-  // this button on the held plan's higher tiers); "Get X" for a first purchase.
-  const label = upgrading ? `Upgrade to ${planName}` : `Get ${planName}`
-
   const start = () => {
-    if (!signedIn) {
-      router.push(`/login?next=${encodeURIComponent(`${pathname}?plan=${planCode}`)}`)
+    setBusy(true)
+    if (state === 'sign_in') {
+      router.push(signInThenPlanHref(cardAudience, planCode))
       return
     }
-    setBusy(true)
     router.push(`/pay/choose?plan=${encodeURIComponent(planCode)}`)
   }
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1.5" data-buy-state={state}>
       <button
         type="button"
         onClick={start}
@@ -61,8 +55,11 @@ export default function BuyButton({
           emphasis ? 'bg-tm-red hover:bg-tm-red-hover' : 'bg-tm-black hover:bg-slate-800'
         }`}
       >
-        {busy ? 'Starting…' : label}
+        {busy ? 'Starting…' : buyButtonLabel(state, planName)}
       </button>
+      {state === 'pay_fee_first' && (
+        <p className="text-center text-[11px] font-semibold text-gray-500">{FEE_FIRST_NOTE}</p>
+      )}
     </div>
   )
 }

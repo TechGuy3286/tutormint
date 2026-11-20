@@ -30,6 +30,9 @@ import type { AdminRole } from '@/lib/adminAuth'
 import { formatDate } from '@/lib/datetime'
 import { formatName } from '@/lib/formatName'
 import { closeOtherCheckouts } from '@/lib/payments/closeOtherCheckouts'
+import { planChange, planWindow } from '@/lib/planPurchaseCore'
+import { runningPlanFor } from '@/lib/planPurchase'
+import { NON_REFUNDABLE_RECEIPT_LINE } from '@/lib/nonRefundableCore'
 
 export type ActivationResult =
   | { ok: true; alreadyActive: true; subscriptionId: string | null }
@@ -123,7 +126,7 @@ export async function activatePayment(params: {
 
   const { data: plan } = await admin
     .from('plans')
-    .select('code, name, audience, duration_days')
+    .select('code, name, audience, duration_days, search_rank')
     .eq('code', planCode)
     .maybeSingle()
   if (!plan) return { ok: false, status: 400, error: 'Unknown plan code.' }
@@ -259,6 +262,21 @@ export async function activatePayment(params: {
     return { ok: true, alreadyActive: false, feeRecorded: true }
   }
 
+  // PR-13 (21 Nov 2026): what this purchase is against the plan running now
+  // (lib/planPurchaseCore). The same plan EXTENDS it by 30 days from its end
+  // date; a higher plan replaces it with a fresh 30 days; a LOWER plan is never
+  // applied over a higher one — the routes refuse it, and if an old receipt
+  // gets here anyway the payment stays pending for the Owner to decide.
+  const running = await runningPlanFor(userId, audience)
+  const change = planChange(running, { code: planCode, rank: (plan.search_rank as number) ?? 0 })
+  if (change === 'downgrade') {
+    return {
+      ok: false,
+      status: 409,
+      error: `This member already has a higher plan running until ${running?.expiresAt ? formatDate(running.expiresAt) : 'its end date'}. Approving would replace it with a lower one, so it was not approved.`,
+    }
+  }
+
   // One active subscription at a time. A paused one is cancelled too -- a fresh
   // purchase supersedes an earlier paused buy.
   await admin
@@ -275,16 +293,17 @@ export async function activatePayment(params: {
   // requires an active plan, we ask the PRECONDITION (listing minus the plan) —
   // asking tutor_directory would deadlock, as the plan being created is exactly
   // what it waits on.
+  // An EXTENSION never pauses: the plan is already running, and pausing would
+  // throw away the days left on it.
   let paused = false
-  if (audience === 'tutor') {
+  if (audience === 'tutor' && change !== 'extend') {
     paused = !(await isTutorListable(userId))
   }
   // A bridge-locked account pauses regardless of audience or listing.
   if (bridgeLocked) paused = true
 
-  const startsAt = new Date()
   const days = (plan.duration_days as number) || 30
-  const expiresAt = new Date(startsAt.getTime() + days * 86_400_000)
+  const { startsAt, expiresAt } = planWindow(new Date(), days, change, running?.expiresAt ?? null)
 
   const { data: sub, error: subError } = await admin
     .from('subscriptions')
@@ -338,9 +357,11 @@ export async function activatePayment(params: {
     title: paused ? `${plan.name} plan is ready` : `${plan.name} plan is active`,
     body: paused
       ? bridgeLocked
-        ? `Your ${plan.name} plan is paid for. It starts the day you verify your mobile number with a real code — until then it is on hold, so no time is used. There are no refunds.`
-        : `Your ${plan.name} plan is paid for. Your month starts the day you go live — verify your identity and mobile number and it begins automatically. There are no refunds.`
-      : `Your ${plan.name} plan runs until ${formatDate(expiresAt)}. There are no refunds.`,
+        ? `Your ${plan.name} plan is paid for. It starts the day you verify your mobile number with a real code — until then it is on hold, so no time is used. ${NON_REFUNDABLE_RECEIPT_LINE}`
+        : `Your ${plan.name} plan is paid for. Your month starts the day you go live — verify your identity and mobile number and it begins automatically. ${NON_REFUNDABLE_RECEIPT_LINE}`
+      : change === 'extend'
+        ? `Your ${plan.name} plan now runs until ${formatDate(expiresAt)} — 30 days were added. ${NON_REFUNDABLE_RECEIPT_LINE}`
+        : `Your ${plan.name} plan runs until ${formatDate(expiresAt)}. ${NON_REFUNDABLE_RECEIPT_LINE}`,
     href: audience === 'tutor' ? '/tutor/dashboard' : '/parent/dashboard',
   })
 
@@ -383,6 +404,7 @@ export async function activatePayment(params: {
       amountPkr: payment.amount_pkr,
       provider: payment.provider,
       source: params.source,
+      change,
       expiresAt: expiresAt.toISOString(),
     },
   })

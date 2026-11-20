@@ -281,6 +281,7 @@
     "report:interest": "tsx --conditions=react-server --env-file=.env.local scripts/report-parent-interest.ts",
     "test:interestinbox": "tsx --test scripts/test-interest-inbox.ts",
     "test:pr12": "tsx --test scripts/test-pr12.ts",
+    "test:pr13": "tsx --conditions=react-server --test scripts/test-pr13.ts",
     "test:pr11": "tsx --test scripts/test-pr11.ts",
     "report:interestinbox": "tsx --conditions=react-server --env-file=.env.local scripts/report-interest-inbox.ts"
   },

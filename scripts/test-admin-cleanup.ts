@@ -300,7 +300,7 @@ test('payment labels', () => {
   assert.equal(paymentLabel({ ...base, checkoutClosedAt: '2026-10-19T10:00:00Z', checkoutCloseReason: 'cancelled_by_member' }, now, show), 'Verification Fee Rs 199 — cancelled')
   assert.equal(paymentLabel({ ...base, checkoutClosedAt: '2026-10-19T10:00:00Z', checkoutCloseReason: 'expired' }, now, show), 'Verification Fee Rs 199 — started, not completed')
   assert.equal(paymentLabel({ ...base, planCode: 'premium', amountPkr: 499, status: 'approved' }, now, show), 'Premium Rs 499 — paid')
-  assert.equal(paymentLabel({ ...base, planCode: 'parent_featured', amountPkr: 999, status: 'approved' }, now, show), 'Parent Featured Rs 999 — paid')
+  assert.equal(paymentLabel({ ...base, planCode: 'parent_featured', amountPkr: 999, status: 'approved' }, now, show), 'Featured parent Rs 999 — paid')
   // Under an hour old: not yet "not paid", no follow-up.
   const fresh = { ...base, createdAt: '2026-10-19T11:30:00Z' }
   assert.equal(paymentNeedsFollowUp(fresh, now), false)

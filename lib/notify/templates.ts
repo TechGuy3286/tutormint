@@ -25,6 +25,7 @@ import { TUITION_LIVE_LABEL } from '@/lib/tuitionStatus'
 import { teamMessagesHref } from '@/lib/memberNav'
 import { properName } from '@/lib/display'
 import { placeLabel } from '@/lib/place'
+import { NON_REFUNDABLE_RECEIPT_LINE } from '@/lib/nonRefundableCore'
 
 export type TemplateId =
   | 'welcome'
@@ -638,7 +639,7 @@ export function render(input: TemplateInput): RenderedEmail {
         `Your ${input.planName} plan is active`,
         [
           `Payment of Rs. ${input.amountPkr.toLocaleString('en-PK')} received. Your plan runs until ${input.expiresAt}.`,
-          'Memberships are non-refundable, as set out in our Terms.',
+          NON_REFUNDABLE_RECEIPT_LINE,
         ],
         true, // a receipt
         { label: 'View your plan', href: '/' },

@@ -29,3 +29,8 @@ export const NON_REFUNDABLE_FIELD = 'nonRefundableAck'
 export function nonRefundableTicked(value: unknown): boolean {
   return value === '1'
 }
+
+/** The same notice on the payment page for a monthly plan (PR-13): Premium or
+ *  Featured is not "the verification fee". No amount, as above. */
+export const NON_REFUNDABLE_PLAN_NOTICE =
+  'This plan is non-refundable. It runs for 30 days and cannot be cancelled part-way. Paying is your choice — you can use TutorMint without paying.'

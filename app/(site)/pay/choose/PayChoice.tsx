@@ -19,7 +19,7 @@ import { prepareReceiptFile } from '@/lib/payments/receiptPrepare'
 import { compressImage } from '@/lib/imageCompress'
 import { bankCopyRows, COPIED_MS, IBAN_LINK_LABEL, splitBankRows, type BankCopyRow } from '@/lib/payments/bankCopyCore'
 import { PAY_BY_TRANSFER_LINE } from '@/lib/payments/payproRetireCore'
-import { NON_REFUNDABLE_FIELD, NON_REFUNDABLE_NOTICE, NON_REFUNDABLE_TICK, NON_REFUNDABLE_TICK_NEEDED } from '@/lib/nonRefundableCore'
+import { NON_REFUNDABLE_FIELD, NON_REFUNDABLE_NOTICE, NON_REFUNDABLE_PLAN_NOTICE, NON_REFUNDABLE_TICK, NON_REFUNDABLE_TICK_NEEDED } from '@/lib/nonRefundableCore'
 
 // The payment screen (owner, 11 Oct 2026; PayPro retired 26 Oct 2026).
 //
@@ -303,7 +303,7 @@ export default function PayChoice({
 
             {/* The non-refundable notice and its required tick, just above Submit (PR-12). */}
             <div className="space-y-2 rounded-xl border border-gray-200 bg-tm-bg p-3" data-non-refundable="">
-              <p className="text-xs leading-relaxed text-slate-700">{NON_REFUNDABLE_NOTICE}</p>
+              <p className="text-xs leading-relaxed text-slate-700">{isFee ? NON_REFUNDABLE_NOTICE : NON_REFUNDABLE_PLAN_NOTICE}</p>
               <label className="flex min-h-[44px] cursor-pointer items-center gap-3 text-xs font-bold text-tm-navy">
                 <input
                   type="checkbox"

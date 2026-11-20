@@ -60,11 +60,12 @@ export async function sendPaymentAlert(input: { memberName: string; role: string
 
 /** A bank transfer receipt waits for approval: the bell for the staff who work
  *  the Payments queue, and the email to the Owner's own address. */
-export async function sendBankTransferPending(input: { memberName: string; role: string; amountPkr: number }): Promise<void> {
+export async function sendBankTransferPending(input: { memberName: string; role: string; amountPkr: number; what?: string }): Promise<void> {
   const name = input.memberName || 'A member'
   await bellStaff(SCREEN_ACCESS.paymentsApprove, {
     title: `Bank transfer waiting for approval: ${name}`,
-    body: 'A receipt was uploaded. Open Payments to review it.',
+    // The package by name (PR-13: plan receipts too) — never an amount in the bell.
+    body: input.what ? `A receipt for the ${input.what} was uploaded. Open Payments to review it.` : 'A receipt was uploaded. Open Payments to review it.',
     href: '/admin/payments?filter=unpaid',
   }).catch(() => 0)
   await emailOwner({ id: 'bank_transfer_pending', memberName: name, role: input.role, amountPkr: input.amountPkr }, 'bank-transfer-alert')

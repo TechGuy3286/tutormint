@@ -94,7 +94,8 @@ test('C: the notice wording is exact and carries no amount', () => {
 
 test('C: the payment page shows the notice above Submit with a required tick', () => {
   const s = src('app/(site)/pay/choose/PayChoice.tsx')
-  const notice = s.indexOf('{NON_REFUNDABLE_NOTICE}')
+  // PR-13: a monthly plan shows its own wording (NON_REFUNDABLE_PLAN_NOTICE).
+  const notice = s.indexOf('{isFee ? NON_REFUNDABLE_NOTICE : NON_REFUNDABLE_PLAN_NOTICE}')
   const submit = s.indexOf('onClick={() => void send()}')
   assert.ok(notice > 0 && submit > notice, 'notice sits above the Submit button')
   assert.match(s, /type="checkbox"[\s\S]{0,200}checked=\{ack\}/)

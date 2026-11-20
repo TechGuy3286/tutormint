@@ -183,6 +183,8 @@ export default async function PackagesPage({
         checkoutOpen={checkoutOpen}
         hideTransfer={!methods.bankTransfer}
         onlineOff={!methods.online}
+        viewerAudience={ent?.audience ?? null}
+        feePaid={ent?.audience === 'tutor' && ent.verified}
       />
 
       {payFooter}
@@ -243,6 +245,8 @@ export default async function PackagesPage({
         checkoutOpen={checkoutOpen}
         hideTransfer={!methods.bankTransfer}
         onlineOff={!methods.online}
+        viewerAudience={ent?.audience ?? null}
+        feePaid={ent?.audience === 'tutor' && ent.verified}
       />
 
       {payFooter}

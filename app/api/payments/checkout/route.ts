@@ -10,6 +10,8 @@ import { bankTransferOn, getGatewaySettings } from '@/lib/payments/gatewaySettin
 import { PAYPRO_CLOSED_MESSAGE } from '@/lib/payments/payproRetireCore'
 import { RELOAD_AND_RETRY } from '@/lib/tutorSubjectCap'
 import { upgradeRefusal } from '@/lib/upgradesPausedCore'
+import { downgradeRefusal } from '@/lib/planPurchaseCore'
+import { planChangeFor } from '@/lib/planPurchase'
 
 export const runtime = 'nodejs'
 export const maxDuration = 30
@@ -58,14 +60,14 @@ export async function POST(request: Request) {
 
   const { data: plan } = await supabase
     .from('plans')
-    .select('code, name, audience, price_pkr')
+    .select('code, name, audience, price_pkr, search_rank')
     .eq('code', planCode)
     .maybeSingle()
 
   if (!plan) return NextResponse.json({ error: 'Unknown plan.' }, { status: 400 })
 
-  // Premium / Featured are paused (owner, 9 Nov 2026): only the Verification
-  // Fee can be bought. Refused before any payment row is made.
+  // A paused plan (tutor Featured since PR-13) cannot be bought; the Verification
+  // Fee and the plans on sale can. Refused before any payment row is made.
   const paused = upgradeRefusal(plan.code as string, plan.price_pkr as number)
   if (paused) return NextResponse.json({ error: paused.error, code: paused.code }, { status: paused.status })
 
@@ -157,6 +159,14 @@ export async function POST(request: Request) {
         { status: 400 },
       )
     }
+  }
+
+  // No downgrades (PR-13): a member on a higher running plan cannot buy a lower
+  // one. The same plan extends it; a higher one replaces it on approval.
+  if (plan.code !== 'verified') {
+    const { change } = await planChangeFor(user.id, audience, { code: plan.code as string, rank: (plan.search_rank as number) ?? 0 })
+    const down = downgradeRefusal(change)
+    if (down) return NextResponse.json({ error: down.error, code: down.code }, { status: down.status })
   }
 
   // Bank/wallet transfer is the only way to pay (PayPro ended, PR-12): the
