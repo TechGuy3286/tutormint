@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { recordLatePayproNotice } from '@/lib/payments/payproReconcile'
 import { recordGatewayEvent } from '@/lib/payments/gatewaySettings'
+import { callerIp, rateLimit } from '@/lib/rateLimit'
 
 // PayPro callback — POST https://www.tutormint.org/paypro/uis
 //
@@ -24,7 +25,18 @@ type Reply = { StatusCode: string; InvoiceID: string | null; Description: string
 
 const MAX_IDS = 20
 
+// PR-14: rate-limited (lib/rateLimit 'paypro_callback': 20 an hour per
+// address). An excess request gets a plain 429 and is NOT logged — no gateway
+// event, no console line — so a flood cannot fill the logs. A known order adds
+// at most ONE Finance alert ever (finance_alerts is unique on kind + ref).
+const PAYPRO_RATE_LIMITED = 'Too many requests.'
+
 export async function POST(request: Request) {
+  const limit = await rateLimit('paypro_callback', callerIp(request))
+  if (!limit.allowed) {
+    return new NextResponse(PAYPRO_RATE_LIMITED, { status: 429, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Retry-After': String(limit.retryAfterSeconds) } })
+  }
+
   let body: Record<string, unknown> = {}
   try {
     body = (await request.json()) as Record<string, unknown>

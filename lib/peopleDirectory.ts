@@ -57,6 +57,10 @@ export type DirectoryPerson = {
   eraseDueAt: string | null
   /** Lower-case email + mobile digits, for the page's search box only. */
   searchText: string
+  /** profiles.phone_verified_at — the shared 'Mobile verified' count (lib/counts, PR-14). */
+  phoneVerifiedAt: string | null
+  /** Tutors: tutor_profiles.onboarded_at — the shared 'Onboarding done' count. */
+  onboardedAt: string | null
   /** Tutors. */
   feePaidAt: string | null
   videoWaiting: boolean
@@ -254,6 +258,8 @@ async function loadDirectoryFresh(): Promise<Directory> {
       deleted: erased.has(id),
       eraseDueAt: erased.has(id) ? null : (eraseDue.get(id) ?? null),
       searchText: [String(p.email ?? '').toLowerCase(), ...digits].join(' '),
+      phoneVerifiedAt: (p.phone_verified_at as string | null) ?? null,
+      onboardedAt: (t?.onboarded_at as string | null) ?? null,
       feePaidAt: (t?.verified_fee_paid_at as string | null) ?? null,
       videoWaiting: t?.video_status === 'uploaded',
       completion: Math.max(0, Math.min(100, Number(p.profile_completion ?? 0) || 0)),

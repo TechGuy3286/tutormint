@@ -16,13 +16,18 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { pageAll, pageAllIn, READ_CONCURRENCY } from '@/lib/pageAll'
 import { cnicApprovedMarker } from '@/lib/docUploadStatusCore'
+import { withRunMemo, inRunMemo } from '@/lib/runMemo'
+import { loadDirectory, type DirectoryPerson } from '@/lib/peopleDirectory'
+import { loadCountFacts, rowsFor } from '@/lib/counts'
+import { countAll, daySpan, memberCounts } from '@/lib/countsCore'
 import {
   ACTION_KEYS_ALL,
+  INSIGHTS_DAY_VERSION,
   LOG_EVENT_ACTION,
+  SHARED_ACTION_COUNT,
   INSIGHTS_KEEP_DAYS,
   SEARCHES_PER_DAY,
   addSearches,
-  countedRole,
   daysBetween,
   daysToBuild,
   deviceOf,
@@ -37,7 +42,6 @@ import {
   type ActionKey,
   type InsightsDay,
   type InsightsPeriod,
-  type MemberFacts,
   type SearchRow,
 } from '@/lib/insightsCore'
 
@@ -47,8 +51,6 @@ type R = Record<string, unknown>
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Q = any
 const DAY_MS = 86_400_000
-
-const PROFILE_COLS = 'id, role, admin_role, is_seed, is_team_account, is_test_name, hidden_from_public, merged_into'
 
 function windowOf(day: string) {
   const start = pkDayStartMs(day)
@@ -60,13 +62,22 @@ async function loadHeld(admin: Admin): Promise<Set<string>> {
   return new Set(rows.map((r) => r.parent_id as string))
 }
 
-async function loadFacts(admin: Admin, ids: string[]): Promise<Map<string, MemberFacts>> {
-  const rows = await pageAllIn<R, string>([...new Set(ids)], (chunk, f, t) => admin.from('profiles').select(PROFILE_COLS).in('id', chunk).order('id').range(f, t), 100, READ_CONCURRENCY)
-  return new Map(rows.map((r) => [r.id as string, r as unknown as MemberFacts]))
+/** Inside one run memo, so the directory and the count facts load once per run. */
+function memoed<T>(fn: () => Promise<T>): Promise<T> {
+  return inRunMemo() ? fn() : withRunMemo(fn)
+}
+
+/** The members who count, by id (the People rule — PR-14). */
+function peopleIndex(people: DirectoryPerson[]): Map<string, DirectoryPerson> {
+  return new Map(people.filter((p) => memberCounts(p.excluded)).map((p) => [p.id, p]))
 }
 
 /** Build one day. Reads only. */
-export async function buildInsightsDay(admin: Admin, day: string, nowMs = Date.now()): Promise<InsightsDay> {
+export function buildInsightsDay(admin: Admin, day: string, nowMs = Date.now()): Promise<InsightsDay> {
+  return memoed(() => buildDay(admin, day, nowMs))
+}
+
+async function buildDay(admin: Admin, day: string, nowMs: number): Promise<InsightsDay> {
   const { start, end } = windowOf(day)
   const out = emptyDay(day, new Date(nowMs).toISOString())
   const inWindow = <T>(table: string, cols: string, col = 'created_at', extra?: (q: Q) => Q) =>
@@ -76,31 +87,33 @@ export async function buildInsightsDay(admin: Admin, day: string, nowMs = Date.n
       return q.order(col).order('id').range(f, t)
     })
 
-  const [logs, tracker, sessions, forwards, reveals, anon, visitors, hourRows, held] = await Promise.all([
+  const span = daySpan(day)
+  const [logs, tracker, sessions, anon, visitors, hourRows, held, dir, countFacts] = await Promise.all([
     inWindow<R>('user_activity_log', 'id, user_id, event, meta, created_at'),
     inWindow<R>('activity_events', 'id, user_id, kind, path, label, created_at'),
     pageAll<R>((f, t) => admin.from('activity_sessions').select('id, user_id, device, os, user_agent, started_at').lt('started_at', end).gte('last_seen_at', start).order('id').range(f, t)),
-    inWindow<R>('application_stage_events', 'id, tutor_id, created_at', 'created_at', (q) => q.eq('to_stage', 'forwarded')),
-    pageAll<R>((f, t) => admin.from('contact_reveals').select('tutor_id, created_at').gte('created_at', start).lt('created_at', end).order('created_at').order('tutor_id').range(f, t)),
     inWindow<R>('anon_search_events', 'id, surface, master_id, city, area, mode, gender, results, created_at', 'created_at', (q) => q.is('excluded', null)),
     pageAll<R>((f, t) => admin.from('insight_visitor_days').select('visitor, device, os').eq('day', day).order('visitor').range(f, t)),
     pageAll<R>((f, t) => admin.from('insight_hour_counts').select('hour, count').eq('day', day).eq('kind', 'visitor').order('hour').range(f, t)),
     loadHeld(admin),
+    loadDirectory(),
+    loadCountFacts(span.start),
   ])
-  const cohort = await pageAll<R>((f, t) =>
-    admin.from('profiles').select(`${PROFILE_COLS}, created_at, phone_verified_at, cnic_verified_at, verification_state, cnic_image_path, avatar_url, profile_pic_status`).gte('created_at', start).lt('created_at', end).order('id').range(f, t),
-  )
-
-  const ids = [
-    ...logs.map((r) => r.user_id as string),
-    ...tracker.map((r) => r.user_id as string),
-    ...sessions.map((r) => r.user_id as string),
-    ...forwards.map((r) => r.tutor_id as string),
-    ...reveals.map((r) => r.tutor_id as string),
-  ].filter(Boolean)
-  const facts = await loadFacts(admin, ids)
-  for (const c of cohort) facts.set(c.id as string, c as unknown as MemberFacts)
-  const roleOf = (id: string | null | undefined) => (id ? countedRole(facts.get(id), held.has(id)) : null)
+  // Who counts (PR-14): the People rule (lib/peopleDirectoryCore: staff, seed,
+  // team, test, hidden, merged, erased and erase-requested accounts out), the
+  // same as the Overview cards. Held parents' ACTIVITY is left out (and listed
+  // in heldParents); their sign-up still counts.
+  const people = peopleIndex(dir.people)
+  const heldSeen = new Set<string>()
+  const roleOf = (id: string | null | undefined): 'tutor' | 'parent' | null => {
+    const p = id ? people.get(id) : undefined
+    if (!p) return null
+    if (held.has(p.id)) {
+      heldSeen.add(p.id)
+      return null
+    }
+    return p.role
+  }
 
   const tutors = new Set<string>()
   const parents = new Set<string>()
@@ -137,8 +150,9 @@ export async function buildInsightsDay(admin: Admin, day: string, nowMs = Date.n
     const a = trackerAction({ kind: r.kind as string, path: (r.path as string) ?? null, label: (r.label as string) ?? null })
     if (a) hit(a)
   }
-  for (const r of forwards) if (roleOf(r.tutor_id as string)) hit('forwarded')
-  for (const r of reveals) if (roleOf(r.tutor_id as string)) hit('contact_viewed')
+  // The shared counts (lib/counts): the same numbers as every other screen.
+  const shared = countAll(countFacts, span)
+  for (const [action, key] of Object.entries(SHARED_ACTION_COUNT)) out.actions[action as ActionKey] = shared[key as keyof typeof shared]
   for (const r of anon) {
     const results = Number(r.results)
     addSearches(searches, [{ surface: String(r.surface ?? 'search'), city: (r.city as string) ?? null, area: (r.area as string) ?? null, masterId: r.master_id == null ? null : Number(r.master_id), mode: (r.mode as string) ?? null, gender: (r.gender as string) ?? null, n: 1, zero: results === 0 ? 1 : 0 }])
@@ -171,9 +185,19 @@ export async function buildInsightsDay(admin: Admin, day: string, nowMs = Date.n
   out.parentsActive = [...parents].sort()
   out.searches = topSearches(searches.values(), SEARCHES_PER_DAY, 'n')
 
-  // ---- the day's sign-up cohort ----
-  const cTutors = cohort.filter((c) => countedRole(c as unknown as MemberFacts, held.has(c.id as string)) === 'tutor')
-  const cParents = cohort.filter((c) => countedRole(c as unknown as MemberFacts, held.has(c.id as string)) === 'parent')
+  out.heldParents = [...heldSeen].sort()
+
+  // ---- the day's sign-up cohort: the shared New tutors / New parents ----
+  const joined = [...people.values()].filter((p) => Date.parse(p.createdAt) >= span.start && Date.parse(p.createdAt) < span.end)
+  const cohort = await pageAllIn<R, string>(
+    joined.map((p) => p.id),
+    (chunk, f, t) => admin.from('profiles').select('id, role, created_at, phone_verified_at, cnic_verified_at, verification_state, cnic_image_path, avatar_url, profile_pic_status').in('id', chunk).order('id').range(f, t),
+    100,
+    READ_CONCURRENCY,
+  )
+  const roleById = new Map(joined.map((p) => [p.id, p.role]))
+  const cTutors = cohort.filter((c) => roleById.get(c.id as string) === 'tutor')
+  const cParents = cohort.filter((c) => roleById.get(c.id as string) === 'parent')
   out.newTutors = cTutors.map((c) => c.id as string).sort()
   out.newParents = cParents.map((c) => c.id as string).sort()
   out.funnelTutor = await tutorFunnel(admin, cTutors)
@@ -232,18 +256,25 @@ export async function refreshInsights(nowMs = Date.now(), deadlineMs = nowMs + 4
   const admin = createAdminClient()
   if (!admin) return { built: [] }
   const keys = Array.from({ length: INSIGHTS_KEEP_DAYS }, (_, i) => insightsKey(pkDayOf(nowMs - i * DAY_MS)))
-  const { data } = await admin.from('admin_summary').select('key, computed_at').in('key', keys)
-  const builtAt = new Map((data ?? []).map((r) => [String(r.key).slice(insightsKey('').length), String(r.computed_at)]))
+  const { data } = await admin.from('admin_summary').select('key, computed_at, v:payload->v').in('key', keys)
+  // A row of an older shape (PR-14 changed what a day counts) is rebuilt.
+  const builtAt = new Map(
+    (data ?? []).filter((r) => Number((r as R).v) === INSIGHTS_DAY_VERSION).map((r) => [String(r.key).slice(insightsKey('').length), String(r.computed_at)]),
+  )
   const built: string[] = []
-  for (const day of daysToBuild(nowMs, builtAt, 3)) {
-    if (Date.now() > deadlineMs) break
-    try {
-      await storeInsightsDay(day)
-      built.push(day)
-    } catch (e) {
-      console.error('[insights] build failed', day, e instanceof Error ? e.message : 'error')
+  const missing = keys.length - builtAt.size
+  // One run memo for the whole loop: the People directory loads once, not per day.
+  await withRunMemo(async () => {
+    for (const day of daysToBuild(nowMs, builtAt, missing > 3 ? 6 : 3)) {
+      if (Date.now() > deadlineMs) break
+      try {
+        await storeInsightsDay(day)
+        built.push(day)
+      } catch (e) {
+        console.error('[insights] build failed', day, e instanceof Error ? e.message : 'error')
+      }
     }
-  }
+  })
   return { built }
 }
 
@@ -253,7 +284,7 @@ export async function loadInsightsPeriod(from: string, to: string, opts: { nowMs
   if (!admin) return mergePeriod(from, to, [])
   const days = daysBetween(from, to)
   const rows = await pageAllIn<R, string>(days.map(insightsKey), (chunk, f, t) => admin.from('admin_summary').select('key, payload').in('key', chunk).order('key').range(f, t), 100, READ_CONCURRENCY)
-  const stored = new Map(rows.map((r) => [(r.payload as InsightsDay).day, r.payload as InsightsDay]))
+  const stored = new Map(rows.filter((r) => (r.payload as InsightsDay).v === INSIGHTS_DAY_VERSION).map((r) => [(r.payload as InsightsDay).day, r.payload as InsightsDay]))
   const missing = days.filter((d) => !stored.has(d)).reverse() // newest first
   for (const d of missing.slice(0, opts.buildMissing ?? 2)) {
     const b = await storeInsightsDay(d, opts.nowMs).catch(() => null)
@@ -276,7 +307,13 @@ export async function insightMembers(action: ActionKey, from: string, to: string
     pageAll<T>((f, t) => extra(admin.from(table).select(cols).gte('created_at', start).lt('created_at', end)).order('created_at').order('id').range(f, t))
   let userIds: string[] = []
   const logEvents = Object.entries(LOG_EVENT_ACTION).filter(([, a]) => a === action).map(([e]) => e)
-  if (logEvents.length) {
+  const shared = SHARED_ACTION_COUNT[action]
+  if (shared) {
+    // The rows behind the shared count itself (lib/counts), so the list
+    // length equals the number on every screen.
+    const rows = await rowsFor(shared, { start: pkDayStartMs(from), end: pkDayStartMs(to) + DAY_MS })
+    userIds = rows.map((r) => r.memberId).filter((x): x is string => !!x)
+  } else if (logEvents.length) {
     userIds = (await range<R>('user_activity_log', 'id, user_id', (q) => q.in('event', logEvents))).map((r) => r.user_id as string)
   } else if (action === 'forwarded') {
     userIds = (await range<R>('application_stage_events', 'id, tutor_id', (q) => q.eq('to_stage', 'forwarded'))).map((r) => r.tutor_id as string)
@@ -288,11 +325,17 @@ export async function insightMembers(action: ActionKey, from: string, to: string
     const rows = await range<R>('activity_events', 'id, user_id, kind, path, label', (q) => q.eq('kind', 'page_view').or(action === 'pay_page' ? 'path.like./pay/choose%' : 'path.like./tuitions/%,path.like./tuition-jobs/%'))
     userIds = rows.filter((r) => trackerAction({ kind: 'page_view', path: r.path as string, label: null }) === action).map((r) => r.user_id as string)
   }
-  const [facts, held] = await Promise.all([loadFacts(admin, userIds), loadHeld(admin)])
+  const [dir, held] = await Promise.all([loadDirectory(), loadHeld(admin)])
+  const all = new Map(dir.people.map((p) => [p.id, p]))
+  const people = peopleIndex(dir.people)
   const counts = new Map<string, InsightMember>()
   for (const id of userIds) {
-    const role = countedRole(facts.get(id), held.has(id))
-    if (!role) continue
+    // A shared count's rows are already filtered by their own rule (a staff
+    // post through the team account counts); other actions use the People rule
+    // and leave held parents out.
+    const p = shared ? all.get(id) : people.get(id)
+    if (!p || (!shared && held.has(id))) continue
+    const role = p.role
     const cur = counts.get(id) ?? { id, role, count: 0 }
     cur.count += 1
     counts.set(id, cur)

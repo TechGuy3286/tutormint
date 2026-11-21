@@ -27,6 +27,11 @@ export type WaRowView = {
   /** PR-08: an unpaid tutor's row and its priority. */
   unpaid?: boolean
   priority?: 1 | 2 | 3 | null
+  /** PR-14: a "Featured — matched tuitions" item — Send/Undo act on the item
+   *  and it is not counted in the weekly limit. */
+  featuredItemId?: string
+  /** PR-14: who the row is assigned to (the city owner, else the Owner). */
+  assignee?: string | null
 }
 
 const KIND_LABEL: Record<string, string> = {
@@ -35,6 +40,7 @@ const KIND_LABEL: Record<string, string> = {
   weekly_summary: 'Weekly summary',
   parent_interest: 'Parents interested',
   profile_views: 'Profile views',
+  featured_matches: 'Featured — matched tuitions',
 }
 
 const BTN = 'inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-bold'
@@ -49,7 +55,7 @@ export default function WaUpdateRow({ row, cap }: { row: WaRowView; cap: number 
     const { ok, data } = await adminFetch<{ error?: string }>('/api/admin/whatsapp-updates', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'undo', id }),
+      body: JSON.stringify(row.featuredItemId ? { action: 'featured_undo', itemId: row.featuredItemId } : { action: 'undo', id }),
     })
     if (!ok) return void toast.error(data?.error ?? 'Could not undo that.')
     toast.success('Send undone. The tutor is back in today’s list.')
@@ -64,7 +70,7 @@ export default function WaUpdateRow({ row, cap }: { row: WaRowView; cap: number 
     const { ok, data } = await adminFetch<{ id?: string; waHref?: string; error?: string }>('/api/admin/whatsapp-updates', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'send', tutorId: row.tutorId }),
+      body: JSON.stringify(row.featuredItemId ? { action: 'featured_send', itemId: row.featuredItemId } : { action: 'send', tutorId: row.tutorId }),
     })
     setBusy(false)
     if (!ok || !data?.id || !data.waHref) {
@@ -88,7 +94,8 @@ export default function WaUpdateRow({ row, cap }: { row: WaRowView; cap: number 
             {row.name}
           </a>
           <p className="text-[11px] text-gray-600">
-            {row.city ?? 'No city'} · {row.weekCount} of {cap} this week
+            {row.city ?? 'No city'} · {row.featuredItemId ? 'not counted in the weekly limit' : `${row.weekCount} of ${cap} this week`}
+            {row.assignee ? ` · For ${row.assignee}` : ''}
           </p>
         </div>
         <div className="flex flex-wrap gap-1">

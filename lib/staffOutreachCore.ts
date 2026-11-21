@@ -70,7 +70,9 @@ export function signedUpIn(joinedAt: string | null | undefined, window: SignupWi
   const today = pkDayStart(nowMs)
   if (window === 'today') return t >= today
   if (window === 'yesterday') return t >= today - DAY_MS && t < today
-  return t >= nowMs - 7 * DAY_MS
+  // PR-14: "Last 7 days" is today and the six full Pakistan days before (the
+  // one window, lib/countsCore) — it was a rolling 168 hours.
+  return t >= today - 6 * DAY_MS
 }
 
 /** The card's three numbers, from the SAME rows the list shows. */

@@ -8,15 +8,14 @@
 // Every caller checks the item's SCREEN_ACCESS key first (OVERVIEW_ITEMS[key]
 // .screen) — the same key the Overview filters its cards and rows by.
 
-import { paidCardCounts } from '@/lib/paidSignupsCore'
-import { loadPaidSignupMembers } from '@/lib/paidSignups'
+import { loadCountFacts } from '@/lib/counts'
+import { countRows, countSpan, actorCounts, memberCounts } from '@/lib/countsCore'
 import { planEndsLine, upgradeEndingSoon } from '@/lib/upgradePlanCore'
 import { signedUpIn, signupCounts } from '@/lib/staffOutreachCore'
 import { SIGNUPS_TODAY_HREF, payproFileNote, waitingOrderLine, type FileNote } from '@/lib/overviewItemsCore'
 import { pkr } from '@/lib/reconciliationCore'
 import { loadUnmetBoard } from '@/lib/unmetSearches'
 import { loadEmailFailures } from '@/lib/emailHealth'
-import { testAccountIds } from '@/lib/testAccounts'
 import { pageAll } from '@/lib/pageAll'
 import 'server-only'
 
@@ -26,7 +25,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { inTab, loadDirectory, loadDirectoryDocs } from '@/lib/peopleDirectory'
 import { OVERVIEW_KEY_PEOPLE } from '@/lib/peopleDirectoryCore'
 import { loadUnpaidSignups } from '@/lib/staffOutreach'
-import { isTestName } from '@/lib/staffOutreachCore'
 import type { FollowUpSource } from '@/lib/followUpCore'
 import { tutorsWithChip } from '@/lib/tutorFollowUps'
 import { feePendingDue, pipelineRows } from '@/lib/tutorPipeline'
@@ -137,37 +135,25 @@ async function chipRows(chip: FollowChip): Promise<{ rows: OverviewRow[]; stops:
 // ---------------------------------------------------------------- funnel
 type CohortTutor = FunnelTutor & { name: string; createdAt: string }
 
+// PR-14: the cohort is the shared "New tutors" count (lib/counts — the People
+// rule, Pakistan-time windows): tutors who joined from 00:00 Pakistan time
+// `days - 1` days ago, so the 7-day funnel's "Tutors signed up" equals the
+// New tutors card's Last 7 days and Insights' tutor funnel for the same days.
 const funnelCohort = cache(async (days: 7 | 30): Promise<CohortTutor[]> => {
-  const admin = createAdminClient()
-  if (!admin) return []
-  const since = new Date(Date.now() - days * 86_400_000).toISOString()
-  const profs = await pageAll((a, b) =>
-    admin
-      .from('profiles')
-      .select('id, full_name, created_at, phone_verified_at, is_suspended, is_banned, is_seed, is_team_account, admin_role')
-      .eq('role', 'tutor')
-      .gte('created_at', since)
-      .order('created_at', { ascending: false })
-      .range(a, b),
-  )
-  const real = profs.filter(
-    (p) => !p.is_suspended && !p.is_banned && !p.is_seed && !p.is_team_account && !p.admin_role && !isTestName(p.full_name as string | null),
-  )
-  const ids = real.map((p) => p.id as string)
-  const tps: { id: string; onboarded_at: string | null; verified_fee_paid_at: string | null }[] = []
-  for (let i = 0; i < ids.length; i += 200) {
-    const { data } = await admin.from('tutor_profiles').select('id, onboarded_at, verified_fee_paid_at').in('id', ids.slice(i, i + 200))
-    tps.push(...((data ?? []) as typeof tps))
-  }
-  const tp = new Map(tps.map((t) => [t.id, t]))
-  return real.map((p) => ({
-    id: p.id as string,
-    name: formatName(p.full_name as string | null) || '—',
-    createdAt: p.created_at as string,
-    mobileVerified: !!p.phone_verified_at,
-    onboarded: !!tp.get(p.id as string)?.onboarded_at,
-    paid: !!tp.get(p.id as string)?.verified_fee_paid_at,
-  }))
+  const nowMs = Date.now()
+  const span = { start: countSpan('today', nowMs).start - (days - 1) * 86_400_000, end: nowMs + 1 }
+  const d = await loadDirectory()
+  return d.people
+    .filter((p) => p.role === 'tutor' && memberCounts(p.excluded) && Date.parse(p.createdAt) >= span.start && Date.parse(p.createdAt) < span.end)
+    .sort((x, y) => y.createdAt.localeCompare(x.createdAt))
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      createdAt: p.createdAt,
+      mobileVerified: !!p.phoneVerifiedAt,
+      onboarded: !!p.onboardedAt,
+      paid: !!p.feePaidAt,
+    }))
 })
 
 function tutorRows(list: CohortTutor[]): OverviewRow[] {
@@ -260,8 +246,13 @@ export async function loadOverviewList(
       // SAME rows as the paid sign-ups view — each tutor once, on their first
       // approved, not refunded Verification Fee; staff and test accounts left
       // out; Pakistan time (lib/paidSignups, lib/paidSignupsCore paidCardCounts).
-      const { rows: members } = await loadPaidSignupMembers()
-      const pf = paidCardCounts(members, nowMs)
+      // PR-14: the shared "Paid" count (lib/counts paid_fee) — the same rows
+      // Insights, the daily funnel and Paid sign-ups count.
+      // (Members and fees are loaded for all time; the window only bounds the event tables.)
+      const tw = trendWindows(nowMs)
+      const feeFacts = await loadCountFacts(Math.min(tw.last7.start, tw.month.start))
+      const members = countRows('paid_fee', feeFacts, { start: 0, end: nowMs + 1 }).map((r) => ({ memberId: r.memberId as string, at: r.at }))
+      const pf = windowFigures(members.map((m) => ({ at: m.at })), nowMs)
       const month = pf.month
       const week = pf.last7
       const paidCard = cardFigures(pf, { bottom: { label: 'This month', value: pf.month.toLocaleString('en-US') } })
@@ -358,29 +349,25 @@ export async function loadOverviewList(
     }
 
     case 'open-tuitions': {
-      // Tuitions posted by test-named accounts are not counted (owner, 8 Oct 2026).
-      const testIds = new Set(await testAccountIds())
+      // PR-14: the shared "Tuitions posted" count (lib/counts — the actor rule:
+      // staff posts through the team account count; seed, test, hidden, merged
+      // and erase-requested posters never do). The open list uses the same rule.
+      const nowMs = now.getTime()
+      const w = trendWindows(nowMs)
+      const since = Math.min(w.last7.start, w.month.start)
+      const facts = await loadCountFacts(since)
+      const ex = new Map(facts.members.map((m) => [m.id, m.excluded]))
+      const posterCounts = (id: string | null) => !id || !ex.has(id) || actorCounts(ex.get(id))
       const jobs = (
         await pageAll((a, b) =>
           admin.from('jobs').select('id, ref_id, title, city, created_at, parent_id').eq('status', 'open').order('created_at', { ascending: false }).order('id').range(a, b),
         )
-      ).filter((j) => !testIds.has(j.parent_id as string))
+      ).filter((j) => posterCounts((j.parent_id as string | null) ?? null))
       // The card (owner, 17 Oct 2026): tuitions POSTED today / yesterday / last
-      // 7 days, whatever their status now (test accounts left out); the list
-      // stays the open ones, which is the bottom line "Open now N".
-      const nowMs = now.getTime()
-      const posted = (
-        await pageAll((a, b) =>
-          admin
-            .from('jobs')
-            .select('id, created_at, parent_id')
-            .gte('created_at', new Date(trendWindows(nowMs).last7.start).toISOString())
-            .order('created_at', { ascending: false })
-            .order('id')
-            .range(a, b),
-        )
-      ).filter((j) => !testIds.has(j.parent_id as string))
-      const of = windowFigures(posted.map((j) => ({ at: j.created_at as string })), nowMs)
+      // 7 days, whatever their status now; the list stays the open ones, which
+      // is the bottom line "Open now N".
+      const posted = countRows('tuitions_posted', facts, { start: since, end: nowMs + 1 })
+      const of = windowFigures(posted.map((j) => ({ at: j.at })), nowMs)
       return {
         key,
         card: cardFigures(of, { bottom: { label: 'Open now', value: jobs.length.toLocaleString('en-US') } }),
@@ -747,7 +734,7 @@ export async function loadOverviewList(
       return {
         key,
         rows: tutorRows(pick[key] ?? []),
-        filter: `who ${words[key] ?? ''} — joined in the last ${days} days (paused, test and staff accounts left out)`,
+        filter: `who ${words[key] ?? ''} — joined in the last ${days} days (staff, seed, test, hidden, merged and erase-requested accounts left out)`,
         workHref: '/admin/follow-ups',
       }
     }

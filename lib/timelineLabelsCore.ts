@@ -124,6 +124,8 @@ export const AUDIT_LABELS: Record<string, string> = {
   'payment.reopen': 'Reopened a rejected receipt',
   'whatsapp_update.send': 'Sent a WhatsApp update',
   'whatsapp_update.undo': 'Undid a WhatsApp update',
+  'whatsapp_update.featured_send': 'Sent Featured matched tuitions on WhatsApp',
+  'whatsapp_update.featured_undo': 'Undid a Featured matched-tuitions WhatsApp',
   'payment.approve_undo': 'Undid a payment approval',
   'payment.reject_undo': 'Undid a receipt rejection',
   'payment.receipt_checked': 'Receipt checked for the Owner',

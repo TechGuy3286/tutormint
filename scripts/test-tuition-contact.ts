@@ -53,9 +53,11 @@ test('A. the Pakistan-time day: today starts at 00:00 PKT, which is 19:00 UTC th
   const next = Date.parse('2026-10-12T19:10:00Z')
   assert.equal(signedUpIn('2026-10-12T18:50:00Z', 'today', next), false)
   assert.equal(signedUpIn('2026-10-12T18:50:00Z', 'yesterday', next), true)
-  // Last 7 days includes today; nothing from the future or unreadable counts.
-  assert.equal(signedUpIn('2026-10-05T06:00:00Z', 'week', NOW), true)
-  assert.equal(signedUpIn('2026-10-05T04:00:00Z', 'week', NOW), false)
+  // Last 7 days = today and the six full Pakistan days before (PR-14: the one
+  // window, lib/countsCore — it was a rolling 168 hours); nothing from the
+  // future or unreadable counts.
+  assert.equal(signedUpIn('2026-10-05T19:30:00Z', 'week', NOW), true, '00:30 PKT on the 6th')
+  assert.equal(signedUpIn('2026-10-05T18:30:00Z', 'week', NOW), false, '23:30 PKT on the 5th')
   assert.equal(signedUpIn('2026-10-12T06:00:00Z', 'today', NOW), false)
   assert.equal(signedUpIn(null, 'today', NOW), false)
 })

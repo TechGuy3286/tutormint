@@ -18,6 +18,7 @@
 // parents whose activity is held by the burst check are never counted.
 
 import { funnelSteps, type FunnelStep } from '@/lib/signupFunnelCore'
+import { COUNT_DEFS, type CountKey } from '@/lib/countsCore'
 
 export const INSIGHTS_KEY_PREFIX = 'insights:day:'
 export const insightsKey = (day: string) => `${INSIGHTS_KEY_PREFIX}${day}`
@@ -125,28 +126,28 @@ export type ActionKey =
   | 'signed_up' | 'otp_verified' | 'document_uploaded' | 'profile_completed'
   | 'tuition_posted' | 'tuition_viewed' | 'applied' | 'shortlisted' | 'forwarded'
   | 'whatsapp_click' | 'call_click' | 'contact_viewed' | 'message_sent' | 'demo_requested'
-  | 'pay_page' | 'pay_tried' | 'paid'
+  | 'pay_page' | 'pay_tried' | 'paid' | 'plan_bought'
 
 export const ACTION_GROUPS: { key: string; label: string; items: { key: ActionKey; label: string }[] }[] = [
   {
     key: 'signup',
     label: 'Sign-up & profile',
     items: [
-      { key: 'signed_up', label: 'Signed up' },
-      { key: 'otp_verified', label: 'Mobile verified (OTP)' },
-      { key: 'document_uploaded', label: 'Document uploaded' },
-      { key: 'profile_completed', label: 'Profile completed' },
+      { key: 'signed_up', label: COUNT_DEFS.signups.label },
+      { key: 'otp_verified', label: COUNT_DEFS.mobile_verified.label },
+      { key: 'document_uploaded', label: COUNT_DEFS.documents_uploaded.label },
+      { key: 'profile_completed', label: COUNT_DEFS.tutor_onboarded.label },
     ],
   },
   {
     key: 'tuitions',
     label: 'Tuitions',
     items: [
-      { key: 'tuition_posted', label: 'Tuition posted' },
+      { key: 'tuition_posted', label: COUNT_DEFS.tuitions_posted.label },
       { key: 'tuition_viewed', label: 'Tuition page viewed (signed in)' },
-      { key: 'applied', label: 'Applied' },
+      { key: 'applied', label: COUNT_DEFS.applications.label },
       { key: 'shortlisted', label: 'Tutor shortlisted' },
-      { key: 'forwarded', label: 'Application forwarded' },
+      { key: 'forwarded', label: COUNT_DEFS.forwarded.label },
     ],
   },
   {
@@ -155,7 +156,7 @@ export const ACTION_GROUPS: { key: string; label: string; items: { key: ActionKe
     items: [
       { key: 'whatsapp_click', label: 'WhatsApp tapped' },
       { key: 'call_click', label: 'Call tapped' },
-      { key: 'contact_viewed', label: 'Contact number viewed' },
+      { key: 'contact_viewed', label: COUNT_DEFS.contact_viewed.label },
       { key: 'message_sent', label: 'Message sent' },
       { key: 'demo_requested', label: 'Demo requested' },
     ],
@@ -166,7 +167,8 @@ export const ACTION_GROUPS: { key: string; label: string; items: { key: ActionKe
     items: [
       { key: 'pay_page', label: 'Payment page opened' },
       { key: 'pay_tried', label: 'Tried to pay' },
-      { key: 'paid', label: 'Paid' },
+      { key: 'paid', label: 'Verification Fee paid' },
+      { key: 'plan_bought', label: COUNT_DEFS.paid_plan.label },
     ],
   },
 ]
@@ -175,20 +177,30 @@ export const isActionKey = (v: unknown): v is ActionKey => typeof v === 'string'
 export const actionLabel = (k: ActionKey) => ACTION_GROUPS.flatMap((g) => g.items).find((i) => i.key === k)?.label ?? k
 export const zeroActions = (): Record<ActionKey, number> => Object.fromEntries(ACTION_KEYS_ALL.map((k) => [k, 0])) as Record<ActionKey, number>
 
-/** user_activity_log events → the action they count as (server-written facts). */
+/** The actions that ARE shared admin counts (PR-14): their numbers come from
+ *  lib/counts, never from events. "Signed up" counted the sign-up event, which
+ *  mobile sign-ups wrote twice, and "Tuition posted" left out the staff who post
+ *  every tuition. The same count on every screen. */
+export const SHARED_ACTION_COUNT: Partial<Record<ActionKey, CountKey>> = {
+  signed_up: 'signups',
+  otp_verified: 'mobile_verified',
+  document_uploaded: 'documents_uploaded',
+  profile_completed: 'tutor_onboarded',
+  tuition_posted: 'tuitions_posted',
+  applied: 'applications',
+  forwarded: 'forwarded',
+  contact_viewed: 'contact_viewed',
+  paid: 'paid_fee',
+  plan_bought: 'paid_plan',
+}
+
+/** user_activity_log events → the action they count as (server-written facts),
+ *  for the actions that are not shared counts. */
 export const LOG_EVENT_ACTION: Record<string, ActionKey> = {
-  registered: 'signed_up',
-  otp_verified: 'otp_verified',
-  document_uploaded: 'document_uploaded',
-  onboarding_done: 'profile_completed',
-  job_posted: 'tuition_posted',
-  application_submitted: 'applied',
   shortlist_added: 'shortlisted',
   message_sent: 'message_sent',
   demo_requested: 'demo_requested',
   payment_submitted: 'pay_tried',
-  verification_fee_paid: 'paid',
-  plan_purchased: 'paid',
 }
 
 /** activity_events (the signed-in tracker) → an action, or null. */
@@ -258,24 +270,31 @@ export const SEARCHES_PER_DAY = 300
 
 // ----------------------------------------------------------- the day row ---
 
+// The cohort funnels (PR-14): step 1 is the shared New tutors / New parents
+// count for the period; every later step is "of them", so its label never
+// matches a dated count that shows a different number.
 export const TUTOR_FUNNEL = [
-  { key: 'signed_up', label: 'Signed up' },
-  { key: 'mobile', label: 'Mobile verified' },
-  { key: 'profile', label: 'Profile complete' },
-  { key: 'documents', label: 'Documents uploaded' },
-  { key: 'approved', label: 'Approved' },
-  { key: 'pay_page', label: 'Payment page opened' },
-  { key: 'paid', label: 'Paid' },
+  { key: 'signed_up', label: 'Tutors signed up' },
+  { key: 'mobile', label: 'Of them: mobile verified' },
+  { key: 'profile', label: 'Of them: profile complete' },
+  { key: 'documents', label: 'Of them: documents uploaded' },
+  { key: 'approved', label: 'Of them: approved' },
+  { key: 'pay_page', label: 'Of them: payment page opened' },
+  { key: 'paid', label: 'Of them: paid' },
 ] as const
 export const PARENT_FUNNEL = [
-  { key: 'signed_up', label: 'Signed up' },
-  { key: 'posted', label: 'Posted a tuition' },
-  { key: 'applications', label: 'Received applications' },
-  { key: 'contacted', label: 'Contacted a tutor' },
+  { key: 'signed_up', label: 'Parents signed up' },
+  { key: 'posted', label: 'Of them: posted a tuition' },
+  { key: 'applications', label: 'Of them: received applications' },
+  { key: 'contacted', label: 'Of them: contacted a tutor' },
 ] as const
 
+/** The stored day's shape version. PR-14 changed what a day counts, so an
+ *  older row is treated as missing and rebuilt. */
+export const INSIGHTS_DAY_VERSION = 2
+
 export type InsightsDay = {
-  v: 1
+  v: 2
   day: string
   builtAt: string
   /** Signed-out visitors (unique per day; a daily-changing hash). */
@@ -294,11 +313,13 @@ export type InsightsDay = {
   /** That day's sign-up cohort: how many reached each step (so far). */
   funnelTutor: number[]
   funnelParent: number[]
+  /** Burst-held parents whose activity that day was left out (PR-14, labelled on the page). */
+  heldParents: string[]
 }
 
 export function emptyDay(day: string, builtAt: string): InsightsDay {
   return {
-    v: 1,
+    v: 2,
     day,
     builtAt,
     visitors: 0,
@@ -312,6 +333,7 @@ export function emptyDay(day: string, builtAt: string): InsightsDay {
     device: zeroDevice(),
     funnelTutor: TUTOR_FUNNEL.map(() => 0),
     funnelParent: PARENT_FUNNEL.map(() => 0),
+    heldParents: [],
   }
 }
 
@@ -325,7 +347,7 @@ export type InsightsPeriod = {
   totalDays: number
   daily: { day: string; tutors: number; parents: number; visitors: number; newSignups: number; returning: number }[]
   /** Distinct members across the whole period; visitors are the sum of daily uniques. */
-  totals: { tutors: number; parents: number; visitorDays: number; newSignups: number; returning: number }
+  totals: { tutors: number; parents: number; visitorDays: number; newSignups: number; newTutors: number; newParents: number; returning: number; heldParents: number }
   actions: Record<ActionKey, number>
   searches: SearchRow[]
   zeroSearches: SearchRow[]
@@ -344,6 +366,9 @@ export function mergePeriod(from: string, to: string, stored: readonly InsightsD
   const tutors = new Set<string>()
   const parents = new Set<string>()
   const newIds = new Set<string>()
+  const newT = new Set<string>()
+  const newP = new Set<string>()
+  const heldIds = new Set<string>()
   const actions = zeroActions()
   const searches = new Map<string, SearchRow>()
   const grid = WEEKDAYS.map(() => Array.from({ length: 24 }, () => 0))
@@ -361,6 +386,9 @@ export function mergePeriod(from: string, to: string, stored: readonly InsightsD
     for (const id of d.tutorsActive) tutors.add(id)
     for (const id of d.parentsActive) parents.add(id)
     for (const id of [...d.newTutors, ...d.newParents]) newIds.add(id)
+    for (const id of d.newTutors) newT.add(id)
+    for (const id of d.newParents) newP.add(id)
+    for (const id of d.heldParents ?? []) heldIds.add(id)
     const dayNew = new Set([...d.newTutors, ...d.newParents])
     const active = [...d.tutorsActive, ...d.parentsActive]
     daily.push({
@@ -392,7 +420,10 @@ export function mergePeriod(from: string, to: string, stored: readonly InsightsD
       parents: parents.size,
       visitorDays,
       newSignups: newIds.size,
+      newTutors: newT.size,
+      newParents: newP.size,
       returning: activeAll.filter((id) => !newIds.has(id)).length,
+      heldParents: heldIds.size,
     },
     actions,
     searches: topSearches(searches.values(), 20, 'n'),

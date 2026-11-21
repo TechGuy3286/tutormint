@@ -9,6 +9,7 @@ import { refreshStatementMatches } from '@/lib/bankStatement'
 import { runAddressBackfill } from '@/lib/cnicAddress'
 import { runInterestBackfill } from '@/lib/parentInterest'
 import { refreshInsights } from '@/lib/insights'
+import { generateFeaturedItems } from '@/lib/featuredMatches'
 
 // The 5-minute jobs: due blog posts, Indexing API notices, tutor alerts, the
 // bank reader, View-as expiry, statement matches and the backfills. It used to
@@ -71,9 +72,13 @@ export async function GET(request: Request) {
   const interestBackfill = await runInterestBackfill().then((r) => (r.ran ? r : null)).catch(() => null)
   // Admin → Insights (PR-12): keep the last month of days built — today every
   // 10 minutes, a few other days per run, inside what is left of the minute.
+  // Tutor Featured (PR-14): once a Pakistan day from 08:00 PKT, one Featured —
+  // matched tuitions item per Featured tutor with new matches (People →
+  // WhatsApp updates → Today). Before Insights, so it never waits on it.
+  const featured = await generateFeaturedItems().then((r) => (r.ran ? r : null)).catch(() => null)
   const insights = await refreshInsights(Date.now(), t0 + 50_000).catch(() => null)
   // PayPro has ended (PR-12, 20 Nov 2026): no order is re-checked at PayPro any
   // more and nothing activates from it, so this job no longer reads a PAYPRO_*
   // setting or touches a PayPro payment row.
-  return NextResponse.json({ ok: true, paypro: 'ended', blog, indexing, alerts, bankReader, viewAsEnded, statement, addressBackfill, interestBackfill, insights })
+  return NextResponse.json({ ok: true, paypro: 'ended', blog, indexing, alerts, bankReader, viewAsEnded, statement, addressBackfill, interestBackfill, featured, insights })
 }

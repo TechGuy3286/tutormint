@@ -53,7 +53,7 @@ test('an upgrade purchase is refused on the server; the Verification Fee is not'
   assert.equal(upgradeRefusal('basic', 0), null, 'a free plan is never an upgrade')
   assert.equal(isUpgradePlan('verified'), false)
   assert.equal(upgradeBlocked('premium', 499, false), false, 'switching the pause off sells upgrades again')
-  assert.ok(upgradeRefusal('featured', 999), 'tutor Featured stays Coming soon (PR-13)')
+  assert.equal(upgradeRefusal('featured', 999), null, 'tutor Featured on sale (PR-14)')
   assert.equal(upgradeRefusal('premium', 499), null, 'Premium on sale (PR-13)')
   assert.equal(upgradeRefusal('parent_featured', 999), null, 'parent Featured on sale (PR-13)')
 

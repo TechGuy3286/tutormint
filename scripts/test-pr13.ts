@@ -35,15 +35,16 @@ const DAY = 86_400_000
 
 // ------------------------------------------------------------- on sale ----
 
-test('A: Premium and parent Featured are on sale; tutor Featured stays Coming soon', () => {
+test('A: Premium and parent Featured are on sale (tutor Featured too since PR-14)', () => {
   assert.equal(UPGRADES_PAUSED, false)
-  assert.deepEqual([...PAUSED_UPGRADE_CODES], ['featured'])
+  assert.deepEqual([...PAUSED_UPGRADE_CODES], [], 'PR-14 put tutor Featured on sale')
   assert.equal(upgradeBlocked('premium', 499), false)
   assert.equal(upgradeBlocked('parent_featured', 999), false)
-  assert.equal(upgradeBlocked('featured', 999), true)
+  assert.equal(upgradeBlocked('featured', 999), false)
   assert.equal(upgradeRefusal('premium', 499), null)
   assert.equal(upgradeRefusal('parent_featured', 999), null)
-  assert.equal(upgradeRefusal('featured', 999)?.status, 409)
+  assert.equal(upgradeRefusal('featured', 999), null)
+  assert.equal(upgradeRefusal('featured', 999, ['featured'])?.status, 409, 'a listed code is still refused')
   assert.equal(upgradeBlocked('verified', 199), false, 'the fee is never paused')
   assert.equal(upgradeBlocked('premium', 499, true), true, 'a blanket pause still works')
   // Promotion stays off: only the buttons were asked for.

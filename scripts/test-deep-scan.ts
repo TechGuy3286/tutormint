@@ -186,6 +186,7 @@ const WA_REGISTRY: Record<string, 'parent-situation' | 'parent-specific' | 'not-
   'lib/paidWelcome.ts': 'not-parent', // the paid tutor's welcome (owner, 9 Nov 2026)
   'lib/waUpdates.ts': 'not-parent', // tutor WhatsApp updates (PR-06, owner 18 Nov 2026)
   'lib/interestInbox.ts': 'not-parent', // Parent interest inbox — to the TUTOR (PR-10, owner 19 Nov 2026)
+  'lib/featuredMatches.ts': 'not-parent', // Featured — matched tuitions, to the TUTOR (PR-14, owner 21 Nov 2026)
   'app/api/admin/follow-ups/social-links/route.ts': 'not-parent',
   'app/api/admin/tutors/rereview-whatsapp/route.ts': 'not-parent',
   'lib/documentsApproved.ts': 'not-parent',

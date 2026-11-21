@@ -267,7 +267,7 @@ export default function PackagesTable({
                   </Link>
                 ) : null
               ) : buy === 'coming_soon' ? (
-                // A paused plan (upgradeBlocked — tutor Featured since PR-13).
+                // A paused plan (upgradeBlocked — none since PR-14; tutor Featured was paused in PR-13).
                 // The card stays visible; nothing can be bought from it.
                 <button
                   type="button"

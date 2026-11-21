@@ -36,6 +36,7 @@ import type { BadgesPayload } from '@/lib/adminSummaryCore'
 import { loadTeaserTutors, type TeaserTutor } from '@/lib/tutorTeasers'
 import { interestInboxCounts } from '@/lib/interestInbox'
 import { demoDetail, INTEREST_TODO_KEY } from '@/lib/interestInboxCore'
+import { featuredToSendCount } from '@/lib/featuredMatches'
 import {
   DAY_MS,
   mayUndoWaSend,
@@ -250,10 +251,12 @@ export async function loadWaQueue(nowMs = Date.now()): Promise<WaQueue> {
   }
 }
 
-/** The sidebar badge: rows still to send today. Tolerant — null on failure. */
+/** The sidebar badge: rows still to send today — the daily rows plus the
+ *  Featured matched-tuitions items (PR-14). Tolerant — null on failure. */
 export async function waQueueCount(nowMs = Date.now()): Promise<number | null> {
   try {
-    return (await loadWaQueue(nowMs)).toSend
+    const [q, featured] = await Promise.all([loadWaQueue(nowMs), featuredToSendCount(nowMs)])
+    return q.toSend + (featured ?? 0)
   } catch {
     return null
   }

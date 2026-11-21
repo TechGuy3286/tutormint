@@ -44,6 +44,7 @@ export type BucketName =
   | 'tutor_alert'
   | 'site_visit'
   | 'sms_test'
+  | 'paypro_callback'
 
 /**
  * The budgets.
@@ -137,6 +138,9 @@ const BUDGETS: Record<BucketName, { windowSeconds: number; max: number }> = {
   // Admin → Settings → SMS "Send test SMS" (owner, 15 Oct 2026): each one costs
   // a real message. Five an hour, keyed on the Owner's account.
   sms_test: { windowSeconds: 3600, max: 5 },
+  // PR-14: the PayPro callback no longer checks credentials (PayPro ended,
+  // PR-12), so a caller can hit it freely — 20 an hour per address.
+  paypro_callback: { windowSeconds: 3600, max: 20 },
 }
 
 export type RateLimitResult = { allowed: true } | { allowed: false; retryAfterSeconds: number }

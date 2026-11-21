@@ -35,8 +35,9 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
       <header className="space-y-2">
         <h2 className="text-lg font-black text-tm-navy">Insights</h2>
         <p className="text-xs text-slate-700">
-          What members and visitors did, {p.label.toLowerCase().startsWith('last') ? p.label.toLowerCase() : p.label} (Pakistan time). Staff, seed, test, team and hidden
-          accounts and held parent activity are left out. Counts only — no amounts.
+          What members and visitors did, {p.label.toLowerCase().startsWith('last') ? p.label.toLowerCase() : p.label} (Pakistan time). Member counts leave out staff, seed,
+          test, team, hidden, merged and erase-requested accounts (the People rule); staff actions such as tuitions posted and applications forwarded are
+          counted. Every shared count here is the same number as on the Overview. Counts only — no amounts.
         </p>
         <PeriodPicker active={p.key} from={p.from} to={p.to} today={pkDayOf(nowMs)} />
         {data.builtDays < data.totalDays && (
@@ -48,17 +49,24 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
 
       <section className={card}>
         <h3 className={h3}>Active users</h3>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-          <Stat label="Tutors" value={data.totals.tutors} />
-          <Stat label="Parents" value={data.totals.parents} />
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+          <Stat label="Active tutors" value={data.totals.tutors} />
+          <Stat label="Active parents" value={data.totals.parents} />
           <Stat label="Visitors (daily, added up)" value={data.totals.visitorDays} />
-          <Stat label="New sign-ups" value={data.totals.newSignups} />
-          <Stat label="Returning members" value={data.totals.returning} />
+          <Stat label="New sign-ups" value={data.totals.newSignups} note="New tutors + new parents" />
+          <Stat label="New tutors" value={data.totals.newTutors} note="Same as Overview" />
+          <Stat label="New parents" value={data.totals.newParents} note="Same as Overview" />
+          <Stat label="Returning members" value={data.totals.returning} note="Active, joined earlier" />
         </div>
         <ActiveChart daily={data.daily} />
         <p className="text-[11px] text-slate-700">
-          Tutors and parents are counted once each over the period. A signed-out visitor is counted once per day (we cannot tell the same visitor on two days apart, by design).
+          Active tutors and parents are counted once each over the period. A signed-out visitor is counted once per day (we cannot tell the same visitor on two days apart, by design).
         </p>
+        {data.totals.heldParents > 0 && (
+          <p className="text-[11px] font-bold text-slate-700" data-held-note="">
+            Activity of {fmt(data.totals.heldParents)} held {data.totals.heldParents === 1 ? 'parent' : 'parents'} (burst check) is left out of the activity numbers.
+          </p>
+        )}
       </section>
 
       <section className={card}>
@@ -84,7 +92,11 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
             </div>
           ))}
         </div>
-        <p className="text-[11px] text-slate-700">Tap a number to see the members behind it. WhatsApp and Call taps are counted from 20 Nov 2026.</p>
+        <p className="text-[11px] text-slate-700">
+          Tap a number to see the members behind it. New sign-ups, Mobile verified, Tutors finished onboarding, Tuitions posted, Applications,
+          Applications forwarded, Verification Fee paid and Plans bought are the shared counts — each account or item once, the same on every screen.
+          WhatsApp and Call taps are counted from 20 Nov 2026.
+        </p>
       </section>
 
       <section className={card}>
@@ -126,11 +138,12 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
   )
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({ label, value, note }: { label: string; value: number; note?: string }) {
   return (
     <div className="rounded-xl bg-tm-bg p-3">
       <p className="text-lg font-black text-tm-navy">{fmt(value)}</p>
       <p className="text-[11px] font-bold text-slate-700">{label}</p>
+      {note && <p className="text-[10px] text-slate-700">{note}</p>}
     </div>
   )
 }

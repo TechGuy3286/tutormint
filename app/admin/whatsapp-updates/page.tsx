@@ -12,13 +12,17 @@ import { pageSlice, shownCount } from '@/lib/adminPagingCore'
 import { formatDateTime, formatTime } from '@/lib/datetime'
 import { WA_WEEKLY_CAP } from '@/lib/tutorTeasersCore'
 import { loadWaQueue } from '@/lib/waUpdates'
+import { loadFeaturedQueue } from '@/lib/featuredMatches'
+import { FEATURED_ITEM_KIND, FEATURED_ITEM_LABEL, FEATURED_MATCH_MAX } from '@/lib/featuredMatchesCore'
 import { loadInterestInbox, type InboxRow } from '@/lib/interestInbox'
 import { inboxView } from '@/lib/interestInboxView'
 import { INBOX_TABS, staffFilter, WAIT_LABEL, type InboxTab } from '@/lib/interestInboxCore'
 
 // People → WhatsApp updates (PR-06, owner 18 Nov 2026), two tabs:
 //   Today            paid tutors' news: a parent opened or was sent their
-//                    application, and on Mondays their weekly summary. The
+//                    application, and on Mondays their weekly summary; and
+//                    (PR-14) "Featured — matched tuitions", one item a day per
+//                    tutor Featured plan holder, outside the caps. The
 //                    Owner, the Project Manager and Backend Support
 //                    (SCREEN_ACCESS.waUpdates). The Owner also sees "Held
 //                    activity" (PR-08).
@@ -70,7 +74,8 @@ export default async function WhatsAppUpdatesPage({ searchParams }: { searchPara
 
 async function TodayTab({ actor, n }: { actor: AdminActor; n?: string }) {
   const isOwner = actor.adminRole === 'owner'
-  const [queue, held] = await Promise.all([loadWaQueue(), isOwner ? loadHeldActivity() : Promise.resolve(null)])
+  const [queue, held, featured] = await Promise.all([loadWaQueue(), isOwner ? loadHeldActivity() : Promise.resolve(null), loadFeaturedQueue()])
+  const featuredToSend = featured.filter((r) => r.state === 'to_send').length
   const page = pageSlice(queue.rows, shownCount(n))
   const sentToday = queue.rows.length - queue.toSend
   return (
@@ -115,6 +120,45 @@ async function TodayTab({ actor, n }: { actor: AdminActor; n?: string }) {
         </ul>
       )}
       {page.total > 0 && <LoadMoreLink shown={page.shown} total={page.total} noun="tutors" />}
+
+      <section className="space-y-2" aria-labelledby="featured-matches" data-featured-queue="">
+        <h3 id="featured-matches" className="text-sm font-black text-tm-navy">
+          {FEATURED_ITEM_LABEL}
+        </h3>
+        <p className="text-xs text-gray-600">
+          Once a day, each tutor on the Featured plan gets one message listing up to {FEATURED_MATCH_MAX} open tuitions posted in the last 24
+          hours that match their city and areas, subjects and levels, and gender preference. Tutors with no new match are skipped. These do not
+          count toward the one-a-day or {WA_WEEKLY_CAP}-a-week limits. {featuredToSend} to send · {featured.length - featuredToSend} sent today.
+        </p>
+        {featured.length === 0 ? (
+          <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-600">
+            No Featured matches today. Items appear each morning from 08:00 for Featured tutors with new matching tuitions — meanwhile, check the
+            rows above.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {featured.map((r) => (
+              <li key={r.itemId}>
+                <WaUpdateRow
+                  row={{
+                    tutorId: r.tutorId,
+                    name: r.name,
+                    city: r.city,
+                    state: r.state === 'to_send' ? 'to_send' : 'sent_today',
+                    message: r.message,
+                    weekCount: 0,
+                    kinds: [FEATURED_ITEM_KIND],
+                    sent: r.sent ? { id: r.itemId, by: r.sent.by, time: formatTime(r.sent.at), mine: r.sent.staffId === actor.id || actor.adminRole === 'owner' } : null,
+                    featuredItemId: r.itemId,
+                    assignee: r.assigneeName,
+                  }}
+                  cap={WA_WEEKLY_CAP}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       {held && (
         <HeldActivityPanel

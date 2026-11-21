@@ -2,9 +2,9 @@
 // 21 Nov 2026: tutor Premium and parent Featured on sale again by bank transfer).
 //
 // PR-13 turned on only the plans whose every card line is delivered by code.
-// Tutor Featured stays "Coming soon": its "Matched tuitions on your WhatsApp"
-// line was a staff-sent list (Featured WhatsApp) that was retired on 31 Oct
-// 2026, so that plan cannot be sold until the list is back. The cards, the
+// Tutor Featured stayed "Coming soon" until PR-14 (21 Nov 2026) brought its
+// "Matched tuitions on your WhatsApp" line back through the WhatsApp updates
+// queue; now every upgrade is on sale. The cards, the
 // upgrade sheet, /pay/choose and the two routes that create a payment
 // (checkout and receipt) all read this one rule. Members who already hold a
 // plan keep it until its end date: entitlements read subscriptions, which this
@@ -12,8 +12,11 @@
 //
 // Pure: no I/O, so the test runner and client components can import it.
 
-/** The upgrade plan codes that are still "Coming soon". Remove a code to sell it. */
-export const PAUSED_UPGRADE_CODES: readonly string[] = ['featured']
+/** The upgrade plan codes that are still "Coming soon". Remove a code to sell it.
+ *  PR-14 (owner, 21 Nov 2026): tutor Featured is on sale — its "Matched
+ *  tuitions on your WhatsApp" line is delivered by the daily "Featured —
+ *  matched tuitions" items in People → WhatsApp updates (lib/featuredMatches). */
+export const PAUSED_UPGRADE_CODES: readonly string[] = []
 
 /** Every upgrade paused at once (the 9 Nov 2026 state). Off since PR-13 — the
  *  per-plan list above decides. */

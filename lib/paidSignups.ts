@@ -15,6 +15,8 @@ import { pageAll } from '@/lib/pageAll'
 import { formatName } from '@/lib/formatName'
 import { countableCreditedAccounts, loadAdminDirectAccounts } from '@/lib/staffSignups'
 import { attributionOf, type PaidSignup, type PaidSignupsPayload } from '@/lib/paidSignupsCore'
+import { loadCountFacts } from '@/lib/counts'
+import { countRows } from '@/lib/countsCore'
 
 /** One paid tutor sign-up with the member it belongs to — for the Overview
  *  "Paid" card's list (never stored in the view's payload). */
@@ -37,15 +39,21 @@ async function loadMembers(): Promise<{ rows: PaidSignupMember[]; staffIds: stri
     ).catch(() => []),
   ])
   const refusedIds = new Set(refused.map((r) => r.target_id as string))
+  // PR-14: the shared "Paid" count (lib/counts paid_fee — first approved, not
+  // refunded fee; People rule) decides who is in and when, so this view, the
+  // Overview Paid card, Insights and the daily funnel show one number.
+  const nowMs = Date.now()
+  const paid = new Map(countRows('paid_fee', await loadCountFacts(nowMs), { start: 0, end: nowMs + 1 }).map((r) => [r.memberId as string, r.at]))
   const rows: PaidSignupMember[] = []
   const staffIds = new Set<string>()
   const seen = new Set<string>()
   for (const a of [...staffCredited, ...direct]) {
-    if (a.role !== 'tutor' || !a.at.paid || seen.has(a.memberId)) continue
+    const at = paid.get(a.memberId)
+    if (a.role !== 'tutor' || !at || seen.has(a.memberId)) continue
     seen.add(a.memberId)
     const by = attributionOf(a.staffId, refusedIds.has(a.memberId))
     if (by === a.staffId) staffIds.add(by)
-    rows.push({ at: a.at.paid, by, memberId: a.memberId })
+    rows.push({ at, by, memberId: a.memberId })
   }
   rows.sort((x, y) => x.at.localeCompare(y.at))
   return { rows, staffIds: [...staffIds] }

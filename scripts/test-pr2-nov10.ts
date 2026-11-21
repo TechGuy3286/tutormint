@@ -234,8 +234,8 @@ test('the Overview Paid card equals the Paid view for the same periods', () => {
   const w = trendWindows(NOW)
   assert.equal(w.last7.start, pkDayStart(NOW) - 6 * DAY)
   assert.equal(card.last7, countIn(rows, w.last7))
-  // The card reads the view's rows, not its own payment rule.
+  // The card and the view read ONE paid rule (PR-14: lib/counts paid_fee).
   const ov = read('lib/overviewItems.ts')
-  assert.match(ov, /const pf = paidCardCounts\(members, nowMs\)/)
-  assert.match(read('lib/paidSignups.ts'), /loadPaidSignupMembers\(\)/)
+  assert.match(ov, /countRows\('paid_fee', feeFacts/)
+  assert.match(read('lib/paidSignups.ts'), /countRows\('paid_fee'/)
 })
