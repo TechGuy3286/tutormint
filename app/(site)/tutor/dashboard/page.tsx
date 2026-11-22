@@ -64,7 +64,7 @@ export default async function TutorDashboardPage() {
   const supabase = await createClient()
 
   const [{ data: tutorProfile }, completion, ent, directory] = await Promise.all([
-    supabase.from('tutor_profiles').select('slug, city, gender').eq('id', userId).maybeSingle(),
+    supabase.from('tutor_profiles').select('slug, city, gender, video_youtube_id').eq('id', userId).maybeSingle(),
     computeCompletion(userId),
     getEntitlements(userId),
     loadDirectoryStatus(userId),
@@ -115,11 +115,7 @@ export default async function TutorDashboardPage() {
   const tutorScope = await resolveTutorScope(supabase, userId)
   const viewerGender = feedGenderFilter(tutorScope?.gender)
 
-  // The applications-pool month is a UTC calendar month (lib/quota.ts).
-  const now = new Date()
-  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString()
-
-  const [views, unread, { data: apps }, { data: demos }, savedJobs, boardCount, { count: viewedThisMonth }] =
+  const [views, unread, { data: apps }, { data: demos }, savedJobs, boardCount] =
     await Promise.all([
       viewSummary(userId, ent.canSeeViewerIdentity, 20),
       unreadMessageCount(userId),
@@ -130,13 +126,6 @@ export default async function TutorDashboardPage() {
       tutorScope
         ? tutorFeedCount(supabase, tutorScope, viewerGender)
         : browseJobs({ ...NO_JOB_FILTERS, viewerGender }, 1).then((r) => r.total),
-      // Numbers viewed this month — each one used an application from the pool
-      // (Terms: "viewing a number counts as one application"). Own rows only.
-      supabase
-        .from('contact_reveals')
-        .select('tutor_id', { count: 'exact', head: true })
-        .eq('tutor_id', userId)
-        .gte('created_at', monthStart),
     ])
 
   const liveApps = (apps ?? []).filter((a) => !a.withdrawn_at)
@@ -144,6 +133,10 @@ export default async function TutorDashboardPage() {
   // tutor's OWN dashboard only (owner, 22 Oct 2026).
   const myApplications = await tutorApplicationCards(userId)
   const hiredCount = myApplications.filter((a) => a.stage === 'hired').length
+  // PR-16: "7 applied · 0 hired" — both numbers from the SAME list (live,
+  // not withdrawn), so the tile, the Hired tile and the section always agree.
+  const appliedCount = myApplications.length
+  const hasVideo = !!(tutorProfile?.video_youtube_id as string | null)
   // Why Apply is inactive on each saved tuition (owner, 5 Oct 2026).
   const savedApplyBlocks = await applyBlocksFor(supabase, userId, ent, savedJobs)
   const appliedJobIds = liveApps.map((a) => a.job_id as string)
@@ -174,35 +167,31 @@ export default async function TutorDashboardPage() {
   // things that spend the pool this month, counted from their own rows. Only
   // "6 applied" when nothing was viewed. The big number (all live applications)
   // and the quota rule itself are unchanged.
-  const appliedThisMonth = (apps ?? []).filter((a) => String(a.created_at) >= monthStart).length
-  const viewed = viewedThisMonth ?? 0
-  const quotaNote = ent.plan
-    ? `${appliedThisMonth} applied${viewed > 0 ? ` · ${viewed} number${viewed === 1 ? '' : 's'} viewed` : ''}`
-    : null
   const findable = percent >= 100 && ent.verified && ent.badges.includes('Verified')
 
   // Seven tiles, seven distinct tones — no two share a colour (PR32 §2). The
   // seventh is the optional Intro video tile (PR76 §D.3), its own mint tint.
   const tiles: CountTile[] = [
-    { key: 'apps', icon: <Send aria-hidden size={22} />, value: liveApps.length, label: 'My applications', note: quotaNote, href: '/tutor/dashboard/applications', tone: 'sky', tip: 'Tuitions you have applied to' },
+    { key: 'apps', icon: <Send aria-hidden size={18} />, value: <span className="text-[13px] leading-tight">{appliedCount} applied · {hiredCount} hired</span>, label: 'My applications', href: '/tutor/dashboard/applications', tone: 'sky', tip: 'Tuitions you have applied to' },
     // ONE NUMBER (owner, 5 Oct 2026): the big number is the UNREAD count — the
     // same unreadMessageCount the header icon reads — and the red badge shows
     // only while it is above 0. At 0 the tile reads 0 with no dot.
-    { key: 'messages', icon: <MessageSquare aria-hidden size={22} />, value: unread, label: 'Messages', note: 'unread', href: '/tutor/dashboard/messages', tone: 'navy', badge: unread, tip: 'Unread messages from parents' },
-    { key: 'demos', icon: <Video aria-hidden size={22} />, value: liveDemos, label: 'Demo requests', href: '/tutor/dashboard/demos', tone: 'red', highlight: liveDemos > 0, tip: 'Demo lessons parents have asked you for' },
-    { key: 'tuitions', icon: <Briefcase aria-hidden size={22} />, value: boardCount, label: 'Tuitions for you', href: '/browse/tuitions', tone: 'gold', tip: tutorScope ? 'Open tuitions in your city and areas' : 'Open tuitions — add your area in Edit Profile to narrow this' },
-    { key: 'hired', icon: <Trophy aria-hidden size={22} />, value: hiredCount, label: 'Hired', href: '#my-applications', tone: 'green', tip: 'Tuitions you got through TutorMint' },
-    { key: 'views', icon: <Eye aria-hidden size={22} />, value: views.thisWeek, label: 'Profile views', note: 'this week', href: '/tutor/dashboard/views', tone: 'teal', tip: 'Parents who viewed your profile this week' },
-    { key: 'saved', icon: <Heart aria-hidden size={22} />, value: savedJobs.length, label: 'Saved tuitions', href: '#saved-tuitions', tone: 'violet', tip: 'Tuitions you saved to look at later' },
+    { key: 'messages', icon: <MessageSquare aria-hidden size={18} />, value: unread, label: 'Messages', note: 'unread', href: '/tutor/dashboard/messages', tone: 'navy', badge: unread, tip: 'Unread messages from parents' },
+    { key: 'demos', icon: <Video aria-hidden size={18} />, value: liveDemos, label: 'Demo requests', href: '/tutor/dashboard/demos', tone: 'red', highlight: liveDemos > 0, tip: 'Demo lessons parents have asked you for' },
+    { key: 'tuitions', icon: <Briefcase aria-hidden size={18} />, value: boardCount, label: 'Tuitions for you', href: '/browse/tuitions', tone: 'gold', tip: tutorScope ? 'Open tuitions in your city and areas' : 'Open tuitions — add your area in Edit Profile to narrow this' },
+    { key: 'hired', icon: <Trophy aria-hidden size={18} />, value: hiredCount, label: 'Hired', href: '#my-applications', tone: 'green', tip: 'Tuitions you got through TutorMint' },
+    { key: 'views', icon: <Eye aria-hidden size={18} />, value: views.thisWeek, label: 'Profile views', note: 'this week', href: '/tutor/dashboard/views', tone: 'teal', tip: 'Parents who viewed your profile this week' },
+    { key: 'saved', icon: <Heart aria-hidden size={18} />, value: savedJobs.length, label: 'Saved tuitions', href: '#saved-tuitions', tone: 'violet', tip: 'Tuitions you saved to look at later' },
     // Optional, no pressure — a label-only action tile opening the existing
     // upload flow. It is not a completion item (§C.6).
-    { key: 'video', icon: <Clapperboard aria-hidden size={22} />, label: 'Intro video', href: '/tutor/dashboard/video', tone: 'pink', tip: 'Optional — a short hello for parents' },
+    { key: 'video', icon: <Clapperboard aria-hidden size={18} />, value: <span className="text-[13px] leading-tight">{hasVideo ? 'Added ✓' : 'Add video'}</span>, label: 'Intro video', href: '/tutor/dashboard/video', tone: 'pink', tip: 'Optional — a short hello for parents' },
   ]
 
   return (
     <main className="min-h-screen bg-tm-bg px-4 pt-3 pb-8">
-      <div className="mx-auto w-full max-w-[480px] space-y-3">
-        <Breadcrumbs items={[{ label: 'Tutor dashboard' }]} />
+      {/* PR-16: the phone column, widened on desktop so the tiles run four to a row. */}
+      <div className="mx-auto w-full max-w-[480px] space-y-3 md:max-w-[720px]">
+        <Breadcrumbs items={[{ label: 'Dashboard' }]} />
 
         {/* 3.1 Profile card — minimal. */}
         <TutorHeaderCard
@@ -218,7 +207,6 @@ export default async function TutorDashboardPage() {
           completion={percent}
           publicHref={publicHref}
           paymentUnderReview={feeUnderReview}
-          selfieChecked={!!ent.selfieChecked}
         />
 
         {/* A gentle reminder while the email waits for its link — it blocks nothing. */}
@@ -236,6 +224,9 @@ export default async function TutorDashboardPage() {
           <CompletionLine
             percent={whatsMissing.summary.percent}
             missing={tutorLineItems(whatsMissing.summary.missing)}
+            // PR-16: the top card already says 100% — the banner shows only while
+            // something is missing.
+            hideWhenComplete
           />
         )}
         {whatsMissing && (
@@ -297,7 +288,7 @@ export default async function TutorDashboardPage() {
             quota moved onto the My-applications tile below. */}
 
         {/* 3.2 Count tiles, two to a row. */}
-        <CountGrid tiles={tiles} />
+        <CountGrid tiles={tiles} compact />
 
         {/* PR106-D §9: "Get more applications" at ~80% used (Basic/Premium only). */}
         {q.showGetMore && showUpgradePrompts() && (
@@ -306,7 +297,6 @@ export default async function TutorDashboardPage() {
             className="block text-center text-[11px] font-bold text-tm-navy underline-offset-2 hover:underline"
           >
             Get more applications
-            <span lang="ur" dir="rtl" className="ms-1.5 font-semibold text-gray-500">مزید درخواستیں حاصل کریں</span>
           </Link>
         )}
 

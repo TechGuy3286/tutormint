@@ -38,12 +38,16 @@ export async function loadHeaderSession(): Promise<HeaderSession> {
   const role = session.profile?.role ?? null
   const name = session.profile?.full_name ?? session.user.email?.split('@')[0] ?? 'there'
   const isMember = role === 'tutor' || role === 'parent'
+  // PR-16: each extra is on its own. A failed bell or messages count used to
+  // throw the whole answer away, and the route then said "signed out", so a
+  // signed-in member saw Join free / Login. A count that fails is 0 now.
+  const soft = <T,>(p: Promise<T>, fallback: T): Promise<T> => p.catch(() => fallback)
   const [unread, adminScreens, messagesUnread, gender, viewAs] = await Promise.all([
-    unreadCount(),
-    role === 'admin' ? adminScreensFor() : Promise.resolve([] as AdminEntry[]),
-    isMember ? unreadMessageCount(session.user.id) : Promise.resolve(0),
-    role === 'tutor' ? createClient().then((c) => tutorGender(c, session.user.id)) : Promise.resolve(null),
-    isMember ? currentViewAs() : Promise.resolve(null),
+    soft(unreadCount(), 0),
+    role === 'admin' ? soft(adminScreensFor(), [] as AdminEntry[]) : Promise.resolve([] as AdminEntry[]),
+    isMember ? soft(unreadMessageCount(session.user.id), 0) : Promise.resolve(0),
+    role === 'tutor' ? soft(createClient().then((c) => tutorGender(c, session.user.id)), null) : Promise.resolve(null),
+    isMember ? soft(currentViewAs(), null) : Promise.resolve(null),
   ])
   const items: MenuItem[] = menuForRole({ role, adminScreens })
   return {

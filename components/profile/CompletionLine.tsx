@@ -26,14 +26,18 @@ export default function CompletionLine({
   percent,
   missing,
   onOpen,
+  hideWhenComplete = false,
 }: {
   percent: number
   missing: CompletionLineItem[]
   onOpen?: (card: string) => void
+  /** PR-16 (tutor dashboard): render nothing at 100% — the top card says it. */
+  hideWhenComplete?: boolean
 }) {
   const complete = missing.length === 0 || percent >= 100
   const line = completionLine(percent, missing)
 
+  if (complete && hideWhenComplete) return null
   if (complete) {
     return (
       <p

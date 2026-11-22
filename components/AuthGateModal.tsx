@@ -19,7 +19,8 @@ export type AuthIntent = 'apply' | 'post' | 'message' | 'demo' | 'shortlist' | '
 const COPY: Record<AuthIntent, { title: string; body: string; cta: string }> = {
   apply: {
     title: 'Apply for this tuition',
-    body: 'Join free to apply. We bring you back to this tuition when you are done.',
+    // PR-16: the profile is free; applying needs the one-time Verification Fee.
+    body: 'Create your free profile, then get verified to apply. We bring you back to this tuition when you are done.',
     cta: 'Sign in and apply',
   },
   post: {

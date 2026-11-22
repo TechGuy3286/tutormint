@@ -171,7 +171,7 @@ export default async function Footer() {
                         href={whatsappHref(support.whatsapp) ?? undefined}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex min-h-[44px] items-center text-slate-300 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint md:min-h-[28px]"
+                        className="flex min-h-[44px] items-center whitespace-nowrap text-slate-300 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint md:min-h-[28px]"
                       >
                         WhatsApp {formatSupportWhatsApp(support.whatsapp)}
                       </a>
@@ -220,15 +220,15 @@ export default async function Footer() {
 }
 
 /**
- * The social icons. Three to a row (`grid-cols-3`, `w-max` so the block stays as
- * wide as its icons rather than the column), so a full set of six wraps as a
- * tidy 3 + 3 at 360px and on the narrow desktop brand column alike. Each icon
- * keeps its 44px tap target. WhatsApp carries its own label and rel.
+ * The social icons (PR-16, owner): ONE evenly spaced row, each icon drawn at
+ * 32px inside its 44px tap target — a full set of six is 6 × 44px + gaps, which
+ * fits one row on a 360px phone; in the narrow desktop brand column it wraps
+ * as even rows. WhatsApp carries its own label and rel.
  */
 function SocialRow({ socials }: { socials: SocialLink[] }) {
   if (socials.length === 0) return null
   return (
-    <ul className="mt-2 grid w-max grid-cols-3 gap-1">
+    <ul className="mt-2 flex flex-wrap items-center gap-1">
       {socials.map((s) => (
         <li key={s.name}>
           <a
@@ -238,7 +238,7 @@ function SocialRow({ socials }: { socials: SocialLink[] }) {
             aria-label={s.label ?? `TutorMint on ${s.name}`}
             className="flex h-11 w-11 items-center justify-center rounded-lg transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint"
           >
-            <Image src={s.icon} alt="" width={2048} height={2048} sizes="20px" className="h-5 w-5 object-contain" />
+            <Image src={s.icon} alt="" width={2048} height={2048} sizes="32px" className="h-8 w-8 object-contain" />
           </a>
         </li>
       ))}
@@ -324,7 +324,7 @@ function MobileSupport({ support }: { support: { whatsapp: string | null; email:
               href={whatsappHref(support.whatsapp) ?? undefined}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex min-h-[44px] items-center text-slate-300 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint"
+              className="flex min-h-[44px] items-center whitespace-nowrap text-slate-300 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint"
             >
               WhatsApp {formatSupportWhatsApp(support.whatsapp)}
             </a>

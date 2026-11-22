@@ -11,6 +11,7 @@
 
 import { fitTitle, seoDescription, BRAND } from '@/lib/seo'
 import { TUITION_LIVE_LABEL } from '@/lib/tuitionStatus'
+import { FREE_PROFILE_APPLY_LINE } from '@/lib/feePositioningCore'
 
 export type HubFacts = {
   count: number
@@ -89,7 +90,7 @@ export function hubTitle(kind: HubKind, name: string, count: number, shortName?:
 export function hubDescription(kind: HubKind, name: string, f: HubFacts): string {
   const levels = f.levels.length ? ` for ${words(f.levels)}` : ''
   return seoDescription(
-    `${f.count} open ${hubNoun(kind, name)}${levels}, updated daily. Free to join — apply on TutorMint.`,
+    `${f.count} open ${hubNoun(kind, name)}${levels}, updated daily. ${FREE_PROFILE_APPLY_LINE}`,
   )
 }
 

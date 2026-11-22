@@ -43,8 +43,9 @@ export function tuitionMarks(job: { public_slug?: string | null; city?: string |
 
 /** A listing changed (listed / unlisted, moderation, pause, merge, erase,
  *  conversion): the tutor landing pages and Browse tutors. NOT every tutor
- *  profile — the changed tutor's own profile is marked by its own event, and
- *  the "similar tutors" links on other profiles catch up on the safety net. */
+ *  profile — the changed tutor's own profile is marked by its own event. A
+ *  tutor who LEAVES the indexable set also rebuilds, at once, exactly the pages
+ *  that linked to them (PR-16, lib/tutorLinkersCore). */
 export function tutorListingMarks(): Mark[] {
   return [
     { path: '/tutors/[city]/[subject]', type: 'page' },

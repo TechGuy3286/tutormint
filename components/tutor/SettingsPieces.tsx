@@ -1,7 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Lock, MessageCircle, X } from 'lucide-react'
+import { ChevronRight, Lock, MessageCircle, X } from 'lucide-react'
 import { TILE_TONE, TILE_BOX, TILE_CHIP, TILE_BORDER_DEFAULT, TILE_BORDER_OPEN } from '@/lib/tileTones'
 import { supportWhatsappHref } from '@/lib/errorMessages'
 import {
@@ -53,10 +53,13 @@ export function StepHeader({
   section,
   done,
   total,
+  english = false,
 }: {
   section: 'step1' | 'step2' | 'account'
   done?: number
   total?: number
+  /** PR-16: tutor Edit Profile is English only — no Urdu heading or count. */
+  english?: boolean
 }) {
   const s = SECTIONS[section]
   const hasCount = s.count && typeof done === 'number' && typeof total === 'number'
@@ -72,8 +75,8 @@ export function StepHeader({
       </div>
       {/* Urdu heading and count each on their own full-width right-aligned line.
           tm-ur-cap keeps them no larger than the English above (PR77 §4). */}
-      <Urdu className="tm-ur-cap text-sm font-bold text-tm-navy">{s.title.ur}</Urdu>
-      {hasCount && (
+      {!english && <Urdu className="tm-ur-cap text-sm font-bold text-tm-navy">{s.title.ur}</Urdu>}
+      {hasCount && !english && (
         <Urdu className="tm-ur-cap text-[11px] font-bold text-tm-green-deep">{fill(s.count!.ur, done!, total!)}</Urdu>
       )}
     </div>
@@ -114,6 +117,7 @@ export function StatusCard({
   lockedValue,
   lockedNote,
   approvedLock = false,
+  english = false,
   children,
 }: {
   cardKey: string
@@ -141,6 +145,8 @@ export function StatusCard({
   /** An approved document whose form stays usable (the profile picture keeps
    *  its "Hide my photo" toggle): the badge reads "Approved 🔒", the body shows. */
   approvedLock?: boolean
+  /** PR-16: no Urdu title or badge line (tutor Edit Profile). */
+  english?: boolean
   children: ReactNode
 }) {
   const meta = STATUS_META[status]
@@ -179,8 +185,8 @@ export function StatusCard({
         </div>
       </div>
       {/* A locked box (Mobile, CNIC, Email) is English only (owner, 4 Nov 2026). */}
-      {!locked && <Urdu className="tm-ur-cap text-sm font-bold text-tm-navy">{copy.title.ur}</Urdu>}
-      {!locked && badge && <Urdu className="text-[10px] font-bold text-gray-600">{badge.ur}</Urdu>}
+      {!locked && !english && <Urdu className="tm-ur-cap text-sm font-bold text-tm-navy">{copy.title.ur}</Urdu>}
+      {!locked && !english && badge && <Urdu className="text-[10px] font-bold text-gray-600">{badge.ur}</Urdu>}
       {copy.hint && !locked && (
         <>
           <p className="text-[11px] leading-relaxed text-gray-600">{copy.hint.en}</p>
@@ -312,5 +318,65 @@ export function OpenTileHeader({
       </div>
       {titleUr && <Urdu className="tm-ur-cap text-sm font-bold text-tm-navy">{titleUr}</Urdu>}
     </div>
+  )
+}
+
+// ---- PR-16: the compact Edit Profile list (tutor) --------------------------
+// One row per card: icon · label · status · chevron, English only. Tapping it
+// opens the card's form under the row (the page owns the form). The status
+// words are the owner's: Completed / Missing / Locked / Under review (and
+// Rejected, which a document can be).
+export const ROW_STATUS: Record<CardStatus, { label: string | null; cls: string }> = {
+  completed: { label: 'Completed', cls: 'text-tm-green-deep' },
+  missing: { label: 'Missing', cls: 'text-tm-red' },
+  waiting: { label: 'Under review', cls: 'text-tm-navy' },
+  rejected: { label: 'Rejected', cls: 'text-tm-red' },
+  neutral: { label: null, cls: '' },
+}
+export const ROW_LOCKED_LABEL = 'Locked'
+
+export function rowStatusLabel(status: CardStatus, locked: boolean): string | null {
+  return locked ? ROW_LOCKED_LABEL : ROW_STATUS[status].label
+}
+
+export function SettingsRow({
+  cardKey,
+  status,
+  icon,
+  open,
+  onClick,
+  locked = false,
+  danger = false,
+}: {
+  cardKey: string
+  status: CardStatus
+  icon: ReactNode
+  open: boolean
+  onClick: () => void
+  locked?: boolean
+  /** Danger zone rows (Pause / Delete): red label. */
+  danger?: boolean
+}) {
+  const label = CARDS[cardKey]?.title.en ?? cardKey
+  const word = rowStatusLabel(status, locked)
+  const tone = TILE_TONE[danger ? 'red' : STATUS_META[status].tone]
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={open}
+      data-row={cardKey}
+      className="flex min-h-[56px] w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-tm-bg"
+    >
+      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${tone.chip}`}>{icon}</span>
+      <span className={`min-w-0 flex-1 text-sm font-bold leading-snug ${danger ? 'text-tm-red' : 'text-tm-navy'}`}>{label}</span>
+      {word && (
+        <span className={`inline-flex shrink-0 items-center gap-1 text-[11px] font-black ${locked ? 'text-gray-600' : ROW_STATUS[status].cls}`}>
+          {locked && <Lock aria-hidden size={12} />}
+          {word}
+        </span>
+      )}
+      <ChevronRight aria-hidden size={16} className={`shrink-0 text-gray-500 transition-transform ${open ? 'rotate-90' : ''}`} />
+    </button>
   )
 }

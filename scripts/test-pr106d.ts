@@ -103,7 +103,8 @@ test('the applications quota counter: Basic/Premium show the number, Featured ne
   assert.equal(quotaCounter({ plan: 'featured', used: 299, quota: 300 }).text, 'Unlimited')
   assert.equal(quotaCounter({ plan: 'featured', used: 299, quota: 300 }).showGetMore, false)
   const dash = read('app/(site)/tutor/dashboard/page.tsx')
-  assert.ok(dash.includes('quotaCounter') && dash.includes("label: 'My applications', note:"))
+  // PR-16: the tile reads "N applied · N hired"; quotaCounter still drives "Get more applications".
+  assert.ok(dash.includes('quotaCounter') && dash.includes("label: 'My applications'") && dash.includes('applied · {hiredCount} hired'))
 })
 
 // ---------------------------------------------- payment screens (§10/§11) ------

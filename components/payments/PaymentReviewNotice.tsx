@@ -40,7 +40,6 @@ export default function PaymentReviewNotice({
           className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-red px-5 text-xs font-bold text-white hover:bg-tm-red-hover"
         >
           Upload a new receipt
-          <span lang="ur" dir="rtl" className="ms-1.5 text-[11px] font-semibold opacity-90">نئی رسید اپ لوڈ کریں</span>
         </Link>
       </section>
     )

@@ -11,6 +11,11 @@ import { areaMarks, pathOfUrl, tuitionMarks, tutorListingMarks, tutorProfileMark
 // the page is rebuilt on its next request. Each mark is wrapped in try/catch:
 // the same helpers run from scripts, where there is no request scope.
 
+/** Apply a list of marks (also used by lib/tutorLinkers, PR-16). */
+export function applyMarks(marks: Mark[]): void {
+  apply(marks)
+}
+
 function apply(marks: Mark[]): void {
   for (const m of marks) {
     try {

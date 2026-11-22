@@ -30,7 +30,7 @@ export default function AuthCTA() {
         <Link
           prefetch={false}
           href={joinHref}
-          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl bg-tm-red px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover min-[400px]:px-4"
+          className="tm-guest-only inline-flex min-h-[44px] items-center gap-1.5 rounded-xl bg-tm-red px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover min-[400px]:px-4"
         >
           <UserPlus aria-hidden size={14} className="hidden min-[360px]:block" />
           Join free
@@ -40,7 +40,7 @@ export default function AuthCTA() {
         <Link
           prefetch={false}
           href="/login"
-          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-tm-navy bg-white px-3 py-2 text-xs font-bold text-tm-navy transition-colors hover:bg-tm-navy/5 min-[400px]:px-4"
+          className="tm-guest-only inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-tm-navy bg-white px-3 py-2 text-xs font-bold text-tm-navy transition-colors hover:bg-tm-navy/5 min-[400px]:px-4"
         >
           <LogIn aria-hidden size={14} className="hidden min-[400px]:block" />
           Login

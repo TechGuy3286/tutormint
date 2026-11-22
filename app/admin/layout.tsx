@@ -7,7 +7,7 @@ import AdminSignOut from '@/components/admin/AdminSignOut'
 import BridgeBanner from '@/components/admin/BridgeBanner'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import { getAdminActor, alwaysNeedsTwoFactor, roleBadge, roleSatisfies, SCREEN_ACCESS, type AdminActor } from '@/lib/adminAuth'
-import { seesAllRows } from '@/lib/staffAllRows'
+import { seesAllRows, seesInsights } from '@/lib/staffAllRows'
 import { canApprove } from '@/lib/adminAccessCore'
 import { mayRevealCnic } from '@/lib/cnicRevealCore'
 import { docDecider } from '@/lib/docDecisionCore'
@@ -86,10 +86,12 @@ export default async function AdminLayout({
   const readOnly = actor.adminRole === 'partner'
   if (mfa === 'none' && (alwaysNeedsTwoFactor(actor.adminRole) || !inMfaGrace())) return <MfaGate mode="setup" email={actor.email} />
 
+  // PR-16: the named account on the Insights grant sees the Insights item too.
+  const insightsGranted = await seesInsights(actor)
   const groups: NavGroup[] = NAV_GROUPS.map((g) => ({
     ...g,
     items: g.items.filter(
-      (i) => !i.screen || roleSatisfies(actor.adminRole, SCREEN_ACCESS[i.screen]),
+      (i) => !i.screen || roleSatisfies(actor.adminRole, SCREEN_ACCESS[i.screen]) || (i.screen === 'insights' && insightsGranted),
     ),
   })).filter((g) => g.items.length > 0)
 

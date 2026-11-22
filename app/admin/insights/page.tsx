@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireInsights } from '@/lib/staffAllRows'
 import { loadInsightsPeriod } from '@/lib/insights'
 import { labelsForMasterIdsServer } from '@/lib/taxonomyServer'
 import { ACTION_GROUPS, WEEKDAYS, pct, pkDayOf, requestNowMs, resolvePeriod, type InsightsPeriod, type SearchRow } from '@/lib/insightsCore'
@@ -8,7 +8,8 @@ import PeriodPicker from './PeriodPicker'
 import ActiveChart from './ActiveChart'
 
 // Admin → Insights (owner, 20 Nov 2026 — PR-12). The Owner and the Project
-// Managers only (SCREEN_ACCESS.insights). Counts only: members appear by name
+// Managers (SCREEN_ACCESS.insights) and, since PR-16, the account on the
+// "staff.insights" grant (Mohsin). Counts only: members appear by name
 // on the drill-down list with a link to their admin page — never a phone,
 // email, CNIC or rupee figure. The numbers are pre-built per Pakistan day by
 // the 5-minute cron (lib/insights.ts); this page merges the chosen days.
@@ -22,7 +23,8 @@ const h3 = 'text-sm font-black text-tm-navy'
 const fmt = (n: number) => n.toLocaleString('en-PK')
 
 export default async function InsightsPage({ searchParams }: { searchParams: Promise<SP> }) {
-  await requireAdminRole(...SCREEN_ACCESS.insights)
+  // PR-16: Owner, Partner, or the named account on the Insights grant.
+  await requireInsights()
   const sp = await searchParams
   const nowMs = requestNowMs()
   const p = resolvePeriod(sp, nowMs)

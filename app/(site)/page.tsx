@@ -100,14 +100,16 @@ export default async function HomePage() {
         </h1>
 
         <p className="mt-3 text-sm font-bold italic text-tm-red sm:mt-4 sm:text-base">
-          Free to Join &bull; Verified Tutors &bull; Contact Directly &bull; Live Demo
+          Free Profile &bull; Verified Tutors &bull; Contact Directly &bull; Live Demo
         </p>
-        {/* The same line in Urdu, directly below the English (owner PR2 §6):
+        {/* PR-16 (owner): "Free Profile" / "مفت پروفائل" — the profile is free; the
+            one-time Verification Fee unlocks applying. Never "no fee".
+            The same line in Urdu, directly below the English (owner PR2 §6):
             right-to-left, one step smaller, the system Urdu font via lang="ur".
             Colour tm-black (#0A0A0A) per owner PR8 §4.3; the English line above is
             unchanged. */}
         <p lang="ur" dir="rtl" className="mt-1 text-xs font-bold text-tm-black sm:text-sm">
-          کوئی فیس نہیں &bull; تصدیق شدہ ٹیوٹرز &bull; براہِ راست رابطہ &bull; لائیو ڈیمو
+          مفت پروفائل &bull; تصدیق شدہ ٹیوٹرز &bull; براہِ راست رابطہ &bull; لائیو ڈیمو
         </p>
 
         {/* The two calls to action. Stacked below 640px, side by side above --

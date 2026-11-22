@@ -22,6 +22,7 @@ import { cache } from 'react'
 import { createPublicClient } from '@/lib/supabase/public'
 import { fetchTaxonomyTables } from '@/lib/taxonomyBuild'
 import { citySegment, cityFromSegment, slugify } from '@/lib/slugs'
+import { FREE_PROFILE_APPLY_LINE } from '@/lib/feePositioningCore'
 
 export type LandingKind = 'tutors' | 'tuitions'
 
@@ -486,7 +487,7 @@ export function buildIntro(kind: LandingKind, subject: string, city: string, f: 
   return (
     `${f.count} open ${subject} tuition${f.count === 1 ? '' : 's'} in ${city}${modeClause}${areaClause}.` +
     budget +
-    ` These are live requests, newest first — free to join.`
+    ` These are live requests, newest first. ${FREE_PROFILE_APPLY_LINE}`
   )
 }
 

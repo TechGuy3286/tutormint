@@ -16,14 +16,14 @@ import { areasForCity } from '@/lib/cityAreasCore'
 import Avatar from '@/components/Avatar'
 import Link from 'next/link'
 import {
-  X, Plus, Save, ArrowLeft, ArrowRight, BadgeCheck, ShieldAlert,
+  X, Plus, Save, ArrowRight, BadgeCheck, ShieldAlert,
   Smartphone, CreditCard, Image as ImageIcon, Camera, BookOpen, MapPin, ShieldCheck,
   GraduationCap, Award, Briefcase, Mail, Tags, CalendarDays, Lock, UserRound, Wallet, MessageCircle, Home,
 } from 'lucide-react'
 import IdentityCard from '@/components/identity/IdentityCard'
 import DocLockNotice, { combinedView } from '@/components/identity/DocLockNotice'
 import { canPick } from '@/lib/docLockCore'
-import { StatusCard, StepHeader, SettingsTile } from '@/components/tutor/SettingsPieces'
+import { StatusCard, StepHeader, SettingsRow } from '@/components/tutor/SettingsPieces'
 import { type CardStatus } from '@/lib/tutorSettingsCopy'
 import ExperienceEditor from '@/components/tutor/ExperienceEditor'
 import { experienceAnswered, experienceSummary } from '@/lib/experienceEditCore'
@@ -45,13 +45,15 @@ import type { Identity } from '@/lib/identity'
 import { formatPkMobile, isSyntheticEmail, normalisePkMobile } from '@/lib/phone'
 import { reportSilentFailure } from '@/lib/silentFailure'
 import MemberLockBox from '@/components/account/MemberLockBox'
+import Breadcrumbs from '@/components/Breadcrumbs'
+import { SUPPORT_WHATSAPP_DISPLAY, memberLockWhatsappHref, type MemberLockField } from '@/lib/memberLocksCore'
 import { maskEmailDisplay, maskPhoneDisplay } from '@/lib/contactMaskCore'
 import { maskCnic } from '@/lib/cnic'
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import CompletionLine, { type CompletionLineItem } from '@/components/profile/CompletionLine'
-import { cardStepCount } from '@/lib/profileRequired'
+import { groupStepCount } from '@/lib/profileRequired'
 import { formatName } from '@/lib/formatName'
 import { TextLinesSkeleton } from '@/components/Skeletons'
 import { usePhotoCropUpload } from '@/components/photo/usePhotoCropUpload'
@@ -60,6 +62,7 @@ import WhatsAppUpdatesCard from '@/components/tutor/WhatsAppUpdatesCard'
 import HomeAddressCard from '@/components/account/HomeAddressCard'
 import { PHOTO_STEP_EXPLAIN } from '@/lib/photoPrivacyCore'
 import { SELFIE_CHECKED_LABEL, showSelfieChecked } from '@/lib/selfieOptionalCore'
+import { EDIT_PROFILE_LOCK_LINE } from '@/lib/editProfileCopyCore'
 
 // Tutor settings — ONE SAVE PER CARD (PR 3b §2.6). Each card owns its fields and
 // its own Save button, showing "Saved." or the error inline; there is no
@@ -640,7 +643,7 @@ export default function TutorSettingsPage() {
   const feeMonthlyStatus: CardStatus = parseFee(feeMin) && parseFee(feeMax) ? 'completed' : 'missing';
   const emailStatus: CardStatus = realEmail && emailVerified ? 'completed' : 'missing';
 
-  const step1Cards: CardDesc[] = [
+  const step1All: CardDesc[] = [
     {
       key: 'mobile',
       status: mobileStatus,
@@ -805,7 +808,7 @@ export default function TutorSettingsPage() {
     },
   ];
 
-  const step2Cards: CardDesc[] = [
+  const step2Base: CardDesc[] = [
     {
       key: 'about',
       status: headline.trim() && bio.trim() ? 'completed' : 'missing',
@@ -954,7 +957,6 @@ export default function TutorSettingsPage() {
           <div className="grid grid-cols-2 gap-3">
             <label className="space-y-1">
               <span className="block text-[11px] font-bold text-tm-navy">Minimum (Rs / month)</span>
-              <span lang="ur" dir="rtl" className="block text-[11px] text-gray-500">کم از کم (روپے / ماہ)</span>
               <input
                 inputMode="numeric"
                 value={feeMin}
@@ -965,7 +967,6 @@ export default function TutorSettingsPage() {
             </label>
             <label className="space-y-1">
               <span className="block text-[11px] font-bold text-tm-navy">Maximum (Rs / month)</span>
-              <span lang="ur" dir="rtl" className="block text-[11px] text-gray-500">زیادہ سے زیادہ (روپے / ماہ)</span>
               <input
                 inputMode="numeric"
                 value={feeMax}
@@ -997,6 +998,11 @@ export default function TutorSettingsPage() {
     // completion item and is offered as an optional tile on the dashboard). It is
     // therefore out of the Step 2 count too, which is derived from this array.
   ];
+
+  // PR-16 (owner): the selfie is optional — it sits in Step 2, last. Verified =
+  // fee + approved CNIC + profile photo.
+  const step1Cards: CardDesc[] = step1All.filter((c) => c.key !== 'selfie');
+  const step2Cards: CardDesc[] = [...step2Base, ...step1All.filter((c) => c.key === 'selfie')];
 
   const accountCards: CardDesc[] = [
     {
@@ -1037,7 +1043,6 @@ export default function TutorSettingsPage() {
           </label>
           <label className="block">
             <span className="text-[11px] font-bold text-tm-navy">WhatsApp number</span>
-            <span lang="ur" dir="rtl" className="block text-[11px] text-gray-500">واٹس ایپ نمبر</span>
             <input
               type="tel"
               inputMode="tel"
@@ -1081,6 +1086,11 @@ export default function TutorSettingsPage() {
       // which the project requires to set a new one.
       body: <ChangePasswordCard />,
     },
+  ];
+
+  // PR-16: Pause and Delete in their own "Danger zone" at the bottom, red text;
+  // the cards (and their confirmations) are unchanged.
+  const dangerCards: CardDesc[] = [
     {
       // "Pause my account" (owner, 8 Oct 2026) — beside Change password.
       key: 'pause',
@@ -1099,13 +1109,10 @@ export default function TutorSettingsPage() {
 
   // Step counts from the shared rule once it has loaded: only cards that hold a
   // required item count (email and certifications are optional).
+  // PR-16: every row shown counts once (lib/profileRequired groupStepCount).
   const missingKeys = completionInfo ? completionInfo.missing.map((m) => m.key) : null;
-  const step1Count = missingKeys
-    ? cardStepCount(step1Cards.map((c) => c.key), missingKeys)
-    : { done: step1Cards.filter((c) => c.status === 'completed').length, total: step1Cards.length };
-  const step2Count = missingKeys
-    ? cardStepCount(step2Cards.map((c) => c.key), missingKeys)
-    : { done: step2Cards.filter((c) => c.status === 'completed').length, total: step2Cards.length };
+  const step1Count = groupStepCount(step1Cards, missingKeys);
+  const step2Count = groupStepCount(step2Cards, missingKeys);
 
   // forceOpen: the expanded tile always shows its form (never the collapsed
   // summary). onClose renders the × that collapses it without saving (PR77).
@@ -1124,60 +1131,63 @@ export default function TutorSettingsPage() {
       lockedValue={c.lockedValue}
       lockedNote={c.lockedNote}
       approvedLock={c.approvedLock}
+      english
     >
       {c.body}
     </StatusCard>
   );
 
-  // PR83 (Part A.2): the tiles are a two-column grid, laid out in source order.
-  // The tapped tile stays in its cell (highlighted); its expanded panel opens
-  // full-width in the row DIRECTLY AFTER the tile's row. No grid-flow-row-dense
-  // (its backfill was reordering the other tiles and dropping an odd-column
-  // tile's panel a row below where it belonged). Only one is open at a time;
-  // Save or the × shrinks it back.
-  const renderTiles = (list: CardDesc[]) => {
-    const rows: CardDesc[][] = [];
-    for (let i = 0; i < list.length; i += 2) rows.push(list.slice(i, i + 2));
-    return (
-      <ul className="grid grid-cols-2 gap-3">
-        {rows.map((row, ri) => {
-          const openInRow = row.find((c) => c.key === openCard);
-          return (
-            <Fragment key={ri}>
-              {row.map((c) => (
-                <li key={c.key}>
-                  <SettingsTile
-                    cardKey={c.key}
-                    status={c.status}
-                    icon={c.icon}
-                    locked={c.locked || c.approvedLock}
-                    open={openCard === c.key}
-                    onClick={() => (openCard === c.key ? collapse(c.key) : setOpenCard(c.key))}
-                  />
-                </li>
-              ))}
-              {openInRow && (
-                <li ref={openTileRef} className="col-span-2 scroll-mt-4">
-                  {renderCard(openInRow, true, () => collapse(openInRow.key))}
-                </li>
-              )}
-            </Fragment>
-          );
-        })}
-      </ul>
-    );
-  };
+  // PR-16 (owner): a compact list — icon · label · status · chevron. Tapping a
+  // row opens its form right under it; only one is open at a time; Save or the
+  // × closes it. A LOCKED row (Mobile, CNIC, Email once set) opens the support
+  // line with a WhatsApp button instead of a form.
+  const lockedValueOf = (key: string): string | null =>
+    key === 'mobile' ? maskPhoneDisplay(phoneNumber) : key === 'cnic' ? maskCnic(identity?.cnicNumber ?? null) : key === 'email' ? maskEmailDisplay(realEmail) : null;
+  const lockPanel = (c: CardDesc) => (
+    <div data-locked-panel={c.key} className="space-y-2 bg-tm-bg px-3 pb-3 pt-1">
+      {lockedValueOf(c.key) && (
+        <p className="flex items-center gap-1.5 text-xs font-bold text-tm-navy">
+          <Lock aria-hidden size={13} className="shrink-0" />
+          <span dir="ltr">{lockedValueOf(c.key)}</span>
+        </p>
+      )}
+      <p className="text-[11px] font-semibold text-gray-700">{EDIT_PROFILE_LOCK_LINE}</p>
+      <a
+        href={memberLockWhatsappHref(c.key as MemberLockField)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-tm-green-deep/30 bg-white px-3 text-xs font-bold text-tm-green-deep"
+      >
+        <MessageCircle aria-hidden size={14} /> WhatsApp {SUPPORT_WHATSAPP_DISPLAY}
+      </a>
+    </div>
+  );
+  const renderList = (list: CardDesc[], danger = false) => (
+    <ul className={`divide-y overflow-hidden rounded-2xl border bg-white ${danger ? 'divide-tm-red/15 border-tm-red/30' : 'divide-gray-100 border-gray-200'}`}>
+      {list.map((c) => {
+        const open = openCard === c.key;
+        return (
+          <li key={c.key} ref={open ? openTileRef : undefined} className="scroll-mt-4">
+            <SettingsRow
+              cardKey={c.key}
+              status={c.status}
+              icon={c.icon}
+              locked={!!c.locked}
+              danger={danger}
+              open={open}
+              onClick={() => (open ? collapse(c.key) : setOpenCard(c.key))}
+            />
+            {open && (c.locked ? lockPanel(c) : <div className="px-2 pb-2">{renderCard(c, true, () => collapse(c.key))}</div>)}
+          </li>
+        );
+      })}
+    </ul>
+  );
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 space-y-6 px-4 py-6 font-sans text-slate-700 sm:px-6">
-      {/* PR63 §C1: the breadcrumb and "View your public profile" are removed
-          (both live on the dashboard); a single Back link remains. */}
-      <Link
-        href="/tutor/dashboard"
-        className="inline-flex items-center gap-1.5 text-xs font-bold text-tm-navy hover:underline"
-      >
-        <ArrowLeft aria-hidden size={14} /> Back to Tutor dashboard
-      </Link>
+      {/* PR-16: Home › Dashboard › Edit Profile (was "Back to Tutor dashboard"). */}
+      <Breadcrumbs items={[{ label: 'Dashboard', href: '/tutor/dashboard' }, { label: 'Edit Profile' }]} />
       <h1 className="text-lg font-black text-tm-navy">Edit Profile</h1>
 
       {/* The one completion line (owner, 4 Nov 2026): each button opens its card here. */}
@@ -1190,20 +1200,26 @@ export default function TutorSettingsPage() {
           tapping the tile again) shrinks it back. */}
       {/* Step 1 — required. */}
       <section className="space-y-3">
-        <StepHeader section="step1" done={step1Count.done} total={step1Count.total} />
-        {renderTiles(step1Cards)}
+        <StepHeader section="step1" done={step1Count.done} total={step1Count.total} english />
+        {renderList(step1Cards)}
       </section>
 
       {/* Step 2 — optional. */}
       <section className="space-y-3">
-        <StepHeader section="step2" done={step2Count.done} total={step2Count.total} />
-        {renderTiles(step2Cards)}
+        <StepHeader section="step2" done={step2Count.done} total={step2Count.total} english />
+        {renderList(step2Cards)}
       </section>
 
-      {/* Account — name, WhatsApp and password. Tiles too (§D.1). */}
+      {/* Account — name, WhatsApp, address, updates and password. */}
       <section className="space-y-3">
-        <StepHeader section="account" />
-        {renderTiles(accountCards)}
+        <StepHeader section="account" english />
+        {renderList(accountCards)}
+      </section>
+
+      {/* PR-16: Danger zone — Pause and Delete, red, at the very bottom. */}
+      <section aria-labelledby="danger-zone" className="space-y-3">
+        <h2 id="danger-zone" className="pt-1 text-base font-black text-tm-red">Danger zone</h2>
+        {renderList(dangerCards, true)}
       </section>
     </main>
   );
@@ -1267,7 +1283,7 @@ function SaveBar({
   };
   return (
     <div className="space-y-2 pt-1">
-      {items && items.length > 0 && <FormChecklist items={items} />}
+      {items && items.length > 0 && <FormChecklist items={items} english />}
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
@@ -1288,7 +1304,7 @@ function SaveBar({
           </p>
         )}
       </div>
-      {items && items.length > 0 && <ChecklistStatus items={items} />}
+      {items && items.length > 0 && <ChecklistStatus items={items} english />}
     </div>
   );
 }

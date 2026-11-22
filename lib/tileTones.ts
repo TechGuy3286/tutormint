@@ -41,6 +41,11 @@ export type TileTone = 'navy' | 'green' | 'red' | 'gold' | 'mint' | 'teal' | 'vi
 export const TILE_BOX =
   'relative flex h-full w-full min-h-[9.5rem] flex-col items-center justify-center gap-2 rounded-2xl border p-4 text-center transition-shadow hover:shadow-md [color-scheme:light]'
 export const TILE_CHIP = 'grid h-12 w-12 place-items-center rounded-2xl'
+/** PR-16: the tutor dashboard's compact tile — icon beside number + label, so
+ *  the eight tiles fit one phone screen two to a row (four on desktop). */
+export const TILE_BOX_COMPACT =
+  'relative flex h-full w-full min-h-[4.25rem] items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-left transition-shadow hover:shadow-md [color-scheme:light]'
+export const TILE_CHIP_COMPACT = 'grid h-9 w-9 shrink-0 place-items-center rounded-xl'
 export const TILE_BORDER_DEFAULT = 'border-black/5 shadow-xs'
 export const TILE_BORDER_HIGHLIGHT = 'border-tm-red shadow-[0_2px_14px_-6px_var(--color-tm-red)]'
 /** The selected (about-to-expand) tile border. */

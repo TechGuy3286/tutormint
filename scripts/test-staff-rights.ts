@@ -246,7 +246,9 @@ test('no "Selfie checked" on People cards; still on the member page', () => {
   assert.ok(!card.includes('SELFIE_CHECKED_LABEL'))
   assert.ok(!card.includes('data-selfie-checked'))
   assert.match(read('components/admin/TutorDocumentReview.tsx'), /SELFIE_CHECKED_LABEL/)
-  assert.match(read('components/tutor/TutorHeaderCard.tsx'), /SELFIE_CHECKED_LABEL/)
+  // PR-16: off the dashboard top card; still inside Edit Profile's selfie card.
+  assert.doesNotMatch(read('components/tutor/TutorHeaderCard.tsx'), /SELFIE_CHECKED_LABEL/)
+  assert.match(read('app/(site)/tutor/dashboard/settings/page.tsx'), /SELFIE_CHECKED_LABEL/)
 })
 
 // -------------------------------------------------------- 6. Tried to pay

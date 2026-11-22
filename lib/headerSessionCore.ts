@@ -28,7 +28,32 @@ export type HeaderSession =
  * settled by the route, which answers signedIn: false.
  */
 export function hasAuthCookie(cookieHeader: string | null | undefined): boolean {
-  return /(?:^|;\s*)sb-[^=;]+-auth-token(?:\.\d+)?=[^;]/.test(cookieHeader ?? '')
+  return AUTH_COOKIE_RE.test(cookieHeader ?? '')
+}
+
+const AUTH_COOKIE_RE = /(?:^|;\s*)sb-[^=;]+-auth-token(?:\.\d+)?=[^;]/
+
+/** The <html> attribute that says "a sign-in cookie is present" (PR-16). Set
+ *  before first paint by AUTH_MARK_SCRIPT; globals.css hides `.tm-guest-only`
+ *  (Join free / Login) while it is on, so a signed-in member never sees the
+ *  guest buttons — not even in the HTML painted before JavaScript runs. The
+ *  provider removes it when the server answers "signed out". */
+export const AUTH_MARK_ATTR = 'data-tm-auth'
+
+/** The inline <head> script (root layout). Static text — the same for every
+ *  visitor — so it never makes a page dynamic; it reads only document.cookie. */
+export const AUTH_MARK_SCRIPT = `try{if(${AUTH_COOKIE_RE.toString()}.test(document.cookie))document.documentElement.setAttribute('${AUTH_MARK_ATTR}','1')}catch(e){}`
+
+/** What the browser does with one /api/session/header answer (PR-16).
+ *  A clear "signed out" (200, signedIn: false) is a guest. Anything else that
+ *  is not a signed-in answer — a network error, a 5xx, a 403, a body that is
+ *  not the header — is UNKNOWN: keep the empty placeholder and try again,
+ *  never show Join free / Login to someone who has a sign-in cookie. */
+export function headerAnswer(status: number | null, body: unknown): 'signed-in' | 'guest' | 'retry' {
+  if (status === 200 && body && typeof body === 'object' && 'signedIn' in body) {
+    return (body as { signedIn: unknown }).signedIn === true ? 'signed-in' : 'guest'
+  }
+  return 'retry'
 }
 
 export type MemberRole = 'tutor' | 'parent'

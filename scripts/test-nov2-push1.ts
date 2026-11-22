@@ -155,7 +155,7 @@ test('Tagline & About: tutor Settings tile and staff Edit tab, logged and revali
   const settings = read('app/(site)/tutor/dashboard/settings/page.tsx')
   assert.match(settings, /key: 'about'/)
   assert.match(settings, /<TaglineAboutEditor/)
-  assert.ok(settings.indexOf("key: 'about'") > settings.indexOf('const step2Cards'), 'in Step 2 — Optional')
+  assert.ok(settings.indexOf("key: 'about'") > settings.indexOf('const step2Base'), 'in Step 2 — Optional')
   assert.match(read('lib/tutorSettingsCopy.ts'), /title: \{ en: 'Tagline & About'/)
   const editor = read('components/tutor/TaglineAboutEditor.tsx')
   assert.match(editor, /Write it for me again/)

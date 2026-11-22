@@ -34,7 +34,7 @@ test('the FAQ opens with "How TutorMint works" and answers the four questions', 
   assert.equal(basics.id, 'basics')
   assert.equal(basics.heading, 'How TutorMint works')
   const qs = basics.items.map((i) => i.q)
-  assert.equal(qs[0], 'Is TutorMint free to join?')
+  assert.equal(qs[0], 'Is TutorMint free?') // PR-16 wording
   for (const q of ['How are tutors verified?', 'How do I post a tuition?', 'How do parents contact tutors?']) assert.ok(qs.includes(q), q)
   const verified = basics.items.find((i) => i.q === 'How are tutors verified?')!
   assert.match(verified.a, /Verification Fee/)
@@ -53,6 +53,6 @@ test('FAQPage JSON-LD is built from the same items the page shows', () => {
     assert.equal(ld.mainEntity[i].name, item.q)
     assert.equal(ld.mainEntity[i].acceptedAnswer.text, item.a)
   })
-  assert.ok(ld.mainEntity.some((m) => m.name === 'Is TutorMint free to join?'))
+  assert.ok(ld.mainEntity.some((m) => m.name === 'Is TutorMint free?'))
   assert.ok(readFileSync('app/(site)/faq/page.tsx', 'utf8').includes('faqJsonLd(FAQ_ITEMS)'))
 })

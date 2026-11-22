@@ -10,6 +10,7 @@
 // 60 characters and descriptions under 155 (lib/seo fitTitle / seoDescription).
 
 import { fitTitle, seoDescription, BRAND } from '@/lib/seo'
+import { FREE_PROFILE_APPLY_LINE, FREE_PROFILE_LINE } from '@/lib/feePositioningCore'
 
 /** The four cities pinned first in location_cities — where the listings are. */
 const CITIES = 'Karachi, Lahore, Islamabad and Rawalpindi'
@@ -39,8 +40,8 @@ export function browseTuitionsMeta(subject: string | null, city: string): { titl
   const what = subject ? `${subject} tuition jobs` : 'Home tuition, online tuition and school teaching jobs'
   const description = seoDescription(
     city
-      ? `${what} in ${city}, updated daily. Free to join — apply on TutorMint.`
-      : `${what} in ${CITIES}, updated daily. Free to join.`,
+      ? `${what} in ${city}, updated daily. ${FREE_PROFILE_APPLY_LINE}`
+      : `${what} in ${CITIES}, updated daily. ${FREE_PROFILE_LINE}`,
   )
   return { title, description }
 }

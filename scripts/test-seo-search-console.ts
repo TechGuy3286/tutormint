@@ -435,8 +435,9 @@ test('browse titles and descriptions: the owner wording, cities, "free to join, 
   assert.ok(jobs.title.length <= 64, 'about 60')
   for (const m of [tutors, jobs, browseTutorsMeta('O Levels Physics', 'Lahore'), browseTuitionsMeta(null, 'Rawalpindi'), browseTuitionsMeta('Pre Nursery / Play Group / KG I Phonics', 'Faisalabad')]) {
     assert.ok(m.description.length <= DESCRIPTION_MAX, m.description)
-    // PR-12: "no commission" removed; "free to join" stays.
-    assert.match(m.description, /[Ff]ree to join/)
+    // PR-12: "no commission" removed. PR-16: tuition-job pages (tutor-facing)
+    // say "Free profile" — applying needs the Verification Fee.
+    assert.match(m.description, /[Ff]ree to join|Free profile/)
     assert.doesNotMatch(m.description, /commission|middleman/i)
   }
   for (const c of ['Karachi', 'Lahore', 'Islamabad', 'Rawalpindi']) {

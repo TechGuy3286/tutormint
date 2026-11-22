@@ -44,3 +44,22 @@ export function seesAllRowsFrom(
   if (roles.includes(r)) return true
   return granted.has(actor.id.toLowerCase())
 }
+
+// ---- Insights for named staff (PR-16, owner 22 Nov 2026) ------------------
+// The Owner gave ONE Backend Support account (Mohsin) Admin → Insights — the
+// same kind of grant as above: an ACCOUNT on a stored list, not a role. Its own
+// key ('staff.insights', migration 242), so adding someone to the all-rows list
+// never opens Insights and the other way round. Insights shows counts only — no
+// rupees, no phone, email or CNIC — so it widens nothing else.
+
+export const INSIGHTS_GRANT_KEY = 'staff.insights'
+
+/** Does this actor open Insights? Owner and Partner always (SCREEN_ACCESS
+ *  .insights is []), or an account on the stored grant while it holds a staff
+ *  role. */
+export function seesInsightsFrom(
+  actor: { id: string; adminRole: string | null | undefined },
+  granted: ReadonlySet<string>,
+): boolean {
+  return seesAllRowsFrom(actor, [], granted)
+}

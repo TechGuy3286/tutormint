@@ -11,6 +11,7 @@ import { UpgradeProvider } from '@/components/upgrade/UpgradeProvider'
 import { ToastProvider } from '@/components/ui/Toast'
 import { ConfirmProvider } from '@/components/ui/ConfirmDialog'
 import { SpeedInsights } from '@vercel/speed-insights/next'
+import { AUTH_MARK_SCRIPT } from '@/lib/headerSessionCore'
 
 export const metadata: Metadata = {
   title: SITE_DEFAULT_TITLE,
@@ -59,7 +60,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    // suppressHydrationWarning: the head script below may add data-tm-auth to
+    // <html> before React hydrates (PR-16).
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* PR-16: a sign-in cookie hides Join free / Login before first paint.
+            Static text, the same for every visitor — the page stays cached. */}
+        <script dangerouslySetInnerHTML={{ __html: AUTH_MARK_SCRIPT }} />
+      </head>
       <body className="bg-tm-bg antialiased flex flex-col min-h-screen">
         <ToastProvider>
           <ConfirmProvider>

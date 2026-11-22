@@ -105,8 +105,8 @@ test('nothing else on the homepage changed', () => {
   // "HIRE" is gone (owner-approved, 15 Oct 2026) — and nothing else with it.
   assert.ok(!home.replace(/\/\/.*$/gm, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '').includes('HIRE'))
   // PR-12 (owner-authorised for this purpose only): no commission / middleman wording.
-  assert.ok(home.includes('Free to Join &bull; Verified Tutors &bull; Contact Directly &bull; Live Demo'))
-  assert.ok(home.includes('کوئی فیس نہیں &bull; تصدیق شدہ ٹیوٹرز &bull; براہِ راست رابطہ &bull; لائیو ڈیمو'))
+  assert.ok(home.includes('Free Profile &bull; Verified Tutors &bull; Contact Directly &bull; Live Demo'))
+  assert.ok(home.includes('مفت پروفائل &bull; تصدیق شدہ ٹیوٹرز &bull; براہِ راست رابطہ &bull; لائیو ڈیمو'))
   assert.ok(home.includes('label="Find Tutors / Teachers"') && home.includes('label="Find Tuitions / Jobs"'))
   assert.equal(SITE_TAGLINE, 'Free to join. Verified tutors. Contact tutors directly.')
   // Not added: "How it works", the features list, live counts. No count

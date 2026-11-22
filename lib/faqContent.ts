@@ -56,8 +56,11 @@ export const FAQ_GROUPS: FaqGroup[] = [
     blurb: 'What it is, who it is for, how verification and contact work, and what it costs.',
     items: [
       {
-        q: 'Is TutorMint free to join?',
-        a: 'Yes, for both sides. Parents, schools and academies join free, browse tutors with no account, and post tuitions free once their mobile number is verified. Tutors join free and build a profile; to be verified and apply to tuitions they pay a one-time Verification Fee. Membership plans are optional.',
+        // PR-16 (owner): the fee positioning — profile and browsing are free;
+        // the one-time Verification Fee unlocks applying and the Verified badge.
+        // Never "no fee"; no amount (lib/feePositioningCore).
+        q: 'Is TutorMint free?',
+        a: 'Creating your profile and browsing tuitions is free. To apply to tuitions and get the Verified badge, you pay a one-time Verification Fee. It covers checking your CNIC and photo.',
         links: [
           { label: 'Create an account', href: '/register' },
           { label: 'Membership plans', href: '/membership-plans' },
@@ -87,7 +90,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       },
       {
         q: 'How are tutors verified?',
-        a: 'A tutor pays the one-time Verification Fee and sends a CNIC, a profile photo and a selfie, which our staff check. A tutor who passes carries the Verified badge. It means the person in the profile is the person in the documents; it does not mean we have watched them teach.',
+        a: 'A tutor pays the one-time Verification Fee and sends a CNIC and a profile photo, which our staff check (a selfie is optional). A tutor who passes carries the Verified badge. It means the person in the profile is the person in the documents; it does not mean we have watched them teach.',
         links: [{ label: 'Find tutors', href: '/browse/tutors' }],
       },
       {

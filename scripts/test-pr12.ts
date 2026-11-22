@@ -141,8 +141,8 @@ test('D: no shipped page, template or metadata says middleman / no commission / 
 test('D: the new tagline and homepage line', () => {
   assert.equal(SITE_TAGLINE, 'Free to join. Verified tutors. Contact tutors directly.')
   const home = src('app/(site)/page.tsx')
-  assert.match(home, /Free to Join &bull; Verified Tutors &bull; Contact Directly &bull; Live Demo/)
-  assert.match(home, /کوئی فیس نہیں &bull; تصدیق شدہ ٹیوٹرز &bull; براہِ راست رابطہ &bull; لائیو ڈیمو/)
+  assert.match(home, /Free Profile &bull; Verified Tutors &bull; Contact Directly &bull; Live Demo/)
+  assert.match(home, /مفت پروفائل &bull; تصدیق شدہ ٹیوٹرز &bull; براہِ راست رابطہ &bull; لائیو ڈیمو/)
 })
 
 test('D: the AI writing check flags the phrases', () => {

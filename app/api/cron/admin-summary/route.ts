@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { timingSafeEqual } from 'node:crypto'
 import { rebuildAdminSummary } from '@/lib/adminSummary'
 import { refreshInterestInboxIfDue } from '@/lib/interestInbox'
+import { syncListedTutors } from '@/lib/tutorLinkers'
 
 // The admin summary job (owner, 1 Nov 2026 — lib/adminSummary). Vercel calls it
 // every minute; it rebuilds only when something changed since the last build
@@ -29,6 +30,10 @@ export async function GET(request: Request) {
   // PR-15 (lib/interestInboxCore inboxCronDue); sends, Undo, holds and page
   // opens rebuild it themselves, so the cron is only the safety net.
   const inbox = await refreshInterestInboxIfDue().catch(() => null)
+  // PR-16: a tutor who left the indexable set (any path — suspend, ban, hide,
+  // erase, a rejected document) leaves the pages that linked to them within a
+  // minute (lib/tutorLinkers). One slug-list read when nothing changed.
+  const linkers = await syncListedTutors()
   const r = await rebuildAdminSummary({ force })
-  return NextResponse.json({ ...r, inbox }, { status: r.failed.length ? 500 : 200 })
+  return NextResponse.json({ ...r, inbox, linkers }, { status: r.failed.length ? 500 : 200 })
 }

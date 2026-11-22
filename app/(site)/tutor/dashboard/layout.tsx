@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getSessionUser, homeForRole } from '@/lib/auth'
 import ErasePendingBanner from '@/components/account/ErasePendingBanner'
+import SignedInHeader from '@/components/session/SignedInHeader'
 
 // Server-side gate for /tutor/dashboard/*.
 // proxy.ts already bounces anonymous requests here to /login?next=; this
@@ -38,6 +39,8 @@ export default async function TutorDashboardLayout({ children }: { children: Rea
   // While the account is set to be deleted (owner, 27 Oct 2026).
   return (
     <>
+      {/* PR-16: the signed-in header, straight from this request. */}
+      <SignedInHeader />
       <ErasePendingBanner userId={session.user.id} />
       {children}
     </>

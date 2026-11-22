@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireInsights } from '@/lib/staffAllRows'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { pageAllIn, READ_CONCURRENCY } from '@/lib/pageAll'
 import { insightMembers } from '@/lib/insights'
@@ -14,7 +14,8 @@ export const dynamic = 'force-dynamic'
 type SP = { action?: string; from?: string; to?: string }
 
 export default async function InsightMembersPage({ searchParams }: { searchParams: Promise<SP> }) {
-  await requireAdminRole(...SCREEN_ACCESS.insights)
+  // PR-16: Owner, Partner, or the named account on the Insights grant.
+  await requireInsights()
   const sp = await searchParams
   const p = resolvePeriod({ period: 'custom', from: sp.from, to: sp.to }, requestNowMs())
   const back = `/admin/insights?period=custom&from=${p.from}&to=${p.to}`

@@ -504,3 +504,11 @@ input:disabled,
     transform: none;
   }
 }
+
+/* PR-16: a sign-in cookie is present (<html data-tm-auth>, set by the root
+   layout's head script before first paint) — the guest header buttons never
+   show, not even in the HTML painted before JavaScript runs. Removed by
+   HeaderSessionProvider when the server answers "signed out". */
+html[data-tm-auth] .tm-guest-only {
+  display: none !important;
+}

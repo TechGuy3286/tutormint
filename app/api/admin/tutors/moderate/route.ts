@@ -135,6 +135,10 @@ export async function POST(request: Request) {
   // or closes their landing pages.
   const { revalidateLanding } = await import('@/lib/landingRevalidate')
   revalidateLanding()
+  // PR-16: a tutor who left Browse leaves the Similar-tutor and matching-tutor
+  // links at once — only the pages that showed them are rebuilt (lib/tutorLinkers).
+  const { syncListedTutors } = await import('@/lib/tutorLinkers')
+  await syncListedTutors()
 
   const attemptsAfter = (patch.video_attempts as number | undefined) ?? tutor.video_attempts ?? 0
   const resubmissionLocked = attemptsAfter >= MAX_ATTEMPTS

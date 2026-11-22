@@ -14,7 +14,7 @@ import { firstMissing } from '@/lib/formChecklist'
 // save path, API or validation changes — the items' `done` flags mirror the
 // server's existing rules so there is no surprise error after Save.
 
-export function FormChecklist({ items, className = '' }: { items: ChecklistItem[]; className?: string }) {
+export function FormChecklist({ items, className = '', english = false }: { items: ChecklistItem[]; className?: string; english?: boolean }) {
   return (
     <ol className={`space-y-1.5 ${className}`}>
       {items.map((it, i) => (
@@ -32,10 +32,12 @@ export function FormChecklist({ items, className = '' }: { items: ChecklistItem[
               {it.en}
               {it.optional ? ' (optional)' : ''}
             </span>
-            <span lang="ur" dir="rtl" className="block text-[11px] text-gray-500">
-              {it.ur}
-              {it.optional ? ' (اختیاری)' : ''}
-            </span>
+            {!english && (
+              <span lang="ur" dir="rtl" className="block text-[11px] text-gray-500">
+                {it.ur}
+                {it.optional ? ' (اختیاری)' : ''}
+              </span>
+            )}
           </span>
         </li>
       ))}
@@ -43,24 +45,28 @@ export function FormChecklist({ items, className = '' }: { items: ChecklistItem[
   )
 }
 
-export function ChecklistStatus({ items, className = '' }: { items: ChecklistItem[]; className?: string }) {
+export function ChecklistStatus({ items, className = '', english = false }: { items: ChecklistItem[]; className?: string; english?: boolean }) {
   const miss = firstMissing(items)
   if (!miss) {
     return (
       <p className={`text-center text-[11px] font-semibold text-tm-green-deep ${className}`}>
         Ready to save
-        <span lang="ur" dir="rtl" className="block font-normal text-gray-500">
-          محفوظ کرنے کے لیے تیار
-        </span>
+        {!english && (
+          <span lang="ur" dir="rtl" className="block font-normal text-gray-500">
+            محفوظ کرنے کے لیے تیار
+          </span>
+        )}
       </p>
     )
   }
   return (
     <p className={`text-center text-[11px] text-gray-500 ${className}`}>
       {miss.en} to continue
-      <span lang="ur" dir="rtl" className="block">
-        {miss.ur} — جاری رکھنے کے لیے
-      </span>
+      {!english && (
+        <span lang="ur" dir="rtl" className="block">
+          {miss.ur} — جاری رکھنے کے لیے
+        </span>
+      )}
     </p>
   )
 }

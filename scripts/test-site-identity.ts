@@ -200,8 +200,8 @@ test('the homepage title and description name both sides; the rest of the hero i
   assert.equal((home.match(/<h1 className=/g) ?? []).length, 1)
   // The red line, the Urdu line and the two buttons are as approved.
   // PR-12 (owner-authorised for this purpose only).
-  assert.ok(home.includes('Free to Join &bull; Verified Tutors &bull; Contact Directly &bull; Live Demo'))
-  assert.ok(home.includes('کوئی فیس نہیں &bull; تصدیق شدہ ٹیوٹرز &bull; براہِ راست رابطہ &bull; لائیو ڈیمو'))
+  assert.ok(home.includes('Free Profile &bull; Verified Tutors &bull; Contact Directly &bull; Live Demo'))
+  assert.ok(home.includes('مفت پروفائل &bull; تصدیق شدہ ٹیوٹرز &bull; براہِ راست رابطہ &bull; لائیو ڈیمو'))
   assert.ok(home.includes('label="Find Tutors / Teachers"') && home.includes('label="Find Tuitions / Jobs"'))
 })
 

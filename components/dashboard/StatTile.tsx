@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 
-import { TILE_TONE, TILE_BOX, TILE_CHIP, TILE_BORDER_DEFAULT, TILE_BORDER_HIGHLIGHT, type TileTone } from '@/lib/tileTones'
+import { TILE_TONE, TILE_BOX, TILE_BOX_COMPACT, TILE_CHIP, TILE_CHIP_COMPACT, TILE_BORDER_DEFAULT, TILE_BORDER_HIGHLIGHT, type TileTone } from '@/lib/tileTones'
 
 // One square dashboard tile — the shared shape behind BOTH the "Your things"
 // grid and the Activity band, so the two dashboards cannot drift into two card
@@ -31,6 +31,7 @@ export default function StatTile({
   badge,
   unread = false,
   highlight = false,
+  compact = false,
 }: {
   href: string
   prefetch?: boolean
@@ -53,8 +54,37 @@ export default function StatTile({
   /** Something with a consequence (a plan ending, a genuinely new thing): the
    *  card takes a red border so the eye lands on it, whatever its tone. */
   highlight?: boolean
+  /** PR-16: icon beside number + label, shorter (tutor dashboard). */
+  compact?: boolean
 }) {
   const t = TILE_TONE[tone]
+  if (compact) {
+    return (
+      <li>
+        <Link
+          prefetch={prefetch}
+          href={href}
+          data-tip={tip}
+          className={`${TILE_BOX_COMPACT} ${t.card} ${highlight ? TILE_BORDER_HIGHLIGHT : TILE_BORDER_DEFAULT}`}
+        >
+          {typeof badge === 'number' && badge > 0 && (
+            <span
+              className="absolute right-1.5 top-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-tm-red px-1.5 text-[10px] font-black text-white"
+              aria-label={`${badge} unread`}
+            >
+              {badge > 99 ? '99+' : badge}
+            </span>
+          )}
+          <span className={`${TILE_CHIP_COMPACT} ${t.chip}`}>{icon}</span>
+          <span className="flex min-w-0 flex-col">
+            {value != null && <span className={`text-lg font-black leading-tight ${t.ink}`}>{value}</span>}
+            <span className={`line-clamp-2 text-xs font-semibold leading-snug ${t.ink}`}>{label}</span>
+            {note && <span className={`truncate text-[11px] leading-tight opacity-80 ${t.ink}`}>{note}</span>}
+          </span>
+        </Link>
+      </li>
+    )
+  }
   return (
     <li>
       {/* The WHOLE box is washed in the tone's soft tint (PR34 §2); the border

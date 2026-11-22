@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { formatDate } from '@/lib/datetime'
 import { TUTOR_STAGE_TEXT, type Stage } from '@/lib/applicationStageCore'
 import { NO_LONGER_AVAILABLE_TUTOR } from '@/lib/hiddenTuitionCore'
+import { displayTitle } from '@/lib/titleCaseCore'
 
 // The tutor's own applications on their dashboard (owner, 22 Oct 2026): one
 // card per application — the tuition, its city, when they applied and where
@@ -47,13 +48,13 @@ export default function MyApplicationsSection({ cards, hired }: { cards: MyAppli
           <li key={c.id} className="space-y-1 rounded-xl border border-gray-100 p-3">
             {c.path ? (
               <Link href={c.path} className="block text-xs font-black leading-snug text-tm-navy hover:underline">
-                {c.title}
+                {displayTitle(c.title)}
               </Link>
             ) : (
-              <p className="text-xs font-black leading-snug text-tm-navy">{c.title}</p>
+              <p className="text-xs font-black leading-snug text-tm-navy">{displayTitle(c.title)}</p>
             )}
             <p className="text-[11px] text-gray-600">
-              {c.city ? `${c.city} · ` : ''}Applied {formatDate(c.appliedAt)}
+              {c.city ? `${displayTitle(c.city)} · ` : ''}Applied {formatDate(c.appliedAt)}
             </p>
             {c.unavailable ? (
               <p className="inline-flex rounded-full bg-tm-bg px-2 py-0.5 text-[11px] font-bold text-slate-700">{NO_LONGER_AVAILABLE_TUTOR}</p>

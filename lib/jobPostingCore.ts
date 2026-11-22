@@ -7,6 +7,7 @@
 // server — so the page, the tests and the audit script read the same rules.
 
 import { ONLINE_JOB_TITLE, PART_TIME_JOB_TITLES, shortJobTitle } from '@/lib/jobTitlesCore'
+import { FREE_PROFILE_APPLY_LINE } from '@/lib/feePositioningCore'
 
 export const HOME_JOB_TITLE = 'Home Tutor'
 
@@ -105,7 +106,7 @@ export function jobPostingDescription(job: {
     job.timing ? `Timing: ${job.timing.trim().replace(/[.\s]+$/, '')}.` : '',
     job.genderWord ? `A ${job.genderWord.toLowerCase()} teacher is preferred.` : '',
     job.budgetLabel ? `${tuition ? 'Budget' : 'Salary'}: ${job.budgetLabel} a month.` : '',
-    'Apply on TutorMint — free to join.',
+    FREE_PROFILE_APPLY_LINE,
   ].filter(Boolean)
 
   const free = (job.freeText ?? '').replace(/\s+/g, ' ').trim()

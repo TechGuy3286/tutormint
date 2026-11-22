@@ -15,6 +15,7 @@
 // footer already follows. A `sameAs` pointing at a stranger's account is worse
 // than an absent one, because search engines treat it as an identity claim.
 
+import { FREE_PROFILE_APPLY_LINE } from '@/lib/feePositioningCore'
 import type { Metadata } from 'next'
 import { SITE_URL, absoluteUrl } from '@/lib/siteUrl'
 import type { Company } from '@/lib/company'
@@ -171,7 +172,8 @@ export function tuitionDescription(job: {
     `${what ? what + ' ' : ''}tuition${where ? ' in ' + where : ' in Pakistan'}.`,
     job.mode ? `${job.mode}.` : '',
     job.budget ? `Budget ${job.budget}.` : '',
-    'Apply free on TutorMint.',
+    // PR-16: applying needs the one-time Verification Fee — never "apply free".
+    FREE_PROFILE_APPLY_LINE,
   ].filter(Boolean)
   return seoDescription(parts.join(' '))
 }

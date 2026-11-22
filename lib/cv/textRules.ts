@@ -64,7 +64,7 @@ export function withoutCnic(text: string): string {
 // ----------------------------------------------------------- Title Case ----
 
 // Written the way they are written, whatever case the tutor typed them in.
-const KEEP: Record<string, string> = {
+export const KEEP: Record<string, string> = {
   bs: 'BS', bsc: 'BSc', ba: 'BA', ma: 'MA', ms: 'MS', msc: 'MSc', mba: 'MBA', bba: 'BBA',
   'm.phil': 'M.Phil', mphil: 'M.Phil', 'm.phil.': 'M.Phil', phd: 'PhD', 'ph.d': 'PhD', 'ph.d.': 'PhD',
   fsc: 'FSc', 'f.sc': 'FSc', fa: 'FA', 'f.a': 'FA', ics: 'ICS', ict: 'ICT', cs: 'CS', it: 'IT',
@@ -76,6 +76,8 @@ const KEEP: Record<string, string> = {
   iba: 'IBA', ucp: 'UCP', umt: 'UMT', ku: 'KU', aiou: 'AIOU', bzu: 'BZU', qau: 'QAU', iiui: 'IIUI', ned: 'NED',
   giki: 'GIKI', szabist: 'SZABIST', bise: 'BISE', fbise: 'FBISE', cie: 'CIE', aku: 'AKU', gc: 'GC',
   ii: 'II', iii: 'III', iv: 'IV',
+  // Area names written as acronyms (PR-16, tuition titles).
+  dha: 'DHA', pechs: 'PECHS',
 }
 const SMALL = new Set(['of', 'and', 'in', 'the', 'for', 'at', 'from', 'with', 'on', 'to', 'a', 'an', 'or'])
 

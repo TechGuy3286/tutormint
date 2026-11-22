@@ -23,9 +23,10 @@ export type CountTile = {
   tip?: string
 }
 
-export function CountGrid({ tiles }: { tiles: CountTile[] }) {
+export function CountGrid({ tiles, compact = false }: { tiles: CountTile[]; compact?: boolean }) {
+  // PR-16: compact = two to a row on a phone, four on desktop.
   return (
-    <ul className="grid grid-cols-2 gap-3">
+    <ul className={compact ? 'grid grid-cols-2 gap-2 md:grid-cols-4' : 'grid grid-cols-2 gap-3'}>
       {tiles.map((t) => (
         // The tile KEEPS its own distinct tone even when highlighted (PR32 §2):
         // every tile is a different colour and no two share, so highlight no
@@ -43,6 +44,7 @@ export function CountGrid({ tiles }: { tiles: CountTile[] }) {
           label={t.label}
           note={t.note}
           tip={t.tip}
+          compact={compact}
         />
       ))}
     </ul>

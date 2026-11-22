@@ -84,19 +84,18 @@ test('the dashboard card link and the page titles say Edit Profile', () => {
 })
 
 // ----------------------------------------------------- Verification Fee card --
+// PR-16: the selfie card moved to Step 2 — Step 1 is step1All minus the selfie.
 function step1Keys(): string[] {
   const s = src(TUTOR)
-  const block = s.slice(s.indexOf('const step1Cards'), s.indexOf('const step2Cards'))
-  return [...block.matchAll(/\n\s{6}key: '([a-zA-Z]+)',/g)].map((m) => m[1])
+  const block = s.slice(s.indexOf('const step1All'), s.indexOf('const step2Base'))
+  return [...block.matchAll(/\n\s{6}key: '([a-zA-Z]+)',/g)].map((m) => m[1]).filter((k) => k !== 'selfie')
 }
-test('the Verification Fee card is gone and Step 1 counts five cards (the selfie is optional)', () => {
+test('the Verification Fee card is gone and Step 1 counts five cards (the selfie is in Step 2)', () => {
   const keys = step1Keys()
-  assert.deepEqual(keys, ['mobile', 'cnic', 'profilePic', 'selfie', 'subjects', 'location'])
+  assert.deepEqual(keys, ['mobile', 'cnic', 'profilePic', 'subjects', 'location'])
   assert.ok(!keys.includes('fee'))
-  // The count comes from the shared completion rule (owner, 4 Nov 2026): all
-  // six Step 1 cards hold a required item, so the total is six.
-  assert.ok(src(TUTOR).includes('<StepHeader section="step1" done={step1Count.done} total={step1Count.total} />'))
-  // The selfie card is optional since 12 Nov 2026, so it is not counted.
+  // Every Step 1 row holds a required item: five of five.
+  assert.ok(src(TUTOR).includes('<StepHeader section="step1" done={step1Count.done} total={step1Count.total} english />'))
   assert.deepEqual(cardStepCount(keys, []), { done: 5, total: 5 })
   assert.doesNotMatch(src(TUTOR), /ReadonlyLine kind="fee"/)
 })

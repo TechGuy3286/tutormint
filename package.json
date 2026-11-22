@@ -286,7 +286,8 @@
     "test:pr14": "tsx --conditions=react-server --test scripts/test-pr14.ts",
     "test:pr15": "tsx --test scripts/test-pr15.ts",
     "test:pr11": "tsx --test scripts/test-pr11.ts",
-    "report:interestinbox": "tsx --conditions=react-server --env-file=.env.local scripts/report-interest-inbox.ts"
+    "report:interestinbox": "tsx --conditions=react-server --env-file=.env.local scripts/report-interest-inbox.ts",
+    "test:pr16": "tsx --test scripts/test-pr16.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

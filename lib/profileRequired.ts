@@ -188,3 +188,21 @@ export function cardStepCount(cardKeys: string[], missingKeys: string[]): { done
   const done = counted.filter((k) => !(TUTOR_CARD_ITEMS[k] ?? []).some((i) => missing.has(i))).length
   return { done, total: counted.length }
 }
+
+/** Edit Profile's "done of total" for one group AS SHOWN (PR-16, owner: "the
+ *  step counts match the items shown"). Every row in the group counts once. A
+ *  row holding required items is done when none of them is missing (the shared
+ *  rule); a row with no required item (selfie, certifications, email) is done
+ *  when its own status says Completed. */
+export function groupStepCount(
+  cards: { key: string; status: string }[],
+  missingKeys: string[] | null,
+): { done: number; total: number } {
+  const missing = new Set(missingKeys ?? [])
+  const done = cards.filter((c) => {
+    const items = TUTOR_CARD_ITEMS[c.key] ?? []
+    if (items.length > 0 && missingKeys) return !items.some((i) => missing.has(i))
+    return c.status === 'completed'
+  }).length
+  return { done, total: cards.length }
+}

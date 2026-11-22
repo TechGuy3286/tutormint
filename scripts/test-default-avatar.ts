@@ -187,7 +187,7 @@ test('every member avatar goes through the shared component and passes gender wh
   assert.match(read('lib/browseTutors.ts'), /avatar_url, gender, city/)
   assert.match(read('lib/messaging.ts'), /otherGender: genders\.get\(otherId\) \?\? null/)
   assert.match(read('lib/overviewCards.ts'), /gender: \(t\?\.gender as string \| null\) \?\? null/)
-  assert.match(read('lib/headerSession.ts'), /role === 'tutor' \? createClient\(\)\.then\(\(c\) => tutorGender\(c, session\.user\.id\)\)/)
+  assert.match(read('lib/headerSession.ts'), /role === 'tutor' \? soft\(createClient\(\)\.then\(\(c\) => tutorGender\(c, session\.user\.id\)\), null\)/) // PR-16: soft
 })
 
 test('the default file is never an og:image or structured-data image (og cards draw it inside the card)', () => {
