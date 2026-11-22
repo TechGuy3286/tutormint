@@ -123,7 +123,8 @@ export default async function PaymentSettingsPage() {
       </section>
 
       <section id="paypro" className="scroll-mt-24 space-y-3">
-        <h2 className="text-sm font-black text-tm-navy">PayPro settlement status</h2>
+        <h2 className="text-sm font-black text-tm-navy">PayPro (closed) — kept for records</h2>
+        <p className="text-xs text-gray-500">Read only. PayPro has ended; this shows its past settlement and nothing here can be changed.</p>
         {paypro ? (
           <PayproSettlementCard pending={paypro.pending} unsettled={paypro.unsettled.length} oldest={paypro.oldestUnsettled} />
         ) : (

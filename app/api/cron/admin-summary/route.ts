@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { timingSafeEqual } from 'node:crypto'
 import { rebuildAdminSummary } from '@/lib/adminSummary'
-import { refreshInterestInboxSnapshot } from '@/lib/interestInbox'
+import { refreshInterestInboxIfDue } from '@/lib/interestInbox'
 
 // The admin summary job (owner, 1 Nov 2026 — lib/adminSummary). Vercel calls it
 // every minute; it rebuilds only when something changed since the last build
@@ -25,8 +25,10 @@ function authorised(request: Request): boolean {
 export async function GET(request: Request) {
   if (!authorised(request)) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const force = new URL(request.url).searchParams.get('force') === '1'
-  // PR-11: the Parent interest inbox's stored copy, every minute (cheap now).
-  await refreshInterestInboxSnapshot().catch(() => null)
+  // The Parent interest inbox's stored copy (PR-11): every 10 minutes since
+  // PR-15 (lib/interestInboxCore inboxCronDue); sends, Undo, holds and page
+  // opens rebuild it themselves, so the cron is only the safety net.
+  const inbox = await refreshInterestInboxIfDue().catch(() => null)
   const r = await rebuildAdminSummary({ force })
-  return NextResponse.json(r, { status: r.failed.length ? 500 : 200 })
+  return NextResponse.json({ ...r, inbox }, { status: r.failed.length ? 500 : 200 })
 }

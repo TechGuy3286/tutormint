@@ -92,14 +92,15 @@ test('every admin loader sends the masked number, never the full one', () => {
   assert.match(show, /pagehide/)
 })
 
-test('public surfaces never carry the CNIC number — only a "CNIC verified" chip', () => {
+test('public surfaces never carry the CNIC number', () => {
   for (const f of ['components/TutorCard.tsx', 'app/(site)/tutor/[slug]/profile.tsx', 'components/CnicVerifiedChip.tsx']) {
     const src = read(f)
     assert.doesNotMatch(src, /maskCnic|formatCnic|cnicNumber\b/, `${f} must not show a CNIC number`)
   }
   assert.match(read('components/CnicVerifiedChip.tsx'), /CNIC verified/)
-  assert.match(read('components/TutorCard.tsx'), /tutor\.cnic_verified && <CnicVerifiedChip \/>/)
-  assert.match(read('app/(site)/tutor/[slug]/profile.tsx'), /cnicApproved && <CnicVerifiedChip \/>/)
+  // PR-15: one badge row only — the separate chip is gone from tutor surfaces.
+  assert.doesNotMatch(read('components/TutorCard.tsx'), /<CnicVerifiedChip/)
+  assert.doesNotMatch(read('app/(site)/tutor/[slug]/profile.tsx'), /<CnicVerifiedChip/)
 })
 
 // --------------------------------------------------------------- Part B ----

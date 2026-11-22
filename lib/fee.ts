@@ -56,3 +56,18 @@ export function validateFeeRange(
   }
   return null
 }
+
+/** "From Rs 10,000 / month" — the lower bound only (PR-15: the tutor profile
+ *  and Browse cards). The tutor's own fee, never a TutorMint price. */
+export function feeFromLabel(min: number | null | undefined, max: number | null | undefined): string | null {
+  const lo = typeof min === 'number' && min > 0 ? min : null
+  const hi = typeof max === 'number' && max > 0 ? max : null
+  const from = lo ?? hi
+  return from ? `From ${rs(from)} / month` : null
+}
+
+/** The "From Rs X / month" label straight from a row. */
+export function feeFromLabelOf(row: FeeRow): string | null {
+  const { min, max } = feeRange(row)
+  return feeFromLabel(min, max)
+}

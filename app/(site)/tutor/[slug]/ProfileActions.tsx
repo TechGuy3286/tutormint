@@ -97,7 +97,7 @@ export default function ProfileActions({
     const dead =
       'inline-flex min-h-[44px] flex-1 cursor-not-allowed items-center justify-center gap-1.5 rounded-xl bg-gray-200 px-4 text-xs font-bold text-slate-600'
     return (
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 p-3 backdrop-blur sm:static sm:mx-auto sm:mt-4 sm:max-w-3xl sm:rounded-2xl sm:border sm:p-4">
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 p-3 backdrop-blur sm:static sm:rounded-2xl sm:border sm:p-4">
         <div className="mx-auto flex max-w-3xl flex-wrap gap-2">
           <button type="button" disabled className={dead}>
             <Heart size={14} /> Shortlist
@@ -197,7 +197,7 @@ export default function ProfileActions({
 
   return (
     <>
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 p-3 backdrop-blur sm:static sm:mx-auto sm:mt-4 sm:max-w-3xl sm:rounded-2xl sm:border sm:p-4">
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 p-3 backdrop-blur sm:static sm:rounded-2xl sm:border sm:p-4">
         {notice && (
           <p className="pb-2 text-center text-[11px] font-semibold text-slate-700">
             {notice}

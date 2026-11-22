@@ -7,7 +7,7 @@ import { cityTutorsMetadata, resolveTutorCity } from '../shared'
 // /tutors/[city]/female — "Female tutors in <City>" (owner, 20 Nov 2026 —
 // PR-11). Indexable from 3 indexable female tutors; noindex, follow below.
 // A static segment, so it wins over /tutors/[city]/[subject].
-export const revalidate = 600
+export const revalidate = 86400
 export async function generateStaticParams() {
   return []
 }

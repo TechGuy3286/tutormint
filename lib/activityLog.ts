@@ -15,6 +15,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { markSummaryDirty } from '@/lib/summaryDirty'
 import { DIRTY_IGNORED_EVENTS } from '@/lib/adminSummaryCore'
+import { eventRebuildsProfile } from '@/lib/publicRevalidateCore'
 
 export type ActivityEvent =
   | 'registered'
@@ -154,8 +155,12 @@ export async function logActivity(params: {
   // A member's own change rebuilds their cached profile page (push 3, owner
   // 1 Nov 2026); sign-ins, searches, messages and views change nothing on it.
   if (!DIRTY_IGNORED_EVENTS.has(params.event)) {
-    const { revalidateTutorProfile } = await import('@/lib/publicRevalidate')
-    await revalidateTutorProfile(params.userId)
+    // PR-15: only an event that changes what a visitor sees rebuilds the page
+    // (an application, a message or a payment attempt does not).
+    if (eventRebuildsProfile(params.event)) {
+      const { revalidateTutorProfile } = await import('@/lib/publicRevalidate')
+      await revalidateTutorProfile(params.userId)
+    }
     // Their People card moves at once, whatever the change (PR-02).
     const { syncPipelineSoon } = await import('@/lib/pipelineSyncHook')
     await syncPipelineSoon(params.userId)

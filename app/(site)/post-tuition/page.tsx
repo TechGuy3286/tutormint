@@ -18,7 +18,7 @@ import {
 
 // Cached for everyone (push 3, owner 1 Nov 2026); the button picks its link in
 // the browser.
-export const revalidate = 3600
+export const revalidate = 86400
 
 export const metadata: Metadata = {
   title: POST_TUITION_OG_TITLE,

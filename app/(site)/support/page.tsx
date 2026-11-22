@@ -23,9 +23,9 @@ import FaqList, { type FaqGroup } from './FaqList'
 // A server component: the FAQ text is part of the page for search engines, and
 // only the accordion behaviour is client-side.
 
-// Cached for everyone and rebuilt at most hourly (push 3, owner 1 Nov 2026):
+// Cached for everyone and rebuilt on change and otherwise at most daily (PR-15) (push 3, owner 1 Nov 2026):
 // nothing on it depends on who is looking.
-export const revalidate = 3600
+export const revalidate = 86400
 
 export const metadata: Metadata = {
   title: pageTitle('Help and support'),

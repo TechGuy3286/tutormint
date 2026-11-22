@@ -323,7 +323,9 @@ test('Tutor is the default; parent links open sign-up with Parent selected', () 
   // No public "Post a tuition" link skips sign-up's parent role.
   const publicFiles = ['lib/siteIdentity.ts', 'lib/faqContent.ts', 'lib/blog.ts', 'app/(site)/about/page.tsx', 'components/landing/LandingView.tsx', 'app/(site)/browse/tutors/page.tsx']
   for (const f of publicFiles) assert.doesNotMatch(read(f), /['"`]\/parent\/dashboard\/post-job/, f)
-  assert.match(read('components/Footer.tsx'), /href: PARENT_SIGNUP_HREF/)
+  // PR-15: the footer has one Sign Up (Account column) and Post a Tuition goes
+  // through the public /post-tuition page, never straight to the dashboard form.
+  assert.doesNotMatch(read('lib/footerLinksCore.ts'), /post-job/)
   assert.match(read('components/AuthCTA.tsx'), /href=\{joinHref\}/)
 })
 

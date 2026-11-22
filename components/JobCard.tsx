@@ -328,7 +328,7 @@ function JobCardInner({
 
         <div className="space-y-3">
           {underReview && (
-            <p className="inline-flex items-center gap-1.5 rounded-full bg-tm-tint-gold px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-tm-gold-ink">
+            <p className="inline-flex items-center gap-1.5 rounded-full bg-tm-tint-gold px-2.5 py-1 text-[10px] font-black text-tm-gold-ink">
               Under review
             </p>
           )}

@@ -1,3 +1,4 @@
+import { CACHE_PUBLIC_SWITCH } from '@/lib/publicCacheCore'
 import { NextResponse } from 'next/server'
 import { bankTransferOn, getGatewaySettings, onlineCheckoutOn } from '@/lib/payments/gatewaySettings'
 
@@ -13,5 +14,5 @@ export async function GET() {
   return NextResponse.json({
     online: onlineCheckoutOn(s),
     bankTransfer: bankTransferOn(s),
-  })
+  }, { headers: { 'Cache-Control': CACHE_PUBLIC_SWITCH } })
 }

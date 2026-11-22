@@ -10,7 +10,8 @@ export const PAYMENT_SETTINGS_SECTIONS = [
   { id: 'fee-and-plans', label: 'Fee and plans switches' },
   { id: 'bank-transfer', label: 'Bank transfer details' },
   { id: 'fee-match-and-reader', label: 'Fee match range and bank email reader' },
-  { id: 'paypro', label: 'PayPro settlement status' },
+  // PR-15: read-only, kept for records — PayPro ended (PR-12).
+  { id: 'paypro', label: 'PayPro (closed) — kept for records' },
 ] as const
 
 export type PaymentSettingsSection = (typeof PAYMENT_SETTINGS_SECTIONS)[number]['id']

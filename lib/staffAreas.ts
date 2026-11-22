@@ -83,7 +83,7 @@ export async function addStaffArea(input: { city: string; name: string }, actor:
     detail: { city: city.name, before: null, after: saved, typed: input.name.slice(0, 120), from: 'post_a_tuition' },
   })
   invalidateMemoTag(AREA_ALIAS_TAG)
-  revalidateLanding()
+  revalidateLanding({ areas: true })
   return { ok: true, area: saved, city: city.name as string, existed: false }
 }
 
@@ -153,7 +153,7 @@ export async function mergeStaffArea(input: { areaId: number; intoAreaId: number
     detail: { value: from.name, before: `Area added by staff (${from.name})`, after: into.name, from: 'staff_added_area', retiredAreaId: from.id },
   })
   invalidateMemoTag(AREA_ALIAS_TAG)
-  revalidateLanding()
+  revalidateLanding({ areas: true })
   return { ok: true, from: from.name as string, into: into.name as string }
 }
 
@@ -316,6 +316,6 @@ export async function keepStaffArea(
     detail: { city: added.city, before: added.name, after: wanted, ...detail, jobIds: ids.slice(0, 200) },
   })
   invalidateMemoTag(AREA_ALIAS_TAG)
-  revalidateLanding()
+  revalidateLanding({ areas: true })
   return { ok: true, area: wanted, renamedFrom: renamed ? added.name : null, landmark, tuitions: ids.length }
 }

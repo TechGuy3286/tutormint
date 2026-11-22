@@ -16,8 +16,9 @@
 //   * Signed-in members do not see Sign Up or Login (in either body). Showing a
 //     signed-in visitor a login link is a wart; the locked design is the guest
 //     case, and for a guest nothing changes.
-//   * A link in both the Tutors and Parents sections (Sign Up, Login) appears
-//     ONCE on mobile — deduped by href across the sections.
+//   * Every link appears once (PR-15, lib/footerLinksCore): Sign Up, Login,
+//     Dashboard and Membership Plans live in one "Account" column; the city
+//     links are two short, non-wrapping columns over one set of cities.
 //
 // Whether someone is signed in is decided in the browser (GuestOnly, push 3,
 // 1 Nov 2026): the footer reads no cookie, so the pages it sits on can be cached.
@@ -27,7 +28,6 @@
 // rendered rather than shown as a dead link (CLAUDE.md rule 7).
 
 import Image from 'next/image'
-import { PARENT_SIGNUP_HREF } from '@/lib/signupLinks'
 import { indexableCityPagesCached, cityPagePath } from '@/lib/cityJobs'
 import { femaleFooterLinks } from '@/lib/femaleJobsCore'
 import HideOnHome from '@/components/HideOnHome'
@@ -36,7 +36,8 @@ import { SITE_LOGO_DARK_PATH } from '@/lib/siteIdentity'
 import { ChevronDown } from 'lucide-react'
 import FooterTagline from '@/components/FooterTagline'
 import { supportContactFromEnv, formatSupportWhatsApp, whatsappHref } from '@/lib/support'
-import { GuestOnly } from '@/components/session/SessionChromeBits'
+import { GuestOnly, MemberDashboardLink } from '@/components/session/SessionChromeBits'
+import { footerColumns, type FooterLink, type LinkColumn } from '@/lib/footerLinksCore'
 
 type SocialLink = {
   name: string
@@ -48,9 +49,6 @@ type SocialLink = {
    *  profile — wrong for the support WhatsApp line). */
   rel?: string
 }
-/** `hideOnHome`: the homepage lists these itself, so the footer leaves them out there. */
-type FooterLink = { label: string; href: string; hideOnHome?: boolean; guestOnly?: boolean }
-type LinkColumn = { heading: string; links: FooterLink[] }
 
 /**
  * The social row's icons, in the reference's order. The five brand profiles are
@@ -85,68 +83,26 @@ function socialLinks(supportWhatsapp: string | null): SocialLink[] {
   return links
 }
 
-/** The two link columns whose auth links are hidden once signed in (in the
- *  browser, GuestOnly — push 3, so the footer reads no cookie). `cityLinks`
- *  are the "Tuition jobs in [City]" pages at 3+ open tuitions (owner, 6 Oct 2026). */
-function linkColumns(cityLinks: FooterLink[] = []): LinkColumn[] {
-  const auth: FooterLink[] = [
-    { label: 'Sign Up', href: '/register', guestOnly: true },
-    { label: 'Login', href: '/login', guestOnly: true },
-  ]
-  return [
-    {
-      heading: 'For Tutors',
-      links: [
-        // The browse pages are the platform's organic-search surface and were
-        // linked from no footer column at all (T-SEO2 named the footer).
-        { label: 'Find Tuitions', href: '/browse/tuitions' },
-        ...cityLinks,
-        ...auth,
-        { label: 'Dashboard', href: '/tutor/dashboard' },
-        { label: 'Membership Plans', href: '/membership-plans?for=tutors' },
-      ],
-    },
-    {
-      heading: 'For Parents',
-      links: [
-        { label: 'Find Tutors', href: '/browse/tutors' },
-        // Parents' sign-up opens with Parent selected (owner, 24 Oct 2026).
-        ...auth.map((l) => (l.href === '/register' ? { ...l, href: PARENT_SIGNUP_HREF } : l)),
-        { label: 'Dashboard', href: '/parent/dashboard' },
-        { label: 'Membership Plans', href: '/membership-plans?for=parents' },
-      ],
-    },
-    {
-      heading: 'Trust & Legal',
-      links: [
-        { label: 'About Us', href: '/about' },
-        { label: 'Blog & Guides', href: '/blog' },
-        { label: 'FAQs', href: '/faq' },
-        { label: 'Privacy Policy', href: '/privacy' },
-        { label: 'Terms of Service', href: '/terms' },
-      ],
-    },
-  ]
-}
-
 export default async function Footer() {
   const support = supportContactFromEnv()
   const socials = socialLinks(support.whatsapp)
   // The city tuition-jobs pages (live, 3+ open tuitions) — up to five in the
   // tutors column so they are never orphans. A read error leaves them out.
-  let cityLinks: FooterLink[] = []
+  let cols: { main: LinkColumn[]; cities: LinkColumn[] } = footerColumns([], [])
   try {
     // The cached link-block list (ten minutes, cleared with the landing cache):
     // the footer is on every page and must not read every open tuition each time.
     const pages = await indexableCityPagesCached()
-    cityLinks = pages.slice(0, 5).map((c) => ({ label: `Tuition jobs in ${c.city}`, href: cityPagePath(c.citySlug), hideOnHome: true }))
-    // Female teaching jobs pages (owner, 28 Oct 2026): the top cities only, and
-    // only where the page is indexable (3+ open matching tuitions).
-    cityLinks.push(...femaleFooterLinks(pages))
+    // One set of cities for both city columns (PR-15); the female page only
+    // where it is indexable (3+ open matching tuitions).
+    cols = footerColumns(
+      pages.map((c) => ({ city: c.city, citySlug: c.citySlug, href: cityPagePath(c.citySlug) })),
+      femaleFooterLinks(pages, pages.length),
+    )
   } catch {
-    cityLinks = []
+    cols = footerColumns([], [])
   }
-  const columns = linkColumns(cityLinks)
+  const columns = [...cols.main, ...cols.cities]
   const year = new Date().getFullYear()
 
   return (
@@ -179,7 +135,7 @@ export default async function Footer() {
         {/* --------------------------------------------------- DESKTOP ---- */}
         {/* md+: the approved layout, unchanged. */}
         <div className="hidden md:block">
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-5 lg:gap-8">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-6 lg:gap-8">
             {/* Brand */}
             <div className="lg:pr-4">
               <Image
@@ -196,7 +152,7 @@ export default async function Footer() {
 
             {/* The link lists, handed to the 5-column grid at lg. */}
             <div className="grid grid-cols-2 gap-x-6 gap-y-6 sm:grid-cols-4 lg:contents">
-              {columns.map((col) => (
+              {cols.main.map((col) => (
                 <FooterColumn key={col.heading} heading={col.heading} links={col.links} />
               ))}
 
@@ -244,6 +200,15 @@ export default async function Footer() {
               </div>
             </div>
           </div>
+
+          {/* The city columns (PR-15): short, one line per link, one set of cities. */}
+          {cols.cities.length > 0 && (
+            <div className="mt-5 flex flex-wrap gap-x-12 gap-y-4">
+              {cols.cities.map((col) => (
+                <FooterColumn key={col.heading} heading={col.heading} links={col.links} nowrap />
+              ))}
+            </div>
+          )}
 
           <div className="mt-4 border-t border-white/10 pt-3">
             <LegalLine year={year} />
@@ -320,6 +285,7 @@ function MobileSections({ columns }: { columns: LinkColumn[] }) {
             </summary>
             <ul className="pb-1 text-sm">
               {links.map((l) => {
+          if (l.memberDashboard) return <MemberDashboardLink key="dashboard" label={l.label} className={MOBILE_LINK} />
           const item = (
             <li key={l.href + l.label}>
               <Link
@@ -394,18 +360,23 @@ function MobileSupport({ support }: { support: { whatsapp: string | null; email:
  * Tap targets are 44px on touch-sized viewports and tighten to 30px from md up.
  * WCAG 2.5.8's own minimum is 24px.
  */
-function FooterColumn({ heading, links }: { heading: string; links: FooterLink[] }) {
+const MOBILE_LINK =
+  'flex min-h-[44px] items-center text-slate-300 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint'
+const DESKTOP_LINK = `${MOBILE_LINK} md:min-h-[28px]`
+
+function FooterColumn({ heading, links, nowrap = false }: { heading: string; links: FooterLink[]; nowrap?: boolean }) {
   return (
     <div>
       <h2 className="text-xs font-bold uppercase tracking-wider text-tm-mint">{heading}</h2>
       <ul className="mt-2 text-sm">
         {links.map((l) => {
+          if (l.memberDashboard) return <MemberDashboardLink key="dashboard" label={l.label} className={`${DESKTOP_LINK} ${nowrap ? 'whitespace-nowrap' : ''}`} />
           const item = (
             <li key={l.href + l.label}>
               <Link
                 prefetch={false}
                 href={l.href}
-                className="flex min-h-[44px] items-center text-slate-300 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint md:min-h-[28px]"
+                className={`${DESKTOP_LINK} ${nowrap ? 'whitespace-nowrap' : ''}`}
               >
                 {l.label}
               </Link>

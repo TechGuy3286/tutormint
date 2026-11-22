@@ -21,9 +21,9 @@ import { faqJsonLd, jsonLdScript, pageDescription, pageTitle } from '@/lib/seo'
 // something the page does not is a manual-action risk, and it is how a promise
 // nobody made ends up in a search result.
 
-// Cached for everyone and rebuilt at most hourly (push 3, owner 1 Nov 2026):
+// Cached for everyone and rebuilt on change and otherwise at most daily (PR-15) (push 3, owner 1 Nov 2026):
 // nothing on it depends on who is looking.
-export const revalidate = 3600
+export const revalidate = 86400
 
 export const metadata: Metadata = {
   title: pageTitle('Questions and answers'),
@@ -56,7 +56,7 @@ export default async function FAQPage() {
       </header>
 
       <nav className="rounded-2xl border border-gray-200 bg-white p-4">
-        <h2 className="pb-2 text-xs font-black uppercase tracking-wide text-gray-500">Jump to</h2>
+        <h2 className="pb-2 text-xs font-black text-gray-500">Jump to</h2>
         <ul className="grid gap-1 sm:grid-cols-2">
           {FAQ_GROUPS.map((g) => (
             <li key={g.id}>

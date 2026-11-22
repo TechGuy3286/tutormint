@@ -24,6 +24,7 @@ import { TUITION_LIVE_DAYS, TUITION_LIVE_LABEL } from '@/lib/tuitionStatus'
 import { enqueueIndexing, tuitionUrl } from '@/lib/googleIndexing'
 import { PRIORITY_CHANGE } from '@/lib/googleIndexingCore'
 import { pageAll } from '@/lib/pageAll'
+import { revalidatePublicTuition } from '@/lib/publicRevalidate'
 import { planPauseBatch, nextBatchAt } from '@/lib/tuitionPauseCore'
 
 export { TUITION_LIVE_DAYS }
@@ -79,6 +80,8 @@ export async function pauseStaleTuitions(now = new Date()): Promise<{
       .select('id')
     if (error || !data || data.length === 0) return
     ids.push(j.id)
+    // PR-15: its page and hubs rebuild now (the time limit is hours).
+    revalidatePublicTuition(j)
     if (source === 'backlog') backlogPaused++
     const url = tuitionUrl(j)
     if (url) urls.push(url)

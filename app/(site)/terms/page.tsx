@@ -17,9 +17,9 @@ import { DOUBLE_CHARGE_LINE, NON_REFUNDABLE_NOTICE } from '@/lib/nonRefundableCo
 // Every commitment below matches something the code actually enforces. Where
 // the two ever disagree, the code is the bug.
 
-// Cached for everyone and rebuilt at most hourly (push 3, owner 1 Nov 2026):
+// Cached for everyone and rebuilt on change and otherwise at most daily (PR-15) (push 3, owner 1 Nov 2026):
 // nothing on it depends on who is looking.
-export const revalidate = 3600
+export const revalidate = 86400
 
 export const metadata: Metadata = {
   title: pageTitle('Terms of Service'),

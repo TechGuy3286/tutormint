@@ -1,3 +1,4 @@
+import { CACHE_PUBLIC_LIST } from '@/lib/publicCacheCore'
 import { NextResponse } from 'next/server'
 import { loadSearchDict } from '@/lib/smartSearch'
 
@@ -6,7 +7,7 @@ import { loadSearchDict } from '@/lib/smartSearch'
 // it is the same list the server search already applies, and holds nothing
 // private. Cached ten minutes, like the dictionary itself.
 
-export const revalidate = 600
+export const revalidate = 3600
 
 export async function GET() {
   const dict = await loadSearchDict()
@@ -16,5 +17,5 @@ export async function GET() {
     const words = dict.aliases.filter((a) => a.kind === 'subject' && a.slug === s.slug).map((a) => a.alias)
     if (words.length) out[s.name.toLowerCase()] = [...new Set(words)]
   }
-  return NextResponse.json({ words: out }, { headers: { 'Cache-Control': 'public, max-age=600' } })
+  return NextResponse.json({ words: out }, { headers: { 'Cache-Control': CACHE_PUBLIC_LIST } })
 }

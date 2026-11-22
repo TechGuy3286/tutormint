@@ -134,7 +134,10 @@ test('rebuilt on change: tuition, tutor and blog changes mark the pages', () => 
   const blog = read('lib/blogPublish.ts')
   assert.match(blog, /revalidatePath\('\/blog'\)/)
   const pr = read('lib/publicRevalidate.ts')
-  for (const p of ['/tuition-jobs/', "'/tutor/[slug]'", "'/tutors/[city]/[subject]'", "mark('/')"]) assert.ok(pr.includes(p), p)
+  // PR-15: the marks moved to lib/publicRevalidateCore (pure, test:pr15).
+  const core = read('lib/publicRevalidateCore.ts')
+  for (const p of ['/tuition-jobs/', '`/tutor/${slug}`', "'/tutors/[city]/[subject]'", "{ path: '/' }"]) assert.ok(core.includes(p), p)
+  assert.ok(pr.includes('apply(tuitionMarks(job))'))
 })
 
 // --------------------------------------------------------- query twins ---

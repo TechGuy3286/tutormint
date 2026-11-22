@@ -9,6 +9,7 @@ import { refreshStatementMatches } from '@/lib/bankStatement'
 import { runAddressBackfill } from '@/lib/cnicAddress'
 import { runInterestBackfill } from '@/lib/parentInterest'
 import { refreshInsights } from '@/lib/insights'
+import { insightsRunDue } from '@/lib/insightsCore'
 import { generateFeaturedItems } from '@/lib/featuredMatches'
 
 // The 5-minute jobs: due blog posts, Indexing API notices, tutor alerts, the
@@ -71,12 +72,13 @@ export async function GET(request: Request) {
   // in app_settings so later runs return at once. Counts only.
   const interestBackfill = await runInterestBackfill().then((r) => (r.ran ? r : null)).catch(() => null)
   // Admin → Insights (PR-12): keep the last month of days built — today every
-  // 10 minutes, a few other days per run, inside what is left of the minute.
+  // 15 minutes (PR-15: one run in three, lib/insightsCore insightsRunDue), a
+  // few other days per run, inside what is left of the minute.
   // Tutor Featured (PR-14): once a Pakistan day from 08:00 PKT, one Featured —
   // matched tuitions item per Featured tutor with new matches (People →
   // WhatsApp updates → Today). Before Insights, so it never waits on it.
   const featured = await generateFeaturedItems().then((r) => (r.ran ? r : null)).catch(() => null)
-  const insights = await refreshInsights(Date.now(), t0 + 50_000).catch(() => null)
+  const insights = insightsRunDue(t0) ? await refreshInsights(Date.now(), t0 + 50_000).catch(() => null) : { skipped: 'not this run' }
   // PayPro has ended (PR-12, 20 Nov 2026): no order is re-checked at PayPro any
   // more and nothing activates from it, so this job no longer reads a PAYPRO_*
   // setting or touches a PayPro payment row.

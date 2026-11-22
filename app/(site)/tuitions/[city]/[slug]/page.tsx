@@ -91,10 +91,10 @@ import { areaWithLandmark } from '@/lib/staffAreaCore'
 
 // Cached for everyone (push 3, owner 1 Nov 2026): the page renders as a guest
 // sees it and is rebuilt when the tuition changes (revalidatePath through
-// lib/publicRevalidate) and at most every 10 minutes. The signed-in parts
+// lib/publicRevalidate) and otherwise after the PR-15 time limit (hours). The signed-in parts
 // (Apply state, an earlier number reveal, the poster's Resume / Refresh) are
 // filled in by the browser (components/viewer/TuitionViewer).
-export const revalidate = 600
+export const revalidate = 86400
 export async function generateStaticParams() {
   return []
 }
@@ -508,7 +508,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
         <PosterOpenTools jobId={job.id} isOpen={state.isOpen} />
 
         {job.under_review && (
-          <p className="inline-flex items-center gap-1.5 rounded-full bg-tm-tint-gold px-3 py-1 text-[11px] font-black uppercase tracking-wide text-tm-gold-ink">
+          <p className="inline-flex items-center gap-1.5 rounded-full bg-tm-tint-gold px-3 py-1 text-[11px] font-black text-tm-gold-ink">
             Under review
           </p>
         )}
@@ -586,7 +586,8 @@ export default async function TuitionPage({ params }: { params: Params }) {
         )}
 
         <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {job.class_level && (
+          {/* PR-15: the per-grade rows above already name the level — not twice. */}
+          {job.class_level && !(job.grade_groups && job.grade_groups.length > 0) && (
             <Fact icon={<GraduationCap size={14} aria-hidden />} label="Level">
               {job.class_level}
             </Fact>
@@ -636,7 +637,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
         {/* PR91: numbers inside the description stay masked inline. */}
         {job.description && (
           <div className="space-y-1">
-            <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">
+            <h2 className="text-xs font-black text-gray-500">
               {job.posted_by_team ? 'About this tuition' : 'What the parent wrote'}
             </h2>
             <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">
@@ -675,7 +676,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
           and Report this post. */}
       {job.parent_id && job.parent_name && !job.posted_by_team && (
         <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
-          <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">
+          <h2 className="text-xs font-black text-gray-500">
             Posted by
           </h2>
           <div className="flex items-center gap-3">
@@ -850,7 +851,7 @@ function Fact({
     <div className="flex items-start gap-2">
       <span className="mt-0.5 shrink-0 text-gray-500">{icon}</span>
       <div className="min-w-0">
-        <dt className="text-[11px] font-bold uppercase tracking-wide text-gray-500">{label}</dt>
+        <dt className="text-[11px] font-bold text-gray-500">{label}</dt>
         <dd className="text-sm text-slate-700">{children}</dd>
       </div>
     </div>

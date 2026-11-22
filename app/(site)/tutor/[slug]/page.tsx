@@ -6,9 +6,9 @@ import { TutorProfileView, tutorProfileMetadata } from './profile'
 // certificates, report, the action bar) and the view count are done in the
 // browser (components/viewer/TutorViewer). Rebuilt when the tutor's profile,
 // documents or listing change (revalidatePath via lib/publicRevalidate) and at
-// most every 10 minutes. The tutor's own preview of a profile that is not
+// most once a day (PR-15 safety net). The tutor's own preview of a profile that is not
 // public yet is the dynamic twin /qs/tutor/[slug] (proxy.ts sends ?preview=1).
-export const revalidate = 600
+export const revalidate = 86400
 export async function generateStaticParams() {
   return []
 }

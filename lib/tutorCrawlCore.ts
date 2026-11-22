@@ -31,6 +31,8 @@ export type CrawlTutor = {
   city: string
   citySlug: string
   gender: CrawlGender
+  /** The public photo (tutor_directory gates a hidden one to null), PR-15. */
+  avatarUrl?: string | null
   /** taxonomy_master ids (subject × level). */
   masters: number[]
   /** Subject names, lower case ("mathematics"). */

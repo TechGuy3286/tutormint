@@ -42,7 +42,7 @@ import { fuBadgeCount } from '@/lib/tutorFollowUpTabsCore'
 import { newApplicationsItems, overdueApplicationsItems } from '@/lib/applicationTracking'
 import { loadPaidTutors } from '@/lib/paidTutors'
 import { interestTally, loadWaQueue } from '@/lib/waUpdates'
-import { loadInterestInboxFresh } from '@/lib/interestInbox'
+import { loadInterestInboxRecent } from '@/lib/interestInbox'
 import { receiptsWaitingCount } from '@/lib/payments/receipt'
 import { loadTeamOverview } from '@/lib/teamOverview'
 import { loadSignupFunnel } from '@/lib/siteVisits'
@@ -365,7 +365,7 @@ async function rebuildOnce(opts: { force?: boolean }): Promise<{ ran: boolean; m
     // People → WhatsApp updates (PR-06): rows still to send today.
     safe('whatsapp updates', async () => (await loadWaQueue()).toSend),
     // PR-10: the Parent interest inbox's ready rows, per assignee.
-    safe('parent interest inbox', async () => interestTally((await loadInterestInboxFresh()).counts)),
+    safe('parent interest inbox', async () => interestTally((await loadInterestInboxRecent()).counts)),
   ])
 
   // Overview, sections.

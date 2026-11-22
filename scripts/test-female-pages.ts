@@ -66,5 +66,5 @@ test('title, intro and links', () => {
   ]
   const links = femaleFooterLinks(pages)
   assert.deepEqual(links.map((l) => l.href), ['/tuition-jobs/karachi/female', '/tuition-jobs/lahore/female', '/tuition-jobs/a/female', '/tuition-jobs/b/female'])
-  assert.ok(readFileSync('components/Footer.tsx', 'utf8').includes('femaleFooterLinks(pages)'))
+  assert.ok(readFileSync('components/Footer.tsx', 'utf8').includes('femaleFooterLinks(pages, pages.length)'), 'PR-15: the same city set as the city column')
 })

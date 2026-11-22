@@ -284,6 +284,7 @@
     "test:pr12": "tsx --test scripts/test-pr12.ts",
     "test:pr13": "tsx --conditions=react-server --test scripts/test-pr13.ts",
     "test:pr14": "tsx --conditions=react-server --test scripts/test-pr14.ts",
+    "test:pr15": "tsx --test scripts/test-pr15.ts",
     "test:pr11": "tsx --test scripts/test-pr11.ts",
     "report:interestinbox": "tsx --conditions=react-server --env-file=.env.local scripts/report-interest-inbox.ts"
   },

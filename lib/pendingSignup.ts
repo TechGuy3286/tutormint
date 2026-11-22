@@ -351,7 +351,9 @@ export async function verifyPendingSignup(opts: {
   await admin.from('pending_signups').delete().eq('mobile', mobile)
 
   await recomputeCompletion(userId)
-  await logActivity({ userId, event: 'registered', meta: { via: 'mobile' } })
+  // The 'registered' row is written once, by the auth trigger handle_new_user
+  // (with the role) when the auth user is created above — never again here
+  // (PR-15: mobile sign-ups had two).
   await logActivity({ userId, event: 'otp_verified', targetType: 'profile', targetId: userId })
 
   return { ok: true, userId, role, email, bridged }

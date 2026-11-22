@@ -24,9 +24,9 @@ import ViewerJobsProvider from '@/components/viewer/ViewerJobsProvider'
 // A school no open post names is a 404.
 
 // Cached for everyone (push 3, owner 1 Nov 2026): rebuilt when its tuitions
-// change and at most every 10 minutes; the signed-in side of the cards is
+// change and otherwise after the PR-15 time limit (hours); the signed-in side of the cards is
 // filled in by the browser (ViewerJobsProvider).
-export const revalidate = 600
+export const revalidate = 86400
 export async function generateStaticParams() {
   return []
 }

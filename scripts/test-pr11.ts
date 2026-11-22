@@ -427,5 +427,5 @@ test('the stored inbox is the built inbox: identical after a round trip, used on
   const io = src('lib/interestInbox.ts')
   assert.match(io, /const inbox = await loadInterestInboxFresh\(nowMs\)/, 'the stored copy IS buildInbox output')
   assert.match(io, /export async function recordInterestSend[\s\S]*const b = await buildInbox\(admin, nowMs\)/, 'Send still re-checks fresh data')
-  assert.match(src('app/api/cron/admin-summary/route.ts'), /refreshInterestInboxSnapshot\(\)/, 'refreshed by the 1-minute cron')
+  assert.match(src('app/api/cron/admin-summary/route.ts'), /refreshInterestInboxIfDue\(\)/, 'refreshed by the cron (every 10 minutes since PR-15)')
 })

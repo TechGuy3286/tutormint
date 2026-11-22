@@ -5,10 +5,10 @@ import CityTutorsView from '@/components/landing/CityTutorsView'
 import { cityTutorsMetadata, resolveTutorCity } from './shared'
 
 // /tutors/[city] — "Tutors in <City>" (owner, 20 Nov 2026 — PR-11). Cached for
-// everyone and rebuilt at most every 10 minutes (and with the landing pages);
+// everyone and rebuilt otherwise after the PR-15 time limit (hours) (and with the landing pages);
 // ?page= goes to the twin under /qs (proxy.ts), so this page never reads the
 // query. Indexable from 3 indexable tutors; noindex, follow below that.
-export const revalidate = 600
+export const revalidate = 21600
 export async function generateStaticParams() {
   return []
 }

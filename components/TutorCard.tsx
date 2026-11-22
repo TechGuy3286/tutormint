@@ -12,12 +12,10 @@ import { jobType } from '@/lib/display'
 import CardActions, { type CardAction } from '@/components/CardActions'
 import { cardSummary } from '@/lib/tutorCardCore'
 import Avatar from '@/components/Avatar'
-import CnicVerifiedChip from '@/components/CnicVerifiedChip'
 import BadgeRow from '@/components/badges/BadgeRow'
 import NotVerifiedBadge from '@/components/badges/NotVerifiedBadge'
-import FeaturedTag from '@/components/badges/FeaturedTag'
 import AuthGateModal, { clearDraft, peekDraft, FOCUS_COMPOSER_KEY, type AuthIntent } from '@/components/AuthGateModal'
-import { badgesForPlan, isFeaturedPlan } from '@/lib/planBadges'
+import { badgesForPlan } from '@/lib/planBadges'
 import { markShortlisted, useShortlisted } from '@/lib/useShortlisted'
 
 // The tutor card, rebuilt against design/reference/tutor-card.jpeg.
@@ -148,7 +146,7 @@ function Stars({ rating, count }: { rating: number; count: number }) {
             <span className="font-normal text-gray-500"> ({count})</span>
           </>
         ) : (
-          <span className="font-normal text-gray-500">New tutor</span>
+          <span className="font-normal text-gray-500">No reviews yet</span>
         )}
       </span>
     </span>
@@ -430,12 +428,7 @@ export default function TutorCard({
   return (
     <>
       <article className="relative rounded-2xl border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md sm:p-6">
-        {isFeaturedPlan(tutor.plan_code) && (
-          // Shifts left of the remove X on a shortlist card so the two never overlap.
-          <FeaturedTag
-            className={`absolute top-3 sm:top-4 ${onRemove ? 'right-12 sm:right-14' : 'right-3 sm:right-4'}`}
-          />
-        )}
+        {/* PR-15: one badge row only — no separate FEATURED pill on a tutor card. */}
         {onRemove && (
           <button
             type="button"
@@ -491,10 +484,9 @@ export default function TutorCard({
               {badges.length > 0 && <BadgeRow badges={badges} size="sm" className="shrink-0 flex-nowrap" />}
               {!isVerified && <NotVerifiedBadge />}
             </Heading>
-            {/* Stars / "New tutor" on their own line below the name. */}
+            {/* Stars / "No reviews yet" on their own line below the name. */}
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <Stars rating={rating} count={reviews} />
-              {tutor.cnic_verified && <CnicVerifiedChip />}
             </div>
             {/* Two lines are always reserved, filled or not, so cards align. */}
             <p className="line-clamp-2 min-h-[2lh] text-xs font-semibold leading-snug text-tm-green-deep">

@@ -45,6 +45,7 @@ import {
   INBOX_WINDOW_DAYS,
   pkDayKeyOf,
   storedInboxUsable,
+  inboxCronDue,
   inboxSnapshotDiff,
   messageParents,
   parentLeftOut,
@@ -372,6 +373,35 @@ export async function refreshInterestInboxSnapshot(nowMs = Date.now()): Promise<
     await admin.from('admin_summary').upsert({ key: INBOX_SNAPSHOT_KEY, payload: row, computed_at: row.builtAt })
   }
   return inbox
+}
+
+/** The cron's call (PR-15): rebuild the stored inbox only when it is due
+ *  (lib/interestInboxCore inboxCronDue — every 10 minutes or a new PKT day).
+ *  Reads two small fields of the stored row, never the whole payload. */
+export async function refreshInterestInboxIfDue(nowMs = Date.now()): Promise<{ rebuilt: boolean }> {
+  const admin = createAdminClient()
+  if (!admin) return { rebuilt: false }
+  const { data } = await admin
+    .from('admin_summary')
+    .select('builtAt:payload->>builtAt, pkDay:payload->>pkDay')
+    .eq('key', INBOX_SNAPSHOT_KEY)
+    .maybeSingle()
+  if (!inboxCronDue((data as { builtAt?: string | null; pkDay?: string | null } | null) ?? null, nowMs)) return { rebuilt: false }
+  await refreshInterestInboxSnapshot(nowMs)
+  return { rebuilt: true }
+}
+
+/** The summary job's read (PR-15): the stored inbox when the cron built it in
+ *  the last minute (the same run), else a fresh build — never two builds in
+ *  one cron run. */
+export async function loadInterestInboxRecent(nowMs = Date.now(), maxAgeMs = 60_000): Promise<Inbox> {
+  const admin = createAdminClient()
+  if (!admin) return loadInterestInboxFresh(nowMs)
+  const { data } = await admin.from('admin_summary').select('payload').eq('key', INBOX_SNAPSHOT_KEY).maybeSingle()
+  const stored = (data?.payload as StoredInbox | null) ?? null
+  const built = stored ? Date.parse(stored.builtAt) : NaN
+  if (stored && stored.pkDay === pkDayKeyOf(nowMs) && Number.isFinite(built) && nowMs >= built && nowMs - built < maxAgeMs) return stored.inbox
+  return loadInterestInboxFresh(nowMs)
 }
 
 /** The inbox for the page: the stored one when it is still current, else rebuilt. */

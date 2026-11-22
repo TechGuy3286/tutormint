@@ -256,7 +256,7 @@ export async function applyLocationActions(actions: ReviewAction[], actor: Actor
 
   // The hubs and labels read the new mapping at once.
   invalidateMemoTag(AREA_ALIAS_TAG)
-  revalidateLanding()
+  revalidateLanding({ areas: true })
 
   // Hubs are NOT sent to the Indexing API (owner, 16 Oct 2026): it is for single
   // tuition pages only. A hub that now clears 3 open tuitions is in the sitemap

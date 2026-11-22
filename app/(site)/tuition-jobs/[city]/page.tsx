@@ -13,10 +13,10 @@ import { renderCityPage } from './render'
 // cities (owner, 16 Nov 2026); only a city nobody ever used is a 404.
 
 // Cached for everyone (push 3, owner 1 Nov 2026): rebuilt when one of its
-// tuitions changes (revalidatePath via lib/publicRevalidate) and at most every
-// 10 minutes. ?page= is sent to the twin under /qs by proxy.ts, so this page
+// tuitions changes (revalidatePath via lib/publicRevalidate) and after the
+// PR-15 time limit (hours). ?page= is sent to the twin under /qs by proxy.ts, so this page
 // never reads the query.
-export const revalidate = 600
+export const revalidate = 21600
 export async function generateStaticParams() {
   return []
 }

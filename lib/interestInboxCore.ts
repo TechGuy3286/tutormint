@@ -397,6 +397,21 @@ export type InboxRowView = {
 /** A stored inbox older than this is rebuilt on open (the cron keeps it younger). */
 export const INBOX_SNAPSHOT_MAX_AGE_MS = 90_000
 
+/** The 1-minute admin cron rebuilds the stored inbox only this often (PR-15:
+ *  was every run). Sends, Undo, holds and page opens rebuild it themselves. */
+export const INBOX_CRON_INTERVAL_MS = 10 * 60 * 1000
+
+/** Should the cron rebuild the stored inbox now? Yes when there is none, it is
+ *  from another Pakistan day, or it is (about) 10 minutes old — the cron fires
+ *  each minute, so 30 s of slack keeps it on the 10th minute. Pure. */
+export function inboxCronDue(stored: { builtAt?: string | null; pkDay?: string | null } | null, nowMs: number): boolean {
+  if (!stored?.builtAt) return true
+  const built = Date.parse(stored.builtAt)
+  if (!Number.isFinite(built) || nowMs < built) return true
+  if (stored.pkDay !== pkDayKeyOf(nowMs)) return true
+  return nowMs - built >= INBOX_CRON_INTERVAL_MS - 30_000
+}
+
 /** Is a stored inbox still the inbox? Same Pakistan day, young, nothing newer. */
 export function storedInboxUsable(stored: { builtAt: string; pkDay: string } | null, nowMs: number, newestChange: string | null): boolean {
   if (!stored) return false

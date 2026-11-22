@@ -7,7 +7,6 @@ import { citySegment } from '@/lib/slugs'
 import RelatedTutorLinks from '@/components/seo/RelatedTutorLinks'
 import { similarTutorLinks, tutorCityBySlug } from '@/lib/tutorCrawl'
 import { cityTutorPageIndexable, cityTutorPath } from '@/lib/tutorCrawlCore'
-import CnicVerifiedChip from '@/components/CnicVerifiedChip'
 import { publicPhoto } from '@/lib/photoPrivacyCore'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import NotFoundView from '@/components/NotFoundView'
@@ -19,7 +18,7 @@ import { createPublicClient } from '@/lib/supabase/public'
 import TutorViewerProvider, { OwnPreviewRedirect, ProfileActionsIsland, ProfileReport, SelfOrOther, SignedInOnly, TutorContactBox } from '@/components/viewer/TutorViewer'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { formatSlots, availabilityToSlots } from '@/lib/timeSlots'
-import { getEntitlements, badgesForPlan, isFeaturedPlan } from '@/lib/entitlements'
+import { getEntitlements, badgesForPlan } from '@/lib/entitlements'
 import { degreeLabels, linkedCertificateDocIds } from '@/lib/degrees'
 import { tutorProfileNoindex } from '@/lib/planBadges'
 import { tutorProfileIndexable } from '@/lib/seo/indexable'
@@ -27,12 +26,13 @@ import { deriveCnicStatus } from '@/lib/cnicStatus'
 import { experienceLabel } from '@/lib/experienceLabel'
 import BadgeRow from '@/components/badges/BadgeRow'
 import NotVerifiedBadge from '@/components/badges/NotVerifiedBadge'
-import FeaturedTag from '@/components/badges/FeaturedTag'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import { formatDate } from '@/lib/datetime'
 import { levelLabel } from '@/lib/display'
-import { feeLabelOf } from '@/lib/fee'
-import JobTypesChip from '@/components/JobTypesChip'
+import { feeFromLabelOf } from '@/lib/fee'
+import ExpandableChips from '@/components/ExpandableChips'
+import { groupLevels } from '@/lib/levelGroupCore'
+import { jobType } from '@/lib/display'
 import { jsonLdScript, pageDescription, pageTitle, socialMeta, tutorProfileJsonLd, seoDescription } from '@/lib/seo'
 import { tutorMetaDescription } from '@/lib/tutorMeta'
 import { shareImagePath, shareImageVersion, tutorOgDescription, tutorOgTitle } from '@/lib/seo/tutorOg'
@@ -681,6 +681,9 @@ export async function TutorProfileView({ slug, ownerId }: { slug: string; ownerI
   const showNotVerified = !preview && !feePaid
   const rating = Number(tutor.rating_avg ?? 0)
   const reviews = tutor.rating_count ?? 0
+  // PR-15: an empty Availability or Reviews card is not drawn (one line when both are empty).
+  const hasAvailability = !!tutor.availabilityText || tutor.slots.length > 0
+  const hasReviews = tutor.reviews.length > 0
 
   // Subjects grouped by the level they are taught at.
   //
@@ -699,6 +702,14 @@ export async function TutorProfileView({ slug, ownerId }: { slug: string; ownerI
     if (s.subject && !s.school) byLevel.get(key)!.push({ label: s.subject, masterId: s.master_id })
   }
   for (const [key, list] of byLevel) byLevel.set(key, dedupeSubjects(list))
+  // PR-15: consecutive grades with the same subjects become one row, every
+  // level a short normal-case name (lib/levelGroupCore).
+  const levelGroups = groupLevels(
+    [...byLevel.entries()].map(([key, subjects]) => {
+      const [category, ...rest] = key.split(' — ')
+      return { category, level: rest.join(' — ') || category, subjects, masterId: levelMaster.get(key) ?? 0 }
+    }),
+  )
 
   /**
    * The landing page for this subject in this tutor's city when one exists,
@@ -740,6 +751,8 @@ export async function TutorProfileView({ slug, ownerId }: { slug: string; ownerI
             back to the same page is one more than anyone needs, and only one
             of them was in the BreadcrumbList. */}
         <Breadcrumbs
+          // PR-15: the trail only — no "Back to <city>" link above it.
+          showBack={false}
           // Home › Tutors › City › Name (owner, 12 Oct 2026).
           items={[
             { label: 'Tutors', href: '/browse/tutors' },
@@ -765,10 +778,6 @@ export async function TutorProfileView({ slug, ownerId }: { slug: string; ownerI
 
         {/* ------------------------------------------------------- header --- */}
         <section className="relative rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
-          {isFeaturedPlan(tutor.plan_code) && (
-            <FeaturedTag className="absolute right-3 top-3 sm:right-4 sm:top-4" />
-          )}
-
           <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
             <Avatar
               name={tutor.full_name}
@@ -796,7 +805,6 @@ export async function TutorProfileView({ slug, ownerId }: { slug: string; ownerI
                   </Link>
                 )}
                 {showNotVerified && <NotVerifiedBadge />}
-                {!preview && cnicApproved && <CnicVerifiedChip />}
               </div>
               {tutor.headline && (
                 <p className="text-sm font-bold text-tm-green-deep">{tutor.headline}</p>
@@ -810,7 +818,7 @@ export async function TutorProfileView({ slug, ownerId }: { slug: string; ownerI
                       <span className="font-normal text-gray-500">({reviews} reviews)</span>
                     </>
                   ) : (
-                    <span className="font-normal text-gray-500">New tutor · no reviews yet</span>
+                    <span className="font-normal text-gray-500">No reviews yet</span>
                   )}
                 </span>
               </div>
@@ -822,7 +830,8 @@ export async function TutorProfileView({ slug, ownerId }: { slug: string; ownerI
                 </p>
               )}
 
-              <JobTypesChip types={tutor.job_types} className="mt-0.5" />
+              {/* PR-15: the first 5 job titles, then "+N more" in place. */}
+              <ExpandableChips items={(tutor.job_types ?? []).map((t) => jobType(t) ?? t)} max={5} className="mt-0.5" />
 
               <div className="grid grid-cols-1 gap-1.5 pt-1 sm:grid-cols-2">
                 <p className="flex items-start gap-2 text-xs">
@@ -884,16 +893,22 @@ export async function TutorProfileView({ slug, ownerId }: { slug: string; ownerI
                   <Briefcase size={14} className="mt-px shrink-0 text-gray-500" />
                   <span>{experienceLabel(tutor.experience_years).en}</span>
                 </p>
-                {feeLabelOf(tutor) ? (
+                {feeFromLabelOf(tutor) ? (
                   <p className="flex items-center gap-2 text-xs font-black text-tm-navy">
                     <Wallet size={14} className="text-gray-500" />
-                    {feeLabelOf(tutor)}
+                    {feeFromLabelOf(tutor)}
                   </p>
                 ) : null}
               </div>
             </div>
           </div>
         </section>
+
+        {/* PR-15: Shortlist / Request demo / Message — a sticky bottom bar on
+            phones, and here under the top card from sm up. Suppressed while
+            the profile is under review; absent for a tutor viewing another
+            tutor; the own-profile locked bar (isSelf) stays. */}
+        <ProfileActionsIsland tutorId={tutor.id} tutorName={tutor.full_name} underReview={underReview} />
 
         {/* --------------------------------------------------- under review --- */}
         {underReview && (
@@ -914,7 +929,7 @@ export async function TutorProfileView({ slug, ownerId }: { slug: string; ownerI
         {/* ------------------------------------------------------ contact --- */}
         {/* Locked for a guest; the number shows only for a viewer allowed to see
             it, read in the browser (TutorContactBox), never in this HTML. */}
-        {!underReview && <TutorContactBox tutorName={tutor.full_name} />}
+        {!underReview && <TutorContactBox tutorName={tutor.full_name} slug={tutor.slug} />}
 
         {/* -------------------------------------------------------- video --- */}
         {/* §3.4: the embed shows only for an APPROVED video. video_youtube_id is
@@ -948,35 +963,32 @@ export async function TutorProfileView({ slug, ownerId }: { slug: string; ownerI
         {/* ----------------------------------------------------- subjects --- */}
         <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
           <h2 className="pb-3 text-sm font-black text-tm-navy">Subjects and levels</h2>
-          {byLevel.size === 0 ? (
+          {levelGroups.length === 0 ? (
             <p className="text-xs text-gray-500">Subjects are being added.</p>
           ) : (
             <div className="space-y-3">
-              {[...byLevel.entries()].map(([level, subjects]) => (
-                <div key={level} className="space-y-1.5">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
-                    {levelLabel(level)}
-                  </p>
-                  {/* Every mention of a thing links to the thing. A
-                      level-leaf (Test Preparation, Sports, Holy Quran) has no
-                      subject list, so the level itself is the selectable item
-                      and the chip is the link. */}
+              {levelGroups.map((g) => (
+                <div key={g.key} className="space-y-1.5">
+                  <p className="text-xs font-bold text-slate-700">{g.label}</p>
+                  {/* Every mention of a thing links to the thing. A level-leaf
+                      (Test Preparation, Sports, Holy Quran) has no subject
+                      list, so the level itself is the chip and the link. */}
                   <div className="flex flex-wrap gap-1.5">
-                    {subjects.length === 0 ? (
+                    {g.leaf ? (
                       <Link
-                        href={subjectHref(levelMaster.get(level) ?? 0)}
+                        href={subjectHref(g.masterId)}
                         className="rounded-full bg-tm-bg px-2.5 py-1 text-[11px] font-bold text-slate-700 ring-1 ring-gray-200 hover:ring-tm-navy"
                       >
-                        {levelLabel(level.split(' — ')[1] ?? level)}
+                        {g.label}
                       </Link>
                     ) : (
-                      subjects.map((s) => (
+                      g.subjects.map((x) => (
                         <Link
-                          key={s.masterId}
-                          href={subjectHref(s.masterId)}
+                          key={x.masterId}
+                          href={subjectHref(x.masterId)}
                           className="rounded-full bg-tm-bg px-2.5 py-1 text-[11px] font-bold text-slate-700 ring-1 ring-gray-200 hover:ring-tm-navy"
                         >
-                          {s.label}
+                          {x.label}
                         </Link>
                       ))
                     )}
@@ -1003,7 +1015,7 @@ export async function TutorProfileView({ slug, ownerId }: { slug: string; ownerI
 
             {certificateDocs.length > 0 && (
               <div className="pt-4">
-                <p className="pb-2 text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                <p className="pb-2 text-[11px] font-bold text-gray-500">
                   Certificates
                 </p>
                 <SignedInOnly
@@ -1033,60 +1045,72 @@ export async function TutorProfileView({ slug, ownerId }: { slug: string; ownerI
           </section>
         ) : null}
 
-        {/* ------------------------------------------------- availability --- */}
-        <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
-          <h2 className="pb-3 text-sm font-black text-tm-navy">Availability</h2>
-          {tutor.availabilityText ? (
-            // PR73 §A: the day+slot line, e.g. "Mon, Tue, Wed: Evening · Sat: Morning".
-            <p className="text-xs font-semibold text-tm-navy">{tutor.availabilityText}</p>
-          ) : tutor.slots.length === 0 ? (
-            <p className="text-xs text-gray-500">
-              No fixed slots published. Request a demo and agree a time directly.
-            </p>
-          ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {tutor.slots.map((s) => (
-                <span
-                  key={s.id}
-                  className={`rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${
-                    s.booked
-                      ? 'bg-gray-100 text-gray-700 ring-gray-200 line-through'
-                      : 'bg-tm-bg text-tm-navy ring-gray-200'
-                  }`}
-                >
-                  {s.text}
-                </span>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* ------------------------------------------------------ reviews --- */}
-        <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
-          <h2 className="pb-3 text-sm font-black text-tm-navy">
-            Reviews {reviews > 0 ? `(${reviews})` : ''}
-          </h2>
-          {tutor.reviews.length === 0 ? (
-            <p className="text-xs text-gray-500">
-              No written reviews yet. Reviews are left by parents after a tuition.
-            </p>
-          ) : (
-            <ul className="space-y-4">
-              {tutor.reviews.map((r) => (
-                <li key={r.id} className="space-y-1 border-b border-gray-100 pb-3 last:border-0">
-                  <p className="text-xs font-black text-tm-navy">
-                    ★ {Number(r.rating).toFixed(1)}{' '}
-                    <span className="font-semibold text-gray-500">· {r.reviewer}</span>
-                  </p>
-                  {r.comment && <p className="text-xs leading-relaxed">{r.comment}</p>}
-                  <p className="text-[10px] text-gray-500">
-                    {formatDate(r.created_at)}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        {/* ------------------------------------- availability and reviews --- */}
+        {/* PR-15: both empty → one short line; otherwise only the card that
+            has something in it. */}
+        {!hasAvailability && !hasReviews ? (
+          <p className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-xs text-gray-500 sm:px-6">
+            No fixed times or reviews yet. Request a demo and agree a time directly.
+          </p>
+        ) : (
+          <>
+            {hasAvailability && (
+            <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
+              <h2 className="pb-3 text-sm font-black text-tm-navy">Availability</h2>
+              {tutor.availabilityText ? (
+                // PR73 §A: the day+slot line, e.g. "Mon, Tue, Wed: Evening · Sat: Morning".
+                <p className="text-xs font-semibold text-tm-navy">{tutor.availabilityText}</p>
+              ) : tutor.slots.length === 0 ? (
+                <p className="text-xs text-gray-500">
+                  No fixed slots published. Request a demo and agree a time directly.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {tutor.slots.map((s) => (
+                    <span
+                      key={s.id}
+                      className={`rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${
+                        s.booked
+                          ? 'bg-gray-100 text-gray-700 ring-gray-200 line-through'
+                          : 'bg-tm-bg text-tm-navy ring-gray-200'
+                      }`}
+                    >
+                      {s.text}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </section>
+            )}
+            {hasReviews && (
+            <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
+              <h2 className="pb-3 text-sm font-black text-tm-navy">
+                Reviews {reviews > 0 ? `(${reviews})` : ''}
+              </h2>
+              {tutor.reviews.length === 0 ? (
+                <p className="text-xs text-gray-500">
+                  No written reviews yet. Reviews are left by parents after a tuition.
+                </p>
+              ) : (
+                <ul className="space-y-4">
+                  {tutor.reviews.map((r) => (
+                    <li key={r.id} className="space-y-1 border-b border-gray-100 pb-3 last:border-0">
+                      <p className="text-xs font-black text-tm-navy">
+                        ★ {Number(r.rating).toFixed(1)}{' '}
+                        <span className="font-semibold text-gray-500">· {r.reviewer}</span>
+                      </p>
+                      {r.comment && <p className="text-xs leading-relaxed">{r.comment}</p>}
+                      <p className="text-[10px] text-gray-500">
+                        {formatDate(r.created_at)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+            )}
+          </>
+        )}
 
         <RelatedTutorLinks
           tutors={similarTutors}
@@ -1100,13 +1124,6 @@ export async function TutorProfileView({ slug, ownerId }: { slug: string; ownerI
         <ProfileReport tutorId={tutor.id} />
       </div>
 
-      {/* Sticky primary actions on mobile, inline from sm. Suppressed while the
-          profile is under review — apply/message/demo are exactly the
-          affordances the amber notice replaces. Also absent for a TUTOR viewing
-          another tutor (owner, 5 Oct 2026): no Message, Demo or Shortlist —
-          the server refuses all three for a tutor account. The own-profile
-          locked bar (isSelf) stays. */}
-      <ProfileActionsIsland tutorId={tutor.id} tutorName={tutor.full_name} underReview={underReview} />
     </main>
     </TutorViewerProvider>
   )

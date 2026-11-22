@@ -520,6 +520,6 @@ export async function applyRunActions(actions: RunAction[], actor: Actor): Promi
     }
   }
   invalidateMemoTag(AREA_ALIAS_TAG)
-  revalidateLanding()
+  revalidateLanding({ areas: true })
   return out
 }

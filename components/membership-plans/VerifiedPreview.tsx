@@ -42,7 +42,7 @@ function Card({ name, city, verified }: { name: string; city: string | null; ver
         verified ? 'border-tm-green-deep/30 bg-tm-tint-green' : 'border-gray-200 bg-tm-bg'
       }`}
     >
-      <p className="pb-2 text-[10px] font-black uppercase tracking-wider text-gray-500">
+      <p className="pb-2 text-[10px] font-black text-gray-500">
         {verified ? 'With Verified' : 'Your card today'}
       </p>
       <div className="flex items-center gap-3">

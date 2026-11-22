@@ -8,7 +8,7 @@ const MessagesDock = dynamic(() => import('@/components/messages/MessagesDock'),
 const ViewAsBanner = dynamic(() => import('@/components/ViewAsBanner'), { ssr: false })
 import VisitBeacon from '@/components/VisitBeacon'
 import { useHeaderSession } from '@/components/session/HeaderSessionProvider'
-import { isMemberRole, MESSAGES_BASE_PATH } from '@/lib/headerSessionCore'
+import { dashboardHrefFor, isMemberRole, MESSAGES_BASE_PATH } from '@/lib/headerSessionCore'
 
 // The parts of the site chrome that depend on who is looking (push 3, owner
 // 1 Nov 2026), decided in the browser so the page around them can be cached.
@@ -37,6 +37,20 @@ export function MemberDock({ supportHref }: { supportHref: string | null }) {
       <div aria-hidden className="hidden h-12 lg:block" />
       <MessagesDock role={role} basePath={MESSAGES_BASE_PATH[role]} initialUnread={state.session.messagesUnread} supportHref={supportHref} />
     </>
+  )
+}
+
+/** The footer's one "Dashboard" link (PR-15): signed-in members only, to their
+ *  own dashboard — decided in the browser so the footer stays cacheable. */
+export function MemberDashboardLink({ label, className }: { label: string; className: string }) {
+  const s = useHeaderSession()
+  if (s.status !== 'signed-in' || !isMemberRole(s.session.role)) return null
+  return (
+    <li>
+      <a href={dashboardHrefFor(s.session.role)} className={className}>
+        {label}
+      </a>
+    </li>
   )
 }
 

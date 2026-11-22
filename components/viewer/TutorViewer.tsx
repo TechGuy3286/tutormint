@@ -10,6 +10,8 @@ import ProfileActions from '@/app/(site)/tutor/[slug]/ProfileActions'
 import ReportButton from '@/components/ReportButton'
 import UpgradeTrigger from '@/components/upgrade/UpgradeTrigger'
 import { waSendHref } from '@/lib/waLinkCore'
+import Link from 'next/link'
+import { authHref } from '@/lib/returnTo'
 import { ownPreviewPath, showProfileActions, type TutorViewer } from '@/lib/tutorViewerCore'
 
 // The signed-in parts of a cached tutor profile (push 3, owner 1 Nov 2026). The
@@ -64,8 +66,11 @@ export function SelfOrOther({ self, other }: { self: string; other: string }) {
 }
 
 /** The Contact box: locked for a guest and for anyone without contact rights. */
-export function TutorContactBox({ tutorName }: { tutorName: string }) {
+export function TutorContactBox({ tutorName, slug }: { tutorName: string; slug?: string }) {
   const v = useViewer()
+  const session = useHeaderSession()
+  // PR-15: a signed-out visitor gets one clear next step — join free, then back here.
+  const signedOut = session.status === 'guest'
   const contact = v?.contactUnlocked ? v.contact : null
   const has = !!(contact?.phone || contact?.whatsapp)
   return (
@@ -108,7 +113,14 @@ export function TutorContactBox({ tutorName }: { tutorName: string }) {
             <Lock size={14} />
             Phone and WhatsApp are hidden
           </p>
-          {showUpgradePrompts() && (
+          {signedOut && slug ? (
+            <Link
+              href={authHref('/register', `/tutor/${slug}`, 'parent')}
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-black text-white hover:bg-tm-red-hover"
+            >
+              Join free to contact
+            </Link>
+          ) : showUpgradePrompts() && (
             <UpgradeTrigger
               reason="parent_contact"
               intent="message"

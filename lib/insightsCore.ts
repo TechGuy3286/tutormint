@@ -26,8 +26,17 @@ export const insightsKey = (day: string) => `${INSIGHTS_KEY_PREFIX}${day}`
 export const INSIGHTS_MAX_DAYS = 92
 /** How far back the cron keeps days built. */
 export const INSIGHTS_KEEP_DAYS = 31
-/** Today's row is rebuilt when older than this. */
-export const INSIGHTS_TODAY_MAX_AGE_MS = 10 * 60 * 1000
+/** Today's row is rebuilt when older than this (PR-15: was 10 minutes). */
+export const INSIGHTS_TODAY_MAX_AGE_MS = 15 * 60 * 1000
+/** The Insights job runs every 15 minutes (PR-15: was every 5-minute run). */
+export const INSIGHTS_RUN_EVERY_MIN = 15
+
+/** Is this 5-minute cron run one of the every-15-minutes Insights runs? The
+ *  first 5-minute slot of each quarter hour (UTC minute 0–4, 15–19, …). */
+export function insightsRunDue(nowMs: number): boolean {
+  const minute = Math.floor(nowMs / 60_000) % 60
+  return minute % INSIGHTS_RUN_EVERY_MIN < 5
+}
 /** A past day is rebuilt (funnels move on) when its row is older than this. */
 export const INSIGHTS_PAST_MAX_AGE_MS = 24 * 60 * 60 * 1000
 
@@ -438,7 +447,7 @@ export function mergePeriod(from: string, to: string, stored: readonly InsightsD
 
 /**
  * Which days the cron should (re)build now, oldest need first, at most `max`.
- * Today when missing or older than 10 minutes; yesterday until it was built
+ * Today when missing or older than 15 minutes; yesterday until it was built
  * after the day ended; missing days in the kept window; then past days whose
  * row is a day old (their funnels keep moving).
  */

@@ -1,3 +1,4 @@
+import { CACHE_PUBLIC_LIST } from '@/lib/publicCacheCore'
 import { NextResponse } from 'next/server'
 import { pageAll } from '@/lib/pageAll'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -41,5 +42,5 @@ export async function GET(request: Request) {
     .map((name) => ({ name, demand: demand.get(norm(name)) ?? 0 }))
     .sort((x, y) => y.demand - x.demand || x.name.localeCompare(y.name))
 
-  return NextResponse.json({ areas, all })
+  return NextResponse.json({ areas, all }, { headers: { 'Cache-Control': CACHE_PUBLIC_LIST } })
 }

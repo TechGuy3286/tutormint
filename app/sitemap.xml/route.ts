@@ -1,3 +1,4 @@
+import { CACHE_SITEMAP } from '@/lib/publicCacheCore'
 import { SITE_URL } from '@/lib/siteUrl'
 import { SITEMAP_FILES, sitemapIndexXml } from '@/lib/sitemapCore'
 
@@ -13,6 +14,6 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   return new Response(sitemapIndexXml(SITE_URL, SITEMAP_FILES.map((file) => ({ file }))), {
-    headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'no-store' },
+    headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': CACHE_SITEMAP },
   })
 }

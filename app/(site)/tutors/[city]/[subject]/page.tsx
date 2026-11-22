@@ -17,8 +17,8 @@ import { pageTitle, pageDescription, socialMeta, seoTitle, seoDescription } from
 //
 // Cached for everyone (push 3, owner 1 Nov 2026): it renders as a guest sees
 // it, is rebuilt when a listing that can change it changes (revalidateLanding)
-// and at most every 10 minutes (rank_tutors rotates daily on purpose).
-export const revalidate = 600
+// and otherwise after the PR-15 time limit (hours) (rank_tutors rotates daily on purpose).
+export const revalidate = 86400
 export async function generateStaticParams() {
   return []
 }

@@ -56,7 +56,8 @@ test('c) the link block: city links once, up to six tutor pages, and four links'
   assert.deepEqual(HOME_MORE_LINKS.map((l) => l.href), ['/browse/tutors', '/register?next=%2Fparent%2Fdashboard%2Fpost-job&role=parent', '/register', '/blog'])
   // Each city link once: the homepage lists them, so the footer leaves its copy out THERE.
   const footer = read('components/Footer.tsx')
-  assert.ok(footer.includes('hideOnHome: true') && footer.includes('<HideOnHome'))
+  // PR-15: the footer's columns are built in lib/footerLinksCore.
+  assert.ok(read('lib/footerLinksCore.ts').includes('hideOnHome: true') && footer.includes('<HideOnHome'))
   assert.ok(read('components/HideOnHome.tsx').includes("if (pathname === '/') return null"))
   assert.equal((home.match(/CityJobsLinks/g) ?? []).length, 0, 'the homepage has one city list, in HomeLinks')
 })

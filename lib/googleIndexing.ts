@@ -7,7 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { citySegment } from '@/lib/slugs'
 import { pageAll } from '@/lib/pageAll'
 import { revalidateTuitions } from '@/lib/landingRevalidate'
-import { revalidatePublicTuition } from '@/lib/publicRevalidate'
+import { revalidatePublicTuition, revalidatePublicUrl } from '@/lib/publicRevalidate'
 import { isPauseDue } from '@/lib/tuitionStatus'
 import { renderPhase } from '@/lib/supabase/fetch'
 import {
@@ -547,6 +547,9 @@ export async function queueGoneTuitionNotices(now = Date.now()): Promise<number>
   }
   const urls = goneNoticesNeeded(tuitions, notices, now)
   if (urls.length) await enqueueIndexing(urls, 'URL_DELETED', PRIORITY_BATCH)
+  // PR-15: a page that just turned noindex (60 days paused, closed, merged)
+  // is rebuilt so its robots tag changes now, not at the hours-long time limit.
+  for (const u of urls) revalidatePublicUrl(u)
   return urls.length
 }
 

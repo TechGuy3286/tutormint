@@ -73,7 +73,7 @@ test('Browse: only the bare page for a signed-out visitor is cached', () => {
   assert.equal(queryTwinPath('/browse/tutors/abc', none, true), null)
   for (const k of ['tutors', 'tuitions']) {
     const page = read(`app/(site)/browse/${k}/page.tsx`)
-    assert.match(page, /export const revalidate = 300/)
+    assert.match(page, /export const revalidate = 3600/) // PR-15: hourly + on change
     assert.match(page, /sp=\{\{\}\} guest/)
     assert.ok(!/searchParams|cookies|headers\(/.test(page), 'the cached page reads no request data')
     const twin = read(`app/(site)/qs/browse/${k}/page.tsx`)

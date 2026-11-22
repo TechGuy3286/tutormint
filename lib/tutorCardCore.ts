@@ -12,7 +12,7 @@
 // PURE — the card renders exactly this and the tests read the same function.
 
 import { dedupeSubjects } from './subjectDisplay'
-import { feeLabelOf } from './fee'
+import { feeFromLabelOf } from './fee'
 import { experienceLabel } from './experienceLabel'
 
 export const CARD_MAX_ROLES = 2
@@ -54,7 +54,8 @@ export function cardSummary(t: CardSummaryInput): CardSummary {
   )
 
   const city = (t.cities && t.cities.length > 0 ? t.cities[0] : t.city)?.trim() || null
-  const fee = feeLabelOf(t)
+  // PR-15: "From Rs X/month" — the lower bound only.
+  const fee = feeFromLabelOf(t)
 
   return {
     roles: uniqueRoles.slice(0, CARD_MAX_ROLES),

@@ -2,7 +2,8 @@ import BadgeBase, { type BadgeSize } from './BadgeBase'
 import { BRAND } from '@/lib/brand'
 
 // Gold crown. Tutor plan featured, parent plan parent_featured.
-// The card also carries FeaturedTag; this is the badge that sits in the row.
+// English label only (PR-15): icon + "Featured", the same size and style as
+// Verified. A tutor card no longer adds the FeaturedTag pill.
 
 export default function FeaturedBadge({
   size = 'sm',
@@ -21,7 +22,6 @@ export default function FeaturedBadge({
       colour={BRAND.gold}
       labelColour={BRAND.goldInk}
       label="Featured"
-      urdu="نمایاں"
       title="Featured member"
     >
       <g stroke="none">

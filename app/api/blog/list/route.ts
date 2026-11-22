@@ -1,3 +1,4 @@
+import { CACHE_PUBLIC_LIST } from '@/lib/publicCacheCore'
 import { NextResponse } from 'next/server'
 import { listPublishedPosts } from '@/lib/blogFeed'
 import { isClusterSlug } from '@/lib/blog'
@@ -14,5 +15,5 @@ export async function GET(request: Request) {
   const cursor = url.searchParams.get('cursor')
 
   const { items, nextCursor } = await listPublishedPosts({ cluster, limit: 9, cursor })
-  return NextResponse.json({ items, cursor: nextCursor })
+  return NextResponse.json({ items, cursor: nextCursor }, { headers: { 'Cache-Control': CACHE_PUBLIC_LIST } })
 }

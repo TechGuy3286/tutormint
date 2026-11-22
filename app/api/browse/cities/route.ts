@@ -1,3 +1,4 @@
+import { CACHE_PUBLIC_LIST } from '@/lib/publicCacheCore'
 import { NextResponse } from 'next/server'
 import { browseCitiesCached } from '@/lib/browseCities'
 
@@ -9,5 +10,5 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   const cities = await browseCitiesCached().catch(() => [] as string[])
-  return NextResponse.json({ cities }, { headers: { 'Cache-Control': 'public, max-age=300, s-maxage=600' } })
+  return NextResponse.json({ cities }, { headers: { 'Cache-Control': CACHE_PUBLIC_LIST } })
 }

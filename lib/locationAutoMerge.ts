@@ -90,6 +90,6 @@ export async function undoAutoMerge(auditId: string, actor: Actor): Promise<{ ok
     detail: { city: rec.city, value: rec.value, before: rec.intoName, after: rec.kind === 'staff_area' ? `Area added by staff (${rec.value}) restored` : 'Free text', kind: rec.kind },
   })
   invalidateMemoTag(AREA_ALIAS_TAG)
-  revalidateLanding()
+  revalidateLanding({ areas: true })
   return { ok: true, line: `“${rec.value}” no longer counts as ${rec.intoName}.` }
 }

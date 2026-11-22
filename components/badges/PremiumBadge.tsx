@@ -1,7 +1,8 @@
 import BadgeBase, { type BadgeSize } from './BadgeBase'
 import { BRAND } from '@/lib/brand'
 
-// Navy lightning bolt. Tutor plans premium and featured.
+// Navy lightning bolt. Tutor plans premium and featured. English label only
+// (PR-15): icon + "Premium", the same size and style as Verified.
 
 export default function PremiumBadge({
   size = 'sm',
@@ -19,7 +20,6 @@ export default function PremiumBadge({
       showUrdu={showUrdu}
       colour={BRAND.navy}
       label="Premium"
-      urdu="پریمیم"
       title="Premium member"
     >
       <path

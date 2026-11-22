@@ -31,9 +31,9 @@ import OpenTuitionsBlock from '@/components/blog/OpenTuitionsBlock'
 // is the signal a crawler actually acts on.
 
 // Cached for everyone (push 3, owner 1 Nov 2026): rebuilt on publish, edit or
-// unpublish (revalidatePath in lib/blogPublish) and at most every 10 minutes,
+// unpublish (revalidatePath in lib/blogPublish) and otherwise after the PR-15 time limit (hours),
 // so its live tuition cards stay current.
-export const revalidate = 600
+export const revalidate = 86400
 export async function generateStaticParams() {
   return []
 }

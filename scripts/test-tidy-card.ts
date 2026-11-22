@@ -56,7 +56,7 @@ test('one info line: city · experience · fee as the tutor set it', () => {
   const s = cardSummary({ ...base, subject_links: [] })
   assert.equal(s.city, 'Faisalabad')
   assert.equal(s.experience, '3–5 years')
-  assert.equal(s.fee, 'Rs 8,000 – 15,000/month')
+  assert.equal(s.fee, 'From Rs 8,000/month')
   assert.equal(cardSummary({ ...base, fee_min_pkr: null, fee_max_pkr: null }).fee, null)
   assert.equal(cardSummary({ ...base, cities: ['Lahore', 'Karachi'] }).city, 'Lahore')
 })
@@ -112,7 +112,8 @@ test('the card has no areas, no big roles pill, and fixed-height rows', () => {
   assert.match(card, /<span className="truncate">\{tutor\.full_name\}<\/span>/)
   assert.match(card, /line-clamp-2 min-h-\[2lh\]/)
   // The profile page keeps the full roles chip.
-  assert.match(read('app/(site)/tutor/[slug]/profile.tsx'), /<JobTypesChip types=\{tutor\.job_types\}/)
+  // PR-15: the profile lists the job titles as chips, first 5 then "+N more".
+  assert.match(read('app/(site)/tutor/[slug]/profile.tsx'), /<ExpandableChips items=\{\(tutor\.job_types/)
 })
 
 test('"Pay later" is absent on /pay/choose; Back stays', () => {

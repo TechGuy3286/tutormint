@@ -2,7 +2,7 @@ import { invalidateMemoTag } from '@/lib/memoCache'
 import 'server-only'
 import { LANDING_TAG } from '@/lib/landing'
 import { TUITION_TAG } from '@/lib/cacheTags'
-import { revalidatePublicTutors } from '@/lib/publicRevalidate'
+import { revalidatePublicAreas, revalidatePublicTutors } from '@/lib/publicRevalidate'
 
 // On-demand revalidation for the landing pages.
 //
@@ -16,7 +16,7 @@ import { revalidatePublicTutors } from '@/lib/publicRevalidate'
 // try/catch because revalidateTag only works inside a request scope: the same
 // mutation helpers also run from scripts and the cron, where there is nothing
 // to revalidate and the call would otherwise throw.
-export function revalidateLanding(opts: { tutors?: boolean } = {}): void {
+export function revalidateLanding(opts: { tutors?: boolean; areas?: boolean } = {}): void {
   try {
     // profile 'max': mark stale with stale-while-revalidate, the form this
     // Next version recommends over the deprecated single-argument call — a
@@ -28,6 +28,9 @@ export function revalidateLanding(opts: { tutors?: boolean } = {}): void {
   // The cached tutor pages too (push 3, owner 1 Nov 2026) — unless only a
   // tuition changed, which no tutor page shows.
   if (opts.tutors !== false) revalidatePublicTutors()
+  // PR-15: a Locations change (area added, alias, keep, merge) rebuilds the
+  // tuition hubs, where the area hubs live; the time limit is hours now.
+  if (opts.areas) revalidatePublicAreas()
 }
 
 /** Clear every cached tuition read (owner, 28 Oct 2026 — lib/cacheTags). Same
