@@ -1,5 +1,6 @@
 'use client'
 
+import RatingStars from '@/components/RatingStars'
 import { applicationStatus } from '@/lib/display'
 
 import { postGated } from '@/lib/gatedFetch'
@@ -153,8 +154,8 @@ export default function ApplicantList({
           <p className="text-[11px] text-gray-500">
             {a.headline ?? 'Tutor'}
             {a.city ? ` · ${a.city}` : ''}
-            {a.ratingCount > 0 ? ` · ★ ${a.ratingAvg.toFixed(1)} (${a.ratingCount})` : ''}
           </p>
+          <RatingStars rating={a.ratingAvg} count={a.ratingCount} size="sm" />
 
           {a.message && (
             <p className="rounded-xl bg-tm-bg p-3 text-xs leading-relaxed">{a.message}</p>

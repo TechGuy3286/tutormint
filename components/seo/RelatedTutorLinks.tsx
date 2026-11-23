@@ -1,6 +1,7 @@
 import Link from 'next/link'
 
 import Avatar from '@/components/Avatar'
+import RatingStars from '@/components/RatingStars'
 import VerifiedBadge from '@/components/badges/VerifiedBadge'
 import type { CrawlTutor } from '@/lib/tutorCrawlCore'
 
@@ -13,6 +14,10 @@ import type { CrawlTutor } from '@/lib/tutorCrawlCore'
 // CNIC and photo approved (lib/seo/indexable) — which is more than the
 // Verified badge asks (lib/badgeRule), so the tick is always true.
 // Renders nothing for an empty list.
+//
+// PR-19: a rated tutor shows the shared gold stars under the name (nothing
+// for an unrated one — a compact link list). A rating change rebuilds the
+// pages that show these links (lib/tutorLinkers markRatingLinkers).
 
 export default function RelatedTutorLinks({ tutors, heading, more }: { tutors: CrawlTutor[]; heading: string; more?: { href: string; label: string } | null }) {
   if (tutors.length === 0) return null
@@ -33,6 +38,7 @@ export default function RelatedTutorLinks({ tutors, heading, more }: { tutors: C
                   <VerifiedBadge size="sm" />
                 </span>
                 <span className="block truncate text-[11px] text-gray-500">{t.city}</span>
+                <RatingStars rating={t.ratingAvg ?? 0} count={t.ratingCount ?? 0} size="xs" hideWhenNone className="max-w-full" />
               </span>
             </Link>
           </li>

@@ -3,6 +3,7 @@
 import { shownEmail } from '@/lib/actorLabelCore'
 import { Ban, Check, Pause, RotateCcw } from 'lucide-react'
 
+import RatingStars from '@/components/RatingStars'
 import AdminAvatar from '@/components/admin/AdminAvatar'
 import { useState } from 'react'
 import Link from 'next/link'
@@ -409,7 +410,12 @@ export default function TutorModerationClient({
               <Info label="Completion" value={`${open.completion}%`} />
               <Info label="Verification" value={open.verificationStatus} />
               <Info label="Video" value={`${open.videoStatus} (${open.videoAttempts}/${MAX_ATTEMPTS})`} />
-              <Info label="Rating" value={`${open.ratingAvg} (${open.ratingCount})`} />
+              <div className="bg-tm-bg border border-gray-100 rounded-xl p-2">
+                <dt className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">Rating</dt>
+                <dd>
+                  <RatingStars rating={open.ratingAvg} count={open.ratingCount} size="sm" />
+                </dd>
+              </div>
               <Info label="City / area" value={`${open.city ?? '—'} / ${open.area ?? '—'}`} />
               <Info label="CNIC no." value={revealedCnic ?? open.cnicNumber ?? '—'} />
             </dl>

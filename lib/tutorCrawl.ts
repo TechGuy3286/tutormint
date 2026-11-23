@@ -21,9 +21,13 @@ async function readCrawlSet(): Promise<CrawlSet> {
   const listed = (await pageAll((from, to) => db.rpc('listed_tutor_slugs').order('slug').range(from, to))) as { slug: string }[]
   const slugs = [...new Set(listed.map((r) => r.slug).filter(Boolean))]
   if (slugs.length === 0) return { tutors: [], cities: [] }
-  const rows = await pageAllIn<{ id: string; slug: string; full_name: string | null; city: string | null; gender: string | null; avatar_url: string | null }, string>(
+  const rows = await pageAllIn<
+    { id: string; slug: string; full_name: string | null; city: string | null; gender: string | null; avatar_url: string | null; rating_avg: number | string | null; rating_count: number | null },
+    string
+  >(
     slugs,
-    (part, from, to) => db.from('tutor_directory').select('id, slug, full_name, city, gender, avatar_url').in('slug', part).order('slug').range(from, to),
+    (part, from, to) =>
+      db.from('tutor_directory').select('id, slug, full_name, city, gender, avatar_url, rating_avg, rating_count').in('slug', part).order('slug').range(from, to),
     100,
     READ_CONCURRENCY,
   )
@@ -59,6 +63,8 @@ async function readCrawlSet(): Promise<CrawlSet> {
         citySlug: citySegment(city),
         gender: crawlGender(r.gender),
         avatarUrl: r.avatar_url ?? null,
+        ratingAvg: r.rating_avg == null ? null : Number(r.rating_avg),
+        ratingCount: r.rating_count ?? 0,
         masters: ms,
         subjects: [...subjects],
         levels: [...levels],
@@ -69,7 +75,7 @@ async function readCrawlSet(): Promise<CrawlSet> {
 }
 
 /** The indexable tutors and their cities (cached 5 minutes; cleared with the landing pages). */
-export const loadCrawlSet = memoize(readCrawlSet, ['tutor-crawl-set-v2'], { revalidate: LANDING_LIVE_REVALIDATE, tags: [LANDING_TAG] })
+export const loadCrawlSet = memoize(readCrawlSet, ['tutor-crawl-set-v3'], { revalidate: LANDING_LIVE_REVALIDATE, tags: [LANDING_TAG] })
 
 /** Read now, no cache — the sitemap (its entries must match the pages' robots tags). */
 export async function loadCrawlSetUncached(): Promise<CrawlSet> {

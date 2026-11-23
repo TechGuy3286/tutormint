@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Icon from '@/components/Icon'
+import RatingStars from '@/components/RatingStars'
 import { jobType } from '@/lib/display'
 import CardActions, { type CardAction } from '@/components/CardActions'
 import { cardSummary } from '@/lib/tutorCardCore'
@@ -124,33 +125,6 @@ const GUEST: CardViewer = {
   role: null,
   verifiedParent: false,
   canInitiateMessage: false,
-}
-
-function Stars({ rating, count }: { rating: number; count: number }) {
-  return (
-    <span className="flex items-center gap-1.5">
-      <span className="flex" aria-hidden="true">
-        {[0, 1, 2, 3, 4].map((i) => (
-          <Icon
-            key={i}
-            name="star"
-            size={14}
-            className={i < Math.round(rating) ? 'fill-tm-gold stroke-tm-gold' : 'fill-gray-200 stroke-gray-200'}
-          />
-        ))}
-      </span>
-      <span className="text-[11px] font-bold text-slate-700">
-        {count > 0 ? (
-          <>
-            {rating.toFixed(1)}
-            <span className="font-normal text-gray-500"> ({count})</span>
-          </>
-        ) : (
-          <span className="font-normal text-gray-500">No reviews yet</span>
-        )}
-      </span>
-    </span>
-  )
 }
 
 /**
@@ -486,7 +460,7 @@ export default function TutorCard({
             </Heading>
             {/* Stars / "No reviews yet" on their own line below the name. */}
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <Stars rating={rating} count={reviews} />
+              <RatingStars rating={rating} count={reviews} size="md" />
             </div>
             {/* Two lines are always reserved, filled or not, so cards align. */}
             <p className="line-clamp-2 min-h-[2lh] text-xs font-semibold leading-snug text-tm-green-deep">

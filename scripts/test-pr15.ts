@@ -114,7 +114,9 @@ test('C3/C4/C5: "No reviews yet", "From Rs X / month", no Back link', () => {
   const prof = read('app/(site)/tutor/[slug]/profile.tsx')
   assert.doesNotMatch(prof, /New tutor/)
   assert.doesNotMatch(read('components/TutorCard.tsx'), />New tutor</)
-  assert.match(prof, /No reviews yet/)
+  // PR-19: "No reviews yet" now comes from the shared RatingStars (lib/ratingStarsCore).
+  assert.match(prof, /<RatingStars rating={rating} count={reviews}/)
+  assert.match(read('lib/ratingStarsCore.ts'), /No reviews yet/)
   assert.equal(feeFromLabel(10000, 100000), 'From Rs 10,000 / month')
   assert.equal(feeFromLabel(null, 8000), 'From Rs 8,000 / month')
   assert.equal(feeFromLabel(null, null), null)

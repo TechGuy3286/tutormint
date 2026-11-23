@@ -9,13 +9,21 @@
  * fails when any two disagree. The stored copies (Insights days in
  * admin_summary) are compared too but only reported: they are caches the cron
  * refreshes (today every 10 minutes) and may lag by design.
+ *
+ * PR-19: the Applications page date chips (lib/counts applicationDateCounts)
+ * are one more source of "Applications"; and the Older rule (tuitions posted
+ * 30+ days ago, Applied 14+ days with no follow-up) is checked across the
+ * Applications page, the Overview to-do / Applications badge loaders.
  * Prints counts only — never a name, phone, email or id.
  *
  *   npm run check:counts
  */
 import { createAdminClient } from '@/lib/supabase/admin'
 import { withRunMemo } from '@/lib/runMemo'
-import { countsFor } from '@/lib/counts'
+import { applicationDateCountsFresh, countsFor } from '@/lib/counts'
+import { loadApplicationBoard, newApplicationsItems, overdueApplicationsItems } from '@/lib/applicationTracking'
+import { withDue } from '@/lib/applicationsPagingCore'
+import { isNewUnseenApplication } from '@/lib/applicationFollowUpCore'
 import { COUNT_DEFS, COUNT_KEYS, COUNT_PERIODS, compareSources, countSpan, spanDays, type CountKey, type CountSource } from '@/lib/countsCore'
 import { loadOverviewList } from '@/lib/overviewItems'
 import { buildInsightsDay, insightMembers, loadInsightsPeriod } from '@/lib/insights'
@@ -35,7 +43,7 @@ async function main() {
 
   let failed = 0
   await withRunMemo(async () => {
-    const [tutorsCard, parentsCard, tuitionsCard, paidCard, funnel7, daily, paidMembers, dirCounts] = await Promise.all([
+    const [tutorsCard, parentsCard, tuitionsCard, paidCard, funnel7, daily, paidMembers, dirCounts, appDates] = await Promise.all([
       loadOverviewList('tutors', { now }),
       loadOverviewList('parents', { now }),
       loadOverviewList('open-tuitions', { now }),
@@ -44,6 +52,7 @@ async function main() {
       loadSignupFunnel(nowMs),
       loadPaidSignupMembers(),
       directoryCounts(),
+      applicationDateCountsFresh(nowMs),
     ])
     const builtDays = new Map<string, InsightsDay>()
     const dayOf = async (d: string) => {
@@ -101,6 +110,7 @@ async function main() {
         const step = (k: string) => fw.steps.find((s) => s.key === k)?.count ?? 0
         sources.push({ screen: 'Daily sign-up funnel', values: { tutor_mobile_verified: step('mobile'), tutor_onboarded: step('onboarded'), paid_fee: step('paid') } })
       }
+      sources.push({ screen: 'Applications date chips', values: { applications: appDates[period.key] } })
       sources.push({ screen: 'Paid sign-ups', values: { paid_fee: paidMembers.rows.filter((r) => { const t = Date.parse(r.at); return t >= span.start && t < span.end }).length } })
 
       const bad = compareSources(sources)
@@ -115,6 +125,28 @@ async function main() {
       const storedDiff = compareSources([{ screen: 'fresh', values: insightValues(fresh) }, { screen: 'stored', values: insightValues(stored) }])
       console.log(`  stored Insights days: ${stored.builtDays}/${stored.totalDays} at the current version · ${storedDiff.length === 0 ? 'same as fresh' : `${storedDiff.length} count(s) still being rebuilt: ${storedDiff.map((d) => `${COUNT_DEFS[d.key].label} stored ${d.values[1]?.value} vs ${d.values[0]?.value}`).join('; ')}`}`)
     }
+
+    // PR-19: the Older rule, one answer on every screen — the Applications page
+    // (its own board load) against the Overview to-do / sidebar badge loaders.
+    const board = await loadApplicationBoard()
+    const rows = withDue(board.rows, nowMs)
+    const pageOverdue = rows.filter((r) => r.section === 'todo' && !!r.due.overdue).length
+    const pageNew = board.rows.filter((r) => isNewUnseenApplication(r, r.followUps, nowMs)).length
+    const pageOlder = rows.filter((r) => r.section === 'older').length
+    const [overdueItems, newItems] = await Promise.all([overdueApplicationsItems(), newApplicationsItems()])
+    // The board under each date chip against the chip's shared number. The
+    // board leaves out withdrawn applications, which the shared count keeps, so
+    // this is reported, never a failure.
+    for (const period of COUNT_PERIODS) {
+      const span = countSpan(period.key, nowMs)
+      const listed = board.rows.filter((r) => { const t = Date.parse(r.createdAt); return t >= span.start && t < span.end }).length
+      console.log(`Applications board ${period.label}: ${listed} listed / ${appDates[period.key]} shared${listed === appDates[period.key] ? '' : ' (withdrawn applications are not on the board)'}`)
+    }
+    const olderBad = (pageOverdue !== overdueItems.length ? 1 : 0) + (pageNew !== newItems.length ? 1 : 0)
+    failed += olderBad
+    console.log(
+      `\nApplications (Older rule)  page overdue To do ${pageOverdue} / Overview to-do ${overdueItems.length} · page new unseen ${pageNew} / badge ${newItems.length} · Older ${pageOlder}  ${olderBad ? 'MISMATCH' : 'MATCH'}`,
+    )
   })
   console.log(failed ? `\nFAIL — ${failed} count(s) disagree between screens.` : '\nPASS — every shared count is the same on every screen.')
   process.exit(failed ? 1 : 0)

@@ -68,7 +68,6 @@ const appsView = applicationsView({
   view: 'tuition',
   q: '',
   shown: 25,
-  olderShown: 25,
   viewedShown: 25,
   forwardCards: [],
   names: new Map([['staff-a', 'Staff A'], ['staff-b', 'Staff B']]),

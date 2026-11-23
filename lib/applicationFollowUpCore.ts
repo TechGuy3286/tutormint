@@ -13,8 +13,10 @@
 //                                 stage change, whichever is later ("Check in").
 //   Hired, Not selected,          due once. After that message is sent the
 //   No response                   application stays in Sent for good ("Done").
-// Tuitions posted more than 30 days ago are the collapsed "Older" section at
-// the bottom of To do: never overdue, never in a badge.
+// "Older" (its own chip, PR-19): tuitions posted more than 30 days ago, and
+// applications still at Applied more than 14 days after they were made with no
+// follow-up (isStaleApplied). Never overdue, never in a badge or the Overview
+// to-do; they keep their data and can still be forwarded.
 //
 // A "tutor update" (By tutor view) is recorded on each application it lists
 // but is NOT a follow-up: it never moves anything to Sent.
@@ -80,9 +82,28 @@ export function lastTutorUpdate(records: FollowUpRecord[]): FollowUpRecord | nul
   return best
 }
 
+/** PR-19 (owner, 23 Nov 2026): an application still at Applied this many days
+ *  after it was made, with no follow-up, leaves To do for Older. */
+export const STALE_APPLIED_DAYS = 14
+
+/** Still at Applied more than STALE_APPLIED_DAYS days after it was made, and no
+ *  follow-up was ever recorded on it (a tutor update is not a follow-up). */
+export function isStaleApplied(item: Pick<BoardItem, 'stage' | 'createdAt'>, records: FollowUpRecord[], nowMs: number): boolean {
+  if (item.stage !== 'applied') return false
+  const at = t(item.createdAt)
+  if (!Number.isFinite(at) || nowMs - at <= STALE_APPLIED_DAYS * DAY_MS) return false
+  return !records.some((r) => r.kind === 'follow_up')
+}
+
+/** Older = the tuition was posted 30+ days ago, or the application is a stale
+ *  Applied one (PR-19). The one rule for the list, the badges and the Overview. */
+export function isOlderApplication(item: BoardItem, records: FollowUpRecord[], nowMs: number): boolean {
+  return isOlderTuition(item.jobCreatedAt, nowMs) || isStaleApplied(item, records, nowMs)
+}
+
 /** To do or Sent, when it is due, and whether it is overdue. */
 export function dueState(item: BoardItem, records: FollowUpRecord[], nowMs: number): DueState {
-  const older = isOlderTuition(item.jobCreatedAt, nowMs)
+  const older = isOlderApplication(item, records, nowMs)
   const last = lastFollowUp(item, records)
   if (item.unavailable) return { tab: 'sent', dueAt: null, overdue: null, last, done: true, older: false, unavailable: true }
   const stageAt = t(item.stageChangedAt ?? item.createdAt) || nowMs
@@ -132,8 +153,8 @@ export function applicationOpened(item: Pick<BoardItem, 'seenAt' | 'workedAt'>, 
  */
 export function isNewUnseenApplication(item: BoardItem, records: FollowUpRecord[], nowMs: number): boolean {
   if (item.stage !== 'applied' || item.unavailable) return false
-  // A tuition posted 30+ days ago is in Older: never in a badge.
-  if (isOlderTuition(item.jobCreatedAt, nowMs)) return false
+  // Older (an old tuition or a stale Applied one, PR-19): never in a badge.
+  if (isOlderApplication(item, records, nowMs)) return false
   const at = Date.parse(item.createdAt)
   if (!Number.isFinite(at) || at > nowMs + 60_000 || nowMs - at > NEW_APPLICATION_DAYS * 86_400_000) return false
   return !applicationOpened(item, records)

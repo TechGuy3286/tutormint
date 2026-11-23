@@ -17,8 +17,18 @@
 // (lib/applicationFollowUpCore), matchesStaff / staffChoices / searchMatches
 // (lib/applicationStageCore). The search covers To do, Sent and Older, with the
 // Staff and stage filters set aside, and each result says which tab it is in.
+//
+// PR-19 (owner, 23 Nov 2026):
+//   * Date chips (Today · Yesterday · Last 7 days · This month · All, ?date=):
+//     the application's applied time in the lib/countsCore windows (Pakistan
+//     time). The chosen window narrows EVERYTHING here — the tab counts, the
+//     stage chips, the Staff dropdown, the search and the groups. Inside a
+//     window the newest applications come first (groups by their newest row).
+//   * Older is a tab of its own ("Older N", ?tab=older) instead of a collapsed
+//     section under To do.
 
 import { pageSlice, type PageSlice } from '@/lib/adminPagingCore'
+import { countSpan, inSpan, type CountPeriod } from '@/lib/countsCore'
 import {
   dueState,
   groupRows,
@@ -42,7 +52,43 @@ import {
 } from '@/lib/applicationStageCore'
 
 export type AppsView = 'tuition' | 'tutor'
-export type AppsTab = 'todo' | 'sent'
+export type AppsTab = 'todo' | 'sent' | 'older'
+
+/** The date chip: one lib/countsCore window, or every application. */
+export type AppsDate = CountPeriod | 'all'
+export const APPS_DATES: { key: AppsDate; label: string }[] = [
+  { key: 'today', label: 'Today' },
+  { key: 'yesterday', label: 'Yesterday' },
+  { key: 'last7', label: 'Last 7 days' },
+  { key: 'month', label: 'This month' },
+  { key: 'all', label: 'All' },
+]
+
+export function parseAppsDate(v: string | null | undefined): AppsDate {
+  return APPS_DATES.some((d) => d.key === v) ? (v as AppsDate) : 'all'
+}
+
+export function parseAppsTab(v: string | null | undefined): AppsTab {
+  return v === 'sent' || v === 'older' ? v : 'todo'
+}
+
+/** Made in the chosen window (Pakistan time, lib/countsCore) — 'all' keeps every row. */
+export function inAppsDate(createdAt: string | null | undefined, date: AppsDate, nowMs: number): boolean {
+  return date === 'all' || inSpan(createdAt, countSpan(date, nowMs))
+}
+
+const at = (v: string | null | undefined) => {
+  const n = v ? Date.parse(v) : NaN
+  return Number.isFinite(n) ? n : 0
+}
+
+/** Inside a date chip: newest application first, groups by their newest row. */
+export function newestFirst<T extends { id: string; createdAt: string }>(groups: Group<T>[]): Group<T>[] {
+  const order = (a: T, b: T) => at(b.createdAt) - at(a.createdAt) || a.id.localeCompare(b.id)
+  return groups
+    .map((g) => ({ ...g, rows: [...g.rows].sort(order) }))
+    .sort((a, b) => at(b.rows[0]?.createdAt) - at(a.rows[0]?.createdAt) || a.key.localeCompare(b.key))
+}
 
 /** The fields this needs from a board row (BoardRow in lib/applicationTracking). */
 export type AppsRowLike = BoardItem & {
@@ -71,10 +117,10 @@ export type AppsViewInput<R extends AppsRowLike, C extends ForwardCardLike> = {
   tab: AppsTab
   view: AppsView
   q: string
+  /** The date chip (?date=); 'all' when absent. */
+  date?: AppsDate
   /** Groups shown (?n=). */
   shown: number
-  /** Older groups shown (?on=). */
-  olderShown: number
   /** "Viewed the number" tuitions shown (?vn=). */
   viewedShown: number
   forwardCards: C[]
@@ -83,9 +129,9 @@ export type AppsViewInput<R extends AppsRowLike, C extends ForwardCardLike> = {
 }
 
 export type AppsViewResult<R extends AppsRowLike, C extends ForwardCardLike> = {
-  /** To do / Sent / Older counts, within the Staff filter. */
+  /** To do / Sent / Older counts, within the date chip and the Staff filter. */
   counts: Record<Section, number>
-  /** Stage chip counts, within the Staff filter and the tab. */
+  /** Stage chip counts, within the date chip, the Staff filter and the tab. */
   stageCounts: Record<string, number>
   choices: StaffChoice[]
   searching: boolean
@@ -93,9 +139,10 @@ export type AppsViewResult<R extends AppsRowLike, C extends ForwardCardLike> = {
   hitCount: number
   /** The groups shown, and how many there are in all. */
   groups: PageSlice<Group<WithDue<R>>>
-  older: PageSlice<Group<WithDue<R>>>
-  /** Applications in the Older section (its heading). */
-  olderRowCount: number
+  /** Every application on the board (the "All" date chip). */
+  boardTotal: number
+  /** Applications on the board in the date chip, every staff member and tab. */
+  dateRowCount: number
   viewedOnly: PageSlice<C>
   /** Every application of each shown group's tuition / tutor (count line, tutor message). */
   related: Record<string, WithDue<R>[]>
@@ -114,8 +161,11 @@ export function withDue<R extends AppsRowLike>(rows: R[], nowMs: number): WithDu
 
 export function applicationsView<R extends AppsRowLike, C extends ForwardCardLike>(input: AppsViewInput<R, C>): AppsViewResult<R, C> {
   const { nowMs, staffFilter, stageFilter, tab, view, q } = input
-  const all = withDue(input.rows, nowMs)
-  const choices = staffChoices(input.rows, input.names, input.actor)
+  const date = input.date ?? 'all'
+  const everyRow = withDue(input.rows, nowMs)
+  // The date chip narrows everything below — counts, chips, Staff, search.
+  const all = date === 'all' ? everyRow : everyRow.filter((r) => inAppsDate(r.createdAt, date, nowMs))
+  const choices = staffChoices(all, input.names, input.actor)
   const byStaff = all.filter((r) => matchesStaff(r, staffFilter))
   const counts = tabCounts(byStaff)
   const filtered = byStaff.filter((r) => stageFilter === 'any' || r.stage === stageFilter)
@@ -126,29 +176,29 @@ export function applicationsView<R extends AppsRowLike, C extends ForwardCardLik
     stageCounts[r.stage]++
   }
 
-  // The search covers EVERY row — To do, Sent and Older, every staff member
-  // and stage — and there is no Older section while searching.
+  // The search covers EVERY row in the date chip — To do, Sent and Older,
+  // every staff member and stage.
   const searching = q.trim().length > 0
   const hits = new Set(searching ? all.filter((r) => searchMatches(r, q)).map((r) => r.id) : [])
   const keyOf = (r: WithDue<R>) => (view === 'tutor' ? r.tutorId : r.jobId)
   const listed = searching ? all.filter((r) => hits.has(r.id)) : filtered.filter((r) => r.section === tab)
-  const groups = pageSlice(groupRows(listed, keyOf, searching ? 'todo' : tab), input.shown)
-  const olderRows = searching ? [] : filtered.filter((r) => r.section === 'older')
-  const older = pageSlice(tab === 'todo' ? groupRows(olderRows, keyOf, 'todo') : [], input.olderShown)
+  const grouped = groupRows(listed, keyOf, searching || tab === 'older' ? 'todo' : tab)
+  const groups = pageSlice(date === 'all' ? grouped : newestFirst(grouped), input.shown)
 
   // Tuitions a paid tutor only VIEWED the number of (no application): they
   // have no row, so the forward panel is reached from this short list.
   const jobsWithRows = new Set(input.rows.map((r) => r.jobId))
+  // Not applications, so not in a date chip or the Older tab.
   const viewedAll =
-    searching || view !== 'tuition'
+    searching || view !== 'tuition' || date !== 'all' || tab === 'older'
       ? []
       : input.forwardCards.filter((c) => !jobsWithRows.has(c.jobId) && (tab === 'todo' ? c.state.tab === 'to_forward' : c.state.tab !== 'to_forward'))
   const viewedOnly = pageSlice(viewedAll, input.viewedShown)
 
-  const shownGroups = [...groups.rows, ...older.rows]
+  const shownGroups = groups.rows
   const shownKeys = new Set(shownGroups.map((g) => g.key))
   const related: Record<string, WithDue<R>[]> = {}
-  for (const r of all) {
+  for (const r of everyRow) {
     const k = keyOf(r)
     if (shownKeys.has(k)) (related[k] ??= []).push(r)
   }
@@ -163,8 +213,8 @@ export function applicationsView<R extends AppsRowLike, C extends ForwardCardLik
     searching,
     hitCount: hits.size,
     groups,
-    older,
-    olderRowCount: olderRows.length,
+    boardTotal: everyRow.length,
+    dateRowCount: all.length,
     viewedOnly,
     related,
     hitIds,

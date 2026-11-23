@@ -3,6 +3,7 @@
 // file: page.tsx and the twin import it.
 
 import Avatar from '@/components/Avatar'
+import RatingStars from '@/components/RatingStars'
 import { citySegment } from '@/lib/slugs'
 import RelatedTutorLinks from '@/components/seo/RelatedTutorLinks'
 import { similarTutorLinks, tutorCityBySlug } from '@/lib/tutorCrawl'
@@ -826,16 +827,7 @@ export async function TutorProfileView({ slug, ownerId }: { slug: string; ownerI
               )}
               {/* Rating on its own line below the name. */}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span className="text-xs font-bold text-slate-700">
-                  {reviews > 0 ? (
-                    <>
-                      ★ {rating.toFixed(1)}{' '}
-                      <a href="#reviews" className="font-normal text-gray-500 hover:underline">({reviews} {reviews === 1 ? 'rating' : 'ratings'})</a>
-                    </>
-                  ) : (
-                    <span className="font-normal text-gray-500">No reviews yet</span>
-                  )}
-                </span>
+                <RatingStars rating={rating} count={reviews} size="lg" countHref={reviews > 0 ? '#reviews' : undefined} />
               </div>
               {/* §3.3: the preview names the badges that will become true once
                   the tutor is listed, rather than showing them as if earned. */}
@@ -1099,8 +1091,8 @@ export async function TutorProfileView({ slug, ownerId }: { slug: string; ownerI
             )}
             {hasReviews && (
             <section id="reviews" className="scroll-mt-24 rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
-              <h2 className="pb-3 text-sm font-black text-tm-navy">
-                Reviews {reviews > 0 ? `· ★ ${rating.toFixed(1)} (${reviews})` : ''}
+              <h2 className="flex flex-wrap items-center gap-x-2 gap-y-1 pb-3 text-sm font-black text-tm-navy">
+                Reviews {reviews > 0 && <RatingStars rating={rating} count={reviews} size="md" />}
               </h2>
               {tutor.reviews.length === 0 ? (
                 <p className="text-xs text-gray-500">
@@ -1110,8 +1102,8 @@ export async function TutorProfileView({ slug, ownerId }: { slug: string; ownerI
                 <ul className="space-y-4">
                   {tutor.reviews.map((r) => (
                     <li key={r.id} className="space-y-1 border-b border-gray-100 pb-3 last:border-0">
-                      <p className="text-xs font-black text-tm-navy">
-                        ★ {Number(r.rating).toFixed(1)}{' '}
+                      <p className="flex flex-wrap items-center gap-x-1.5 text-xs font-black text-tm-navy">
+                        <RatingStars rating={r.rating} size="sm" />
                         <span className="font-semibold text-gray-500">· {r.reviewer}</span>
                       </p>
                       {r.comment && <p className="text-xs leading-relaxed">{r.comment}</p>}

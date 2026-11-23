@@ -48,6 +48,9 @@
   --color-tm-green-deep-hover: #24633f;
   --color-tm-gold: #f59e0b;
   --color-tm-gold-hover: #d98a08;
+  /* PR-19: the rating-star gold (owner, 23 Nov 2026). A FILL only, like tm-gold:
+     the stars are decorative beside the rating number (components/RatingStars). */
+  --color-tm-star: #f5b301;
 
   /* Derived, and required rather than decorative.
 

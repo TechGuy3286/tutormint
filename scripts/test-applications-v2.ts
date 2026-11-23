@@ -238,7 +238,8 @@ test('search finds worked items and Older items by tutor, TM number, title or ci
   // Worked out on the server since 28 Oct 2026 (Load more): lib/applicationsPagingCore.
   const core = code('lib/applicationsPagingCore.ts')
   assert.ok(core.includes('const listed = searching ? all.filter((r) => hits.has(r.id))'))
-  assert.ok(core.includes('const olderRows = searching ? []'))
+  // PR-19: Older is its own tab; while searching the hits are grouped as one list.
+  assert.ok(core.includes("groupRows(listed, keyOf, searching || tab === 'older' ? 'todo' : tab)"))
   assert.match(ui, /hit \? 'bg-tm-tint-gold'/)
 })
 

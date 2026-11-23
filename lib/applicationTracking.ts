@@ -5,9 +5,9 @@
 // tutor's own applications, read by their dashboard).
 //
 // Who counts: every application not withdrawn, from a tutor the People page
-// does not leave out (staff, seed, team, test-named, hidden — an applicant has
-// always paid the fee, so has activity, so "staff-linked without activity"
-// never applies).
+// does not leave out (staff, seed, team, test-named, hidden, and — PR-19 — an
+// erase scheduled; an applicant has always paid the fee, so has activity, so
+// "staff-linked without activity" never applies).
 //
 // Phones: only ever MASKED (0321•••••22) in anything this file returns. The
 // WhatsApp check-in is built by /api/admin/applications/whatsapp, which sends
@@ -95,7 +95,20 @@ async function loadCounted(admin: Admin, jobIds?: string[]) {
     admin.from('profiles').select(FLAG_COLS).in('id', ids).order('id').range(from, to),
   )
   const flagBy = new Map(flags.map((f) => [f.id, f]))
-  const counted = live.filter((a) => !applicantExcluded(flagBy.get(a.tutor_id)))
+  // PR-19 (owner, 23 Nov 2026): a tutor with a SCHEDULED erase is out of the
+  // board, its badges and the Overview to-do — the People rule
+  // (erase_requested) that lib/counts uses, so the date chips and the board
+  // agree. Nothing is changed in the database; a cancelled erase brings the
+  // applications back on the next load. Erased ('done') tutors stay as grey
+  // "Deleted user" rows.
+  const eraseScheduled = new Set(
+    (
+      await pageAllIn<{ id: string; member_id: string }, string>(tutorIds, (ids, from, to) =>
+        admin.from('account_erasures').select('id, member_id').eq('status', 'scheduled').in('member_id', ids).order('id').range(from, to),
+      )
+    ).map((e) => String(e.member_id)),
+  )
+  const counted = live.filter((a) => !applicantExcluded(flagBy.get(a.tutor_id)) && !eraseScheduled.has(a.tutor_id))
   const countedJobs = [...new Set(counted.map((a) => a.job_id))]
   const [owners, posted] = await Promise.all([
     loadOwners(admin, countedJobs),

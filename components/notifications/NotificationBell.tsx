@@ -14,6 +14,8 @@ import { isPlanEnding } from '@/lib/feedGrouping'
 import { getBrowserClient } from '@/lib/supabase/clientLazy'
 import type { NotificationRow } from '@/lib/notificationFeed'
 import { ListRowSkeletons } from '@/components/Skeletons'
+import RatingStars from '@/components/RatingStars'
+import { ratingFromStarBody } from '@/lib/ratingStarsCore'
 
 // The header bell.
 //
@@ -275,6 +277,22 @@ export default function NotificationBell({
   )
 }
 
+/** A notification's body. A stored star line ("★★★★☆ 4 out of 5", demo
+ *  feedback) is drawn with the shared gold stars (PR-19); the stored text is
+ *  never changed. */
+function NotificationBody({ body }: { body: string }) {
+  const star = ratingFromStarBody(body)
+  if (star) {
+    return (
+      <span className="block pt-0.5 text-[11px] leading-relaxed text-gray-500">
+        <RatingStars rating={star.rating} size="sm" />
+        {star.rest ? <span className="block">{star.rest}</span> : null}
+      </span>
+    )
+  }
+  return <span className="block pt-0.5 text-[11px] leading-relaxed text-gray-500">{body}</span>
+}
+
 function NotificationLine({ row, onNavigate }: { row: NotificationRow; onNavigate: () => void }) {
   const cta = <NotificationCta row={row} className="mt-1.5" />
   // The same red treatment the ACTIVITY band gives a plan ending, so a member
@@ -293,7 +311,7 @@ function NotificationLine({ row, onNavigate }: { row: NotificationRow; onNavigat
           {row.title}
         </span>
       </span>
-      {row.body && <span className="block pt-0.5 text-[11px] leading-relaxed text-gray-500">{row.body}</span>}
+      {row.body && <NotificationBody body={row.body} />}
       {row.meta && (row.meta as Record<string, unknown>).online_suitable ? (
         <span className="block pt-1"><OnlineSuitableChip /></span>
       ) : null}

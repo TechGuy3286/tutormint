@@ -289,7 +289,8 @@
     "report:interestinbox": "tsx --conditions=react-server --env-file=.env.local scripts/report-interest-inbox.ts",
     "test:pr16": "tsx --test scripts/test-pr16.ts",
     "test:pr17": "tsx scripts/test-pr17.ts",
-    "test:pr18": "tsx scripts/test-pr18.ts"
+    "test:pr18": "tsx scripts/test-pr18.ts",
+    "test:pr19": "tsx scripts/test-pr19.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

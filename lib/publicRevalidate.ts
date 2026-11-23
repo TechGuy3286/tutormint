@@ -69,6 +69,10 @@ export async function revalidateTutorRating(tutorId: string): Promise<void> {
     const cities = [dir?.city as string | null, ...(((dir?.cities as string[] | null) ?? []))].filter(Boolean).map((c) => citySegment(c as string))
     const subjects = (subs ?? []).map((s) => meta.get(Number(s.master_id))?.slug ?? '').filter(Boolean)
     apply(tutorRatingMarks((tp?.slug as string | null) ?? null, cities, subjects))
+    // PR-19: the pages that LINK to this tutor show their stars too. Imported
+    // here (lib/tutorLinkers imports this file).
+    const { markRatingLinkers } = await import('@/lib/tutorLinkers')
+    await markRatingLinkers(tutorId)
   } catch {
     /* a missed rebuild only means the time limit applies */
   }

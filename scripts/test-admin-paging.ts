@@ -193,14 +193,13 @@ const base = {
   view: 'tuition' as const,
   q: '',
   shown: 25,
-  olderShown: 25,
   viewedShown: 25,
   forwardCards: [] as { jobId: string; state: { tab: string } }[],
   names,
   actor: OWNER,
 }
 
-test('Applications: 25 tuition groups shown, Load more when more exist, Older pages on its own', () => {
+test('Applications: 25 tuition groups shown, Load more when more exist, Older is its own tab (PR-19)', () => {
   const v = applicationsView(base)
   // Applied rows are due (To do); Forwarded rows were moved a day ago (Sent).
   assert.equal(v.counts.todo, 50)
@@ -209,8 +208,9 @@ test('Applications: 25 tuition groups shown, Load more when more exist, Older pa
   assert.equal(v.groups.total, 50)
   assert.equal(v.groups.rows.length, 25)
   assert.equal(v.groups.nextN, 50)
-  assert.equal(v.older.total, 10)
-  assert.equal(v.olderRowCount, 20)
+  const older = applicationsView({ ...base, tab: 'older' })
+  assert.equal(older.groups.total, 10)
+  assert.equal(older.groups.rows.reduce((n, g) => n + g.rows.length, 0), 20)
   const more = applicationsView({ ...base, shown: 50 })
   assert.equal(more.groups.rows.length, 50)
   assert.deepEqual(more.groups.rows.slice(0, 25).map((g) => g.key), v.groups.rows.map((g) => g.key))
@@ -229,7 +229,7 @@ test('Applications: tab and stage chip counts equal what each shows, within the 
   assert.equal(appliedOnly.groups.rows.reduce((n, g) => n + g.rows.length, 0), mine.stageCounts.applied)
   const sent = applicationsView({ ...base, staffFilter: 'aqsa', actor: AQSA, tab: 'sent', shown: 2000 })
   assert.equal(sent.groups.rows.reduce((n, g) => n + g.rows.length, 0), mine.counts.sent)
-  assert.equal(sent.older.total, 0, 'Older sits under To do only')
+  assert.ok(sent.groups.rows.every((g) => g.rows.every((r) => r.section === 'sent')), 'Older rows are not in Sent')
   // The Staff dropdown counts the whole board.
   assert.equal(mine.choices[0].count, apps.length)
 })
@@ -240,7 +240,7 @@ test('Applications: the search finds rows beyond the first 25, across tabs, Olde
   assert.equal(v.hitCount, 2)
   assert.deepEqual(v.groups.rows.map((g) => g.key), ['j44'])
   assert.equal(v.hitIds.length, 2)
-  assert.equal(v.older.total, 0, 'no Older section while searching')
+  assert.ok(v.groups.rows.every((g) => g.rows.every((r) => r.section !== 'older')))
   const old = applicationsView({ ...base, q: 'TM-1055' })
   assert.deepEqual(old.groups.rows.map((g) => g.key), ['j55'], 'an Older tuition is found too')
   assert.ok(old.groups.rows[0].rows.every((r) => r.section === 'older'))
@@ -272,9 +272,9 @@ test('Applications: only the shown tuitions\' forward cards and the viewed-only 
 test('Applications: the page works it out on the server; the client draws what it is given', () => {
   const page = read('app/admin/applications/page.tsx')
   assert.ok(page.includes('applicationsView({'))
-  assert.ok(page.includes('shown: shownCount(sp.n)') && page.includes('olderShown: shownCount(sp.on)'))
+  assert.ok(page.includes('shown: shownCount(sp.n)') && page.includes('date,'))
   const ui = read('app/admin/applications/ApplicationsClient.tsx')
   assert.doesNotMatch(ui, /searchMatches\(|tabCounts\(|groupRows\(|staffChoices\(/)
-  assert.ok(ui.includes('<LoadMoreLink shown={older.shown} total={older.total}') && ui.includes('param="on"'))
+  assert.ok(ui.includes("(['todo', 'sent', 'older'] as const)"), 'Older is a tab chip')
   assert.ok(ui.includes('<QueueSearch'))
 })

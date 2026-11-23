@@ -10,7 +10,8 @@ import { useRouter } from 'next/navigation'
 import { formatDateTime } from '@/lib/datetime'
 import { demoMode, demoStatus } from '@/lib/display'
 import { useToast } from '@/components/ui/Toast'
-import { demoIsClosed, youRatedLine } from '@/lib/demoFeedbackCore'
+import { demoIsClosed } from '@/lib/demoFeedbackCore'
+import RatingStars from '@/components/RatingStars'
 
 // Demo requests, from either side.
 //
@@ -324,8 +325,8 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                   ) : d.feedback ? (
                     <div className="space-y-1 rounded-xl bg-white p-3" data-feedback-left="">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-black text-tm-navy" aria-label={`You rated ${d.feedback.rating} out of 5`}>
-                          {youRatedLine(d.feedback.rating)}
+                        <p className="text-xs">
+                          <RatingStars rating={d.feedback.rating} prefix="You rated" size="md" />
                         </p>
                         <button
                           type="button"

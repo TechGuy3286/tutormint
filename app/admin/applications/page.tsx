@@ -6,8 +6,10 @@ import { loadApplicationBoard } from '@/lib/applicationTracking'
 import { loadForwardBoard } from '@/lib/applicantForwards'
 import { legacyApplicationsHref, parseStaffFilter, parseStageFilter } from '@/lib/applicationStageCore'
 import { seesAllRows } from '@/lib/staffAllRows'
-import { ADMIN_PAGE_SIZE, shownCount } from '@/lib/adminPagingCore'
-import { applicationsView } from '@/lib/applicationsPagingCore'
+import { shownCount } from '@/lib/adminPagingCore'
+import { applicationsView, parseAppsDate, parseAppsTab } from '@/lib/applicationsPagingCore'
+import { applicationDateCounts } from '@/lib/counts'
+import HowThisWorks from '@/components/admin/HowThisWorks'
 
 import ApplicationsClient from './ApplicationsClient'
 import { loadAppTemplates, loadSupportWhatsApp } from '@/lib/applicationTemplates'
@@ -27,12 +29,17 @@ import { loadAppTemplates, loadSupportWhatsApp } from '@/lib/applicationTemplate
 //   - Load more (owner, 28 Oct 2026): the tabs, the Staff filter, the stage
 //     chips, the view, the search and every count are worked out HERE over the
 //     whole board (lib/applicationsPagingCore). The browser gets 25 groups at a
-//     time (?n=), the Older section its own 25 (?on=) and the "viewed the
-//     number" list its own 25 (?vn=).
+//     time (?n=) and the "viewed the number" list its own 25 (?vn=).
+//   - PR-19 (owner, 23 Nov 2026): date chips (?date=today|yesterday|last7|month,
+//     default All) narrow every count and list; their numbers are the shared
+//     "Applications" count (lib/counts — the Overview's and Insights' number).
+//     Older is its own tab (?tab=older): tuitions posted 30+ days ago and
+//     applications still at Applied 14+ days after they were made with no
+//     follow-up. The explanation sits behind "How this works".
 
 export const dynamic = 'force-dynamic'
 
-type SP = { staff?: string; show?: string; tab?: string; view?: string; fwd?: string; q?: string; preview?: string; n?: string; on?: string; vn?: string }
+type SP = { staff?: string; show?: string; tab?: string; view?: string; fwd?: string; q?: string; preview?: string; n?: string; vn?: string; date?: string }
 
 export default async function ApplicationsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams
@@ -40,18 +47,20 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
   if (sp.view === 'forward' || sp.fwd) permanentRedirect(legacyApplicationsHref(sp))
   const actor = await requireAdminRole(...SCREEN_ACCESS.applicantForwards)
   const now = Date.now()
-  const [board, forward, templates, supportDisplay] = await Promise.all([
+  const [board, forward, templates, supportDisplay, dateCounts] = await Promise.all([
     loadApplicationBoard(),
     loadForwardBoard(),
     loadAppTemplates(),
     loadSupportWhatsApp(),
+    applicationDateCounts(now).catch(() => null),
   ])
   // PR-12: an account with the "every row" grant opens on All, like the Owner.
   const staffFilter = parseStaffFilter(sp.staff, actor, await seesAllRows(actor, SCREEN_ACCESS.applicationsAll))
   // PR-04: tutor pictures (the default + No photo tag when none).
   const avatars = await loadAvatarFacts(board.rows.map((r) => r.tutorId))
   const stageFilter = parseStageFilter(sp.show)
-  const tab = sp.tab === 'sent' ? 'sent' : 'todo'
+  const tab = parseAppsTab(sp.tab)
+  const date = parseAppsDate(sp.date)
   const view = sp.view === 'tutor' ? 'tutor' : 'tuition'
   const q = sp.q ?? ''
   const v = applicationsView({
@@ -62,8 +71,8 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
     tab,
     view,
     q,
+    date,
     shown: shownCount(sp.n),
-    olderShown: shownCount(sp.on),
     viewedShown: shownCount(sp.vn),
     forwardCards: forward.cards,
     names: new Map(Object.entries(board.ownerNames)),
@@ -73,13 +82,14 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
     <div className="space-y-3">
       <header className="space-y-1">
         <h2 className="text-lg font-black text-tm-navy">Applications</h2>
-        <p className="text-xs text-gray-500">
+        <HowThisWorks>
           <b>To do</b>: the next follow-up is due. <b>Sent</b>: followed up and not due again yet — it comes back to To do on its due date.
           Applied is due now (“Forward overdue” after 1 day) — sending its WhatsApp to the parent shares the tutor’s profile, so it moves to Forwarded; Forwarded, Contacted and Demo/interview are due 3 days after the last
           follow-up or stage change (“Check in”); Hired, Not selected and No response need one message. The WhatsApp button writes to the
           parent or the tutor, depending on the stage. Tuitions posted more than 30 days ago are under “Older”. Staff and test accounts are
-          left out. The wording of every message is in Team inbox → Templates → Applications.
-        </p>
+          left out. The wording of every message is in Team inbox → Templates → Applications. Applications still at Applied 14 days after they
+          were made, with no follow-up, are under “Older” too.
+        </HowThisWorks>
       </header>
       <ApplicationsClient
         view={v}
@@ -88,10 +98,11 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
         staffFilter={staffFilter}
         stageFilter={stageFilter}
         tab={tab}
+        date={date}
+        dateCounts={dateCounts}
         listView={view}
         initialQuery={q}
         nowMs={now}
-        olderPaged={shownCount(sp.on) > ADMIN_PAGE_SIZE}
         forwardTemplate={forward.template}
         canOpenMembers={roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutors)}
         initialPreview={sp.preview ?? null}

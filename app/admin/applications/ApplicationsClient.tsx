@@ -7,13 +7,14 @@ import { DELETED_ROW_CLASS } from '@/lib/deletedUserCore'
 import Link from 'next/link'
 import { NO_LONGER_AVAILABLE } from '@/lib/hiddenTuitionCore'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, Eye, Loader2, MessageCircle, Send, Sparkles } from 'lucide-react'
+import { Eye, Loader2, MessageCircle, Send, Sparkles } from 'lucide-react'
 
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import QueueSearch from '@/components/admin/QueueSearch'
 import LoadMoreLink from '@/components/admin/LoadMoreLink'
-import type { AppsViewResult } from '@/lib/applicationsPagingCore'
+import { APPS_DATES, type AppsDate, type AppsTab, type AppsViewResult } from '@/lib/applicationsPagingCore'
+import type { CountPeriod } from '@/lib/countsCore'
 import { formatDate } from '@/lib/datetime'
 import type { BoardRow, StaffOption } from '@/lib/applicationTracking'
 import type { ForwardCard } from '@/lib/applicantForwards'
@@ -71,12 +72,15 @@ type Row = BoardRow & { due: DueState; section: Section }
 type View = 'tuition' | 'tutor'
 type OtherOpen = { id: string; tutorName: string; stage: Stage }
 
-/** A filter link: the page shows its first 25 groups again (no ?n=); the search is kept. */
-function hrefWith(p: { staff: StaffFilter; stage: Stage | 'any'; tab: 'todo' | 'sent'; view: View; q?: string }): string {
+/** A filter link: the page shows its first 25 groups again (no ?n=); the
+ *  search and the date chip are kept (PR-19: ?date= in the address, so Back
+ *  returns to the same chip). */
+function hrefWith(p: { staff: StaffFilter; stage: Stage | 'any'; tab: AppsTab; view: View; date: AppsDate; q?: string }): string {
   const q = new URLSearchParams()
   q.set('staff', p.staff)
   if (p.stage !== 'any') q.set('show', p.stage)
-  if (p.tab === 'sent') q.set('tab', 'sent')
+  if (p.tab !== 'todo') q.set('tab', p.tab)
+  if (p.date !== 'all') q.set('date', p.date)
   if (p.view === 'tutor') q.set('view', 'tutor')
   if (p.q?.trim()) q.set('q', p.q.trim())
   return `${APPLICATIONS_PATH}?${q.toString()}`
@@ -100,10 +104,11 @@ export default function ApplicationsClient({
   staffFilter,
   stageFilter,
   tab,
+  date = 'all',
+  dateCounts = null,
   listView: view,
   initialQuery,
   nowMs,
-  olderPaged = false,
   forwardTemplate,
   canOpenMembers,
   initialPreview = null,
@@ -117,13 +122,15 @@ export default function ApplicationsClient({
   actor: { id: string; adminRole: string }
   staffFilter: StaffFilter
   stageFilter: Stage | 'any'
-  tab: 'todo' | 'sent'
+  tab: AppsTab
+  /** The date chip (?date=), PR-19. */
+  date?: AppsDate
+  /** The shared "Applications" count per window (lib/counts); null when it did not load. */
+  dateCounts?: Record<CountPeriod, number> | null
   listView: View
   initialQuery: string
   /** The server's clock, so "3 days" reads the same on both renders. */
   nowMs: number
-  /** More than the first Older page is shown (?on=): open the section. */
-  olderPaged?: boolean
   forwardTemplate: string
   canOpenMembers: boolean
   /** ?preview=<tutor id> opens that tutor's message preview (By tutor). */
@@ -142,7 +149,6 @@ export default function ApplicationsClient({
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [bulkOwner, setBulkOwner] = useState('')
   const [hire, setHire] = useState<{ row: Row; others: OtherOpen[]; close: Set<string> } | null>(null)
-  const [olderOpen, setOlderOpen] = useState(olderPaged)
   const [panel, setPanel] = useState<{ jobId: string; title: string } | null>(null)
   const [preview, setPreview] = useState<string | null>(initialPreview)
   // Opened in this visit (owner, 10 Nov 2026): dimmed at once, recorded on the
@@ -166,12 +172,18 @@ export default function ApplicationsClient({
 
   // Counts, chips, search and groups come from the server, over the whole
   // board; only the shown groups are here.
-  const { counts, stageCounts, choices, searching, groups, older, viewedOnly } = v
+  const { counts, stageCounts, choices, searching, groups, viewedOnly } = v
   const hits = useMemo(() => new Set(v.hitIds), [v.hitIds])
   const allByJob = useMemo(() => new Map(Object.entries(v.related)), [v.related])
   const allByTutor = allByJob
   const cardBy = useMemo(() => new Map(v.cards.map((c) => [c.jobId, c])), [v.cards])
-  const keep = { staff: staffFilter, show: stageFilter === 'any' ? undefined : stageFilter, tab: tab === 'sent' ? 'sent' : undefined, view: view === 'tutor' ? 'tutor' : undefined }
+  const keep = {
+    staff: staffFilter,
+    show: stageFilter === 'any' ? undefined : stageFilter,
+    tab: tab === 'todo' ? undefined : tab,
+    view: view === 'tutor' ? 'tutor' : undefined,
+    date: date === 'all' ? undefined : date,
+  }
 
   // --------------------------------------------------------------- actions --
 
@@ -513,7 +525,11 @@ export default function ApplicationsClient({
     `inline-flex min-h-[36px] items-center gap-1 rounded-full border px-3 text-[11px] font-bold ${
       on ? 'border-tm-navy bg-tm-navy text-white' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'
     }`
-  const here = { staff: staffFilter, stage: stageFilter, tab, view, q: initialQuery }
+  const here = { staff: staffFilter, stage: stageFilter, tab, view, date, q: initialQuery }
+  const dateLabel = APPS_DATES.find((d) => d.key === date)?.label ?? 'All'
+  /** The date chip's number: the shared count (lib/counts) for a window; the whole board for All. */
+  const dateCount = (d: AppsDate): number | null => (d === 'all' ? v.boardTotal : (dateCounts?.[d] ?? null))
+  const plural = (n: number) => `${n.toLocaleString('en-US')} ${n === 1 ? 'application' : 'applications'}`
 
   return (
     <div className="space-y-2">
@@ -531,7 +547,7 @@ export default function ApplicationsClient({
           ))}
         </nav>
         <nav aria-label="Tabs" className="flex gap-1">
-          {(['todo', 'sent'] as const).map((t) => (
+          {(['todo', 'sent', 'older'] as const).map((t) => (
             <Link
               key={t}
               href={hrefWith({ ...here, tab: t })}
@@ -555,7 +571,7 @@ export default function ApplicationsClient({
           >
             {choices.map((c) => (
               <option key={c.key} value={c.key}>
-                {c.label} ({c.count})
+                {c.label} · {plural(c.count)}
               </option>
             ))}
           </select>
@@ -573,6 +589,17 @@ export default function ApplicationsClient({
         </div>
       </div>
 
+      <nav aria-label="Filter by date applied" className="flex flex-wrap gap-1.5" data-date-chips="">
+        {APPS_DATES.map((d) => {
+          const n = dateCount(d.key)
+          return (
+            <Link key={d.key} href={hrefWith({ ...here, date: d.key })} aria-current={d.key === date ? 'page' : undefined} className={pill(d.key === date)}>
+              {d.label} {n !== null && <span className={d.key === date ? 'text-white' : 'text-gray-500'}>{n.toLocaleString('en-US')}</span>}
+            </Link>
+          )
+        })}
+      </nav>
+
       <nav aria-label="Filter by stage" className="flex flex-wrap gap-1.5">
         {(['any', ...STAGES] as const).map((s) => (
           <Link key={s} href={hrefWith({ ...here, stage: s })} aria-current={s === stageFilter ? 'page' : undefined} className={pill(s === stageFilter)}>
@@ -583,8 +610,8 @@ export default function ApplicationsClient({
 
       {searching && (
         <p className="text-[11px] font-bold text-slate-700">
-          {v.hitCount} {v.hitCount === 1 ? 'application' : 'applications'} found across To do, Sent and Older (every staff member and stage). Each says which tab
-          it is in.
+          {v.hitCount} {v.hitCount === 1 ? 'application' : 'applications'} found across To do, Sent and Older (every staff member and stage
+          {date === 'all' ? '' : `, ${dateLabel}`}). Each says which tab it is in.
         </p>
       )}
 
@@ -618,7 +645,15 @@ export default function ApplicationsClient({
 
       {groups.total === 0 ? (
         <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-600">
-          {searching ? 'Nothing matches that search.' : tab === 'todo' ? 'Nothing is due right now.' : 'Nothing sent yet.'}
+          {searching
+            ? 'Nothing matches that search.'
+            : date !== 'all'
+              ? `Nothing here for ${dateLabel}. Try All or another date.`
+              : tab === 'todo'
+                ? 'Nothing is due right now.'
+                : tab === 'older'
+                  ? 'Nothing is Older. Applications land here 14 days after they were made with no follow-up.'
+                  : 'Nothing sent yet.'}
         </p>
       ) : (
         <>
@@ -651,26 +686,8 @@ export default function ApplicationsClient({
         </section>
       )}
 
-      {tab === 'todo' && older.total > 0 && (
-        <section className="space-y-1">
-          <button
-            type="button"
-            aria-expanded={olderOpen}
-            onClick={() => setOlderOpen((v) => !v)}
-            className="flex min-h-[40px] w-full items-center justify-between rounded-xl border border-gray-200 bg-tm-bg px-3 text-xs font-black text-slate-700"
-          >
-            <span>
-              Older ({v.olderRowCount}) <span className="font-semibold text-gray-600">— tuitions posted more than 30 days ago; never overdue</span>
-            </span>
-            <ChevronDown aria-hidden size={14} className={olderOpen ? 'rotate-180' : ''} />
-          </button>
-          {olderOpen && (
-            <>
-              <ul className="space-y-1">{older.rows.map(renderGroup)}</ul>
-              <LoadMoreLink shown={older.shown} total={older.total} noun={view === 'tutor' ? 'older tutors' : 'older tuitions'} param="on" />
-            </>
-          )}
-        </section>
+      {tab === 'older' && !searching && (
+        <p className="text-[11px] text-gray-600">Older: tuitions posted more than 30 days ago, and applications still at Applied 14 days after they were made with no follow-up. Never overdue; they can still be forwarded.</p>
       )}
 
       {panel && (

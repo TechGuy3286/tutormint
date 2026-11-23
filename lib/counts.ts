@@ -12,9 +12,14 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { pageAll } from '@/lib/pageAll'
 import { runMemo } from '@/lib/runMemo'
 import { loadDirectory } from '@/lib/peopleDirectory'
+import { memoize } from '@/lib/memoCache'
 import {
+  COUNT_PERIODS,
   countAll,
   countRows,
+  countSpan,
+  countWindows,
+  type CountPeriod,
   firstFeePayments,
   type CountFacts,
   type CountKey,
@@ -98,4 +103,25 @@ export async function countsFor(span: Span): Promise<Record<CountKey, number>> {
 /** The rows behind one count (Overview card trends, Insights drill-down). */
 export async function rowsFor(key: CountKey, span: Span): Promise<CountRow[]> {
   return countRows(key, await loadCountFacts(span.start), span)
+}
+
+/** The Applications page date chips (PR-19): the shared "Applications" count
+ *  for Today, Yesterday, Last 7 days and This month — the same rule and windows
+ *  as the Overview and Insights (lib/countsCore countRows 'applications'). */
+export async function applicationDateCountsFresh(nowMs: number): Promise<Record<CountPeriod, number>> {
+  const w = countWindows(nowMs)
+  const facts = await loadCountFacts(Math.min(w.last7.start, w.month.start))
+  return Object.fromEntries(COUNT_PERIODS.map((p) => [p.key, countRows('applications', facts, countSpan(p.key, nowMs)).length])) as Record<CountPeriod, number>
+}
+
+/** The same, held in memory for a minute (the page is opened often; the facts
+ *  load reads the whole People directory). A new Pakistan day is a new key. */
+const applicationDateCountsMemo = memoize(
+  (_pkDay: string) => applicationDateCountsFresh(Date.now()),
+  ['application-date-counts-v1'],
+  { revalidate: 60 },
+)
+
+export function applicationDateCounts(nowMs = Date.now()): Promise<Record<CountPeriod, number>> {
+  return applicationDateCountsMemo(new Date(nowMs + 5 * 3600_000).toISOString().slice(0, 10))
 }

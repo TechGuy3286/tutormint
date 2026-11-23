@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import RatingStars from '@/components/RatingStars'
 import { Suspense } from 'react'
 import { avatarOriginalUrl } from '@/lib/avatarCrop'
 import NameChangeCheck from '@/components/admin/NameChangeCheck'
@@ -555,10 +556,11 @@ export default async function AdminMemberPage({
                 as "paid or not" (PR99 §3). */}
             <Fact label="Verification Fee" value={tutor.verified_fee_paid_at ? 'Paid' : 'Not paid'} />
             <Fact label="Video" value={videoFact(tutor.video_status as string | null, tutor.video_visibility as string | null)} />
-            <Fact
-              label="Rating"
-              value={`${Number(tutor.rating_avg ?? 0).toFixed(2)} (${tutor.rating_count ?? 0})`}
-            />
+            {/* PR-19: the shared gold stars (components/RatingStars). */}
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Rating</p>
+              <RatingStars rating={tutor.rating_avg as number | null} count={Number(tutor.rating_count ?? 0)} size="md" />
+            </div>
           </>
         )}
       </section>

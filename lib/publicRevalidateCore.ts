@@ -67,10 +67,12 @@ export function tutorProfileMarks(slug: string | null | undefined): Mark[] {
 }
 
 /** A tutor's rating changed (a demo's stars, an approved review or comment —
- *  PR-17 Part B): exactly the cached pages that SHOW that rating — their own
- *  profile, Browse tutors, and the city × subject tutor pages they appear on
- *  (each of their cities × each of their subjects). Not the crawl lists or
- *  Similar-tutor blocks — those show no rating. Sorted, no duplicates. */
+ *  PR-17 Part B): the cached pages that SHOW that rating — their own profile,
+ *  Browse tutors, and the city × subject tutor pages they appear on (each of
+ *  their cities × each of their subjects). PR-19: the Similar-tutor and
+ *  matching-tutor links and the city tutor pages show the stars too; those are
+ *  marked by lib/tutorLinkers markRatingLinkers (the same rules as a tutor
+ *  leaving the set). Sorted, no duplicates. */
 export function tutorRatingMarks(
   slug: string | null | undefined,
   citySlugs: readonly string[],

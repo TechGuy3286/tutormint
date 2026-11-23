@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Star } from 'lucide-react'
+import RatingStars from '@/components/RatingStars'
 
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadReviewQueue } from '@/lib/reviews'
@@ -70,12 +70,7 @@ export default async function AdminReviewsPage({ searchParams }: { searchParams:
                     <span className="font-bold text-tm-navy">{r.tutorName}</span>
                   )}
                 </p>
-                <span className="inline-flex items-center gap-1 text-xs font-black text-tm-gold-ink" aria-label={`${r.rating} out of 5`}>
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <Star key={n} aria-hidden size={14} className={n <= r.rating ? 'fill-tm-gold stroke-tm-gold' : 'fill-gray-200 stroke-gray-200'} />
-                  ))}
-                  <span className="ml-1">{r.rating}/5</span>
-                </span>
+                <RatingStars rating={r.rating} size="md" />
               </div>
               <p className="whitespace-pre-line rounded-xl bg-tm-bg p-3 text-xs text-slate-700">{r.comment}</p>
               <p className="text-[11px] text-gray-500">

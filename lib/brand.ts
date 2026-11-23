@@ -39,6 +39,8 @@ export const BRAND = {
   gold: '#F59E0B',
   goldHover: '#D98A08',
   goldInk: '#92400E',
+  /** Rating stars (PR-19) — fill only. */
+  star: '#F5B301',
   tintRed: '#FBEAEA',
   tintNavy: '#E8EAF5',
   tintGreen: '#EEFBEE',
@@ -61,6 +63,7 @@ export const BRAND_TOKENS: Record<keyof typeof BRAND, string> = {
   gold: '--color-tm-gold',
   goldHover: '--color-tm-gold-hover',
   goldInk: '--color-tm-gold-ink',
+  star: '--color-tm-star',
   tintRed: '--color-tm-tint-red',
   tintNavy: '--color-tm-tint-navy',
   tintGreen: '--color-tm-tint-green',

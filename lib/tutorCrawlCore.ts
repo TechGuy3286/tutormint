@@ -33,6 +33,9 @@ export type CrawlTutor = {
   gender: CrawlGender
   /** The public photo (tutor_directory gates a hidden one to null), PR-15. */
   avatarUrl?: string | null
+  /** The rating shown beside the name (PR-19, components/RatingStars). */
+  ratingAvg?: number | null
+  ratingCount?: number | null
   /** taxonomy_master ids (subject × level). */
   masters: number[]
   /** Subject names, lower case ("mathematics"). */

@@ -228,6 +228,13 @@ const PAIRS: Pair[] = [
   { fg: 'navy', bg: 'gray100', where: 'Deleted user rows: amounts and labels (PR-11)' },
   { fg: 'slate700', bg: 'gray100', where: 'Deleted user rows: cells and Open record (PR-11)' },
   { fg: 'slate700', bg: 'gray100', where: 'tutor dashboard "Not verified yet" chip; parent My demos declined/cancelled rows (PR-17)' },
+  // PR-19: components/RatingStars — the number (slate-700) and "(N ratings)" /
+  // "No reviews yet" (gray-500) on every surface it sits on. The gold stars are
+  // aria-hidden fills beside the number; the label carries the rating.
+  { fg: 'slate700', bg: 'white', where: 'RatingStars number on cards, profiles, admin' },
+  { fg: 'slate700', bg: 'bg', where: 'RatingStars number on the page ground (Similar tutors links)' },
+  { fg: 'gray500', bg: 'white', where: 'RatingStars count and "No reviews yet"' },
+  { fg: 'gray500', bg: 'bg', where: 'RatingStars count on the page ground' },
 
   // Admin, explicitly. These combinations are already checked above through
   // the public surfaces that share them; they are named again so the gate
@@ -533,7 +540,9 @@ console.log('\n3. fill-only colours used as foregrounds')
 // are aria-hidden beside the numeric rating in slate-700, and ReviewForm's are
 // role="radio" with aria-checked. A gold glyph standing in for text is the case
 // that actually fails a reader.
-const GOLD_FG = /\b(?:[a-z-]+:)*(?:text|placeholder|caret|decoration)-tm-gold\b(?!-ink)/
+// PR-19: the rating-star gold (tm-star, 1.9:1 on white) is a fill too — the
+// shared components/RatingStars draws it aria-hidden beside the number.
+const GOLD_FG = /\b(?:[a-z-]+:)*(?:text|placeholder|caret|decoration)-tm-(?:gold\b(?!-ink)|star\b)/
 const MINT_BG_WITH_TEXT = /className=(?:"|'|\{`)([^"'`]*\bbg-tm-mint\b[^"'`]*)(?:"|'|`\})/g
 const GOLD_BG_WITH_LIGHT_TEXT =
   /\bbg-tm-gold\b(?!-)((?:(?!["'`]).)*?)\b(text-white|text-tm-bg)\b|\b(text-white|text-tm-bg)\b((?:(?!["'`]).)*?)\bbg-tm-gold\b(?!-)/g

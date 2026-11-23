@@ -75,6 +75,41 @@ async function openTuitionsIn(cities: Set<string>): Promise<LinkerTuition[]> {
   })
 }
 
+/**
+ * PR-19: a tutor's rating changed. The pages that link to them (other
+ * profiles' Similar tutors, open tuitions' matching tutors, their city tutor
+ * pages) show their gold stars, so exactly those pages are rebuilt — decided by
+ * the same rule as a tutor leaving the set (linkerMarks over today's set) — and
+ * again after LINKER_REDO_MS (the crawl set is held 5 minutes per server), via
+ * the snapshot's pending marks that syncListedTutors applies. Never throws.
+ */
+export async function markRatingLinkers(tutorId: string): Promise<number> {
+  try {
+    const admin = createAdminClient()
+    if (!admin) return 0
+    const set = await loadCrawlSetUncached()
+    const self = set.tutors.find((t) => t.id === tutorId)
+    if (!self) return 0
+    const tuitions = await openTuitionsIn(new Set([self.citySlug]))
+    const marks = linkerMarks(set.tutors, [self], tuitions)
+    try {
+      invalidateMemoTag(LANDING_TAG)
+    } catch {
+      /* no request scope */
+    }
+    applyMarks(marks)
+    const { data } = await admin.from('admin_summary').select('payload').eq('key', LISTED_SNAPSHOT_KEY).maybeSingle()
+    const snap = (data?.payload as Snapshot | null) ?? null
+    if (snap && Array.isArray(snap.tutors) && Array.isArray(snap.slugs)) {
+      const pending = withPending(snap.pending ?? null, marks, Date.now())
+      await admin.from('admin_summary').upsert({ key: LISTED_SNAPSHOT_KEY, payload: { ...snap, pending }, computed_at: new Date().toISOString() })
+    }
+    return marks.length
+  } catch {
+    return 0
+  }
+}
+
 export type SyncResult = { dropped: number; added: number; marks: number }
 
 /** Compare, mark the linkers of every tutor that left, store the new set. Never throws. */

@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { LogIn, Star } from 'lucide-react'
+import { LogIn } from 'lucide-react'
+import RatingStars from '@/components/RatingStars'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
 import ReviewForm from '@/components/ReviewForm'
@@ -90,9 +91,9 @@ async function ParentReviews({ parentId, focus }: { parentId: string; focus: str
             {h.hiredAt ? ` · hired ${formatDate(h.hiredAt)}` : ''}
           </p>
           {h.review ? (
-            <p className="inline-flex items-center gap-1 text-[11px] font-bold text-tm-green-deep">
-              <Star aria-hidden size={12} className="fill-tm-gold stroke-tm-gold" />
-              {h.review.rating} out of 5 · {REVIEW_STATUS_LABEL[h.review.status]}
+            <p className="inline-flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-tm-green-deep">
+              <RatingStars rating={h.review.rating} size="sm" />
+              <span>· {REVIEW_STATUS_LABEL[h.review.status]}</span>
             </p>
           ) : (
             <div className="pt-1">
