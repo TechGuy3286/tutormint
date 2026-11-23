@@ -21,6 +21,7 @@ import { invalidInternalLinks } from '@/lib/ai/platformFacts'
 import { collectBlogProblems } from '@/lib/ai/blogChecker'
 import { landingOptionsForEditor, tutorProfileOptionsForEditor } from '@/lib/blogEditor'
 import { liveCheckerData } from '@/lib/blogGenerate'
+import { isAutoField } from '@/lib/blogAutoSettingsCore'
 import { similarPosts, postsInWeek, cadenceWarning, type SimilarPost } from '@/lib/blogApproval'
 
 // Blog CMS mutations. Save + review is manager or support (support drafts);
@@ -75,6 +76,8 @@ const SaveBody = z.object({
   reviewBy: z.string().max(10).nullable().optional(),
   // The writer's self-check after generation (owner, 7 Oct 2026). Sent only by
   // a save that follows a generation; otherwise the stored value is kept.
+  // PR-20 B.3: which settings staff changed by hand (cluster, audience, …).
+  handSet: z.array(z.string().max(20)).max(10).optional(),
   selfCheck: z
     .object({
       rounds: z.number().int().min(0).max(5),
@@ -274,6 +277,8 @@ export async function POST(request: Request) {
       reviewed_by: reviewed ? gate.actor.id : null,
       review_by: (body.reviewBy ?? '').trim() || null,
       ...(body.selfCheck !== undefined ? { self_check: body.selfCheck } : {}),
+      // PR-20 B.3: the settings staff set by hand — auto-fill never overwrites them.
+      ...(body.handSet !== undefined ? { hand_set: [...new Set(body.handSet.filter(isAutoField))] } : {}),
       updated_at: nowIso,
       // A save of a post that is not live withdraws any approval: the approver
       // approved the words they read, not the words that replaced them. A live

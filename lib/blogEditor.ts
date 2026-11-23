@@ -81,6 +81,8 @@ export function toEditorPost(row: Record<string, unknown>): EditorPost {
     approvedAt: (row.approved_at as string | null) ?? null,
     numbersChecked: !!row.numbers_checked,
     selfCheck: (row.self_check as EditorPost['selfCheck']) ?? null,
+    // PR-20 B.3: the settings staff changed by hand (auto-fill leaves them alone).
+    handSet: Array.isArray(row.hand_set) ? (row.hand_set as string[]) : [],
   }
 }
 
@@ -113,5 +115,6 @@ export function emptyEditorPost(): EditorPost {
     approvedAt: null,
     numbersChecked: false,
     selfCheck: null,
+    handSet: [],
   }
 }

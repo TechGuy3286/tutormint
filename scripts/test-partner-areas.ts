@@ -158,6 +158,8 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed' | 'ret
   'whatsapp-updates': 'edit',
   // Parent interest inbox Send / Undo (PR-10).
   'interest-inbox': 'edit',
+  // Team inbox → Contact form Show / Done (PR-20): same access as the inbox.
+  'contact-messages': 'edit',
   // Held activity Release / Keep held (PR-08): the site Owner only.
   'held-activity': 'owner',
   // City owners (owner, 22 Oct 2026): the site Owner only.
@@ -238,6 +240,8 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed' | 'ret
   'jobs/number-check': 'edit',
   // PR-18: Paste a post (AI fill) and the live contact check — Post a tuition's own access.
   'jobs/ai-extract': 'edit',
+  // Read from image (PR-20): same access as Paste a post.
+  'jobs/ai-extract-image': 'edit',
   'jobs/contact-check': 'edit',
   'jobs/paused': 'edit',
   // "Add as new area" while posting is an edit; merging areas is Locations (view).

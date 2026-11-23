@@ -117,9 +117,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       <PostViews postId={post.id} />
 
       <div className="mx-auto max-w-5xl space-y-4">
-        <Breadcrumbs
-          items={[{ label: 'Blog', href: '/blog' }, { label: post.title }]}
-        />
+        {/* The trail only (Home › Blog › Post) — no "Back to Blog" link (PR-20 B.5). */}
+        <Breadcrumbs items={[{ label: 'Blog', href: '/blog' }, { label: post.title }]} showBack={false} />
 
         <header className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">

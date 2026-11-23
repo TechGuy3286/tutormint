@@ -143,6 +143,14 @@ function isYear(bare: string): boolean {
  */
 const LINK_RE = /\[[^\]]+\]\(([^)\s]+)\)/g
 
+/** "Grade 4", "Grades 6-8", "Class 4", "class 1 or class 2", "classes 6 to 10",
+ *  "Class 9th", "Year 10" — a level (1–16 only, so "Class 4 and 300 students"
+ *  keeps its 300) with any chain of "to / or / and / & / -" more levels. */
+export const LEVEL_NUMBER_RE =
+  /\b(?:grades?|class(?:es)?|years?)\s+(?:1[0-6]|[1-9])(?:st|nd|rd|th)?\b(?:\s*(?:to|or|and|&|[-–—])\s*(?:(?:grades?|class(?:es)?|years?)\s+)?(?:1[0-6]|[1-9])(?:st|nd|rd|th)?\b)*/gi
+/** "9th class", "10th grade", "1st year" (FSc part I). */
+export const ORDINAL_LEVEL_RE = /\b(?:1[0-6]|[1-9])(?:st|nd|rd|th)\s+(?:class|grade|year)\b/gi
+
 export function unsupportedFigures(
   body: string,
   notes: string,
@@ -187,9 +195,16 @@ export function unsupportedFigures(
     // when it carries a letter, so a pure-number range ("8000-15000") is left
     // for the scan and its digits are still checked.
     .replace(/[A-Za-z0-9]+(?:-[A-Za-z0-9]+)+/g, (tok) => (/[A-Za-z]/.test(tok) ? '' : tok))
-    // A grade level ("Grade 4", "Grade 1 to 5", "Grades 6-8") is a level, not a
-    // statistic — case-insensitive, with an optional "to N"/"-N" upper bound.
-    .replace(/\bgrades?\s+\d+(?:\s*(?:to|[-–—])\s*\d+)?/gi, '')
+    // A grade or class level is a level, not a statistic (PR-20 B.2): "Grade 4",
+    // "Grade 1 to 5", "Grades 6-8", "Grade 9–10", "Class 4", "class 1 or class 2",
+    // "classes 6 to 10", "Class 9th", "9th class", "Year 10".
+    .replace(LEVEL_NUMBER_RE, '')
+    .replace(ORDINAL_LEVEL_RE, '')
+    // O / A Level years-of-study wording: "O Level is a 2-year course", "two
+    // years of A Level (2 years)", "A Level Year 1", "AS and A2".
+    .replace(/\b\d+\s*-?\s*years?\s+(?:of\s+)?(?:[OA]|AS)\s*-?\s*levels?\b/gi, 'Level')
+    .replace(/\b(?:[OA]|AS)\s*-?\s*levels?\b[^.!?\n]{0,40}/gi, (seg) => seg.replace(/\b\d+\s*-?\s*years?\b|\byears?\s*\d+\b|\b\d+(?:st|nd|rd|th)\s+year\b/gi, ''))
+    .replace(/\bA2\b/g, '')
     // An ordered-list enumerator ("1.", "2.") is not a statistic. Strip the
     // leading marker before scanning so a numbered list does not block review —
     // numbers inside the list text are still scanned. Same OL shape the Markdown

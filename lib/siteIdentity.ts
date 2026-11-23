@@ -123,7 +123,33 @@ export const SITE_DEFAULT_TITLE = `${SITE_NAME} — Verified Tutors & Tuition Jo
 /** Titles that name both sides. */
 export const HOME_TITLE = `Verified Tutors & Tuition Jobs in Pakistan | ${SITE_NAME}`
 
-/** The social profiles that actually exist. An unset handle emits nothing. */
+/**
+ * TutorMint's Google Business Profile (owner, 24 Nov 2026 — PR-20 A.3). A
+ * public page, not a secret; GOOGLE_BUSINESS_URL may override it. Shown as
+ * "Find us on Google" (/contact, /about), as the Google icon in the footer,
+ * and in the Organization structured data's sameAs.
+ */
+export function googleBusinessUrl(): string {
+  const v = (process.env.GOOGLE_BUSINESS_URL ?? '').trim()
+  return /^https:\/\//i.test(v) ? v : 'https://www.google.com/maps?cid=5971264103239707525'
+}
+
+/** "Leave us a review on Google": GOOGLE_REVIEW_URL when set (a write-review
+ *  link), else the profile itself, where the Reviews tab is one tap away. */
+export function googleReviewUrl(): string {
+  const v = (process.env.GOOGLE_REVIEW_URL ?? '').trim()
+  return /^https:\/\//i.test(v) ? v : googleBusinessUrl()
+}
+
+/**
+ * Where TutorMint is, as shown anywhere public (PR-20): the city only — never a
+ * street address. We work online and do not receive visitors.
+ */
+export const PUBLIC_LOCATION = 'Lahore'
+export const WORK_ONLINE_LINE = 'We work online. Please contact us on WhatsApp or email.'
+
+/** The social profiles that actually exist (an unset handle emits nothing),
+ *  plus the Google Business Profile (PR-20). */
 export function socialProfiles(): string[] {
   return [
     process.env.SOCIAL_FACEBOOK,
@@ -131,6 +157,7 @@ export function socialProfiles(): string[] {
     process.env.SOCIAL_YOUTUBE,
     process.env.SOCIAL_X,
     process.env.SOCIAL_TIKTOK,
+    googleBusinessUrl(),
   ]
     .map((u) => (u ?? '').trim())
     .filter((u) => /^https?:\/\//i.test(u))

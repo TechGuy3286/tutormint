@@ -166,7 +166,7 @@ test('a queue draft is a DRAFT only, never published, with meta lengths held', (
 })
 
 test('the Live jobs block', () => {
-  assert.equal(LIVE_JOBS_LIMIT, 6)
+  assert.equal(LIVE_JOBS_LIMIT, 3) // PR-20: at most 3 compact cards
   assert.equal(parseLiveJobsLine('{{live-jobs}}'), null)
   assert.equal(parseLiveJobsLine('{{live-jobs:female}}'), 'female')
   assert.equal(parseLiveJobsLine('{{live-jobs:other}}'), undefined)

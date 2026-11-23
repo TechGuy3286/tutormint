@@ -32,7 +32,7 @@ import { indexableCityPagesCached, cityPagePath } from '@/lib/cityJobs'
 import { femaleFooterLinks } from '@/lib/femaleJobsCore'
 import HideOnHome from '@/components/HideOnHome'
 import Link from 'next/link'
-import { SITE_LOGO_DARK_PATH } from '@/lib/siteIdentity'
+import { SITE_LOGO_DARK_PATH, PUBLIC_LOCATION, googleBusinessUrl } from '@/lib/siteIdentity'
 import { ChevronDown } from 'lucide-react'
 import FooterTagline from '@/components/FooterTagline'
 import { supportContactFromEnv, formatSupportWhatsApp, whatsappHref } from '@/lib/support'
@@ -69,6 +69,9 @@ function socialLinks(supportWhatsapp: string | null): SocialLink[] {
   const links: SocialLink[] = configured
     .filter(([, , href]) => !!href?.trim())
     .map(([name, icon, href]) => ({ name, icon, href: href!.trim() }))
+
+  // The Google Business Profile (PR-20 A.3) — always shown, same size and style.
+  links.push({ name: 'Google', icon: '/google.png', href: googleBusinessUrl(), label: 'TutorMint on Google' })
 
   const wa = whatsappHref(supportWhatsapp)
   if (wa) {
@@ -135,9 +138,9 @@ export default async function Footer() {
         {/* --------------------------------------------------- DESKTOP ---- */}
         {/* md+: the approved layout, unchanged. */}
         <div className="hidden md:block">
-          {/* PR-17 G.4: the brand column is wide enough (18rem) for all six
+          {/* PR-17 G.4: the brand column is wide enough (21rem, PR-20) for all seven
               social icons on ONE row on desktop; the five link columns share the rest. */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[18rem_repeat(5,minmax(0,1fr))] lg:gap-8">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[21rem_repeat(5,minmax(0,1fr))] lg:gap-8">
             {/* Brand */}
             <div>
               <Image
@@ -165,7 +168,7 @@ export default async function Footer() {
                 </h2>
                 <ul className="mt-2 text-sm">
                   <li className="flex min-h-[44px] items-center text-slate-400 md:min-h-[28px]">
-                    Lahore, Pakistan
+                    {PUBLIC_LOCATION}
                   </li>
                   {support.whatsapp && (
                     <li>
@@ -189,6 +192,15 @@ export default async function Footer() {
                       </a>
                     </li>
                   )}
+                  <li>
+                    <Link
+                      prefetch={false}
+                      href="/contact"
+                      className="flex min-h-[44px] items-center text-slate-300 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint md:min-h-[28px]"
+                    >
+                      Contact us
+                    </Link>
+                  </li>
                   <li>
                     <Link
                       prefetch={false}
@@ -223,14 +235,14 @@ export default async function Footer() {
 
 /**
  * The social icons (PR-16, owner): ONE evenly spaced row, each icon drawn at
- * 32px inside its 44px tap target — a full set of six is 6 × 44px + gaps, which
+ * 32px inside its 44px tap target — a full set of seven (Google added, PR-20) is 7 × 44px + 2px gaps = 320px, which
  * fits one row on a 360px phone, and one row on desktop too (PR-17 G.4 — the
- * brand column is 18rem wide there). WhatsApp carries its own label and rel.
+ * brand column is 21rem wide there). WhatsApp carries its own label and rel.
  */
 function SocialRow({ socials, oneRow = false }: { socials: SocialLink[]; oneRow?: boolean }) {
   if (socials.length === 0) return null
   return (
-    <ul className={`mt-2 flex items-center gap-1 ${oneRow ? 'flex-nowrap' : 'flex-wrap'}`} data-social-row={oneRow ? 'desktop' : 'mobile'}>
+    <ul className={`mt-2 flex items-center ${oneRow ? 'flex-nowrap gap-1' : 'flex-wrap gap-0.5'}`} data-social-row={oneRow ? 'desktop' : 'mobile'}>
       {socials.map((s) => (
         <li key={s.name}>
           <a
@@ -319,7 +331,7 @@ function MobileSupport({ support }: { support: { whatsapp: string | null; email:
         <ChevronDown aria-hidden size={16} className="text-slate-400 transition-transform group-open:rotate-180" />
       </summary>
       <ul className="pb-1 text-sm">
-        <li className="flex min-h-[44px] items-center text-slate-400">Lahore, Pakistan</li>
+        <li className="flex min-h-[44px] items-center text-slate-400">{PUBLIC_LOCATION}</li>
         {support.whatsapp && (
           <li>
             <a
@@ -342,6 +354,15 @@ function MobileSupport({ support }: { support: { whatsapp: string | null; email:
             </a>
           </li>
         )}
+        <li>
+          <Link
+            prefetch={false}
+            href="/contact"
+            className="flex min-h-[44px] items-center text-slate-300 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint"
+          >
+            Contact us
+          </Link>
+        </li>
         <li>
           <Link
             prefetch={false}

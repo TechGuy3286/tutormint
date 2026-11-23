@@ -6,7 +6,7 @@ import Breadcrumbs from '@/components/Breadcrumbs'
 import { getCompany } from '@/lib/company'
 import { aboutPageJsonLd, jsonLdScript, seoTitle, socialMeta } from '@/lib/seo'
 import { getSupportContact, whatsappHref, formatSupportWhatsApp } from '@/lib/support'
-import { SITE_DESCRIPTION, SITE_FEATURES, SITE_HOW_IT_WORKS, SITE_TAGLINE, SITE_TWO_SIDED } from '@/lib/siteIdentity'
+import { SITE_DESCRIPTION, SITE_FEATURES, SITE_HOW_IT_WORKS, SITE_TAGLINE, SITE_TWO_SIDED, WORK_ONLINE_LINE, googleBusinessUrl } from '@/lib/siteIdentity'
 
 // About, and the legal identity.
 //
@@ -230,8 +230,13 @@ Parents verify their mobile number before they can post a tuition, and can{' '}
           Commission of Pakistan.
         </p>
         <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-[max-content_1fr]">
-          <dt className="text-xs font-bold uppercase tracking-wide text-gray-500">Registered office</dt>
-          <dd>{company.address}</dd>
+          <dt className="text-xs font-bold uppercase tracking-wide text-gray-500">Location</dt>
+          <dd>
+            {company.address}. {WORK_ONLINE_LINE}{' '}
+            <a href={googleBusinessUrl()} target="_blank" rel="noopener noreferrer" className="font-bold text-tm-red hover:underline">
+              Find us on Google
+            </a>
+          </dd>
 
           <dt className="text-xs font-bold uppercase tracking-wide text-gray-500">Email</dt>
           <dd>

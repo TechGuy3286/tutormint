@@ -119,6 +119,19 @@ const PAY_LOGO_FILES = ['jazzcash.svg', 'jazzcash.png', 'faysal-bank.svg', 'fays
 
 const nextConfig: NextConfig = {
   env: { NEXT_PUBLIC_PAY_LOGOS: PAY_LOGO_FILES.join(',') },
+  // "Read from image" (PR-20 Part C): tesseract.js runs its OCR in a worker
+  // thread loaded from its own files, so it stays outside the bundle, and the
+  // English language data ships with the one route that reads images (nothing
+  // is downloaded at run time).
+  serverExternalPackages: ['tesseract.js', 'tesseract.js-core'],
+  outputFileTracingIncludes: {
+    '/api/admin/jobs/ai-extract-image': [
+      './node_modules/@tesseract.js-data/eng/4.0.0_best_int/**',
+      './node_modules/@tesseract.js-data/urd/4.0.0_best_int/**',
+      './node_modules/tesseract.js/**',
+      './node_modules/tesseract.js-core/**',
+    ],
+  },
   // Images (owner, 6 Oct 2026 — site speed). Every member photo and blog cover
   // lives in the Supabase PUBLIC buckets (avatars, blog, tutor-media, ads) and
   // was served raw: a 180–300 KB JPEG per avatar at full resolution, drawn at

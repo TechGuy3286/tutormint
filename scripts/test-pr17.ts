@@ -332,12 +332,12 @@ async function main() {
   await t('homepage tutor card: "Free profile"', () => {
     assert.deepEqual(HOME_CARDS[1].points, ['Get verified', 'Find tuitions near you', 'Free profile'])
   })
-  await t('footer: six social icons on one desktop row', () => {
+  await t('footer: seven social icons on one desktop row (Google added, PR-20)', () => {
     const f = code('components/Footer.tsx')
-    assert.match(f, /lg:grid-cols-\[18rem_repeat\(5,minmax\(0,1fr\)\)\]/)
+    assert.match(f, /lg:grid-cols-\[21rem_repeat\(5,minmax\(0,1fr\)\)\]/)
     assert.match(f, /<SocialRow socials=\{socials\} oneRow \/>/)
-    // 6 × 44px + 5 × 4px gaps = 284px ≤ 18rem (288px).
-    assert.ok(6 * 44 + 5 * 4 <= 18 * 16)
+    // 7 × 44px + 6 × 4px gaps = 332px ≤ 21rem (336px).
+    assert.ok(7 * 44 + 6 * 4 <= 21 * 16)
   })
 
   console.log(`\nPR-17: ${passed} passed`)

@@ -125,7 +125,10 @@ export const FAQ_GROUPS: FaqGroup[] = [
       {
         q: 'How do I get support?',
         a: `Message our team on WhatsApp at ${SUPPORT_WHATSAPP_DISPLAY}, or email ${SUPPORT_EMAIL_FALLBACK}. The support page has the same details and answers to common problems.`,
-        links: [{ label: 'Support', href: '/support' }],
+        links: [
+          { label: 'Support', href: '/support' },
+          { label: 'Contact us', href: '/contact' },
+        ],
       },
     ],
   },

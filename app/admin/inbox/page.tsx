@@ -8,6 +8,8 @@ import {
   markMemberRepliesRead,
 } from '@/lib/adminMessaging'
 import InboxClient from './InboxClient'
+import Link from 'next/link'
+import { newContactCount } from '@/lib/contactForm'
 import { formatName } from '@/lib/formatName'
 import { loadSupportWhatsApp } from '@/lib/applicationTemplates'
 import { approvedTemplateBodies } from '@/lib/templateReview'
@@ -30,7 +32,7 @@ export default async function AdminInboxPage({
   const actor = await requireAdminRole(...SCREEN_ACCESS.inbox)
   const { to, templates: openTemplates } = await searchParams
 
-  const [rawThreads, stored, supportDisplay, approved] = await Promise.all([loadInboxThreads(), loadTemplates(), loadSupportWhatsApp(), approvedTemplateBodies()])
+  const [rawThreads, stored, supportDisplay, approved, contactNew] = await Promise.all([loadInboxThreads(), loadTemplates(), loadSupportWhatsApp(), approvedTemplateBodies(), newContactCount()])
   // PR-04: each member's picture (the default + No photo tag when none).
   const avatars = await loadAvatarFacts(rawThreads.map((t) => t.memberId))
   const threads = rawThreads.map((t) => ({ ...t, avatar: avatars[t.memberId] ?? null }))
@@ -65,6 +67,15 @@ export default async function AdminInboxPage({
   if (selectedId) conversation = await loadConversation(selectedId)
 
   return (
+    <>
+    {/* PR-20: messages from the public Contact us form. */}
+    <Link
+      href="/admin/inbox/contact"
+      className="mb-3 flex min-h-[44px] items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-tm-navy hover:border-tm-navy"
+    >
+      <span>Contact form{contactNew > 0 ? ` · ${contactNew} new` : ''}</span>
+      <span aria-hidden>→</span>
+    </Link>
     <InboxClient
       threads={threads}
       templates={templates}
@@ -79,5 +90,6 @@ export default async function AdminInboxPage({
       initialShowTemplates={openTemplates === '1' && roleMayWrite(actor.adminRole, ['admin'])}
       suggestedTemplateKey={threads.find((t) => t.memberId === selectedId)?.tag?.templateKey ?? ''}
     />
+    </>
   )
 }

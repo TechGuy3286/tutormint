@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertCircle, AlertTriangle, CheckCircle2, Copy, Eye, Image as ImageIcon, Lightbulb, Lock, Pencil, Shuffle, Sparkles, X } from 'lucide-react'
 
@@ -40,6 +40,8 @@ import { buildPlatformFacts, factsSheetText, type PlatformFacts } from '@/lib/ai
 import { coverImagePrompt } from '@/lib/covers/prompt'
 import { matchingTutorSlugs, postTopic, relevantItems, type TutorForPost } from '@/lib/blogRelevanceCore'
 import { parseMarkdown } from '@/lib/markdown'
+import { applyAuto, type AutoField } from '@/lib/blogAutoSettingsCore'
+import { applyFigureRewrite, figureFixProblem, figureRewrite, sentenceWithFigure, undoFigureRewrite, type FigureEdit } from '@/lib/blogFigureFixCore'
 import { slugify } from '@/lib/slugs'
 import { SITE_URL } from '@/lib/siteUrl'
 import { numberClaims, pakistanLocalToIso, isoToPakistanLocal } from '@/lib/blogApproval'
@@ -90,6 +92,8 @@ export type EditorPost = {
   numbersChecked: boolean
   /** The writer's self-check after generation (owner, 7 Oct 2026). */
   selfCheck: SelfCheckRecord | null
+  /** Settings staff changed by hand (PR-20 B.3) — auto-fill never overwrites these. */
+  handSet: string[]
 }
 
 type TutorProfileOption = { slug: string; name: string; city?: string | null; subjects?: { level?: string | null; subject?: string | null }[] }
@@ -254,10 +258,20 @@ export default function PostEditor({
     setNotice(null)
   }
 
+  // A setting changed by hand (PR-20 B.3): kept as staff set it — auto-fill
+  // never overwrites it again (stored on the post as hand_set).
+  const markHand = (field: AutoField) => (p: EditorPost): string[] => (p.handSet.includes(field) ? p.handSet : [...p.handSet, field])
+  const setByHand = <K extends AutoField & keyof EditorPost>(key: K, value: EditorPost[K]) => {
+    setPost((p) => ({ ...p, [key]: value, handSet: markHand(key)(p) }))
+    setDirty(true)
+    setNotice(null)
+  }
+
   const toggleRelated = (path: string) => {
     setPost((p) => ({
       ...p,
       related: p.related.includes(path) ? p.related.filter((x) => x !== path) : [...p.related, path],
+      handSet: markHand('related')(p),
     }))
     setDirty(true)
   }
@@ -360,19 +374,41 @@ export default function PostEditor({
   }, [landingOptions, relatedLanding, post.city, post.subject])
   const relatedPathSet = useMemo(() => new Set(relatedLanding.map((r) => r.path)), [relatedLanding])
 
-  // PRE-TICK ONLY RELEVANT PAGES: a new post with nothing ticked yet gets the
-  // matching pages ticked once its city or subject is known. A post that has
-  // been saved, or whose ticks were touched, is left alone.
-  const pretickDone = useRef(false)
+  // AUTO SETTINGS (PR-20 B.3): when the title changes (and when a draft is
+  // generated, with its body) the cluster, audience, language, city, subject,
+  // related landing pages and cover alt text are filled from it — every field
+  // staff have not set by hand. Related pages are ticked only on a true match
+  // (lib/blogAutoSettingsCore). Opening a saved post changes nothing.
+  const landingCandidates = useMemo(
+    () => landingOptions.map((o) => ({ path: o.path, city: o.city, level: o.level, subject: o.subjectOnly, count: o.count })),
+    [landingOptions],
+  )
+  const runAuto = useCallback(
+    (title: string, body?: string) => {
+      if (!title.trim()) return
+      setPost((p) => {
+        const next = applyAuto(
+          { cluster: p.cluster, audience: p.audience, language: p.language, city: p.city, subject: p.subject, related: p.related, coverAlt: p.coverAlt },
+          p.handSet,
+          { title, body, cities: cityOptions, subjects: subjectOptions, landing: landingCandidates },
+        )
+        return { ...p, ...next }
+      })
+    },
+    [cityOptions, subjectOptions, landingCandidates],
+  )
+  const autoTitle = useRef(initial.title)
   useEffect(() => {
-    if (pretickDone.current || post.id || post.related.length > 0 || relatedLanding.length === 0) return
-    pretickDone.current = true
-    setPost((p) => (p.related.length > 0 ? p : { ...p, related: relatedLanding.slice(0, 6).map((r) => r.path) }))
-  }, [post.id, post.related.length, relatedLanding])
+    if (post.title === autoTitle.current) return
+    const t = setTimeout(() => {
+      autoTitle.current = post.title
+      runAuto(post.title)
+    }, 600)
+    return () => clearTimeout(t)
+  }, [post.title, runAuto])
 
   function tickMatching() {
-    pretickDone.current = true
-    setPost((p) => ({ ...p, related: relatedLanding.slice(0, 6).map((r) => r.path) }))
+    setPost((p) => ({ ...p, related: relatedLanding.slice(0, 6).map((r) => r.path), handSet: markHand('related')(p) }))
     setDirty(true)
   }
 
@@ -655,6 +691,8 @@ export default function PostEditor({
         confirmedFigures: [],
         selfCheck: result.record,
       }))
+      // PR-20 B.3: settings the title could not decide are read from the draft.
+      runAuto(post.title, result.draft.body)
       setDirty(true)
       setGenProgress(null)
       // §4 — the toast summarises the auto-check; the "Before publishing" box
@@ -884,6 +922,51 @@ export default function PostEditor({
     return !q || `${c.label} ${c.path}`.toLowerCase().includes(q)
   })
 
+  // The figure button (AI rewrite) on ONE flagged figure (PR-20 B.1): the writer rewrites only
+  // the sentence that holds it so it no longer needs the number. The new
+  // sentence goes into the body at once and is shown inline with Keep / Undo.
+  const [figureFixing, setFigureFixing] = useState<string | null>(null)
+  const [figureFixes, setFigureFixes] = useState<(FigureEdit & { figure: string })[]>([])
+
+  async function fixFigureWithAi(figure: string) {
+    const sentence = sentenceWithFigure(post.body, figure)
+    if (!sentence) {
+      toast.error('Could not find the sentence with that figure. Edit it by hand.')
+      return
+    }
+    setFigureFixing(figure)
+    const edits = await requestFix(
+      { title: post.title, cluster: post.cluster, audience: post.audience, language: post.language, notes: post.sourceNotes },
+      { body: post.body, seoTitle: post.seoTitle, seoDescription: post.seoDescription },
+      [{ ...figureFixProblem(sentence, figure), heading: null, blocking: true }],
+      'fix',
+    )
+    setFigureFixing(null)
+    if (!edits) return
+    const edit = figureRewrite(sentence, figure, edits)
+    if (!edit) {
+      toast.error('The AI did not find a safe rewrite for that sentence. Edit it by hand.')
+      return
+    }
+    setPost((p) => ({ ...p, body: applyFigureRewrite(p.body, edit) }))
+    setFigureFixes((list) => [...list.filter((x) => x.figure !== figure), { ...edit, figure }])
+    setDirty(true)
+  }
+
+  function keepFigureFix(figure: string) {
+    setFigureFixes((list) => list.filter((x) => x.figure !== figure))
+    toast.success('Kept. Save to keep the change.')
+  }
+
+  function undoFigureFix(figure: string) {
+    const fix = figureFixes.find((x) => x.figure === figure)
+    if (!fix) return
+    setPost((p) => ({ ...p, body: undoFigureRewrite(p.body, fix) }))
+    setFigureFixes((list) => list.filter((x) => x.figure !== figure))
+    setDirty(true)
+    toast.success('Undone. The sentence is back as it was.')
+  }
+
   function confirmFigure(figure: string) {
     const source = (confirmDraft[figure] ?? '').trim()
     if (!source) return
@@ -928,6 +1011,7 @@ export default function PostEditor({
       suggestionId: !post.id ? linkedSuggestion ?? undefined : undefined,
       reviewBy: post.reviewBy,
       selfCheck: post.selfCheck,
+      handSet: post.handSet,
     })
     if (!data) return
     setSimilar(data.similar ?? [])
@@ -1649,7 +1733,7 @@ export default function PostEditor({
                   { label: 'Image', title: 'Image', run: () => insertMarkdown('![', '](https://)', 'alt text') },
                   { label: 'Tutor', title: 'Embed a tutor card', run: () => insertMarkdown('\n{{tutor:', '}}\n', 'tutor-slug') },
                   { label: 'Tuition', title: 'Embed a tuition card', run: () => insertMarkdown('\n{{job:', '}}\n', 'tuition-slug') },
-                  { label: 'Live jobs', title: 'Up to 6 current open tuitions for this post’s city and subject', run: () => insertMarkdown('\n{{live-jobs}}\n', '', '') },
+                  { label: 'Live jobs', title: 'Up to 3 current open tuitions for this post’s city, subject and level', run: () => insertMarkdown('\n{{live-jobs}}\n', '', '') },
                 ].map((b) => (
                   <button
                     key={b.label}
@@ -1697,7 +1781,7 @@ export default function PostEditor({
               )}
               {' · '}
               {preview.readingTime} min read · Embed a live card with <code className="rounded bg-tm-tint-navy px-1">{'{{tutor:slug}}'}</code> or{' '}
-              <code className="rounded bg-tm-tint-navy px-1">{'{{job:public-slug}}'}</code> on its own line; <code className="rounded bg-tm-tint-navy px-1">{'{{live-jobs}}'}</code> adds up to 6 current open tuitions.
+              <code className="rounded bg-tm-tint-navy px-1">{'{{job:public-slug}}'}</code> on its own line; <code className="rounded bg-tm-tint-navy px-1">{'{{live-jobs}}'}</code> adds up to 3 current open tuitions (compact cards).
             </p>
           </div>
 
@@ -1726,6 +1810,17 @@ export default function PostEditor({
                         {f}
                       </code>
                       <span className="text-[11px] text-gray-500">not in your notes</span>
+                      {canGenerate && (
+                        <button
+                          type="button"
+                          onClick={() => void fixFigureWithAi(f)}
+                          disabled={figureFixing !== null}
+                          className="ml-auto inline-flex min-h-[40px] items-center gap-1 rounded-lg bg-tm-navy px-3 text-[11px] font-bold text-white hover:bg-tm-navy-hover disabled:opacity-50"
+                        >
+                          <Sparkles aria-hidden size={12} />
+                          {figureFixing === f ? 'Rewriting…' : 'Fix it with AI'}
+                        </button>
+                      )}
                     </div>
                     <div className="mt-1.5 flex flex-wrap items-center gap-2">
                       <input
@@ -1747,6 +1842,36 @@ export default function PostEditor({
                 ))}
               </ul>
             </div>
+          )}
+
+          {/* The AI's rewrite of each fixed figure's sentence — already in the
+              body; Keep accepts it, Undo puts the old sentence back. */}
+          {figureFixes.length > 0 && (
+            <ul className="space-y-2">
+              {figureFixes.map((x) => (
+                <li key={x.figure} className="rounded-2xl border border-tm-green-deep/30 bg-tm-tint-green p-3">
+                  <p className="text-[11px] font-bold text-tm-green-deep">Rewritten without “{x.figure}”</p>
+                  <p className="mt-1 text-xs text-slate-700 line-through decoration-gray-500">{x.before}</p>
+                  <p className="mt-1 text-xs font-semibold text-tm-navy">{x.after}</p>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => keepFigureFix(x.figure)}
+                      className="inline-flex min-h-[40px] items-center rounded-lg bg-tm-green-deep px-3 text-[11px] font-bold text-white hover:bg-tm-green-deep-hover"
+                    >
+                      Keep
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => undoFigureFix(x.figure)}
+                      className="inline-flex min-h-[40px] items-center rounded-lg border border-gray-200 bg-white px-3 text-[11px] font-bold text-tm-navy hover:border-tm-navy"
+                    >
+                      Undo
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
 
           {post.confirmedFigures.length > 0 && (
@@ -1829,6 +1954,9 @@ export default function PostEditor({
         {/* Sidebar: settings, cover, review, schedule, danger */}
         <div className="space-y-4">
           <div className={card}>
+            <p className="text-[11px] text-gray-600">
+              Filled from the title (and the draft) automatically. Change any field and it stays as you set it.
+            </p>
             <div>
               <label htmlFor="post-cluster" className={label}>
                 Topic cluster
@@ -1838,10 +1966,10 @@ export default function PostEditor({
                 value={post.cluster}
                 onChange={(e) => {
                   const v = e.target.value
-                  set('cluster', v)
+                  setByHand('cluster', v)
                   // A tutor-career topic is written FOR tutors (owner, 6 Oct 2026):
                   // the audience follows the cluster; the author may still change it.
-                  if (v === 'tutor-career' && post.audience !== 'tutors') set('audience', 'tutors')
+                  if (v === 'tutor-career' && post.audience !== 'tutors' && !post.handSet.includes('audience')) set('audience', 'tutors')
                 }}
                 className={input}
               >
@@ -1859,7 +1987,7 @@ export default function PostEditor({
               <select
                 id="post-audience"
                 value={post.audience}
-                onChange={(e) => set('audience', e.target.value as PostAudience)}
+                onChange={(e) => setByHand('audience', e.target.value as PostAudience)}
                 className={input}
               >
                 {AUDIENCES.map((a) => (
@@ -1876,7 +2004,7 @@ export default function PostEditor({
               <select
                 id="post-language"
                 value={post.language}
-                onChange={(e) => set('language', e.target.value as PostLanguage)}
+                onChange={(e) => setByHand('language', e.target.value as PostLanguage)}
                 className={input}
               >
                 {LANGUAGES.map((l) => (
@@ -1898,7 +2026,7 @@ export default function PostEditor({
                   id="post-city"
                   list="post-city-list"
                   value={post.city}
-                  onChange={(e) => set('city', e.target.value)}
+                  onChange={(e) => setByHand('city', e.target.value)}
                   placeholder="e.g. Lahore"
                   className={input}
                 />
@@ -1916,7 +2044,7 @@ export default function PostEditor({
                   id="post-subject"
                   list="post-subject-list"
                   value={post.subject}
-                  onChange={(e) => set('subject', e.target.value)}
+                  onChange={(e) => setByHand('subject', e.target.value)}
                   placeholder="e.g. O Level Physics"
                   className={input}
                 />
@@ -2113,7 +2241,7 @@ export default function PostEditor({
               <input
                 id="cover-alt"
                 value={post.coverAlt ?? ''}
-                onChange={(e) => set('coverAlt', e.target.value)}
+                onChange={(e) => setByHand('coverAlt', e.target.value)}
                 placeholder="Describe the image"
                 className={input}
               />

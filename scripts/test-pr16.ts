@@ -248,7 +248,9 @@ test('C: breadcrumb Home › Dashboard › Edit Profile, no Back link', () => {
 
 test('D: footer social icons at 32px, one row on a phone; WhatsApp number on one line', () => {
   const f = code('components/Footer.tsx')
-  assert.match(f, /<ul className=\{`mt-2 flex items-center gap-1 \$\{oneRow \? 'flex-nowrap' : 'flex-wrap'\}`\}/)
+  // PR-20: seven icons (Google added) — 7 × 44px + 6 × 2px = 320px on a phone.
+  assert.match(f, /<ul className=\{`mt-2 flex items-center \$\{oneRow \? 'flex-nowrap gap-1' : 'flex-wrap gap-0\.5'\}`\}/)
+  assert.ok(7 * 44 + 6 * 2 <= 320)
   assert.match(f, /sizes="32px" className="h-8 w-8 object-contain"/)
   assert.match(f, /h-11 w-11/, '44px tap target kept')
   assert.equal((f.match(/whitespace-nowrap[^"]*"\s*>\s*WhatsApp \{formatSupportWhatsApp/g) ?? []).length, 2)

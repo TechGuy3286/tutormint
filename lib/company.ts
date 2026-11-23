@@ -23,6 +23,7 @@
 // Cookie-free (push 3, 1 Nov 2026): these are public settings every visitor sees,
 // read the same for a guest and a member, so they never make a page dynamic.
 import { createPublicClient } from '@/lib/supabase/public'
+import { PUBLIC_LOCATION } from '@/lib/siteIdentity'
 
 export const REG_NO_PLACEHOLDER = '{{COMPANY_REG_NO}}'
 export const NTN_PLACEHOLDER = '{{COMPANY_NTN}}'
@@ -34,6 +35,7 @@ export type Company = {
   shortName: string
   /** "TutorMint" — the brand, one word, everywhere else. */
   brand: string
+  /** Where we are, as shown publicly: the city only (PR-20). */
   address: string
   email: string
   /** SECP CUIN, or the placeholder while we do not have it. */
@@ -48,7 +50,6 @@ export type Company = {
 const DEFAULTS = {
   'company.legal_name': 'Tutor Mint (Private) Limited',
   'company.short_name': 'Tutor Mint (Pvt) Ltd',
-  'company.address': '4th Floor, 37-M, Civic Center, Model Town, Lahore, Punjab, Pakistan',
   'company.email': 'support@tutormint.org',
   'company.reg_no': REG_NO_PLACEHOLDER,
   'company.ntn': NTN_PLACEHOLDER,
@@ -78,7 +79,9 @@ export async function getCompany(): Promise<Company> {
     legalName: pick('company.legal_name'),
     shortName: pick('company.short_name'),
     brand: 'TutorMint',
-    address: pick('company.address'),
+    // The city only, never a street address (owner, PR-20): we work online and
+    // do not receive visitors. The old 'company.address' setting is no longer read.
+    address: PUBLIC_LOCATION,
     email: pick('company.email'),
     regNo,
     ntn,

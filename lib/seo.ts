@@ -22,7 +22,10 @@ import type { Company } from '@/lib/company'
 import { formatSupportPhoneSchema } from '@/lib/supportContacts'
 import { provinceForCity, postcodeFor } from '@/lib/pkLocations'
 import { jobPostingEmploymentType } from '@/lib/jobPostingCore'
-import { ORGANIZATION_ID, WEBSITE_ID, SITE_DESCRIPTION, SITE_LOGO_PATH, SITE_LOGO_SIZE, SITE_TAGLINE, socialProfiles } from '@/lib/siteIdentity'
+import { ORGANIZATION_ID, WEBSITE_ID, SITE_DESCRIPTION, SITE_LOGO_PATH, SITE_LOGO_SIZE, SITE_TAGLINE, socialProfiles, PUBLIC_LOCATION } from '@/lib/siteIdentity'
+
+/** The Organization's legalName in structured data (owner, PR-20 A.3). */
+export const ORGANIZATION_LEGAL_NAME = 'Tutor Mint (Pvt) Limited'
 
 export const BRAND = 'TutorMint'
 export const SLOGAN = 'Free to join, verified tutors, contact tutors directly'
@@ -198,7 +201,7 @@ export function sameAs(): string[] {
  * Organization.
  *
  * `legalName` and `name` are deliberately different: the registered entity is
- * "Tutor Mint (Private) Limited" and the brand is "TutorMint". Search engines
+ * "Tutor Mint (Pvt) Limited" (PR-20) and the brand is "TutorMint". Search engines
  * read `name` as the thing to display and `legalName` as the entity behind it,
  * which is exactly the distinction the brand rule draws.
  *
@@ -217,7 +220,8 @@ export function organizationJsonLd(company: Company, phone: string | null) {
     '@type': 'Organization',
     '@id': `${SITE_URL}/#organization`,
     name: BRAND,
-    legalName: company.legalName,
+    // PR-20 A.3 (owner, 24 Nov 2026): the legal name exactly as the owner gave it.
+    legalName: ORGANIZATION_LEGAL_NAME,
     url: SITE_URL,
     description: SITE_DESCRIPTION,
     areaServed: { '@type': 'Country', name: 'Pakistan' },
@@ -229,11 +233,11 @@ export function organizationJsonLd(company: Company, phone: string | null) {
     },
     image: absoluteUrl(OG_DEFAULT_IMAGE),
     slogan: SITE_TAGLINE,
+    // The city only — never a street address (PR-20: we work online and do
+    // not receive visitors).
     address: {
       '@type': 'PostalAddress',
-      streetAddress: '4th Floor, 37-M, Civic Center, Model Town',
-      addressLocality: 'Lahore',
-      addressRegion: 'Punjab',
+      addressLocality: PUBLIC_LOCATION,
       addressCountry: 'PK',
     },
     email: company.email,

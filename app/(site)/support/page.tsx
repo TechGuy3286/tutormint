@@ -213,6 +213,15 @@ export default async function SupportPage() {
 
       {contact.hours && <p className="text-xs text-gray-500">{contact.hours}</p>}
 
+      {/* PR-20: the Contact us page — the form, the Google profile, where we are. */}
+      <p className="text-xs text-slate-700">
+        Prefer to write?{' '}
+        <Link href="/contact" className="font-bold text-tm-red hover:underline">
+          Contact us
+        </Link>{' '}
+        with the form and we reply on WhatsApp or email.
+      </p>
+
       {!wa && !contact.email && (
         <p className="rounded-2xl border border-tm-gold/30 bg-tm-tint-gold p-4 text-xs leading-relaxed text-tm-gold-ink">
           Our contact details are being updated. In the meantime, the answers below cover almost

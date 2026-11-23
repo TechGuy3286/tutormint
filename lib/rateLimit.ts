@@ -46,6 +46,7 @@ export type BucketName =
   | 'sms_test'
   | 'paypro_callback'
   | 'tuition_ai_fill'
+  | 'contact_form'
 
 /**
  * The budgets.
@@ -66,6 +67,9 @@ const BUDGETS: Record<BucketName, { windowSeconds: number; max: number }> = {
   // "Paste a post" on staff Post a tuition (PR-18 A.4): 200 AI fills a day per
   // staff member (lib/aiTuitionExtractCore AI_DAILY_CAP). Every call costs money.
   tuition_ai_fill: { windowSeconds: 86_400, max: 200 },
+  // The public /contact form (PR-20): 5 messages an hour per address — a person
+  // with a question never meets it; a script does.
+  contact_form: { windowSeconds: 3600, max: 5 },
   login: { windowSeconds: 900, max: 10 }, // 10 per 15 min per IP
   // Loosened (PR76 §A.1): 5/hour turned honest households and shared-IP retries
   // away. 10 per 10 minutes is roomy for a person mistyping and re-trying, still

@@ -27,8 +27,10 @@ export const CRITICAL_TEMPLATES = new Set(['confirm_email', 'password_reset', 'a
  *  alert). Never de-duplicated by the 24-hour rule or the unopened rule, never
  *  held for tomorrow: over the line they are simply not sent (lib/otpAlerts
  *  stops them earlier, at 80 of 100, and rings the Owner's bell). On by
- *  default — who receives them is the Owner's own setting. */
-export const ALERT_TEMPLATES = new Set(['otp_alert'])
+ *  default — who receives them is the Owner's own setting.
+ *  PR-20: a /contact form message to the support mailbox is the same kind —
+ *  each is a different person's message, so none is ever de-duplicated. */
+export const ALERT_TEMPLATES = new Set(['otp_alert', 'contact_form'])
 
 /** Non-urgent member emails, combined into one daily summary per person. */
 export const SUMMARY_TEMPLATES = new Set(['welcome', 'tuition_match', 'tuition_paused', 'message_digest'])
@@ -82,6 +84,7 @@ export const EMAIL_TYPE_LABEL: Record<string, string> = {
   sms_alert: 'SMS may not be sending',
   content_digest: 'Monday blog suggestions',
   otp_alert: 'New verified member (to the chosen staff)',
+  contact_form: 'Contact form message (to support)',
   welcome: 'Welcome',
   verification_decision: 'Verification decision',
   application_progress: 'Shortlisted / hired',

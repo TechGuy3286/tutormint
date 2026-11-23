@@ -57,6 +57,7 @@ export const BLOG_ROUTES: BlogRoute[] = [
   { path: '/blog', public: true },
   { path: '/about', public: true },
   { path: '/support', public: true },
+  { path: '/contact', public: true },
   { path: '/register', public: true },
   // The short link for social posts: it redirects (307) to /register. Posts link
   // /register directly (owner, 13 Oct 2026); /apply stays a known address so an

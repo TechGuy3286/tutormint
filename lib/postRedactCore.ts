@@ -28,7 +28,7 @@ export type Redacted = {
   removed: number
 }
 
-type Span = { start: number; end: number }
+export type Span = { start: number; end: number }
 
 function digitCount(s: string): number {
   return s.replace(/\D/g, '').length
@@ -42,8 +42,13 @@ function isLongNumber(s: string): boolean {
   return digitCount(s) >= 10 && !RANGE.test(s.trim())
 }
 
-export function redactForAi(raw: string): Redacted {
-  const text = String(raw ?? '')
+/**
+ * Where the numbers are: every Pakistani mobile, CNIC shape and other run of
+ * 10+ digits in `text`, merged and in order. (Emails are separate —
+ * `emailSpans`.) Shared by the text redaction below and the image masking
+ * (lib/imageMaskCore, PR-20), so both catch exactly the same shapes.
+ */
+export function numberSpans(text: string): Span[] {
   const spans: Span[] = findPhoneSpans(text).map((s) => ({ start: s.start, end: s.end }))
   LONG_DIGITS.lastIndex = 0
   let m: RegExpExecArray | null
@@ -57,6 +62,21 @@ export function redactForAi(raw: string): Redacted {
     if (last && s.start <= last.end) last.end = Math.max(last.end, s.end)
     else merged.push({ ...s })
   }
+  return merged
+}
+
+/** Where the email addresses are in `text`. */
+export function emailSpans(text: string): Span[] {
+  const out: Span[] = []
+  const re = new RegExp(EMAIL.source, 'g')
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text)) !== null) out.push({ start: m.index, end: m.index + m[0].length })
+  return out
+}
+
+export function redactForAi(raw: string): Redacted {
+  const text = String(raw ?? '')
+  const merged = numberSpans(text)
   const mobiles: string[] = []
   let out = ''
   let at = 0

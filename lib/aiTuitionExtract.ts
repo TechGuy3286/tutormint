@@ -14,7 +14,8 @@ import { sortJobTitles } from '@/lib/jobTitlesCore'
 import { memoize } from '@/lib/memoCache'
 import { AI_UNAVAILABLE, runExtraction, type AiLists, type ExtractResult } from '@/lib/aiTuitionExtractCore'
 
-const loadLists = memoize(
+/** Our lists (job titles, cities, taxonomy) — also read by "Read from image" (lib/imageRead). */
+export const loadAiLists = memoize(
   async (): Promise<AiLists> => {
     const admin = createAdminClient()
     if (!admin) return { jobTitles: [], cities: [], tree: {} }
@@ -36,7 +37,7 @@ const loadLists = memoize(
 
 export async function extractTuition(post: string): Promise<ExtractResult> {
   if (!isConfigured()) return { ok: false, status: 503, error: AI_UNAVAILABLE }
-  return runExtraction(post, await loadLists(), async (a) => {
+  return runExtraction(post, await loadAiLists(), async (a) => {
     const r = await complete(a)
     if (!r.ok) console.warn(`[ai-tuition] extract failed: ${r.reason.slice(0, 120)}`)
     return r

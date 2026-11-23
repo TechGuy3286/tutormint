@@ -290,12 +290,15 @@
     "test:pr16": "tsx --test scripts/test-pr16.ts",
     "test:pr17": "tsx scripts/test-pr17.ts",
     "test:pr18": "tsx scripts/test-pr18.ts",
-    "test:pr19": "tsx scripts/test-pr19.ts"
+    "test:pr19": "tsx scripts/test-pr19.ts",
+    "test:pr20": "tsx --conditions=react-server scripts/test-pr20.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
+    "@tesseract.js-data/eng": "1.0.0",
+    "@tesseract.js-data/urd": "1.0.0",
     "@vercel/speed-insights": "^1.2.0",
     "bcryptjs": "^3.0.3",
     "exceljs": "^4.4.0",
@@ -310,6 +313,7 @@
     "react-dom": "19.2.8",
     "server-only": "^0.0.1",
     "sharp": "^0.35.3",
+    "tesseract.js": "7.0.0",
     "zod": "^4.5.4"
   },
   "devDependencies": {

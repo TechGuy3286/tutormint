@@ -50,7 +50,7 @@ export function entitySection(company: Company): LegalSection {
         </p>
         <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-[max-content_1fr]">
           <dt className="text-xs font-bold uppercase tracking-wide text-gray-500">
-            Registered office
+            Location
           </dt>
           <dd>{company.address}</dd>
 

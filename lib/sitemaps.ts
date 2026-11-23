@@ -37,6 +37,7 @@ const BASE = SITE_URL
 // code changes, so they carry a stored date rather than "now" on every fetch.
 // Bump it when that content changes.
 const STATIC_LASTMOD = new Date('2026-10-13T00:00:00.000Z')
+const CONTACT_LASTMOD = new Date('2026-11-24T00:00:00.000Z')
 
 /** OPEN tuitions only (owner, 16 Nov 2026 — a paused page stays indexable for
  *  60 days but leaves the sitemap at once); lastmod = the tuition's last real
@@ -130,6 +131,8 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
     { url: `${BASE}/blog`, lastmod: newestPost, changefreq: 'daily', priority: 0.6 },
     { url: `${BASE}/faq`, lastmod: STATIC_LASTMOD, changefreq: 'monthly', priority: 0.4 },
     { url: `${BASE}/support`, lastmod: STATIC_LASTMOD, changefreq: 'monthly', priority: 0.3 },
+    // PR-20: the Contact us page.
+    { url: `${BASE}/contact`, lastmod: CONTACT_LASTMOD, changefreq: 'monthly', priority: 0.4 },
     { url: `${BASE}/privacy`, lastmod: STATIC_LASTMOD, changefreq: 'yearly', priority: 0.2 },
     { url: `${BASE}/terms`, lastmod: STATIC_LASTMOD, changefreq: 'yearly', priority: 0.2 },
   ]

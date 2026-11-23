@@ -89,6 +89,8 @@ export function timelineSentence(event: string, meta: TimelineMeta = {}): string
     }
     case 'otp_verified':
       return 'Verified their mobile number'
+    case 'contact_message_sent':
+      return 'Sent a message through the Contact us form'
     case 'profile_updated':
       return `Updated their profile${fieldWords(list(meta.fields))}`
     case 'completion_changed': {

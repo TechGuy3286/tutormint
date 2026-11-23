@@ -19,6 +19,8 @@ import { eventRebuildsProfile } from '@/lib/publicRevalidateCore'
 
 export type ActivityEvent =
   | 'registered'
+  // PR-20: a signed-in member sent the /contact form (no message text is logged).
+  | 'contact_message_sent'
   | 'second_role_created'
   | 'login'
   | 'otp_verified'

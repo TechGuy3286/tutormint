@@ -259,7 +259,8 @@ test('tuition: JobPosting is hired by a private client via TutorMint, applied to
   const org = j.hiringOrganization as Node
   assert.equal(org.name, PRIVATE_CLIENT_NAME)
   assert.equal(org.name, 'TutorMint')
-  assert.equal(org.sameAs, 'https://www.tutormint.org')
+  // PR-20: the Google Business Profile is always a profile, so sameAs is a list.
+  assert.deepEqual(org.sameAs, ['https://www.google.com/maps?cid=5971264103239707525'])
   assert.equal(j.directApply, true)
   assert.equal(j.validThrough, '2026-10-25T00:00:00Z', 'validThrough is passed through unchanged')
   for (const need of ['title', 'description', 'datePosted', 'jobLocation']) assert.ok(j[need], need)
