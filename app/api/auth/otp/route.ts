@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { recomputeCompletion } from '@/lib/completion'
 import { logActivity } from '@/lib/activityLog'
+import { queueOtpAlert } from '@/lib/otpAlerts'
 import { parseBody, z, pkMobile } from '@/lib/validate'
 import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 import { sendOtp, verifyOtp, consumeOtp } from '@/lib/otp'
@@ -96,12 +97,15 @@ export async function POST(request: Request) {
   // (re-verification is not a thing here). Trying to send/verify a DIFFERENT
   // number is refused with the support instruction. An unverified account may
   // freely edit and verify (§3.1). Belt-and-braces behind the read-only UI.
+  // PR-18 C: only a FIRST verification sends the staff alert.
+  let wasVerified = false
   if (admin) {
     const { data: me } = await admin
       .from('profiles')
       .select('phone_number, phone_verified_at')
       .eq('id', user.id)
       .maybeSingle()
+    wasVerified = !!me?.phone_verified_at
     if (me?.phone_verified_at && normalisePkMobile(me.phone_number as string) !== phone) {
       return NextResponse.json(
         { error: MEMBER_LOCK_LINE.mobile, locked: true },
@@ -238,6 +242,8 @@ export async function POST(request: Request) {
     targetType: 'profile',
     targetId: user.id,
   })
+  // PR-18 C: the chosen staff hear about a newly verified member (first time only).
+  if (!wasVerified) await queueOtpAlert(user.id)
 
   // Belt-and-braces cache invalidation (owner PR7 §2.3). The tutor dashboard is
   // already force-dynamic and reads phone_verified_at fresh through the service

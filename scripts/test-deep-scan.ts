@@ -206,6 +206,8 @@ const WA_REGISTRY: Record<string, 'parent-situation' | 'parent-specific' | 'not-
   // Follow-up contact buttons (owner, 15 Nov 2026): tutors only — the card and the member page.
   'components/admin/PipeContactButtons.tsx': 'not-parent',
   'lib/tutorPipelineCore.ts': 'not-parent',
+  // PR-18 Start follow-ups: the tutor's stage message (tutors only).
+  'lib/followUpMode.ts': 'not-parent',
 }
 
 test('every staff WhatsApp builder is declared; parent sends use the situation message', () => {

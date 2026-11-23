@@ -57,6 +57,7 @@ export default function AdminJobEditForm({
         contactEmail: payload.contactEmail,
         contactAddress: payload.contactAddress,
         contactSocial: payload.contactSocial,
+        ownerOverrideReason: payload.ownerOverrideReason ?? null,
         consentAgreed: payload.consentAgreed ?? false,
         consentMethod: payload.consentMethod ?? null,
         consentNote: payload.consentNote ?? null,

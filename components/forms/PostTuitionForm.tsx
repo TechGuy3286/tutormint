@@ -28,6 +28,10 @@ import { maskNumber } from '@/lib/numberFirstCore'
 import { normalisePkMobile } from '@/lib/phone'
 import { EMPLOYMENT_TYPES, defaultEmploymentType, staffJobFieldProblem } from '@/lib/jobFieldsCore'
 import { postcodeFor } from '@/lib/postcodes'
+import PastePostBox from '@/components/forms/PastePostBox'
+import type { AiFill, FillKey } from '@/lib/aiTuitionExtractCore'
+import { DIFFERENT_TICK, OVERRIDE_REASON_MIN, postEnabled, REPEAT_LINE, type ContactCheckResult, type RepeatHit } from '@/lib/postingChecksCore'
+import { formatPkMobile } from '@/lib/phone'
 
 /** Known schools for the staff title check (the built-in chains). */
 const KNOWN_SCHOOLS = knownSchools()
@@ -141,6 +145,11 @@ export type PostTuitionPayload = {
   employmentType: string | null
   /** Staff only; undefined on a parent post. */
   postalCode?: string | null
+  /** PR-18 (staff): the repeat tick, the Owner's logged override reason, and
+   *  whether "Paste a post" filled the form. */
+  confirmedDifferent?: boolean
+  ownerOverrideReason?: string | null
+  filledByAi?: boolean
 }
 
 /** The open/paused tuition a post would repeat (item 16), as the API returns it. */
@@ -148,7 +157,7 @@ export type DuplicateHit = { id: string; refId: string | null; title: string | n
 
 export type PostTuitionResult =
   | { ok: true }
-  | { ok: false; error?: string; gated?: boolean; duplicate?: DuplicateHit | null }
+  | { ok: false; error?: string; gated?: boolean; duplicate?: DuplicateHit | null; repeats?: RepeatHit[] | null }
 
 const EMPTY: PostTuitionValues = {
   title: '',
@@ -210,6 +219,7 @@ export default function PostTuitionForm({
   staffPost = false,
   onReopen,
   numberFirst,
+  aiPaste = false,
 }: {
   children?: { id: string; name: string; class_level: string | null }[]
   initial?: Partial<PostTuitionValues>
@@ -230,6 +240,8 @@ export default function PostTuitionForm({
   /** Staff: 'Number first' (owner, 31 Oct 2026). The form opens only after the
    *  parent's number passes /api/admin/jobs/number-check. */
   numberFirst?: { where: 'post' | 'edit'; jobId?: string }
+  /** Staff Post a tuition (PR-18): the "Paste a post" box at the top. */
+  aiPaste?: boolean
 }) {
   const [v, setV] = useState<PostTuitionValues>({ ...EMPTY, ...initial })
   const [busy, setBusy] = useState(false)
@@ -247,6 +259,18 @@ export default function PostTuitionForm({
     return m ? { phone: initial?.contactPhone ?? '', masked: maskNumber(m), parent: null } : null
   })
   const contactPhoneValue = numberFirst ? numberPassed?.phone ?? '' : v.contactPhone
+
+  // PR-18 "Paste a post": what the AI filled, the fields to check (highlighted
+  // while they still hold the AI's value), and a pasted number for the gate.
+  const [filledByAi, setFilledByAi] = useState(false)
+  const [aiMarks, setAiMarks] = useState<{ keys: FillKey[]; snap: Record<string, string> } | null>(null)
+  const [gate, setGate] = useState<{ key: number; phone: string }>({ key: 0, phone: '' })
+  // PR-18 A.3: the live contact check (the server re-runs it on Post).
+  const [check, setCheck] = useState<ContactCheckResult | null>(null)
+  const [checking, setChecking] = useState(false)
+  const [checkError, setCheckError] = useState<string | null>(null)
+  const [overrideReason, setOverrideReason] = useState('')
+  const [confirmedDifferent, setConfirmedDifferent] = useState(false)
 
   // PR73 §A: schedule is a day+slot grid. In edit mode, pre-fill from the job's
   // existing timings text (the old column) — the tutor re-confirms on the grid.
@@ -386,6 +410,136 @@ export default function PostTuitionForm({
     ? checkTuitionTitle({ title: v.title, school: v.school, jobType: v.teachingMode, levels: v.levels, known: KNOWN_SCHOOLS })
     : []
 
+  // ------------------------------------------- PR-18: paste + contact check ---
+  // A field's value as the AI left it — a mark shows only while it is unchanged.
+  const markValue = (k: FillKey): string => {
+    switch (k) {
+      case 'levels':
+        return `${v.category}|${v.levels.join(',')}`
+      case 'subjects':
+        return JSON.stringify(v.gradeSubjects)
+      case 'schedule':
+        return JSON.stringify(scheduleSlots)
+      case 'budget':
+        return `${v.budgetMin}-${v.budgetMax}`
+      case 'contactPhone':
+        return contactPhoneValue
+      default:
+        return String(v[k] ?? '')
+    }
+  }
+  const marked = (k: FillKey): boolean => !!aiMarks && aiMarks.keys.includes(k) && aiMarks.snap[k] === markValue(k)
+  const markClass = (k: FillKey) => (marked(k) ? 'rounded-xl ring-2 ring-tm-gold ring-offset-2' : '')
+  const CheckNote = ({ k }: { k: FillKey }) =>
+    marked(k) ? <p className="mt-1 rounded-lg bg-tm-tint-gold px-2 py-1 text-[11px] font-bold text-tm-gold-ink">Check this — the AI was not sure.</p> : null
+
+  const onFilled = (fill: AiFill, mobile: string | null) => {
+    const next: PostTuitionValues = {
+      ...v,
+      teachingMode: fill.teachingMode || v.teachingMode,
+      employmentType: v.employmentTouched || !(fill.teachingMode || v.teachingMode) ? v.employmentType : defaultEmploymentType(fill.teachingMode || v.teachingMode),
+      city: fill.city || v.city,
+      area: fill.area || v.area,
+      category: fill.category || v.category,
+      levels: fill.levels.length ? fill.levels : v.levels,
+      gradeSubjects: fill.levels.length ? fill.gradeSubjects : v.gradeSubjects,
+      subjects: fill.levels.length ? fill.subjects : v.subjects,
+      genderPreference: fill.genderPreference || v.genderPreference,
+      budgetMin: fill.budgetMin || v.budgetMin,
+      budgetMax: fill.budgetMax || v.budgetMax,
+      feeExact: fill.budgetMin ? fill.feeExact : v.feeExact,
+      school: fill.school || v.school,
+      title: fill.title || v.title,
+      description: fill.description || v.description,
+    }
+    const slots = fill.scheduleSlots.length ? fill.scheduleSlots : scheduleSlots
+    setV(next)
+    setScheduleSlots(slots)
+    setFilledByAi(true)
+    setWroteItOurselves(false)
+    const keys: FillKey[] = [...fill.uncertain, ...(mobile ? [] : (['contactPhone'] as FillKey[]))]
+    const phone = mobile ? formatPkMobile(mobile) : ''
+    // The snapshot each mark compares against (the values just set).
+    const snap: Record<string, string> = {
+      teachingMode: next.teachingMode,
+      city: next.city,
+      area: next.area,
+      levels: `${next.category}|${next.levels.join(',')}`,
+      subjects: JSON.stringify(next.gradeSubjects),
+      genderPreference: next.genderPreference,
+      schedule: JSON.stringify(slots),
+      budget: `${next.budgetMin}-${next.budgetMax}`,
+      school: next.school,
+      title: next.title,
+      contactPhone: numberFirst ? numberPassed?.phone ?? '' : next.contactPhone,
+    }
+    setAiMarks({ keys, snap })
+    // The parent's number never went to the AI: it goes into the form from here.
+    if (mobile) {
+      if (numberFirst && !numberPassed) setGate((g) => ({ key: g.key + 1, phone }))
+      else if (!numberFirst) setV((p) => ({ ...p, contactPhone: p.contactPhone || phone }))
+    }
+  }
+
+  const levelsKey = v.levels.join('|')
+  const gradeKey = JSON.stringify(v.gradeSubjects)
+  const subjectsKey = v.subjects.join('|')
+  useEffect(() => {
+    if (!adminExtras) return
+    if (!parseContactNumber(contactPhoneValue).ok) {
+      setCheck(null)
+      setCheckError(null)
+      return
+    }
+    let cancelled = false
+    setChecking(true)
+    const t = setTimeout(async () => {
+      try {
+        let masterIds: number[] = []
+        if (v.category && v.levels.length > 0) {
+          const perGrade = await resolveGradeSubjectIds(v.category, v.gradeSubjects, v.levels).catch(() => [])
+          masterIds = perGrade.length > 0 ? unionMasterIds(perGrade) : await resolveMasterIds(v.category, v.levels, v.subjects).catch(() => [])
+        }
+        const res = await fetch('/api/admin/jobs/contact-check', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ phone: contactPhoneValue, whatsapp: v.contactWhatsapp || null, levels: v.levels, masterIds, jobId: v.jobId ?? null }),
+        })
+        const j = (await res.json().catch(() => ({}))) as { result?: ContactCheckResult; error?: string }
+        if (cancelled) return
+        if (!res.ok || !j.result) {
+          setCheck(null)
+          setCheckError(j.error ?? 'We could not check this number just now. Post checks it again.')
+        } else {
+          setCheck(j.result)
+          setCheckError(null)
+        }
+      } catch {
+        if (!cancelled) {
+          setCheck(null)
+          setCheckError('We could not check this number just now. Post checks it again.')
+        }
+      } finally {
+        if (!cancelled) setChecking(false)
+      }
+    }, 500)
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminExtras, contactPhoneValue, v.contactWhatsapp, v.category, levelsKey, gradeKey, subjectsKey, v.jobId])
+  // A new set of repeats needs a new tick.
+  const repeatIds = (check?.repeats ?? []).map((r) => r.id).join(',')
+  useEffect(() => setConfirmedDifferent(false), [repeatIds])
+
+  const effectiveOverride = (numberPassed?.overrideReason ?? '') || overrideReason
+  const contactReady =
+    !adminExtras ||
+    !parseContactNumber(contactPhoneValue).ok ||
+    (!!checkError && !checking) ||
+    postEnabled({ result: check, checking, overrideReason: effectiveOverride, confirmedDifferent })
+
   // ------------------------------------------------------------ generate ---
   const write = async () => {
     setWriting(true)
@@ -490,6 +644,9 @@ export default function PostTuitionForm({
         consentNote: adminExtras ? v.consentNote || null : undefined,
         employmentType: v.employmentType || null,
         postalCode: adminExtras ? v.postalCode.trim() || null : undefined,
+        confirmedDifferent: adminExtras ? confirmedDifferent : undefined,
+        ownerOverrideReason: adminExtras ? effectiveOverride.trim() || null : undefined,
+        filledByAi: adminExtras ? filledByAi : undefined,
       })
 
       if (!r.ok) {
@@ -500,6 +657,12 @@ export default function PostTuitionForm({
         // and "Post anyway" instead of a red line.
         if (r.duplicate) {
           setDup(r.duplicate)
+          setBusy(false)
+          return
+        }
+        // PR-18: a same-number repeat found on the server — show it with the tick.
+        if (r.repeats && r.repeats.length > 0) {
+          setCheck((c) => ({ block: c?.block ?? null, ownerMayOverride: c?.ownerMayOverride ?? false, repeats: r.repeats ?? [] }))
           setBusy(false)
           return
         }
@@ -521,25 +684,36 @@ export default function PostTuitionForm({
 
   // Number first: until the number passes, only step one is shown. The values
   // already typed stay in state, so 'Change number' never loses them.
+  const pasteBox = aiPaste && mode === 'create' ? <PastePostBox onFilled={onFilled} /> : null
+
   if (numberFirst && !numberPassed) {
     return (
       <div className="space-y-4">
+        {pasteBox}
         <NumberFirstGate
+          key={gate.key}
+          autoCheck={gate.key > 0}
           where={numberFirst.where}
           jobId={numberFirst.jobId}
-          initialPhone={numberFirst.where === 'edit' ? initial?.contactPhone ?? '' : ''}
+          initialPhone={gate.phone || (numberFirst.where === 'edit' ? initial?.contactPhone ?? '' : '')}
           heading={numberFirst.where === 'edit' ? "Parent's new phone number" : "Parent's phone number"}
           onPassed={(r) => {
             setNumberPassed(r)
             set('contactPhone', r.phone)
           }}
         />
+        {filledByAi && !gate.phone && (
+          <p className="rounded-lg bg-tm-tint-gold px-3 py-2 text-[11px] font-bold text-tm-gold-ink">
+            No phone number was found in the post. Type the parent&apos;s number above.
+          </p>
+        )}
       </div>
     )
   }
 
   return (
     <div className="space-y-4">
+      {pasteBox}
       {mode === 'create' && (
         <div className="flex justify-end">
           <button
@@ -573,7 +747,7 @@ export default function PostTuitionForm({
         {/* Job Type is the first thing chosen (owner, 11 Sep 2026): the 19 titles
             come from the DB, single-select on a job. */}
         <Step n={1} title="What kind of tutor or teacher do you need?">
-          <label className="block space-y-1">
+          <label className={`block space-y-1 ${markClass('teachingMode')}`}>
             <span className={LABEL}>Job Type</span>
             <select
               value={v.teachingMode}
@@ -591,6 +765,7 @@ export default function PostTuitionForm({
                 </option>
               ))}
             </select>
+            <CheckNote k="teachingMode" />
           </label>
           <label className="block space-y-1">
             <span className={LABEL}>Employment type{adminExtras ? '' : ' (optional)'}</span>
@@ -611,6 +786,8 @@ export default function PostTuitionForm({
 
         {/* ---------------------------------------------------- 2. subject */}
         <Step n={2} title="What do you need taught?">
+          <CheckNote k="levels" />
+          <CheckNote k="subjects" />
           {!ready ? (
             <div className="rounded-xl bg-tm-bg p-3"><TextLinesSkeleton lines={3} /></div>
           ) : (
@@ -662,6 +839,11 @@ export default function PostTuitionForm({
         <Step n={3} title="Where, how and when">
           {/* The same five budget bands as /browse/tuitions, so what a parent
               picks here is exactly what a tutor filters by there. */}
+          {(marked('city') || marked('area') || marked('budget')) && (
+            <p className="rounded-lg bg-tm-tint-gold px-2 py-1 text-[11px] font-bold text-tm-gold-ink">
+              Check {[marked('city') && 'the city', marked('area') && 'the area', marked('budget') && 'the fee'].filter(Boolean).join(', ')} — the AI was not sure.
+            </p>
+          )}
           <WhereHowWhen
             city={v.city}
             area={v.area}
@@ -689,7 +871,8 @@ export default function PostTuitionForm({
           />
 
           {/* PR73 §A: the shared time-slot grid (was free-text days/times). */}
-          <div className="space-y-1.5">
+          <div className={`space-y-1.5 ${markClass('schedule')}`}>
+            <CheckNote k="schedule" />
             <span className={`${LABEL} flex items-center gap-1.5`}>
               <Clock size={12} aria-hidden />
               When can lessons happen?
@@ -700,7 +883,8 @@ export default function PostTuitionForm({
 
           {/* Optional tutor-gender preference. Never required; the job stays
               visible to everyone and only Apply is gated to a matching tutor. */}
-          <label className="block space-y-1">
+          <label className={`block space-y-1 ${markClass('genderPreference')}`}>
+            <CheckNote k="genderPreference" />
             <span className={`${LABEL} flex items-center gap-1.5`}>
               <UserRound size={12} aria-hidden />
               Preferred tutor gender (optional)
@@ -720,7 +904,8 @@ export default function PostTuitionForm({
 
           {/* Optional school or academy name (item 17): it becomes the third
               part of the written title; with none, the area is used instead. */}
-          <label className="block space-y-1">
+          <label className={`block space-y-1 ${markClass('school')}`}>
+            <CheckNote k="school" />
             <span className={`${LABEL} flex items-center gap-1.5`}>
               <School size={12} aria-hidden />
               School or academy name (optional)
@@ -770,7 +955,8 @@ export default function PostTuitionForm({
             </p>
           )}
 
-          <label className="block space-y-1">
+          <label className={`block space-y-1 ${markClass('title')}`}>
+            <CheckNote k="title" />
             <span className={LABEL}>Title</span>
             <input
               value={v.title}
@@ -1006,6 +1192,49 @@ export default function PostTuitionForm({
           post: a title (server: min 1) and a level+grade+subject (client:
           masterIds ≥ 1, via hasSelection). Job Type / city / budget are optional
           server-side, so they never block. */}
+      {/* PR-18 A.3: the contact checks, before Post is enabled (the server
+          checks again on Post). Numbers are never shown here. */}
+      {adminExtras && checking && <p className="text-[11px] font-semibold text-gray-600">Checking the parent&apos;s number…</p>}
+      {adminExtras && !checking && checkError && <p className="text-[11px] font-semibold text-gray-600">{checkError}</p>}
+      {adminExtras && check?.block && !numberPassed?.overrideReason && (
+        <div role="alert" className="space-y-2 rounded-2xl border border-tm-red/30 bg-tm-tint-red p-4 text-xs font-bold text-tm-red">
+          <p>{check.block.message}</p>
+          {check.ownerMayOverride && (
+            <label className="block space-y-1">
+              <span className="text-[11px] font-bold text-slate-700">Owner only: why post this number anyway? (logged)</span>
+              <input
+                value={overrideReason}
+                onChange={(e) => setOverrideReason(e.target.value)}
+                maxLength={300}
+                className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-tm-navy focus:border-tm-navy focus:outline-none"
+              />
+              {overrideReason.trim().length > 0 && overrideReason.trim().length < OVERRIDE_REASON_MIN && (
+                <span className="text-[11px] font-semibold text-tm-red">A few more words, please.</span>
+              )}
+            </label>
+          )}
+        </div>
+      )}
+      {adminExtras && check && check.repeats.length > 0 && (
+        <div className="space-y-2 rounded-2xl bg-tm-tint-gold p-4 text-xs text-tm-gold-ink">
+          <p className="font-bold">{REPEAT_LINE}</p>
+          <ul className="space-y-1">
+            {check.repeats.map((r) => (
+              <li key={r.id}>
+                <a href={r.href} target="_blank" rel="noopener noreferrer" className="font-bold underline">
+                  {r.ref ?? 'TM'} · {r.title}
+                </a>{' '}
+                <span className="font-semibold">({r.status === 'paused' ? 'Paused' : 'Open'}, posted {r.postedAt.slice(0, 10)})</span>
+              </li>
+            ))}
+          </ul>
+          <label className="flex min-h-[44px] items-center gap-2 font-bold">
+            <input type="checkbox" checked={confirmedDifferent} onChange={(e) => setConfirmedDifferent(e.target.checked)} className="h-5 w-5" />
+            {DIFFERENT_TICK}
+          </label>
+        </div>
+      )}
+
       <FormChecklist items={checklistItems} />
 
       {/* Sticky on mobile: the primary action must be reachable without
@@ -1014,7 +1243,7 @@ export default function PostTuitionForm({
         <button
           type="button"
           onClick={() => void submit()}
-          disabled={busy || !postReady}
+          disabled={busy || !postReady || !contactReady}
           className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-tm-red px-5 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover disabled:bg-gray-300 sm:w-auto"
         >
           {busy ? busyLabel : submitLabel}

@@ -83,7 +83,7 @@ export async function recordPipelineFollowUp(a: {
   }
   const res = await recordFollowUp({
     memberId: a.memberId,
-    channel: a.kind === 'call' ? 'call' : a.kind === 'inbox' ? 'email' : 'whatsapp',
+    channel: a.kind === 'call' ? 'call' : a.kind === 'inbox' ? 'email' : a.kind === 'claim' ? 'claim' : 'whatsapp',
     templateKey: pipeTemplateKey(cur.stage, a.kind),
     source: 'unpaid',
     reason: cur.stage,

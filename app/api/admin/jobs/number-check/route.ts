@@ -4,6 +4,7 @@ import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { parseBody, z } from '@/lib/validate'
 import { parseContactNumber } from '@/lib/tuitionContactCore'
 import { auditNumberBlocked, checkNumberFirst } from '@/lib/numberFirst'
+import { isBlockedOutcome } from '@/lib/numberFirstCore'
 
 // POST /api/admin/jobs/number-check — "Number first" on staff Post a tuition
 // and the admin edit (owner, 31 Oct 2026). Step one of the form: the server
@@ -34,7 +35,8 @@ export async function POST(request: Request) {
   if (!outcome) {
     return NextResponse.json({ error: 'We could not check this number just now. Please try again.' }, { status: 503 })
   }
-  if (outcome.kind === 'do_not_use' || outcome.kind === 'on_hold') {
+  const blocked = isBlockedOutcome(outcome)
+  if (blocked) {
     await auditNumberBlocked(
       { id: gate.actor.id, adminRole: gate.actor.adminRole, email: gate.actor.email },
       number.msisdn,
@@ -42,5 +44,7 @@ export async function POST(request: Request) {
       parsed.data.where ?? 'post',
     )
   }
-  return NextResponse.json({ outcome }, { headers: { 'cache-control': 'no-store' } })
+  // PR-18: only the Owner may go on past a blocked number (with a logged reason,
+  // re-checked and audited on the save).
+  return NextResponse.json({ outcome, ownerMayOverride: blocked && gate.actor.adminRole === 'owner' }, { headers: { 'cache-control': 'no-store' } })
 }

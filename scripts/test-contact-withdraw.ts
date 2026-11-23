@@ -137,7 +137,8 @@ test('Do not use blocks every posting path', () => {
     const start = jobs.indexOf(`export async function ${fn}(`)
     const next = jobs.indexOf('\nexport async function ', start + 10)
     assert.ok(start > 0, fn)
-    assert.match(jobs.slice(start, next), /doNotUseRefusal\(/, `${fn} checks the list`)
+    // PR-18: the staff paths check through staffContactDecision → postingBlock (Do not use, hold, erased).
+    assert.match(jobs.slice(start, next), /doNotUseRefusal\(|staffContactDecision\(/, `${fn} checks the list`)
   }
   assert.match(src('lib/tuitionContact.ts'), /doNotUseRefusal\(\[parsed\.msisdn\]\)/)
   assert.match(src('app/api/admin/members/route.ts'), /doNotUseRefusal\(\[newMobile\]\)/)

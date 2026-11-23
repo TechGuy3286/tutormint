@@ -109,7 +109,7 @@ async function main() {
     assert.match(m, /revoke all on public\.tutor_rank_cache from anon, authenticated/)
   })
   await t('the minute cron refreshes the cache; landing pages read the stored counts', () => {
-    assert.match(code('app/api/cron/admin-summary/route.ts'), /await refreshRankCache\(\)/)
+    assert.match(code('app/api/cron/admin-summary/route.ts'), /await refreshRankCacheIfStale\(\)/) // PR-18: pg_cron runs it; this is the stale fallback
     assert.match(code('lib/landing.ts'), /\.rpc\('landing_combinations_fast'\)/)
     assert.ok(!/from\('landing_combinations'\)/.test(code('lib/landing.ts')))
   })

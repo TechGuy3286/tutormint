@@ -362,6 +362,15 @@ export default async function PeopleTabs({
             {signed ? 'Tutors who signed up on this day and have not paid. ' : ''}
             Each tutor is in one stage. Follow-ups: a WhatsApp message, then a voice note 2 days later, then WhatsApp or a call every 3 days, until they pay or are marked Not interested.
           </p>
+          {/* PR-18 Part B: one tutor at a time, for this stage (Documents missing by default). */}
+          {view === 'real' && mayFollow && roleMayWrite(role, SCREEN_ACCESS.unpaidSignups) && (
+            <Link
+              href={`/admin/users/follow-up-mode?stage=${['missing', 'rejected', 'approved'].includes(String(sel.stage ?? stageSel ?? '')) ? String(sel.stage ?? stageSel) : 'missing'}&from=${encodeURIComponent('/admin/users?tab=tutors')}`}
+              className="inline-flex min-h-[40px] items-center rounded-full bg-tm-red px-4 text-xs font-bold text-white hover:bg-tm-red-hover"
+            >
+              Start follow-ups
+            </Link>
+          )}
           {view === 'real' && (
             <Link
               href={showNi ? peopleHref('tutors') : peopleHref('tutors', { ni: '1' })}

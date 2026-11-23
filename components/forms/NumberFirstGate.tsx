@@ -1,11 +1,12 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { AlertTriangle, CheckCircle2, Phone, UserRound } from 'lucide-react'
 
 import { parseContactNumber } from '@/lib/tuitionContactCore'
-import { formMayOpen, linkedParent, type NumberFirstOutcome, type ParentAccount } from '@/lib/numberFirstCore'
+import { formMayOpen, isBlockedOutcome, linkedParent, type NumberFirstOutcome, type ParentAccount } from '@/lib/numberFirstCore'
+import { OVERRIDE_REASON_MIN } from '@/lib/postingChecksCore'
 import { formatDate } from '@/lib/datetime'
 
 // "Number first" (owner, 31 Oct 2026): step one of staff Post a tuition, and of
@@ -13,7 +14,13 @@ import { formatDate } from '@/lib/datetime'
 // server (/api/admin/jobs/number-check, rules lib/numberFirstCore) checks it
 // before the rest of the form opens. Numbers are shown masked.
 
-export type NumberPassed = { phone: string; masked: string; parent: ParentAccount | null }
+export type NumberPassed = {
+  phone: string
+  masked: string
+  parent: ParentAccount | null
+  /** PR-18: the Owner went on past a blocked number with this logged reason. */
+  overrideReason?: string
+}
 
 const STATUS_WORD: Record<string, string> = { open: 'Open', paused: 'Paused' }
 
@@ -23,18 +30,23 @@ export default function NumberFirstGate({
   initialPhone = '',
   onPassed,
   heading = "Parent's phone number",
+  autoCheck = false,
 }: {
   where: 'post' | 'edit'
   jobId?: string
   initialPhone?: string
   onPassed: (r: NumberPassed) => void
   heading?: string
+  /** PR-18: the number came from "Paste a post" — check it at once. */
+  autoCheck?: boolean
 }) {
   const [phone, setPhone] = useState(initialPhone)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [outcome, setOutcome] = useState<NumberFirstOutcome | null>(null)
   const inFlight = useRef(false)
+  const [ownerMayOverride, setOwnerMayOverride] = useState(false)
+  const [reason, setReason] = useState('')
 
   const check = async (e?: React.FormEvent) => {
     e?.preventDefault()
@@ -54,12 +66,13 @@ export default function NumberFirstGate({
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ phone, jobId: jobId ?? null, where }),
       })
-      const j = (await res.json().catch(() => ({}))) as { outcome?: NumberFirstOutcome; error?: string }
+      const j = (await res.json().catch(() => ({}))) as { outcome?: NumberFirstOutcome; error?: string; ownerMayOverride?: boolean }
       if (!res.ok || !j.outcome) {
         setError(j.error ?? 'We could not check this number just now. Please try again.')
         return
       }
       setOutcome(j.outcome)
+      setOwnerMayOverride(!!j.ownerMayOverride)
       // Clear, or a parent account with no live tuition: the form opens at once.
       if (formMayOpen(j.outcome, false)) onPassed({ phone, masked: j.outcome.masked, parent: linkedParent(j.outcome) })
     } catch {
@@ -69,6 +82,12 @@ export default function NumberFirstGate({
       setBusy(false)
     }
   }
+
+  // A pasted number is checked straight away (the gate is re-mounted per paste).
+  useEffect(() => {
+    if (autoCheck && initialPhone) void check()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5" aria-live="polite">
@@ -102,13 +121,36 @@ export default function NumberFirstGate({
 
       {error && <p className="rounded-xl bg-tm-tint-red p-3 text-xs font-bold text-tm-red">{error}</p>}
 
-      {outcome && (outcome.kind === 'do_not_use' || outcome.kind === 'on_hold') && (
-        <p role="alert" className="flex items-start gap-2 rounded-xl bg-tm-tint-red p-3 text-xs font-bold text-tm-red">
-          <AlertTriangle aria-hidden size={15} className="mt-px shrink-0" />
-          <span>
-            {outcome.message} <span className="font-semibold">({outcome.masked})</span>
-          </span>
-        </p>
+      {outcome && isBlockedOutcome(outcome) && (
+        <div className="space-y-2">
+          <p role="alert" className="flex items-start gap-2 rounded-xl bg-tm-tint-red p-3 text-xs font-bold text-tm-red">
+            <AlertTriangle aria-hidden size={15} className="mt-px shrink-0" />
+            <span>
+              {outcome.message} <span className="font-semibold">({outcome.masked})</span>
+            </span>
+          </p>
+          {ownerMayOverride && (
+            <div className="space-y-2 rounded-xl border border-gray-200 p-3">
+              <label className="block space-y-1">
+                <span className="text-[11px] font-bold text-gray-700">Owner only: why post this number anyway? (logged)</span>
+                <input
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  maxLength={300}
+                  className="min-h-[44px] w-full rounded-xl border border-gray-200 px-3 text-xs text-tm-navy focus:border-tm-navy focus:outline-none"
+                />
+              </label>
+              <button
+                type="button"
+                disabled={reason.trim().length < OVERRIDE_REASON_MIN}
+                onClick={() => onPassed({ phone, masked: outcome.masked, parent: null, overrideReason: reason.trim() })}
+                className="inline-flex min-h-[44px] items-center rounded-xl border border-tm-red bg-white px-4 text-xs font-bold text-tm-red hover:bg-tm-tint-red disabled:opacity-50"
+              >
+                Post anyway (Owner)
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       {outcome && outcome.kind === 'existing' && (

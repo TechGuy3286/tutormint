@@ -80,6 +80,9 @@ import { loadPendingErasure } from '@/lib/accountErase'
 import AdminAvatar from '@/components/admin/AdminAvatar'
 import { pickAvatarSrc } from '@/lib/adminAvatarCore'
 import { ERASE_BANNER, eraseContactPolicy, eraseDateLine } from '@/lib/eraseRequestedCore'
+import OnItButton from '@/components/admin/OnItButton'
+import { liveOnIt } from '@/lib/memberClaims'
+import { loadStaffOptions } from '@/lib/applicationTracking'
 
 // One member, everything about them in one place.
 //
@@ -344,6 +347,11 @@ export default async function AdminMemberPage({
           },
         }
       : null
+
+  // "I'm on it" (PR-18 C.4) — tutors and parents, for staff who work follow-ups.
+  const onItAllowed = (isTutor || isParent) && !profile.erased_at && roleMayWrite(actor.adminRole, isTutor ? SCREEN_ACCESS.unpaidSignups : SCREEN_ACCESS.signups)
+  const onItNow = onItAllowed ? (await liveOnIt([id])).get(id) ?? null : null
+  const onItStaff = onItAllowed && actor.adminRole === 'owner' ? await loadStaffOptions(admin) : []
 
   const statusImage = isTutor ? await statusImageFacts(admin, id) : null
   // Merges (owner, 26 Oct 2026): "Merged into <name>" on the merged account,
@@ -665,6 +673,19 @@ export default async function AdminMemberPage({
             </div>
           </div>
         </details>
+      )}
+
+      {/* "I'm on it" (PR-18 C.4): first tap claims the member; for a tutor in a
+          followed-up stage it counts as that stage's follow-up. */}
+      {onItAllowed && (
+        <section className="flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white p-3">
+          <OnItButton
+            memberId={id}
+            initial={onItNow ? { staffName: onItNow.staffName, mine: onItNow.staffId === actor.id } : null}
+            isOwner={actor.adminRole === 'owner'}
+            staff={actor.adminRole === 'owner' ? onItStaff : []}
+          />
+        </section>
       )}
 
       <MemberActions

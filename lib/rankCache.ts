@@ -39,3 +39,23 @@ export async function refreshRankCacheFor(ids: string[]): Promise<void> {
     /* the minute refresh still applies */
   }
 }
+
+/**
+ * PR-18 Part D: the full refresh runs INSIDE the database every minute
+ * (pg_cron job 'tm-rank-cache-refresh', migration 245), no longer as part of
+ * the Vercel admin-summary function. This is the fallback the cron route
+ * calls: it refreshes only when the last full refresh is older than
+ * maxAgeMs (pg_cron stopped), otherwise it reads one row and returns 'db'.
+ */
+export async function refreshRankCacheIfStale(maxAgeMs = 3 * 60_000): Promise<number | null | 'db'> {
+  try {
+    const admin = createAdminClient()
+    if (!admin) return null
+    const { data } = await admin.from('tutor_rank_cache_state').select('full_at').eq('id', 1).maybeSingle()
+    const at = Date.parse(String(data?.full_at ?? ''))
+    if (Number.isFinite(at) && Date.now() - at < maxAgeMs) return 'db'
+  } catch {
+    /* fall through to a refresh */
+  }
+  return refreshRankCache()
+}

@@ -47,6 +47,8 @@ const EditBody = z.object({
   consentMethod: z.string().max(40).nullish(),
   consentNote: z.string().max(500).nullish(),
   areaLandmark: z.string().max(120).nullish(),
+  // PR-18 A.3: the Owner's logged reason for a blocked number.
+  ownerOverrideReason: z.string().max(300).nullish(),
 })
 
 function parseInput(body: z.infer<typeof EditBody>): JobInput {
@@ -82,6 +84,7 @@ function parseInput(body: z.infer<typeof EditBody>): JobInput {
     consentMethod: str(body.consentMethod),
     consentNote: str(body.consentNote),
     areaLandmark: str(body.areaLandmark),
+    ownerOverrideReason: str(body.ownerOverrideReason),
   }
 }
 
@@ -105,7 +108,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     { id: gate.actor.id, adminRole: gate.actor.adminRole, email: gate.actor.email },
     parsed.data.reason,
   )
-  if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
+  if (!result.ok) return NextResponse.json({ error: result.error, code: result.code ?? null }, { status: result.status })
 
   return NextResponse.json({ success: true, publicSlug: result.publicSlug })
 }

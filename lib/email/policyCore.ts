@@ -23,6 +23,13 @@ export const PLACEHOLDER_DOMAIN = /@users\.tutormint\.org$/i
 /** Always sent (rules 6–9 never hold them back). */
 export const CRITICAL_TEMPLATES = new Set(['confirm_email', 'password_reset', 'account_erased', 'bank_transfer_pending', 'email_changed_notice'])
 
+/** Staff alerts that are each about a different member (PR-18: the OTP-verified
+ *  alert). Never de-duplicated by the 24-hour rule or the unopened rule, never
+ *  held for tomorrow: over the line they are simply not sent (lib/otpAlerts
+ *  stops them earlier, at 80 of 100, and rings the Owner's bell). On by
+ *  default — who receives them is the Owner's own setting. */
+export const ALERT_TEMPLATES = new Set(['otp_alert'])
+
 /** Non-urgent member emails, combined into one daily summary per person. */
 export const SUMMARY_TEMPLATES = new Set(['welcome', 'tuition_match', 'tuition_paused', 'message_digest'])
 
@@ -74,6 +81,7 @@ export const EMAIL_TYPE_LABEL: Record<string, string> = {
   owner_alert: 'Owner alerts (changes and blocked attempts)',
   sms_alert: 'SMS may not be sending',
   content_digest: 'Monday blog suggestions',
+  otp_alert: 'New verified member (to the chosen staff)',
   welcome: 'Welcome',
   verification_decision: 'Verification decision',
   application_progress: 'Shortlisted / hired',
@@ -200,6 +208,11 @@ export function decideAll(messages: readonly PolicyMessage[], facts: PolicyFacts
     if (facts.doNotEmail.has(addr)) return { action: 'skip', reason: 'do not email (bounced or complained)' }
     if (facts.unconfirmed.has(addr) && t !== 'confirm_email') return { action: 'skip', reason: 'email address not confirmed yet' }
     if (CRITICAL_TEMPLATES.has(t)) {
+      sent++
+      return { action: 'send' }
+    }
+    if (ALERT_TEMPLATES.has(t)) {
+      if (sent >= threshold) return { action: 'skip', reason: 'daily limit near; alerts stop for today' }
       sent++
       return { action: 'send' }
     }

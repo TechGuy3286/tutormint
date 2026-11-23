@@ -365,6 +365,15 @@ const PAIRS: Pair[] = [
   { fg: 'red', bg: 'tintRed', where: 'inbox suspended composer notice' },
   { fg: 'goldInk', bg: 'tintGold', where: 'inbox masked-number notice' },
 
+  // PR-18 (owner, 23 Nov 2026): "Paste a post" notes, the AI "Check this" marks,
+  // the contact-check panels, the follow-up mode, "I'm on it", OTP alert setting.
+  { fg: 'greenDeep', bg: 'tintGreen', where: 'Paste a post: filled note; follow-up mode session count' },
+  { fg: 'goldInk', bg: 'tintGold', where: 'AI "Check this" marks, same-number repeat panel, OTP alert budget warning' },
+  { fg: 'red', bg: 'tintRed', where: 'contact-check block (withdrawn / erased / on hold)' },
+  { fg: 'slate700', bg: 'tintRed', where: 'Owner override reason label inside the block' },
+  { fg: 'white', bg: 'greenDeep', where: 'follow-up mode Open WhatsApp' },
+  { fg: 'navy', bg: 'tintNavy', where: '"<name> is on it" chip' },
+
   // Blog editor 'Fix with AI' before/after panel (owner, 7 Oct 2026).
   { fg: 'slate700', bg: 'tintRed', where: 'blog fix panel, before text' },
   { fg: 'red', bg: 'tintRed', where: 'blog fix panel, Before label' },

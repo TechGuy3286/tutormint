@@ -197,6 +197,9 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed' | 'ret
   'follow-ups/tutor': 'edit',
   // People → Tutors pipeline follow-ups (owner, 8 Nov 2026): the follow-up list's own access.
   'people/follow-up': 'edit',
+  // PR-18: Start follow-ups (one tutor at a time) and I'm on it — the follow-up lists' access.
+  'people/follow-up-mode': 'edit',
+  'members/on-it': 'edit',
   'people/welcome': 'edit',
   // Log a call or note / withdraw a note on the Activity tab (owner, 23 Oct 2026).
   'members/notes': 'edit',
@@ -233,6 +236,9 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed' | 'ret
   'jobs/create': 'edit',
   // Number first (owner, 31 Oct 2026): the check before the staff form opens.
   'jobs/number-check': 'edit',
+  // PR-18: Paste a post (AI fill) and the live contact check — Post a tuition's own access.
+  'jobs/ai-extract': 'edit',
+  'jobs/contact-check': 'edit',
   'jobs/paused': 'edit',
   // "Add as new area" while posting is an edit; merging areas is Locations (view).
   'locations/area': 'mixed',
@@ -275,6 +281,8 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed' | 'ret
   'settings/support-whatsapp': 'view',
   // "Hide parent numbers when consent isn't recorded" — Owner only.
   'settings/email-types': 'view',
+  // PR-18: Who gets OTP alerts — Notification settings, the Owner only (refused in the route).
+  'settings/otp-alerts': 'view',
   'payments/reconciliation': 'view',
   'payments/refund': 'view',
   'payments/settlement/credits': 'view',

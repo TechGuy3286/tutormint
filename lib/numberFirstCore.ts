@@ -24,7 +24,8 @@ export function maskNumber(msisdn: string): string {
   return maskPhoneDisplay(msisdn) ?? '•••'
 }
 
-export const NUMBER_FIRST_DNU = "This number has asked not to be contacted. Please don't post it."
+// PR-18 A.3 (owner, 23 Nov 2026): one wording for a withdrawn and an erased number.
+export const NUMBER_FIRST_DNU = "This parent asked not to be contacted. It can't be posted."
 export const NUMBER_FIRST_HOLD = 'This number has a complaint on file. Please check with the owner first.'
 
 export type ExistingTuition = {
@@ -43,6 +44,8 @@ export type ParentAccount = { id: string; name: string }
 export type NumberFirstOutcome =
   | { kind: 'do_not_use'; masked: string; message: string }
   | { kind: 'on_hold'; masked: string; message: string }
+  /** PR-18: the number of an erased member (PR-11 fingerprint). */
+  | { kind: 'erased'; masked: string; message: string }
   | { kind: 'existing'; masked: string; tuitions: ExistingTuition[]; parent: ParentAccount | null }
   | { kind: 'parent_account'; masked: string; parent: ParentAccount }
   | { kind: 'clear'; masked: string }
@@ -51,11 +54,13 @@ export function numberFirstOutcome(input: {
   msisdn: string
   doNotUse: boolean
   onHold: boolean
+  erased?: boolean
   tuitions: ExistingTuition[]
   parent: ParentAccount | null
 }): NumberFirstOutcome {
   const masked = maskNumber(input.msisdn)
   if (input.doNotUse) return { kind: 'do_not_use', masked, message: NUMBER_FIRST_DNU }
+  if (input.erased) return { kind: 'erased', masked, message: NUMBER_FIRST_DNU }
   if (input.onHold) return { kind: 'on_hold', masked, message: NUMBER_FIRST_HOLD }
   if (input.tuitions.length > 0) return { kind: 'existing', masked, tuitions: input.tuitions, parent: input.parent }
   if (input.parent) return { kind: 'parent_account', masked, parent: input.parent }
@@ -65,7 +70,7 @@ export function numberFirstOutcome(input: {
 /** Does this outcome let the rest of the form open (after "Continue anyway"
  *  for an existing tuition)? */
 export function formMayOpen(o: NumberFirstOutcome, continuedAnyway: boolean): boolean {
-  if (o.kind === 'do_not_use' || o.kind === 'on_hold') return false
+  if (isBlockedOutcome(o)) return false
   if (o.kind === 'existing') return continuedAnyway
   return true
 }
@@ -90,4 +95,10 @@ export function countsAsLive(status: string | null | undefined): boolean {
 /** A parent account, not a tutor, staff, team or test account. */
 export function isParentAccount(p: { role?: string | null; is_team_account?: boolean | null; is_test_name?: boolean | null; hidden_from_public?: boolean | null; merged_into?: string | null }): boolean {
   return (p.role === 'parent' || p.role === 'academy') && !p.is_team_account && !p.is_test_name && !p.hidden_from_public && !p.merged_into
+}
+
+/** A refused number (withdrawn, erased or on hold). Only the Owner may go on,
+ *  with a logged reason (PR-18). */
+export function isBlockedOutcome(o: NumberFirstOutcome): o is Extract<NumberFirstOutcome, { kind: 'do_not_use' | 'on_hold' | 'erased' }> {
+  return o.kind === 'do_not_use' || o.kind === 'on_hold' || o.kind === 'erased'
 }

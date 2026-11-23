@@ -266,6 +266,7 @@ export const SECTION_LABELS: Record<string, string> = {
   // /admin/users — only the label changes.
   users: 'People',
   'unpaid-signups': 'Follow-ups',
+  'follow-up-mode': 'Start follow-ups',
   'featured-whatsapp': 'Featured WhatsApp',
   'whatsapp-updates': 'WhatsApp updates',
 }

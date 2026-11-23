@@ -14,6 +14,7 @@ import { ensureProfile } from '@/lib/ensureProfile'
 import { AUTH_MSG } from '@/lib/authMessages'
 import { recomputeCompletion } from '@/lib/completion'
 import { logActivity } from '@/lib/activityLog'
+import { queueOtpAlert } from '@/lib/otpAlerts'
 import {
   pendingSendDecision,
   classifyPendingVerify,
@@ -355,6 +356,8 @@ export async function verifyPendingSignup(opts: {
   // (with the role) when the auth user is created above — never again here
   // (PR-15: mobile sign-ups had two).
   await logActivity({ userId, event: 'otp_verified', targetType: 'profile', targetId: userId })
+  // PR-18 C: the chosen staff hear about a newly verified member within a minute.
+  await queueOtpAlert(userId)
 
   return { ok: true, userId, role, email, bridged }
 }

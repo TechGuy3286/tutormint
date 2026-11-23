@@ -111,6 +111,9 @@ const VIEW_DEFINER_OK: Record<string, string> = {
 const NO_POLICY_OK: Record<string, string> = {
   application_parent_views: 'first time a parent opened their tuition page showing an application (migration 235, PR-06) — no parent id; service role only',
   whatsapp_update_sends: 'staff WhatsApp update sends with Undo stamps (migration 235, PR-06) — service role only; read on the server behind SCREEN_ACCESS.waUpdates',
+  member_work_claims: 'follow-up mode holds + "I\'m on it" (migration 245, PR-18) — staff and member ids and times only; service role only, behind SCREEN_ACCESS.unpaidSignups / signups',
+  otp_alerts: 'OTP-verified staff alert queue (migration 245, PR-18) — member id, role, times, status only; service role only (lib/otpAlerts)',
+  tuition_post_sources: 'AI-filled vs typed staff posts (migration 245, PR-18) — job id, source, staff id; service role only (counts for Insights)',
   tutor_rank_cache: 'precomputed Browse ranking per listed tutor (migration 243, PR-17) — derived, service role only; read only through SECURITY DEFINER rank_tutors() / rank_tutors_simple()',
   tutor_rank_cache_state: 'the ranking cache refresh time (migration 243, PR-17) — service role only; read by SECURITY DEFINER functions',
   landing_combination_counts: 'stored landing counts (migration 243, PR-17) — derived, service role only; read only through SECURITY DEFINER landing_combinations_fast()',

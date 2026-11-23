@@ -138,9 +138,10 @@ export function rejectedDocs(f: PipeDocs, reasons: Partial<Record<(typeof DOCS)[
 // ------------------------------------------------------------ contacts ---
 
 /** 'inbox' = a Team inbox message sent to the tutor (owner, 15 Nov 2026). */
-export type PipeKind = 'whatsapp' | 'voice' | 'call' | 'inbox'
+/** 'claim' = "I'm on it" (PR-18 C.4): a follow-up of the stage, never offered as a card button. */
+export type PipeKind = 'whatsapp' | 'voice' | 'call' | 'inbox' | 'claim'
 export const PIPE_KINDS = ['whatsapp', 'voice', 'call', 'inbox'] as const
-export const KIND_LABEL: Record<PipeKind, string> = { whatsapp: 'WhatsApp', voice: 'Voice note', call: 'Call', inbox: 'Team inbox' }
+export const KIND_LABEL: Record<PipeKind, string> = { whatsapp: 'WhatsApp', voice: 'Voice note', call: 'Call', inbox: 'Team inbox', claim: "I'm on it" }
 
 /** The template key stored with a follow-up recorded here. */
 export function pipeTemplateKey(stage: FollowStage, kind: PipeKind): string {
@@ -155,7 +156,7 @@ export function stageOfProgress(progress: string | null | undefined): FollowStag
   return m ? (m[1] as FollowStage) : null
 }
 export function kindOfTemplateKey(key: string | null | undefined): PipeKind | null {
-  const m = /^pipe_(?:missing|rejected|approved)_(whatsapp|voice|call|inbox)$/.exec(key ?? '')
+  const m = /^pipe_(?:missing|rejected|approved)_(whatsapp|voice|call|inbox|claim)$/.exec(key ?? '')
   return m ? (m[1] as PipeKind) : null
 }
 
@@ -420,7 +421,7 @@ export function followTag(state: { section: 'not' | 'done' | null; sent: number 
 export function kindAllowed(nextKind: FollowState['nextKind'], kind: PipeKind): boolean {
   // A call that reached them ("Yes, talked") and a Team inbox message always
   // count (owner, 15 Nov 2026): Call sits beside every due button.
-  if (kind === 'call' || kind === 'inbox') return true
+  if (kind === 'call' || kind === 'inbox' || kind === 'claim') return true
   if (nextKind === 'whatsapp') return kind === 'whatsapp'
   if (nextKind === 'voice') return kind === 'voice'
   return kind === 'whatsapp'

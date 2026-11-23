@@ -21,6 +21,7 @@ import {
   type ParentAccount,
 } from '@/lib/numberFirstCore'
 import type { AdminRole } from '@/lib/adminAuth'
+import { postingBlock } from '@/lib/postingChecks'
 
 export async function checkNumberFirst(
   msisdn: string,
@@ -31,7 +32,7 @@ export async function checkNumberFirst(
   const hash = numberHash(msisdn)
   const tail = `%${lastTen(msisdn)}`
 
-  const [dnu, hold, contacts, profiles] = await Promise.all([
+  const [dnu, hold, contacts, profiles, block] = await Promise.all([
     admin.from('do_not_use_numbers').select('id').eq('number_hash', hash).is('removed_at', null).limit(1),
     admin.from('contact_holds').select('id').eq('number_hash', hash).is('released_at', null).limit(1),
     admin.from('job_contacts').select('job_id, contact_phone, contact_whatsapp').or(`contact_phone.like.${tail},contact_whatsapp.like.${tail}`).limit(200),
@@ -40,6 +41,8 @@ export async function checkNumberFirst(
       .select('id, full_name, role, phone_number, whatsapp, is_team_account, is_test_name, hidden_from_public, merged_into, created_at')
       .or(`phone_number.like.${tail},whatsapp.like.${tail}`)
       .limit(20),
+    // PR-18: the erased-member fingerprint (lib/postingChecks; fails open).
+    postingBlock([msisdn]),
   ])
   if (dnu.error || hold.error || contacts.error || profiles.error) return null
 
@@ -101,6 +104,7 @@ export async function checkNumberFirst(
     msisdn,
     doNotUse: (dnu.data ?? []).length > 0,
     onHold: (hold.data ?? []).length > 0,
+    erased: block?.kind === 'erased',
     tuitions,
     parent,
   })
@@ -110,7 +114,7 @@ export async function checkNumberFirst(
 export async function auditNumberBlocked(
   actor: { id: string; adminRole: AdminRole; email?: string | null },
   msisdn: string,
-  kind: 'do_not_use' | 'on_hold',
+  kind: 'do_not_use' | 'on_hold' | 'erased',
   where: 'post' | 'edit',
 ): Promise<void> {
   await logAdminAction({

@@ -6,6 +6,7 @@ import PostTuitionForm, { type PostTuitionPayload, type DuplicateHit } from '@/c
 import { adminFetch } from '@/components/admin/adminFetch'
 import { submitSignal } from '@/lib/submit'
 import { useToast } from '@/components/ui/Toast'
+import type { RepeatHit } from '@/lib/postingChecksCore'
 
 // Post a tuition on the team-operated TutorMint account (owner, 9 Sep 2026).
 //
@@ -56,13 +57,18 @@ export default function AdminJobForm({ draftKey }: { draftKey?: string }) {
         areaLandmark: payload.areaLandmark,
         allowDuplicate: payload.allowDuplicate ?? false,
         duplicateReason: payload.duplicateReason ?? null,
+        confirmedDifferent: payload.confirmedDifferent ?? false,
+        ownerOverrideReason: payload.ownerOverrideReason ?? null,
+        filledByAi: payload.filledByAi ?? false,
       }),
     })
-    const json = (await res.json().catch(() => ({}))) as { id?: string; error?: string; duplicate?: DuplicateHit | null }
+    const json = (await res.json().catch(() => ({}))) as { id?: string; error?: string; duplicate?: DuplicateHit | null; repeats?: RepeatHit[] | null; code?: string | null }
     if (!res.ok && json.duplicate) {
       // Item 16: the repeat is shown with "Reopen this one" / "Post anyway (+reason)".
       return { ok: false as const, duplicate: json.duplicate }
     }
+    // PR-18: a same-number repeat — the form shows it with "This is a different tuition".
+    if (!res.ok && json.code === 'repeat' && json.repeats?.length) return { ok: false as const, repeats: json.repeats }
     if (!res.ok) {
       toast.error(json.error ?? 'Could not post the tuition.')
       return { ok: false as const, error: json.error }
@@ -84,6 +90,7 @@ export default function AdminJobForm({ draftKey }: { draftKey?: string }) {
       onSubmit={onSubmit}
       staffPost
       numberFirst={{ where: 'post' }}
+      aiPaste
       onReopen={async (hit) => {
         if (hit.status === 'paused') {
           await adminFetch('/api/admin/jobs/action', {

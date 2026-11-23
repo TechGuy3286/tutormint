@@ -62,6 +62,11 @@ const TeamJobBody = z.object({
   // Duplicate prevention (item 16): "Post anyway" + the staff member's reason.
   allowDuplicate: z.boolean().optional(),
   duplicateReason: z.string().max(300).nullish(),
+  // PR-18 A.3/A.4: the repeat tick, the Owner's logged override reason, and
+  // whether the form was filled by "Paste a post".
+  confirmedDifferent: z.boolean().optional(),
+  ownerOverrideReason: z.string().max(300).nullish(),
+  filledByAi: z.boolean().optional(),
 })
 
 function parseInput(body: z.infer<typeof TeamJobBody>): JobInput {
@@ -101,6 +106,9 @@ function parseInput(body: z.infer<typeof TeamJobBody>): JobInput {
     areaLandmark: str(body.areaLandmark),
     allowDuplicate: !!body.allowDuplicate,
     duplicateReason: str(body.duplicateReason),
+    confirmedDifferent: !!body.confirmedDifferent,
+    ownerOverrideReason: str(body.ownerOverrideReason),
+    filledByAi: !!body.filledByAi,
   }
 }
 
@@ -119,7 +127,7 @@ export async function POST(request: Request) {
   )
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error , duplicate: result.duplicate ?? null }, { status: result.status })
+    return NextResponse.json({ error: result.error, duplicate: result.duplicate ?? null, code: result.code ?? null, repeats: result.repeats ?? null }, { status: result.status })
   }
 
   return NextResponse.json({

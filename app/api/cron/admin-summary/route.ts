@@ -3,7 +3,8 @@ import { timingSafeEqual } from 'node:crypto'
 import { rebuildAdminSummary } from '@/lib/adminSummary'
 import { refreshInterestInboxIfDue } from '@/lib/interestInbox'
 import { syncListedTutors } from '@/lib/tutorLinkers'
-import { refreshRankCache } from '@/lib/rankCache'
+import { refreshRankCacheIfStale } from '@/lib/rankCache'
+import { runOtpAlerts } from '@/lib/otpAlerts'
 
 // The admin summary job (owner, 1 Nov 2026 — lib/adminSummary). Vercel calls it
 // every minute; it rebuilds only when something changed since the last build
@@ -36,9 +37,12 @@ export async function GET(request: Request) {
   // minute (lib/tutorLinkers). One slug-list read when nothing changed.
   const linkers = await syncListedTutors()
   // PR-17 Part A: the precomputed ranking + landing counts (migration 243).
-  // Writes only the rows whose content changed; rank_tutors() falls back to
-  // its live body by itself if this stops for 10 minutes.
-  const rankCache = await refreshRankCache()
+  // PR-18 Part D: refreshed every minute by pg_cron inside the database; this
+  // only steps in when that has not run for 3 minutes. rank_tutors() still
+  // falls back to its live body by itself after 10 minutes.
+  const rankCache = await refreshRankCacheIfStale()
+  // PR-18 Part C: OTP-verified alerts still pending, or the 15-minute digest.
+  const otpAlerts = await runOtpAlerts().catch(() => null)
   const r = await rebuildAdminSummary({ force })
-  return NextResponse.json({ ...r, inbox, linkers, rankCache }, { status: r.failed.length ? 500 : 200 })
+  return NextResponse.json({ ...r, inbox, linkers, rankCache, otpAlerts }, { status: r.failed.length ? 500 : 200 })
 }

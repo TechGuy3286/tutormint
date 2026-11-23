@@ -70,7 +70,7 @@ export async function loadPipeContacts(ids: string[]): Promise<Map<string, PipeC
     // A paid tutor's welcome (owner, 9 Nov 2026) is not a pipeline follow-up.
     if (r.source === 'parents' || r.source === 'welcome') continue
     const progress = (r.progress as string | null) ?? null
-    const kind = kindOfTemplateKey(r.template_key as string | null) ?? (r.channel === 'call' ? 'call' : r.channel === 'email' ? 'inbox' : 'whatsapp')
+    const kind = kindOfTemplateKey(r.template_key as string | null) ?? (r.channel === 'call' ? 'call' : r.channel === 'email' ? 'inbox' : r.channel === 'claim' ? 'claim' : 'whatsapp')
     push(r.member_id as string, {
       at: r.created_at as string,
       kind,

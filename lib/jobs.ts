@@ -78,6 +78,8 @@ import { parseContactNumber, resumeContactProblem } from '@/lib/tuitionContactCo
 import { normalisePkMobile } from '@/lib/phone'
 import { contactFactsForJobs } from '@/lib/tuitionContact'
 import { doNotUseRefusal } from '@/lib/contactWithdraw'
+import { auditOwnerOverride, postingBlock, recordPostSource, runContactChecks } from '@/lib/postingChecks'
+import { postDecision, type BlockKind, type RepeatHit } from '@/lib/postingChecksCore'
 import { tuitionNumbers } from '@/lib/contactWithdrawCore'
 import { cleanPostalCode, isEmploymentType, parentJobFieldProblem, resolveEmploymentType, staffJobFieldProblem } from '@/lib/jobFieldsCore'
 
@@ -177,6 +179,14 @@ export type JobInput = {
    *  derived from the Job Type). The postal code is five digits or empty. */
   employmentType?: string | null
   postalCode?: string | null
+  /** PR-18 A.3 (staff): the staff member ticked "This is a different tuition"
+   *  over a same-number repeat (lib/postingChecksCore). */
+  confirmedDifferent?: boolean
+  /** PR-18 A.3: the Owner's logged reason for posting a withdrawn / erased /
+   *  on-hold number. Refused for anyone else. */
+  ownerOverrideReason?: string | null
+  /** PR-18 A.4: the form was filled by "Paste a post" (counts only). */
+  filledByAi?: boolean
 }
 
 /** Clean the per-grade payload and keep masterIds as its union. */
@@ -190,7 +200,36 @@ function prepareGradeSubjects(input: JobInput): { ok: true; input: JobInput } | 
   return { ok: true, input: { ...input, gradeSubjects: groups, masterIds: unionMasterIds(groups) } }
 }
 
-type Fail = { ok: false; status: number; error: string; upgrade?: string; gate?: Gate; similarHref?: string; duplicate?: ExistingTuition }
+type Fail = { ok: false; status: number; error: string; upgrade?: string; gate?: Gate; similarHref?: string; duplicate?: ExistingTuition; code?: string; repeats?: RepeatHit[] }
+
+/**
+ * PR-18 A.3 — the contact checks of a staff post (create and edit): withdrawn,
+ * erased and on-hold numbers are refused unless the Owner gives a logged
+ * reason; a same-number repeat (overlapping grade or subject, last 30 days)
+ * needs "This is a different tuition". The reason is audited by the caller
+ * once the job id exists.
+ */
+async function staffContactDecision(
+  input: JobInput,
+  msisdn: string,
+  actor: { adminRole: AdminRole },
+  excludeJobId: string | null,
+): Promise<{ ok: true; override: BlockKind | null } | Fail> {
+  const result = await runContactChecks({
+    phone: msisdn,
+    whatsapp: normalisePkMobile(input.contactWhatsapp ?? null),
+    textNumbers: tuitionNumbers({ title: input.title, description: input.description, social: input.contactSocial }),
+    levels: levelArr(input),
+    masterIds: input.masterIds,
+    excludeJobId,
+    isOwner: actor.adminRole === 'owner',
+  })
+  // An edit re-checks the number (block) but is never asked to confirm a repeat.
+  if (excludeJobId) result.repeats = []
+  const d = postDecision({ result, isOwner: actor.adminRole === 'owner', overrideReason: input.ownerOverrideReason, confirmedDifferent: !!input.confirmedDifferent })
+  if (!d.ok) return { ok: false, status: d.status, error: d.error, code: d.code, repeats: d.code === 'repeat' ? result.repeats : undefined }
+  return { ok: true, override: d.override }
+}
 
 /** The fields the duplicate check compares (lib/duplicates). */
 function duplicateFacts(input: JobInput, contact: string | null) {
@@ -331,6 +370,9 @@ export async function createJob(
   // contacted is refused — the parent's own, or one written in the post.
   const listed = await doNotUseRefusal(tuitionNumbers({ ownNumber, title: input.title, description: input.description }))
   if (listed) return { ok: false, status: 400, error: listed }
+  // PR-18 A.3: a number of an erased member written in the post is refused too.
+  const erasedBlock = await postingBlock(tuitionNumbers({ title: input.title, description: input.description }))
+  if (erasedBlock) return { ok: false, status: 400, error: erasedBlock.message }
   const existing = await findExistingDuplicate(duplicateFacts(input, ownNumber))
   if (existing && !input.allowDuplicate) {
     return {
@@ -510,12 +552,12 @@ export async function createTeamJob(
   // day): the check runs only while CONSENT_UI_ENABLED is on.
   const consentProblem = CONSENT_UI_ENABLED ? consentInputProblem({ agreed: input.consentAgreed, method: input.consentMethod }) : null
   if (consentProblem) return { ok: false, status: 400, error: consentProblem }
-  // The Do not use list (owner, 27 Oct 2026): the contact number, the WhatsApp
-  // and any number written in the post or the social field.
-  const listed = await doNotUseRefusal(
-    tuitionNumbers({ contactPhone: number.msisdn, contactWhatsapp: input.contactWhatsapp, title: input.title, description: input.description, social: input.contactSocial }),
-  )
-  if (listed) return { ok: false, status: 400, error: listed }
+  // The contact checks (owner, 27 Oct 2026; PR-18 A.3): the contact number, the
+  // WhatsApp and any number written in the post or the social field against
+  // the Do not use list, the erased members and the holds; then same-number
+  // repeats. One rule for the AI-filled and the typed form (lib/postingChecks).
+  const checks = await staffContactDecision(input, number.msisdn, actor, null)
+  if (!checks.ok) return checks
   // Staff choose the city from the curated list only (owner, 16 Oct 2026): a
   // typed or misspelt city is refused, and a curated one is saved as written there.
   const curatedCity = await curatedCityName(input.city)
@@ -651,6 +693,10 @@ export async function createTeamJob(
   // The staff member who posts a tuition owns its applications (owner, 22 Oct
   // 2026; lib/applicationTracking). Only the Owner reassigns it later.
   await recordPoster(admin, job.id as string, actor.id)
+  // PR-18: the Owner's override of a blocked number is logged with its reason;
+  // AI-filled vs typed is counted (no text kept).
+  if (checks.override) await auditOwnerOverride(actor, { jobId: job.id as string, kind: checks.override, reason: input.ownerOverrideReason ?? '', where: 'post' })
+  await recordPostSource(job.id as string, input.filledByAi ? 'ai' : 'manual', actor.id)
 
   // Abusive tuition text was withheld and flagged before the insert (PR41 §2),
   // so a posted team job here contains no flagged wording.
@@ -728,12 +774,12 @@ export async function updateTeamJob(
   // Parent consent: not required since 27 Oct 2026 (CONSENT_UI_ENABLED off).
   const consentProblem = CONSENT_UI_ENABLED ? consentInputProblem({ agreed: input.consentAgreed, method: input.consentMethod }) : null
   if (consentProblem) return { ok: false, status: 400, error: consentProblem }
-  // The Do not use list (owner, 27 Oct 2026): the contact number, the WhatsApp
-  // and any number written in the post or the social field.
-  const listed = await doNotUseRefusal(
-    tuitionNumbers({ contactPhone: number.msisdn, contactWhatsapp: input.contactWhatsapp, title: input.title, description: input.description, social: input.contactSocial }),
-  )
-  if (listed) return { ok: false, status: 400, error: listed }
+  // The contact checks (owner, 27 Oct 2026; PR-18 A.3): the contact number, the
+  // WhatsApp and any number written in the post or the social field against
+  // the Do not use list, the erased members and the holds; then same-number
+  // repeats. One rule for the AI-filled and the typed form (lib/postingChecks).
+  const checks = await staffContactDecision(input, number.msisdn, actor, jobId)
+  if (!checks.ok) return checks
   // Staff choose the city from the curated list only (owner, 16 Oct 2026): a
   // typed or misspelt city is refused, and a curated one is saved as written there.
   const curatedCity = await curatedCityName(input.city)
@@ -837,6 +883,8 @@ export async function updateTeamJob(
     }
   }
 
+  if (checks.override) await auditOwnerOverride(actor, { jobId, kind: checks.override, reason: input.ownerOverrideReason ?? '', where: 'edit' })
+
   await logActivity({
     userId: teamId,
     event: 'job_edited',
@@ -893,6 +941,8 @@ export async function updateJob(
   {
     const listed = await doNotUseRefusal(tuitionNumbers({ title: input.title, description: input.description }))
     if (listed) return { ok: false, status: 400, error: listed }
+    const erasedBlock = await postingBlock(tuitionNumbers({ title: input.title, description: input.description }))
+    if (erasedBlock) return { ok: false, status: 400, error: erasedBlock.message }
   }
 
   const labels = await subjectLabels(input.masterIds)

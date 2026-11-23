@@ -116,7 +116,7 @@ test('Number first: each outcome', () => {
   const dnu = numberFirstOutcome({ msisdn, doNotUse: true, onHold: true, tuitions: [T], parent: { id: 'p', name: 'Ali' } })
   assert.equal(dnu.kind, 'do_not_use')
   assert.equal(dnu.kind === 'do_not_use' && dnu.message, NUMBER_FIRST_DNU)
-  assert.equal(NUMBER_FIRST_DNU, "This number has asked not to be contacted. Please don't post it.")
+  assert.equal(NUMBER_FIRST_DNU, "This parent asked not to be contacted. It can't be posted.")
   assert.equal(formMayOpen(dnu, true), false, 'the form stays closed')
 
   const hold = numberFirstOutcome({ msisdn, doNotUse: false, onHold: true, tuitions: [T], parent: null })
@@ -166,7 +166,11 @@ test('Number first: wired into both staff forms; save re-checks; blocked attempt
   assert.doesNotMatch(audit, /detail: \{[^}]*msisdn/)
   // The save paths re-check the lists as the backup.
   const jobs = code('lib/jobs.ts')
-  assert.ok((jobs.match(/doNotUseRefusal\(/g) ?? []).length >= 3, 'createJob, createTeamJob and updateTeamJob')
+  // PR-18: the staff paths (createTeamJob, updateTeamJob) re-check through
+  // staffContactDecision → lib/postingChecks postingBlock (Do not use, hold AND
+  // erased); the parent's create and edit keep doNotUseRefusal.
+  assert.ok((jobs.match(/doNotUseRefusal\(/g) ?? []).length >= 2, 'createJob and the parent edit')
+  assert.equal((jobs.match(/staffContactDecision\(input, number\.msisdn, actor,/g) ?? []).length, 2, 'createTeamJob and updateTeamJob')
   assert.ok((jobs.match(/linkTuitionToParentByNumber\(/g) ?? []).length === 2, 'create and edit link to the parent account')
   // The parent's own form gets the Do-not-use and On-hold checks (doNotUseRefusal covers both).
   assert.match(code('lib/contactWithdraw.ts'), /postingRefusal\(numbers, dnu, holds\)/)
