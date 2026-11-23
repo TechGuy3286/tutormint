@@ -23,6 +23,8 @@ export const VIEW_AS_HEADER = 'x-tm-view-as'
 export const VIEW_AS_READ_RPCS: ReadonlySet<string> = new Set([
   'is_blocked_pair',
   'rank_tutors',
+  'rank_tutors_simple',
+  'landing_combinations_fast',
   'listed_tutor_slugs',
   'indexable_tuitions',
   'indexable_job_slugs',

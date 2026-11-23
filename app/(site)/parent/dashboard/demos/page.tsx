@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 import DemoInbox, { type DemoRow } from '../DemoInbox'
 import { formatName } from '@/lib/formatName'
+import { sortParentDemos } from '@/lib/demoFeedbackCore'
 
 // Demo requests, moved off the dashboard.
 //
@@ -51,7 +52,15 @@ export default async function ParentDemosPage() {
     }
   }
 
-  const rows: DemoRow[] = (demos ?? []).map((d) => ({
+  // PR-17 D.4: the parent's own feedback per demo (one per demo) — shown as
+  // their stars + comment with Edit instead of the Leave feedback button.
+  const demoIds = (demos ?? []).map((d) => d.id as string)
+  const { data: fbs } = demoIds.length
+    ? await supabase.from('demo_feedback').select('demo_request_id, rating, feedback_text, comment_status').eq('parent_id', userId).in('demo_request_id', demoIds)
+    : { data: [] as { demo_request_id: string; rating: number; feedback_text: string | null; comment_status: string | null }[] }
+  const fbOf = new Map((fbs ?? []).map((f) => [f.demo_request_id as string, f]))
+
+  const unsorted: DemoRow[] = (demos ?? []).map((d) => ({
     id: d.id as string,
     tutorId: d.tutor_id as string,
     tutorName: names.get(d.tutor_id as string)?.name ?? 'Tutor',
@@ -61,7 +70,17 @@ export default async function ParentDemosPage() {
     proposedTime: (d.proposed_time as string) ?? null,
     declineReason: (d.decline_reason as string) ?? null,
     createdAt: d.created_at as string,
+    feedbackLeft: fbOf.has(d.id as string),
+    feedback: fbOf.has(d.id as string)
+      ? {
+          rating: Number(fbOf.get(d.id as string)!.rating),
+          text: (fbOf.get(d.id as string)!.feedback_text as string | null) ?? '',
+          commentStatus: (fbOf.get(d.id as string)!.comment_status as string | null) ?? 'pending',
+        }
+      : null,
   }))
+  // PR-17 D.3: Accepted (upcoming, nearest first) → Pending → Completed → Declined/Cancelled.
+  const rows = sortParentDemos(unsorted, Date.now())
 
   return (
     <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">

@@ -41,6 +41,7 @@ export const NOTIFICATION_GROUPS = {
   demos: ['demo_requested', 'demo_accepted', 'demo_declined', 'demo_cancelled', 'demo_feedback'],
   account: [
     'plan_activated',
+    'onboarding_continue',
     'plan_expiring',
     'plan_expired',
     'payment_submitted',

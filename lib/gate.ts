@@ -23,6 +23,7 @@ import type { Entitlements } from '@/lib/entitlements'
 import { packagesHref, type Audience } from '@/lib/upgradePath'
 import { listingFixes, type ListingBlocker } from '@/lib/tutorListingStatus'
 import type { RejectedDoc } from '@/lib/badgeRule'
+import { HIRE_LIMIT_MESSAGE } from '@/lib/parentHireCore'
 
 /**
  * The "you are not listed, here is exactly what is missing" gate (owner PR3
@@ -393,16 +394,15 @@ async function buildBaseGate(
       }
 
     case 'parent_hire':
+      // PR-17 Part D: shown only once the free lifetime hires are used.
       return {
-        kind: 'upgrade',
-        title: 'Completing a hire needs Featured',
-        body:
-          'Browsing, messaging tutors and requesting demos stay free. Marking a tutor hired, and ' +
-          'seeing their phone and WhatsApp number, is what Featured adds.',
+        kind: 'quota',
+        title: HIRE_LIMIT_MESSAGE,
+        body: 'Featured gives you unlimited hires, and tutors’ phone and WhatsApp numbers.',
         audience: 'parent',
         plan,
         href: packagesHref('parent', required),
-        ctaLabel: 'See Featured',
+        ctaLabel: 'See Membership Plans',
         actionable: true,
       }
 

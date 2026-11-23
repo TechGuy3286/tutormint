@@ -51,6 +51,7 @@ export type NotificationKind =
   | 'demo_declined'
   | 'demo_cancelled'
   | 'demo_feedback'
+  | 'onboarding_continue'
   // T6 — money and plan lifecycle.
   | 'plan_activated'
   | 'plan_expiring'

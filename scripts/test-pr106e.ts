@@ -152,15 +152,14 @@ test('an already-approved re-approval sends no new notification (idempotency gua
 
 // ---------------------------------------------- STEP 5: complete-profile link --
 
-test('the name card links to complete-profile with the real % below 100, says "✓ 100% Completed" at 100 (#56)', () => {
+// PR-17 E.2 supersedes #56: ONE progress number, "X of 16 steps done" — no %.
+test('the name card links to complete-profile with "X of 16 steps done" until done, a green tick line after', () => {
   const src = read('components/tutor/TutorHeaderCard.tsx')
-  assert.ok(/completion < 100 \?/.test(src), 'the link only below 100%')
-  assert.ok(/Complete your profile · \{completion\}%/.test(src), 'shows the real percent')
+  assert.ok(/\{incomplete \? \(/.test(src), 'the link only while steps are left')
+  assert.ok(/\{stepsDoneLine\(steps\.done, steps\.total\)\}/.test(src), 'the one progress line')
   assert.ok(/href="\/tutor\/complete-profile"/.test(src), 'opens the flow')
-  // #56 (owner, 5 Oct 2026): brand red under 100%, deep-green "✓ 100% Completed"
-  // at 100%, and NO Urdu line under either.
-  assert.ok(/text-tm-red[^\n]*\n\s*>\s*\n\s*Complete your profile/.test(src), 'red under 100%')
-  assert.ok(/text-tm-green-deep[^\n]*✓ 100% Completed/.test(src), 'green "✓ 100% Completed" at 100%')
+  assert.ok(!/\{completion\}%/.test(src), 'no separate %')
+  assert.ok(/text-tm-green-deep">✓ \{stepsDoneLine/.test(src), 'green tick line when done')
   assert.ok(!/پروفائل مکمل کریں/.test(src), 'no Urdu line under the completion label')
 })
 

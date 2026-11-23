@@ -7,6 +7,7 @@ import BuyButton from '@/components/membership-plans/BuyButton'
 import { formatDate } from '@/lib/datetime'
 import { COMING_SOON_LABEL, upgradeBlocked } from '@/lib/upgradesPausedCore'
 import { buyButtonState, type RunningPlan } from '@/lib/planPurchaseCore'
+import { FEATURED_HIRE_LINE, FREE_HIRE_LINE } from '@/lib/parentHireCore'
 
 // The plan matrix, rendered from the `plans` table (owner PR12/§1.2).
 //
@@ -77,7 +78,8 @@ const PARENT_FEATURES: Feature[] = [
   { label: () => 'Message any tutor', level: (p) => (p.can_initiate_message ? 1 : 0) },
   { label: () => 'See tutor phone & WhatsApp', level: (p) => (p.can_view_contact ? 1 : 0) },
   { label: () => 'WhatsApp tutors with one tap', level: (p) => (p.can_whatsapp ? 1 : 0) },
-  { label: () => 'Complete a hire', level: (p) => (p.can_hire ? 1 : 0) },
+  // PR-17 D.2: Featured reads 'Unlimited hires'; the free card's 'Hire 5 tutors' is in PARENT_BASE.
+  { label: () => FEATURED_HIRE_LINE, level: (p) => (p.can_hire ? 1 : 0) },
   // §4.4: "Standard job placement" is removed — the ranking line appears ONLY
   // when the plan actually ranks jobs first (Featured), never on the free tier.
   { label: () => 'Your jobs shown first', level: (p) => (p.search_rank >= 3 ? 3 : 0) },
@@ -103,7 +105,8 @@ function tutorFreeRows(p: PlanRow): string[] {
 }
 
 // The parent free tier's universal truths — constant, not in any plans column.
-const PARENT_BASE = ['Browse tutors', 'Request a demo']
+// PR-17 D.2: a free (Verified) parent hires 5 tutors in total (lib/parentHireCore).
+const PARENT_BASE = ['Browse tutors', 'Request a demo', FREE_HIRE_LINE]
 
 export default function PackagesTable({
   plans,

@@ -84,7 +84,8 @@ test('the badge pop-up shows the right benefit ticks per state', () => {
   assert.deepEqual(verificationFeeCardState({ feePaid: true, verifiedOk: false, findable: false }).lines.map((l) => [l.key, l.done]), [['badge', false], ['google', false], ['basic', true]])
   assert.deepEqual(verificationFeeCardState({ feePaid: true, verifiedOk: true, findable: true }).lines.map((l) => l.done), [true, true, true])
   const ctl = read('components/tutor/VerifyBadgeControl.tsx')
-  assert.ok(ctl.includes('Get verified') && ctl.includes('Verification pending') && ctl.includes('Pay verification fee'))
+  // PR-17 E.5: the unpaid chip reads a neutral grey "Not verified yet".
+  assert.ok(ctl.includes('Not verified yet') && ctl.includes('Verification pending') && ctl.includes('Pay verification fee'))
   assert.ok(!/Rs\.?\s*199|₨\s*199/.test(ctl), 'no amount in the pop-up')
 })
 
@@ -104,7 +105,7 @@ test('the applications quota counter: Basic/Premium show the number, Featured ne
   assert.equal(quotaCounter({ plan: 'featured', used: 299, quota: 300 }).showGetMore, false)
   const dash = read('app/(site)/tutor/dashboard/page.tsx')
   // PR-16: the tile reads "N applied · N hired"; quotaCounter still drives "Get more applications".
-  assert.ok(dash.includes('quotaCounter') && dash.includes("label: 'My applications'") && dash.includes('applied · {hiredCount} hired'))
+  assert.ok(dash.includes('quotaCounter') && dash.includes("label: 'My applications'") && dash.includes('{appliedCount} applied</span>'))
 })
 
 // ---------------------------------------------- payment screens (§10/§11) ------

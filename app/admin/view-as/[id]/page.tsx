@@ -93,7 +93,7 @@ export default async function ViewAsTutorPage({ params }: { params: Promise<{ id
           badges={ent.badges}
           verificationPending={!!ent.verificationPending}
           findable={findable}
-          completion={percent}
+          steps={{ done: completion ? completion.items.length - completion.missing.length : 0, total: completion?.items.length ?? 0 }}
           publicHref={publicHref}
         />
 

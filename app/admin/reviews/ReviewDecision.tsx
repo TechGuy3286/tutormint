@@ -12,7 +12,7 @@ import { useConfirm } from '@/components/ui/ConfirmDialog'
 // Approve / Reject on one pending review (owner, 27 Oct 2026). The Owner's
 // alone — everyone else sees the view-only line, and the route refuses them.
 
-export default function ReviewDecision({ reviewId }: { reviewId: string }) {
+export default function ReviewDecision({ reviewId, source = 'hire' }: { reviewId: string; source?: 'hire' | 'demo' }) {
   const canApprove = useCanApprove()
   const toast = useToast()
   const confirm = useConfirm()
@@ -31,7 +31,7 @@ export default function ReviewDecision({ reviewId }: { reviewId: string }) {
     const { ok, data } = await adminFetch<{ error?: string }>('/api/admin/reviews/decide', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reviewId, decision, reason: reason.trim() || null }),
+      body: JSON.stringify({ reviewId, decision, reason: reason.trim() || null, source }),
     })
     setBusy(false)
     if (!ok) return toast.error(data?.error ?? 'That did not save. Please try again.')

@@ -3,6 +3,7 @@ import { timingSafeEqual } from 'node:crypto'
 import { rebuildAdminSummary } from '@/lib/adminSummary'
 import { refreshInterestInboxIfDue } from '@/lib/interestInbox'
 import { syncListedTutors } from '@/lib/tutorLinkers'
+import { refreshRankCache } from '@/lib/rankCache'
 
 // The admin summary job (owner, 1 Nov 2026 — lib/adminSummary). Vercel calls it
 // every minute; it rebuilds only when something changed since the last build
@@ -34,6 +35,10 @@ export async function GET(request: Request) {
   // erase, a rejected document) leaves the pages that linked to them within a
   // minute (lib/tutorLinkers). One slug-list read when nothing changed.
   const linkers = await syncListedTutors()
+  // PR-17 Part A: the precomputed ranking + landing counts (migration 243).
+  // Writes only the rows whose content changed; rank_tutors() falls back to
+  // its live body by itself if this stops for 10 minutes.
+  const rankCache = await refreshRankCache()
   const r = await rebuildAdminSummary({ force })
-  return NextResponse.json({ ...r, inbox, linkers }, { status: r.failed.length ? 500 : 200 })
+  return NextResponse.json({ ...r, inbox, linkers, rankCache }, { status: r.failed.length ? 500 : 200 })
 }

@@ -1,7 +1,10 @@
 import 'server-only'
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { areaMarks, pathOfUrl, tuitionMarks, tutorListingMarks, tutorProfileMarks, type Mark } from '@/lib/publicRevalidateCore'
+import { areaMarks, pathOfUrl, tuitionMarks, tutorListingMarks, tutorProfileMarks, tutorRatingMarks, type Mark } from '@/lib/publicRevalidateCore'
+import { refreshRankCacheFor } from '@/lib/rankCache'
+import { subjectMetaByMaster } from '@/lib/landing'
+import { citySegment } from '@/lib/slugs'
 
 // On-demand rebuilds of the cached public pages (push 3, owner 1 Nov 2026;
 // PR-15). The pages are cached with a long safety-net time limit (hours —
@@ -47,6 +50,28 @@ export function revalidatePublicAreas(): void {
 export function revalidatePublicUrl(url: string): void {
   const path = pathOfUrl(url)
   if (path) apply([{ path }])
+}
+
+/** A tutor's rating changed (PR-17 Part B): refresh their ranking-cache row
+ *  first (the rebuilt cards read it), then mark exactly the pages that show the
+ *  rating (lib/publicRevalidateCore tutorRatingMarks). Never throws. */
+export async function revalidateTutorRating(tutorId: string): Promise<void> {
+  try {
+    await refreshRankCacheFor([tutorId])
+    const admin = createAdminClient()
+    if (!admin) return
+    const [{ data: tp }, { data: dir }, { data: subs }, meta] = await Promise.all([
+      admin.from('tutor_profiles').select('slug').eq('id', tutorId).maybeSingle(),
+      admin.from('tutor_directory').select('city, cities').eq('id', tutorId).maybeSingle(),
+      admin.from('tutor_subjects').select('master_id').eq('tutor_id', tutorId),
+      subjectMetaByMaster(),
+    ])
+    const cities = [dir?.city as string | null, ...(((dir?.cities as string[] | null) ?? []))].filter(Boolean).map((c) => citySegment(c as string))
+    const subjects = (subs ?? []).map((s) => meta.get(Number(s.master_id))?.slug ?? '').filter(Boolean)
+    apply(tutorRatingMarks((tp?.slug as string | null) ?? null, cities, subjects))
+  } catch {
+    /* a missed rebuild only means the time limit applies */
+  }
 }
 
 /** One tutor's profile changed (a save, a document decision, a photo). */

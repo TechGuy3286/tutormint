@@ -11,7 +11,7 @@ import VerifyBenefitsDialog from '@/components/tutor/VerifyBenefitsDialog'
 //   • verified (fee paid + docs approved) → the GREEN CHECK only, no "Verified"
 //     text; tapping opens the benefits pop-up.
 //   • fee paid, docs pending → a "Verification pending" chip; taps open the pop-up.
-//   • fee not paid → a "Get verified" chip; taps open the pop-up with a
+//   • fee not paid → a grey "Not verified yet" chip (PR-17); taps open the pop-up with a
 //     "Pay verification fee" button to the payment page.
 //
 // The pop-up itself is VerifyBenefitsDialog (PR106-G4b extracted it so the new
@@ -79,9 +79,10 @@ export default function VerifyBadgeControl({
         ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1 rounded-full bg-tm-tint-red px-2.5 py-0.5 align-middle text-[11px] font-bold text-tm-red"
+        // PR-17 E.5: a neutral grey chip, not a red alarm, beside the name.
+        className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-0.5 align-middle text-[11px] font-bold text-slate-700"
       >
-        <BadgeCheck size={13} aria-hidden /> Get verified
+        <BadgeCheck size={13} aria-hidden /> Not verified yet
       </button>
     )
 

@@ -1010,7 +1010,7 @@ export default function PostTuitionForm({
 
       {/* Sticky on mobile: the primary action must be reachable without
           scrolling back through the whole card. */}
-      <div className="sticky bottom-0 -mx-4 border-t border-gray-200 bg-white/95 p-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
+      <div data-sticky-bar="" className="tm-bottom-bar tm-bottom-bar-sm-clear sticky bottom-0 -mx-4 border-t border-gray-200 px-3 pt-3 sm:static sm:mx-0 sm:border-0 sm:p-0">
         <button
           type="button"
           onClick={() => void submit()}

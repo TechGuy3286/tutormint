@@ -54,16 +54,23 @@ export default async function NotificationsPage({
   const { group: raw } = await searchParams
   const group = (FILTERS.find((f) => f.key === raw)?.key ?? 'all') as NotificationGroup
 
+  const role = session.profile?.role ?? null
   const [{ rows, nextCursor }, unread] = await Promise.all([
     notificationPage({ group, limit: PAGE_SIZE }),
     unreadCount(),
   ])
 
-  const role = session.profile?.role ?? null
-
   return (
     <main className="mx-auto w-full max-w-2xl space-y-4 p-4 sm:p-6">
-      <Breadcrumbs items={[{ label: 'Notifications' }]} />
+      {/* PR-17 F.3: a breadcrumb trail (Home › Dashboard › Notifications), no
+          "Back to …" link. */}
+      <Breadcrumbs
+        showBack={false}
+        items={[
+          ...(role === 'tutor' ? [{ label: 'Dashboard', href: '/tutor/dashboard' }] : role === 'parent' ? [{ label: 'Dashboard', href: '/parent/dashboard' }] : []),
+          { label: 'Notifications' },
+        ]}
+      />
 
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <div className="space-y-1">

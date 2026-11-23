@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { refuseUnlessOwnerApproval } from '@/lib/ownerGuard'
-import { decideReview } from '@/lib/reviews'
+import { decideDemoComment, decideReview } from '@/lib/reviews'
 import { parseBody, z, uuid } from '@/lib/validate'
 
 // POST /api/admin/reviews/decide { reviewId, decision: approve | reject, reason? }
@@ -18,6 +18,8 @@ const Body = z.object({
   reviewId: uuid,
   decision: z.enum(['approve', 'reject']),
   reason: z.string().max(300).optional().nullable(),
+  /** PR-17: 'demo' = a demo lesson's written comment (demo_feedback). */
+  source: z.enum(['hire', 'demo']).optional(),
 })
 
 export async function POST(request: Request) {
@@ -27,7 +29,8 @@ export async function POST(request: Request) {
   if (refused) return refused
   const parsed = await parseBody(request, Body)
   if (!parsed.ok) return parsed.response
-  const res = await decideReview(gate.actor, parsed.data.reviewId, parsed.data.decision, parsed.data.reason ?? null)
+  const decide = parsed.data.source === 'demo' ? decideDemoComment : decideReview
+  const res = await decide(gate.actor, parsed.data.reviewId, parsed.data.decision, parsed.data.reason ?? null)
   if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status })
   return NextResponse.json({ success: true })
 }

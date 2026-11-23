@@ -27,8 +27,9 @@ test('a) the H1 is the approved text, in the same styling', () => {
 test('b) two cards directly below the buttons, from lib/siteIdentity, with real routes', () => {
   assert.deepEqual(HOME_CARDS.map((c) => c.title), ['For parents', 'For tutors'])
   assert.deepEqual(HOME_CARDS[0].points, ['Find verified tutors free', 'Post a tuition free', 'Contact tutors directly'])
-  // PR-12 (owner-authorised): 'No commission' became 'Free to join'.
-  assert.deepEqual(HOME_CARDS[1].points, ['Get verified', 'Find tuitions near you', 'Free to join'])
+  // PR-12 (owner-authorised): 'No commission' became 'Free to join'; PR-17
+  // (owner-authorised): 'Free to join' became 'Free profile'.
+  assert.deepEqual(HOME_CARDS[1].points, ['Get verified', 'Find tuitions near you', 'Free profile'])
   assert.deepEqual(HOME_CARDS[0].links, [
     { label: 'Browse tutors', href: '/browse/tutors' },
     { label: 'Post a tuition', href: '/register?next=%2Fparent%2Fdashboard%2Fpost-job&role=parent' },

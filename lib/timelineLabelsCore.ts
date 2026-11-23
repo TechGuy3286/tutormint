@@ -69,6 +69,8 @@ export const AUDIT_LABELS: Record<string, string> = {
   'report.action': 'Acted on a report',
   'report.dismiss': 'Dismissed a report',
   'review.approve': 'Approved a parent review',
+  'demo_comment.approve': 'Approved a demo lesson comment',
+  'demo_comment.reject': 'Rejected a demo lesson comment',
   'review.reject': 'Rejected a parent review',
   'flag.clear': 'Cleared a flagged message',
   'owner.protection_blocked': 'Tried to change the Owner account and was stopped',

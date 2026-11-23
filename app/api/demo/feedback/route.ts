@@ -4,6 +4,9 @@ import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
 import { parseBody, z, text, uuid } from '@/lib/validate'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { revalidateTutorRating } from '@/lib/publicRevalidate'
+import { feedbackNotice, feedbackProblem, feedbackWrite } from '@/lib/demoFeedbackCore'
 
 // Feedback after a demo: the parent writes it, the tutor may reply once.
 //
@@ -83,26 +86,40 @@ export async function POST(request: Request) {
     )
   }
 
+  const problem = feedbackProblem({ rating: body.rating, text: body.text })
+  if (problem) return NextResponse.json({ error: problem }, { status: 400 })
   const rating = Number(body.rating)
-  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
-    return NextResponse.json({ error: 'Give a rating from 1 to 5.' }, { status: 400 })
-  }
   const text = (body.text ?? '').trim()
-  if (text.length < 5) {
-    return NextResponse.json({ error: 'Write a sentence about how it went.' }, { status: 400 })
-  }
 
   const { data: already } = await supabase
     .from('demo_feedback')
-    .select('id')
+    .select('id, parent_id')
     .eq('demo_request_id', body.demoId)
     .maybeSingle()
 
-  if (already) {
-    return NextResponse.json(
-      { error: 'Feedback has already been left for this demo.' },
-      { status: 409 },
-    )
+  // PR-17 D.4: feedback is left once; afterwards Edit updates the same row
+  // (stars count at once; an edited comment waits for approval again — the
+  // database trigger resets it).
+  const write = feedbackWrite(already ? { id: already.id as string, parentId: already.parent_id as string } : null, user.id)
+  if (write.kind === 'refuse') {
+    return NextResponse.json({ error: 'Feedback has already been left for this demo.' }, { status: 409 })
+  }
+  if (write.kind === 'update') {
+    const { error: upErr } = await supabase
+      .from('demo_feedback')
+      .update({ rating, feedback_text: text })
+      .eq('id', write.id)
+      .eq('parent_id', user.id)
+    if (upErr) return serverError(upErr, 'demo/feedback')
+    await logActivity({
+      userId: user.id,
+      event: 'demo_feedback_edited',
+      targetType: 'demo_feedback',
+      targetId: write.id,
+      meta: { rating },
+    })
+    await revalidateTutorRating(demo.tutor_id as string)
+    return NextResponse.json({ success: true, id: write.id, updated: true })
   }
 
   const { data: created, error } = await supabase
@@ -119,12 +136,15 @@ export async function POST(request: Request) {
 
   if (error) return serverError(error, 'demo/feedback')
 
+  // F.2: the stars, and a tap opens the reviews on the tutor's own profile.
+  const admin = createAdminClient()
+  const { data: tp } = admin
+    ? await admin.from('tutor_profiles').select('slug').eq('id', demo.tutor_id as string).maybeSingle()
+    : { data: null }
   await notify({
     userId: demo.tutor_id as string,
     kind: 'demo_feedback',
-    title: 'You received demo feedback',
-    body: `${rating} out of 5`,
-    href: '/tutor/dashboard/demos',
+    ...feedbackNotice(rating, (tp?.slug as string | null) ?? null),
   })
 
   await logActivity({
@@ -134,6 +154,10 @@ export async function POST(request: Request) {
     targetId: created.id as string,
     meta: { rating },
   })
+
+  // PR-17 Part B: the stars count at once — rebuild exactly the pages that show
+  // this tutor's rating (profile, Browse, their city × subject pages).
+  await revalidateTutorRating(demo.tutor_id as string)
 
   return NextResponse.json({ success: true, id: created.id })
 }

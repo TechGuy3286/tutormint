@@ -27,6 +27,8 @@ import { sanitizeGradeSubjects, gradesWithoutIds, unionMasterIds } from '@/lib/g
 import { findExistingDuplicate, type ExistingTuition } from '@/lib/duplicates'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements } from '@/lib/entitlements'
+import { parentHireAllowance } from '@/lib/parentHire'
+import { HIRE_CAP_MESSAGE, HIRE_LIMIT_MESSAGE } from '@/lib/parentHireCore'
 import { flagIfAbusive } from '@/lib/abuse/flag'
 import { detectAbuse } from '@/lib/abuse/filter'
 import { WITHHELD_TUITION_LINE } from '@/lib/abuse/warnings'
@@ -1113,14 +1115,20 @@ export async function hireApplicant(
       gate: await buildGate('suspended', ent),
     }
   }
-  if (!ent.canHire) {
-    return {
-      ok: false,
-      status: 403,
-      error: 'Completing a hire is a Featured feature. Upgrade to hire this tutor.',
-      upgrade: upgradeHref('parent', ent.plan, 'parent_featured'),
-      gate: await buildGate('parent_hire', ent),
+  // PR-17 Part D: a free (Verified) parent may hire 5 tutors in total, ever;
+  // Featured shows unlimited (a hidden cap — lib/parentHireCore).
+  const allowance = await parentHireAllowance(parentId, ent.canHire)
+  if (!allowance.allowed) {
+    if (allowance.needsUpgrade) {
+      return {
+        ok: false,
+        status: 403,
+        error: HIRE_LIMIT_MESSAGE,
+        upgrade: upgradeHref('parent', ent.plan, 'parent_featured'),
+        gate: await buildGate('parent_hire', ent),
+      }
     }
+    return { ok: false, status: 403, error: HIRE_CAP_MESSAGE }
   }
 
   // Basic incoming-request limit (PR54 Part B): a hire is a hiring request the

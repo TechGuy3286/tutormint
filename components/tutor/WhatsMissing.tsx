@@ -21,6 +21,7 @@ export default function WhatsMissing({
   google,
   onFix,
   compact = false,
+  collapsed = false,
 }: {
   done: number
   total: number
@@ -30,6 +31,8 @@ export default function WhatsMissing({
   onFix?: (item: OnboardingItem) => void
   /** Inside a step: collapsed to its progress line until opened. */
   compact?: boolean
+  /** PR-17 E.4: the dashboard's Google card — at the bottom, closed until opened. */
+  collapsed?: boolean
 }) {
   const allDone = missing.length === 0
   if (allDone && (!google || google.visible)) return null
@@ -89,6 +92,18 @@ export default function WhatsMissing({
             <span className="text-slate-700">{progressLine({ done, total })}</span>
           </span>
           {bar}
+        </summary>
+        <div className="mt-3 space-y-2">{list}</div>
+      </details>
+    )
+  }
+
+  if (collapsed) {
+    return (
+      <details className="group rounded-2xl border border-gray-200 bg-white p-4 sm:p-5" data-google-card="">
+        <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-3">
+          <span className="text-sm font-bold text-tm-navy">Your profile on Google</span>
+          <span className="text-xs font-black text-tm-navy">{progressLine({ done, total })}</span>
         </summary>
         <div className="mt-3 space-y-2">{list}</div>
       </details>

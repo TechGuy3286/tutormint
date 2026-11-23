@@ -100,7 +100,7 @@ export const HOME_CARDS: { title: string; points: string[]; links: { label: stri
   },
   {
     title: 'For tutors',
-    points: ['Get verified', 'Find tuitions near you', 'Free to join'],
+    points: ['Get verified', 'Find tuitions near you', 'Free profile'],
     links: [
       { label: 'Become a tutor', href: '/register' },
       { label: 'Tuition jobs', href: '/browse/tuitions' },

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react'
 import { ArrowLeft } from 'lucide-react'
+import type { ProgressDash } from '@/lib/onboarding/progressCore'
 
 // The ONE shell for every step of the NEW onboarding (PR106-G3c §1). Full-screen
 // overlay on EVERY size (plain ground, no site navbar/footer/bell/avatar behind
@@ -39,73 +40,91 @@ function useKeyboardInset(): number {
   return inset
 }
 
+export type ShellProgress = {
+  dashes: ProgressDash[]
+  /** "9 of 16 steps done" — the same number as every other card. */
+  line: string
+  /** A done dash opens its step (PR-17 C.4). */
+  onJump?: (step: ProgressDash['step']) => void
+}
+
 export function StepShell({
   heading,
   headingUr,
-  stepIndex,
-  stepTotal,
+  progress,
   onBack,
   backDisabled,
   children,
   buttonLabel,
   onNext,
   nextDisabled = false,
+  nextHint,
   busy = false,
   hideButton = false,
   wide = false,
+  onSaveLater,
 }: {
   heading: string
   headingUr?: string
-  stepIndex: number
-  stepTotal: number
+  progress: ShellProgress
   onBack: () => void
   backDisabled: boolean
   children: ReactNode
   buttonLabel: string
   onNext: () => void
   nextDisabled?: boolean
+  /** Shown under the buttons while Next is disabled: what is missing (C.5). */
+  nextHint?: string
   busy?: boolean
   hideButton?: boolean
   /** Laptop (≥1024 px): a wider two-column window that fits 768 px tall
    *  (owner, 2 Nov 2026). Phones are unchanged. */
   wide?: boolean
+  /** "Save and finish later" — every finished step is already saved; this
+   *  goes to the dashboard (C.5). Hidden when not given. */
+  onSaveLater?: () => void
 }) {
   const kb = useKeyboardInset()
 
   return (
     <div className="fixed inset-0 z-[60] overflow-y-auto bg-tm-bg">
-      <div className={`mx-auto flex min-h-full max-w-[480px] flex-col px-4 pb-28 ${wide ? 'lg:max-w-[960px] lg:pb-24' : ''}`} data-wide={wide ? '' : undefined}>
+      <div className={`mx-auto flex min-h-full max-w-[480px] flex-col px-4 pb-40 ${wide ? 'lg:max-w-[960px] lg:pb-36' : ''}`} data-wide={wide ? '' : undefined}>
         {/* header */}
         <header className="sticky top-0 z-10 -mx-4 bg-tm-bg px-4 pb-2 pt-4">
-          <div className="mb-2 flex items-center gap-3">
+          <div className="mb-2 flex items-center justify-between gap-3">
             <span className="text-base font-black text-tm-navy">
               Tutor<span className="text-tm-red">Mint</span>
             </span>
+            <span className="text-xs font-bold text-slate-700" data-progress-line="">{progress.line}</span>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onBack}
-              disabled={backDisabled}
-              aria-label="Back"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-tm-navy disabled:opacity-30"
-            >
-              <ArrowLeft size={18} />
-            </button>
-            <div className="min-w-0 flex-1">
-              <div className="flex gap-1">
-                {Array.from({ length: stepTotal }).map((_, i) => (
-                  <span
-                    key={i}
-                    className={`h-1.5 flex-1 rounded-full ${i < stepIndex ? 'bg-tm-navy' : i === stepIndex ? 'bg-tm-navy/60' : 'bg-gray-200'}`}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
+          {/* One dash per item — the same items as "X of 16 steps done". A done
+              dash opens its step; the current one is outlined. */}
+          <ol className="flex gap-1" aria-label={progress.line}>
+            {progress.dashes.map((d) => {
+              const cls = `block h-1.5 w-full rounded-full ${d.done ? 'bg-tm-navy' : d.current ? 'bg-tm-navy/50' : 'bg-gray-200'}`
+              return (
+                <li key={d.key} className="flex-1" data-dash={d.key} data-done={d.done ? '' : undefined} data-current={d.current ? '' : undefined}>
+                  {d.done && progress.onJump && !d.current ? (
+                    <button
+                      type="button"
+                      onClick={() => progress.onJump?.(d.step)}
+                      aria-label={`Edit: ${d.label}`}
+                      className="flex h-6 w-full items-center"
+                    >
+                      <span className={cls} />
+                    </button>
+                  ) : (
+                    <span className="flex h-6 w-full items-center" aria-current={d.current ? 'step' : undefined} aria-label={`${d.label}${d.done ? ' — done' : ''}`}>
+                      <span className={cls} />
+                    </span>
+                  )}
+                </li>
+              )
+            })}
+          </ol>
         </header>
 
-        <main className={`flex-1 pt-6 ${wide ? 'lg:pt-2' : ''}`}>
+        <main className={`flex-1 pt-4 ${wide ? 'lg:pt-2' : ''}`}>
           <div className={`mb-5 text-center ${wide ? 'lg:mb-3' : ''}`}>
             <h1 className="text-xl font-black text-tm-navy">{heading}</h1>
             {headingUr && (
@@ -118,28 +137,56 @@ export function StepShell({
         </main>
       </div>
 
-      {/* The truly-fixed button, lifted above the keyboard. */}
-      {!hideButton && (
-        <div
-          className="fixed inset-x-0 z-20 border-t border-gray-200 bg-white px-4"
-          style={{
-            bottom: kb,
-            paddingTop: 12,
-            paddingBottom: kb > 0 ? 12 : 'calc(12px + env(safe-area-inset-bottom))',
-          }}
-        >
-          <div className={`mx-auto max-w-[480px] space-y-2 ${wide ? 'lg:max-w-[960px]' : ''}`}>
+      {/* The truly-fixed bar: Back + Next, lifted above the keyboard, flush to
+          the bottom with the safe area inside it (PR-17 C.5 / G.1). */}
+      <div
+        className="tm-bottom-bar fixed inset-x-0 z-20 border-t border-gray-200 bg-white px-4"
+        data-sticky-bar=""
+        style={{
+          bottom: kb,
+          paddingTop: 10,
+          paddingBottom: kb > 0 ? 10 : 'calc(10px + env(safe-area-inset-bottom))',
+        }}
+      >
+        <div className={`mx-auto max-w-[480px] space-y-1.5 ${wide ? 'lg:max-w-[960px]' : ''}`}>
+          <div className={`grid gap-2 ${hideButton ? 'grid-cols-1' : 'grid-cols-[minmax(0,1fr)_minmax(0,2fr)]'}`}>
             <button
               type="button"
-              onClick={onNext}
-              disabled={nextDisabled || busy}
-              className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-40"
+              onClick={onBack}
+              disabled={backDisabled}
+              className="flex min-h-[48px] items-center justify-center gap-1.5 rounded-xl border-2 border-tm-navy bg-white px-3 text-sm font-black text-tm-navy disabled:border-gray-200 disabled:text-gray-500"
             >
-              {busy ? '…' : buttonLabel}
+              <ArrowLeft aria-hidden size={16} />
+              Back
             </button>
+            {!hideButton && (
+              <button
+                type="button"
+                onClick={onNext}
+                disabled={nextDisabled || busy}
+                aria-describedby={nextDisabled && nextHint ? 'tm-next-hint' : undefined}
+                className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-40"
+              >
+                {busy ? '…' : buttonLabel}
+              </button>
+            )}
           </div>
+          {!hideButton && nextDisabled && nextHint && (
+            <p id="tm-next-hint" className="text-center text-[11px] font-semibold text-slate-700" data-next-hint="">
+              {nextHint}
+            </p>
+          )}
+          {onSaveLater && (
+            <button
+              type="button"
+              onClick={onSaveLater}
+              className="mx-auto block min-h-[32px] px-2 text-[11px] font-bold text-tm-navy underline-offset-2 hover:underline"
+            >
+              Save and finish later
+            </button>
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }

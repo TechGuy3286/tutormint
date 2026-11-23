@@ -227,6 +227,7 @@ const PAIRS: Pair[] = [
   { fg: 'gray600', bg: 'gray100', where: 'Deleted user rows (PR-11)' },
   { fg: 'navy', bg: 'gray100', where: 'Deleted user rows: amounts and labels (PR-11)' },
   { fg: 'slate700', bg: 'gray100', where: 'Deleted user rows: cells and Open record (PR-11)' },
+  { fg: 'slate700', bg: 'gray100', where: 'tutor dashboard "Not verified yet" chip; parent My demos declined/cancelled rows (PR-17)' },
 
   // Admin, explicitly. These combinations are already checked above through
   // the public surfaces that share them; they are named again so the gate

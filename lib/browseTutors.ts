@@ -16,6 +16,7 @@ import { formatName } from '@/lib/formatName'
 import { withAreaCities } from '@/lib/tutorAreaCities'
 import { withCanonAreas } from '@/lib/areaAliases'
 import { subjectDisplayKey } from '@/lib/subjectDisplay'
+import { simpleRankArgs, withRankFallback } from '@/lib/rankFallbackCore'
 
 // The one place /browse/tutors is queried, shared by the page and the
 // load-more route.
@@ -178,7 +179,7 @@ const rankedTutorsCached = cache(async (key: string): Promise<RankResult> => {
     }
   }
 
-  const { data, error } = await supabase.rpc('rank_tutors', {
+  const rankParams = {
     p_master_id: null,
     p_master_ids: masterIds && masterIds.length > 0 ? masterIds : null,
     p_city: city,
@@ -197,11 +198,25 @@ const rankedTutorsCached = cache(async (key: string): Promise<RankResult> => {
     p_after_score: after?.s ?? null,
     p_after_hash: after?.h ?? null,
     p_after_completion: after?.c ?? null,
-  })
+  }
+
+  // PR-17 Part A: a failed ranking (a statement timeout under load) falls back
+  // to the simple ordering (lib/rankFallbackCore), so it never becomes an error
+  // page. The simple order cannot continue a cursor, so its window carries none.
+  const ranked = await withRankFallback<RankedTutor>(
+    () => supabase.rpc('rank_tutors', rankParams),
+    () =>
+      supabase.rpc(
+        'rank_tutors_simple',
+        simpleRankArgs({ city, masterIds, mode, gender: filters.gender || null, limit, offset: after ? 0 : offset }),
+      ),
+  )
+  const data = ranked.data
+  const error = ranked.error
 
   // Never silent again (hotfix, 2 Nov 2026): a failed directory read was the
   // bare 'could not be loaded' box with nothing in the logs. Code + one line only.
-  if (error) console.error(`[rank_tutors] failed code=${error.code ?? '?'} ${plainSupabaseError(error.message)}`)
+  if (ranked.fellBack) console.error(`[rank_tutors] fell back to the simple ordering${error ? ` — that failed too code=${error.code ?? '?'} ${plainSupabaseError(error.message ?? '')}` : ''}`)
 
   // Migration 137 — rank_tutors returns `fee_paid` directly (the tier now folds
   // the Verified-BADGE rule in, +10, so verified tutors lead and verification-
@@ -229,7 +244,7 @@ const rankedTutorsCached = cache(async (key: string): Promise<RankResult> => {
     // sentence rather than as silence. Derived from the total rather than from
     // a short page, so a window that happens to land exactly on the boundary
     // does not offer a Load more button that returns nothing.
-    nextCursor: tutors.length === 0 || seen >= total ? null : cursorFor(tutors[tutors.length - 1]),
+    nextCursor: ranked.fellBack || tutors.length === 0 || seen >= total ? null : cursorFor(tutors[tutors.length - 1]),
     error: !!error,
   }
 })

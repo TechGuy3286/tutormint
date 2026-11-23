@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
 import { parseBody, z, uuid } from '@/lib/validate'
+import { demoCompletedNotice } from '@/lib/demoFeedbackCore'
 
 // Either participant marks an accepted demo as having happened.
 //
@@ -52,13 +53,13 @@ export async function POST(request: Request) {
 
   if (error) return serverError(error, 'demo/complete')
 
-  const other = demo.parent_id === user.id ? (demo.tutor_id as string) : (demo.parent_id as string)
+  // F.1 (PR-17): the tutor is told "Demo completed"; only the parent gets the
+  // feedback prompt (lib/demoFeedbackCore demoCompletedNotice).
+  const toTutor = demo.parent_id === user.id
   await notify({
-    userId: other,
+    userId: toTutor ? (demo.tutor_id as string) : (demo.parent_id as string),
     kind: 'demo_feedback',
-    title: 'A demo was marked as completed',
-    body: 'Feedback can now be left.',
-    href: demo.parent_id === user.id ? '/tutor/dashboard/demos' : '/parent/dashboard/demos',
+    ...demoCompletedNotice(toTutor ? 'tutor' : 'parent'),
   })
 
   await logActivity({

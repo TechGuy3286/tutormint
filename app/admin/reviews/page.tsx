@@ -26,7 +26,7 @@ export default async function AdminReviewsPage({ searchParams }: { searchParams:
     <div className="space-y-4">
       <header className="space-y-1">
         <h1 className="text-xl font-black text-tm-navy">Reviews</h1>
-        <p className="text-xs text-gray-500">Reviews from parents who hired a tutor. A review appears on the tutor&apos;s profile only once it is approved.</p>
+        <p className="text-xs text-gray-500">Reviews from parents who hired a tutor, and written comments on demo lessons. A review or comment appears on the tutor&apos;s profile only once it is approved. A demo&apos;s stars count in the tutor&apos;s rating straight away.</p>
       </header>
 
       <nav className="flex flex-wrap gap-2" aria-label="Review status">
@@ -51,7 +51,7 @@ export default async function AdminReviewsPage({ searchParams }: { searchParams:
       ) : (
         <ul className="space-y-2" data-review-queue="">
           {rows.map((r) => (
-            <li key={r.id} className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
+            <li key={`${r.source}-${r.id}`} className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-xs text-slate-700">
                   {r.parentId ? (
@@ -61,7 +61,7 @@ export default async function AdminReviewsPage({ searchParams }: { searchParams:
                   ) : (
                     <span className="font-bold text-tm-navy">{r.parentName}</span>
                   )}{' '}
-                  reviewed{' '}
+                  {r.source === 'demo' ? 'commented on a demo with' : 'reviewed'}{' '}
                   {r.tutorId ? (
                     <Link href={`/admin/users/${r.tutorId}`} className="font-bold text-tm-navy hover:underline">
                       {r.tutorName}
@@ -84,7 +84,7 @@ export default async function AdminReviewsPage({ searchParams }: { searchParams:
                 {r.decidedAt ? ` · ${REVIEW_STATUS_LABEL[r.status]} ${formatDateTime(r.decidedAt)}${r.decidedByName ? ` by ${r.decidedByName}` : ''}` : ''}
                 {r.reason ? ` · ${r.reason}` : ''}
               </p>
-              {r.status === 'pending' && <ReviewDecision reviewId={r.id} />}
+              {r.status === 'pending' && <ReviewDecision reviewId={r.id} source={r.source} />}
             </li>
           ))}
         </ul>

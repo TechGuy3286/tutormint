@@ -152,7 +152,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       },
       {
         q: 'What does the Verified badge on a tutor mean?',
-        a: 'It means the tutor paid the one-time Verification Fee and sent a CNIC, a profile photo and a selfie that our team checked. A degree, certificates and an introduction video are optional and not needed for the badge. It does not mean we have watched them teach or that we guarantee results. It means the person in the profile is the person in the documents.',
+        a: 'It means the tutor paid the one-time Verification Fee and sent a CNIC and a profile photo that our team checked (a selfie is optional). A degree, certificates and an introduction video are optional and not needed for the badge. It does not mean we have watched them teach or that we guarantee results. It means the person in the profile is the person in the documents.',
         links: [
           { label: 'Verified tutors', href: '/browse/tutors' },
           { label: 'How verification works', href: '/faq#choosing' },
@@ -230,7 +230,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       },
       {
         q: 'How do I get Verified?',
-        a: 'Pay the one-time Verification Fee and send your CNIC, a profile photo and a selfie. That is all the Verified badge needs. A degree, certificates and an introduction video are optional extras that help parents trust you, but none of them is needed for any badge.',
+        a: 'Pay the one-time Verification Fee and send your CNIC and a profile photo (a selfie is optional). That is all the Verified badge needs. A degree, certificates and an introduction video are optional extras that help parents trust you, but none of them is needed for any badge.',
         links: [
           { label: 'Complete your profile', href: '/tutor/complete-profile' },
           { label: 'Tutor memberships', href: '/membership-plans?for=tutors' },
@@ -387,7 +387,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       {
         q: 'Verified badge ka kya matlab hai?',
         lang: 'ur',
-        a: 'Iska matlab hai ke tutor ne ek baar ki Verification Fee ada ki aur apna CNIC, profile photo aur selfie bheja, jo hamari team ne check kiya. Degree, certificates aur taaruf wali video ikhtiyari hain aur badge ke liye zaroori nahi. Iska matlab yeh nahi ke humne unhein parhate hue dekha hai ya nateeje ki zamanat dete hain. Matlab sirf itna hai: profile wala shakhs wohi hai jo dastavezaat mein hai.',
+        a: 'Iska matlab hai ke tutor ne ek baar ki Verification Fee ada ki aur apna CNIC aur profile photo bheja, jo hamari team ne check kiya (selfie ikhtiyari hai). Degree, certificates aur taaruf wali video ikhtiyari hain aur badge ke liye zaroori nahi. Iska matlab yeh nahi ke humne unhein parhate hue dekha hai ya nateeje ki zamanat dete hain. Matlab sirf itna hai: profile wala shakhs wohi hai jo dastavezaat mein hai.',
         links: [
           { label: 'Verified tutors', href: '/browse/tutors' },
           { label: 'Madad chahiye', href: '/support' },
@@ -423,7 +423,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       {
         q: 'Mera profile search mein kyun nahi aa raha?',
         lang: 'ur',
-        a: 'Search mein aane ke liye aap ka mobile number verified ho aur shehar, ilaqa, subjects aur gender set hon. Verification Fee ada karna aur CNIC, profile photo aur selfie bhejna Verified badge deta hai, jo aap ko ghair verified tutors se ooper rakhta hai. Jo cheez baqi ho, dashboard sab se ooper bata deta hai. Zyada mukammal profile behtar rank hota hai.',
+        a: 'Search mein aane ke liye aap ka mobile number verified ho aur shehar, ilaqa, subjects aur gender set hon. Verification Fee ada karna aur CNIC aur profile photo bhejna (selfie ikhtiyari hai) Verified badge deta hai, jo aap ko ghair verified tutors se ooper rakhta hai. Jo cheez baqi ho, dashboard sab se ooper bata deta hai. Zyada mukammal profile behtar rank hota hai.',
         links: [
           { label: 'Dashboard', href: '/tutor/dashboard' },
           { label: 'Profile mukammal karein', href: '/tutor/complete-profile' },

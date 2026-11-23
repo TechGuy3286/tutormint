@@ -66,6 +66,25 @@ export function tutorProfileMarks(slug: string | null | undefined): Mark[] {
   return slug ? [{ path: `/tutor/${slug}` }] : []
 }
 
+/** A tutor's rating changed (a demo's stars, an approved review or comment —
+ *  PR-17 Part B): exactly the cached pages that SHOW that rating — their own
+ *  profile, Browse tutors, and the city × subject tutor pages they appear on
+ *  (each of their cities × each of their subjects). Not the crawl lists or
+ *  Similar-tutor blocks — those show no rating. Sorted, no duplicates. */
+export function tutorRatingMarks(
+  slug: string | null | undefined,
+  citySlugs: readonly string[],
+  subjectSlugs: readonly string[],
+): Mark[] {
+  const paths = new Set<string>()
+  if (slug) paths.add(`/tutor/${slug}`)
+  paths.add('/browse/tutors')
+  for (const c of new Set(citySlugs.filter(Boolean))) {
+    for (const s of new Set(subjectSlugs.filter(Boolean))) paths.add(`/tutors/${c}/${s}`)
+  }
+  return [...paths].sort().map((path) => ({ path }))
+}
+
 /** The path of a full tutormint.org URL (the indexing queue stores URLs). */
 export function pathOfUrl(url: string): string | null {
   try {

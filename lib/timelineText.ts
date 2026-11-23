@@ -154,6 +154,8 @@ export function timelineSentence(event: string, meta: TimelineMeta = {}): string
       return 'Declined a demo'
     case 'demo_completed':
       return 'Completed a demo'
+    case 'demo_feedback_edited':
+      return 'Edited their demo feedback'
     case 'review_submitted':
       return 'Left a review (waiting for approval)'
     case 'review_approved':

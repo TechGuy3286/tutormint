@@ -72,9 +72,13 @@ test('a tutor who signs up with an email is signed in at once; parents are uncha
   assert.ok(src.includes('supabase.auth.signUp({') && src.includes('/verify-email?to='))
 })
 
-test('the mobile is verified before the steps, by SMS, when it is not yet', () => {
+// PR-17 C.1/C.3 supersedes "mobile first": an unverified mobile is verified by
+// SMS in its own place (the Contact step), so a returning tutor resumes at
+// their first unfinished step instead of a mobile screen over step 1.
+test('the mobile is verified by SMS at the Contact step, when it is not yet', () => {
   const flow = read('components/tutor/NewOnboardingFlow.tsx')
-  assert.ok(flow.includes("if (!facts.phoneVerified && stepKey !== 'final' && stepKey !== 'contact') {"))
+  assert.ok(!flow.includes("if (!facts.phoneVerified && stepKey !== 'final' && stepKey !== 'contact') {"), 'no mobile-first gate')
+  assert.ok(flow.includes("const screens = facts.phoneVerified ? (['whatsapp', 'email'] as const) : (['mobile', 'whatsapp'] as const)"))
   assert.ok(flow.includes('<MobileVerifyScreen facts={facts}'))
 })
 

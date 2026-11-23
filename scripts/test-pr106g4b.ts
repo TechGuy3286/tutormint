@@ -43,7 +43,8 @@ test('the final screen is "Complete Your Verification": English-only, full progr
   // The fee's choice screen, carrying the tuition to come back to (15 Oct 2026).
   assert.match(g, /<Link href=\{payChoiceHref\('verified', returnTo\)\}/, 'opens the payment choice screen')
   assert.match(FLOW, /import \{ payChoiceHref \} from '@\/lib\/returnTo'/, 'for the fee')
-  assert.match(g, /stepIndex=\{stepTotal\}/, 'progress bar is full (stepIndex === stepTotal)')
+  // PR-17 C.4: the dashes are the shared items; the fee is the last one.
+  assert.match(g, /<StepShell heading="Complete Your Verification" progress=\{progress\}/, 'the shared progress dashes')
   assert.match(g, /What do I get\?/, '"What do I get?" link')
   assert.match(g, /VerifyBenefitsDialog/, 'opens the shared benefits pop-up')
   // English only on THIS screen: no Urdu, no Ltr, and none of the removed clutter.
@@ -86,9 +87,10 @@ test('the value-first card uses the real count + city and carries no money words
 
 test('the dashboard swaps the card by the switch; non-staff keep the pending-invoice prompt', () => {
   const page = read('app/(site)/tutor/dashboard/page.tsx')
-  assert.match(page, /showNewOnboarding\(await getOnboardingMode\(\), !!session\?\.profile\?\.admin_role\)/, 'staffNew from the switch')
-  assert.match(page, /const showValueCard = staffNew && !ent\.verified/, 'value card only for staff + unverified')
-  assert.match(page, /\{showValueCard && <GetVerifiedValueCard count=\{boardCount\} city=\{city\}/, 'card uses the Find-tuitions count')
+  // PR-17 E.3: ONE "Your next step" card for every tutor replaces the value
+  // card; it uses the Find-tuitions count.
+  assert.match(page, /<NextStepCard items=\{stepItems\} tuitions=\{boardCount\} city=\{city\}/, 'next-step card uses the Find-tuitions count')
+  assert.doesNotMatch(page, /GetVerifiedValueCard/)
   // The PayPro pending-invoice prompt was retired (owner, 31 Oct 2026).
   assert.doesNotMatch(page, /pendingPayproInvoice|CompletePaymentPrompt/)
 })

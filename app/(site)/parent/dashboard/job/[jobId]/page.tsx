@@ -8,6 +8,7 @@ import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements, badgesForPlan } from '@/lib/entitlements'
+import { parentHireAllowance } from '@/lib/parentHire'
 import { loadVerifiedBadgeOk } from '@/lib/badgeFacts'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import ApplicantList, { type Applicant } from './ApplicantList'
@@ -130,6 +131,9 @@ export default async function ParentJobPage({ params }: { params: Promise<{ jobI
 
   const live = applicants.filter((a) => !a.withdrawn).length
   const withdrawn = applicants.length - live
+  // PR-17 Part D: Hire is offered while the parent's lifetime allowance lasts
+  // (5 free; Featured unlimited). The hire route checks it again.
+  const hireAllowed = !ent.suspended && (await parentHireAllowance(userId, ent.canHire)).allowed
 
   return (
     <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
@@ -236,7 +240,7 @@ export default async function ParentJobPage({ params }: { params: Promise<{ jobI
           </h2>
           <ApplicantList
             applicants={applicants}
-            canHire={ent.canHire}
+            canHire={hireAllowed}
             jobStatus={job.status as string}
           />
         </section>

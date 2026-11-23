@@ -18,7 +18,7 @@ import HidePhotoToggle from '@/components/tutor/HidePhotoToggle'
 import { PHOTO_STEP_EXPLAIN } from '@/lib/photoPrivacyCore'
 import { ADD_LATER_LABEL, SELFIE_OPTIONAL_LINE } from '@/lib/selfieOptionalCore'
 import { isSyntheticEmail, normalisePkMobile, looksLikeEmail } from '@/lib/phone'
-import { StepShell } from '@/components/onboarding/StepShell'
+import { StepShell, type ShellProgress } from '@/components/onboarding/StepShell'
 import { fieldState, fieldStateClasses } from '@/lib/onboarding/fieldState'
 import CnicCapture, { type CnicCaptureState } from '@/components/identity/CnicCapture'
 import VerifyBenefitsDialog from '@/components/tutor/VerifyBenefitsDialog'
@@ -51,6 +51,17 @@ import type { FlowFacts } from '@/lib/tutorFlow'
 import { ChipSkeletons } from '@/components/Skeletons'
 import LiveSelfieCapture from '@/components/tutor/LiveSelfieCapture'
 import CityPicker from '@/components/forms/CityPicker'
+import { NEXT_HINTS, progressDashes, stepsDoneLine } from '@/lib/onboarding/progressCore'
+
+// PR-17 C.5: what a tutor typed on a step survives Back (and coming forward
+// again) for the rest of this visit — a draft held outside the step, which
+// unmounts on every step change. Saved values still come from the database.
+const stepDrafts = new Map<string, unknown>()
+function useStepDraft<T>(key: string, initial: T): [T, (v: T) => void] {
+  const [v, setV] = useState<T>(() => (stepDrafts.has(key) ? (stepDrafts.get(key) as T) : initial))
+  const set = useCallback((next: T) => { stepDrafts.set(key, next); setV(next) }, [key])
+  return [v, set]
+}
 
 // The NEW tutor onboarding (PR106-G3c). A SEPARATE component from the live
 // CompleteProfileFlow (which is not touched): shown only when showNewOnboarding
@@ -334,6 +345,19 @@ export default function NewOnboardingFlow({
   const google = { line: googleVisibilityLine(indexReqs), requirements: indexReqs, visible: tutorProfileIndexable(indexFacts) }
 
   const stepIndex = stepKey === 'final' ? ORDER.length : ORDER.indexOf(stepKey)
+  // PR-17 C.4: one dash per item of "X of 16 steps done" (lib/onboarding/
+  // progressCore) — the dashes and the card can no longer disagree. A done
+  // dash opens its step.
+  const progress = {
+    dashes: progressDashes(checklist.items, stepKey),
+    line: stepsDoneLine(checklist.done, checklist.total),
+    onJump: (step: FlowStepKey) => { setFlowError(null); setStepKey(step) },
+  }
+  // C.5: "Save and finish later" — every finished step is saved on Next. Shown
+  // once the dashboard is reachable (city + subjects; before that it would
+  // send the tutor straight back here).
+  const canLeave = !!(facts.city && facts.city.trim()) && facts.subjectIds.length > 0
+  const saveLater = canLeave ? () => void leave('/tutor/dashboard') : undefined
   const title = stepKey === 'final' ? { en: 'Almost there' } : TITLES[stepKey]
   // "Finish" on the last step before Get verified (cnic_photos → tagline is last
   // content; verify is the fee). The last non-verify step shows "Finish".
@@ -351,17 +375,19 @@ export default function NewOnboardingFlow({
     headingEn?: string
     headingUr?: string
     wide?: boolean
+    nextHint?: string
   }) => (
     <StepShell
       heading={opts.headingEn ?? title.en}
       headingUr={opts.headingUr ?? (stepKey !== 'final' ? TITLES[stepKey].ur : undefined)}
-      stepIndex={stepIndex}
-      stepTotal={ORDER.length}
+      progress={progress}
       onBack={goBack}
       backDisabled={stepIndex <= 0}
       buttonLabel={buttonLabel}
       onNext={opts.onNext}
       nextDisabled={opts.nextDisabled}
+      nextHint={opts.nextHint ?? (stepKey !== 'final' ? NEXT_HINTS[stepKey] : undefined)}
+      onSaveLater={saveLater}
       busy={busy}
       hideButton={opts.hideButton}
       wide={opts.wide}
@@ -386,17 +412,11 @@ export default function NewOnboardingFlow({
     </StepShell>
   )
 
-  // ---------- MOBILE FIRST (owner, 13 Oct 2026) ----------
-  // A tutor who signed up with an email has no verified mobile yet. A verified
-  // mobile is required, so it is asked for before the steps; the email itself
-  // does not have to be confirmed to continue.
-  if (!facts.phoneVerified && stepKey !== 'final' && stepKey !== 'contact') {
-    return <MobileVerifyScreen facts={facts} smsAvailable={smsAvailable} shell={shell} onError={setFlowError}
-      onVerified={async () => {
-        const f = await refresh()
-        if (f) setStepKey(firstMissingStep(flowFacts(f), ORDER) ?? 'final')
-      }} />
-  }
+  // PR-17 C.1/C.3: no mobile-first gate any more. It sat in front of EVERY step
+  // for a tutor whose mobile was not verified yet (an email sign-up), so a tutor
+  // at "9 of 16" re-entering saw "step 1 — mobile number" with the dashes on
+  // step 1. The mobile is asked in its own place (the Contact step), and only
+  // when it is not verified — a mobile verified at sign-up is never asked again.
 
   // ---------- GENDER ----------
   if (stepKey === 'gender') {
@@ -544,12 +564,12 @@ export default function NewOnboardingFlow({
       void leave(returnTo ?? '/tutor/dashboard')
       return <LogoLoader fullPage />
     }
-    return <GetVerifiedStep stepTotal={ORDER.length} onBack={goBack} payFailed={payFailed} returnTo={returnTo} />
+    return <GetVerifiedStep progress={progress} onBack={goBack} payFailed={payFailed} returnTo={returnTo} />
   }
 
   // ---------- FINAL ----------
   return (
-    <StepShell heading="You're almost there" stepIndex={stepIndex} stepTotal={ORDER.length}
+    <StepShell heading="You're almost there" progress={progress}
       onBack={goBack} backDisabled={false}
       buttonLabel={returnTo ? 'Back to the tuition' : 'Go to dashboard'} onNext={() => void leave(returnTo ?? '/tutor/dashboard')}>
       <p className="text-center text-xs leading-relaxed text-gray-500">
@@ -567,6 +587,7 @@ type ShellFn = (opts: {
   headingEn?: string
   headingUr?: string
   wide?: boolean
+  nextHint?: string
 }) => React.ReactElement
 
 // ---------------------------------------------------------------- City ------
@@ -962,8 +983,8 @@ function SubjectsStep({ initialIds, draft, shell, helpWaHref, onDraft, onAutoSav
 
 // ---------------------------------------------------------------- Fee -------
 function FeeStep({ initialMin, initialMax, busy, shell, onSave }: { initialMin: number; initialMax: number; busy: boolean; shell: ShellFn; onSave: (min: number, max: number) => void }) {
-  const [min, setMin] = useState(String(initialMin))
-  const [max, setMax] = useState(String(initialMax))
+  const [min, setMin] = useStepDraft('fee.min', String(initialMin))
+  const [max, setMax] = useStepDraft('fee.max', String(initialMax))
   const [err, setErr] = useState<{ en: string; ur: string } | null>(null)
   const parse = (s: string): number | null => { const d = s.replace(/[^\d]/g, ''); return d ? Number(d) : null }
   const fmt = (s: string): string => { const d = s.replace(/[^\d]/g, ''); return d ? Number(d).toLocaleString('en-PK') : '' }
@@ -1089,7 +1110,7 @@ function ContactStep({ facts, smsAvailable, shell, onDone, onRefresh, saveProfil
   const next = () => { if (sub + 1 < screens.length) setSub(sub + 1); else onDone() }
 
   // §5: keep what is typed when leaving and returning — sync to the parent draft.
-  const [whatsapp, setWhatsappRaw] = useState(facts.whatsapp)
+  const [whatsapp, setWhatsappRaw] = useStepDraft('contact.whatsapp', facts.whatsapp)
   const setWhatsapp = (v: string) => { setWhatsappRaw(v); setFacts((f) => (f ? { ...f, whatsapp: v } : f)) }
   const waValid = !!normalisePkMobile(whatsapp)
   const [email, setEmailRaw] = useState(facts.email)
@@ -1108,6 +1129,7 @@ function ContactStep({ facts, smsAvailable, shell, onDone, onRefresh, saveProfil
     // onboarding (owner, 15 Oct 2026) — so Next waits for a valid number.
     onNext: () => { if (!waValid) return; void saveProfile({ profile: { whatsapp: normalisePkMobile(whatsapp) ?? whatsapp.trim() } }).then(() => next()).catch(() => onError('We couldn’t save that. Please try again.')) },
     nextDisabled: !waValid,
+    nextHint: NEXT_HINTS.whatsapp,
     children: (
       <div className="space-y-2">
         <MobileNumberInput value={whatsapp} onChange={setWhatsapp} ariaLabel="WhatsApp number"
@@ -1170,7 +1192,8 @@ function MobileVerifyScreen({ facts, smsAvailable, shell, onVerified, onError }:
   return shell({
     headingEn: 'Your mobile number', headingUr: 'آپ کا موبائل نمبر',
     onNext: () => (sent ? void verify() : void send()),
-    nextDisabled: !phone || (sent && otp.length < 6),
+    nextDisabled: !normalisePkMobile(phone) || (sent && otp.length < 6),
+    nextHint: sent ? NEXT_HINTS.otp : NEXT_HINTS.mobile,
     children: (
       <div className="space-y-3">
         <MobileNumberInput value={phone} readOnly={sent} onChange={setPhone} />
@@ -1520,15 +1543,15 @@ function TaglineStep({ facts, shell, onSave, onError, onDraft }: { facts: Facts;
 // TutorVerifyGate, no Urdu and no amount on this screen.
 // "What do I get?" opens the shared VerifyBenefitsDialog.
 
-function GetVerifiedStep({ stepTotal, onBack, payFailed = false, returnTo = null }: {
-  stepTotal: number; onBack: () => void; payFailed?: boolean
+function GetVerifiedStep({ progress, onBack, payFailed = false, returnTo = null }: {
+  progress: ShellProgress; onBack: () => void; payFailed?: boolean
   /** The tuition the tutor came from, offered as a way back (owner, 15 Oct 2026). */
   returnTo?: string | null
 }) {
   const [benefits, setBenefits] = useState(false)
   const benefitState = verificationFeeCardState({ feePaid: false, verifiedOk: false, findable: false })
   return (
-    <StepShell heading="Complete Your Verification" stepIndex={stepTotal} stepTotal={stepTotal}
+    <StepShell heading="Complete Your Verification" progress={progress}
       onBack={onBack} backDisabled={false} buttonLabel="Finish" onNext={() => {}} hideButton>
       <div className="space-y-4 text-center">
         {payFailed && (

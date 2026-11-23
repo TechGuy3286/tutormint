@@ -30,8 +30,8 @@ test('no "Finish later" and no skip links anywhere in the new onboarding', () =>
   assert.ok(!/StepSkip/.test(FLOW), 'the flow imports/renders no StepSkip')
   assert.ok(!/Skip for now|>Skip<|I don.t use email/.test(FLOW), 'no skip links on any step')
   assert.ok(!/onFinishLater/.test(FLOW) && !/onFinishLater/.test(SHELL), 'onFinishLater removed everywhere')
-  // the back arrow stays
-  assert.match(SHELL, /aria-label="Back"/, 'the back arrow is kept')
+  // PR-17 C.5: a clearly visible Back button at the bottom, beside Next.
+  assert.match(SHELL, /<ArrowLeft aria-hidden size=\{16\} \/>\s*Back/, 'the Back button is kept')
 })
 
 test('availability is mandatory (PR106-G6 §2: empty by default, no preselect)', () => {

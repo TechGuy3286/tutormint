@@ -64,7 +64,7 @@ test('one item per thing the flow asks for, in flow order, in plain English', ()
   )
   // Every item points at a real step of the live flow.
   for (const i of items) assert.ok(NEW_FLOW_ORDER.includes(i.step), i.key)
-  assert.equal(progressLine(missingSummary(empty)), '0 of 16 done')
+  assert.equal(progressLine(missingSummary(empty)), '0 of 16 steps done')
 })
 
 test('each item is done by exactly the fact its step needs', () => {
@@ -91,7 +91,7 @@ test('the list is empty exactly when the real steps have nothing left', () => {
     assert.deepEqual(s.missing.map((m) => m.key), [key])
     assert.equal(stepDone(f, s.missing[0].step), false, `${key}: its step (${s.missing[0].step}) is not done either`)
     assert.ok(missingSteps(f, NEW_FLOW_ORDER).includes(s.missing[0].step))
-    assert.equal(progressLine(s), '16 of 17 done')
+    assert.equal(progressLine(s), '16 of 17 steps done')
   }
   // No rule of its own: a step the flow calls done never has a missing item.
   for (const step of NEW_FLOW_ORDER) {

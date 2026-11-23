@@ -12,6 +12,7 @@
 
 import { NEW_FLOW_ORDER, type FlowFacts, type FlowStepKey } from '@/lib/tutorFlow'
 import { summariseRequired, tutorRequiredItems, type RequiredItem } from '@/lib/profileRequired'
+import { stepsDoneLine } from '@/lib/onboarding/progressCore'
 
 // Since 4 Nov 2026 the items ARE the shared completion rule (lib/profileRequired):
 // the percentage, the stored profile_completion and this list cannot disagree.
@@ -35,9 +36,9 @@ export function missingSummary(f: FlowFacts): MissingSummary {
   return summariseRequired(onboardingItems(f))
 }
 
-/** "6 of 16 done". */
+/** "6 of 16 steps done" — the ONE progress number (PR-17 E.2, lib/onboarding/progressCore). */
 export function progressLine(s: Pick<MissingSummary, 'done' | 'total'>): string {
-  return `${s.done} of ${s.total} done`
+  return stepsDoneLine(s.done, s.total)
 }
 
 /** The page that opens the flow at exactly that step. */

@@ -16,6 +16,7 @@ import { logActivity } from '@/lib/activityLog'
 import { logAdminAction } from '@/lib/auditLog'
 import { notify } from '@/lib/notifications'
 import { formatName } from '@/lib/formatName'
+import { revalidateTutorRating } from '@/lib/publicRevalidate'
 import type { AdminRole } from '@/lib/adminAccessCore'
 import { parseReviewStatus, reviewEligibility, reviewInputProblem, REVIEW_ALREADY, type HireFacts, type ReviewStatus } from '@/lib/reviewsCore'
 
@@ -127,6 +128,9 @@ export async function reviewableHires(parentId: string): Promise<ReviewableHire[
 
 export type QueueReview = {
   id: string
+  /** 'hire' = a review of a hired tutor (reviews); 'demo' = a demo lesson's
+   *  written comment (demo_feedback, PR-17 — its stars already count). */
+  source: 'hire' | 'demo'
   status: ReviewStatus
   rating: number
   comment: string
@@ -142,23 +146,65 @@ export type QueueReview = {
   tuitionTitle: string | null
 }
 
-/** Trust → Reviews: one status at a time, newest first (pending oldest first). */
+type RawQueueRow = {
+  id: string
+  source: 'hire' | 'demo'
+  status: string
+  rating: number
+  comment: string | null
+  created_at: string
+  decided_at: string | null
+  decided_by: string | null
+  decision_reason: string | null
+  parent_id: string | null
+  tutor_id: string | null
+  application_id: string | null
+}
+
+/** Trust → Reviews: one status at a time — hire reviews and demo comments
+ *  together, newest first (pending oldest first). */
 export async function loadReviewQueue(status: ReviewStatus): Promise<{ rows: QueueReview[]; counts: Record<ReviewStatus, number> }> {
   const admin = createAdminClient()
   const empty = { rows: [], counts: { pending: 0, approved: 0, rejected: 0 } }
   if (!admin) return empty
-  const [{ data }, ...counts] = await Promise.all([
+  const statuses = ['pending', 'approved', 'rejected'] as const
+  const [{ data: hire }, { data: demo }, ...counts] = await Promise.all([
     admin
       .from('reviews')
       .select('id, status, rating, comment, created_at, decided_at, decided_by, decision_reason, parent_id, tutor_id, application_id')
       .eq('status', status)
       .order('created_at', { ascending: status === 'pending' })
       .limit(200),
-    ...(['pending', 'approved', 'rejected'] as const).map((s) => admin.from('reviews').select('id', { count: 'exact', head: true }).eq('status', s)),
+    admin
+      .from('demo_feedback')
+      .select('id, comment_status, rating, feedback_text, created_at, updated_at, comment_decided_at, comment_decided_by, comment_decision_reason, parent_id, tutor_id')
+      .eq('comment_status', status)
+      .neq('feedback_text', '')
+      .order('created_at', { ascending: status === 'pending' })
+      .limit(200),
+    ...statuses.map((s) => admin.from('reviews').select('id', { count: 'exact', head: true }).eq('status', s)),
+    ...statuses.map((s) => admin.from('demo_feedback').select('id', { count: 'exact', head: true }).eq('comment_status', s).neq('feedback_text', '')),
   ])
-  const rows = data ?? []
+  const raw: RawQueueRow[] = [
+    ...(hire ?? []).map((r) => ({ ...(r as Omit<RawQueueRow, 'source'>), source: 'hire' as const })),
+    ...(demo ?? []).map((r) => ({
+      id: r.id as string,
+      source: 'demo' as const,
+      status: r.comment_status as string,
+      rating: Number(r.rating),
+      comment: (r.feedback_text as string | null) ?? null,
+      created_at: ((r.updated_at as string | null) ?? (r.created_at as string)) as string,
+      decided_at: (r.comment_decided_at as string | null) ?? null,
+      decided_by: (r.comment_decided_by as string | null) ?? null,
+      decision_reason: (r.comment_decision_reason as string | null) ?? null,
+      parent_id: (r.parent_id as string | null) ?? null,
+      tutor_id: (r.tutor_id as string | null) ?? null,
+      application_id: null,
+    })),
+  ].sort((a, b) => (status === 'pending' ? a.created_at.localeCompare(b.created_at) : b.created_at.localeCompare(a.created_at)))
+  const rows = raw.slice(0, 200)
   const people = [...new Set(rows.flatMap((r) => [r.parent_id, r.tutor_id, r.decided_by]).filter(Boolean) as string[])]
-  const appIds = rows.map((r) => r.application_id as string | null).filter(Boolean) as string[]
+  const appIds = rows.map((r) => r.application_id).filter(Boolean) as string[]
   const [{ data: ps }, { data: slugs }, { data: apps }] = await Promise.all([
     people.length ? admin.from('profiles').select('id, full_name').in('id', people) : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
     people.length ? admin.from('tutor_profiles').select('id, slug').in('id', people) : Promise.resolve({ data: [] as { id: string; slug: string | null }[] }),
@@ -172,24 +218,26 @@ export async function loadReviewQueue(status: ReviewStatus): Promise<{ rows: Que
       return [a.id as string, (j?.title ?? null) as string | null]
     }),
   )
+  const n = (i: number) => counts[i]?.count ?? 0
   return {
     rows: rows.map((r) => ({
-      id: r.id as string,
-      status: parseReviewStatus(r.status as string),
+      id: r.id,
+      source: r.source,
+      status: parseReviewStatus(r.status),
       rating: Number(r.rating),
-      comment: (r.comment as string | null) ?? '',
-      createdAt: r.created_at as string,
-      decidedAt: (r.decided_at as string | null) ?? null,
-      decidedByName: r.decided_by ? (nm.get(r.decided_by as string) ?? null) : null,
-      reason: (r.decision_reason as string | null) ?? null,
-      parentId: (r.parent_id as string | null) ?? null,
-      parentName: (r.parent_id && nm.get(r.parent_id as string)) || 'A parent',
-      tutorId: (r.tutor_id as string | null) ?? null,
-      tutorName: (r.tutor_id && nm.get(r.tutor_id as string)) || 'A tutor',
-      tutorSlug: r.tutor_id ? (sl.get(r.tutor_id as string) ?? null) : null,
-      tuitionTitle: r.application_id ? (tt.get(r.application_id as string) ?? null) : null,
+      comment: r.comment ?? '',
+      createdAt: r.created_at,
+      decidedAt: r.decided_at,
+      decidedByName: r.decided_by ? (nm.get(r.decided_by) ?? null) : null,
+      reason: r.decision_reason,
+      parentId: r.parent_id,
+      parentName: (r.parent_id && nm.get(r.parent_id)) || 'A parent',
+      tutorId: r.tutor_id,
+      tutorName: (r.tutor_id && nm.get(r.tutor_id)) || 'A tutor',
+      tutorSlug: r.tutor_id ? (sl.get(r.tutor_id) ?? null) : null,
+      tuitionTitle: r.source === 'demo' ? 'Demo lesson' : r.application_id ? (tt.get(r.application_id) ?? null) : null,
     })),
-    counts: { pending: counts[0].count ?? 0, approved: counts[1].count ?? 0, rejected: counts[2].count ?? 0 },
+    counts: { pending: n(0) + n(3), approved: n(1) + n(4), rejected: n(2) + n(5) },
   }
 }
 
@@ -225,6 +273,8 @@ export async function decideReview(
     detail: { reviewId, parentId, rating: data.rating, reason: reason?.trim() || null },
   })
   if (decision === 'approve') {
+    // PR-17 Part B: the rating changed — rebuild exactly the pages that show it.
+    await revalidateTutorRating(tutorId)
     await logActivity({ userId: tutorId, event: 'review_approved', targetType: 'review', targetId: reviewId, meta: { rating: data.rating } })
     await notify({ userId: tutorId, kind: 'review_decided', title: 'A parent’s review is now on your profile', body: `${data.rating} out of 5`, href: '/tutor/dashboard' }).catch(() => {})
   }
@@ -238,5 +288,40 @@ export async function decideReview(
       href: '/review',
     }).catch(() => {})
   }
+  return { ok: true }
+}
+
+/** The Owner's decision on a demo lesson's written comment (PR-17 Part B). The
+ *  stars already count; only the text's visibility is decided here. A comment
+ *  is decided once (only a pending one changes; an edit makes it pending again). */
+export async function decideDemoComment(
+  actor: { id: string; adminRole: AdminRole; email: string | null },
+  feedbackId: string,
+  decision: 'approve' | 'reject',
+  reason: string | null,
+): Promise<{ ok: true } | Fail> {
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, status: 503, error: 'This is not working right now.' }
+  const status = decision === 'approve' ? 'approved' : 'rejected'
+  const { data, error } = await admin
+    .from('demo_feedback')
+    .update({ comment_status: status, comment_decided_by: actor.id, comment_decided_at: new Date().toISOString(), comment_decision_reason: reason?.trim() || null })
+    .eq('id', feedbackId)
+    .eq('comment_status', 'pending')
+    .select('id, parent_id, tutor_id, rating')
+    .maybeSingle()
+  if (error) return { ok: false, status: 500, error: 'That did not save. Please try again.' }
+  if (!data) return { ok: false, status: 409, error: 'This comment has already been decided.' }
+  const tutorId = data.tutor_id as string
+  await logAdminAction({
+    actorId: actor.id,
+    actorRole: actor.adminRole,
+    actorEmail: actor.email,
+    action: decision === 'approve' ? 'demo_comment.approve' : 'demo_comment.reject',
+    targetType: 'profile',
+    targetId: tutorId,
+    detail: { feedbackId, parentId: data.parent_id ?? null, rating: data.rating, reason: reason?.trim() || null },
+  })
+  if (decision === 'approve') await revalidateTutorRating(tutorId)
   return { ok: true }
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
+import { parentHireAllowance } from '@/lib/parentHire'
 import { buildGate, type GateReason } from '@/lib/gate'
 import { planRank } from '@/lib/upsell'
 import { parseBody, z } from '@/lib/validate'
@@ -77,7 +78,9 @@ export async function POST(request: Request) {
   if (
     (reason === 'parent_contact' && ent.canViewContact) ||
     (reason === 'tutor_contact' && ent.canViewContact) ||
-    (reason === 'parent_hire' && ent.canHire) ||
+    // PR-17 Part D: a free parent hires up to 5 tutors (lifetime); the sheet
+    // appears only once those are used.
+    (reason === 'parent_hire' && (ent.canHire || (ent.audience === 'parent' && (await parentHireAllowance(user.id, false)).allowed))) ||
     (reason === 'tutor_message' && ent.canInitiateMessage) ||
     // CV download is free to every tutor tier (Basic included), so any tutor who
     // has paid the one-time fee (i.e. holds a plan) already owns it; the gate is

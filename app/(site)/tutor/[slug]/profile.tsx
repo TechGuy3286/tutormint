@@ -225,12 +225,25 @@ async function loadTutorPreview(userId: string): Promise<PublicTutor | null> {
     // Only approved reviews are shown (owner, 27 Oct 2026 — migration 204).
     .eq('status', 'approved')
     .order('created_at', { ascending: false })
-  const parentIds = [...new Set((reviewRows ?? []).map((r) => r.parent_id as string).filter(Boolean))]
+  // PR-17: plus demo lessons' written comments the Owner approved (as
+  // tutor_public_page lists them).
+  const { data: demoRows } = await admin
+    .from('demo_feedback')
+    .select('id, rating, feedback_text, created_at, parent_id')
+    .eq('tutor_id', userId)
+    .eq('comment_status', 'approved')
+  const allReviewRows = [
+    ...(reviewRows ?? []),
+    ...(demoRows ?? [])
+      .filter((d) => String(d.feedback_text ?? '').trim() !== '')
+      .map((d) => ({ id: d.id, rating: d.rating, comment: d.feedback_text, created_at: d.created_at, parent_id: d.parent_id })),
+  ].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+  const parentIds = [...new Set(allReviewRows.map((r) => r.parent_id as string).filter(Boolean))]
   const { data: parents } = parentIds.length
     ? await admin.from('profiles').select('id, full_name').in('id', parentIds)
     : { data: [] as { id: string; full_name: string | null }[] }
   const parentName = new Map((parents ?? []).map((p) => [p.id as string, formatName(p.full_name as string | null) || 'A parent']))
-  const reviews = (reviewRows ?? []).map((r) => ({
+  const reviews = allReviewRows.map((r) => ({
     id: r.id as string,
     rating: r.rating as number,
     comment: (r.comment as string) ?? null,
@@ -683,7 +696,9 @@ export async function TutorProfileView({ slug, ownerId }: { slug: string; ownerI
   const reviews = tutor.rating_count ?? 0
   // PR-15: an empty Availability or Reviews card is not drawn (one line when both are empty).
   const hasAvailability = !!tutor.availabilityText || tutor.slots.length > 0
-  const hasReviews = tutor.reviews.length > 0
+  // PR-17: a rating with no approved written review still draws the card (the
+  // stars count at once; the text waits for approval), so #reviews always lands.
+  const hasReviews = tutor.reviews.length > 0 || reviews > 0
 
   // Subjects grouped by the level they are taught at.
   //
@@ -815,7 +830,7 @@ export async function TutorProfileView({ slug, ownerId }: { slug: string; ownerI
                   {reviews > 0 ? (
                     <>
                       ★ {rating.toFixed(1)}{' '}
-                      <span className="font-normal text-gray-500">({reviews} reviews)</span>
+                      <a href="#reviews" className="font-normal text-gray-500 hover:underline">({reviews} {reviews === 1 ? 'rating' : 'ratings'})</a>
                     </>
                   ) : (
                     <span className="font-normal text-gray-500">No reviews yet</span>
@@ -1083,13 +1098,13 @@ export async function TutorProfileView({ slug, ownerId }: { slug: string; ownerI
             </section>
             )}
             {hasReviews && (
-            <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
+            <section id="reviews" className="scroll-mt-24 rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
               <h2 className="pb-3 text-sm font-black text-tm-navy">
-                Reviews {reviews > 0 ? `(${reviews})` : ''}
+                Reviews {reviews > 0 ? `· ★ ${rating.toFixed(1)} (${reviews})` : ''}
               </h2>
               {tutor.reviews.length === 0 ? (
                 <p className="text-xs text-gray-500">
-                  No written reviews yet. Reviews are left by parents after a tuition.
+                  No written reviews yet. Ratings come from parents after a demo lesson or a hire.
                 </p>
               ) : (
                 <ul className="space-y-4">

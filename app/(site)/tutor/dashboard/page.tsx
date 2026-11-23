@@ -6,7 +6,8 @@ import Breadcrumbs from '@/components/Breadcrumbs'
 import CvCard from '@/components/tutor/CvCard'
 import SavedJobsSection from '@/components/tutor/SavedJobsSection'
 import TutorHeaderCard from '@/components/tutor/TutorHeaderCard'
-import GetVerifiedValueCard from '@/components/tutor/GetVerifiedValueCard'
+import NextStepCard from '@/components/tutor/NextStepCard'
+import { syncOnboardingNotice } from '@/lib/onboardingNotice'
 import Link from 'next/link'
 import { quotaCounter } from '@/lib/tutorDashboard'
 import DashboardActionBar from '@/components/dashboard/DashboardActionBar'
@@ -29,13 +30,9 @@ import EmailConfirmReminder from '@/components/account/EmailConfirmReminder'
 import SubjectCapBanner from '@/components/tutor/SubjectCapBanner'
 import { savedSubjectCount } from '@/lib/subjectLimit'
 import { loadWhatsMissing } from '@/lib/whatsMissing'
-import CompletionLine from '@/components/profile/CompletionLine'
-import { tutorLineItems } from '@/lib/profileRequired'
 import { emailReminderNeeded } from '@/lib/emailConfirmCore'
 import { loadPaymentsHistory } from '@/lib/paymentsHistory'
 import PaymentsRefunds from '@/components/dashboard/PaymentsRefunds'
-import { getOnboardingMode } from '@/lib/onboardingModeServer'
-import { showNewOnboarding } from '@/lib/onboardingMode'
 import VerifiedOnceBanner from '@/components/tutor/VerifiedOnceBanner'
 import { firstVerifiedVisit } from '@/lib/verifiedBanner'
 import ShareStatusButton, { StatusShareCard } from '@/components/tutor/ShareStatusButton'
@@ -84,13 +81,6 @@ export default async function TutorDashboardPage() {
   const directoryListed = directory.listed
   const city = (tutorProfile?.city as string | null) ?? null
   const paymentsHistory = await loadPaymentsHistory(userId)
-
-  // PR106-G4b §5/§6: for owner/staff (switch "Staff only") an unverified tutor
-  // sees the value-first "Get verified" card (real tuition count, straight to
-  // PayPro). Everyone else keeps today's red "Complete your payment" prompt — an
-  // unfinished PayPro invoice (started, unpaid, still within 24h). Both are
-  // hidden once the fee is paid (ent.verified).
-  const staffNew = showNewOnboarding(await getOnboardingMode(), !!session?.profile?.admin_role)
   // The "You're verified" banner shows ONCE — the first dashboard visit after the
   // badge is assigned; this call records the showing (owner, 5 Oct 2026).
   const showVerifiedOnce = await firstVerifiedVisit(userId, !!ent.verified)
@@ -102,7 +92,6 @@ export default async function TutorDashboardPage() {
     !!statusImg?.allowed && statusSvc
       ? !((await statusSvc.from('tutor_profiles').select('status_card_dismissed_at').eq('id', userId).maybeSingle()).data?.status_card_dismissed_at)
       : false
-  const showValueCard = staffNew && !ent.verified
   // A bank-transfer receipt for the fee is with staff (owner, 11 Oct 2026): the
   // dashboard says "Payment under review" in place of every pay prompt, and a
   // refused receipt shows its reason with a way to send a new one.
@@ -143,6 +132,11 @@ export default async function TutorDashboardPage() {
   const liveDemos = (demos ?? []).filter((d) => ['requested', 'accepted'].includes(d.status as string)).length
 
   const percent = whatsMissing?.summary.percent ?? completion?.percent ?? session?.profile?.profile_completion ?? 0
+  // PR-17 E.2: ONE progress number everywhere — "X of 16 steps done".
+  const stepItems = whatsMissing?.summary.items ?? []
+  const steps = { done: whatsMissing?.summary.done ?? 0, total: whatsMissing?.summary.total ?? 0 }
+  // C.6: the bell's one "Continue onboarding (X of 16)" line, kept current.
+  if (stepItems.length > 0) await syncOnboardingNotice(userId, stepItems)
   const publicHref = directoryListed && tutorProfile?.slug ? `/tutor/${tutorProfile.slug}` : null
 
   // "Find tuitions to apply for" bar (PR42 §2, PR71 §2). The count uses the same
@@ -172,7 +166,7 @@ export default async function TutorDashboardPage() {
   // Seven tiles, seven distinct tones — no two share a colour (PR32 §2). The
   // seventh is the optional Intro video tile (PR76 §D.3), its own mint tint.
   const tiles: CountTile[] = [
-    { key: 'apps', icon: <Send aria-hidden size={18} />, value: <span className="text-[13px] leading-tight">{appliedCount} applied · {hiredCount} hired</span>, label: 'My applications', href: '/tutor/dashboard/applications', tone: 'sky', tip: 'Tuitions you have applied to' },
+    { key: 'apps', icon: <Send aria-hidden size={18} />, value: <span className="text-[13px] leading-tight">{appliedCount} applied</span>, label: 'My applications', href: '/tutor/dashboard/applications', tone: 'sky', tip: 'Tuitions you have applied to' },
     // ONE NUMBER (owner, 5 Oct 2026): the big number is the UNREAD count — the
     // same unreadMessageCount the header icon reads — and the red badge shows
     // only while it is above 0. At 0 the tile reads 0 with no dot.
@@ -204,7 +198,7 @@ export default async function TutorDashboardPage() {
           badges={ent.badges}
           verificationPending={!!ent.verificationPending}
           findable={findable}
-          completion={percent}
+          steps={steps}
           publicHref={publicHref}
           paymentUnderReview={feeUnderReview}
         />
@@ -216,33 +210,10 @@ export default async function TutorDashboardPage() {
 
         {feeReceipt && <PaymentReviewNotice receipt={feeReceipt} href="/pay/choose?plan=verified" />}
 
-        {/* What is still to do, each with "Fix now", and what makes the profile
-            visible on Google — both from the real rules (lib/whatsMissing). */}
-        {/* The one completion line (owner, 4 Nov 2026): the exact missing items,
-            each a button to the card that fixes it — the shared rule. */}
-        {whatsMissing && (
-          <CompletionLine
-            percent={whatsMissing.summary.percent}
-            missing={tutorLineItems(whatsMissing.summary.missing)}
-            // PR-16: the top card already says 100% — the banner shows only while
-            // something is missing.
-            hideWhenComplete
-          />
-        )}
-        {whatsMissing && (
-          <WhatsMissing
-            done={whatsMissing.summary.done}
-            total={whatsMissing.summary.total}
-            percent={whatsMissing.summary.percent}
-            missing={[]}
-            google={whatsMissing.google}
-          />
-        )}
-
-        {/* PR106-G4b §5: value-first card for owner/staff; §6: everyone else keeps
-            today's "Complete your payment" prompt. Both are hidden once the fee
-            is paid (ent.verified). */}
-        {showValueCard && <GetVerifiedValueCard count={boardCount} city={city} underReview={feeUnderReview} />}
+        {/* PR-17 E.3: ONE "Your next step" card — replaces the stacked
+            completion chips, the "N tuitions waiting" card and the duplicate
+            prompts. Hidden when nothing is left. */}
+        <NextStepCard items={stepItems} tuitions={boardCount} city={city} feeUnderReview={feeUnderReview} />
 
         {/* PR106-H4 §2: a required document was rejected — the badge is paused and
             new activity is blocked. ONE screen, naming the document, with a button
@@ -315,6 +286,18 @@ export default async function TutorDashboardPage() {
 
         {/* PR106-H4 §4.12 — payments & refunds (hidden when empty). */}
         <PaymentsRefunds rows={paymentsHistory} />
+
+        {/* PR-17 E.4: "Your profile on Google" — at the bottom, closed until opened. */}
+        {whatsMissing && (
+          <WhatsMissing
+            done={whatsMissing.summary.done}
+            total={whatsMissing.summary.total}
+            percent={whatsMissing.summary.percent}
+            missing={[]}
+            google={whatsMissing.google}
+            collapsed
+          />
+        )}
       </div>
     </main>
   )

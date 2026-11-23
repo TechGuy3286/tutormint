@@ -18,18 +18,23 @@ import { getBrowserClient } from '@/lib/supabase/clientLazy'
 // the icon and label sit side by side, the same 44px height and bordered style
 // as the notification bell.
 
+// PR-17 F.4: on a phone the photo, Messages, the bell, Edit and Logout fit ONE
+// line at 360px — compact icon buttons with a short label underneath, 40px
+// minimum targets (owner); from sm the full labels sit beside the icons at 44px.
 const BOX =
-  'inline-flex h-11 min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 rounded-xl border bg-white px-1 text-[9px] font-bold leading-none transition-colors sm:flex-row sm:gap-1.5 sm:px-3 sm:text-xs'
+  'inline-flex h-10 min-h-[40px] min-w-[40px] flex-col items-center justify-center gap-0.5 rounded-xl border bg-white px-1 text-[9px] font-bold leading-none transition-colors sm:h-11 sm:min-h-[44px] sm:min-w-[44px] sm:flex-row sm:gap-1.5 sm:px-3 sm:text-xs'
 
 export function HeaderSettingsLink({ href }: { href: string }) {
   return (
     <Link
       href={href}
       prefetch={false}
+      aria-label={EDIT_PROFILE_LABEL}
       className={`${BOX} border-gray-200 text-tm-navy hover:border-tm-navy`}
     >
       <UserPen aria-hidden size={16} className="shrink-0" />
-      <span className="whitespace-nowrap">{EDIT_PROFILE_LABEL}</span>
+      <span aria-hidden className="whitespace-nowrap sm:hidden">Edit</span>
+      <span aria-hidden className="hidden whitespace-nowrap sm:inline">{EDIT_PROFILE_LABEL}</span>
     </Link>
   )
 }

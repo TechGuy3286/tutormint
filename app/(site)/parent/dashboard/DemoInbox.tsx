@@ -1,5 +1,5 @@
 'use client'
-import { CalendarCheck, Check, CheckCheck, Send, Star, X } from 'lucide-react'
+import { CalendarCheck, Check, CheckCheck, Pencil, Send, Star, X } from 'lucide-react'
 import EmptyState from '@/components/EmptyState'
 
 import { submitSignal } from '@/lib/submit'
@@ -9,6 +9,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { formatDateTime } from '@/lib/datetime'
 import { demoMode, demoStatus } from '@/lib/display'
+import { useToast } from '@/components/ui/Toast'
+import { demoIsClosed, youRatedLine } from '@/lib/demoFeedbackCore'
 
 // Demo requests, from either side.
 //
@@ -35,6 +37,8 @@ export type DemoRow = {
   feedbackLeft?: boolean
   /** True once this demo has been turned into a public review. */
   reviewed?: boolean
+  /** PR-17 D.4: the parent's own feedback on this demo (one per demo). */
+  feedback?: { rating: number; text: string; commentStatus: string } | null
 }
 
 const BTN =
@@ -42,6 +46,7 @@ const BTN =
 
 export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; demos: DemoRow[] }) {
   const router = useRouter()
+  const toast = useToast()
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [openForm, setOpenForm] = useState<string | null>(null)
@@ -50,7 +55,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
   const [rating, setRating] = useState(5)
   const [feedback, setFeedback] = useState('')
 
-  const call = async (url: string, payload: Record<string, unknown>) => {
+  const call = async (url: string, payload: Record<string, unknown>, done?: string) => {
     setBusy(String(payload.demoId))
     setError(null)
     try {
@@ -65,6 +70,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
       setTime('')
       setReason('')
       setFeedback('')
+      if (done) toast.success(done)
       router.refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'That did not save. Please try again, or message us on WhatsApp 0321 5872222.')
@@ -103,7 +109,11 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
         {demos.map((d) => {
           const who = role === 'parent' ? d.tutorName : (d.parentName ?? 'A parent')
           return (
-            <li key={d.id} className="space-y-2 rounded-xl bg-tm-bg p-3">
+            <li
+              key={d.id}
+              data-demo-status={d.status}
+              className={`space-y-2 rounded-xl p-3 ${demoIsClosed(d.status) ? 'bg-gray-100' : 'bg-tm-bg'}`}
+            >
               {/* items-center, not items-baseline: the name is now a 44px
                   target and a baseline would leave the status floating at the
                   top of it. */}
@@ -120,7 +130,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                     who
                   )}
                 </p>
-                <span className="text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                <span className={`text-[10px] font-bold uppercase tracking-wide ${demoIsClosed(d.status) ? 'text-slate-700' : 'text-gray-500'}`}>
                   {demoStatus(d.status)}
                   {demoMode(d.mode) ? ` · ${demoMode(d.mode)}` : ''}
                 </span>
@@ -132,7 +142,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                 </p>
               )}
               {d.declineReason && (
-                <p className="text-[11px] text-gray-500">Reason: {d.declineReason}</p>
+                <p className={`text-[11px] ${demoIsClosed(d.status) ? 'text-slate-700' : 'text-gray-500'}`}>Reason: {d.declineReason}</p>
               )}
 
               {/* ------------------------------------------ tutor actions --- */}
@@ -155,7 +165,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                             demoId: d.id,
                             action: 'accept',
                             proposedTime: new Date(time).toISOString(),
-                          })
+                          }, 'Time sent to the parent.')
                         }
                         className={`${BTN} w-full bg-tm-green-deep text-white`}
                       >
@@ -176,7 +186,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                         type="button"
                         disabled={reason.trim().length < 3 || busy === d.id}
                         onClick={() =>
-                          call('/api/demo/respond', { demoId: d.id, action: 'decline', reason })
+                          call('/api/demo/respond', { demoId: d.id, action: 'decline', reason }, 'Decline sent.')
                         }
                         className={`inline-flex items-center gap-1.5 ${BTN} w-full bg-tm-red text-white`}
                       >
@@ -213,7 +223,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                   <button
                     type="button"
                     disabled={busy === d.id}
-                    onClick={() => call('/api/demo/complete', { demoId: d.id })}
+                    onClick={() => call('/api/demo/complete', { demoId: d.id }, 'Marked as completed.')}
                     className={`${BTN} bg-tm-black text-white`}
                   >
                     <CheckCheck aria-hidden size={13} />
@@ -222,7 +232,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                   <button
                     type="button"
                     disabled={busy === d.id}
-                    onClick={() => call('/api/demo/cancel', { demoId: d.id })}
+                    onClick={() => call('/api/demo/cancel', { demoId: d.id }, 'Demo cancelled.')}
                     className={`${BTN} border border-gray-200 text-slate-700`}
                   >
                     <X aria-hidden size={13} />
@@ -235,7 +245,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                 <button
                   type="button"
                   disabled={busy === d.id}
-                  onClick={() => call('/api/demo/cancel', { demoId: d.id })}
+                  onClick={() => call('/api/demo/cancel', { demoId: d.id }, 'Demo cancelled.')}
                   className={`${BTN} w-full border border-gray-200 text-slate-700`}
                 >
                   <X aria-hidden size={13} />
@@ -244,24 +254,37 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
               )}
 
               {/* ------------------------------------------------ feedback --- */}
-              {role === 'parent' && d.status === 'completed' && !d.feedbackLeft && (
+              {/* PR-17 D.4: "Leave feedback" once; afterwards the parent's own
+                  stars + comment with a small Edit that opens the same form
+                  (it updates the one row — never a second review). The stars
+                  count in the tutor's rating at once; the comment shows on the
+                  profile once checked. */}
+              {role === 'parent' && d.status === 'completed' && (
                 <div className="space-y-2">
                   {openForm === `fb-${d.id}` ? (
                     <>
-                      <label className="block space-y-1">
-                        <span className="text-[11px] font-bold text-gray-500">Rating</span>
-                        <select
-                          value={rating}
-                          onChange={(e) => setRating(Number(e.target.value))}
-                          className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold"
-                        >
-                          {[5, 4, 3, 2, 1].map((n) => (
-                            <option key={n} value={n}>
-                              {n} out of 5
-                            </option>
+                      <div className="space-y-1">
+                        <span id={`rate-${d.id}`} className="text-[11px] font-bold text-gray-500">Rating</span>
+                        <div role="radiogroup" aria-labelledby={`rate-${d.id}`} className="flex gap-1">
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <button
+                              key={n}
+                              type="button"
+                              role="radio"
+                              aria-checked={rating === n}
+                              aria-label={`${n} out of 5`}
+                              onClick={() => setRating(n)}
+                              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl"
+                            >
+                              <Star
+                                aria-hidden
+                                size={24}
+                                className={n <= rating ? 'fill-tm-gold stroke-tm-gold-ink' : 'fill-white stroke-gray-500'}
+                              />
+                            </button>
                           ))}
-                        </select>
-                      </label>
+                        </div>
+                      </div>
                       <textarea
                         value={feedback}
                         onChange={(e) => setFeedback(e.target.value)}
@@ -270,22 +293,70 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                         aria-label="Demo feedback"
                         className="w-full rounded-xl border border-gray-200 bg-white p-3 text-xs"
                       />
-                      <button
-                        type="button"
-                        disabled={feedback.trim().length < 5 || busy === d.id}
-                        onClick={() =>
-                          call('/api/demo/feedback', { demoId: d.id, rating, text: feedback })
-                        }
-                        className={`inline-flex items-center gap-1.5 ${BTN} w-full bg-tm-green-deep text-white`}
-                      >
-                        <Send aria-hidden size={13} />
-                        Send feedback
-                      </button>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          disabled={feedback.trim().length < 5 || busy === d.id}
+                          onClick={() =>
+                            call(
+                              '/api/demo/feedback',
+                              { demoId: d.id, rating, text: feedback },
+                              d.feedback ? 'Your feedback is updated.' : 'Thank you — your feedback is saved.',
+                            )
+                          }
+                          className={`inline-flex items-center gap-1.5 ${BTN} bg-tm-green-deep text-white`}
+                        >
+                          <Send aria-hidden size={13} />
+                          {d.feedback ? 'Save changes' : 'Send feedback'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setOpenForm(null)}
+                          className={`${BTN} border border-gray-200 text-slate-700`}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                      {feedback.trim().length < 5 && (
+                        <p className="text-[11px] text-gray-500">Write a sentence about how it went.</p>
+                      )}
                     </>
+                  ) : d.feedback ? (
+                    <div className="space-y-1 rounded-xl bg-white p-3" data-feedback-left="">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-black text-tm-navy" aria-label={`You rated ${d.feedback.rating} out of 5`}>
+                          {youRatedLine(d.feedback.rating)}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRating(d.feedback!.rating)
+                            setFeedback(d.feedback!.text)
+                            setOpenForm(`fb-${d.id}`)
+                          }}
+                          className="inline-flex min-h-[44px] items-center gap-1 px-2 text-[11px] font-bold text-tm-navy hover:underline"
+                        >
+                          <Pencil aria-hidden size={12} />
+                          Edit
+                        </button>
+                      </div>
+                      {d.feedback.text && <p className="text-xs leading-relaxed text-slate-700">{d.feedback.text}</p>}
+                      {d.feedback.commentStatus !== 'approved' && (
+                        <p className="text-[11px] text-gray-500">
+                          {d.feedback.commentStatus === 'rejected'
+                            ? 'Your stars count in the tutor’s rating. Your comment is not shown on their profile.'
+                            : 'Your stars count in the tutor’s rating. Your comment shows on their profile once our team has checked it.'}
+                        </p>
+                      )}
+                    </div>
                   ) : (
                     <button
                       type="button"
-                      onClick={() => setOpenForm(`fb-${d.id}`)}
+                      onClick={() => {
+                        setRating(5)
+                        setFeedback('')
+                        setOpenForm(`fb-${d.id}`)
+                      }}
                       className={`${BTN} w-full bg-tm-green-deep text-white`}
                     >
                       <Star aria-hidden size={13} />
@@ -294,9 +365,6 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                   )}
                 </div>
               )}
-
-              {/* Reviews come from a hire only (owner, 27 Oct 2026 — lib/reviewsCore):
-                  a demo no longer earns a public review. */}
             </li>
           )
         })}

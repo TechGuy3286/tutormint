@@ -111,7 +111,10 @@ const VIEW_DEFINER_OK: Record<string, string> = {
 const NO_POLICY_OK: Record<string, string> = {
   application_parent_views: 'first time a parent opened their tuition page showing an application (migration 235, PR-06) — no parent id; service role only',
   whatsapp_update_sends: 'staff WhatsApp update sends with Undo stamps (migration 235, PR-06) — service role only; read on the server behind SCREEN_ACCESS.waUpdates',
-  featured_match_items: 'tutor Featured "matched tuitions" WhatsApp items, ids only, Send/Undo stamps (migration 241, PR-14) — service role only; read on the server behind SCREEN_ACCESS.waUpdates',
+  tutor_rank_cache: 'precomputed Browse ranking per listed tutor (migration 243, PR-17) — derived, service role only; read only through SECURITY DEFINER rank_tutors() / rank_tutors_simple()',
+  tutor_rank_cache_state: 'the ranking cache refresh time (migration 243, PR-17) — service role only; read by SECURITY DEFINER functions',
+  landing_combination_counts: 'stored landing counts (migration 243, PR-17) — derived, service role only; read only through SECURITY DEFINER landing_combinations_fast()',
+  featured_match_items:'tutor Featured "matched tuitions" WhatsApp items, ids only, Send/Undo stamps (migration 241, PR-14) — service role only; read on the server behind SCREEN_ACCESS.waUpdates',
   insight_visitor_days: 'Admin → Insights signed-out visitors (migration 240, PR-12) — a daily-rotating keyed hash + device category, no IP or user-agent; written only by bump_insight_visit (service role), read by the Insights builder',
   insight_hour_counts: 'Admin → Insights visitor page views per PKT hour (migration 240, PR-12) — counts only; written only by bump_insight_visit (service role)',
   erased_fingerprints: 'keyed HMAC fingerprints of an erased member’s mobiles and CNIC — never the number (migration 239, PR-11) — service role only; read by lib/eraseFingerprint at sign-up',

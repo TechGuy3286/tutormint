@@ -62,7 +62,8 @@ test('saved pending; the Owner decides; only approved reviews count and are publ
   const route = read('app/api/admin/reviews/decide/route.ts')
   assert.match(route, /checkAdminRole\(\.\.\.SCREEN_ACCESS\.reviews\)/)
   assert.match(route, /refuseUnlessOwnerApproval\(gate\.actor/)
-  assert.ok(route.indexOf('refuseUnlessOwnerApproval') < route.indexOf('decideReview('), 'refused before anything is written')
+  // PR-17: the route picks decideReview or decideDemoComment, after the Owner check.
+  assert.ok(route.indexOf('refuseUnlessOwnerApproval(') < route.indexOf('await decide('), 'refused before anything is written')
   assert.match(read('app/admin/reviews/ReviewDecision.tsx'), /useCanApprove\(\)/)
   // A parent cannot insert an approved review, nor approve their own.
   const sql = read('supabase/migrations/204_reviews.sql')

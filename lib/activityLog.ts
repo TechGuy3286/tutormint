@@ -55,6 +55,7 @@ export type ActivityEvent =
   | 'demo_accepted'
   | 'demo_declined'
   | 'demo_completed'
+  | 'demo_feedback_edited'
   | 'message_sent'
   | 'shortlist_added'
   | 'shortlist_removed'

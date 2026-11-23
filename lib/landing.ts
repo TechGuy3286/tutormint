@@ -202,15 +202,18 @@ function foldCombos(
  *  select silently dropped combinations and 404'd live landing pages). */
 async function readLandingCombinations(): Promise<{ kind: string; city: string; master_id: number; n: number }[]> {
   const db = createPublicClient()
-  return pageAll((from, to) =>
+  // PR-17 Part A: the stored counts (landing_combinations_fast — the view
+  // itself only when the minute refresh has stopped), not the GROUP BY view
+  // recomputed once per 1,000-row page.
+  type Row = { kind: string; city: string; master_id: number; n: number }
+  return (await pageAll((from, to) =>
     db
-      .from('landing_combinations')
-      .select('kind, city, master_id, n')
+      .rpc('landing_combinations_fast')
       .order('kind')
       .order('city')
       .order('master_id')
       .range(from, to),
-  )
+  )) as Row[]
 }
 
 /**

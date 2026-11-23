@@ -5,6 +5,7 @@ import AccountLinks from '@/components/dashboard/AccountLinks'
 import BadgeRow from '@/components/badges/BadgeRow'
 import VerifyBadgeControl from '@/components/tutor/VerifyBadgeControl'
 import type { BadgeName } from '@/lib/planBadges'
+import { stepsDoneLine } from '@/lib/onboarding/progressCore'
 
 // The tutor dashboard's minimal profile card (PR20 §1).
 //
@@ -28,7 +29,7 @@ export default function TutorHeaderCard({
   badges = [],
   verificationPending = false,
   findable = false,
-  completion,
+  steps,
   publicHref,
   paymentUnderReview = false,
 }: {
@@ -48,15 +49,17 @@ export default function TutorHeaderCard({
   verificationPending?: boolean
   /** Profile is 100% complete and approved — the pop-up's "findable" line. */
   findable?: boolean
-  /** 0-100, for the ring around the photo below 100%. */
-  completion: number
+  /** PR-17 E.2: the ONE progress number — "X of 16 steps done" (the ring
+   *  around the photo is drawn from the same two numbers). */
+  steps: { done: number; total: number }
   /** The tutor's public page, when it is live; null otherwise. */
   publicHref: string | null
   /** A bank-transfer receipt for the fee is with staff — no pay button meanwhile. */
   paymentUnderReview?: boolean
 }) {
-  const incomplete = completion < 100
-  const ring = `conic-gradient(var(--color-tm-green-deep) ${completion * 3.6}deg, var(--color-gray-200) 0deg)`
+  const incomplete = steps.done < steps.total
+  const share = steps.total > 0 ? steps.done / steps.total : 1
+  const ring = `conic-gradient(var(--color-tm-green-deep) ${share * 360}deg, var(--color-gray-200) 0deg)`
 
   return (
     <section className="flex items-start gap-3 rounded-2xl border border-gray-200 bg-white p-4">
@@ -120,19 +123,18 @@ export default function TutorHeaderCard({
         {/* Settings + Help & Support, always visible (owner, 9 Oct 2026). */}
         <AccountLinks settingsHref="/tutor/dashboard/settings" />
 
-        {/* PR106-E §9 / #56 — the completion label. Under 100%: a brand-red
-            "Complete your profile · N%" link opening the flow at the next
-            unfinished step (no Urdu line). At 100%: a deep-green
-            "✓ 100% Completed" line in its place. */}
-        {completion < 100 ? (
+        {/* PR-17 E.2 — the one progress number, "X of 16 steps done" (no
+            separate %). Unfinished: a link opening the flow at the first
+            unfinished step. All done: a deep-green tick line. */}
+        {incomplete ? (
           <Link
             href="/tutor/complete-profile"
-            className="block min-h-[32px] text-[11px] font-bold text-tm-red underline-offset-2 hover:underline"
+            className="block min-h-[32px] text-[11px] font-bold text-tm-navy underline-offset-2 hover:underline"
           >
-            Complete your profile · {completion}%
+            {stepsDoneLine(steps.done, steps.total)}
           </Link>
         ) : (
-          <p className="min-h-[32px] text-[11px] font-bold text-tm-green-deep">✓ 100% Completed</p>
+          <p className="min-h-[32px] text-[11px] font-bold text-tm-green-deep">✓ {stepsDoneLine(steps.done, steps.total)}</p>
         )}
       </div>
     </section>

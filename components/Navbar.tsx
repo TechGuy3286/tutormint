@@ -88,7 +88,7 @@ function Shell({ children, member = false }: { children: React.ReactNode; member
   return (
     <header
       className={`sticky top-0 z-50 flex items-center justify-between border-b border-gray-200 bg-white py-3 shadow-xs sm:px-12 ${
-        member ? 'gap-2 px-3 min-[360px]:px-4 sm:gap-3' : 'gap-3 px-4'
+        member ? 'gap-1.5 px-3 min-[400px]:gap-2 min-[400px]:px-4 sm:gap-3' : 'gap-3 px-4'
       }`}
     >
       <Link href="/" className="flex shrink-0 items-center">

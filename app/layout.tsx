@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import "./globals.css";
 import { SITE_DEFAULT_TITLE, SITE_DESCRIPTION } from '@/lib/siteIdentity'
@@ -12,6 +12,11 @@ import { ToastProvider } from '@/components/ui/Toast'
 import { ConfirmProvider } from '@/components/ui/ConfirmDialog'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import { AUTH_MARK_SCRIPT } from '@/lib/headerSessionCore'
+
+// PR-17 G.1: viewport-fit=cover so env(safe-area-inset-bottom) is real on iPhone
+// and Android — the fixed bottom bars (.tm-bottom-bar) put the inset INSIDE
+// their own white background, flush to the very bottom of the screen.
+export const viewport: Viewport = { width: 'device-width', initialScale: 1, viewportFit: 'cover' }
 
 export const metadata: Metadata = {
   title: SITE_DEFAULT_TITLE,

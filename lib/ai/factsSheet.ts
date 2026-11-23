@@ -17,6 +17,7 @@
 // the tests all read the same sheet.
 
 import { FEE_LABEL } from '@/lib/display'
+import { FREE_PARENT_HIRE_LIMIT } from '@/lib/parentHireCore'
 
 export type FactsPlan = {
   code: string
@@ -127,11 +128,11 @@ export function factsSheetText(facts: PlatformFacts = buildPlatformFacts()): str
           `post ${p.displayedQuota.toLowerCase() === 'unlimited' ? 'unlimited' : 'a few'} tuitions a month`,
           p.canViewContact ? 'see tutor phone and WhatsApp' : '',
           p.canWhatsapp ? 'WhatsApp tutors with one tap' : '',
-          p.canHire ? 'complete a hire' : '',
+          p.canHire ? 'unlimited hires' : `hire ${FREE_PARENT_HIRE_LIMIT} tutors in total`,
         ].filter(Boolean)
         return `${p.name} — ${powers.join(', ')}`
       })
-      .join('; ')}. Only a Featured parent can complete a hire.`,
+      .join('; ')}. A free parent can hire ${FREE_PARENT_HIRE_LIMIT} tutors in total (not per month); Featured has unlimited hires.`,
     '- Never write "no commission", "no middleman" or "no agent": TutorMint works with academies and agents. TutorMint never promises tuitions, replies, applications, hires or income — only visibility.',
     `- Payments are not refundable: the ${fee} and plans carry no refund.`,
     '- A demo is a demo lesson. Never call it free.',

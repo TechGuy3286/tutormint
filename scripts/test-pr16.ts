@@ -112,14 +112,16 @@ test('A: signed-in pages hand the header over from their own request; public pag
 const DASH = 'app/(site)/tutor/dashboard/page.tsx'
 
 test('B: the 100% banner hides on the dashboard; shown only while something is missing', () => {
-  assert.match(read(DASH), /<CompletionLine[\s\S]*?hideWhenComplete[\s\S]*?\/>/)
+  // PR-17 E.3: the dashboard now shows the one "Your next step" card (hidden when nothing is left).
+  assert.match(read(DASH), /<NextStepCard /)
   const c = code('components/profile/CompletionLine.tsx')
   assert.match(c, /if \(complete && hideWhenComplete\) return null/)
 })
 
 test('B: "7 applied · 0 hired" from one list; the Hired tile uses the same list', () => {
   const s = code(DASH)
-  assert.match(s, /\{appliedCount\} applied · \{hiredCount\} hired/)
+  // PR-17 E.6: the tile reads "N applied" only; the Hired tile shows hires.
+  assert.match(s, /\{appliedCount\} applied<\/span>/)
   assert.match(s, /const appliedCount = myApplications\.length/)
   assert.match(s, /const hiredCount = myApplications\.filter\(\(a\) => a\.stage === 'hired'\)\.length/)
   assert.doesNotMatch(s, /quotaNote|appliedThisMonth/, 'no second "applied" number')
@@ -246,7 +248,7 @@ test('C: breadcrumb Home › Dashboard › Edit Profile, no Back link', () => {
 
 test('D: footer social icons at 32px, one row on a phone; WhatsApp number on one line', () => {
   const f = code('components/Footer.tsx')
-  assert.match(f, /<ul className="mt-2 flex flex-wrap items-center gap-1">/)
+  assert.match(f, /<ul className=\{`mt-2 flex items-center gap-1 \$\{oneRow \? 'flex-nowrap' : 'flex-wrap'\}`\}/)
   assert.match(f, /sizes="32px" className="h-8 w-8 object-contain"/)
   assert.match(f, /h-11 w-11/, '44px tap target kept')
   assert.equal((f.match(/whitespace-nowrap[^"]*"\s*>\s*WhatsApp \{formatSupportWhatsApp/g) ?? []).length, 2)

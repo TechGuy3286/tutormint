@@ -150,9 +150,11 @@ test('the line renders buttons under 100% and a tick at 100%', () => {
   assert.ok(done.includes('<svg'), 'a tick')
   assert.ok(!done.includes('<a '), 'no buttons at 100%')
   // On the dashboards and the top of Edit Profile.
-  for (const f of ['app/(site)/tutor/dashboard/page.tsx', 'app/(site)/tutor/dashboard/settings/page.tsx', 'app/(site)/parent/dashboard/page.tsx', 'app/(site)/parent/dashboard/settings/SettingsClient.tsx']) {
+  // PR-17 E.3: the tutor DASHBOARD shows the one "Your next step" card instead.
+  for (const f of ['app/(site)/tutor/dashboard/settings/page.tsx', 'app/(site)/parent/dashboard/page.tsx', 'app/(site)/parent/dashboard/settings/SettingsClient.tsx']) {
     assert.ok(read(f).includes('<CompletionLine'), f)
   }
+  assert.ok(read('app/(site)/tutor/dashboard/page.tsx').includes('<NextStepCard'))
 })
 
 test('Edit Profile step counts come from the rule; optional cards are left out', () => {

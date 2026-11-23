@@ -135,9 +135,11 @@ export default async function Footer() {
         {/* --------------------------------------------------- DESKTOP ---- */}
         {/* md+: the approved layout, unchanged. */}
         <div className="hidden md:block">
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-6 lg:gap-8">
+          {/* PR-17 G.4: the brand column is wide enough (18rem) for all six
+              social icons on ONE row on desktop; the five link columns share the rest. */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[18rem_repeat(5,minmax(0,1fr))] lg:gap-8">
             {/* Brand */}
-            <div className="lg:pr-4">
+            <div>
               <Image
                 src={SITE_LOGO_DARK_PATH}
                 alt="TutorMint"
@@ -147,7 +149,7 @@ export default async function Footer() {
                 className="h-8 w-[87px] object-contain"
               />
               <FooterTagline />
-              <SocialRow socials={socials} />
+              <SocialRow socials={socials} oneRow />
             </div>
 
             {/* The link lists, handed to the 5-column grid at lg. */}
@@ -222,13 +224,13 @@ export default async function Footer() {
 /**
  * The social icons (PR-16, owner): ONE evenly spaced row, each icon drawn at
  * 32px inside its 44px tap target — a full set of six is 6 × 44px + gaps, which
- * fits one row on a 360px phone; in the narrow desktop brand column it wraps
- * as even rows. WhatsApp carries its own label and rel.
+ * fits one row on a 360px phone, and one row on desktop too (PR-17 G.4 — the
+ * brand column is 18rem wide there). WhatsApp carries its own label and rel.
  */
-function SocialRow({ socials }: { socials: SocialLink[] }) {
+function SocialRow({ socials, oneRow = false }: { socials: SocialLink[]; oneRow?: boolean }) {
   if (socials.length === 0) return null
   return (
-    <ul className="mt-2 flex flex-wrap items-center gap-1">
+    <ul className={`mt-2 flex items-center gap-1 ${oneRow ? 'flex-nowrap' : 'flex-wrap'}`} data-social-row={oneRow ? 'desktop' : 'mobile'}>
       {socials.map((s) => (
         <li key={s.name}>
           <a
