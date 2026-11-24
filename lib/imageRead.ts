@@ -1,34 +1,32 @@
 import 'server-only'
 
 // lib/imageRead.ts — "Read from image" on staff Post a tuition (owner, 24 Nov
-// 2026 — PR-20 Part C; made to work on Vercel in PR-21). The server half of
-// lib/imageMaskCore.
+// 2026 — PR-20 Part C; made to work on Vercel in PR-21; PR-22 Part A: the AI
+// reads the number printed on the image).
 //
 //   1. The image (the browser always sends a JPEG ≤ 2000 px; PNG / WebP also
 //      read) is decoded IN MEMORY with sharp — turned upright, sized for
 //      reading. It is never written to disk, storage or a log; a failure logs
 //      its technical reason only.
-//   2. Plain OCR (tesseract.js — no AI) reads it: in English as it is and
-//      inverted (white text on a coloured poster), and in Urdu. Urdu lines are
-//      used where they name a contact word such as رابطہ, and Urdu digits
-//      wherever the English model read no confident English word (PR-21 —
-//      imageMaskCore urduDigitWords). Every number-shaped word is found
-//      (imageMaskCore planMask).
-//   3. Those boxes are blacked out. The masked image is read AGAIN; if anything
-//      number-shaped is still readable the newly found boxes are blacked out
-//      and it is read once more. Still something → the AI is NOT called
-//      ("Couldn't read this image safely…"). Any error in OCR or masking ends
-//      the same way.
-//   4. Only the masked image — plus the OCR text with every number redacted
-//      again — goes to the AI, which fills the same form as "Paste a post"
-//      (lib/aiTuitionExtractCore). The mobile found by OCR goes to the browser
-//      for the form, never to the AI.
+//   2. Side by side:
+//      - the AI reads the upright image (Owner decision, PR-22 option B: a
+//        number printed on a PUBLIC poster or screenshot may be read by the
+//        AI — never in pasted text, which stays strictly redacted) and fills
+//        the same form as "Paste a post", plus `contactPhone`;
+//      - plain OCR (tesseract.js — no AI) reads it too: in English as it is
+//        and inverted (white text on a coloured poster), and in Urdu (Urdu
+//        lines only where they name a contact word such as رابطہ, Urdu digits
+//        only away from confident English words — imageMaskCore).
+//   3. The two numbers are compared (lib/imageNumberCore): the same → used; a
+//      disagreement → the AI's, "Check this number"; Urdu digits → always
+//      "Check this number". An OCR failure or timeout never stops the fill.
+//      The number field is always highlighted for staff, and the form's
+//      contact checks run on it before Post is enabled.
 //
-// Time (PR-21): the route may run 120 s. OCR has 70 s in all and no single OCR
-// step may take over 30 s; a step that runs over (or an OCR worker that died —
-// PR-21's production failure was a worker that could not load its modules and
-// never answered) is dropped and restarted on the next request, and staff see
-// "Took too long — please try again." The AI call has 35 s.
+// Time: the route may run 120 s. OCR has 45 s in all and no single OCR step
+// may take over 30 s; a step that runs over (or an OCR worker that died) is
+// dropped and restarted on the next request. The AI call has 35 s; it runs
+// at the same time as OCR.
 
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -44,32 +42,21 @@ import {
   mapAiAnswer,
   parseAiJson,
   safeReason,
-  EXTRACT_SYSTEM,
+  stripNumbers,
+  IMAGE_EXTRACT_SYSTEM,
   type AiFill,
   type AiLists,
 } from '@/lib/aiTuitionExtractCore'
-import { hasNumberLeft, redactForAi } from '@/lib/postRedactCore'
-import {
-  IMAGE_TOO_SLOW,
-  IMAGE_UNSAFE,
-  IMAGE_WRONG_TYPE,
-  linesText,
-  maskSvg,
-  numberLeft,
-  planMask,
-  urduContactLines,
-  urduDigitWords,
-  type Box,
-  type OcrLine,
-} from '@/lib/imageMaskCore'
+import { IMAGE_TOO_SLOW, IMAGE_UNSAFE, IMAGE_WRONG_TYPE, ocrMobiles, urduContactLines, urduDigitWords, type OcrLine } from '@/lib/imageMaskCore'
+import { pickImageNumber, type ImageNumber, type OcrMobile } from '@/lib/imageNumberCore'
 
-/** All OCR for one image (first read, mask, after-checks). */
-export const OCR_BUDGET_MS = 70_000
+/** All OCR for one image (it runs beside the AI call). */
+export const OCR_BUDGET_MS = 45_000
 /** One OCR step (starting a worker, or one read). */
 const OCR_STEP_MAX_MS = 30_000
-/** The AI call. 70 + 35 s leaves room inside the route's 120 s. */
+/** The AI call (beside OCR) — well inside the route's 120 s. */
 export const AI_IMAGE_TIMEOUT_MS = 35_000
-/** The longest side of the masked image the AI gets (its own preferred size). */
+/** The longest side of the image the AI gets (its own preferred size). */
 const AI_IMAGE_MAX_PX = 1568
 
 type Worker = Awaited<ReturnType<(typeof import('tesseract.js'))['createWorker']>>
@@ -178,28 +165,22 @@ async function readBoth(img: Buffer, deadline: number): Promise<{ all: OcrLine[]
   return { all: [...eng.plain, ...eng.inv, ...urduContact, ...urduDigits], plain: eng.plain }
 }
 
-async function applyMask(img: Buffer, boxes: Box[], w: number, h: number): Promise<Buffer> {
-  if (boxes.length === 0) return img
-  return sharp(img)
-    .composite([{ input: Buffer.from(maskSvg(boxes, w, h)), top: 0, left: 0 }])
-    .png()
-    .toBuffer()
-}
+export type ImageFailKind = 'timeout' | 'type' | 'unsafe'
 
-export type MaskFailKind = 'unsafe' | 'timeout' | 'type'
-export type MaskedImage =
-  | { ok: true; jpeg: Buffer; text: string; mobiles: string[]; masked: number }
-  | { ok: false; kind: MaskFailKind; error: string; reason: string }
+/** The picture made ready: upright, sized for OCR (`img`, PNG) and for the AI (`jpeg`). */
+export type PreparedImage =
+  | { ok: true; img: Buffer; jpeg: Buffer }
+  | { ok: false; kind: ImageFailKind; error: string; reason: string }
 
-const fail = (kind: MaskFailKind, reason: string): MaskedImage => ({
-  ok: false,
+const fail = (kind: ImageFailKind, reason: string) => ({
+  ok: false as const,
   kind,
   error: kind === 'timeout' ? IMAGE_TOO_SLOW : kind === 'type' ? IMAGE_WRONG_TYPE : IMAGE_UNSAFE,
   reason,
 })
 
-/** Steps 1–3: the image with every number blacked out, checked by a second read. */
-export async function maskImage(input: Buffer, deadline: number = Date.now() + OCR_BUDGET_MS): Promise<MaskedImage> {
+/** Step 1: decode in memory, turn upright, size it. Nothing is written anywhere. */
+export async function prepareImage(input: Buffer): Promise<PreparedImage> {
   let meta: Awaited<ReturnType<ReturnType<typeof sharp>['metadata']>>
   try {
     meta = await sharp(input).metadata()
@@ -221,82 +202,87 @@ export async function maskImage(input: Buffer, deadline: number = Date.now() + O
     const longest = Math.max(width, height)
     if (!longest) return fail('type', 'no_size')
     const target = longest > 2000 ? 2000 : longest < 1200 ? 1200 : longest
-    let img: Buffer = await base
+    const img = await base
       .resize({ width: width >= height ? target : undefined, height: height > width ? target : undefined })
       .png()
       .toBuffer()
-    const meta2 = await sharp(img).metadata()
-    const w = meta2.width ?? 0
-    const h = meta2.height ?? 0
-
-    const first = await readBoth(img, deadline)
-    const plan = planMask(first.all, w, h)
-    img = await applyMask(img, plan.boxes, w, h)
-    let masked = plan.boxes.length
-
-    // The after-check: read the masked image again, at most twice.
-    let after = await readBoth(img, deadline)
-    if (numberLeft(after.all)) {
-      const again = planMask(after.all, w, h)
-      img = await applyMask(img, again.boxes, w, h)
-      masked += again.boxes.length
-      for (const mob of again.mobiles) if (!plan.mobiles.includes(mob)) plan.mobiles.push(mob)
-      after = await readBoth(img, deadline)
-      if (numberLeft(after.all)) return fail('unsafe', 'number_still_readable')
-    }
-
-    // The OCR text of the masked image, redacted again — never sent if a number survives.
-    const text = redactForAi(linesText(after.plain)).text
-    if (hasNumberLeft(text)) return fail('unsafe', 'number_in_text')
     const jpeg = await sharp(img)
       .resize({ width: AI_IMAGE_MAX_PX, height: AI_IMAGE_MAX_PX, fit: 'inside', withoutEnlargement: true })
       .jpeg({ quality: 85 })
       .toBuffer()
-    return { ok: true, jpeg, text, mobiles: plan.mobiles, masked }
+    return { ok: true, img, jpeg }
+  } catch (e) {
+    return fail('type', `decode_error: ${safeReason(e instanceof Error ? `${e.name}: ${e.message}` : String(e))}`)
+  }
+}
+
+export type OcrNumbers = { ok: true; mobiles: OcrMobile[] } | { ok: false; kind: ImageFailKind; reason: string }
+
+/** Step 2: plain OCR (no AI) reads the mobiles printed on the image — the
+ *  second reader the AI's number is compared against (lib/imageNumberCore). */
+export async function ocrNumbers(img: Buffer, deadline: number = Date.now() + OCR_BUDGET_MS): Promise<OcrNumbers> {
+  try {
+    const read = await readBoth(img, deadline)
+    return { ok: true, mobiles: ocrMobiles(read.all) }
   } catch (e) {
     const reason = safeReason(e instanceof Error ? `${e.name}: ${e.message}` : String(e))
-    console.warn(`[ai-image] masking failed: ${reason}`)
-    return fail(e instanceof OcrTimeout ? 'timeout' : 'unsafe', e instanceof OcrTimeout ? reason : `ocr_error: ${reason}`)
+    console.warn(`[ai-image] ocr failed: ${reason}`)
+    return { ok: false, kind: e instanceof OcrTimeout ? 'timeout' : 'unsafe', reason }
   }
 }
 
 export const IMAGE_SYSTEM = [
-  EXTRACT_SYSTEM,
-  'The advert is an IMAGE (a poster or a screenshot). Black boxes hide phone numbers and emails — ignore them.',
+  IMAGE_EXTRACT_SYSTEM,
+  'The advert is an IMAGE (a public poster or a screenshot).',
   'A school or academy hiring a teacher ("We are hiring", "Teacher required") is a teacher job: pick the matching JOB TYPE (Primary / Middle School / High School / O Levels / A Levels Teacher, Visiting Teacher…), and put the school or academy name in "school".',
+  'Also return contactPhone: the contact mobile number printed on the image (WhatsApp / call / contact), written as 03XXXXXXXXX in English digits, or null if there is none; and contactPhoneUrduDigits: true if that number is written in Urdu digits (۰۳۰۰…), else false.',
+  'Never invent a number: if you cannot read every digit, use null. Never put a phone number in the description.',
 ].join(' ')
 
 /** `reason` is technical (no image or post content) — for the Owner's Audit log. */
-export type ImageExtract = { ok: true; fill: AiFill; mobiles: string[] } | { ok: false; status: number; error: string; reason: string }
+export type ImageExtract =
+  | { ok: true; fill: AiFill; mobiles: string[]; number: ImageNumber }
+  | { ok: false; status: number; error: string; reason: string }
 
 export type ImageDeps = {
   configured: () => boolean
-  mask: (input: Buffer) => Promise<MaskedImage>
+  prepare: (input: Buffer) => Promise<PreparedImage>
+  ocr: (img: Buffer) => Promise<OcrNumbers>
   lists: () => Promise<AiLists>
   complete: typeof completeWithImage
 }
-const REAL_DEPS: ImageDeps = { configured: isConfigured, mask: (b) => maskImage(b), lists: () => loadAiLists(), complete: completeWithImage }
+const REAL_DEPS: ImageDeps = {
+  configured: isConfigured,
+  prepare: (b) => prepareImage(b),
+  ocr: (b) => ocrNumbers(b),
+  lists: () => loadAiLists(),
+  complete: completeWithImage,
+}
 
-const MASK_STATUS: Record<MaskFailKind, number> = { unsafe: 422, timeout: 504, type: 415 }
+const PREPARE_STATUS: Record<ImageFailKind, number> = { unsafe: 422, timeout: 504, type: 415 }
 
-/** The whole "Read from image": mask, then the AI fills the form. The AI is
- *  called only with the MASKED image, and never when masking failed. (`deps`
- *  is for the tests — scripts/test-pr20.ts, scripts/test-pr21.ts.) */
+/** The whole "Read from image" (PR-22): the AI reads the upright image (its
+ *  printed number included) while OCR reads it too, side by side; the two
+ *  numbers are compared (lib/imageNumberCore). An OCR failure never stops the
+ *  fill — the AI's number is used alone. (`deps` is for the tests —
+ *  scripts/test-pr22.ts, test-pr20, test-pr21.) */
 export async function extractTuitionFromImage(input: Buffer, deps: ImageDeps = REAL_DEPS): Promise<ImageExtract> {
   if (!deps.configured()) return { ok: false, status: 503, error: AI_UNAVAILABLE, reason: 'ai_not_configured' }
-  const masked = await deps.mask(input)
-  if (!masked.ok) return { ok: false, status: MASK_STATUS[masked.kind], error: masked.error, reason: `mask_${masked.kind}: ${masked.reason}` }
+  const prepared = await deps.prepare(input)
+  if (!prepared.ok) return { ok: false, status: PREPARE_STATUS[prepared.kind], error: prepared.error, reason: `image_${prepared.kind}: ${prepared.reason}` }
   const lists = await deps.lists()
   if (lists.jobTitles.length === 0 || Object.keys(lists.tree).length === 0) return { ok: false, status: 503, error: AI_UNAVAILABLE, reason: 'lists_empty' }
-  const prompt = extractPrompt(masked.text ? `(Text read from the image — may contain reading errors)\n${masked.text}` : '(Read the image.)', lists)
-  if (hasNumberLeft(prompt.slice(prompt.indexOf('POST:')))) return { ok: false, status: 422, error: IMAGE_UNSAFE, reason: 'number_in_prompt' }
-  const r = await deps.complete({
-    system: IMAGE_SYSTEM,
-    prompt,
-    image: { mediaType: 'image/jpeg', base64: masked.jpeg.toString('base64') },
-    maxTokens: 1200,
-    timeoutMs: AI_IMAGE_TIMEOUT_MS,
-  })
+  const prompt = extractPrompt('(Read the image.)', lists)
+  const [ocr, r] = await Promise.all([
+    deps.ocr(prepared.img).catch((): OcrNumbers => ({ ok: false, kind: 'unsafe', reason: 'ocr_threw' })),
+    deps.complete({
+      system: IMAGE_SYSTEM,
+      prompt,
+      image: { mediaType: 'image/jpeg', base64: prepared.jpeg.toString('base64') },
+      maxTokens: 1200,
+      timeoutMs: AI_IMAGE_TIMEOUT_MS,
+    }),
+  ])
   if (!r.ok) {
     const kind = aiFailureKind(r.reason)
     const reason = `ai_${kind}: ${safeReason(r.reason)}`
@@ -305,5 +291,9 @@ export async function extractTuitionFromImage(input: Buffer, deps: ImageDeps = R
   }
   const ai = parseAiJson(r.text)
   if (!ai) return { ok: false, status: 503, error: AI_UNAVAILABLE, reason: 'ai_unreadable_answer' }
-  return { ok: true, fill: mapAiAnswer(ai, lists), mobiles: masked.mobiles }
+  const number = pickImageNumber(ocr.ok ? ocr.mobiles : null, ai.contactPhone, ai.contactPhoneUrduDigits)
+  const fill = mapAiAnswer(ai, lists)
+  // The description goes on the public tuition page: never a number in it.
+  fill.description = stripNumbers(fill.description)
+  return { ok: true, fill, mobiles: number.msisdn ? [number.msisdn] : [], number }
 }

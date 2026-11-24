@@ -32,6 +32,8 @@ type Key = keyof typeof SCREEN_ACCESS
 const EDIT: Key[] = [
   // usersView (owner, 31 Oct 2026): viewing People — the Partner edits People anyway.
   'blankPhotoClear',
+  // Search words (PR-22): the Project Managers act too.
+  'searchWords',
   'tutors', 'parents', 'users', 'usersView', 'signups', 'orphans', 'unpaidSignups', 'featuredWhatsapp',
   'jobs', 'jobsMutate', 'jobsPost', 'pausedTuitions', 'duplicates', 'duplicatesMerge', 'applicantForwards',
   'inbox', 'reports', 'tuitionPosting', 'tutorEdit', 'tutorSlug', 'videoVisibility', 'documentUnlock', 'documentRotate', 'cnicRead',
@@ -187,6 +189,8 @@ const ROUTES: Record<string, 'edit' | 'view' | 'owner' | 'self' | 'mixed' | 'ret
   // Documents by staff, Undo (owner, 5 Nov 2026): the Owner only.
   'documents/staff-decisions': 'owner',
   'blocked-signups': 'owner',
+  // Search words (PR-22): Owner, Project Managers, the Insights grant.
+  'search-words': 'edit',
   'flags': 'edit',
   'follow-ups': 'edit',
   // Check payment status on a Started payment card (owner, 20 Oct 2026):

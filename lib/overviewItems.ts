@@ -47,6 +47,8 @@ import { tutorDocStatusesFromProfile } from '@/lib/tutorDocStatus'
 import { formatName } from '@/lib/formatName'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { FEE_LABEL } from '@/lib/display'
+import { loadWanted } from '@/lib/searchTerms'
+import { termHref, wantedLine } from '@/lib/searchTermsCore'
 import { BLOCKED_SIGNUPS_HREF, blockedSignupsTodo } from '@/lib/eraseFingerprint'
 import { KIND_LABEL, maskedLastTwo, STEP_LABEL } from '@/lib/eraseFingerprintCore'
 import {
@@ -636,6 +638,19 @@ export async function loadOverviewList(
         rows: list.map((r) => ({ id: r.id, title: `${KIND_LABEL[r.kind]} ${maskedLastTwo(r.last2)} · ${STEP_LABEL[r.step]}`, detail: `${formatDateTime(r.at)} · closed account erased ${formatDate(r.erasedAt)}`, href: BLOCKED_SIGNUPS_HREF })),
         filter: 'refused because the number or CNIC belongs to an erased account, not yet allowed or kept blocked',
         workHref: BLOCKED_SIGNUPS_HREF,
+      }
+    }
+
+    case 'todo-wanted': {
+      // PR-22: the "Real demand" marks on Search words still in force, each
+      // with its searches in the last 30 days — the same loader as that screen.
+      const list = await loadWanted(now.getTime())
+      return {
+        key,
+        rows: list.map((w) => ({ id: `wanted-${w.id}`, title: wantedLine(w.term, w.searches), detail: `People want: ${w.target}`, href: termHref(w.key) })),
+        filter: 'search words marked as real demand on Search words — post tuitions or find tutors for them',
+        extra: list.slice(0, 3).map((w) => wantedLine(w.term, w.searches)).join(' · ') || null,
+        workHref: '/admin/search-words',
       }
     }
 

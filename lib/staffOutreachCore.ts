@@ -246,7 +246,7 @@ export type FunnelStep = { label: string; count: number; lostPct: number | null 
 export function funnelSteps(counts: number[], labels: string[]): FunnelStep[] {
   return counts.map((count, i) => {
     const prev = i === 0 ? null : counts[i - 1]
-    const lostPct = prev === null || prev === 0 ? null : Math.round(((prev - count) / prev) * 100)
+    const lostPct = prev === null || prev === 0 ? null : Math.max(0, Math.round(((prev - count) / prev) * 100))
     return { label: labels[i], count, lostPct }
   })
 }

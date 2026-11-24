@@ -200,7 +200,7 @@ const NOW = Date.parse('2026-11-20T10:00:00Z') // 15:00 PKT, a Friday
 test('A: periods in Pakistan time, custom ranges clamped', () => {
   assert.deepEqual(resolvePeriod({ period: 'today' }, NOW), { key: 'today', from: '2026-11-20', to: '2026-11-20', label: 'Today' })
   assert.equal(resolvePeriod({ period: 'yesterday' }, NOW).from, '2026-11-19')
-  assert.equal(resolvePeriod({}, NOW).from, '2026-11-14')
+  assert.equal(resolvePeriod({}, NOW).from, '2026-11-20', 'PR-22: the default period is Today')
   assert.equal(resolvePeriod({ period: '30d' }, NOW).from, '2026-10-22')
   const c = resolvePeriod({ period: 'custom', from: '2026-12-31', to: '2026-01-01' }, NOW)
   assert.equal(c.to, '2026-11-20', 'never past today')
@@ -212,7 +212,7 @@ test('A: device category only', () => {
   assert.deepEqual(deviceOf('Mozilla/5.0 (Linux; Android 13; SM-A135F) AppleWebKit/537.36 Chrome/119 Mobile Safari/537.36'), { device: 'mobile', os: 'android' })
   assert.deepEqual(deviceOf('Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) Mobile/15E148'), { device: 'mobile', os: 'iphone' })
   assert.deepEqual(deviceOf('Mozilla/5.0 (iPad; CPU OS 16_0 like Mac OS X)'), { device: 'tablet', os: 'iphone' })
-  assert.deepEqual(deviceOf('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/119'), { device: 'desktop', os: 'other' })
+  assert.deepEqual(deviceOf('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/119'), { device: 'desktop', os: 'windows' }, 'PR-22: Windows is its own kind')
   assert.deepEqual(deviceOf(null), { device: 'desktop', os: 'other' })
 })
 

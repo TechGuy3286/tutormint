@@ -19,6 +19,7 @@ import { TILE_TONE, type TileTone } from '@/lib/tileTones'
 import { smsProviderLabel } from '@/lib/sms'
 import { pkr } from '@/lib/reconciliationCore'
 import type { FunnelWindowResult } from '@/lib/siteVisits'
+import { stepChange } from '@/lib/signupFunnelCore'
 import { AI_WINDOW_LABEL, type AiTotals, type AiWindowKey } from '@/lib/signupSourceCore'
 import type { SourceRow } from '@/lib/signupSourceCore'
 import { orderOverviewSections } from '@/lib/overviewOrderCore'
@@ -64,6 +65,7 @@ const TODO_KEYS: OverviewItemKey[] = [
   'todo-flagged',
   'todo-pausing',
   'todo-unmet',
+  'todo-wanted',
   'todo-email-failed',
   'todo-blocked-signups',
 ]
@@ -407,11 +409,12 @@ function DailySignupFunnel({ windows }: { windows: FunnelWindowResult[] }) {
                   <span className="text-slate-700">{s.label}</span>
                   <span className="shrink-0 text-right">
                     <strong className="text-tm-navy tabular-nums">{s.count}</strong>
-                    {s.lostPct !== null && (
-                      <span className={`ml-1.5 text-[11px] font-bold ${s.lost ? 'text-tm-red' : 'text-tm-green-deep'}`}>
-                        {s.lost ? `−${s.lost} (${s.lostPct}%)` : 'no drop'}
-                      </span>
-                    )}
+                    {(() => {
+                      const ch = stepChange(s)
+                      return ch ? (
+                        <span className={`ml-1.5 text-[11px] font-bold ${ch.tone === 'lost' ? 'text-tm-red' : ch.tone === 'gained' ? 'text-tm-navy' : 'text-tm-green-deep'}`}>{ch.text}</span>
+                      ) : null
+                    })()}
                   </span>
                 </li>
               ))}

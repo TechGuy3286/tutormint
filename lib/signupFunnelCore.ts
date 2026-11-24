@@ -24,16 +24,46 @@ export function visitKindsFor(pathname: string | null | undefined): VisitKind[] 
   return p === '/register' ? ['public_page', 'register_page'] : ['public_page']
 }
 
-export type FunnelStep = { key: string; label: string; count: number; lost: number | null; lostPct: number | null }
+/** `gained` (PR-22): the step is HIGHER than the one before (only possible
+ *  where steps are not one cohort, e.g. visits → sign-up forms): it is never
+ *  shown as a loss, so a "−0%" can never appear next to a rising number. */
+export type FunnelStep = { key: string; label: string; count: number; lost: number | null; lostPct: number | null; gained: number | null }
 
 /** One window's steps with the drop between each step and the one before. */
 export function funnelSteps(steps: { key: string; label: string; count: number }[]): FunnelStep[] {
   return steps.map((s, i) => {
-    if (i === 0) return { ...s, lost: null, lostPct: null }
+    if (i === 0) return { ...s, lost: null, lostPct: null, gained: null }
     const prev = steps[i - 1].count
-    const lost = Math.max(0, prev - s.count)
-    return { ...s, lost, lostPct: prev > 0 ? Math.round((lost / prev) * 100) : null }
+    if (s.count > prev) return { ...s, lost: null, lostPct: null, gained: s.count - prev }
+    const lost = prev - s.count
+    return { ...s, lost, lostPct: prev > 0 ? Math.round((lost / prev) * 100) : null, gained: null }
   })
+}
+
+/** The words beside a step: "−12 (40%)", "No drop", "+3", or nothing (step 1,
+ *  or nothing before it). Never "−0%". */
+export function stepChange(s: Pick<FunnelStep, 'lost' | 'lostPct' | 'gained'>): { text: string; tone: 'lost' | 'none' | 'gained' } | null {
+  if (s.gained != null && s.gained > 0) return { text: `+${s.gained}`, tone: 'gained' }
+  if (s.lost == null || s.lostPct == null) return null
+  if (s.lost === 0) return { text: 'No drop', tone: 'none' }
+  return { text: `−${s.lost} (${s.lostPct}%)`, tone: 'lost' }
+}
+
+/**
+ * A cohort funnel (PR-22): each person's yes/no per step, in the order of the
+ * flow; a person counts at a step only when they reached EVERY step before it,
+ * so each step is a subset of the one before ("of those who reached the
+ * previous step") and can never be higher.
+ */
+export function cohortFunnel(people: readonly (readonly boolean[])[], steps: number): number[] {
+  const n = Array.from({ length: steps }, () => 0)
+  for (const flags of people) {
+    for (let i = 0; i < steps; i++) {
+      if (!flags[i]) break
+      n[i]++
+    }
+  }
+  return n
 }
 
 const DAY_MS = 86_400_000

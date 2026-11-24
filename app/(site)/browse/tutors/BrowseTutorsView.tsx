@@ -277,6 +277,10 @@ export async function BrowseTutorsView({ sp, guest = false }: { sp: Record<strin
     x: filtered,
     r: total,
     u: unmetQuery,
+    // PR-22: the words typed (masked server-side before they are kept), and a
+    // failed search is "failed", never "zero results".
+    w: q || null,
+    e: error,
   })
 
   // The dropdowns show only options that have a tutor, with counts (owner,

@@ -1,5 +1,11 @@
 // lib/imageMaskCore.ts — PURE (owner, 24 Nov 2026 — PR-20 Part C).
 //
+// PR-22 (Owner decision, option B): "Read from image" no longer masks — the
+// AI may read the number printed on a public poster/screenshot, and OCR is the
+// second reader it is compared with (`ocrMobiles` below, lib/imageNumberCore).
+// The shape rules here are what OCR uses to find that number; the description
+// below is how PR-20/21 used them to black numbers out.
+//
 // "Read from image" on staff Post a tuition. The AI never receives a phone
 // number (PR-18), so before an image goes to it the SERVER reads the image
 // with plain OCR (tesseract, no AI), finds every number-shaped piece of text
@@ -224,4 +230,30 @@ export function maskSvg(boxes: Box[], w: number, h: number): string {
 /** Is this an image type we read? (The server also checks the file's own bytes.) */
 export function imageTypeOk(type: string | null | undefined): boolean {
   return (IMAGE_TYPES as readonly string[]).includes(String(type ?? '').toLowerCase())
+}
+
+/**
+ * PR-22: the mobiles OCR read on an image, for "Read from image" (lib/imageRead
+ * — the AI reads the image unmasked now; OCR is the second reader that the
+ * AI's number is compared against, lib/imageNumberCore). English lines as
+ * planMask reads them; Urdu-model lines (contact lines, Urdu digit words) as
+ * one run of digits, marked `urdu` when written in Urdu digits.
+ */
+export function ocrMobiles(lines: OcrLine[]): { msisdn: string; urdu: boolean }[] {
+  const out: { msisdn: string; urdu: boolean }[] = []
+  const add = (msisdn: string | null, urdu: boolean) => {
+    if (!msisdn) return
+    const had = out.find((m) => m.msisdn === msisdn)
+    if (had) had.urdu = had.urdu || urdu
+    else out.push({ msisdn, urdu })
+  }
+  for (const line of lines) {
+    if (line.urduDigits || line.contactLine) {
+      const raw = line.words.filter((x) => hasAnyDigit(x.text)).map((x) => x.text).join('')
+      add(normalisePkMobile(asciiDigits(raw)), /[۰-۹٠-٩]/.test(raw))
+      continue
+    }
+    for (const m of planMask([line], 1, 1).mobiles) add(m, false)
+  }
+  return out
 }

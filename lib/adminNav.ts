@@ -74,6 +74,7 @@ export type AdminScreen =
   | 'tuitionPosting'
   | 'mySignups'
   | 'insights'
+  | 'searchWords'
 
 export type NavItem = {
   href: string
@@ -199,6 +200,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/seo/indexing', label: 'Google indexing', icon: 'search', screen: 'seo' },
       { href: '/admin/blog', label: 'Blog', icon: 'newspaper', screen: 'blog' },
       { href: '/admin/blog/queue', label: 'Content queue', icon: 'listChecks', screen: 'blogQueue' },
+      // PR-22: what people type into Browse, "Means the same as…", "Real demand", suggested pages.
+      { href: '/admin/search-words', label: 'Search words', icon: 'search', screen: 'searchWords' },
     ],
   },
 ]
@@ -215,6 +218,7 @@ export const SECTION_LABELS: Record<string, string> = {
   settlement: 'Settlement check',
   statement: 'Import bank statement',
   overview: 'Overview',
+  'search-words': 'Search words',
   subjects: 'Subjects',
   settings: 'Settings',
   payers: 'Paid today',

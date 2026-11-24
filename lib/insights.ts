@@ -20,9 +20,12 @@ import { withRunMemo, inRunMemo } from '@/lib/runMemo'
 import { loadDirectory, type DirectoryPerson } from '@/lib/peopleDirectory'
 import { loadCountFacts, rowsFor } from '@/lib/counts'
 import { countAll, daySpan, memberCounts } from '@/lib/countsCore'
+import { cohortFunnel } from '@/lib/signupFunnelCore'
 import {
   ACTION_KEYS_ALL,
   INSIGHTS_DAY_VERSION,
+  DEVICE_KINDS,
+  OS_KINDS,
   LOG_EVENT_ACTION,
   SHARED_ACTION_COUNT,
   INSIGHTS_KEEP_DAYS,
@@ -88,17 +91,20 @@ async function buildDay(admin: Admin, day: string, nowMs: number): Promise<Insig
     })
 
   const span = daySpan(day)
-  const [logs, tracker, sessions, anon, visitors, hourRows, held, dir, countFacts] = await Promise.all([
+  const [logs, tracker, sessions, anon, visitors, hourRows, held, dir, countFacts, visitCount] = await Promise.all([
     inWindow<R>('user_activity_log', 'id, user_id, event, meta, created_at'),
     inWindow<R>('activity_events', 'id, user_id, kind, path, label, created_at'),
     pageAll<R>((f, t) => admin.from('activity_sessions').select('id, user_id, device, os, user_agent, started_at').lt('started_at', end).gte('last_seen_at', start).order('id').range(f, t)),
-    inWindow<R>('anon_search_events', 'id, surface, master_id, city, area, mode, gender, results, created_at', 'created_at', (q) => q.is('excluded', null)),
+    inWindow<R>('anon_search_events', 'id, surface, master_id, city, area, mode, gender, results, failed, created_at', 'created_at', (q) => q.is('excluded', null)),
     pageAll<R>((f, t) => admin.from('insight_visitor_days').select('visitor, device, os').eq('day', day).order('visitor').range(f, t)),
     pageAll<R>((f, t) => admin.from('insight_hour_counts').select('hour, count').eq('day', day).eq('kind', 'visitor').order('hour').range(f, t)),
     loadHeld(admin),
     loadDirectory(),
     loadCountFacts(span.start),
+    // PR-22: the Overview "Daily sign-up funnel" counter itself — the same number.
+    admin.from('site_visit_counts').select('count').eq('day', day).eq('kind', 'public_page').maybeSingle(),
   ])
+  out.pageVisits = Number((visitCount.data as R | null)?.count ?? 0) || 0
   // Who counts (PR-14): the People rule (lib/peopleDirectoryCore: staff, seed,
   // team, test, hidden, merged, erased and erase-requested accounts out), the
   // same as the Overview cards. Held parents' ACTIVITY is left out (and listed
@@ -140,7 +146,9 @@ async function buildDay(admin: Admin, day: string, nowMs: number): Promise<Insig
     if (ev === 'search_performed') {
       const m = (r.meta ?? {}) as R
       const results = Number(m.results)
-      addSearches(searches, [{ surface: String(m.surface ?? 'search'), city: (m.city as string) ?? null, area: (m.area as string) ?? null, masterId: Number.isFinite(Number(m.master_id)) && m.master_id != null ? Number(m.master_id) : null, mode: (m.mode as string) ?? null, gender: (m.gender as string) ?? null, n: 1, zero: results === 0 ? 1 : 0 }])
+      // PR-22: a failed search (timeout / error) is "failed", never "zero results".
+      const failed = m.failed === true
+      addSearches(searches, [{ surface: String(m.surface ?? 'search'), city: (m.city as string) ?? null, area: (m.area as string) ?? null, masterId: Number.isFinite(Number(m.master_id)) && m.master_id != null ? Number(m.master_id) : null, mode: (m.mode as string) ?? null, gender: (m.gender as string) ?? null, n: 1, zero: !failed && results === 0 ? 1 : 0, failed: failed ? 1 : 0 }])
     }
   }
   for (const r of tracker) {
@@ -155,7 +163,8 @@ async function buildDay(admin: Admin, day: string, nowMs: number): Promise<Insig
   for (const [action, key] of Object.entries(SHARED_ACTION_COUNT)) out.actions[action as ActionKey] = shared[key as keyof typeof shared]
   for (const r of anon) {
     const results = Number(r.results)
-    addSearches(searches, [{ surface: String(r.surface ?? 'search'), city: (r.city as string) ?? null, area: (r.area as string) ?? null, masterId: r.master_id == null ? null : Number(r.master_id), mode: (r.mode as string) ?? null, gender: (r.gender as string) ?? null, n: 1, zero: results === 0 ? 1 : 0 }])
+    const failed = r.failed === true
+    addSearches(searches, [{ surface: String(r.surface ?? 'search'), city: (r.city as string) ?? null, area: (r.area as string) ?? null, masterId: r.master_id == null ? null : Number(r.master_id), mode: (r.mode as string) ?? null, gender: (r.gender as string) ?? null, n: 1, zero: !failed && results === 0 ? 1 : 0, failed: failed ? 1 : 0 }])
   }
   for (const s of sessions) markActive(s.user_id as string)
 
@@ -165,13 +174,18 @@ async function buildDay(admin: Admin, day: string, nowMs: number): Promise<Insig
     const id = s.user_id as string
     if (seen.has(id) || !roleOf(id)) continue
     seen.add(id)
-    const d = s.device && s.os ? { device: s.device as 'mobile', os: s.os as 'android' } : deviceOf(s.user_agent as string | null)
-    out.device[d.device] += 1
-    out.device[d.os] += 1
+    // The session's stored category; a Windows / Mac session recorded before
+    // PR-22 said "other", so the user agent (when kept) is read again.
+    const fromUa = s.user_agent ? deviceOf(s.user_agent as string) : null
+    const device = DEVICE_KINDS.find((k) => k === s.device) ?? fromUa?.device ?? 'desktop'
+    const storedOs = OS_KINDS.find((k) => k === s.os)
+    const os = storedOs && storedOs !== 'other' ? storedOs : (fromUa?.os ?? storedOs ?? 'other')
+    out.device[device] += 1
+    out.device[os] += 1
   }
   for (const v of visitors) {
-    const dev = (['mobile', 'tablet', 'desktop'] as const).find((k) => k === v.device) ?? 'desktop'
-    const os = (['android', 'iphone', 'other'] as const).find((k) => k === v.os) ?? 'other'
+    const dev = DEVICE_KINDS.find((k) => k === v.device) ?? 'desktop'
+    const os = OS_KINDS.find((k) => k === v.os) ?? 'other'
     out.device[dev] += 1
     out.device[os] += 1
   }
@@ -214,17 +228,23 @@ async function tutorFunnel(admin: Admin, cohort: R[]): Promise<number[]> {
   ])
   const tp = new Map(tps.map((r) => [r.id as string, r]))
   const opened = new Set(payViews.map((r) => r.user_id as string))
-  const n = [ids.length, 0, 0, 0, 0, 0, 0]
-  for (const c of cohort) {
-    const t = tp.get(c.id as string) ?? {}
-    if (c.phone_verified_at) n[1]++
-    if (t.onboarded_at) n[2]++
-    if ((t.cnic_front_url || c.cnic_image_path) && (t.avatar_url || c.avatar_url)) n[3]++
-    if (cnicApprovedMarker({ cnic_verified_at: c.cnic_verified_at as string | null, verification_state: c.verification_state as string | null }) && c.profile_pic_status === 'approved') n[4]++
-    if (opened.has(c.id as string)) n[5]++
-    if (t.verified_fee_paid_at) n[6]++
-  }
-  return n
+  // PR-22: in the order of the flow (TUTOR_FUNNEL); each step counts only
+  // tutors who reached every step before it.
+  return cohortFunnel(
+    cohort.map((c) => {
+      const t = tp.get(c.id as string) ?? {}
+      return [
+        true,
+        !!c.phone_verified_at,
+        !!((t.cnic_front_url || c.cnic_image_path) && (t.avatar_url || c.avatar_url)),
+        !!t.onboarded_at,
+        cnicApprovedMarker({ cnic_verified_at: c.cnic_verified_at as string | null, verification_state: c.verification_state as string | null }) && c.profile_pic_status === 'approved',
+        opened.has(c.id as string),
+        !!t.verified_fee_paid_at,
+      ]
+    }),
+    7,
+  )
 }
 
 async function parentFunnel(admin: Admin, cohort: R[]): Promise<number[]> {
@@ -239,7 +259,8 @@ async function parentFunnel(admin: Admin, cohort: R[]): Promise<number[]> {
   const posted = new Set(jobs.map((j) => j.parent_id as string))
   const received = new Set(apps.map((a) => jobOwner.get(a.job_id as string)).filter(Boolean) as string[])
   const contacted = new Set(contacts.map((c) => c.user_id as string))
-  return [ids.length, ids.filter((i) => posted.has(i)).length, ids.filter((i) => received.has(i)).length, ids.filter((i) => contacted.has(i)).length]
+  // PR-22: each step only of those who reached the one before.
+  return cohortFunnel(ids.map((i) => [true, posted.has(i), received.has(i), contacted.has(i)]), 4)
 }
 
 /** Build one day and store it. */

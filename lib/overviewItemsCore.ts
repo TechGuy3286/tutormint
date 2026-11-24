@@ -46,6 +46,9 @@ export const OVERVIEW_ITEM_KEYS = [
   'todo-flagged',
   'todo-pausing',
   'todo-unmet',
+  // "Wanted: <term> (N searches)" (owner, 24 Nov 2026 — PR-22): search words
+  // staff marked as real demand on Admin → Growth → Search words. Hidden at 0.
+  'todo-wanted',
   'todo-email-failed',
   // "Blocked re-sign-ups" (owner, 20 Nov 2026 — PR-11): sign-ups refused
   // because the number or CNIC belongs to an erased account, not yet decided.
@@ -102,6 +105,7 @@ export const OVERVIEW_ITEMS: Record<OverviewItemKey, OverviewItemMeta> = {
   'todo-flagged': { title: 'Flagged messages and reports', screen: 'reports', noun: ['item', 'items'] },
   'todo-pausing': { title: 'Tuitions auto-pausing in the next 2 days', screen: 'jobs', noun: ['tuition', 'tuitions'] },
   'todo-unmet': { title: 'Unmet searches this week', screen: 'unmetSearches', noun: ['search', 'searches'] },
+  'todo-wanted': { title: 'Wanted searches (real demand)', screen: 'searchWords', noun: ['search word', 'search words'] },
   // Every email send is recorded (owner, 16 Oct 2026, migration 183); this is
   // the ones that permanently failed in the last 7 days.
   'todo-email-failed': { title: 'Emails that failed in the last 7 days', screen: 'emailHealth', noun: ['email', 'emails'] },

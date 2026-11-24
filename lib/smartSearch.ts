@@ -57,8 +57,9 @@ export async function loadSearchDictFresh(): Promise<Loaded> {
       levels,
       subjects,
       aliases: aliasRows
-        .filter((a) => a.kind === 'subject' || a.kind === 'level' || a.kind === 'city')
-        .map((a) => ({ kind: a.kind as 'subject' | 'level' | 'city', slug: a.slug as string, alias: a.alias as string })),
+        // PR-22: 'mode' — a word staff said means online / home (Search words).
+        .filter((a) => a.kind === 'subject' || a.kind === 'level' || a.kind === 'city' || a.kind === 'mode')
+        .map((a) => ({ kind: a.kind as 'subject' | 'level' | 'city' | 'mode', slug: a.slug as string, alias: a.alias as string })),
       master: liveMaster.map((m) => ({ id: m.id, level: levelBySlug.get(m.level_slug)!.name, subject: m.subject_slug })),
     }
 }

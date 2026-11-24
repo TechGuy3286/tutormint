@@ -41,6 +41,13 @@ export async function seesInsights(actor: { id: string; adminRole: string | null
   return seesInsightsFrom(actor, new Set(await cachedInsights()))
 }
 
+/** Admin → Growth → Search words' actions (PR-22): the same people as Insights —
+ *  Owner, Partner, or an account on 'staff.insights' (Mohsin). Others who open
+ *  the screen (Backend Support) read only. */
+export async function mayEditSearchWords(actor: { id: string; adminRole: string | null | undefined }): Promise<boolean> {
+  return seesInsights(actor)
+}
+
 /** The Insights screens' guard (in place of requireAdminRole(...SCREEN_ACCESS
  *  .insights)): anyone else lands on their own home with "no access". */
 export async function requireInsights(): Promise<AdminActor> {

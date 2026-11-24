@@ -572,6 +572,12 @@ export const SCREEN_ACCESS = withSupervisor({
   // Admin → Insights (owner, 20 Nov 2026 — PR-12): the Owner and the Project
   // Managers (roleSatisfies admits both for `[]`). Read-only page.
   insights: [] as AdminRole[],
+  // Admin → Growth → Search words (owner, 24 Nov 2026 — PR-22): the Owner and
+  // the Project Managers, and Backend Support to READ; the actions ("Means the
+  // same as…", "Real demand", Undo) are the Owner, the Project Managers and the
+  // account on the 'staff.insights' grant (Mohsin) — lib/staffAllRows
+  // mayEditSearchWords, checked again by the route.
+  searchWords: ['partner', 'backend_support'] as AdminRole[],
 })
 
 /**

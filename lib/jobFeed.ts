@@ -488,6 +488,9 @@ export type TutorScope = {
 }
 
 export type JobFilters = {
+  /** PR-22 (Browse tuitions only): an Online Tutor search is not narrowed by
+   *  city or area — online tuitions are city-agnostic. City pages leave it off. */
+  onlineAnyCity?: boolean
   masterId: number | null
   /** A set of subject masters to match ANY of — how a resolved query filters
    *  across every level of a subject (owner PR13 §3). When set it wins over
@@ -739,7 +742,7 @@ export async function browseJobs(
   limit = 12,
   offset = 0,
   cursor: string | null = null,
-): Promise<{ jobs: JobCardData[]; total: number; nextCursor: string | null }> {
+): Promise<{ jobs: JobCardData[]; total: number; nextCursor: string | null; failed?: boolean }> {
   const supabase = createPublicClient()
 
   // The subject master(s) to filter by. An explicit ?subject= is one master; a
@@ -829,7 +832,11 @@ export async function browseJobs(
     if (testIds.length > 0) q = q.not('parent_id', 'in', `(${testIds.join(',')})`)
     const levels = filters.levels && filters.levels.length > 0 ? filters.levels : smartLevels
     if (levels && levels.length > 0) q = q.overlaps('class_levels', levels)
-    if (smartCity) q = q.ilike('city', smartCity)
+    // PR-22: an Online Tutor tuition is city-agnostic (the matching rule), so
+    // "Online" + a city is every online tuition — not only those whose poster
+    // lives in that city (the "Tuitions · Online Tutor" zero results).
+    const online = !!filters.onlineAnyCity && (filters.mode ?? smartMode) === ONLINE_JOB_TITLE
+    if (smartCity && !online) q = q.ilike('city', smartCity)
     if (smartMode) q = q.eq('teaching_mode', smartMode)
     // A tuition that names no time of day still fits an "evening" search.
     if (smartTiming) q = q.or(`timings.ilike.%${smartTiming}%,timings.is.null`)
@@ -855,8 +862,10 @@ export async function browseJobs(
     if (filters.viewerGender) {
       q = q.or(`gender_preference.is.null,gender_preference.eq.${filters.viewerGender}`)
     }
-    if (filters.city) q = q.ilike('city', filters.city)
-    if (filters.areas && filters.areas.length > 0) q = q.in('area', filters.areas)
+    if (filters.city && !online) q = q.ilike('city', filters.city)
+    if (online) {
+      // no city / area narrowing for online tuitions
+    } else if (filters.areas && filters.areas.length > 0) q = q.in('area', filters.areas)
     else if (filters.area) {
       const spellings = areaSpellingList
       const quoted = (v: string) => `"${v.replace(/"/g, '\\"')}"`
@@ -992,7 +1001,13 @@ export async function browseJobs(
 
   if (after || offset === 0) q = q.limit(limit)
 
-  const { data, count } = await q
+  const { data, count, error } = await q
+  // PR-22: a failed query (a statement timeout under load) is not "no
+  // tuitions": the page and the search log say it failed.
+  if (error) {
+    console.error(`[browseJobs] query failed code=${error.code ?? '?'}`)
+    return { jobs: [], total: 0, nextCursor: null, failed: true }
+  }
   const rows = (data ?? []) as Record<string, unknown>[]
   const last = rows[rows.length - 1]
   const total = count ?? 0

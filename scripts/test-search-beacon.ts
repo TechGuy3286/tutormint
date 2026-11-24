@@ -74,7 +74,7 @@ test('rendering a Browse page never writes a search row; only the beacon route d
     assert.ok(src.includes('searchBeaconToken(') && src.includes('<SearchBeacon token={beaconToken} />'), f)
   }
   const server = readFileSync('lib/searchBeacon.ts', 'utf8')
-  assert.equal((server.match(/fromBeacon: true/g) ?? []).length, 3, 'all three logs are written from the beacon')
+  assert.equal((server.match(/fromBeacon: true/g) ?? []).length, 4, 'all four logs are written from the beacon (PR-22: search words too)')
   const count = readFileSync('lib/searchCount.ts', 'utf8')
   assert.ok(count.includes('if (input.fromBeacon) newVisitor = false'))
   // Our own crawlers fetch pages and never run their script, so they cannot post.

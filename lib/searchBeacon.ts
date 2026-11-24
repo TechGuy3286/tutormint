@@ -12,6 +12,8 @@ import { logSearchPerformed } from '@/lib/activityLog'
 import { logAnonSearch } from '@/lib/anonSearch'
 import { logUnmetSearch, resolveSmartQuery } from '@/lib/smartSearch'
 import { beaconWorthSending, readBeacon, signBeacon, type BeaconPayload } from '@/lib/searchBeaconCore'
+import { bumpSearchTerm } from '@/lib/searchTerms'
+import { searchNotCounted } from '@/lib/searchCount'
 
 // The same server-only secret lib/matchEmail signs with. Never sent to a browser.
 const secret = () => process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
@@ -55,14 +57,21 @@ export async function recordBeaconSearch(p: BeaconPayload, who: { userId: string
             ? { master_id: p.f.master_id ?? null, city: p.f.city ?? null, area: p.f.area ?? null, mode: p.f.mode ?? null, gender: p.f.gender ?? null }
             : { master_id: p.f.master_id ?? null, city: p.f.city ?? null, mode: p.f.mode ?? null },
         results: p.r,
+        failed: p.e === true,
         fromBeacon: true,
       })
     } else if (who.anonId) {
-      await logAnonSearch({ sessionId: who.anonId, surface: p.s, filters: p.f, results: p.r, fromBeacon: true })
+      await logAnonSearch({ sessionId: who.anonId, surface: p.s, filters: p.f, results: p.r, failed: p.e === true, fromBeacon: true })
     }
   }
 
-  if (p.u) {
+  // PR-22: the words typed, for Admin → Growth → Search words — counted per day
+  // with NO user identifier (search_terms), by the same counting rule.
+  if (p.w && !(await searchNotCounted({ userId: who.userId, role, fromBeacon: true }))) {
+    await bumpSearchTerm(p.s, p.w, { zero: p.e !== true && p.r === 0, failed: p.e === true })
+  }
+
+  if (p.u && p.e !== true) {
     const parsed = (await resolveSmartQuery(p.u).catch(() => null))?.parsed ?? null
     await logUnmetSearch({ query: p.u, surface: p.s, parsed, role, userId: who.userId, fromBeacon: true })
   }

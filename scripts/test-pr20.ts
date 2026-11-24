@@ -21,7 +21,7 @@ import { applyFigureRewrite, figureFixProblem, figureRewrite, mentionsFigure, se
 import { applyAuto, autoCoverAlt, autoRelatedPaths, inferSettings, replaceableAlt } from '../lib/blogAutoSettingsCore'
 import { postTopic } from '../lib/blogRelevanceCore'
 import { chooseLiveJobs, compactJobTitle, compactLevelSubjectLine, LIVE_JOBS_LIMIT } from '../lib/liveJobsCore'
-import { asciiDigits, digitLookalikes, IMAGE_MAX_BYTES, IMAGE_UNSAFE, imageTypeOk, numberLeft, planMask, urduContactLines, type OcrLine } from '../lib/imageMaskCore'
+import { asciiDigits, digitLookalikes, IMAGE_MAX_BYTES, IMAGE_WRONG_TYPE, imageTypeOk, numberLeft, planMask, urduContactLines, type OcrLine } from '../lib/imageMaskCore'
 import { hasNumberLeft } from '../lib/postRedactCore'
 import { hiringPoster, INVENTED_MOBILE, noNumberPoster, screenshotPost, urduDigitsPoster } from './fixtures/pr20Images'
 
@@ -282,68 +282,63 @@ test('C.2 the mask plan: split numbers, look-alike letters, contact lines, email
   assert.equal(IMAGE_MAX_BYTES, 4 * 1024 * 1024, 'PR-21: the upload limit sits under the 4.5 MB request limit')
 })
 
-test('C.2 real OCR on invented images: numbers blacked out before the AI, nothing left to read', async () => {
-  const { maskImage } = await import('../lib/imageRead')
-  const poster = await maskImage(await hiringPoster())
-  assert.ok(poster.ok, 'the "We are hiring" poster masks safely')
-  if (poster.ok) {
-    assert.deepEqual(poster.mobiles, [INVENTED_MOBILE], 'the number goes to the form')
-    assert.ok(poster.masked >= 1)
-    assert.ok(!hasNumberLeft(poster.text) && !/1234567/.test(poster.text))
-    assert.match(poster.text, /Geography/)
-    assert.match(poster.text, /Township/)
-    // Read the masked image once more: no number survives.
-    const again = await maskImage(poster.jpeg)
-    assert.ok(again.ok && again.mobiles.length === 0 && again.masked === 0, 'the masked image has no readable number')
+test('C.2 real OCR on invented images: the second reader finds the printed number (PR-22: nothing is masked now)', async () => {
+  const { prepareImage, ocrNumbers } = await import('../lib/imageRead')
+  const read = async (buf: Buffer) => {
+    const p = await prepareImage(buf)
+    assert.ok(p.ok, 'decodes')
+    if (!p.ok) throw new Error('decode')
+    return ocrNumbers(p.img)
   }
-  const shot = await maskImage(await screenshotPost())
-  assert.ok(shot.ok && shot.mobiles[0] === INVENTED_MOBILE && /15000/.test(shot.text), 'the fee survives, the number does not')
-  const urdu = await maskImage(await urduDigitsPoster())
-  assert.ok(urdu.ok && urdu.masked >= 1 && !/[۰-۹٠-٩]/.test(urdu.text), 'a number in Urdu digits on a رابطہ line is masked')
-  // The Urdu model alone never masks an English poster's words (it invents digits there).
+  const poster = await read(await hiringPoster())
+  assert.ok(poster.ok && poster.mobiles.some((m) => m.msisdn === INVENTED_MOBILE), 'the "We are hiring" poster: OCR reads its number')
+  const shot = await read(await screenshotPost())
+  assert.ok(shot.ok && shot.mobiles[0]?.msisdn === INVENTED_MOBILE, 'the screenshot: OCR reads its number')
+  const urdu = await read(await urduDigitsPoster())
+  assert.ok(urdu.ok, 'a number in Urdu digits on a رابطہ line is read without error')
+  // The Urdu model alone never reads an English poster's words as a number (it invents digits there).
   assert.deepEqual(urduContactLines([{ words: [{ text: '۳٥١٢٢٢', box: { x0: 0, y0: 0, x1: 9, y1: 9 } }] }]), [])
   assert.equal(asciiDigits('۰۳۰۰'), '0300')
-  const none = await maskImage(await noNumberPoster())
-  assert.ok(none.ok && none.mobiles.length === 0 && none.masked === 0)
-  const junk = await maskImage(Buffer.from('not an image at all'))
+  const none = await read(await noNumberPoster())
+  assert.ok(none.ok && none.mobiles.length === 0)
+  const junk = await prepareImage(Buffer.from('not an image at all'))
   assert.ok(!junk.ok && junk.kind === 'type', 'not an image: the photo-type message (PR-21), the AI never called')
 })
 
-test('C.2 masking fails → the AI is never called; the AI only ever gets the masked image', async () => {
+test('C.2 a picture that cannot be opened → the AI is never called; the AI gets the upright image (PR-22)', async () => {
   const { extractTuitionFromImage } = await import('../lib/imageRead')
   const lists = { jobTitles: ['Home Tutor', 'High School Teacher'], cities: ['Lahore'], tree: { School: { 'Grade 9': ['Geography', 'History'] } } }
   let calls = 0
   const failed = await extractTuitionFromImage(Buffer.from('x'), {
     configured: () => true,
-    mask: async () => ({ ok: false, kind: 'unsafe', error: IMAGE_UNSAFE, reason: 'test' }),
+    prepare: async () => ({ ok: false, kind: 'type', error: IMAGE_WRONG_TYPE, reason: 'test' }),
+    ocr: async () => ({ ok: true, mobiles: [] }),
     lists: async () => lists,
     complete: async () => {
       calls++
       return { ok: true, text: '{}' }
     },
   })
-  assert.deepEqual(failed, { ok: false, status: 422, error: IMAGE_UNSAFE, reason: 'mask_unsafe: test' })
+  assert.deepEqual(failed, { ok: false, status: 415, error: IMAGE_WRONG_TYPE, reason: 'image_type: test' })
   assert.equal(calls, 0)
-  const masked = Buffer.from('MASKED-JPEG')
+  const upright = Buffer.from('UPRIGHT-JPEG')
   let sent = ''
-  let prompt = ''
   const res = await extractTuitionFromImage(Buffer.from('ORIGINAL'), {
     configured: () => true,
-    mask: async () => ({ ok: true, jpeg: masked, text: 'We are hiring Geography Teacher Township Lahore', mobiles: [INVENTED_MOBILE], masked: 2 }),
+    prepare: async () => ({ ok: true, img: Buffer.from('PNG'), jpeg: upright }),
+    ocr: async () => ({ ok: true, mobiles: [{ msisdn: INVENTED_MOBILE, urdu: false }] }),
     lists: async () => lists,
     complete: async (a) => {
       sent = a.image.base64
-      prompt = a.prompt
-      return { ok: true, text: '{"jobType":"High School Teacher","city":"Lahore","area":"Township","school":"Bright Future Academy"}' }
+      return { ok: true, text: '{"jobType":"High School Teacher","city":"Lahore","area":"Township","school":"Bright Future Academy","contactPhone":"0300-1234567"}' }
     },
   })
-  assert.equal(sent, masked.toString('base64'), 'only the masked image is sent')
-  assert.ok(!prompt.includes('1234567') && !hasNumberLeft(prompt.slice(prompt.indexOf('POST:'))))
+  assert.equal(sent, upright.toString('base64'), 'the prepared image is sent')
   assert.ok(res.ok && res.fill.teachingMode === 'High School Teacher' && res.fill.area === 'Township' && res.mobiles[0] === INVENTED_MOBILE)
 })
 
 test('C.3 the image is never stored or logged; same daily cap as Paste a post', async () => {
-  const { maskImage } = await import('../lib/imageRead')
+  const { prepareImage, ocrNumbers } = await import('../lib/imageRead')
   const writes: string[] = []
   const orig = { w: fs.writeFileSync, wa: fs.promises.writeFile, s: fs.createWriteStream }
   ;(fs as { writeFileSync: unknown }).writeFileSync = (p: unknown) => void writes.push(String(p))
@@ -353,8 +348,9 @@ test('C.3 the image is never stored or logged; same daily cap as Paste a post', 
     return orig.s('nul')
   }
   try {
-    const r = await maskImage(await screenshotPost())
-    assert.ok(r.ok)
+    const p = await prepareImage(await screenshotPost())
+    assert.ok(p.ok)
+    if (p.ok) assert.ok((await ocrNumbers(p.img)).ok)
   } finally {
     fs.writeFileSync = orig.w
     fs.promises.writeFile = orig.wa
@@ -375,7 +371,7 @@ test('C.3 the image is never stored or logged; same daily cap as Paste a post', 
 
 test('C.4 contact checks apply: the image number goes into the same form field', () => {
   const box = src('components/forms/PastePostBox.tsx')
-  assert.match(box, /onFilled\(j\.fill, mobiles\[0\] \?\? null\)/, 'the same onFilled path as Paste a post (live contact check on the form)')
+  assert.match(box, /onFilled\(j\.fill, mobiles\[0\] \?\? null/,'the same onFilled path as Paste a post (live contact check on the form)')
 })
 
 async function main() {

@@ -135,6 +135,7 @@ export async function tuitionsMetadata(sp: Record<string, string | string[] | un
   // exists.
   const { total } = await browseJobs(
     {
+      onlineAnyCity: true,
       masterId: intOrNull(one(sp.subject)),
       city: one(sp.city) || null,
       mode: parseMode(one(sp.mode)),
@@ -233,6 +234,7 @@ export async function BrowseTuitionsView({ sp, guest = false }: { sp: Record<str
   const defaultApplied = !!resolved && !filtered
 
   const filters: JobFilters = {
+    onlineAnyCity: true,
     masterId: subjectId,
     masterIds: parsed ? smart!.masterIds : null,
     levels: parsed && !smart!.masterIds ? smart!.levelNames : null,
@@ -266,7 +268,7 @@ export async function BrowseTuitionsView({ sp, guest = false }: { sp: Record<str
   // Nothing found (owner, 8 Oct 2026): log it, then show the nearest match.
   let fallback: Awaited<ReturnType<typeof jobFallback>> = null
   let unmetQuery: string | null = null
-  if (jobs.length === 0 && !defaultApplied && (q || city)) {
+  if (jobs.length === 0 && !defaultApplied && (q || city) && !('failed' in result && result.failed)) {
     // The miss is logged by the beacon (the ticket carries the typed search).
     unmetQuery = q || null
     fallback = await jobFallback(filters, parsed, PAGE_SIZE)
@@ -281,6 +283,10 @@ export async function BrowseTuitionsView({ sp, guest = false }: { sp: Record<str
     x: filtered,
     r: total,
     u: unmetQuery,
+    // PR-22: the words typed (masked server-side before they are kept), and a
+    // failed search is "failed", never "zero results".
+    w: q || null,
+    e: 'failed' in result && result.failed === true,
   })
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
@@ -475,6 +481,7 @@ export async function BrowseTuitionsView({ sp, guest = false }: { sp: Record<str
           <MoreJobs
             params={{
               ...jobParams(sp),
+              anyCity: '1',
               ...(defaultApplied ? { scope: 'mine', ...(feedLevel ? { level: String(feedLevel) } : {}) } : {}),
               ...(page > 1 ? { page: String(page) } : {}),
             }}

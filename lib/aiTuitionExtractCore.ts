@@ -38,6 +38,9 @@ export type AiAnswer = {
   school?: string | null
   description?: string | null
   unsure?: string[] | null
+  /** Read from image only (PR-22): the contact mobile printed on the poster. */
+  contactPhone?: string | null
+  contactPhoneUrduDigits?: boolean | null
 }
 
 /** The form keys that can be highlighted. */
@@ -314,6 +317,22 @@ export const EXTRACT_SYSTEM = [
   'description (2–4 plain English sentences for tutors: who needs what, where, when; no phone numbers, no names of the parent),',
   'unsure (array of the keys above you are not sure about).',
 ].join(' ')
+
+/** Read from image (PR-22): the same instructions without the line about removed
+ *  numbers — the AI may read the number printed on a public poster/screenshot. */
+export const IMAGE_EXTRACT_SYSTEM = EXTRACT_SYSTEM.replace(
+  'Phone numbers have been removed and replaced with [PHONE_n]; never guess or write a number other than the fee.',
+  'Write numbers only where a key asks for one.',
+)
+
+/** Text that ends up on a public page, with every number / email shape taken
+ *  out (the placeholders too). */
+export function stripNumbers(text: string): string {
+  return redactForAi(text)
+    .text.replace(/\[PHONE_\d+\]|\[EMAIL\]/g, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim()
+}
 
 /** The user message: our lists, then the redacted post. */
 export function extractPrompt(redactedPost: string, lists: AiLists): string {

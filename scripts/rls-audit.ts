@@ -111,6 +111,8 @@ const VIEW_DEFINER_OK: Record<string, string> = {
 const NO_POLICY_OK: Record<string, string> = {
   application_parent_views: 'first time a parent opened their tuition page showing an application (migration 235, PR-06) — no parent id; service role only',
   whatsapp_update_sends: 'staff WhatsApp update sends with Undo stamps (migration 235, PR-06) — service role only; read on the server behind SCREEN_ACCESS.waUpdates',
+  search_terms: 'Search words (migration 247, PR-22) — the words typed into Browse with counts per day, no identifier; service role only, written through bump_search_term(), read on the server behind SCREEN_ACCESS.searchWords',
+  search_term_actions: 'Search words actions (migration 247, PR-22) — "Means the same as…" / "Real demand" with Undo stamps; service role only, behind SCREEN_ACCESS.searchWords',
   contact_messages: 'the /contact form messages (migration 246, PR-20) — service role only; read on the server behind SCREEN_ACCESS.inbox, the sender contact masked with a logged Show',
   member_work_claims: 'follow-up mode holds + "I\'m on it" (migration 245, PR-18) — staff and member ids and times only; service role only, behind SCREEN_ACCESS.unpaidSignups / signups',
   otp_alerts: 'OTP-verified staff alert queue (migration 245, PR-18) — member id, role, times, status only; service role only (lib/otpAlerts)',

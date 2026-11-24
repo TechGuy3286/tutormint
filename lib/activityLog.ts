@@ -193,6 +193,8 @@ export async function logSearchPerformed(params: {
   surface: string
   filters: Record<string, unknown>
   results: number
+  /** PR-22: the search failed (timeout / error) — never counted as zero results. */
+  failed?: boolean
   withinSeconds?: number
   /** True when called from the search beacon route (lib/searchBeacon). */
   fromBeacon?: boolean
@@ -235,6 +237,6 @@ export async function logSearchPerformed(params: {
     userId: params.userId,
     event: 'search_performed',
     targetType: 'browse',
-    meta: { surface: params.surface, ...params.filters, results: params.results },
+    meta: { surface: params.surface, ...params.filters, results: params.results, ...(params.failed ? { failed: true } : {}) },
   })
 }

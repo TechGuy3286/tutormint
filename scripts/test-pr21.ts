@@ -22,7 +22,6 @@ import {
   IMAGE_PICK_MAX_BYTES,
   IMAGE_TOO_BIG,
   IMAGE_TOO_SLOW,
-  IMAGE_UNSAFE,
   IMAGE_WRONG_TYPE,
   numberLeft,
   planMask,
@@ -100,22 +99,21 @@ test('the route has time for OCR + AI and always answers JSON with a plain messa
 
 // ─────────────────────────────────── end to end on an invented poster ──
 
-test('the Owner\'s poster at phone-photo size: masked before the AI, the form filled, the number to the form', async () => {
-  const { extractTuitionFromImage, maskImage } = await import('../lib/imageRead')
+test('the Owner\'s poster at phone-photo size: the form filled, the number to the form (PR-22: OCR beside the AI)', async () => {
+  const { extractTuitionFromImage, prepareImage, ocrNumbers } = await import('../lib/imageRead')
   let sentImage: Buffer | null = null
-  let sentPrompt = ''
   let calls = 0
   const t0 = Date.now()
   const res = await extractTuitionFromImage(await phonePhotoPoster(), {
     configured: () => true,
-    mask: (b) => maskImage(b),
+    prepare: (b) => prepareImage(b),
+    ocr: (b) => ocrNumbers(b),
     lists: async () => LISTS,
     complete: async (a) => {
       calls++
       sentImage = Buffer.from(a.image.base64, 'base64')
-      sentPrompt = a.prompt
       assert.equal(a.image.mediaType, 'image/jpeg')
-      return { ok: true, text: AI_ANSWER }
+      return { ok: true, text: AI_ANSWER.replace(/}$/, ',"contactPhone":"03001234567"}') }
     },
   })
   const ms = Date.now() - t0
@@ -123,32 +121,23 @@ test('the Owner\'s poster at phone-photo size: masked before the AI, the form fi
   assert.equal(calls, 1)
   if (res.ok) {
     assert.deepEqual(res.mobiles, [INVENTED_MOBILE], 'the number goes to the form, in English digits')
+    assert.equal(res.number.source, 'both', 'OCR read the same number as the AI')
     assert.equal(res.fill.teachingMode, 'High School Teacher')
     assert.equal(res.fill.city, 'Lahore')
     assert.equal(res.fill.area, 'Township')
   }
-  assert.ok(!sentPrompt.includes('1234567') && !hasNumberLeft(sentPrompt.slice(sentPrompt.indexOf('POST:'))), 'no number in the prompt')
-  assert.match(sentPrompt, /Geography/)
-  // The image the AI got, read again from scratch: no number in it.
-  const again = await maskImage(sentImage!)
-  assert.ok(again.ok && again.masked === 0 && again.mobiles.length === 0, 'the AI\'s image has no readable number')
   const meta = await (await import('sharp')).default(sentImage!).metadata()
   assert.ok(Math.max(meta.width ?? 0, meta.height ?? 0) <= 1568, 'sized for the AI')
-  console.log(`    (local OCR + mask + after-check: ${ms} ms)`)
+  console.log(`    (local OCR beside the AI: ${ms} ms)`)
 })
 
 // ─────────────────────────────────── Urdu digits ──
 
-test('Urdu digits on a line with no contact word are masked (real OCR)', async () => {
-  const { maskImage } = await import('../lib/imageRead')
-  const r = await maskImage(await urduDigitsNoContactWord())
-  assert.ok(r.ok, r.ok ? '' : r.reason)
-  if (r.ok) {
-    assert.ok(r.masked >= 1, 'the Urdu-digit number is blacked out')
-    assert.ok(!/[۰-۹٠-٩]/.test(r.text) && !hasNumberLeft(r.text))
-    const again = await maskImage(r.jpeg)
-    assert.ok(again.ok && again.masked === 0, 'nothing left to read')
-  }
+test('Urdu digits on a line with no contact word are read without error (real OCR)', async () => {
+  const { prepareImage, ocrNumbers } = await import('../lib/imageRead')
+  const p = await prepareImage(await urduDigitsNoContactWord())
+  assert.ok(p.ok)
+  if (p.ok) assert.ok((await ocrNumbers(p.img)).ok)
 })
 
 const w = (text: string, x: number, y: number, conf?: number) => ({ text, conf, box: { x0: x, y0: y, x1: x + 80, y1: y + 40 } })
@@ -164,28 +153,11 @@ test('the Urdu model\'s digits count only away from confident English words', ()
   assert.equal(lines[0].words.length, 2)
   assert.ok(lines[0].urduDigits)
   const plan = planMask(lines, 1000, 1000)
-  assert.equal(plan.boxes.length, 2, 'both words blacked out')
-  assert.ok(numberLeft(lines), 'still readable → the AI is not called')
+  assert.equal(plan.boxes.length, 2, 'both words found')
+  assert.ok(numberLeft(lines))
   assert.ok(!numberLeft([{ words: [w('۱۲', 0, 0)], urduDigits: true }]), 'a stray digit or two is not a number')
-  assert.ok(URDU_DIGIT_MIN <= 10, 'a 10-digit run always blocks')
-  // Ten Urdu digits split by spaces / dashes still block.
+  assert.ok(URDU_DIGIT_MIN <= 10, 'a 10-digit run always counts')
   assert.ok(numberLeft([{ words: [w('۰۳۰۰', 0, 0), w('-', 90, 0), w('۱۲۳', 180, 0), w('۴۵۶', 270, 0)], urduDigits: true }]))
-})
-
-test('a 10+ digit run that cannot be masked → the AI is never called', async () => {
-  const { extractTuitionFromImage } = await import('../lib/imageRead')
-  let calls = 0
-  const r = await extractTuitionFromImage(Buffer.from('x'), {
-    configured: () => true,
-    mask: async () => ({ ok: false, kind: 'unsafe', error: IMAGE_UNSAFE, reason: 'number_still_readable' }),
-    lists: async () => LISTS,
-    complete: async () => {
-      calls++
-      return { ok: true, text: AI_ANSWER }
-    },
-  })
-  assert.equal(calls, 0)
-  assert.ok(!r.ok && r.status === 422 && r.error === "Couldn't read this image safely — please type the details.")
 })
 
 test('pasted text: Urdu-digit numbers are taken out before the AI and go to the form in English digits', async () => {
@@ -210,10 +182,10 @@ test('pasted text: Urdu-digit numbers are taken out before the AI and go to the 
 // ─────────────────────────────────── plain messages ──
 
 test('photo type: HEIC / GIF / not a picture → "This photo type isn\'t supported…", the AI never called', async () => {
-  const { maskImage } = await import('../lib/imageRead')
+  const { prepareImage } = await import('../lib/imageRead')
   assert.equal(IMAGE_WRONG_TYPE, "This photo type isn't supported — please use a screenshot (PNG or JPG).")
   for (const buf of [heicHeader(), await gifImage(), Buffer.from('not an image')]) {
-    const r = await maskImage(buf)
+    const r = await prepareImage(buf)
     assert.ok(!r.ok && r.kind === 'type' && r.error === IMAGE_WRONG_TYPE, r.ok ? 'ok?' : r.reason)
   }
   const box = src('components/forms/PastePostBox.tsx')
@@ -232,15 +204,20 @@ test('too large: limits and messages', () => {
 })
 
 test('timeouts and a busy AI have their own messages', async () => {
-  const { extractTuitionFromImage, maskImage } = await import('../lib/imageRead')
+  const { extractTuitionFromImage, ocrNumbers, prepareImage } = await import('../lib/imageRead')
   assert.equal(IMAGE_TOO_SLOW, 'Took too long — please try again.')
   assert.equal(AI_BUSY, 'The AI is busy — please try again in a minute.')
-  // OCR out of time.
-  const slow = await maskImage(await urduDigitsNoContactWord(), Date.now() - 1)
-  assert.ok(!slow.ok && slow.kind === 'timeout' && slow.error === IMAGE_TOO_SLOW)
+  // OCR out of time: a timeout result, never a throw (the AI's number is then used alone — PR-22).
+  const p = await prepareImage(await urduDigitsNoContactWord())
+  assert.ok(p.ok)
+  if (p.ok) {
+    const slow = await ocrNumbers(p.img, Date.now() - 1)
+    assert.ok(!slow.ok && slow.kind === 'timeout')
+  }
   const deps = (reason: string) => ({
     configured: () => true,
-    mask: async () => ({ ok: true as const, jpeg: Buffer.from('MASKED'), text: 'We are hiring Geography Teacher', mobiles: [], masked: 1 }),
+    prepare: async () => ({ ok: true as const, img: Buffer.from('PNG'), jpeg: Buffer.from('JPEG') }),
+    ocr: async () => ({ ok: true as const, mobiles: [] }),
     lists: async () => LISTS,
     complete: async () => ({ ok: false as const, reason }),
   })

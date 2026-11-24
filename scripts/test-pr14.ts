@@ -149,7 +149,7 @@ test('A: check:counts compares every source and names the one that differs', () 
 })
 
 test('A: Insights uses the shared counts and no label means two numbers', () => {
-  assert.equal(INSIGHTS_DAY_VERSION, 2)
+  assert.equal(INSIGHTS_DAY_VERSION, 3, 'PR-22 rebuilt the days')
   const labels = ACTION_GROUPS.flatMap((g) => g.items)
   for (const [action, key] of Object.entries(SHARED_ACTION_COUNT)) {
     assert.ok(COUNT_KEYS.includes(key!), key)
@@ -169,7 +169,7 @@ test('A: Insights uses the shared counts and no label means two numbers', () => 
   assert.equal(TUTOR_FUNNEL[0].label, OVERVIEW_ITEMS['funnel-signed-up'].title)
   const others = all.filter((l) => l !== TUTOR_FUNNEL[0].label)
   assert.equal(new Set(others).size, others.length, `duplicate label in ${others.join(', ')}`)
-  for (const s of [...TUTOR_FUNNEL.slice(1), ...PARENT_FUNNEL.slice(1)]) assert.match(s.label, /^Of them: /)
+  for (const s of [...TUTOR_FUNNEL.slice(1), ...PARENT_FUNNEL.slice(1)]) assert.match(s.label, /^Then: /)
 })
 
 test('A: Insights periods carry New tutors, New parents and the held-parent note', () => {

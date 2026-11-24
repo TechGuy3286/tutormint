@@ -73,7 +73,10 @@ const IMAGE_CLIENT_TIMEOUT_MS = 125_000
 // parent's number goes into the form from this page, never through the AI.
 // Nothing is posted: staff check the highlighted fields and press Post.
 
-export default function PastePostBox({ onFilled }: { onFilled: (fill: AiFill, mobile: string | null) => void }) {
+/** Read from image (PR-22): the number read from the image and the line shown under it. */
+export type ImageNumberFill = { note: string; urdu: boolean }
+
+export default function PastePostBox({ onFilled }: { onFilled: (fill: AiFill, mobile: string | null, imageNumber?: ImageNumberFill) => void }) {
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -81,9 +84,9 @@ export default function PastePostBox({ onFilled }: { onFilled: (fill: AiFill, mo
   const [imgBusy, setImgBusy] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  // "Read from image" (PR-20 Part C): upload or Ctrl+V a screenshot. The server
-  // blacks out every phone number with plain OCR BEFORE the AI sees the image,
-  // and hands the numbers back for the form.
+  // "Read from image" (PR-20 Part C; PR-22): upload or Ctrl+V a screenshot. The
+  // AI reads the public poster, its printed number included, and OCR reads it
+  // too; the number comes back with a "Check this number" line for the form.
   const readImage = async (file: File | Blob | null) => {
     setError(null)
     setNote(null)
@@ -114,7 +117,7 @@ export default function PastePostBox({ onFilled }: { onFilled: (fill: AiFill, mo
       const body = new FormData()
       body.append('image', jpeg, 'image.jpg')
       const res = await fetch('/api/admin/jobs/ai-extract-image', { method: 'POST', body, signal: abort.signal })
-      const j = (await res.json().catch(() => null)) as { fill?: AiFill; mobiles?: string[]; error?: string } | null
+      const j = (await res.json().catch(() => null)) as { fill?: AiFill; mobiles?: string[]; number?: { phone: string | null; note: string; urdu: boolean }; error?: string } | null
       if (!j) {
         setError(platformError(res.status))
         return
@@ -124,11 +127,11 @@ export default function PastePostBox({ onFilled }: { onFilled: (fill: AiFill, mo
         return
       }
       const mobiles = j.mobiles ?? []
-      onFilled(j.fill, mobiles[0] ?? null)
+      onFilled(j.fill, mobiles[0] ?? null, j.number ? { note: j.number.note, urdu: j.number.urdu } : undefined)
       const checks = j.fill.uncertain.length
       setNote(
         `Filled from the image. ${checks > 0 ? `Check the ${checks === 1 ? 'highlighted field' : `${checks} highlighted fields`}, then press Post.` : 'Check every field, then press Post.'}` +
-          (mobiles.length === 0 ? ' No phone number was found in the image — type it in.' : mobiles.length > 1 ? ' The image has more than one number — the first one was used.' : ''),
+          (mobiles.length === 0 ? ' No phone number was found in the image — type it in.' : ' Check the phone number against the image.'),
       )
     } catch (e) {
       setError(e instanceof DOMException && e.name === 'AbortError' ? IMAGE_TOO_SLOW : AI_UNAVAILABLE)
@@ -217,7 +220,7 @@ export default function PastePostBox({ onFilled }: { onFilled: (fill: AiFill, mo
       />
       <p className="flex items-start gap-1.5 text-[11px] text-gray-600">
         <ShieldCheck size={13} className="mt-px shrink-0 text-tm-green-deep" aria-hidden />
-        Phone numbers are taken out before anything reaches the AI — on this screen for text, and blacked out of an image first. The AI never sees them. Images are never stored.
+        Phone numbers are taken out of pasted text on this screen before it reaches the AI. From a poster or screenshot the AI reads the printed number too — always check it against the image. Images are never stored.
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <button

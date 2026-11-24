@@ -7,12 +7,17 @@ import { PERIODS, type PeriodKey } from '@/lib/insightsCore'
 
 // Admin → Insights period picker (PR-12): Today, Yesterday, Last 7 days, Last
 // 30 days, or a custom range (Pakistan days). A custom range opens as soon as
-// both dates are set — no extra button.
+// both dates are set — no extra button. PR-22: the From / To boxes always show
+// the chosen chip's dates (the page keys this component on the period, so a
+// chip tap re-mounts it with that period's dates), and editing a box
+// deselects the chips at once — it is a custom range.
 
 export default function PeriodPicker({ active, from, to, today }: { active: PeriodKey; from: string; to: string; today: string }) {
   const router = useRouter()
   const [f, setF] = useState(from)
   const [t, setT] = useState(to)
+  const [edited, setEdited] = useState(false)
+  const shown: PeriodKey = edited ? 'custom' : active
   const go = (nf: string, nt: string) => {
     if (/^\d{4}-\d{2}-\d{2}$/.test(nf) && /^\d{4}-\d{2}-\d{2}$/.test(nt)) router.push(`/admin/insights?period=custom&from=${nf}&to=${nt}`)
   }
@@ -21,7 +26,7 @@ export default function PeriodPicker({ active, from, to, today }: { active: Peri
   return (
     <div className="flex flex-wrap items-end gap-2">
       {PERIODS.map((p) => (
-        <Link key={p.key} href={`/admin/insights?period=${p.key}`} className={chip(active === p.key)}>
+        <Link key={p.key} href={`/admin/insights?period=${p.key}`} aria-current={shown === p.key ? 'page' : undefined} className={chip(shown === p.key)}>
           {p.label}
         </Link>
       ))}
@@ -33,6 +38,7 @@ export default function PeriodPicker({ active, from, to, today }: { active: Peri
           max={today}
           onChange={(e) => {
             setF(e.target.value)
+            setEdited(true)
             go(e.target.value, t)
           }}
           className="min-h-[44px] rounded-xl border border-gray-200 bg-white px-2 text-sm font-bold text-tm-navy"
@@ -46,6 +52,7 @@ export default function PeriodPicker({ active, from, to, today }: { active: Peri
           max={today}
           onChange={(e) => {
             setT(e.target.value)
+            setEdited(true)
             go(f, e.target.value)
           }}
           className="min-h-[44px] rounded-xl border border-gray-200 bg-white px-2 text-sm font-bold text-tm-navy"

@@ -27,6 +27,8 @@ export async function logAnonSearch(params: {
   surface: string
   filters: { master_id?: number | null; city?: string | null; area?: string | null; mode?: string | null; gender?: string | null }
   results: number
+  /** PR-22: the search failed (timeout / error) — stored as failed, never as zero results. */
+  failed?: boolean
   withinSeconds?: number
   /** True when called from the search beacon route (lib/searchBeacon). */
   fromBeacon?: boolean
@@ -79,5 +81,6 @@ export async function logAnonSearch(params: {
     mode: params.filters.mode ?? null,
     gender: params.filters.gender ?? null,
     results: params.results,
+    failed: params.failed ? true : null,
   })
 }

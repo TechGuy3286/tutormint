@@ -19,7 +19,7 @@ export type Dict = {
   subjects: { slug: string; name: string; school?: boolean }[]
   /** Search words: kind subject → subject slug, kind level → level slug, kind
    *  city → the city's name (owner, 11 Oct 2026: "swl" → Sahiwal). */
-  aliases: { kind: 'subject' | 'level' | 'city'; slug: string; alias: string }[]
+  aliases: { kind: 'subject' | 'level' | 'city' | 'mode'; slug: string; alias: string }[]
   /** Merge the built-in words too (default true). The server passes false: its
    *  list is the editable table, which the built-ins were seeded into. */
   builtin?: boolean
@@ -171,6 +171,20 @@ export const INTENT_WORDS: Record<string, Intent> = {
   naukri: { kind: 'jobs' },
 }
 
+const SEARCH_JOB_MODES: SearchJobMode[] = ['Online Tutor', 'Home Tutor', 'Montessori Expert', 'Intermediate Teacher (FA / FSc / ICS / I.Com)', 'Graduation Level Teacher (BA / BSc / BS)']
+
+/** Search words of kind 'mode' (slug = the job type) as intent words. */
+export function modeAliasWords(dict: Pick<Dict, 'aliases'>): Map<string, Intent> {
+  const out = new Map<string, Intent>()
+  for (const a of dict.aliases ?? []) {
+    if (a.kind !== 'mode') continue
+    const mode = SEARCH_JOB_MODES.find((m) => m === a.slug)
+    const key = norm(a.alias)
+    if (mode && key) out.set(key, { kind: 'mode', mode })
+  }
+  return out
+}
+
 const MODE_LABEL: Record<SearchJobMode, string> = {
   'Online Tutor': 'Online',
   'Home Tutor': 'Home tutor',
@@ -288,6 +302,7 @@ function entries(dict: Dict): Entry[] {
       : Object.entries(BUILTIN_SUBJECT_WORDS).flatMap(([slug, words]) => words.map((alias) => ({ kind: 'subject' as const, slug, alias })))),
   ]
   for (const a of aliasRows) {
+    if (a.kind === 'mode') continue // read as an everyday filter word (parseQuery pass 0b)
     if (a.kind === 'city') {
       const c = dict.cities.find((x) => norm(x) === norm(a.slug))
       if (c) out.push({ kind: 'city', key: norm(a.alias), label: c, value: c })
@@ -354,12 +369,14 @@ export function parseQuery(q: string, dict: Dict): Parsed {
   }
 
   // Pass 0b: everyday words read as filters — "online", "home", "evening",
-  // "jobs", "uae"… (owner, 28 Oct 2026). Two-word phrases first.
-  for (let len = 2; len >= 1; len--) {
+  // "jobs", "uae"… (owner, 28 Oct 2026). Longest phrases first. PR-22: plus
+  // the words staff said mean online / home on Admin → Search words.
+  const modeWords = modeAliasWords(dict)
+  for (let len = 3; len >= 1; len--) {
     for (let i = 0; i + len <= words.length; i++) {
       if (used.slice(i, i + len).some(Boolean)) continue
       const phrase = words.slice(i, i + len).join(' ')
-      const it = INTENT_WORDS[phrase]
+      const it = INTENT_WORDS[phrase] ?? modeWords.get(phrase)
       if (!it) continue
       if (it.kind === 'mode') {
         if (it.abroad && !out.abroad) {

@@ -28,10 +28,11 @@ import { maskNumber } from '@/lib/numberFirstCore'
 import { normalisePkMobile } from '@/lib/phone'
 import { EMPLOYMENT_TYPES, defaultEmploymentType, staffJobFieldProblem } from '@/lib/jobFieldsCore'
 import { postcodeFor } from '@/lib/postcodes'
-import PastePostBox from '@/components/forms/PastePostBox'
+import PastePostBox, { type ImageNumberFill } from '@/components/forms/PastePostBox'
 import type { AiFill, FillKey } from '@/lib/aiTuitionExtractCore'
 import { DIFFERENT_TICK, OVERRIDE_REASON_MIN, postEnabled, REPEAT_LINE, type ContactCheckResult, type RepeatHit } from '@/lib/postingChecksCore'
 import { formatPkMobile } from '@/lib/phone'
+import { localPhone } from '@/lib/imageNumberCore'
 
 /** Known schools for the staff title check (the built-in chains). */
 const KNOWN_SCHOOLS = knownSchools()
@@ -264,7 +265,9 @@ export default function PostTuitionForm({
   // while they still hold the AI's value), and a pasted number for the gate.
   const [filledByAi, setFilledByAi] = useState(false)
   const [aiMarks, setAiMarks] = useState<{ keys: FillKey[]; snap: Record<string, string> } | null>(null)
-  const [gate, setGate] = useState<{ key: number; phone: string }>({ key: 0, phone: '' })
+  const [gate, setGate] = useState<{ key: number; phone: string; note?: string }>({ key: 0, phone: '' })
+  // PR-22: Read from image — the line under the (always highlighted) number.
+  const [phoneNote, setPhoneNote] = useState<string | null>(null)
   // PR-18 A.3: the live contact check (the server re-runs it on Post).
   const [check, setCheck] = useState<ContactCheckResult | null>(null)
   const [checking, setChecking] = useState(false)
@@ -431,9 +434,13 @@ export default function PostTuitionForm({
   const marked = (k: FillKey): boolean => !!aiMarks && aiMarks.keys.includes(k) && aiMarks.snap[k] === markValue(k)
   const markClass = (k: FillKey) => (marked(k) ? 'rounded-xl ring-2 ring-tm-gold ring-offset-2' : '')
   const CheckNote = ({ k }: { k: FillKey }) =>
-    marked(k) ? <p className="mt-1 rounded-lg bg-tm-tint-gold px-2 py-1 text-[11px] font-bold text-tm-gold-ink">Check this — the AI was not sure.</p> : null
+    marked(k) ? (
+      <p className="mt-1 rounded-lg bg-tm-tint-gold px-2 py-1 text-[11px] font-bold text-tm-gold-ink">
+        {k === 'contactPhone' && phoneNote ? phoneNote : 'Check this — the AI was not sure.'}
+      </p>
+    ) : null
 
-  const onFilled = (fill: AiFill, mobile: string | null) => {
+  const onFilled = (fill: AiFill, mobile: string | null, imageNumber?: ImageNumberFill) => {
     const next: PostTuitionValues = {
       ...v,
       teachingMode: fill.teachingMode || v.teachingMode,
@@ -457,8 +464,10 @@ export default function PostTuitionForm({
     setScheduleSlots(slots)
     setFilledByAi(true)
     setWroteItOurselves(false)
-    const keys: FillKey[] = [...fill.uncertain, ...(mobile ? [] : (['contactPhone'] as FillKey[]))]
-    const phone = mobile ? formatPkMobile(mobile) : ''
+    // The number is always highlighted when it was read from an image (PR-22).
+    const keys: FillKey[] = [...fill.uncertain, ...(mobile && !imageNumber ? [] : (['contactPhone'] as FillKey[]))]
+    setPhoneNote(mobile && imageNumber ? imageNumber.note : null)
+    const phone = mobile ? (imageNumber ? localPhone(mobile) : formatPkMobile(mobile)) : ''
     // The snapshot each mark compares against (the values just set).
     const snap: Record<string, string> = {
       teachingMode: next.teachingMode,
@@ -471,12 +480,13 @@ export default function PostTuitionForm({
       budget: `${next.budgetMin}-${next.budgetMax}`,
       school: next.school,
       title: next.title,
-      contactPhone: numberFirst ? numberPassed?.phone ?? '' : next.contactPhone,
+      contactPhone: numberFirst ? numberPassed?.phone ?? '' : mobile && imageNumber && !next.contactPhone ? phone : next.contactPhone,
     }
     setAiMarks({ keys, snap })
     // The parent's number never went to the AI: it goes into the form from here.
     if (mobile) {
-      if (numberFirst && !numberPassed) setGate((g) => ({ key: g.key + 1, phone }))
+      // An image number is not checked at once: staff compare it with the image first.
+      if (numberFirst && !numberPassed) setGate((g) => ({ key: g.key + 1, phone, note: imageNumber ? imageNumber.note : undefined }))
       else if (!numberFirst) setV((p) => ({ ...p, contactPhone: p.contactPhone || phone }))
     }
   }
@@ -692,7 +702,8 @@ export default function PostTuitionForm({
         {pasteBox}
         <NumberFirstGate
           key={gate.key}
-          autoCheck={gate.key > 0}
+          autoCheck={gate.key > 0 && !gate.note}
+          checkNote={gate.note}
           where={numberFirst.where}
           jobId={numberFirst.jobId}
           initialPhone={gate.phone || (numberFirst.where === 'edit' ? initial?.contactPhone ?? '' : '')}
@@ -1059,7 +1070,7 @@ export default function PostTuitionForm({
                     )}
                   </div>
                 ) : (
-                  <label className="block space-y-1">
+                  <label className={`block space-y-1 ${markClass('contactPhone')}`}>
                     <span className={LABEL}>Parent contact number (required)</span>
                     <input
                       value={v.contactPhone}
@@ -1071,6 +1082,7 @@ export default function PostTuitionForm({
                       aria-required="true"
                       className={FIELD}
                     />
+                    <CheckNote k="contactPhone" />
                   </label>
                 )}
                 <label className="block space-y-1">

@@ -9,16 +9,17 @@ import { IMAGE_MAX_BYTES, IMAGE_TOO_BIG, IMAGE_WRONG_TYPE, imageTypeOk } from '@
 
 // POST /api/admin/jobs/ai-extract-image (multipart, field "image") — "Read
 // from image" on staff Post a tuition (owner, 24 Nov 2026 — PR-20 Part C).
-// The image is read in memory: plain OCR finds the phone numbers and they are
-// blacked out BEFORE the AI sees it (lib/imageRead); the masked image is
-// checked again and the AI is not called if a number is still readable. The
-// numbers found come back for the form. Nothing is stored or logged (the image
-// never is). Same daily AI cap as "Paste a post" — one shared counter.
+// PR-22 (Owner decision, option B): the AI reads the image itself, the phone
+// number printed on the poster included, while plain OCR reads it too; the
+// two numbers are compared (lib/imageNumberCore) and the form always
+// highlights the number for staff to check. Pasted text keeps the strict rule
+// (/api/admin/jobs/ai-extract). Nothing is stored or logged (the image never
+// is). Same daily AI cap as "Paste a post" — one shared counter.
 //
 // PR-21: every answer is JSON with a plain message (too large / photo type /
 // took too long / AI busy / couldn't read safely), never a platform timeout;
 // a failure's technical reason (never content) goes to the Owner's Audit log
-// as `tuition.ai_fill_failed`. 120 s: OCR has 70, the AI 35 (lib/imageRead).
+// as `tuition.ai_fill_failed`. 120 s: OCR (45) and the AI (35) run side by side (lib/imageRead).
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
     const bytes = Buffer.from(await file.arrayBuffer())
     const res = await extractTuitionFromImage(bytes)
     if (!res.ok) return refuse(res.status, res.error, res.reason)
-    return NextResponse.json({ fill: res.fill, mobiles: res.mobiles }, { headers: NO_STORE })
+    return NextResponse.json({ fill: res.fill, mobiles: res.mobiles, number: { phone: res.number.phone, note: res.number.note, urdu: res.number.urdu, source: res.number.source } }, { headers: NO_STORE })
   } catch (e) {
     const reason = `unexpected: ${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}`
     console.warn(`[ai-image] ${safeReason(reason)}`)

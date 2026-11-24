@@ -78,6 +78,8 @@ export async function GET(request: Request) {
       : null
 
   const filters: JobFilters = {
+    // PR-22: Browse tuitions' Load more — the same online rule as its first page.
+    onlineAnyCity: get('anyCity') === '1',
     masterId: intOrNull(get('subject')),
     city: get('city') || null,
     mode: get('mode') || null,

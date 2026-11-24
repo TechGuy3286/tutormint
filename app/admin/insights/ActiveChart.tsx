@@ -9,7 +9,7 @@ const H = 200
 const PAD = { l: 32, r: 40, t: 10, b: 24 }
 
 const LINES = [
-  { key: 'visitors' as const, label: 'Visitors (signed out)', stroke: 'stroke-slate-500', dot: 'bg-slate-500', fill: 'fill-slate-700' },
+  { key: 'visitors' as const, label: 'Unique visitors (signed out)', stroke: 'stroke-slate-500', dot: 'bg-slate-500', fill: 'fill-slate-700' },
   { key: 'tutors' as const, label: 'Tutors', stroke: 'stroke-tm-navy', dot: 'bg-tm-navy', fill: 'fill-tm-navy' },
   { key: 'parents' as const, label: 'Parents', stroke: 'stroke-tm-green-deep', dot: 'bg-tm-green-deep', fill: 'fill-tm-green-deep' },
 ]

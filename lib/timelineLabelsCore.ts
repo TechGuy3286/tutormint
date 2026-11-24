@@ -260,6 +260,11 @@ export const AUDIT_LABELS: Record<string, string> = {
   'search_unmet.done': 'Marked an unmet search as done',
   'taxonomy.core': 'Changed a level’s main subjects',
   'taxonomy.search_words': 'Changed search words for a subject',
+  // PR-22: Admin → Growth → Search words.
+  'search_words.alias': 'Search words: said a search means a subject, level, city, area or online',
+  'search_words.alias_undo': 'Search words: took back what a search means',
+  'search_words.demand': 'Search words: marked a search as real demand',
+  'search_words.demand_undo': 'Search words: took a search off the wanted list',
   'taxonomy.title_name': 'Changed a short name for blog titles',
   'taxonomy.urdu_name': 'Changed a subject’s Urdu name',
   'indexing.skip_not_tuition': 'Stopped Google notices for pages that are not tuitions',

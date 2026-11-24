@@ -31,6 +31,7 @@ export default function NumberFirstGate({
   onPassed,
   heading = "Parent's phone number",
   autoCheck = false,
+  checkNote,
 }: {
   where: 'post' | 'edit'
   jobId?: string
@@ -39,6 +40,9 @@ export default function NumberFirstGate({
   heading?: string
   /** PR-18: the number came from "Paste a post" — check it at once. */
   autoCheck?: boolean
+  /** PR-22: the number was read from an image — highlighted with this line
+   *  ("Check this number — …") while it is unchanged; never checked at once. */
+  checkNote?: string
 }) {
   const [phone, setPhone] = useState(initialPhone)
   const [busy, setBusy] = useState(false)
@@ -107,7 +111,7 @@ export default function NumberFirstGate({
             placeholder="0300 1234567"
             inputMode="tel"
             autoComplete="off"
-            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-tm-navy outline-none focus:border-tm-red"
+            className={`min-h-[44px] min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-tm-navy outline-none focus:border-tm-red ${checkNote && phone === initialPhone ? 'ring-2 ring-tm-gold ring-offset-2' : ''}`}
           />
           <button
             type="submit"
@@ -117,6 +121,9 @@ export default function NumberFirstGate({
             {busy ? 'Checking…' : 'Check number'}
           </button>
         </div>
+        {checkNote && phone === initialPhone && (
+          <p className="rounded-lg bg-tm-tint-gold px-2 py-1 text-[11px] font-bold text-tm-gold-ink">{checkNote}</p>
+        )}
       </form>
 
       {error && <p className="rounded-xl bg-tm-tint-red p-3 text-xs font-bold text-tm-red">{error}</p>}

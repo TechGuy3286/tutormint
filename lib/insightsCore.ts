@@ -81,15 +81,13 @@ export const PERIODS: { key: Exclude<PeriodKey, 'custom'>; label: string }[] = [
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
 
 /**
- * The period the page shows, from its query string. Unknown → Last 7 days. A
+ * The period the page shows, from its query string. Unknown → Today (PR-22). A
  * custom range is clamped to today, put in order and cut to INSIGHTS_MAX_DAYS.
  */
 export function resolvePeriod(p: { period?: string | null; from?: string | null; to?: string | null }, nowMs: number): { key: PeriodKey; from: string; to: string; label: string } {
   const today = pkDayOf(nowMs)
   const back = (n: number) => pkDayOf(nowMs - n * DAY_MS)
   switch (p.period) {
-    case 'today':
-      return { key: 'today', from: today, to: today, label: 'Today' }
     case 'yesterday':
       return { key: 'yesterday', from: back(1), to: back(1), label: 'Yesterday' }
     case '30d':
@@ -104,15 +102,21 @@ export function resolvePeriod(p: { period?: string | null; from?: string | null;
       if (days.length > INSIGHTS_MAX_DAYS) from = days[days.length - INSIGHTS_MAX_DAYS]
       return { key: 'custom', from, to, label: from === to ? from : `${from} to ${to}` }
     }
-    default:
+    case '7d':
       return { key: '7d', from: back(6), to: today, label: 'Last 7 days' }
+    default:
+      return { key: 'today', from: today, to: today, label: 'Today' }
   }
 }
 
 // --------------------------------------------------------------- device ---
 
 export type DeviceKind = 'mobile' | 'tablet' | 'desktop'
-export type OsKind = 'android' | 'iphone' | 'other'
+/** PR-22: Windows and Mac are their own kinds (they were "other", so Other
+ *  matched Desktop). "iphone" = iPhone and iPad. */
+export type OsKind = 'android' | 'iphone' | 'windows' | 'mac' | 'other'
+export const DEVICE_KINDS: DeviceKind[] = ['mobile', 'tablet', 'desktop']
+export const OS_KINDS: OsKind[] = ['android', 'iphone', 'windows', 'mac', 'other']
 
 /** A user agent reduced to its category. Only the category is ever stored. */
 export function deviceOf(ua: string | null | undefined): { device: DeviceKind; os: OsKind } {
@@ -120,14 +124,14 @@ export function deviceOf(ua: string | null | undefined): { device: DeviceKind; o
   const ipad = /iPad/i.test(s) || (/Macintosh/i.test(s) && /Mobile\//i.test(s))
   const iphone = /iPhone|iPod/i.test(s)
   const android = /Android/i.test(s)
-  const os: OsKind = android ? 'android' : iphone || ipad ? 'iphone' : 'other'
+  const os: OsKind = android ? 'android' : iphone || ipad ? 'iphone' : /Windows/i.test(s) ? 'windows' : /Macintosh|Mac OS X/i.test(s) ? 'mac' : 'other'
   if (ipad || (android && !/Mobile/i.test(s)) || /Tablet/i.test(s)) return { device: 'tablet', os }
   if (iphone || /Mobi|Android|Windows Phone|Opera Mini/i.test(s)) return { device: 'mobile', os }
   return { device: 'desktop', os }
 }
 
 export type DeviceCounts = Record<DeviceKind | OsKind, number>
-export const zeroDevice = (): DeviceCounts => ({ mobile: 0, tablet: 0, desktop: 0, android: 0, iphone: 0, other: 0 })
+export const zeroDevice = (): DeviceCounts => ({ mobile: 0, tablet: 0, desktop: 0, android: 0, iphone: 0, windows: 0, mac: 0, other: 0 })
 
 // -------------------------------------------------------------- actions ---
 
@@ -254,6 +258,8 @@ export type SearchRow = {
   gender: string | null
   n: number
   zero: number
+  /** PR-22: searches that FAILED (a timeout or error) — never counted as zero results. */
+  failed?: number
 }
 export const searchKey = (s: Pick<SearchRow, 'surface' | 'city' | 'area' | 'masterId' | 'mode' | 'gender'>) =>
   [s.surface, s.city ?? '', s.area ?? '', s.masterId ?? '', s.mode ?? '', s.gender ?? ''].join('|').toLowerCase()
@@ -266,7 +272,8 @@ export function addSearches(into: Map<string, SearchRow>, rows: readonly SearchR
     if (cur) {
       cur.n += r.n
       cur.zero += r.zero
-    } else into.set(k, { ...r })
+      cur.failed = (cur.failed ?? 0) + (r.failed ?? 0)
+    } else into.set(k, { ...r, failed: r.failed ?? 0 })
   }
   return into
 }
@@ -281,33 +288,40 @@ export const SEARCHES_PER_DAY = 300
 
 // The cohort funnels (PR-14): step 1 is the shared New tutors / New parents
 // count for the period; every later step is "of them", so its label never
-// matches a dated count that shows a different number.
+// matches a dated count that shows a different number. PR-22: the steps follow
+// the onboarding flow and each one counts only people who reached EVERY step
+// before it (signupFunnelCore cohortFunnel) — a step can never be higher than
+// the one before.
 export const TUTOR_FUNNEL = [
   { key: 'signed_up', label: 'Tutors signed up' },
-  { key: 'mobile', label: 'Of them: mobile verified' },
-  { key: 'profile', label: 'Of them: profile complete' },
-  { key: 'documents', label: 'Of them: documents uploaded' },
-  { key: 'approved', label: 'Of them: approved' },
-  { key: 'pay_page', label: 'Of them: payment page opened' },
-  { key: 'paid', label: 'Of them: paid' },
+  { key: 'mobile', label: 'Then: mobile verified' },
+  { key: 'documents', label: 'Then: CNIC and photo uploaded' },
+  { key: 'profile', label: 'Then: onboarding finished' },
+  { key: 'approved', label: 'Then: documents approved' },
+  { key: 'pay_page', label: 'Then: payment page opened' },
+  { key: 'paid', label: 'Then: paid' },
 ] as const
 export const PARENT_FUNNEL = [
   { key: 'signed_up', label: 'Parents signed up' },
-  { key: 'posted', label: 'Of them: posted a tuition' },
-  { key: 'applications', label: 'Of them: received applications' },
-  { key: 'contacted', label: 'Of them: contacted a tutor' },
+  { key: 'posted', label: 'Then: posted a tuition' },
+  { key: 'applications', label: 'Then: received applications' },
+  { key: 'contacted', label: 'Then: contacted a tutor' },
 ] as const
 
-/** The stored day's shape version. PR-14 changed what a day counts, so an
+/** The stored day's shape version. PR-14 changed what a day counts, and PR-22
+ *  again (subset funnels, page visits, Windows/Mac, failed searches), so an
  *  older row is treated as missing and rebuilt. */
-export const INSIGHTS_DAY_VERSION = 2
+export const INSIGHTS_DAY_VERSION = 3
 
 export type InsightsDay = {
-  v: 2
+  v: 3
   day: string
   builtAt: string
   /** Signed-out visitors (unique per day; a daily-changing hash). */
   visitors: number
+  /** PR-22: signed-out page visits — the SAME counter as the Overview "Daily
+   *  sign-up funnel" "Public page visits" (site_visit_counts public_page). */
+  pageVisits: number
   tutorsActive: string[]
   parentsActive: string[]
   /** Accounts that signed up that day (counted only). */
@@ -328,10 +342,11 @@ export type InsightsDay = {
 
 export function emptyDay(day: string, builtAt: string): InsightsDay {
   return {
-    v: 2,
+    v: 3,
     day,
     builtAt,
     visitors: 0,
+    pageVisits: 0,
     tutorsActive: [],
     parentsActive: [],
     newTutors: [],
@@ -356,7 +371,7 @@ export type InsightsPeriod = {
   totalDays: number
   daily: { day: string; tutors: number; parents: number; visitors: number; newSignups: number; returning: number }[]
   /** Distinct members across the whole period; visitors are the sum of daily uniques. */
-  totals: { tutors: number; parents: number; visitorDays: number; newSignups: number; newTutors: number; newParents: number; returning: number; heldParents: number }
+  totals: { tutors: number; parents: number; visitorDays: number; pageVisits: number; failedSearches: number; newSignups: number; newTutors: number; newParents: number; returning: number; heldParents: number }
   actions: Record<ActionKey, number>
   searches: SearchRow[]
   zeroSearches: SearchRow[]
@@ -385,6 +400,7 @@ export function mergePeriod(from: string, to: string, stored: readonly InsightsD
   const ft = TUTOR_FUNNEL.map(() => 0)
   const fp = PARENT_FUNNEL.map(() => 0)
   let visitorDays = 0
+  let pageVisits = 0
   const daily: InsightsPeriod['daily'] = []
   for (const day of days) {
     const d = byDay.get(day)
@@ -409,6 +425,7 @@ export function mergePeriod(from: string, to: string, stored: readonly InsightsD
       returning: active.filter((id) => !dayNew.has(id)).length,
     })
     visitorDays += d.visitors
+    pageVisits += d.pageVisits ?? 0
     for (const k of ACTION_KEYS_ALL) actions[k] += d.actions[k] ?? 0
     addSearches(searches, d.searches)
     const w = weekdayOf(day)
@@ -428,6 +445,8 @@ export function mergePeriod(from: string, to: string, stored: readonly InsightsD
       tutors: tutors.size,
       parents: parents.size,
       visitorDays,
+      pageVisits,
+      failedSearches: [...searches.values()].reduce((n, r) => n + (r.failed ?? 0), 0),
       newSignups: newIds.size,
       newTutors: newT.size,
       newParents: newP.size,

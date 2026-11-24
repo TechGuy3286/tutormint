@@ -41,6 +41,11 @@ export type BeaconPayload = {
   r: number
   /** The typed search, only when NOTHING was found (it feeds "Unmet searches"). */
   u: string | null
+  /** PR-22: the words typed (Admin → Growth → Search words). Masked and
+   *  counted without any user identifier (search_terms). */
+  w?: string | null
+  /** PR-22: the search FAILED (a timeout / error) — logged as failed, never as zero results. */
+  e?: boolean
   /** Issued at, epoch seconds. */
   t: number
 }

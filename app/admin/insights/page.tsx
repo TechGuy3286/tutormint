@@ -2,8 +2,8 @@ import Link from 'next/link'
 import { requireInsights } from '@/lib/staffAllRows'
 import { loadInsightsPeriod } from '@/lib/insights'
 import { labelsForMasterIdsServer } from '@/lib/taxonomyServer'
-import { ACTION_GROUPS, WEEKDAYS, pct, pkDayOf, requestNowMs, resolvePeriod, type InsightsPeriod, type SearchRow } from '@/lib/insightsCore'
-import type { FunnelStep } from '@/lib/signupFunnelCore'
+import { ACTION_GROUPS, WEEKDAYS, pkDayOf, requestNowMs, resolvePeriod, type InsightsPeriod, type SearchRow } from '@/lib/insightsCore'
+import { stepChange, type FunnelStep } from '@/lib/signupFunnelCore'
 import PeriodPicker from './PeriodPicker'
 import ActiveChart from './ActiveChart'
 
@@ -41,7 +41,8 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
           test, team, hidden, merged and erase-requested accounts (the People rule); staff actions such as tuitions posted and applications forwarded are
           counted. Every shared count here is the same number as on the Overview. Counts only — no amounts.
         </p>
-        <PeriodPicker active={p.key} from={p.from} to={p.to} today={pkDayOf(nowMs)} />
+        {/* Keyed on the period, so the date boxes always show the chosen chip's dates (PR-22). */}
+        <PeriodPicker key={`${p.key}:${p.from}:${p.to}`} active={p.key} from={p.from} to={p.to} today={pkDayOf(nowMs)} />
         {data.builtDays < data.totalDays && (
           <p role="status" className="rounded-xl bg-tm-tint-gold p-3 text-xs font-bold text-tm-gold-ink">
             {data.builtDays} of {data.totalDays} days are ready. The rest are being prepared — open this page again in a few minutes.
@@ -51,10 +52,11 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
 
       <section className={card}>
         <h3 className={h3}>Active users</h3>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
           <Stat label="Active tutors" value={data.totals.tutors} />
           <Stat label="Active parents" value={data.totals.parents} />
-          <Stat label="Visitors (daily, added up)" value={data.totals.visitorDays} />
+          <Stat label="Page visits (signed out)" value={data.totals.pageVisits} note="Same as Overview “Public page visits”" />
+          <Stat label="Unique visitors (signed out)" value={data.totals.visitorDays} note="Each visitor once a day, days added up" />
           <Stat label="New sign-ups" value={data.totals.newSignups} note="New tutors + new parents" />
           <Stat label="New tutors" value={data.totals.newTutors} note="Same as Overview" />
           <Stat label="New parents" value={data.totals.newParents} note="Same as Overview" />
@@ -62,7 +64,10 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
         </div>
         <ActiveChart daily={data.daily} />
         <p className="text-[11px] text-slate-700">
-          Active tutors and parents are counted once each over the period. A signed-out visitor is counted once per day (we cannot tell the same visitor on two days apart, by design).
+          Active tutors and parents are counted once each over the period. Page visits count every page a signed-out visitor opened — the same counter as the
+          Overview “Daily sign-up funnel”. Unique visitors count each signed-out visitor once per day (we cannot tell the same visitor on two days apart, by
+          design). Both count real people only: bots and our own crawls are left out, and from 24 Nov 2026 a visit counts once the person taps, scrolls or
+          types, or keeps the page open for 8 seconds (22–23 Nov include a crawl that ran page scripts).
         </p>
         {data.totals.heldParents > 0 && (
           <p className="text-[11px] font-bold text-slate-700" data-held-note="">
@@ -107,11 +112,21 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
           <SearchTable title="Top searches" rows={data.searches} by="n" label={subjectLabel} empty="No searches in this period yet. Try Last 30 days." />
           <SearchTable title="Searches with zero results" rows={data.zeroSearches} by="zero" label={subjectLabel} empty="No search came back empty in this period." />
         </div>
+        <p className="text-[11px] text-slate-700">
+          A line with no filter is a search by typed words only — the words themselves are on{' '}
+          <Link href="/admin/search-words" className="font-bold text-tm-navy underline-offset-2 hover:underline">Search words</Link>.
+          {data.totals.failedSearches > 0
+            ? ` ${fmt(data.totals.failedSearches)} ${data.totals.failedSearches === 1 ? 'search' : 'searches'} failed (took too long) — not counted as zero results.`
+            : ' A search that failed (took too long) is never counted as a zero result.'}
+        </p>
       </section>
 
       <section className={card}>
         <h3 className={h3}>Where people drop off</h3>
-        <p className="text-[11px] text-slate-700">People who signed up in this period, and how many of them have reached each step so far.</p>
+        <p className="text-[11px] text-slate-700">
+          People who signed up in this period, in the order of the sign-up flow. Each step counts only those who reached every step before it, so a step is
+          never higher than the one above it.
+        </p>
         <div className="grid gap-3 lg:grid-cols-2">
           <Funnel title="Tutors" steps={data.funnelTutor} />
           <Funnel title="Parents" steps={data.funnelParent} />
@@ -126,15 +141,24 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
 
       <section className={card}>
         <h3 className={h3}>Devices</h3>
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+        <p className="text-xs font-bold text-tm-navy">Device type</p>
+        <div className="grid grid-cols-3 gap-2">
           <Stat label="Mobile" value={data.device.mobile} />
-          <Stat label="Desktop" value={data.device.desktop} />
           <Stat label="Tablet" value={data.device.tablet} />
+          <Stat label="Desktop" value={data.device.desktop} />
+        </div>
+        <p className="text-xs font-bold text-tm-navy">System</p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           <Stat label="Android" value={data.device.android} />
           <Stat label="iPhone / iPad" value={data.device.iphone} />
+          <Stat label="Windows" value={data.device.windows ?? 0} />
+          <Stat label="Mac" value={data.device.mac ?? 0} />
           <Stat label="Other" value={data.device.other} />
         </div>
-        <p className="text-[11px] text-slate-700">Each visitor and member once per day. Only the device type is kept, never the full browser details. Member devices are recorded from 20 Nov 2026; earlier days are read from the older session records.</p>
+        <p className="text-[11px] text-slate-700">
+          Each visitor and member once per day; bots are never counted. Only the device type and system are kept, never the full browser details. Windows and
+          Mac are told apart from 24 Nov 2026 — before that they were under Other.
+        </p>
       </section>
     </div>
   )
@@ -203,7 +227,10 @@ function Funnel({ title, steps }: { title: string; steps: FunnelStep[] }) {
               <span>{s.label}</span>
               <span>
                 <b className="text-tm-navy">{fmt(s.count)}</b>
-                {s.lostPct != null && <span className="ml-2 text-tm-red">−{pct(s.lostPct)}</span>}
+                {(() => {
+                  const ch = stepChange(s)
+                  return ch ? <span className={`ml-2 ${ch.tone === 'lost' ? 'text-tm-red' : ch.tone === 'gained' ? 'text-tm-navy' : 'text-tm-green-deep'}`}>{ch.text}</span> : null
+                })()}
               </span>
             </div>
             <div className="h-2 rounded-full bg-gray-100">

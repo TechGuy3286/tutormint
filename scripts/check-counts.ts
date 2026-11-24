@@ -14,6 +14,11 @@
  * are one more source of "Applications"; and the Older rule (tuitions posted
  * 30+ days ago, Applied 14+ days with no follow-up) is checked across the
  * Applications page, the Overview to-do / Applications badge loaders.
+ *
+ * PR-22: signed-out PAGE VISITS — Insights' "Page visits (signed out)" (each
+ * day built fresh) against the Overview "Daily sign-up funnel" "Public page
+ * visits" for Today, Yesterday and the Last 7 days: one counter, one number.
+ * (Insights' "Unique visitors" is a different measure — reported only.)
  * Prints counts only — never a name, phone, email or id.
  *
  *   npm run check:counts
@@ -124,6 +129,13 @@ async function main() {
       // The stored Insights days (cache) — reported, never a failure.
       const storedDiff = compareSources([{ screen: 'fresh', values: insightValues(fresh) }, { screen: 'stored', values: insightValues(stored) }])
       console.log(`  stored Insights days: ${stored.builtDays}/${stored.totalDays} at the current version · ${storedDiff.length === 0 ? 'same as fresh' : `${storedDiff.length} count(s) still being rebuilt: ${storedDiff.map((d) => `${COUNT_DEFS[d.key].label} stored ${d.values[1]?.value} vs ${d.values[0]?.value}`).join('; ')}`}`)
+      // PR-22: page visits — the same counter on both pages.
+      if (fw) {
+        const overviewVisits = fw.steps.find((s) => s.key === 'visits')?.count ?? 0
+        const same = overviewVisits === fresh.totals.pageVisits
+        if (!same) failed++
+        console.log(`  Page visits (signed out)     Overview funnel ${overviewVisits} · Insights ${fresh.totals.pageVisits} ${same ? 'MATCH' : '✗ MISMATCH'} (unique visitors, a different measure: ${fresh.totals.visitorDays})`)
+      }
     }
 
     // PR-19: the Older rule, one answer on every screen — the Applications page
