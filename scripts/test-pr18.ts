@@ -11,7 +11,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 import { hasNumberLeft, redactForAi } from '../lib/postRedactCore'
-import { AI_UNAVAILABLE, formatTitle, mapAiAnswer, parseAiJson, runExtraction, type AiLists, type Completer } from '../lib/aiTuitionExtractCore'
+import { AI_BUSY, AI_TOO_SLOW, AI_UNAVAILABLE, formatTitle, mapAiAnswer, parseAiJson, runExtraction, type AiLists, type Completer } from '../lib/aiTuitionExtractCore'
 import {
   blockFor,
   CONTACT_BLOCKED_MESSAGE,
@@ -122,7 +122,12 @@ async function main() {
   await test('AI unavailable or a broken answer → a plain error; the manual form still works', async () => {
     const down: Completer = async () => ({ ok: false, reason: 'timed out' })
     const r = await runExtraction(POST_ROMAN, LISTS, down)
-    assert.deepEqual(r, { ok: false, status: 503, error: AI_UNAVAILABLE })
+    // PR-21: a timeout and a busy AI say so; anything else keeps the plain message.
+    assert.deepEqual(r, { ok: false, status: 504, error: AI_TOO_SLOW, reason: 'ai_timeout: timed out' })
+    const busy = await runExtraction(POST_ROMAN, LISTS, async () => ({ ok: false, reason: 'anthropic 529: overloaded_error' }))
+    assert.ok(!busy.ok && busy.status === 503 && busy.error === AI_BUSY)
+    const other = await runExtraction(POST_ROMAN, LISTS, async () => ({ ok: false, reason: 'anthropic 400: invalid_request_error' }))
+    assert.ok(!other.ok && other.error === AI_UNAVAILABLE)
     const junk: Completer = async () => ({ ok: true, text: 'sorry' })
     assert.equal((await runExtraction(POST_ROMAN, LISTS, junk)).ok, false)
     assert.equal(parseAiJson('```json\n{"city":"Lahore"}\n```')?.city, 'Lahore')

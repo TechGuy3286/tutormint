@@ -291,7 +291,8 @@
     "test:pr17": "tsx scripts/test-pr17.ts",
     "test:pr18": "tsx scripts/test-pr18.ts",
     "test:pr19": "tsx scripts/test-pr19.ts",
-    "test:pr20": "tsx --conditions=react-server scripts/test-pr20.ts"
+    "test:pr20": "tsx --conditions=react-server scripts/test-pr20.ts",
+    "test:pr21": "tsx --conditions=react-server scripts/test-pr21.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

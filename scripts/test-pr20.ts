@@ -279,7 +279,7 @@ test('C.2 the mask plan: split numbers, look-alike letters, contact lines, email
   assert.ok(!numberLeft([lines[1], lines[4]]))
   assert.ok(plan.boxes.every((b) => b.x0 >= 0 && b.y0 >= 0 && b.x1 <= W && b.y1 <= H))
   assert.ok(imageTypeOk('image/png') && imageTypeOk('image/webp') && !imageTypeOk('image/gif') && !imageTypeOk('application/pdf'))
-  assert.equal(IMAGE_MAX_BYTES, 8 * 1024 * 1024)
+  assert.equal(IMAGE_MAX_BYTES, 4 * 1024 * 1024, 'PR-21: the upload limit sits under the 4.5 MB request limit')
 })
 
 test('C.2 real OCR on invented images: numbers blacked out before the AI, nothing left to read', async () => {
@@ -306,7 +306,7 @@ test('C.2 real OCR on invented images: numbers blacked out before the AI, nothin
   const none = await maskImage(await noNumberPoster())
   assert.ok(none.ok && none.mobiles.length === 0 && none.masked === 0)
   const junk = await maskImage(Buffer.from('not an image at all'))
-  assert.deepEqual(junk, { ok: false, error: IMAGE_UNSAFE })
+  assert.ok(!junk.ok && junk.kind === 'type', 'not an image: the photo-type message (PR-21), the AI never called')
 })
 
 test('C.2 masking fails → the AI is never called; the AI only ever gets the masked image', async () => {
@@ -315,14 +315,14 @@ test('C.2 masking fails → the AI is never called; the AI only ever gets the ma
   let calls = 0
   const failed = await extractTuitionFromImage(Buffer.from('x'), {
     configured: () => true,
-    mask: async () => ({ ok: false, error: IMAGE_UNSAFE }),
+    mask: async () => ({ ok: false, kind: 'unsafe', error: IMAGE_UNSAFE, reason: 'test' }),
     lists: async () => lists,
     complete: async () => {
       calls++
       return { ok: true, text: '{}' }
     },
   })
-  assert.deepEqual(failed, { ok: false, status: 422, error: IMAGE_UNSAFE })
+  assert.deepEqual(failed, { ok: false, status: 422, error: IMAGE_UNSAFE, reason: 'mask_unsafe: test' })
   assert.equal(calls, 0)
   const masked = Buffer.from('MASKED-JPEG')
   let sent = ''

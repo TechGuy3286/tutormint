@@ -365,6 +365,7 @@ const PAIRS: Pair[] = [
   // which is what moved the selection to the page ground, where all four
   // already clear AA through the rows above.
   { fg: 'navy', bg: 'bg', where: 'inbox selected conversation, name' },
+  { fg: 'navy', bg: 'bg', where: 'Post a tuition "Reading image…" progress line (PR-21)' },
   { fg: 'slate700', bg: 'bg', where: 'inbox selected conversation, preview' },
   { fg: 'gray500', bg: 'bg', where: 'inbox selected conversation, timestamp' },
   { fg: 'greenDeep', bg: 'bg', where: 'inbox selected conversation, job title' },

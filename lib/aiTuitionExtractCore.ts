@@ -66,6 +66,30 @@ export type AiFill = {
 export const AI_UNAVAILABLE = 'The AI could not read this post just now. Fill the form by hand — it works as usual.'
 export const AI_CAP_REACHED = "You have used today's AI fills. Fill the form by hand — it works as usual."
 export const AI_DAILY_CAP = 200
+/** Plain messages for the two failures staff can do something about (PR-21). */
+export const AI_BUSY = 'The AI is busy — please try again in a minute.'
+export const AI_TOO_SLOW = 'Took too long — please try again.'
+
+export type AiFailureKind = 'busy' | 'timeout' | 'other'
+
+/** What a failed AI call means for staff: busy (rate limit / overload / server
+ *  error at Anthropic), too slow (our time limit), or anything else. */
+export function aiFailureKind(reason: string): AiFailureKind {
+  if (/timed out|abort/i.test(reason)) return 'timeout'
+  if (/anthropic (?:408|409|429|500|502|503|504|529)\b|overloaded|rate[\s_-]?limit/i.test(reason)) return 'busy'
+  return 'other'
+}
+
+export function aiFailureMessage(kind: AiFailureKind): string {
+  return kind === 'busy' ? AI_BUSY : kind === 'timeout' ? AI_TOO_SLOW : AI_UNAVAILABLE
+}
+
+/** A technical failure reason fit for the audit log and the function log: one
+ *  line, at most 160 characters, with any number or email taken out — it never
+ *  carries post or image content (only HTTP statuses and error names). */
+export function safeReason(reason: string): string {
+  return redactForAi(String(reason ?? '').replace(/\s+/g, ' ')).text.slice(0, 160)
+}
 
 const norm = (s: string | null | undefined) =>
   String(s ?? '')
@@ -312,7 +336,7 @@ export function extractPrompt(redactedPost: string, lists: AiLists): string {
 
 export type Completer = (a: { system: string; prompt: string; maxTokens?: number; timeoutMs?: number; effort?: 'low' | 'medium' | 'high' }) => Promise<{ ok: true; text: string } | { ok: false; reason: string }>
 
-export type ExtractResult = { ok: true; fill: AiFill } | { ok: false; status: number; error: string }
+export type ExtractResult = { ok: true; fill: AiFill } | { ok: false; status: number; error: string; reason?: string }
 
 /**
  * Post → form. The post is redacted AGAIN here (whatever the browser sent),
@@ -321,11 +345,14 @@ export type ExtractResult = { ok: true; fill: AiFill } | { ok: false; status: nu
  */
 export async function runExtraction(post: string, lists: AiLists, completer: Completer): Promise<ExtractResult> {
   const red = redactForAi(post)
-  if (hasNumberLeft(red.text)) return { ok: false, status: 400, error: 'Remove the phone numbers from the post and try again.' }
-  if (lists.jobTitles.length === 0 || Object.keys(lists.tree).length === 0) return { ok: false, status: 503, error: AI_UNAVAILABLE }
+  if (hasNumberLeft(red.text)) return { ok: false, status: 400, error: 'Remove the phone numbers from the post and try again.', reason: 'number_left' }
+  if (lists.jobTitles.length === 0 || Object.keys(lists.tree).length === 0) return { ok: false, status: 503, error: AI_UNAVAILABLE, reason: 'lists_empty' }
   const res = await completer({ system: EXTRACT_SYSTEM, prompt: extractPrompt(red.text, lists), maxTokens: 1200, timeoutMs: 30_000, effort: 'low' })
-  if (!res.ok) return { ok: false, status: 503, error: AI_UNAVAILABLE }
+  if (!res.ok) {
+    const kind = aiFailureKind(res.reason)
+    return { ok: false, status: kind === 'timeout' ? 504 : 503, error: aiFailureMessage(kind), reason: `ai_${kind}: ${safeReason(res.reason)}` }
+  }
   const ai = parseAiJson(res.text)
-  if (!ai) return { ok: false, status: 503, error: AI_UNAVAILABLE }
+  if (!ai) return { ok: false, status: 503, error: AI_UNAVAILABLE, reason: 'ai_unreadable_answer' }
   return { ok: true, fill: mapAiAnswer(ai, lists) }
 }

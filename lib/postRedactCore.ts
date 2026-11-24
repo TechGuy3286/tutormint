@@ -9,6 +9,12 @@
 // Caught: Pakistani mobiles in any format (lib/masking findPhoneSpans: 03xx…,
 // +92 3xx…, 923xx…, spaces / dashes / dots), CNIC-shaped numbers, any other run
 // of 10 or more digits (a landline with its code), and email addresses.
+//
+// Urdu / Arabic-Indic digits (۰–۹, ٠–٩) count exactly like 0–9 (owner, 24 Nov
+// 2026 — PR-21): every test runs on the text with them read as 0–9 (one
+// character for one, so positions hold), and the redacted text and the mobiles
+// found come out in English digits — "رابطہ ۰۳۰۰-۱۲۳۴۵۶۷" is caught and goes into
+// the form as 923001234567.
 
 import { findPhoneSpans } from '@/lib/masking'
 import { normalisePkMobile } from '@/lib/phone'
@@ -30,6 +36,11 @@ export type Redacted = {
 
 export type Span = { start: number; end: number }
 
+/** Urdu / Arabic-Indic digits (۰–۹, ٠–٩) as 0–9 — one character each, so positions hold. */
+export function asciiDigits(s: string): string {
+  return s.replace(/[۰-۹]/g, (c) => String(c.charCodeAt(0) - 0x06f0)).replace(/[٠-٩]/g, (c) => String(c.charCodeAt(0) - 0x0660))
+}
+
 function digitCount(s: string): number {
   return s.replace(/\D/g, '').length
 }
@@ -48,7 +59,8 @@ function isLongNumber(s: string): boolean {
  * `emailSpans`.) Shared by the text redaction below and the image masking
  * (lib/imageMaskCore, PR-20), so both catch exactly the same shapes.
  */
-export function numberSpans(text: string): Span[] {
+export function numberSpans(raw: string): Span[] {
+  const text = asciiDigits(raw)
   const spans: Span[] = findPhoneSpans(text).map((s) => ({ start: s.start, end: s.end }))
   LONG_DIGITS.lastIndex = 0
   let m: RegExpExecArray | null
@@ -66,7 +78,8 @@ export function numberSpans(text: string): Span[] {
 }
 
 /** Where the email addresses are in `text`. */
-export function emailSpans(text: string): Span[] {
+export function emailSpans(raw: string): Span[] {
+  const text = asciiDigits(raw)
   const out: Span[] = []
   const re = new RegExp(EMAIL.source, 'g')
   let m: RegExpExecArray | null
@@ -75,7 +88,7 @@ export function emailSpans(text: string): Span[] {
 }
 
 export function redactForAi(raw: string): Redacted {
-  const text = String(raw ?? '')
+  const text = asciiDigits(String(raw ?? ''))
   const merged = numberSpans(text)
   const mobiles: string[] = []
   let out = ''
@@ -95,7 +108,8 @@ export function redactForAi(raw: string): Redacted {
 }
 
 /** Is anything number-shaped (a mobile, a CNIC, 10+ digits) still in this text? */
-export function hasNumberLeft(text: string): boolean {
+export function hasNumberLeft(raw: string): boolean {
+  const text = asciiDigits(raw)
   if (findPhoneSpans(text).length > 0) return true
   LONG_DIGITS.lastIndex = 0
   let m: RegExpExecArray | null

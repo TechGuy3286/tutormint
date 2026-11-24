@@ -1,6 +1,6 @@
 import type { NextConfig } from 'next'
-import { existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { join, relative, sep } from 'node:path'
 
 // Security headers, and the apex-to-www redirect.
 //
@@ -117,6 +117,39 @@ const PAY_LOGO_FILES = ['jazzcash.svg', 'jazzcash.png', 'faysal-bank.svg', 'fays
   existsSync(join(process.cwd(), 'public', 'payments', f)),
 )
 
+// "Read from image" (PR-21). tesseract.js starts its OCR worker thread from a
+// FILE PATH, so the bundler's file tracing never follows the worker's own
+// require()s — in production the worker died on "Cannot find module 'bmp-js'"
+// and the request hung until the 60 s limit. Every package tesseract.js and
+// its worker depend on (read from their installed package.json files, nested
+// node_modules first, the way Node resolves) ships with the route.
+function packageTree(root: string): string[] {
+  const nm = join(process.cwd(), 'node_modules')
+  const seen = new Set<string>()
+  const walk = (dir: string) => {
+    if (seen.has(dir) || !existsSync(join(dir, 'package.json'))) return
+    seen.add(dir)
+    let deps: string[] = []
+    try {
+      deps = Object.keys((JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as { dependencies?: Record<string, string> }).dependencies ?? {})
+    } catch {
+      deps = []
+    }
+    for (const d of deps) {
+      const nested = join(dir, 'node_modules', d)
+      walk(existsSync(nested) ? nested : join(nm, d))
+    }
+  }
+  walk(join(nm, root))
+  return [...seen].map((d) => `./${relative(process.cwd(), d).split(sep).join('/')}/**`)
+}
+
+const OCR_FILES = [
+  './node_modules/@tesseract.js-data/eng/4.0.0_best_int/**',
+  './node_modules/@tesseract.js-data/urd/4.0.0_best_int/**',
+  ...packageTree('tesseract.js'),
+]
+
 const nextConfig: NextConfig = {
   env: { NEXT_PUBLIC_PAY_LOGOS: PAY_LOGO_FILES.join(',') },
   // "Read from image" (PR-20 Part C): tesseract.js runs its OCR in a worker
@@ -125,12 +158,7 @@ const nextConfig: NextConfig = {
   // is downloaded at run time).
   serverExternalPackages: ['tesseract.js', 'tesseract.js-core'],
   outputFileTracingIncludes: {
-    '/api/admin/jobs/ai-extract-image': [
-      './node_modules/@tesseract.js-data/eng/4.0.0_best_int/**',
-      './node_modules/@tesseract.js-data/urd/4.0.0_best_int/**',
-      './node_modules/tesseract.js/**',
-      './node_modules/tesseract.js-core/**',
-    ],
+    '/api/admin/jobs/ai-extract-image': OCR_FILES,
   },
   // Images (owner, 6 Oct 2026 — site speed). Every member photo and blog cover
   // lives in the Supabase PUBLIC buckets (avatars, blog, tutor-media, ads) and

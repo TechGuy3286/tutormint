@@ -4,7 +4,8 @@ import { checkAdminRole, roleMayWrite, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { parseBody, z } from '@/lib/validate'
 import { rateLimit } from '@/lib/rateLimit'
 import { extractTuition } from '@/lib/aiTuitionExtract'
-import { AI_CAP_REACHED } from '@/lib/aiTuitionExtractCore'
+import { logAdminAction } from '@/lib/auditLog'
+import { AI_CAP_REACHED, AI_UNAVAILABLE, safeReason } from '@/lib/aiTuitionExtractCore'
 
 // POST /api/admin/jobs/ai-extract { text } — "Paste a post" on staff Post a
 // tuition (owner, 23 Nov 2026 — PR-18 Part A). The browser has already taken
@@ -12,6 +13,8 @@ import { AI_CAP_REACHED } from '@/lib/aiTuitionExtractCore'
 // number itself; this route redacts again, refuses if any number is left, and
 // returns the form fields + the ones to check. Nothing is posted, stored or
 // logged here (the text never is). 200 calls a day per staff member.
+// PR-21: a failure says what happened (AI busy / took too long) and its
+// technical reason — never the post — goes to the Owner's Audit log.
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -31,7 +34,25 @@ export async function POST(request: Request) {
   const limit = await rateLimit('tuition_ai_fill', gate.actor.id)
   if (!limit.allowed) return NextResponse.json({ error: AI_CAP_REACHED }, { status: 429 })
 
-  const res = await extractTuition(parsed.data.text)
-  if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status })
+  let res: Awaited<ReturnType<typeof extractTuition>>
+  try {
+    res = await extractTuition(parsed.data.text)
+  } catch (e) {
+    res = { ok: false, status: 503, error: AI_UNAVAILABLE, reason: `unexpected: ${e instanceof Error ? e.name : 'error'}` }
+  }
+  if (!res.ok) {
+    if (res.reason) {
+      await logAdminAction({
+        actorId: gate.actor.id,
+        actorRole: gate.actor.adminRole,
+        actorEmail: gate.actor.email,
+        action: 'tuition.ai_fill_failed',
+        targetType: 'ai_fill',
+        targetId: gate.actor.id,
+        detail: { source: 'text', status: res.status, reason: safeReason(res.reason) },
+      }).catch(() => undefined)
+    }
+    return NextResponse.json({ error: res.error }, { status: res.status, headers: { 'cache-control': 'no-store' } })
+  }
   return NextResponse.json({ fill: res.fill }, { headers: { 'cache-control': 'no-store' } })
 }

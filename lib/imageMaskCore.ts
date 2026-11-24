@@ -17,19 +17,29 @@
 // OCR mixes up letters and digits ("O321", "l" for 1), so a mostly-digit word
 // has its look-alike letters read as digits before the test.
 //
+// Urdu digits (owner, 24 Nov 2026 — PR-21): the Urdu OCR model reads ۰–۹ but
+// also invents digits on English text, so its digit words count only where the
+// English model did NOT read a confident English word (`urduDigitWords`). A
+// line holding 7+ such digits is masked; 7+ still readable after masking → the
+// AI is not called.
+//
 // `numberLeft` is the after-check: the masked image is read again and the AI is
 // only called when nothing number-shaped is left (lib/imageRead).
 
 import { normalisePkMobile } from '@/lib/phone'
-import { emailSpans, numberSpans, type Span } from '@/lib/postRedactCore'
+import { asciiDigits, emailSpans, numberSpans, type Span } from '@/lib/postRedactCore'
+
+export { asciiDigits }
 
 export type Box = { x0: number; y0: number; x1: number; y1: number }
-export type OcrWord = { text: string; box: Box }
+/** `conf`: the OCR's own confidence for the word, 0–100, when known. */
+export type OcrWord = { text: string; box: Box; conf?: number }
 /** `contactLine`: a line read by the Urdu model that names a contact word — every
  *  word on it with a digit is masked (the Urdu model invents digits on English
  *  text, so its lines are used ONLY when they say رابطہ / نمبر / واٹس… — see
- *  `urduContactLines`). */
-export type OcrLine = { words: OcrWord[]; contactLine?: boolean }
+ *  `urduContactLines`). `urduDigits`: the Urdu model's digit words that are not
+ *  on a confident English word (`urduDigitWords`). */
+export type OcrLine = { words: OcrWord[]; contactLine?: boolean; urduDigits?: boolean }
 
 const URDU_CONTACT = /رابطہ|رابطه|نمبر|واٹس|واٹس ایپ|فون|کال|موبائل/
 
@@ -40,20 +50,50 @@ export function urduContactLines(lines: OcrLine[]): OcrLine[] {
 
 const hasAnyDigit = (s: string) => /\d/.test(asciiDigits(s))
 
-export const IMAGE_MAX_BYTES = 8 * 1024 * 1024
+/** The upload the server accepts. The browser always shrinks the picture first
+ *  (≤ 2000 px JPEG, usually under 1.5 MB); Vercel refuses requests over 4.5 MB. */
+export const IMAGE_MAX_BYTES = 4 * 1024 * 1024
+/** The largest picture the browser will try to shrink (a phone camera photo fits). */
+export const IMAGE_PICK_MAX_BYTES = 30 * 1024 * 1024
 export const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const
-export const IMAGE_UNSAFE = "Couldn't read this image safely, please type the details."
-export const IMAGE_TOO_BIG = 'That image is over 8 MB. Use a smaller screenshot.'
-export const IMAGE_WRONG_TYPE = 'Use a PNG, JPG or WebP image.'
+export const IMAGE_UNSAFE = "Couldn't read this image safely — please type the details."
+export const IMAGE_TOO_BIG = 'This image is too large — try a screenshot instead.'
+export const IMAGE_WRONG_TYPE = "This photo type isn't supported — please use a screenshot (PNG or JPG)."
+export const IMAGE_TOO_SLOW = 'Took too long — please try again.'
 
 const LOOKALIKE: Record<string, string> = { O: '0', o: '0', D: '0', Q: '0', l: '1', I: '1', i: '1', '|': '1', '!': '1', Z: '2', z: '2', S: '5', s: '5', B: '8', b: '6', g: '9', q: '9' }
 
-/** Urdu / Arabic digits (۰–۹, ٠–٩) as 0–9 — one character each, so positions hold. */
-export function asciiDigits(s: string): string {
-  return s.replace(/[۰-۹]/g, (c) => String(c.charCodeAt(0) - 0x06f0)).replace(/[٠-٩]/g, (c) => String(c.charCodeAt(0) - 0x0660))
+const digitsIn = (s: string) => (asciiDigits(s).match(/\d/g) ?? []).length
+
+/** Digits on one line, read by the Urdu model away from confident English
+ *  words, that are masked — and that stop the AI if still readable after
+ *  masking. 7 = half a number is still a number (a 10+ run always passes it). */
+export const URDU_DIGIT_MIN = 7
+const ENG_CONFIDENT = 70
+
+const boxArea = (b: Box) => Math.max(0, b.x1 - b.x0) * Math.max(0, b.y1 - b.y0)
+const boxOverlap = (a: Box, b: Box) =>
+  boxArea({ x0: Math.max(a.x0, b.x0), y0: Math.max(a.y0, b.y0), x1: Math.min(a.x1, b.x1), y1: Math.min(a.y1, b.y1) })
+
+/**
+ * The Urdu model's digit words that are NOT on top of a word the English model
+ * read confidently (conf ≥ 70, two letters or digits) — that is where real
+ * Urdu digits (۰۳۰۰ ۱۲۳۴۵۶۷) are, and not the digits the Urdu model invents on
+ * English text. One line per Urdu line that has any, flagged `urduDigits`.
+ */
+export function urduDigitWords(urdu: OcrLine[], eng: OcrLine[]): OcrLine[] {
+  const confident = eng.flatMap((l) => l.words).filter((x) => (x.conf ?? 0) >= ENG_CONFIDENT && /[A-Za-z0-9]{2,}/.test(x.text))
+  const out: OcrLine[] = []
+  for (const line of urdu) {
+    const words = line.words.filter(
+      (u) => hasAnyDigit(u.text) && !confident.some((e) => boxOverlap(u.box, e.box) > 0.3 * Math.max(1, boxArea(u.box))),
+    )
+    if (words.length > 0) out.push({ words, urduDigits: true })
+  }
+  return out
 }
 
-const digitsIn = (s: string) => (asciiDigits(s).match(/\d/g) ?? []).length
+const urduLineDigits = (line: OcrLine) => line.words.reduce((n, x) => n + digitsIn(x.text), 0)
 
 /**
  * A word with Urdu digits read as 0–9 and its look-alike letters read as
@@ -105,6 +145,13 @@ export function planMask(lines: OcrLine[], w: number, h: number): MaskPlan {
   for (const line of lines) {
     const words = line.words.filter((x) => x.text.trim().length > 0).sort((a, b) => a.box.x0 - b.box.x0)
     if (words.length === 0) continue
+    if (line.urduDigits) {
+      if (urduLineDigits(line) >= URDU_DIGIT_MIN) {
+        found++
+        for (const x of words) boxes.push(padBox(x.box, w, h))
+      }
+      continue
+    }
     if (line.contactLine) {
       const digitWords = words.filter((x) => hasAnyDigit(x.text))
       if (digitWords.length > 0) found++
@@ -145,6 +192,10 @@ export function planMask(lines: OcrLine[], w: number, h: number): MaskPlan {
  *  number / email shape, or any word with 7+ digits.) */
 export function numberLeft(lines: OcrLine[]): boolean {
   for (const line of lines) {
+    if (line.urduDigits) {
+      if (urduLineDigits(line) >= URDU_DIGIT_MIN) return true
+      continue
+    }
     if (line.contactLine) {
       if (line.words.some((x) => hasAnyDigit(x.text))) return true
       continue

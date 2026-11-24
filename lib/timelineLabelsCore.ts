@@ -113,6 +113,7 @@ export const AUDIT_LABELS: Record<string, string> = {
   'member.on_it_release': "Released I'm on it",
   'member.on_it_reassign': "Handed I'm on it to another staff member",
   'job.contact_check_override': 'Posted a blocked number (Owner, with a reason)',
+  'tuition.ai_fill_failed': 'AI fill of Post a tuition failed (technical reason only)',
   'settings.otp_alerts': 'Changed who gets OTP alerts',
   'member.name_edit': 'Changed the name',
   'member.whatsapp_edit': 'Changed the WhatsApp number',
