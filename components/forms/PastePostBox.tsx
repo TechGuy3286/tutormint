@@ -1,10 +1,11 @@
 'use client'
 
-import { useRef, useState, type ClipboardEvent } from 'react'
+import { useRef, useState, type ClipboardEvent, type DragEvent } from 'react'
 import { ClipboardPaste, ImageUp, Loader2, ShieldCheck } from 'lucide-react'
 
 import { redactForAi } from '@/lib/postRedactCore'
 import { AI_UNAVAILABLE, type AiFill } from '@/lib/aiTuitionExtractCore'
+import { DROP_OVERLAY, DROP_ZONE_LABEL, dragHasFiles, handleImageDrop, nextDragDepth } from '@/lib/imageDropCore'
 import { IMAGE_MAX_BYTES, IMAGE_PICK_MAX_BYTES, IMAGE_TOO_BIG, IMAGE_TOO_SLOW, IMAGE_WRONG_TYPE } from '@/lib/imageMaskCore'
 
 /** Open any picture the browser can decode (PNG, JPG, WebP; HEIC on iPhone
@@ -83,13 +84,18 @@ export default function PastePostBox({ onFilled }: { onFilled: (fill: AiFill, mo
   const [note, setNote] = useState<string | null>(null)
   const [imgBusy, setImgBusy] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  // Drag-and-drop (25 Nov 2026): a counter so child elements never flicker the highlight.
+  const dragDepth = useRef(0)
+  const [dragging, setDragging] = useState(false)
+  const [dropNote, setDropNote] = useState<string | null>(null)
 
   // "Read from image" (PR-20 Part C; PR-22): upload or Ctrl+V a screenshot. The
   // AI reads the public poster, its printed number included, and OCR reads it
   // too; the number comes back with a "Check this number" line for the form.
-  const readImage = async (file: File | Blob | null) => {
+  const readImage = async (file: File | Blob | null, extraNote: string | null = null) => {
     setError(null)
     setNote(null)
+    setDropNote(extraNote)
     if (!file) return
     // Any picture type is tried (HEIC from a phone too): the browser turns it
     // into a JPEG, and says so plainly when it cannot open it.
@@ -151,9 +157,44 @@ export default function PastePostBox({ onFilled }: { onFilled: (fill: AiFill, mo
     void readImage(item.getAsFile())
   }
 
+  // A dropped picture (PNG, JPG, WebP) goes through readImage() exactly like the
+  // button; dragged text is left to the textarea (lib/imageDropCore).
+  const onDragEnter = (e: DragEvent) => {
+    if (!dragHasFiles(e.dataTransfer?.types)) return
+    e.preventDefault()
+    dragDepth.current = nextDragDepth(dragDepth.current, 'enter')
+    setDragging(true)
+  }
+  const onDragOver = (e: DragEvent) => {
+    if (!dragHasFiles(e.dataTransfer?.types)) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = imgBusy || busy ? 'none' : 'copy'
+  }
+  const onDragLeave = (e: DragEvent) => {
+    if (!dragHasFiles(e.dataTransfer?.types)) return
+    dragDepth.current = nextDragDepth(dragDepth.current, 'leave')
+    if (dragDepth.current === 0) setDragging(false)
+  }
+  const onDrop = (e: DragEvent) => {
+    dragDepth.current = nextDragDepth(dragDepth.current, 'drop')
+    setDragging(false)
+    if (!dragHasFiles(e.dataTransfer?.types)) return
+    e.preventDefault()
+    if (imgBusy || busy) return
+    handleImageDrop(e.dataTransfer, {
+      read: (file, extra) => void readImage(file, extra),
+      showError: (msg) => {
+        setNote(null)
+        setDropNote(null)
+        setError(msg)
+      },
+    })
+  }
+
   const fill = async () => {
     setError(null)
     setNote(null)
+    setDropNote(null)
     const red = redactForAi(text)
     if (red.text.trim().length < 10) {
       setError('Paste the whole post first.')
@@ -185,7 +226,22 @@ export default function PastePostBox({ onFilled }: { onFilled: (fill: AiFill, mo
   }
 
   return (
-    <section onPaste={onPaste} className="space-y-2 rounded-2xl border border-tm-navy/20 bg-white p-4 sm:p-5" aria-label="Paste a post">
+    <section
+      onPaste={onPaste}
+      onDragEnter={onDragEnter}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      className="relative space-y-2 rounded-2xl border border-tm-navy/20 bg-white p-4 sm:p-5"
+      aria-label={DROP_ZONE_LABEL}
+    >
+      {dragging && (
+        <div aria-hidden className="pointer-events-none absolute inset-0 z-10 !m-0 flex items-center justify-center rounded-2xl border-2 border-dashed border-tm-navy bg-tm-tint-navy p-4 text-center">
+          <span className="flex items-center gap-2 text-sm font-black text-tm-navy">
+            <ImageUp size={18} aria-hidden /> {DROP_OVERLAY}
+          </span>
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-1.5 text-sm font-black text-tm-navy">
           <ClipboardPaste size={15} aria-hidden /> Paste a post
@@ -208,7 +264,7 @@ export default function PastePostBox({ onFilled }: { onFilled: (fill: AiFill, mo
         />
       </div>
       <p className="text-xs text-gray-600">
-        Paste a tuition post from Facebook or WhatsApp (English, Roman Urdu or Urdu), or a screenshot or poster with Read from image (or Ctrl+V; a screenshot, PNG or JPG works best). We fill the form below for you to check.
+        Paste a tuition post from Facebook or WhatsApp (English, Roman Urdu or Urdu), or a screenshot or poster with Read from image (or Ctrl+V<span className="hidden sm:inline">, or drag-and-drop it onto this box</span>; a screenshot, PNG or JPG works best). We fill the form below for you to check.
       </p>
       <textarea
         value={text}
@@ -254,6 +310,11 @@ export default function PastePostBox({ onFilled }: { onFilled: (fill: AiFill, mo
       {error && (
         <p role="alert" className="rounded-xl bg-tm-tint-red p-3 text-xs font-bold text-tm-red">
           {error}
+        </p>
+      )}
+      {dropNote && (
+        <p role="status" className="text-[11px] font-bold text-tm-navy">
+          {dropNote}
         </p>
       )}
       {note && (

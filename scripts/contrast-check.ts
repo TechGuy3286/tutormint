@@ -376,6 +376,8 @@ const PAIRS: Pair[] = [
   // PR-18 (owner, 23 Nov 2026): "Paste a post" notes, the AI "Check this" marks,
   // the contact-check panels, the follow-up mode, "I'm on it", OTP alert setting.
   { fg: 'greenDeep', bg: 'tintGreen', where: 'Paste a post: filled note; follow-up mode session count' },
+  { fg: 'navy', bg: 'tintNavy', where: 'Paste a post: drag-and-drop overlay (25 Nov 2026)' },
+  { fg: 'navy', bg: 'white', where: 'Paste a post: "first picture was used" drop note' },
   { fg: 'goldInk', bg: 'tintGold', where: 'AI "Check this" marks, same-number repeat panel, OTP alert budget warning' },
   { fg: 'red', bg: 'tintRed', where: 'contact-check block (withdrawn / erased / on hold)' },
   { fg: 'slate700', bg: 'tintRed', where: 'Owner override reason label inside the block' },

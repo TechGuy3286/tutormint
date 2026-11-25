@@ -293,7 +293,8 @@
     "test:pr19": "tsx scripts/test-pr19.ts",
     "test:pr20": "tsx --conditions=react-server scripts/test-pr20.ts",
     "test:pr21": "tsx --conditions=react-server scripts/test-pr21.ts",
-    "test:pr22": "tsx --conditions=react-server scripts/test-pr22.ts"
+    "test:pr22": "tsx --conditions=react-server scripts/test-pr22.ts",
+    "test:imagedrop": "tsx --test scripts/test-image-drop.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",
